@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from ..schema.pydantic.response import BasicResponse
+from ..schema.pydantic.api.response import BasicResponse
 from ..schema.pydantic.promise import Promise, Code
 from ..client.db import DB_CLIENT
 from ..client.redis import REDIS_CLIENT

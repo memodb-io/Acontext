@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from typing import Generic, TypeVar, Type, Optional
 from .error_code import Code
-from .response import BasicResponse
+from .api.response import BasicResponse
 
 T = TypeVar("T")
 R = TypeVar("R", bound=BasicResponse)

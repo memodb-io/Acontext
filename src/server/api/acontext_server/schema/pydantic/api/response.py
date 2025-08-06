@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import Optional
-from .error_code import Code
+from ..error_code import Code
 
 
 class BasicResponse(BaseModel):
