@@ -622,25 +622,162 @@
                 }
             }
         },
+        "model.Asset": {
+            "type": "object",
+            "properties": {
+                "bucket": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "duration": {
+                    "type": "number"
+                },
+                "etag": {
+                    "type": "string"
+                },
+                "height": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "messages": {
+                    "description": "Asset \u003c-\u003e Message",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Message"
+                    }
+                },
+                "mime": {
+                    "type": "string"
+                },
+                "s3Key": {
+                    "type": "string"
+                },
+                "sha256": {
+                    "type": "string"
+                },
+                "sizeB": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "width": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.Message": {
+            "type": "object",
+            "properties": {
+                "assets": {
+                    "description": "Message \u003c-\u003e Asset",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Asset"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "messageAssets": {
+                    "description": "Message \u003c-\u003e MessageAsset",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.MessageAsset"
+                    }
+                },
+                "parts": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "role": {
+                    "type": "string"
+                },
+                "session": {
+                    "description": "Message \u003c-\u003e Session",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.Session"
+                        }
+                    ]
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.MessageAsset": {
+            "type": "object",
+            "properties": {
+                "asset": {
+                    "description": "MessageAsset \u003c-\u003e Asset",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.Asset"
+                        }
+                    ]
+                },
+                "assetID": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "message": {
+                    "description": "MessageAsset \u003c-\u003e Message",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.Message"
+                        }
+                    ]
+                },
+                "messageID": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "model.Project": {
             "type": "object",
             "properties": {
                 "configs": {
                     "type": "object"
                 },
-                "createdAt": {
+                "created_at": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
                 },
+                "sessions": {
+                    "description": "Project \u003c-\u003e Session",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Session"
+                    }
+                },
                 "spaces": {
+                    "description": "Project \u003c-\u003e Space",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/model.Space"
                     }
                 },
-                "updatedAt": {
+                "updated_at": {
                     "type": "string"
                 }
             }
@@ -651,22 +788,42 @@
                 "configs": {
                     "type": "object"
                 },
-                "createdAt": {
+                "created_at": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
                 },
+                "messages": {
+                    "description": "Session \u003c-\u003e Message",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Message"
+                    }
+                },
                 "project": {
-                    "$ref": "#/definitions/model.Project"
+                    "description": "Session \u003c-\u003e Project",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.Project"
+                        }
+                    ]
                 },
-                "projectID": {
+                "project_id": {
                     "type": "string"
                 },
-                "spaceID": {
+                "space": {
+                    "description": "Session \u003c-\u003e Space",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.Space"
+                        }
+                    ]
+                },
+                "space_id": {
                     "type": "string"
                 },
-                "updatedAt": {
+                "updated_at": {
                     "type": "string"
                 }
             }
@@ -677,19 +834,31 @@
                 "configs": {
                     "type": "object"
                 },
-                "createdAt": {
+                "created_at": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
                 },
                 "project": {
-                    "$ref": "#/definitions/model.Project"
+                    "description": "Space \u003c-\u003e Project",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.Project"
+                        }
+                    ]
                 },
-                "projectID": {
+                "project_id": {
                     "type": "string"
                 },
-                "updatedAt": {
+                "sessions": {
+                    "description": "Space \u003c-\u003e Session",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Session"
+                    }
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }

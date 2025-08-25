@@ -43,7 +43,14 @@ func BuildContainer() *do.Injector {
 		}
 		// [optional] auto migrate
 		if cfg.Database.AutoMigrate {
-			_ = d.AutoMigrate(&model.Project{}, &model.Space{}, &model.Session{})
+			_ = d.AutoMigrate(
+				&model.Project{},
+				&model.Space{},
+				&model.Session{},
+				&model.Message{},
+				&model.Asset{},
+				&model.MessageAsset{},
+			)
 		}
 		return d, nil
 	})

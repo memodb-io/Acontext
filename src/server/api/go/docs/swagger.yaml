@@ -72,51 +72,157 @@ definitions:
     required:
     - configs
     type: object
+  model.Asset:
+    properties:
+      bucket:
+        type: string
+      created_at:
+        type: string
+      duration:
+        type: number
+      etag:
+        type: string
+      height:
+        type: integer
+      id:
+        type: string
+      messages:
+        description: Asset <-> Message
+        items:
+          $ref: '#/definitions/model.Message'
+        type: array
+      mime:
+        type: string
+      s3Key:
+        type: string
+      sha256:
+        type: string
+      sizeB:
+        type: integer
+      updated_at:
+        type: string
+      width:
+        type: integer
+    type: object
+  model.Message:
+    properties:
+      assets:
+        description: Message <-> Asset
+        items:
+          $ref: '#/definitions/model.Asset'
+        type: array
+      created_at:
+        type: string
+      id:
+        type: string
+      messageAssets:
+        description: Message <-> MessageAsset
+        items:
+          $ref: '#/definitions/model.MessageAsset'
+        type: array
+      parts:
+        items:
+          type: object
+        type: array
+      role:
+        type: string
+      session:
+        allOf:
+        - $ref: '#/definitions/model.Session'
+        description: Message <-> Session
+      session_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  model.MessageAsset:
+    properties:
+      asset:
+        allOf:
+        - $ref: '#/definitions/model.Asset'
+        description: MessageAsset <-> Asset
+      assetID:
+        type: string
+      created_at:
+        type: string
+      message:
+        allOf:
+        - $ref: '#/definitions/model.Message'
+        description: MessageAsset <-> Message
+      messageID:
+        type: string
+      updated_at:
+        type: string
+    type: object
   model.Project:
     properties:
       configs:
         type: object
-      createdAt:
+      created_at:
         type: string
       id:
         type: string
+      sessions:
+        description: Project <-> Session
+        items:
+          $ref: '#/definitions/model.Session'
+        type: array
       spaces:
+        description: Project <-> Space
         items:
           $ref: '#/definitions/model.Space'
         type: array
-      updatedAt:
+      updated_at:
         type: string
     type: object
   model.Session:
     properties:
       configs:
         type: object
-      createdAt:
+      created_at:
         type: string
       id:
         type: string
+      messages:
+        description: Session <-> Message
+        items:
+          $ref: '#/definitions/model.Message'
+        type: array
       project:
-        $ref: '#/definitions/model.Project'
-      projectID:
+        allOf:
+        - $ref: '#/definitions/model.Project'
+        description: Session <-> Project
+      project_id:
         type: string
-      spaceID:
+      space:
+        allOf:
+        - $ref: '#/definitions/model.Space'
+        description: Session <-> Space
+      space_id:
         type: string
-      updatedAt:
+      updated_at:
         type: string
     type: object
   model.Space:
     properties:
       configs:
         type: object
-      createdAt:
+      created_at:
         type: string
       id:
         type: string
       project:
-        $ref: '#/definitions/model.Project'
-      projectID:
+        allOf:
+        - $ref: '#/definitions/model.Project'
+        description: Space <-> Project
+      project_id:
         type: string
-      updatedAt:
+      sessions:
+        description: Space <-> Session
+        items:
+          $ref: '#/definitions/model.Session'
+        type: array
+      updated_at:
         type: string
     type: object
   serializer.Response:
