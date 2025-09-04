@@ -108,6 +108,7 @@ func BuildContainer() *do.Injector {
 			do.MustInvoke[*zap.Logger](i),
 			do.MustInvoke[*blob.S3Deps](i),
 			do.MustInvoke[*amqp.Connection](i),
+			do.MustInvoke[*config.Config](i),
 		), nil
 	})
 

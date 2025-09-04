@@ -12,7 +12,6 @@ import (
 
 type Publisher struct {
 	ch  *amqp.Channel
-	q   amqp.Queue
 	log *zap.Logger
 }
 
@@ -22,7 +21,7 @@ type Consumer struct {
 	log *zap.Logger
 }
 
-func NewPublisher(conn *amqp.Connection, queueName string, log *zap.Logger) (*Publisher, error) {
+func NewPublisher(conn *amqp.Connection, log *zap.Logger) (*Publisher, error) {
 	ch, err := conn.Channel()
 	if err != nil {
 		return nil, err
@@ -30,21 +29,17 @@ func NewPublisher(conn *amqp.Connection, queueName string, log *zap.Logger) (*Pu
 	if err := ch.Qos(0, 0, false); err != nil {
 		return nil, err
 	}
-	q, err := ch.QueueDeclare(queueName, true, false, false, false, nil)
-	if err != nil {
-		return nil, err
-	}
-	return &Publisher{ch: ch, q: q, log: log}, nil
+	return &Publisher{ch: ch, log: log}, nil
 }
 
 func (p *Publisher) Close() error { return p.ch.Close() }
 
-func (p *Publisher) PublishJSON(ctx context.Context, body any) error {
+func (p *Publisher) PublishJSON(ctx context.Context, exchangeName string, routingKey string, body any) error {
 	b, err := json.Marshal(body)
 	if err != nil {
 		return err
 	}
-	return p.ch.PublishWithContext(ctx, "", p.q.Name, false, false, amqp.Publishing{
+	return p.ch.PublishWithContext(ctx, exchangeName, routingKey, false, false, amqp.Publishing{
 		ContentType:  "application/json",
 		DeliveryMode: amqp.Persistent,
 		Timestamp:    time.Now(),

@@ -38,10 +38,19 @@ type RedisCfg struct {
 	PoolSize int
 }
 
+type MQExchangeName struct {
+	SessionMessage string
+}
+
+type MQRoutingKey struct {
+	SessionMessageInsert string
+}
 type MQCfg struct {
-	URL      string
-	Queue    string
-	Prefetch int
+	URL          string
+	Queue        string
+	Prefetch     int
+	ExchangeName MQExchangeName
+	RoutingKey   MQRoutingKey
 }
 
 type S3Cfg struct {
@@ -121,8 +130,10 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("root.projectBearerTokenPrefix", "sk-proj-")
 	v.SetDefault("log.level", "info")
 	v.SetDefault("redis.poolSize", 10)
-	v.SetDefault("rabbitmq.prefetch", 10)
 	v.SetDefault("s3.region", "auto")
 	v.SetDefault("s3.usePathStyle", true)
 	v.SetDefault("s3.presignExpireSec", 900)
+	v.SetDefault("rabbitmq.prefetch", 10)
+	v.SetDefault("rabbitmq.exchangeName.sessionMessage", "session.message")
+	v.SetDefault("rabbitmq.routingKey.sessionMessageInsert", "session.message.insert")
 }

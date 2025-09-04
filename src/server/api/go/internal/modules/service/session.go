@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 
 	"github.com/google/uuid"
+	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/infra/blob"
 	mq "github.com/memodb-io/Acontext/internal/infra/queue"
 	"github.com/memodb-io/Acontext/internal/modules/model"
@@ -30,14 +31,16 @@ type sessionService struct {
 	log  *zap.Logger
 	blob *blob.S3Deps
 	mq   *amqp.Connection
+	cfg  *config.Config
 }
 
-func NewSessionService(r repo.SessionRepo, log *zap.Logger, blob *blob.S3Deps, mq *amqp.Connection) SessionService {
+func NewSessionService(r repo.SessionRepo, log *zap.Logger, blob *blob.S3Deps, mq *amqp.Connection, cfg *config.Config) SessionService {
 	return &sessionService{
 		r:    r,
 		log:  log,
 		blob: blob,
 		mq:   mq,
+		cfg:  cfg,
 	}
 }
 
@@ -134,11 +137,11 @@ func (s *sessionService) SendMessage(ctx context.Context, in SendMessageInput) (
 	}
 
 	if s.mq != nil {
-		p, err := mq.NewPublisher(s.mq, "session_message", s.log)
+		p, err := mq.NewPublisher(s.mq, s.log)
 		if err != nil {
 			return nil, fmt.Errorf("create session message publisher: %w", err)
 		}
-		if err := p.PublishJSON(ctx, SendMQPublishJSON{
+		if err := p.PublishJSON(ctx, s.cfg.RabbitMQ.ExchangeName.SessionMessage, s.cfg.RabbitMQ.RoutingKey.SessionMessageInsert, SendMQPublishJSON{
 			ProjectID: in.ProjectID,
 			SessionID: in.SessionID,
 			MessageID: msg.ID,
