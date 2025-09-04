@@ -9,12 +9,6 @@ definitions:
     required:
     - space_id
     type: object
-  handler.CreateProjectReq:
-    properties:
-      configs:
-        additionalProperties: true
-        type: object
-    type: object
   handler.CreateSessionReq:
     properties:
       configs:
@@ -64,12 +58,6 @@ definitions:
     required:
     - parts
     - role
-    type: object
-  handler.UpdateProjectConfigsReq:
-    properties:
-      configs:
-        additionalProperties: true
-        type: object
     type: object
   handler.UpdateSessionConfigsReq:
     properties:
@@ -171,8 +159,6 @@ definitions:
         type: string
       id:
         type: string
-      secret_key:
-        type: string
       sessions:
         description: Project <-> Session
         items:
@@ -268,89 +254,6 @@ info:
   title: Acontext API
   version: "1.0"
 paths:
-  /project:
-    post:
-      consumes:
-      - application/json
-      description: Create a new project
-      parameters:
-      - description: CreateProject payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.CreateProjectReq'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.Project'
-              type: object
-      security:
-      - RootAuth: []
-      summary: Create project
-      tags:
-      - project
-  /project/{project_id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a project by id
-      parameters:
-      - description: Project ID
-        format: uuid
-        in: path
-        name: project_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/serializer.Response'
-      security:
-      - RootAuth: []
-      summary: Delete project
-      tags:
-      - project
-  /project/{project_id}/configs:
-    put:
-      consumes:
-      - application/json
-      description: Update project configs by id
-      parameters:
-      - description: Project ID
-        format: uuid
-        in: path
-        name: project_id
-        required: true
-        type: string
-      - description: UpdateProjectConfigs payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.UpdateProjectConfigsReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/serializer.Response'
-      security:
-      - RootAuth: []
-      summary: Update project configs
-      tags:
-      - project
   /session:
     post:
       consumes:
@@ -376,7 +279,7 @@ paths:
                   $ref: '#/definitions/model.Session'
               type: object
       security:
-      - ProjectAuth: []
+      - BearerAuth: []
       summary: Create session
       tags:
       - session
@@ -400,7 +303,7 @@ paths:
           schema:
             $ref: '#/definitions/serializer.Response'
       security:
-      - ProjectAuth: []
+      - BearerAuth: []
       summary: Delete session
       tags:
       - session
@@ -429,7 +332,7 @@ paths:
                   $ref: '#/definitions/model.Session'
               type: object
       security:
-      - ProjectAuth: []
+      - BearerAuth: []
       summary: Get session configs
       tags:
       - session
@@ -458,7 +361,7 @@ paths:
           schema:
             $ref: '#/definitions/serializer.Response'
       security:
-      - ProjectAuth: []
+      - BearerAuth: []
       summary: Update session configs
       tags:
       - session
@@ -488,7 +391,7 @@ paths:
           schema:
             $ref: '#/definitions/serializer.Response'
       security:
-      - ProjectAuth: []
+      - BearerAuth: []
       summary: Connect session to space
       tags:
       - session
@@ -528,7 +431,7 @@ paths:
           schema:
             $ref: '#/definitions/serializer.Response'
       security:
-      - ProjectAuth: []
+      - BearerAuth: []
       summary: Send message to session
       tags:
       - session
@@ -557,7 +460,7 @@ paths:
                   $ref: '#/definitions/model.Space'
               type: object
       security:
-      - ProjectAuth: []
+      - BearerAuth: []
       summary: Create space
       tags:
       - space
@@ -582,7 +485,7 @@ paths:
           schema:
             $ref: '#/definitions/serializer.Response'
       security:
-      - ProjectAuth: []
+      - BearerAuth: []
       summary: Delete space
       tags:
       - space
@@ -612,7 +515,7 @@ paths:
                   $ref: '#/definitions/model.Space'
               type: object
       security:
-      - ProjectAuth: []
+      - BearerAuth: []
       summary: Get space configs
       tags:
       - space
@@ -642,7 +545,7 @@ paths:
           schema:
             $ref: '#/definitions/serializer.Response'
       security:
-      - ProjectAuth: []
+      - BearerAuth: []
       summary: Update space configs
       tags:
       - space
@@ -674,7 +577,7 @@ paths:
           schema:
             $ref: '#/definitions/serializer.Response'
       security:
-      - ProjectAuth: []
+      - BearerAuth: []
       summary: Get semantic answer
       tags:
       - space
@@ -706,7 +609,7 @@ paths:
           schema:
             $ref: '#/definitions/serializer.Response'
       security:
-      - ProjectAuth: []
+      - BearerAuth: []
       summary: Get semantic global
       tags:
       - space
@@ -738,7 +641,7 @@ paths:
           schema:
             $ref: '#/definitions/serializer.Response'
       security:
-      - ProjectAuth: []
+      - BearerAuth: []
       summary: Get semantic grep
       tags:
       - space
@@ -746,13 +649,8 @@ schemes:
 - http
 - https
 securityDefinitions:
-  ProjectAuth:
-    description: Project Bearer token (e.g., "Bearer sk-proj-xxxx")
-    in: header
-    name: Authorization
-    type: apiKey
-  RootAuth:
-    description: Root Bearer token (e.g., "Bearer your-root-api-bearer-token")
+  BearerAuth:
+    description: Project Bearer token (e.g., "Bearer sk-ac-xxxx")
     in: header
     name: Authorization
     type: apiKey

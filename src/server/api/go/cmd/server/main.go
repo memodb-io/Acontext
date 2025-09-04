@@ -6,17 +6,11 @@ package main
 //	@schemes		http https
 //	@BasePath		/api/v1
 
-// Bearer at Root level
-//	@securityDefinitions.apikey	RootAuth
+//  Bearer at Project level
+//	@securityDefinitions.apikey	BearerAuth
 //	@in							header
 //	@name						Authorization
-//	@description				Root Bearer token (e.g., "Bearer your-root-api-bearer-token")
-
-// Bearer at Project level
-//	@securityDefinitions.apikey	ProjectAuth
-//	@in							header
-//	@name						Authorization
-//	@description				Project Bearer token (e.g., "Bearer sk-proj-xxxx")
+//	@description				Project Bearer token (e.g., "Bearer sk-ac-xxxx")
 
 import (
 	"context"
@@ -49,7 +43,6 @@ func main() {
 	gin.SetMode(cfg.App.Env)
 
 	// build handlers
-	projectHandler := do.MustInvoke[*handler.ProjectHandler](inj)
 	spaceHandler := do.MustInvoke[*handler.SpaceHandler](inj)
 	sessionHandler := do.MustInvoke[*handler.SessionHandler](inj)
 
@@ -57,7 +50,6 @@ func main() {
 		Config:         cfg,
 		DB:             db,
 		Log:            log,
-		ProjectHandler: projectHandler,
 		SpaceHandler:   spaceHandler,
 		SessionHandler: sessionHandler,
 	})
@@ -68,7 +60,7 @@ func main() {
 	go func() {
 		log.Sugar().Infow("starting http server", "addr", addr)
 		log.Sugar().Infow("swagger url", "url", addr+"/swagger/index.html")
-		log.Sugar().Infow("root bearer token", "token", cfg.Root.ApiBearerToken)
+		log.Sugar().Infow("default project bearer token", "token", "Bearer "+cfg.Root.ProjectBearerTokenPrefix+cfg.Root.ApiBearerToken)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Sugar().Fatalw("listen error", "err", err)
 		}

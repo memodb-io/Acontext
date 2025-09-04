@@ -15,147 +15,11 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/project": {
-            "post": {
-                "security": [
-                    {
-                        "RootAuth": []
-                    }
-                ],
-                "description": "Create a new project",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "project"
-                ],
-                "summary": "Create project",
-                "parameters": [
-                    {
-                        "description": "CreateProject payload",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.CreateProjectReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/serializer.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/model.Project"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/project/{project_id}": {
-            "delete": {
-                "security": [
-                    {
-                        "RootAuth": []
-                    }
-                ],
-                "description": "Delete a project by id",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "project"
-                ],
-                "summary": "Delete project",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Project ID",
-                        "name": "project_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/serializer.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/project/{project_id}/configs": {
-            "put": {
-                "security": [
-                    {
-                        "RootAuth": []
-                    }
-                ],
-                "description": "Update project configs by id",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "project"
-                ],
-                "summary": "Update project configs",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Project ID",
-                        "name": "project_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "UpdateProjectConfigs payload",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.UpdateProjectConfigsReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/serializer.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/session": {
             "post": {
                 "security": [
                     {
-                        "ProjectAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Create a new session under a space",
@@ -206,7 +70,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "ProjectAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Delete a session by id",
@@ -244,7 +108,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ProjectAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Get session configs by id",
@@ -292,7 +156,7 @@ const docTemplate = `{
             "put": {
                 "security": [
                     {
-                        "ProjectAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Update session configs by id",
@@ -339,7 +203,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ProjectAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Connect a session to a space by id",
@@ -386,7 +250,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ProjectAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Supports JSON and multipart/form-data. In multipart mode: the payload is a JSON string placed in a form field.",
@@ -446,7 +310,7 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ProjectAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Create a new space under a project",
@@ -497,7 +361,7 @@ const docTemplate = `{
             "delete": {
                 "security": [
                     {
-                        "ProjectAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Delete a space by its ID",
@@ -536,7 +400,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ProjectAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Retrieve the configurations of a space by its ID",
@@ -585,7 +449,7 @@ const docTemplate = `{
             "put": {
                 "security": [
                     {
-                        "ProjectAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Update the configurations of a space by its ID",
@@ -633,7 +497,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ProjectAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Retrieve the semantic answer for a given query within a space by its ID",
@@ -681,7 +545,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ProjectAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Retrieve the semantic global information for a given query within a space by its ID",
@@ -729,7 +593,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ProjectAuth": []
+                        "BearerAuth": []
                     }
                 ],
                 "description": "Retrieve the semantic grep results for a given query within a space by its ID",
@@ -785,15 +649,6 @@ const docTemplate = `{
                     "type": "string",
                     "format": "uuid",
                     "example": "123e4567-e89b-12d3-a456-426614174000"
-                }
-            }
-        },
-        "handler.CreateProjectReq": {
-            "type": "object",
-            "properties": {
-                "configs": {
-                    "type": "object",
-                    "additionalProperties": true
                 }
             }
         },
@@ -869,15 +724,6 @@ const docTemplate = `{
                 "role": {
                     "type": "string",
                     "example": "user"
-                }
-            }
-        },
-        "handler.UpdateProjectConfigsReq": {
-            "type": "object",
-            "properties": {
-                "configs": {
-                    "type": "object",
-                    "additionalProperties": true
                 }
             }
         },
@@ -1037,9 +883,6 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
-                "secret_key": {
-                    "type": "string"
-                },
                 "sessions": {
                     "description": "Project \u003c-\u003e Session",
                     "type": "array",
@@ -1179,14 +1022,8 @@ const docTemplate = `{
         }
     },
     "securityDefinitions": {
-        "ProjectAuth": {
-            "description": "Project Bearer token (e.g., \"Bearer sk-proj-xxxx\")",
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header"
-        },
-        "RootAuth": {
-            "description": "Root Bearer token (e.g., \"Bearer your-root-api-bearer-token\")",
+        "BearerAuth": {
+            "description": "Project Bearer token (e.g., \"Bearer sk-ac-xxxx\")",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"

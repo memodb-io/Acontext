@@ -52,6 +52,12 @@ func BuildContainer() *do.Injector {
 				&model.MessageAsset{},
 			)
 		}
+
+		// ensure default project exists
+		if err := EnsureDefaultProjectExists(context.Background(), d, cfg); err != nil {
+			return nil, err
+		}
+
 		return d, nil
 	})
 
@@ -85,9 +91,6 @@ func BuildContainer() *do.Injector {
 	})
 
 	// Repo
-	do.Provide(inj, func(i *do.Injector) (repo.ProjectRepo, error) {
-		return repo.NewProjectRepo(do.MustInvoke[*gorm.DB](i)), nil
-	})
 	do.Provide(inj, func(i *do.Injector) (repo.SpaceRepo, error) {
 		return repo.NewSpaceRepo(do.MustInvoke[*gorm.DB](i)), nil
 	})
@@ -96,9 +99,6 @@ func BuildContainer() *do.Injector {
 	})
 
 	// Service
-	do.Provide(inj, func(i *do.Injector) (service.ProjectService, error) {
-		return service.NewProjectService(do.MustInvoke[repo.ProjectRepo](i)), nil
-	})
 	do.Provide(inj, func(i *do.Injector) (service.SpaceService, error) {
 		return service.NewSpaceService(do.MustInvoke[repo.SpaceRepo](i)), nil
 	})
@@ -113,12 +113,6 @@ func BuildContainer() *do.Injector {
 	})
 
 	// Handler
-	do.Provide(inj, func(i *do.Injector) (*handler.ProjectHandler, error) {
-		return handler.NewProjectHandler(
-			do.MustInvoke[service.ProjectService](i),
-			do.MustInvoke[*config.Config](i),
-		), nil
-	})
 	do.Provide(inj, func(i *do.Injector) (*handler.SpaceHandler, error) {
 		return handler.NewSpaceHandler(do.MustInvoke[service.SpaceService](i)), nil
 	})

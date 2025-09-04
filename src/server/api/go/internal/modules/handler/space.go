@@ -31,7 +31,7 @@ type CreateSpaceReq struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			payload	body	handler.CreateSpaceReq	true	"CreateSpace payload"
-//	@Security		ProjectAuth
+//	@Security		BearerAuth
 //	@Success		201	{object}	serializer.Response{data=model.Space}
 //	@Router			/space [post]
 func (h *SpaceHandler) CreateSpace(c *gin.Context) {
@@ -62,7 +62,7 @@ func (h *SpaceHandler) CreateSpace(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			space_id	path	string	true	"Space ID"	Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
-//	@Security		ProjectAuth
+//	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response
 //	@Router			/space/{space_id} [delete]
 func (h *SpaceHandler) DeleteSpace(c *gin.Context) {
@@ -93,7 +93,7 @@ type UpdateSpaceConfigsReq struct {
 //	@Produce		json
 //	@Param			space_id	path	string							true	"Space ID"	Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
 //	@Param			payload		body	handler.UpdateSpaceConfigsReq	true	"UpdateConfigs payload"
-//	@Security		ProjectAuth
+//	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response
 //	@Router			/space/{space_id}/configs [put]
 func (h *SpaceHandler) UpdateConfigs(c *gin.Context) {
@@ -127,7 +127,7 @@ func (h *SpaceHandler) UpdateConfigs(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			space_id	path	string	true	"Space ID"	Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
-//	@Security		ProjectAuth
+//	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=model.Space}
 //	@Router			/space/{space_id}/configs [get]
 func (h *SpaceHandler) GetConfigs(c *gin.Context) {
@@ -158,7 +158,7 @@ type GetSemanticAnswerReq struct {
 //	@Produce		json
 //	@Param			space_id	path	string							true	"Space ID"	Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
 //	@Param			payload		body	handler.GetSemanticAnswerReq	true	"GetSemanticAnswer payload"
-//	@Security		ProjectAuth
+//	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{}
 //	@Router			/space/{space_id}/semantic_answer [get]
 func (h *SpaceHandler) GetSemanticAnswer(c *gin.Context) {
@@ -190,7 +190,7 @@ type GetSemanticGlobalReq struct {
 //	@Produce		json
 //	@Param			space_id	path	string							true	"Space ID"	Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
 //	@Param			payload		body	handler.GetSemanticGlobalReq	true	"GetSemanticGlobal payload"
-//	@Security		ProjectAuth
+//	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{}
 //	@Router			/space/{space_id}/semantic_global [get]
 func (h *SpaceHandler) GetSemanticGlobal(c *gin.Context) {
@@ -222,7 +222,7 @@ type GetSemanticGrepReq struct {
 //	@Produce		json
 //	@Param			space_id	path	string						true	"Space ID"	Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
 //	@Param			payload		body	handler.GetSemanticGrepReq	true	"GetSemanticGrep payload"
-//	@Security		ProjectAuth
+//	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{}
 //	@Router			/space/{space_id}/semantic_grep [get]
 func (h *SpaceHandler) GetSemanticGrep(c *gin.Context) {

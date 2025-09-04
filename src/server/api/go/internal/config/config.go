@@ -18,6 +18,7 @@ type AppCfg struct {
 type RootCfg struct {
 	ApiBearerToken           string
 	ProjectBearerTokenPrefix string
+	SecretPepper             string
 }
 
 type LogCfg struct {

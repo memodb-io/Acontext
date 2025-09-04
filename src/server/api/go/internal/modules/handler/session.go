@@ -37,7 +37,7 @@ type CreateSessionReq struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			payload	body	handler.CreateSessionReq	true	"CreateSession payload"
-//	@Security		ProjectAuth
+//	@Security		BearerAuth
 //	@Success		201	{object}	serializer.Response{data=model.Session}
 //	@Router			/session [post]
 func (h *SessionHandler) CreateSession(c *gin.Context) {
@@ -77,7 +77,7 @@ func (h *SessionHandler) CreateSession(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			session_id	path	string	true	"Session ID"	format(uuid)
-//	@Security		ProjectAuth
+//	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{}
 //	@Router			/session/{session_id} [delete]
 func (h *SessionHandler) DeleteSession(c *gin.Context) {
@@ -108,7 +108,7 @@ type UpdateSessionConfigsReq struct {
 //	@Produce		json
 //	@Param			session_id	path	string							true	"Session ID"	format(uuid)
 //	@Param			payload		body	handler.UpdateSessionConfigsReq	true	"UpdateSessionConfigs payload"
-//	@Security		ProjectAuth
+//	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{}
 //	@Router			/session/{session_id}/configs [put]
 func (h *SessionHandler) UpdateConfigs(c *gin.Context) {
@@ -142,7 +142,7 @@ func (h *SessionHandler) UpdateConfigs(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			session_id	path	string	true	"Session ID"	format(uuid)
-//	@Security		ProjectAuth
+//	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=model.Session}
 //	@Router			/session/{session_id}/configs [get]
 func (h *SessionHandler) GetConfigs(c *gin.Context) {
@@ -173,7 +173,7 @@ type ConnectToSpaceReq struct {
 //	@Produce		json
 //	@Param			session_id	path	string						true	"Session ID"	format(uuid)
 //	@Param			payload		body	handler.ConnectToSpaceReq	true	"ConnectToSpace payload"
-//	@Security		ProjectAuth
+//	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{}
 //	@Router			/session/{session_id}/connect_to_space [post]
 func (h *SessionHandler) ConnectToSpace(c *gin.Context) {
@@ -226,7 +226,7 @@ type SendMessageReq struct {
 //	// Content-Type: multipart/form-data
 //	@Param			payload		formData	string					false	"SendMessage payload (Content-Type: multipart/form-data)"
 //	@Param			file		formData	file					false	"When uploading files, the field name must correspond to parts[*].file_field."
-//	@Security		ProjectAuth
+//	@Security		BearerAuth
 //	@Success		201	{object}	serializer.Response{}
 //	@Router			/session/{session_id}/messages [post]
 func (h *SessionHandler) SendMessage(c *gin.Context) {
