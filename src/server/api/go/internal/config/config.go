@@ -128,7 +128,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("app.host", "0.0.0.0")
 	v.SetDefault("app.port", 8080)
 	v.SetDefault("root.apiBearerToken", "acontext")
-	v.SetDefault("root.projectBearerTokenPrefix", "sk-proj-")
+	v.SetDefault("root.projectBearerTokenPrefix", "sk-ac-")
 	v.SetDefault("log.level", "info")
 	v.SetDefault("redis.poolSize", 10)
 	v.SetDefault("s3.region", "auto")

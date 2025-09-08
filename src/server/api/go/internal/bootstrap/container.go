@@ -37,6 +37,7 @@ func BuildContainer() *do.Injector {
 	// DB
 	do.Provide(inj, func(i *do.Injector) (*gorm.DB, error) {
 		cfg := do.MustInvoke[*config.Config](i)
+		log := do.MustInvoke[*zap.Logger](i)
 		d, err := db.New(cfg)
 		if err != nil {
 			return nil, err
@@ -54,7 +55,7 @@ func BuildContainer() *do.Injector {
 		}
 
 		// ensure default project exists
-		if err := EnsureDefaultProjectExists(context.Background(), d, cfg); err != nil {
+		if err := EnsureDefaultProjectExists(context.Background(), d, cfg, log); err != nil {
 			return nil, err
 		}
 
