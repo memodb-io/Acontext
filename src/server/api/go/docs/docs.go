@@ -896,6 +896,9 @@ const docTemplate = `{
                 "session_id": {
                     "type": "string"
                 },
+                "session_task_process_status": {
+                    "type": "string"
+                },
                 "updated_at": {
                     "type": "string"
                 }
