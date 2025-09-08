@@ -6,7 +6,6 @@ app:
 
 root:
   apiBearerToken: "${ROOT_API_BEARER_TOKEN}"
-  projectBearerTokenPrefix: "sk-ac-"
   secretPepper: "your-secret-pepper"
 
 log:
