@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from .project import Project
     from .space import Space
     from .message import Message
+    from .task import Task
 
 
 @ORM_BASE.mapped
@@ -64,6 +65,15 @@ class Session(CommonMixin):
         metadata={
             "db": relationship(
                 "Message", back_populates="session", cascade="all, delete-orphan"
+            )
+        },
+    )
+
+    tasks: List["Task"] = field(
+        default_factory=list,
+        metadata={
+            "db": relationship(
+                "Task", back_populates="session", cascade="all, delete-orphan"
             )
         },
     )

@@ -10,6 +10,7 @@ from .base import ORM_BASE, CommonMixin
 if TYPE_CHECKING:
     from .session import Session
     from .asset import Asset
+    from .task import Task
 
 
 class Part(BaseModel):
@@ -40,6 +41,10 @@ class Message(CommonMixin):
             "role IN ('user', 'assistant', 'system', 'tool', 'function')",
             name="ck_message_role",
         ),
+        CheckConstraint(
+            "session_task_process_status IN ('success', 'failed', 'running', 'pending')",
+            name="ck_session_task_process_status",
+        ),
         Index("ix_message_session_id", "session_id"),
         Index("ix_message_parent_id", "parent_id"),
         Index(
@@ -58,6 +63,19 @@ class Message(CommonMixin):
                 nullable=False,
             )
         }
+    )
+
+    task_id: Optional[uuid.UUID] = field(
+        metadata={
+            "db": Column(
+                UUID(as_uuid=True),
+                ForeignKey(
+                    "tasks.id", ondelete="SET NULL"
+                ),  # Changed from CASCADE to SET NULL
+                nullable=True,
+                server_default=None,
+            )
+        },
     )
 
     role: str = field(metadata={"db": Column(String, nullable=False)})
@@ -83,6 +101,12 @@ class Message(CommonMixin):
     # Relationships
     session: "Session" = field(
         init=False, metadata={"db": relationship("Session", back_populates="messages")}
+    )
+
+    task: Optional["Task"] = field(
+        default=None,
+        init=False,
+        metadata={"db": relationship("Task", back_populates="messages")},
     )
 
     parent: Optional["Message"] = field(

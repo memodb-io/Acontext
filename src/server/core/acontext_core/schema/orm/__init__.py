@@ -5,6 +5,7 @@ from .session import Session
 from .asset import Asset
 from .message import Message, Part
 from .message_asset import MessageAsset
+from .task import Task
 
 __all__ = [
     "ORM_BASE",
@@ -15,4 +16,5 @@ __all__ = [
     "Message",
     "Part",
     "MessageAsset",
+    "Task",
 ]
