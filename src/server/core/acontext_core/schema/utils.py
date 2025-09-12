@@ -1,4 +1,4 @@
-from pydantic import UUID4, UUID5
+import uuid
 
 
-UUID = UUID4 | UUID5
+asUUID = uuid.UUID

@@ -5,6 +5,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from typing import TYPE_CHECKING, List, Optional
 from .base import ORM_BASE, CommonMixin
+from ..utils import asUUID
 
 if TYPE_CHECKING:
     from .project import Project
@@ -18,7 +19,7 @@ class Space(CommonMixin):
 
     __table_args__ = (Index("ix_space_space_project_id", "id", "project_id"),)
 
-    project_id: uuid.UUID = field(
+    project_id: asUUID = field(
         metadata={
             "db": Column(
                 UUID(as_uuid=True),

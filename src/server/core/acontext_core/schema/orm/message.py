@@ -6,6 +6,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from pydantic import BaseModel
 from typing import TYPE_CHECKING, Optional, List, Dict, Any
 from .base import ORM_BASE, CommonMixin
+from ..utils import asUUID
 
 if TYPE_CHECKING:
     from .session import Session
@@ -58,7 +59,7 @@ class Message(CommonMixin):
         Index("idx_session_created", "session_id", "created_at"),
     )
 
-    session_id: uuid.UUID = field(
+    session_id: asUUID = field(
         metadata={
             "db": Column(
                 UUID(as_uuid=True),
@@ -71,9 +72,11 @@ class Message(CommonMixin):
     role: str = field(metadata={"db": Column(String, nullable=False)})
 
     # Store Asset data as JSONB (matches Go's PartsMeta field)
-    parts_meta: List[Asset] = field(metadata={"db": Column(JSONB, nullable=False)})
+    parts_meta: dict = field(metadata={"db": Column(JSONB, nullable=False)})
 
-    parent_id: Optional[uuid.UUID] = field(
+    parts: Optional[List[Part]] = field(default=None)
+
+    parent_id: Optional[asUUID] = field(
         default=None,
         metadata={
             "db": Column(
@@ -86,6 +89,17 @@ class Message(CommonMixin):
 
     # Computed field for API responses (matches Go's Parts field with gorm:"-")
     # parts: List[Part] = field(default_factory=list, init=False)
+
+    task_id: Optional[asUUID] = field(
+        default=None,
+        metadata={
+            "db": Column(
+                UUID(as_uuid=True),
+                ForeignKey("tasks.id", ondelete="CASCADE"),
+                nullable=True,
+            )
+        },
+    )
 
     session_task_process_status: str = field(
         default="pending",
@@ -115,4 +129,10 @@ class Message(CommonMixin):
                 "Message", back_populates="parent", cascade="all, delete-orphan"
             )
         },
+    )
+
+    task: Optional["Task"] = field(
+        default=None,
+        init=False,
+        metadata={"db": relationship("Task", back_populates="messages")},
     )

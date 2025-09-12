@@ -1,8 +1,8 @@
 from pydantic import BaseModel
-from ..utils import UUID
+from ..utils import asUUID
 
 
 class InsertNewMessage(BaseModel):
-    project_id: UUID
-    session_id: UUID
-    message_id: UUID
+    project_id: asUUID
+    session_id: asUUID
+    message_id: asUUID

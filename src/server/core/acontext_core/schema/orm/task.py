@@ -1,4 +1,3 @@
-import uuid
 from dataclasses import dataclass, field
 from sqlalchemy import (
     ForeignKey,
@@ -15,6 +14,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID
 from typing import TYPE_CHECKING, Optional, List
 from .base import ORM_BASE, CommonMixin
 from ..session.task import TaskStatus
+from ..utils import asUUID
 
 if TYPE_CHECKING:
     from .session import Session
@@ -38,7 +38,7 @@ class Task(CommonMixin):
         Index("ix_session_session_id_task_status", "session_id", "task_status"),
     )
 
-    session_id: uuid.UUID = field(
+    session_id: asUUID = field(
         metadata={
             "db": Column(
                 UUID(as_uuid=True),

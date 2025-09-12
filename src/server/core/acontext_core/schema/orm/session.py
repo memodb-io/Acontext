@@ -1,10 +1,10 @@
-import uuid
 from dataclasses import dataclass, field
 from sqlalchemy import ForeignKey, Index, Column
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from typing import TYPE_CHECKING, Optional, List
 from .base import ORM_BASE, CommonMixin
+from ..utils import asUUID
 
 if TYPE_CHECKING:
     from .project import Project
@@ -24,7 +24,7 @@ class Session(CommonMixin):
         Index("ix_session_session_project_id", "id", "project_id"),
     )
 
-    project_id: uuid.UUID = field(
+    project_id: asUUID = field(
         metadata={
             "db": Column(
                 UUID(as_uuid=True),
@@ -34,7 +34,7 @@ class Session(CommonMixin):
         }
     )
 
-    space_id: Optional[uuid.UUID] = field(
+    space_id: Optional[asUUID] = field(
         default=None,
         metadata={
             "db": Column(
