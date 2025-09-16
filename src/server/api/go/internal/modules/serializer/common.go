@@ -21,14 +21,6 @@ type TrackedErrorResponse struct {
 	TraceID string `json:"trace_id"`
 }
 
-// CheckLogin
-func CheckLogin() Response {
-	return Response{
-		Code: http.StatusUnauthorized,
-		Msg:  "please login first",
-	}
-}
-
 // Err
 func Err(errCode int, msg string, err error) Response {
 	res := Response{
