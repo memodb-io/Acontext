@@ -33,5 +33,7 @@ sh launch.sh -m prod -w 4 # 4 workers
 
 - Test the core
 ```bash
+# current path: ./src/server/core
+cp config.yaml.example config.yaml
 uv run -m pytest
 ```

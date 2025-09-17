@@ -1,0 +1,76 @@
+# This is an example .goreleaser.yml file with some sensible defaults.
+# Make sure to check the documentation at https://goreleaser.com
+
+# The lines below are called `modelines`. See `:help modeline`
+# Feel free to remove those if you don't want/need to use them.
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 2
+
+project_name: acontext-api
+
+dist: "./dist"
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: "acontext-api"
+    main: "./cmd/server/main.go"
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      #- windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    binary: acontext-api
+
+archives:
+  - format: tar.gz
+    # this name template makes the OS and Arch compatible with the results of `uname`.
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    # use zip for windows archives
+    # format_overrides:
+    #   - goos: windows
+    #     format: zip
+
+dockers_v2:
+  - id: "acontext-api"
+    dockerfile: "Dockerfile"
+    images:
+      - "ghcr.io/memodb-io/acontext-api"
+    tags:
+      - "{{.ShortCommit}}"
+     # - "{{.Version}}"
+    extra_files:
+      - "configs/config.yaml"
+    labels:
+        "org.opencontainers.image.description": "acontext-api"
+        "org.opencontainers.image.created": "{{.Date}}"
+        "org.opencontainers.image.name": "{{.ProjectName}}"
+        "org.opencontainers.image.revision": "{{.FullCommit}}"
+        "org.opencontainers.image.version": "{{.Version}}"
+        "org.opencontainers.image.source": "{{.GitURL}}"
+
+release:
+  github:
+    owner: memodb-io
+    name: Acontext
+  draft: false
+  footer: >-
+    ## Docker Images
+    * `ghcr.io/memodb-io/acontext-api:{{ .Version }}`
+
+    ## Thanks!
+  prerelease: auto

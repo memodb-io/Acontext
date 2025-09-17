@@ -1,0 +1,41 @@
+name: go-api-test
+
+on:
+  push:
+    branches:
+      - main
+      - dev 
+    paths:
+      - 'src/server/api/go/**'
+      - '.github/workflows/api-test.yaml'
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'src/server/api/go/**'
+      - '.github/workflows/api-test.yaml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/server/api/go
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: src/server/api/go/go.mod
+          cache: true
+      - run: go mod tidy
+      - name: Run tests with coverage
+        run: go test -v -timeout 30m -coverprofile=coverage.out -covermode=atomic ./...
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-api-coverage
+          path: src/server/api/go/coverage.out
