@@ -1,7 +1,7 @@
 from typing import Optional
 from .base import BasePrompt
 from ...schema.llm import ToolSchema
-from ...llm.agent.task_tools import TASK_TOOLS
+from ...llm.tool.task_tools import TASK_TOOLS
 
 
 class TaskPrompt(BasePrompt):
