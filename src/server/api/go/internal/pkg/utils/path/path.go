@@ -132,3 +132,40 @@ func GetDirectoriesFromPaths(parentPath string, filePaths []string) []string {
 
 	return result
 }
+
+// SplitFilePath splits a file path into directory path and filename
+// Examples:
+//
+//	"/documents/report.pdf" -> "/documents/", "report.pdf"
+//	"/report.pdf" -> "/", "report.pdf"
+//	"report.pdf" -> "/", "report.pdf"
+//	"/documents/" -> "/documents/", ""
+func SplitFilePath(filePath string) (path, filename string) {
+	if filePath == "" {
+		return "/", ""
+	}
+
+	// Normalize the path
+	filePath = strings.TrimSpace(filePath)
+	if !strings.HasPrefix(filePath, "/") {
+		filePath = "/" + filePath
+	}
+
+	// Find the last slash
+	lastSlash := strings.LastIndex(filePath, "/")
+	if lastSlash == -1 {
+		// No slash found, treat entire string as filename
+		return "/", filePath
+	}
+
+	// Split into path and filename
+	path = filePath[:lastSlash+1] // Include the trailing slash
+	filename = filePath[lastSlash+1:]
+
+	// If path is empty after splitting, make it root
+	if path == "" {
+		path = "/"
+	}
+
+	return path, filename
+}

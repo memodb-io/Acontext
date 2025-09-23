@@ -84,6 +84,7 @@ type RouterDeps struct {
 	BlockHandler    *handler.BlockHandler
 	SessionHandler  *handler.SessionHandler
 	ArtifactHandler *handler.ArtifactHandler
+	FileHandler     *handler.FileHandler
 }
 
 func NewRouter(d RouterDeps) *gin.Engine {
@@ -161,10 +162,16 @@ func NewRouter(d RouterDeps) *gin.Engine {
 		artifact := v1.Group("/artifact")
 		{
 			artifact.POST("", d.ArtifactHandler.CreateArtifact)
-			artifact.GET("", d.ArtifactHandler.ListArtifacts)
-			artifact.GET("/:artifact_id", d.ArtifactHandler.GetArtifact)
-			artifact.PUT("/:artifact_id", d.ArtifactHandler.UpdateArtifact)
 			artifact.DELETE("/:artifact_id", d.ArtifactHandler.DeleteArtifact)
+
+			file := artifact.Group("/:artifact_id/file")
+			{
+				file.POST("", d.FileHandler.CreateFile)
+				file.GET("", d.FileHandler.GetFile)
+				file.PUT("", d.FileHandler.UpdateFile)
+				file.DELETE("", d.FileHandler.DeleteFile)
+				file.GET("/ls", d.FileHandler.ListFiles)
+			}
 		}
 	}
 	return r

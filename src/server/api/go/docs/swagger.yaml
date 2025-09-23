@@ -51,10 +51,10 @@ definitions:
         additionalProperties: true
         type: object
     type: object
-  handler.GetArtifactResp:
+  handler.GetFileResp:
     properties:
-      artifact:
-        $ref: '#/definitions/model.Artifact'
+      file:
+        $ref: '#/definitions/model.File'
       public_url:
         type: string
     type: object
@@ -79,15 +79,15 @@ definitions:
     required:
     - query
     type: object
-  handler.ListArtifactsResp:
+  handler.ListFilesResp:
     properties:
-      artifacts:
-        items:
-          $ref: '#/definitions/model.Artifact'
-        type: array
       directories:
         items:
           type: string
+        type: array
+      files:
+        items:
+          $ref: '#/definitions/model.File'
         type: array
     type: object
   handler.MoveBlockReq:
@@ -125,11 +125,6 @@ definitions:
     - parts
     - role
     type: object
-  handler.UpdateArtifactResp:
-    properties:
-      artifact:
-        $ref: '#/definitions/model.Artifact'
-    type: object
   handler.UpdateBlockPropertiesReq:
     properties:
       props:
@@ -142,6 +137,11 @@ definitions:
     properties:
       sort:
         type: integer
+    type: object
+  handler.UpdateFileResp:
+    properties:
+      file:
+        $ref: '#/definitions/model.File'
     type: object
   handler.UpdatePagePropertiesReq:
     properties:
@@ -176,8 +176,6 @@ definitions:
         type: string
       id:
         type: string
-      meta:
-        type: object
       project:
         allOf:
         - $ref: '#/definitions/model.Project'
@@ -214,6 +212,25 @@ definitions:
       title:
         type: string
       type:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  model.File:
+    properties:
+      artifact:
+        allOf:
+        - $ref: '#/definitions/model.Artifact'
+        description: File <-> Artifact
+      artifact_id:
+        type: string
+      created_at:
+        type: string
+      filename:
+        type: string
+      meta:
+        type: object
+      path:
         type: string
       updated_at:
         type: string
@@ -387,52 +404,10 @@ info:
   version: "1.0"
 paths:
   /artifact:
-    get:
-      consumes:
-      - application/json
-      description: List artifacts in a specific path or all artifacts
-      parameters:
-      - description: Path filter (optional, defaults to root '/')
-        in: query
-        name: path
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/handler.ListArtifactsResp'
-              type: object
-      security:
-      - BearerAuth: []
-      summary: List artifacts
-      tags:
-      - artifact
     post:
       consumes:
-      - multipart/form-data
-      description: Upload a file and create an artifact under a project
-      parameters:
-      - description: File path in the artifact storage (optional, defaults to root
-          '/')
-        in: formData
-        name: path
-        type: string
-      - description: File to upload
-        in: formData
-        name: file
-        required: true
-        type: file
-      - description: Custom metadata as JSON string (optional, system metadata will
-          be stored under '_system' key)
-        in: formData
-        name: meta
-        type: string
+      - application/json
+      description: Create an artifact group under a project
       produces:
       - application/json
       responses:
@@ -475,11 +450,11 @@ paths:
       summary: Delete artifact
       tags:
       - artifact
-    get:
+  /artifact/{artifact_id}/file:
+    delete:
       consumes:
       - application/json
-      description: Get artifact information by its UUID. Optionally include a presigned
-        URL for downloading.
+      description: Delete a file by path and filename
       parameters:
       - description: Artifact ID
         example: 123e4567-e89b-12d3-a456-426614174000
@@ -488,35 +463,27 @@ paths:
         name: artifact_id
         required: true
         type: string
-      - description: Whether to return public URL, default is false
+      - description: File path including filename
         in: query
-        name: with_public_url
-        type: boolean
-      - description: 'Expire time in seconds for presigned URL (default: 3600)'
-        in: query
-        name: expire
-        type: integer
+        name: file_path
+        required: true
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/handler.GetArtifactResp'
-              type: object
+            $ref: '#/definitions/serializer.Response'
       security:
       - BearerAuth: []
-      summary: Get artifact
+      summary: Delete file
       tags:
-      - artifact
-    put:
+      - file
+    get:
       consumes:
-      - multipart/form-data
-      description: Update an artifact by uploading a new file
+      - application/json
+      description: List files in a specific path or all files in an artifact
       parameters:
       - description: Artifact ID
         example: 123e4567-e89b-12d3-a456-426614174000
@@ -525,13 +492,8 @@ paths:
         name: artifact_id
         required: true
         type: string
-      - description: New file to upload
-        in: formData
-        name: file
-        required: true
-        type: file
-      - description: New file path (optional)
-        in: formData
+      - description: Path filter (optional, defaults to root '/')
+        in: query
         name: path
         type: string
       produces:
@@ -544,13 +506,95 @@ paths:
             - $ref: '#/definitions/serializer.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/handler.UpdateArtifactResp'
+                  $ref: '#/definitions/handler.ListFilesResp'
               type: object
       security:
       - BearerAuth: []
-      summary: Update artifact
+      summary: List files
       tags:
-      - artifact
+      - file
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a file and create a file record under an artifact
+      parameters:
+      - description: Artifact ID
+        example: 123e4567-e89b-12d3-a456-426614174000
+        format: uuid
+        in: path
+        name: artifact_id
+        required: true
+        type: string
+      - description: File path in the artifact storage (optional, defaults to '/filename')
+        in: formData
+        name: file_path
+        type: string
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: Custom metadata as JSON string (optional, system metadata will
+          be stored under '__file_info__' key)
+        in: formData
+        name: meta
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.File'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Create file
+      tags:
+      - file
+    put:
+      consumes:
+      - multipart/form-data
+      description: Update a file by uploading a new file (path cannot be changed)
+      parameters:
+      - description: Artifact ID
+        example: 123e4567-e89b-12d3-a456-426614174000
+        format: uuid
+        in: path
+        name: artifact_id
+        required: true
+        type: string
+      - description: File path including filename
+        in: formData
+        name: file_path
+        required: true
+        type: string
+      - description: New file to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.UpdateFileResp'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Update file
+      tags:
+      - file
   /session:
     post:
       consumes:

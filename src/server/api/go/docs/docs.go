@@ -16,61 +16,15 @@ const docTemplate = `{
     "basePath": "{{.BasePath}}",
     "paths": {
         "/artifact": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "List artifacts in a specific path or all artifacts",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "artifact"
-                ],
-                "summary": "List artifacts",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Path filter (optional, defaults to root '/')",
-                        "name": "path",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/serializer.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/handler.ListArtifactsResp"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            },
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Upload a file and create an artifact under a project",
+                "description": "Create an artifact group under a project",
                 "consumes": [
-                    "multipart/form-data"
+                    "application/json"
                 ],
                 "produces": [
                     "application/json"
@@ -79,27 +33,6 @@ const docTemplate = `{
                     "artifact"
                 ],
                 "summary": "Create artifact",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "File path in the artifact storage (optional, defaults to root '/')",
-                        "name": "path",
-                        "in": "formData"
-                    },
-                    {
-                        "type": "file",
-                        "description": "File to upload",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Custom metadata as JSON string (optional, system metadata will be stored under '_system' key)",
-                        "name": "meta",
-                        "in": "formData"
-                    }
-                ],
                 "responses": {
                     "201": {
                         "description": "Created",
@@ -123,129 +56,6 @@ const docTemplate = `{
             }
         },
         "/artifact/{artifact_id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get artifact information by its UUID. Optionally include a presigned URL for downloading.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "artifact"
-                ],
-                "summary": "Get artifact",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "example": "123e4567-e89b-12d3-a456-426614174000",
-                        "description": "Artifact ID",
-                        "name": "artifact_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Whether to return public URL, default is false",
-                        "name": "with_public_url",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Expire time in seconds for presigned URL (default: 3600)",
-                        "name": "expire",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/serializer.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/handler.GetArtifactResp"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Update an artifact by uploading a new file",
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "artifact"
-                ],
-                "summary": "Update artifact",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "example": "123e4567-e89b-12d3-a456-426614174000",
-                        "description": "Artifact ID",
-                        "name": "artifact_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "file",
-                        "description": "New file to upload",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "New file path (optional)",
-                        "name": "path",
-                        "in": "formData"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/serializer.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/handler.UpdateArtifactResp"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            },
             "delete": {
                 "security": [
                     {
@@ -271,6 +81,238 @@ const docTemplate = `{
                         "description": "Artifact ID",
                         "name": "artifact_id",
                         "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/serializer.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/artifact/{artifact_id}/file": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List files in a specific path or all files in an artifact",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "file"
+                ],
+                "summary": "List files",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "123e4567-e89b-12d3-a456-426614174000",
+                        "description": "Artifact ID",
+                        "name": "artifact_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Path filter (optional, defaults to root '/')",
+                        "name": "path",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handler.ListFilesResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update a file by uploading a new file (path cannot be changed)",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "file"
+                ],
+                "summary": "Update file",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "123e4567-e89b-12d3-a456-426614174000",
+                        "description": "Artifact ID",
+                        "name": "artifact_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "File path including filename",
+                        "name": "file_path",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "New file to upload",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handler.UpdateFileResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Upload a file and create a file record under an artifact",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "file"
+                ],
+                "summary": "Create file",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "123e4567-e89b-12d3-a456-426614174000",
+                        "description": "Artifact ID",
+                        "name": "artifact_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "File path in the artifact storage (optional, defaults to '/filename')",
+                        "name": "file_path",
+                        "in": "formData"
+                    },
+                    {
+                        "type": "file",
+                        "description": "File to upload",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Custom metadata as JSON string (optional, system metadata will be stored under '__file_info__' key)",
+                        "name": "meta",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.File"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete a file by path and filename",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "file"
+                ],
+                "summary": "Delete file",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "123e4567-e89b-12d3-a456-426614174000",
+                        "description": "Artifact ID",
+                        "name": "artifact_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "File path including filename",
+                        "name": "file_path",
+                        "in": "query",
                         "required": true
                     }
                 ],
@@ -1834,11 +1876,11 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.GetArtifactResp": {
+        "handler.GetFileResp": {
             "type": "object",
             "properties": {
-                "artifact": {
-                    "$ref": "#/definitions/model.Artifact"
+                "file": {
+                    "$ref": "#/definitions/model.File"
                 },
                 "public_url": {
                     "type": "string"
@@ -1878,19 +1920,19 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.ListArtifactsResp": {
+        "handler.ListFilesResp": {
             "type": "object",
             "properties": {
-                "artifacts": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.Artifact"
-                    }
-                },
                 "directories": {
                     "type": "array",
                     "items": {
                         "type": "string"
+                    }
+                },
+                "files": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.File"
                     }
                 }
             }
@@ -1946,14 +1988,6 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.UpdateArtifactResp": {
-            "type": "object",
-            "properties": {
-                "artifact": {
-                    "$ref": "#/definitions/model.Artifact"
-                }
-            }
-        },
         "handler.UpdateBlockPropertiesReq": {
             "type": "object",
             "properties": {
@@ -1971,6 +2005,14 @@ const docTemplate = `{
             "properties": {
                 "sort": {
                     "type": "integer"
+                }
+            }
+        },
+        "handler.UpdateFileResp": {
+            "type": "object",
+            "properties": {
+                "file": {
+                    "$ref": "#/definitions/model.File"
                 }
             }
         },
@@ -2023,9 +2065,6 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
-                },
-                "meta": {
-                    "type": "object"
                 },
                 "project": {
                     "description": "Artifact \u003c-\u003e Project",
@@ -2083,6 +2122,37 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "type": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.File": {
+            "type": "object",
+            "properties": {
+                "artifact": {
+                    "description": "File \u003c-\u003e Artifact",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.Artifact"
+                        }
+                    ]
+                },
+                "artifact_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "filename": {
+                    "type": "string"
+                },
+                "meta": {
+                    "type": "object"
+                },
+                "path": {
                     "type": "string"
                 },
                 "updated_at": {

@@ -52,6 +52,7 @@ func BuildContainer() *do.Injector {
 				&model.Message{},
 				&model.Block{},
 				&model.Artifact{},
+				&model.File{},
 			)
 		}
 
@@ -112,6 +113,9 @@ func BuildContainer() *do.Injector {
 	do.Provide(inj, func(i *do.Injector) (repo.ArtifactRepo, error) {
 		return repo.NewArtifactRepo(do.MustInvoke[*gorm.DB](i)), nil
 	})
+	do.Provide(inj, func(i *do.Injector) (repo.FileRepo, error) {
+		return repo.NewFileRepo(do.MustInvoke[*gorm.DB](i)), nil
+	})
 
 	// Service
 	do.Provide(inj, func(i *do.Injector) (service.SpaceService, error) {
@@ -135,6 +139,12 @@ func BuildContainer() *do.Injector {
 			do.MustInvoke[*blob.S3Deps](i),
 		), nil
 	})
+	do.Provide(inj, func(i *do.Injector) (service.FileService, error) {
+		return service.NewFileService(
+			do.MustInvoke[repo.FileRepo](i),
+			do.MustInvoke[*blob.S3Deps](i),
+		), nil
+	})
 
 	// Handler
 	do.Provide(inj, func(i *do.Injector) (*handler.SpaceHandler, error) {
@@ -148,6 +158,9 @@ func BuildContainer() *do.Injector {
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.ArtifactHandler, error) {
 		return handler.NewArtifactHandler(do.MustInvoke[service.ArtifactService](i)), nil
+	})
+	do.Provide(inj, func(i *do.Injector) (*handler.FileHandler, error) {
+		return handler.NewFileHandler(do.MustInvoke[service.FileService](i)), nil
 	})
 
 	return inj
