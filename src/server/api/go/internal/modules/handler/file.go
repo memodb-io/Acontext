@@ -302,7 +302,7 @@ type ListFilesResp struct {
 //	@Param			path		query	string	false	"Path filter (optional, defaults to root '/')"
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=handler.ListFilesResp}
-//	@Router			/artifact/{artifact_id}/file [get]
+//	@Router			/artifact/{artifact_id}/file/ls [get]
 func (h *FileHandler) ListFiles(c *gin.Context) {
 	artifactID, err := uuid.Parse(c.Param("artifact_id"))
 	if err != nil {

@@ -101,7 +101,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "List files in a specific path or all files in an artifact",
+                "description": "Get file information by path and filename. Optionally include a presigned URL for downloading.",
                 "consumes": [
                     "application/json"
                 ],
@@ -111,7 +111,7 @@ const docTemplate = `{
                 "tags": [
                     "file"
                 ],
-                "summary": "List files",
+                "summary": "Get file",
                 "parameters": [
                     {
                         "type": "string",
@@ -124,8 +124,21 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Path filter (optional, defaults to root '/')",
-                        "name": "path",
+                        "description": "File path including filename",
+                        "name": "file_path",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Whether to return public URL, default is false",
+                        "name": "with_public_url",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Expire time in seconds for presigned URL (default: 3600)",
+                        "name": "expire",
                         "in": "query"
                     }
                 ],
@@ -141,7 +154,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/handler.ListFilesResp"
+                                            "$ref": "#/definitions/handler.GetFileResp"
                                         }
                                     }
                                 }
@@ -242,7 +255,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "File path in the artifact storage (optional, defaults to '/filename')",
+                        "description": "File path in the artifact storage (optional, defaults to '/')",
                         "name": "file_path",
                         "in": "formData"
                     },
@@ -321,6 +334,63 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/serializer.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/artifact/{artifact_id}/file/ls": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List files in a specific path or all files in an artifact",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "file"
+                ],
+                "summary": "List files",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "123e4567-e89b-12d3-a456-426614174000",
+                        "description": "Artifact ID",
+                        "name": "artifact_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Path filter (optional, defaults to root '/')",
+                        "name": "path",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handler.ListFilesResp"
+                                        }
+                                    }
+                                }
+                            ]
                         }
                     }
                 }

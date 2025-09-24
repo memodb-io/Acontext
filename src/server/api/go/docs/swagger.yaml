@@ -483,7 +483,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: List files in a specific path or all files in an artifact
+      description: Get file information by path and filename. Optionally include a
+        presigned URL for downloading.
       parameters:
       - description: Artifact ID
         example: 123e4567-e89b-12d3-a456-426614174000
@@ -492,10 +493,19 @@ paths:
         name: artifact_id
         required: true
         type: string
-      - description: Path filter (optional, defaults to root '/')
+      - description: File path including filename
         in: query
-        name: path
+        name: file_path
+        required: true
         type: string
+      - description: Whether to return public URL, default is false
+        in: query
+        name: with_public_url
+        type: boolean
+      - description: 'Expire time in seconds for presigned URL (default: 3600)'
+        in: query
+        name: expire
+        type: integer
       produces:
       - application/json
       responses:
@@ -506,11 +516,11 @@ paths:
             - $ref: '#/definitions/serializer.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/handler.ListFilesResp'
+                  $ref: '#/definitions/handler.GetFileResp'
               type: object
       security:
       - BearerAuth: []
-      summary: List files
+      summary: Get file
       tags:
       - file
     post:
@@ -525,7 +535,7 @@ paths:
         name: artifact_id
         required: true
         type: string
-      - description: File path in the artifact storage (optional, defaults to '/filename')
+      - description: File path in the artifact storage (optional, defaults to '/')
         in: formData
         name: file_path
         type: string
@@ -593,6 +603,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Update file
+      tags:
+      - file
+  /artifact/{artifact_id}/file/ls:
+    get:
+      consumes:
+      - application/json
+      description: List files in a specific path or all files in an artifact
+      parameters:
+      - description: Artifact ID
+        example: 123e4567-e89b-12d3-a456-426614174000
+        format: uuid
+        in: path
+        name: artifact_id
+        required: true
+        type: string
+      - description: Path filter (optional, defaults to root '/')
+        in: query
+        name: path
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.ListFilesResp'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List files
       tags:
       - file
   /session:
