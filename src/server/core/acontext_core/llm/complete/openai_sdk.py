@@ -62,11 +62,6 @@ async def openai_complete(
     )
 
     # Only support tool calls
-    # _fc = (
-    #     response.choices[0].message.function_call.model_dump()
-    #     if response.choices[0].message.function_call
-    #     else None
-    # )
     _tu = (
         [
             convert_openai_tool_to_llm_tool(tool)
@@ -75,8 +70,6 @@ async def openai_complete(
         if response.choices[0].message.tool_calls
         else None
     )
-    # if not _tu and _fc:
-    #     _tu = [_fc]
 
     llm_response = LLMResponse(
         role=response.choices[0].message.role,

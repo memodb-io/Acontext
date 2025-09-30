@@ -44,7 +44,10 @@ def pack_previous_messages_section(
             LOG.warning(f"Unknown task id: {ti}")
             task_descs.append("(no task linked)")
     return "\n---\n".join(
-        [f"{td}\n{m.to_string()}" for td, m in zip(task_descs, messages)]
+        [
+            f"{td}\n{m.to_string(truncate_chars=200)}"
+            for td, m in zip(task_descs, messages)
+        ]
     )
 
 
@@ -76,7 +79,7 @@ async def task_agent_curd(
     session_id: asUUID,
     previous_messages: List[MessageBlob],
     messages: List[MessageBlob],
-    max_iterations=1,  # task curd agent only receive one turn of actions
+    max_iterations=3,  # task curd agent only receive one turn of actions
 ) -> Result[None]:
     async with DB_CLIENT.get_session_context() as db_session:
         r = await TD.fetch_current_tasks(db_session, session_id)
