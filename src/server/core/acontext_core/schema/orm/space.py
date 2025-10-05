@@ -10,6 +10,7 @@ from ..utils import asUUID
 if TYPE_CHECKING:
     from .project import Project
     from .session import Session
+    from .block import Block
 
 
 @ORM_BASE.mapped
@@ -41,4 +42,15 @@ class Space(CommonMixin):
     sessions: List["Session"] = field(
         default_factory=list,
         metadata={"db": relationship("Session", back_populates="space")},
+    )
+
+    blocks: List["Block"] = field(
+        default_factory=list,
+        metadata={
+            "db": relationship(
+                "Block", 
+                back_populates="space",
+                cascade="all, delete-orphan",
+            )
+        },
     )
