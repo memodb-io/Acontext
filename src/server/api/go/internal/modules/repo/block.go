@@ -16,6 +16,8 @@ type BlockRepo interface {
 	Get(ctx context.Context, id uuid.UUID) (*model.Block, error)
 	Update(ctx context.Context, b *model.Block) error
 	ListChildren(ctx context.Context, parentID uuid.UUID) ([]model.Block, error)
+	ListBySpace(ctx context.Context, spaceID uuid.UUID, blockType string, parentID *uuid.UUID) ([]model.Block, error)
+	ListBlocksExcludingPages(ctx context.Context, spaceID uuid.UUID, parentID uuid.UUID) ([]model.Block, error)
 	BulkUpdateSort(ctx context.Context, items map[uuid.UUID]int64) error
 	UpdateParent(ctx context.Context, id uuid.UUID, parentID *uuid.UUID) error
 	UpdateSort(ctx context.Context, id uuid.UUID, sort int64) error
@@ -49,6 +51,34 @@ func (r *blockRepo) Update(ctx context.Context, b *model.Block) error {
 func (r *blockRepo) ListChildren(ctx context.Context, parentID uuid.UUID) ([]model.Block, error) {
 	var list []model.Block
 	err := r.db.WithContext(ctx).Where(&model.Block{ParentID: &parentID}).Order("sort ASC").Find(&list).Error
+	return list, err
+}
+
+func (r *blockRepo) ListBySpace(ctx context.Context, spaceID uuid.UUID, blockType string, parentID *uuid.UUID) ([]model.Block, error) {
+	var list []model.Block
+	query := r.db.WithContext(ctx).Where(&model.Block{SpaceID: spaceID})
+
+	if blockType != "" {
+		query = query.Where("type = ?", blockType)
+	}
+
+	if parentID == nil {
+		query = query.Where("parent_id IS NULL")
+	} else {
+		query = query.Where("parent_id = ?", *parentID)
+	}
+
+	err := query.Order("sort ASC").Find(&list).Error
+	return list, err
+}
+
+func (r *blockRepo) ListBlocksExcludingPages(ctx context.Context, spaceID uuid.UUID, parentID uuid.UUID) ([]model.Block, error) {
+	var list []model.Block
+	err := r.db.WithContext(ctx).
+		Where(&model.Block{SpaceID: spaceID, ParentID: &parentID}).
+		Where("type != ?", model.BlockTypePage).
+		Order("sort ASC").
+		Find(&list).Error
 	return list, err
 }
 

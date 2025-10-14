@@ -15,6 +15,7 @@ type BlockService interface {
 	GetPageProperties(ctx context.Context, pageID uuid.UUID) (*model.Block, error)
 	UpdatePageProperties(ctx context.Context, b *model.Block) error
 	ListPageChildren(ctx context.Context, pageID uuid.UUID) ([]model.Block, error)
+	ListPages(ctx context.Context, spaceID uuid.UUID, parentID *uuid.UUID) ([]model.Block, error)
 	MovePage(ctx context.Context, pageID uuid.UUID, newParentID *uuid.UUID, targetSort *int64) error
 	UpdatePageSort(ctx context.Context, pageID uuid.UUID, sort int64) error
 
@@ -23,6 +24,7 @@ type BlockService interface {
 	GetBlockProperties(ctx context.Context, blockID uuid.UUID) (*model.Block, error)
 	UpdateBlockProperties(ctx context.Context, b *model.Block) error
 	ListBlockChildren(ctx context.Context, blockID uuid.UUID) ([]model.Block, error)
+	ListBlocks(ctx context.Context, spaceID uuid.UUID, parentID uuid.UUID) ([]model.Block, error)
 	MoveBlock(ctx context.Context, blockID uuid.UUID, newParentID uuid.UUID, targetSort *int64) error
 	UpdateBlockSort(ctx context.Context, blockID uuid.UUID, sort int64) error
 }
@@ -88,6 +90,13 @@ func (s *blockService) ListPageChildren(ctx context.Context, pageID uuid.UUID) (
 		return nil, errors.New("page id is empty")
 	}
 	return s.r.ListChildren(ctx, pageID)
+}
+
+func (s *blockService) ListPages(ctx context.Context, spaceID uuid.UUID, parentID *uuid.UUID) ([]model.Block, error) {
+	if len(spaceID) == 0 {
+		return nil, errors.New("space id is empty")
+	}
+	return s.r.ListBySpace(ctx, spaceID, model.BlockTypePage, parentID)
 }
 
 func (s *blockService) MovePage(ctx context.Context, pageID uuid.UUID, newParentID *uuid.UUID, targetSort *int64) error {
@@ -177,6 +186,16 @@ func (s *blockService) ListBlockChildren(ctx context.Context, blockID uuid.UUID)
 		return nil, errors.New("block id is empty")
 	}
 	return s.r.ListChildren(ctx, blockID)
+}
+
+func (s *blockService) ListBlocks(ctx context.Context, spaceID uuid.UUID, parentID uuid.UUID) ([]model.Block, error) {
+	if len(spaceID) == 0 {
+		return nil, errors.New("space id is empty")
+	}
+	if len(parentID) == 0 {
+		return nil, errors.New("parent id is required")
+	}
+	return s.r.ListBlocksExcludingPages(ctx, spaceID, parentID)
 }
 
 func (s *blockService) MoveBlock(ctx context.Context, blockID uuid.UUID, newParentID uuid.UUID, targetSort *int64) error {

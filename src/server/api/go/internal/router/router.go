@@ -121,26 +121,26 @@ func NewRouter(d RouterDeps) *gin.Engine {
 
 			page := space.Group("/:space_id/page")
 			{
+				page.GET("", d.BlockHandler.ListPages)
 				page.POST("", d.BlockHandler.CreatePage)
 				page.DELETE("/:page_id", d.BlockHandler.DeletePage)
 
 				page.GET("/:page_id/properties", d.BlockHandler.GetPageProperties)
 				page.PUT("/:page_id/properties", d.BlockHandler.UpdatePageProperties)
 
-				page.GET("/:page_id/children", d.BlockHandler.ListPageChildren)
 				page.PUT("/:page_id/move", d.BlockHandler.MovePage)
 				page.PUT("/:page_id/sort", d.BlockHandler.UpdatePageSort)
 			}
 
 			block := space.Group("/:space_id/block")
 			{
+				block.GET("", d.BlockHandler.ListBlocks)
 				block.POST("", d.BlockHandler.CreateBlock)
 				block.DELETE("/:block_id", d.BlockHandler.DeleteBlock)
 
 				block.GET("/:block_id/properties", d.BlockHandler.GetBlockProperties)
 				block.PUT("/:block_id/properties", d.BlockHandler.UpdateBlockProperties)
 
-				block.GET("/:block_id/children", d.BlockHandler.ListBlockChildren)
 				block.PUT("/:block_id/move", d.BlockHandler.MoveBlock)
 				block.PUT("/:block_id/sort", d.BlockHandler.UpdateBlockSort)
 			}

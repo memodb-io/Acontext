@@ -52,6 +52,22 @@ func (m *MockBlockService) ListPageChildren(ctx context.Context, pageID uuid.UUI
 	return args.Get(0).([]model.Block), args.Error(1)
 }
 
+func (m *MockBlockService) ListPages(ctx context.Context, spaceID uuid.UUID, parentID *uuid.UUID) ([]model.Block, error) {
+	args := m.Called(ctx, spaceID, parentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.Block), args.Error(1)
+}
+
+func (m *MockBlockService) ListBlocks(ctx context.Context, spaceID uuid.UUID, parentID uuid.UUID) ([]model.Block, error) {
+	args := m.Called(ctx, spaceID, parentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.Block), args.Error(1)
+}
+
 func (m *MockBlockService) MovePage(ctx context.Context, pageID uuid.UUID, newParentID *uuid.UUID, targetSort *int64) error {
 	args := m.Called(ctx, pageID, newParentID, targetSort)
 	return args.Error(0)

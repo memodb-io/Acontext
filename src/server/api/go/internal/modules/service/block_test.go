@@ -82,6 +82,22 @@ func (m *MockBlockRepo) UpdateSort(ctx context.Context, id uuid.UUID, sort int64
 	return args.Error(0)
 }
 
+func (m *MockBlockRepo) ListBySpace(ctx context.Context, spaceID uuid.UUID, blockType string, parentID *uuid.UUID) ([]model.Block, error) {
+	args := m.Called(ctx, spaceID, blockType, parentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.Block), args.Error(1)
+}
+
+func (m *MockBlockRepo) ListBlocksExcludingPages(ctx context.Context, spaceID uuid.UUID, parentID uuid.UUID) ([]model.Block, error) {
+	args := m.Called(ctx, spaceID, parentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.Block), args.Error(1)
+}
+
 func TestBlockService_CreatePage(t *testing.T) {
 	ctx := context.Background()
 	spaceID := uuid.New()

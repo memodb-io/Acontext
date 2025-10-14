@@ -171,26 +171,36 @@ func (h *BlockHandler) UpdatePageProperties(c *gin.Context) {
 	c.JSON(http.StatusOK, serializer.Response{})
 }
 
-// ListPageChildren godoc
+// ListPages godoc
 //
-//	@Summary		List page children
-//	@Description	List children blocks/pages under a page
+//	@Summary		List pages
+//	@Description	List pages in a space, optionally filtered by parent_id (use parent_id query parameter to get children of a specific page, or omit it to get top-level pages where parent_id is null)
 //	@Tags			page
 //	@Accept			json
 //	@Produce		json
 //	@Param			space_id	path	string	true	"Space ID"	Format(uuid)
-//	@Param			page_id		path	string	true	"Page ID"	Format(uuid)
+//	@Param			parent_id	query	string	false	"Parent ID"	Format(uuid)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=[]model.Block}
-//	@Router			/space/{space_id}/page/{page_id}/children [get]
-func (h *BlockHandler) ListPageChildren(c *gin.Context) {
-	pageID, err := uuid.Parse(c.Param("page_id"))
+//	@Router			/space/{space_id}/page [get]
+func (h *BlockHandler) ListPages(c *gin.Context) {
+	spaceID, err := uuid.Parse(c.Param("space_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
 		return
 	}
 
-	list, err := h.svc.ListPageChildren(c.Request.Context(), pageID)
+	var parentID *uuid.UUID
+	if parentIDStr := c.Query("parent_id"); parentIDStr != "" {
+		pid, err := uuid.Parse(parentIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("parent_id", err))
+			return
+		}
+		parentID = &pid
+	}
+
+	list, err := h.svc.ListPages(c.Request.Context(), spaceID, parentID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
 		return
@@ -357,25 +367,38 @@ func (h *BlockHandler) UpdateBlockProperties(c *gin.Context) {
 	c.JSON(http.StatusOK, serializer.Response{})
 }
 
-// ListBlockChildren godoc
+// ListBlocks godoc
 //
-//	@Summary		List block children
-//	@Description	List children blocks under a block
+//	@Summary		List blocks
+//	@Description	List blocks under a parent (page or block), excludes page type blocks (type != page), parent_id is required
 //	@Tags			block
 //	@Accept			json
 //	@Produce		json
 //	@Param			space_id	path	string	true	"Space ID"	Format(uuid)
-//	@Param			block_id	path	string	true	"Block ID"	Format(uuid)
+//	@Param			parent_id	query	string	true	"Parent ID"	Format(uuid)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=[]model.Block}
-//	@Router			/space/{space_id}/block/{block_id}/children [get]
-func (h *BlockHandler) ListBlockChildren(c *gin.Context) {
-	blockID, err := uuid.Parse(c.Param("block_id"))
+//	@Router			/space/{space_id}/block [get]
+func (h *BlockHandler) ListBlocks(c *gin.Context) {
+	spaceID, err := uuid.Parse(c.Param("space_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
 		return
 	}
-	list, err := h.svc.ListBlockChildren(c.Request.Context(), blockID)
+
+	parentIDStr := c.Query("parent_id")
+	if parentIDStr == "" {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("parent_id", errors.New("parent_id is required")))
+		return
+	}
+
+	parentID, err := uuid.Parse(parentIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("parent_id", err))
+		return
+	}
+
+	list, err := h.svc.ListBlocks(c.Request.Context(), spaceID, parentID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
 		return

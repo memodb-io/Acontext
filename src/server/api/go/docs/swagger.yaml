@@ -1042,6 +1042,43 @@ paths:
       tags:
       - space
   /space/{space_id}/block:
+    get:
+      consumes:
+      - application/json
+      description: List blocks under a parent (page or block), excludes page type
+        blocks (type != page), parent_id is required
+      parameters:
+      - description: Space ID
+        format: uuid
+        in: path
+        name: space_id
+        required: true
+        type: string
+      - description: Parent ID
+        format: uuid
+        in: query
+        name: parent_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Block'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List blocks
+      tags:
+      - block
     post:
       consumes:
       - application/json
@@ -1104,43 +1141,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Delete block
-      tags:
-      - block
-  /space/{space_id}/block/{block_id}/children:
-    get:
-      consumes:
-      - application/json
-      description: List children blocks under a block
-      parameters:
-      - description: Space ID
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Block ID
-        format: uuid
-        in: path
-        name: block_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/model.Block'
-                  type: array
-              type: object
-      security:
-      - BearerAuth: []
-      summary: List block children
       tags:
       - block
   /space/{space_id}/block/{block_id}/move:
@@ -1346,6 +1346,43 @@ paths:
       tags:
       - space
   /space/{space_id}/page:
+    get:
+      consumes:
+      - application/json
+      description: List pages in a space, optionally filtered by parent_id (use parent_id
+        query parameter to get children of a specific page, or omit it to get top-level
+        pages where parent_id is null)
+      parameters:
+      - description: Space ID
+        format: uuid
+        in: path
+        name: space_id
+        required: true
+        type: string
+      - description: Parent ID
+        format: uuid
+        in: query
+        name: parent_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Block'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List pages
+      tags:
+      - page
     post:
       consumes:
       - application/json
@@ -1408,43 +1445,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Delete page
-      tags:
-      - page
-  /space/{space_id}/page/{page_id}/children:
-    get:
-      consumes:
-      - application/json
-      description: List children blocks/pages under a page
-      parameters:
-      - description: Space ID
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Page ID
-        format: uuid
-        in: path
-        name: page_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/model.Block'
-                  type: array
-              type: object
-      security:
-      - BearerAuth: []
-      summary: List page children
       tags:
       - page
   /space/{space_id}/page/{page_id}/move:
