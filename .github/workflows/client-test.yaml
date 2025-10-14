@@ -1,0 +1,42 @@
+name: python-client-test
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'src/client/acontext-py/**'
+      - '.github/workflows/client-test.yaml'
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'src/client/acontext-py/**'
+      - '.github/workflows/client-test.yaml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: src/client/acontext-py
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install project dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install .
+
+      - name: Run tests
+        run: python -m unittest discover tests
