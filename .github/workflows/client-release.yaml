@@ -5,6 +5,7 @@ on:
     types: [published]
   workflow_dispatch:
 
+
 permissions:
   contents: read
   id-token: write
@@ -36,4 +37,4 @@ jobs:
         run: uv build
 
       - name: Publish to PyPI
-        run: uv publish --skip-existing
+        run: uv publish

@@ -215,6 +215,85 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(payload_json["parts"][0]["text"], "hello")
         self.assertEqual(payload_json["parts"][1]["file_field"], "file_1")
 
+    def test_pages_create_builds_payload(self) -> None:
+        response = make_response(201, {"code": 201, "data": {"id": "page"}})
+        dummy = DummyClient(response)
+        client = AcontextClient(api_key="token", client=dummy)
+
+        try:
+            client.pages.create(
+                "space-id",
+                parent_id="parent-id",
+                title="Title",
+                props={"foo": "bar"},
+            )
+        finally:
+            client.close()
+
+        method, url, kwargs = dummy.calls[0]
+        self.assertEqual(method, "POST")
+        self.assertEqual(url, "/space/space-id/page")
+        self.assertEqual(
+            kwargs["json"],
+            {"parent_id": "parent-id", "title": "Title", "props": {"foo": "bar"}},
+        )
+
+    def test_pages_move_requires_payload(self) -> None:
+        response = make_response(200, {"code": 200, "data": {}})
+        dummy = DummyClient(response)
+        client = AcontextClient(api_key="token", client=dummy)
+        try:
+            with self.assertRaises(ValueError):
+                client.pages.move("space-id", "page-id")
+        finally:
+            client.close()
+
+    def test_blocks_list_requires_parent(self) -> None:
+        response = make_response(200, {"code": 200, "data": {}})
+        dummy = DummyClient(response)
+        client = AcontextClient(api_key="token", client=dummy)
+
+        try:
+            with self.assertRaises(ValueError):
+                client.blocks.list("space-id", parent_id="")
+        finally:
+            client.close()
+
+    def test_blocks_create_builds_payload(self) -> None:
+        response = make_response(201, {"code": 201, "data": {"id": "block"}})
+        dummy = DummyClient(response)
+        client = AcontextClient(api_key="token", client=dummy)
+
+        try:
+            client.blocks.create(
+                "space-id",
+                parent_id="parent-id",
+                block_type="text",
+                title="Block Title",
+                props={"key": "value"},
+            )
+        finally:
+            client.close()
+
+        method, url, kwargs = dummy.calls[0]
+        self.assertEqual(method, "POST")
+        self.assertEqual(url, "/space/space-id/block")
+        self.assertEqual(
+            kwargs["json"],
+            {"parent_id": "parent-id", "type": "text", "title": "Block Title", "props": {"key": "value"}},
+        )
+
+    def test_blocks_update_properties_requires_payload(self) -> None:
+        response = make_response(200, {"code": 200, "data": {}})
+        dummy = DummyClient(response)
+        client = AcontextClient(api_key="token", client=dummy)
+
+        try:
+            with self.assertRaises(ValueError):
+                client.blocks.update_properties("space-id", "block-id")
+        finally:
+            client.close()
+
     def test_compat_import_exposes_same_client(self) -> None:
         self.assertIs(CompatClient, AcontextClient)
 
