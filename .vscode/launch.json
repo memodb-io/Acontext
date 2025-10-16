@@ -1,0 +1,43 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Core ASGI",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": [
+        "core_asgi:app",
+        "--host", "0.0.0.0",
+        "--port", "8000",
+        "--reload",
+        "--log-level", "debug"
+      ],
+      "cwd": "${workspaceFolder}/src/server/core",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src/server/core"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Go: API Server",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/src/server/api/go/cmd/server",
+      "cwd": "${workspaceFolder}/src/server/api/go",
+      "env": {
+        "API_EXPORT_PORT": "8029"
+      },
+      "showLog": true
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Full Stack: API + Core",
+      "configurations": ["Go: API Server", "Python: Core ASGI"],
+      "stopAll": true
+    }
+  ]
+}
