@@ -1,9 +1,9 @@
 package converter
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/bytedance/sonic"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/service"
 	"github.com/tmc/langchaingo/llms"
@@ -170,7 +170,7 @@ func (c *OpenAIConverter) convertParts(parts []model.Part, publicURLs map[string
 					toolCall.Function.Name = toolName
 				}
 				if args, ok := part.Meta["arguments"]; ok {
-					if argsBytes, err := json.Marshal(args); err == nil {
+					if argsBytes, err := sonic.Marshal(args); err == nil {
 						toolCall.Function.Arguments = string(argsBytes)
 					}
 				}
@@ -180,7 +180,7 @@ func (c *OpenAIConverter) convertParts(parts []model.Part, publicURLs map[string
 
 		case "tool-result":
 			// Tool results are typically in content as text
-			if resultJSON, err := json.Marshal(part.Meta); err == nil {
+			if resultJSON, err := sonic.Marshal(part.Meta); err == nil {
 				contentParts = append(contentParts, OpenAIContentPart{
 					Type: "text",
 					Text: string(resultJSON),
@@ -344,7 +344,7 @@ func (c *LangChainConverter) extractContent(parts []model.Part, publicURLs map[s
 	}
 
 	// Serialize to JSON string for LangChain
-	if jsonBytes, err := json.Marshal(contentParts); err == nil {
+	if jsonBytes, err := sonic.Marshal(contentParts); err == nil {
 		return string(jsonBytes)
 	}
 
@@ -367,7 +367,7 @@ func (c *LangChainConverter) extractToolCalls(parts []model.Part) []llms.ToolCal
 				}
 			}
 			if args, ok := part.Meta["arguments"]; ok {
-				if argsBytes, err := json.Marshal(args); err == nil {
+				if argsBytes, err := sonic.Marshal(args); err == nil {
 					if toolCall.FunctionCall != nil {
 						toolCall.FunctionCall.Arguments = string(argsBytes)
 					}
