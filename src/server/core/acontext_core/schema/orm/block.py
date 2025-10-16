@@ -17,6 +17,7 @@ from ..utils import asUUID
 
 if TYPE_CHECKING:
     from .space import Space
+    from .tool_sop import ToolSOP
 
 
 # Block type configuration matching Go version
@@ -189,6 +190,15 @@ class Block(CommonMixin):
                 back_populates="parent",
                 cascade="all, delete-orphan",
                 lazy="selectin",
+            )
+        },
+    )
+
+    tool_sops: List["ToolSOP"] = field(
+        default_factory=list,
+        metadata={
+            "db": relationship(
+                "ToolSOP", back_populates="sop_block", cascade="all, delete-orphan"
             )
         },
     )

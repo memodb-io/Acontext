@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from .space import Space
     from .message import Message
     from .task import Task
+    from .tool_sop import ToolSOP
 
 
 @ORM_BASE.mapped
@@ -36,14 +37,15 @@ class ToolReference(CommonMixin):
 
     # Relationships
     project: "Project" = field(
-        init=False, metadata={"db": relationship("Project", back_populates="sessions")}
+        init=False,
+        metadata={"db": relationship("Project", back_populates="tool_references")},
     )
 
-    tasks: List["Task"] = field(
+    tool_sops: List["ToolSOP"] = field(
         default_factory=list,
         metadata={
             "db": relationship(
-                "Task", back_populates="session", cascade="all, delete-orphan"
+                "ToolSOP", back_populates="tool_reference", cascade="all, delete-orphan"
             )
         },
     )
