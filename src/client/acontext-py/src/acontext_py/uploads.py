@@ -2,13 +2,9 @@
 Utilities for working with file uploads.
 """
 
-from __future__ import annotations
-
 import io
 from dataclasses import dataclass
 from typing import BinaryIO, Tuple
-
-__all__ = ["FileUpload", "normalize_file_upload"]
 
 
 @dataclass(slots=True)
@@ -46,4 +42,3 @@ def normalize_file_upload(
             filename, content, content_type = upload
             return FileUpload(filename=filename, content=content, content_type=content_type)
     raise TypeError("Unsupported file upload payload")
-

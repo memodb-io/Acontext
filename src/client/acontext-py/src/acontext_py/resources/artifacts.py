@@ -2,15 +2,11 @@
 Artifact and file endpoints.
 """
 
-from __future__ import annotations
-
 import json
 from typing import Any, BinaryIO, Mapping, MutableMapping
 
 from ..client_types import RequesterProtocol
 from ..uploads import FileUpload, normalize_file_upload
-
-__all__ = ["ArtifactsAPI", "ArtifactFilesAPI"]
 
 
 class ArtifactsAPI:

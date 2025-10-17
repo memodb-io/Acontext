@@ -2,13 +2,9 @@
 Page endpoints.
 """
 
-from __future__ import annotations
-
 from typing import Any, Mapping, MutableMapping
 
 from ..client_types import RequesterProtocol
-
-__all__ = ["PagesAPI"]
 
 
 class PagesAPI:

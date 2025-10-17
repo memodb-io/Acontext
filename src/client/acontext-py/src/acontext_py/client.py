@@ -2,27 +2,19 @@
 High-level synchronous client for the Acontext API.
 """
 
-from __future__ import annotations
-
 from typing import Any, BinaryIO, Mapping, MutableMapping
 
 import httpx
 
 from ._constants import DEFAULT_BASE_URL, DEFAULT_USER_AGENT
 from .errors import APIError, TransportError
-from .messages import MessagePart, build_message_payload
-from .uploads import FileUpload
-from .resources.artifacts import ArtifactsAPI
-from .resources.blocks import BlocksAPI
-from .resources.pages import PagesAPI
-from .resources.sessions import SessionsAPI
-from .resources.spaces import SpacesAPI
-
-__all__ = ["AcontextClient", "DEFAULT_BASE_URL", "FileUpload", "MessagePart"]
-
-# Backwards compatibility for existing imports in tests and user code.
-_build_message_payload = build_message_payload
-
+from .messages import MessagePart as MessagePart
+from .uploads import FileUpload as FileUpload
+from .resources.artifacts import ArtifactsAPI as ArtifactsAPI
+from .resources.blocks import BlocksAPI as BlocksAPI
+from .resources.pages import PagesAPI as PagesAPI
+from .resources.sessions import SessionsAPI as SessionsAPI
+from .resources.spaces import SpacesAPI as SpacesAPI
 
 class AcontextClient:
     """
@@ -125,8 +117,6 @@ class AcontextClient:
             raise TransportError(str(exc)) from exc
 
         return self._handle_response(response, unwrap=unwrap)
-
-    _request = request  # Backwards compatibility for older internal calls
 
     @staticmethod
     def _handle_response(response: httpx.Response, *, unwrap: bool) -> Any:

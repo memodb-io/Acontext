@@ -2,15 +2,12 @@
 Sessions endpoints.
 """
 
-from __future__ import annotations
-
 import json
 from typing import Any, Mapping, MutableMapping, Sequence
 
-from ..messages import MessagePart, SUPPORTED_ROLES, build_message_payload
+from .._constants import SUPPORTED_ROLES
+from ..messages import MessagePart, build_message_payload
 from ..client_types import RequesterProtocol
-
-__all__ = ["SessionsAPI"]
 
 
 class SessionsAPI:
@@ -108,4 +105,3 @@ class SessionsAPI:
         if with_asset_public_url is not None:
             params["with_asset_public_url"] = "true" if with_asset_public_url else "false"
         return self._requester.request("GET", f"/session/{session_id}/messages", params=params or None)
-

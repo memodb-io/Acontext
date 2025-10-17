@@ -8,6 +8,8 @@ Python SDK for interacting with the Acontext REST API.
 pip install acontext-py
 ```
 
+> Requires Python 3.13 or newer.
+
 ### Quickstart
 
 ```python

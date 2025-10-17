@@ -2,8 +2,6 @@
 Custom exceptions raised by the acontext Python client.
 """
 
-from __future__ import annotations
-
 from typing import Any, Mapping, MutableMapping
 
 
@@ -43,4 +41,3 @@ class APIError(AcontextError):
 
 class TransportError(AcontextError):
     """Raised when the underlying HTTP transport failed before receiving a response."""
-

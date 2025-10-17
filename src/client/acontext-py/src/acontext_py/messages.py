@@ -2,20 +2,10 @@
 Support for constructing session messages.
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Any, BinaryIO, Mapping, MutableMapping, Sequence, Tuple
 
-from ._constants import SUPPORTED_ROLES
 from .uploads import FileUpload, normalize_file_upload
-
-__all__ = [
-    "MessagePart",
-    "SUPPORTED_ROLES",
-    "build_message_payload",
-    "normalize_message_part",
-]
 
 
 @dataclass(slots=True)
@@ -102,4 +92,3 @@ def build_message_payload(
         payload_parts.append(payload)
 
     return payload_parts, files
-
