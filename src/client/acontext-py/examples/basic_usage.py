@@ -2,8 +2,6 @@
 End-to-end usage sample for the Acontext Python SDK.
 """
 
-from __future__ import annotations
-
 from acontext import AcontextClient, MessagePart
 
 

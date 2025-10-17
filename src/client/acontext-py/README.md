@@ -5,7 +5,7 @@ Python SDK for interacting with the Acontext REST API.
 ### Installation
 
 ```bash
-pip install acontext-py
+pip install acontext
 ```
 
 > Requires Python 3.13 or newer.

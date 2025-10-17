@@ -112,10 +112,9 @@ sys.modules.setdefault("httpx", httpx_stub)
 
 import httpx  # type: ignore  # noqa: E402  (import after stub definition)
 
-from acontext import AcontextClient, FileUpload, MessagePart  # type: ignore  # noqa: E402
-from acontext_py.messages import build_message_payload  # noqa: E402
-from acontext_py.errors import APIError, TransportError  # noqa: E402
-from acontext import AcontextClient as CompatClient  # type: ignore  # noqa: E402
+from acontext.client import AcontextClient, FileUpload, MessagePart  # noqa: E402
+from acontext.messages import build_message_payload  # noqa: E402
+from acontext.errors import APIError, TransportError  # noqa: E402
 
 
 class DummyClient(httpx.Client):
@@ -289,9 +288,6 @@ class ClientTests(unittest.TestCase):
                 client.blocks.update_properties("space-id", "block-id")
         finally:
             client.close()
-
-    def test_compat_import_exposes_same_client(self) -> None:
-        self.assertIs(CompatClient, AcontextClient)
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
