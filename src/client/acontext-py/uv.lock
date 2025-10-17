@@ -4,7 +4,7 @@ requires-python = ">=3.13"
 
 [[package]]
 name = "acontext-py"
-version = "0.0.1.dev1"
+version = "0.0.1.dev2"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
