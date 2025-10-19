@@ -5,7 +5,15 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 )
+
+var logger *zap.Logger
+
+// SetLogger initializes the logger for the serializer package
+func SetLogger(log *zap.Logger) {
+	logger = log
+}
 
 // Response
 type Response struct {
@@ -26,6 +34,14 @@ func Err(errCode int, msg string, err error) Response {
 	res := Response{
 		Code: errCode,
 		Msg:  msg,
+	}
+	// Log error if logger is available
+	if err != nil && logger != nil {
+		logger.Error("API error",
+			zap.Int("code", errCode),
+			zap.String("msg", msg),
+			zap.Error(err),
+		)
 	}
 	// development mode, show error detail
 	if err != nil && gin.Mode() != gin.ReleaseMode {

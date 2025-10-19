@@ -32,7 +32,7 @@ var BlockTypes = map[string]BlockTypeConfig{
 	},
 	BlockTypePage: {
 		Name:          BlockTypePage,
-		AllowChildren: false,
+		AllowChildren: true,
 		RequireParent: false,
 	},
 	BlockTypeText: {

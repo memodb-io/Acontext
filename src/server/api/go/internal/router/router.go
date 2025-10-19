@@ -88,6 +88,9 @@ type RouterDeps struct {
 }
 
 func NewRouter(d RouterDeps) *gin.Engine {
+	// Initialize logger for serializer package
+	serializer.SetLogger(d.Log)
+
 	r := gin.New()
 	r.Use(gin.Recovery(), zapLoggerMiddleware(d.Log))
 
