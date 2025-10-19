@@ -65,6 +65,7 @@ class SessionsAPI:
         *,
         role: str,
         parts: Sequence[MessagePart | str | Mapping[str, Any]],
+        format: str | None = None,
     ) -> Any:
         if role not in SUPPORTED_ROLES:
             raise ValueError(f"role must be one of {SUPPORTED_ROLES!r}")
@@ -73,6 +74,8 @@ class SessionsAPI:
 
         payload_parts, files = build_message_payload(parts)
         payload = {"role": role, "parts": payload_parts}
+        if format is not None:
+            payload["format"] = format
 
         if files:
             form_data = {"payload": json.dumps(payload)}
@@ -96,6 +99,7 @@ class SessionsAPI:
         limit: int | None = None,
         cursor: str | None = None,
         with_asset_public_url: bool | None = None,
+        format: str | None = None,
     ) -> Any:
         params: dict[str, Any] = {}
         if limit is not None:
@@ -104,4 +108,6 @@ class SessionsAPI:
             params["cursor"] = cursor
         if with_asset_public_url is not None:
             params["with_asset_public_url"] = "true" if with_asset_public_url else "false"
+        if format is not None:
+            params["format"] = format
         return self._requester.request("GET", f"/session/{session_id}/messages", params=params or None)

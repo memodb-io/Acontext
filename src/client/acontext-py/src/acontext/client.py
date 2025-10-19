@@ -13,6 +13,7 @@ from .uploads import FileUpload as FileUpload
 from .resources.artifacts import ArtifactsAPI as ArtifactsAPI
 from .resources.blocks import BlocksAPI as BlocksAPI
 from .resources.pages import PagesAPI as PagesAPI
+from .resources.folders import FoldersAPI as FoldersAPI
 from .resources.sessions import SessionsAPI as SessionsAPI
 from .resources.spaces import SpacesAPI as SpacesAPI
 
@@ -74,6 +75,7 @@ class AcontextClient:
         self.artifacts = ArtifactsAPI(self)
         self.pages = PagesAPI(self)
         self.blocks = BlocksAPI(self)
+        self.folders = FoldersAPI(self)
 
     @property
     def base_url(self) -> str:

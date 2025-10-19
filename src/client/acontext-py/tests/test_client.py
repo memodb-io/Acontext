@@ -111,6 +111,26 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(payload_json["parts"][0]["text"], "hello")
         self.assertEqual(payload_json["parts"][1]["file_field"], "file_1")
 
+    def test_send_message_can_include_format(self) -> None:
+        response = make_response(201, {"code": 201, "data": {"message": "ok"}})
+        dummy = make_mock_client(response=response)
+        client = AcontextClient(api_key="token", client=dummy)
+
+        try:
+            client.sessions.send_message(
+                "session-id",
+                role="user",
+                parts=[MessagePart.text_part("hello")],
+                format="anthropic",
+            )
+        finally:
+            client.close()
+
+        dummy.request.assert_called_once()
+        _, kwargs = dummy.request.call_args
+        self.assertIn("json", kwargs)
+        self.assertEqual(kwargs["json"]["format"], "anthropic")
+
     def test_pages_create_builds_payload(self) -> None:
         response = make_response(201, {"code": 201, "data": {"id": "page"}})
         dummy = make_mock_client(response=response)
@@ -147,6 +167,62 @@ class ClientTests(unittest.TestCase):
         finally:
             client.close()
         dummy.request.assert_not_called()
+
+    def test_folders_create_builds_payload(self) -> None:
+        response = make_response(201, {"code": 201, "data": {"id": "folder"}})
+        dummy = make_mock_client(response=response)
+        client = AcontextClient(api_key="token", client=dummy)
+
+        try:
+            client.folders.create(
+                "space-id",
+                parent_id="parent-id",
+                title="Folder Title",
+                props={"foo": "bar"},
+            )
+        finally:
+            client.close()
+
+        dummy.request.assert_called_once()
+        _, kwargs = dummy.request.call_args
+        self.assertEqual(kwargs["method"], "POST")
+        self.assertEqual(kwargs["url"], "/space/space-id/folder")
+        self.assertEqual(
+            kwargs["json"],
+            {"parent_id": "parent-id", "title": "Folder Title", "props": {"foo": "bar"}},
+        )
+
+    def test_spaces_semantic_queries_require_query_param(self) -> None:
+        response = make_response(200, {"code": 200, "data": {"result": "ok"}})
+        dummy = make_mock_client(response=response)
+        client = AcontextClient(api_key="token", client=dummy)
+
+        try:
+            client.spaces.get_semantic_answer("space-id", query="what happened?")
+        finally:
+            client.close()
+
+        dummy.request.assert_called_once()
+        _, kwargs = dummy.request.call_args
+        self.assertEqual(kwargs["method"], "GET")
+        self.assertEqual(kwargs["url"], "/space/space-id/semantic_answer")
+        self.assertEqual(kwargs["params"], {"query": "what happened?"})
+
+    def test_sessions_get_messages_forwards_format(self) -> None:
+        response = make_response(200, {"code": 200, "data": {"items": []}})
+        dummy = make_mock_client(response=response)
+        client = AcontextClient(api_key="token", client=dummy)
+
+        try:
+            client.sessions.get_messages("session-id", format="acontext")
+        finally:
+            client.close()
+
+        dummy.request.assert_called_once()
+        _, kwargs = dummy.request.call_args
+        self.assertEqual(kwargs["method"], "GET")
+        self.assertEqual(kwargs["url"], "/session/session-id/messages")
+        self.assertEqual(kwargs["params"], {"format": "acontext"})
 
     def test_blocks_list_requires_parent(self) -> None:
         response = make_response(200, {"code": 200, "data": {}})
