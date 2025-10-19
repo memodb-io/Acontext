@@ -133,15 +133,14 @@ func (b *Block) CanHaveChildren() bool {
 }
 
 // ValidateParentType Check if the parent type is valid for this block
-// Other blocks (text, sop, etc.) cannot have folder as parent
+// Rules:
+// - Page can have folder as parent or no parent
+// - Folder can have folder as parent or no parent
+// - Other blocks (text, sop, etc.) must have page as parent (cannot be under folder or have no parent)
 func (b *Block) ValidateParentType(parent *Block) error {
-	if parent == nil {
-		return nil
-	}
-
 	// Pages can have folder or no parent
 	if b.Type == BlockTypePage {
-		if parent.Type != BlockTypeFolder {
+		if parent != nil && parent.Type != BlockTypeFolder {
 			return fmt.Errorf("page can only have folder as parent")
 		}
 		return nil
@@ -149,15 +148,19 @@ func (b *Block) ValidateParentType(parent *Block) error {
 
 	// Folders can have folder or no parent
 	if b.Type == BlockTypeFolder {
-		if parent.Type != BlockTypeFolder {
+		if parent != nil && parent.Type != BlockTypeFolder {
 			return fmt.Errorf("folder can only have folder as parent")
 		}
 		return nil
 	}
 
-	// Other blocks (text, sop, etc.) cannot have folder as parent
-	if parent.Type == BlockTypeFolder {
-		return fmt.Errorf("block type '%s' cannot have folder as parent", b.Type)
+	// Other blocks (text, sop, etc.) must have a parent and it must be a page
+	if parent == nil {
+		return fmt.Errorf("block type '%s' must have a parent", b.Type)
+	}
+
+	if parent.Type != BlockTypePage {
+		return fmt.Errorf("block type '%s' can only have page as parent, not '%s'", b.Type, parent.Type)
 	}
 
 	return nil

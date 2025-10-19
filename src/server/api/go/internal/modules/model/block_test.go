@@ -529,17 +529,37 @@ func TestBlock_ValidateParentType(t *testing.T) {
 				Type: BlockTypeFolder,
 			},
 			wantErr: true,
-			errMsg:  "cannot have folder as parent",
+			errMsg:  "can only have page as parent",
 		},
 		{
-			name: "sop with text parent - valid",
+			name: "text without parent - invalid",
+			block: Block{
+				Type: BlockTypeText,
+			},
+			parent:  nil,
+			wantErr: true,
+			errMsg:  "must have a parent",
+		},
+		{
+			name: "sop with page parent - valid",
+			block: Block{
+				Type: BlockTypeSOP,
+			},
+			parent: &Block{
+				Type: BlockTypePage,
+			},
+			wantErr: false,
+		},
+		{
+			name: "sop with text parent - invalid",
 			block: Block{
 				Type: BlockTypeSOP,
 			},
 			parent: &Block{
 				Type: BlockTypeText,
 			},
-			wantErr: false,
+			wantErr: true,
+			errMsg:  "can only have page as parent",
 		},
 		{
 			name: "sop with folder parent - invalid",
@@ -550,7 +570,16 @@ func TestBlock_ValidateParentType(t *testing.T) {
 				Type: BlockTypeFolder,
 			},
 			wantErr: true,
-			errMsg:  "cannot have folder as parent",
+			errMsg:  "can only have page as parent",
+		},
+		{
+			name: "sop without parent - invalid",
+			block: Block{
+				Type: BlockTypeSOP,
+			},
+			parent:  nil,
+			wantErr: true,
+			errMsg:  "must have a parent",
 		},
 	}
 
