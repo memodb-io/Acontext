@@ -132,6 +132,19 @@ func NewRouter(d RouterDeps) *gin.Engine {
 				page.PUT("/:page_id/sort", d.BlockHandler.UpdatePageSort)
 			}
 
+			folder := space.Group("/:space_id/folder")
+			{
+				folder.GET("", d.BlockHandler.ListFolders)
+				folder.POST("", d.BlockHandler.CreateFolder)
+				folder.DELETE("/:folder_id", d.BlockHandler.DeleteFolder)
+
+				folder.GET("/:folder_id/properties", d.BlockHandler.GetFolderProperties)
+				folder.PUT("/:folder_id/properties", d.BlockHandler.UpdateFolderProperties)
+
+				folder.PUT("/:folder_id/move", d.BlockHandler.MoveFolder)
+				folder.PUT("/:folder_id/sort", d.BlockHandler.UpdateFolderSort)
+			}
+
 			block := space.Group("/:space_id/block")
 			{
 				block.GET("", d.BlockHandler.ListBlocks)

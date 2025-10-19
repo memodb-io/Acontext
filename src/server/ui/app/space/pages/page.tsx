@@ -8,21 +8,40 @@ import {
   ResizablePanel,
   ResizablePanelGroup,
 } from "@/components/ui/resizable";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   ChevronRight,
   FileText,
-  Book,
-  BookOpen,
+  Folder,
+  FolderOpen,
   Loader2,
   RefreshCw,
+  Plus,
+  Trash2,
+  FilePlus,
+  FolderPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   getSpaces,
+  getFolders,
   getPages,
   getBlocks,
+  createFolder,
+  createPage,
+  deleteFolder,
+  deletePage,
 } from "@/api/models/space";
 import { Space, Block } from "@/types";
 import { BlockNoteEditor } from "@/components/blocknote-editor";
@@ -30,7 +49,7 @@ import { BlockNoteEditor } from "@/components/blocknote-editor";
 interface TreeNode {
   id: string;
   name: string;
-  type: "page" | "block";
+  type: "folder" | "page" | "block";
   blockType?: string;
   children?: TreeNode[];
   isLoaded?: boolean;
@@ -39,29 +58,38 @@ interface TreeNode {
 
 interface NodeProps extends NodeRendererProps<TreeNode> {
   loadingNodes: Set<string>;
+  onDeleteClick: (node: TreeNode, e: React.MouseEvent) => void;
+  onCreateClick: (type: "folder" | "page", parentId: string) => void;
+  t: (key: string) => string;
 }
 
-function Node({ node, style, dragHandle, loadingNodes }: NodeProps) {
+function Node({ node, style, dragHandle, loadingNodes, onDeleteClick, onCreateClick, t }: NodeProps) {
   const indent = node.level * 12;
-  const isFolder = node.data.type === "page";
+  const isFolder = node.data.type === "folder";
+  const isPage = node.data.type === "page";
   const isLoading = loadingNodes.has(node.id);
+  const [showButtons, setShowButtons] = useState(false);
+
+  const handleClick = () => {
+    if (isFolder) {
+      node.toggle();
+    } else if (isPage) {
+      node.select();
+    }
+  };
 
   return (
     <div
       ref={dragHandle}
       style={style}
       className={cn(
-        "flex items-center cursor-pointer px-2 py-1.5 text-sm rounded-md transition-colors",
+        "flex items-center cursor-pointer px-2 py-1.5 text-sm rounded-md transition-colors group",
         "hover:bg-accent hover:text-accent-foreground",
         node.isSelected && "bg-accent text-accent-foreground"
       )}
-      onClick={() => {
-        if (isFolder) {
-          node.toggle();
-        } else {
-          node.select();
-        }
-      }}
+      onMouseEnter={() => setShowButtons(true)}
+      onMouseLeave={() => setShowButtons(false)}
+      onClick={handleClick}
     >
       <div
         style={{ marginLeft: `${indent}px` }}
@@ -80,10 +108,15 @@ function Node({ node, style, dragHandle, loadingNodes }: NodeProps) {
               />
             )}
             {node.isOpen ? (
-              <BookOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <FolderOpen className="h-4 w-4 shrink-0 text-blue-500" />
             ) : (
-              <Book className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <Folder className="h-4 w-4 shrink-0 text-blue-500" />
             )}
+          </>
+        ) : isPage ? (
+          <>
+            <span className="w-4" />
+            <FileText className="h-4 w-4 shrink-0 text-green-500" />
           </>
         ) : (
           <>
@@ -95,6 +128,44 @@ function Node({ node, style, dragHandle, loadingNodes }: NodeProps) {
           {node.data.name}
         </span>
       </div>
+      {showButtons && (
+        <div className="flex gap-1 shrink-0 ml-2">
+          {isFolder && (
+            <>
+              <button
+                className="p-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCreateClick("folder", node.data.id);
+                }}
+                title={t("createFolderTooltip")}
+              >
+                <FolderPlus className="h-3 w-3 text-blue-500" />
+              </button>
+              <button
+                className="p-1 rounded-md bg-green-500/10 hover:bg-green-500/20 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCreateClick("page", node.data.id);
+                }}
+                title={t("createPageTooltip")}
+              >
+                <FilePlus className="h-3 w-3 text-green-500" />
+              </button>
+            </>
+          )}
+          <button
+            className="p-1 rounded-md hover:bg-destructive/20 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDeleteClick(node.data, e);
+            }}
+            title={t("deleteTooltip")}
+          >
+            <Trash2 className="h-3 w-3 text-destructive" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -118,6 +189,18 @@ export default function PagesPage() {
   // Blocks for BlockNote editor
   const [contentBlocks, setContentBlocks] = useState<Block[]>([]);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
+
+  // Delete confirmation dialog states
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<TreeNode | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Create dialog states
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [createType, setCreateType] = useState<"folder" | "page">("folder");
+  const [createParentId, setCreateParentId] = useState<string | null>(null);
+  const [createTitle, setCreateTitle] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
 
   const filteredSpaces = spaces.filter((space) =>
     space.id.toLowerCase().includes(spaceFilterText.toLowerCase())
@@ -151,24 +234,43 @@ export default function PagesPage() {
 
     try {
       setIsInitialLoading(true);
-      const res = await getPages(space.id);
-      if (res.code !== 0) {
-        console.error(res.message);
+
+      // Load root-level folders
+      const foldersRes = await getFolders(space.id);
+      if (foldersRes.code !== 0) {
+        console.error(foldersRes.message);
         return;
       }
 
-      const pages: TreeNode[] = (res.data || []).map((block) => ({
+      // Load root-level pages (pages without parent)
+      const pagesRes = await getPages(space.id);
+      if (pagesRes.code !== 0) {
+        console.error(pagesRes.message);
+        return;
+      }
+
+      const folders: TreeNode[] = (foldersRes.data || []).map((block) => ({
         id: block.id,
-        name: block.title || "Untitled",
+        name: block.title || "Untitled Folder",
+        type: "folder" as const,
+        blockType: block.type,
+        isLoaded: false,
+        blockData: block,
+      }));
+
+      const pages: TreeNode[] = (pagesRes.data || []).map((block) => ({
+        id: block.id,
+        name: block.title || "Untitled Page",
         type: "page" as const,
         blockType: block.type,
         isLoaded: false,
         blockData: block,
       }));
 
-      setTreeData(pages);
+      // Folders first, then pages
+      setTreeData([...folders, ...pages]);
     } catch (error) {
-      console.error("Failed to load pages:", error);
+      console.error("Failed to load folders and pages:", error);
     } finally {
       setIsInitialLoading(false);
     }
@@ -176,28 +278,47 @@ export default function PagesPage() {
 
   const handleToggle = async (nodeId: string) => {
     const node = treeRef.current?.get(nodeId);
-    if (!node || node.data.type !== "page" || !selectedSpace) return;
+    if (!node || node.data.type !== "folder" || !selectedSpace) return;
 
     if (node.data.isLoaded) return;
 
     setLoadingNodes((prev) => new Set(prev).add(nodeId));
 
     try {
-      // Load children pages using parent_id parameter
-      const childrenRes = await getPages(selectedSpace.id, node.data.id);
-      if (childrenRes.code !== 0) {
-        console.error(childrenRes.message);
+      // Load child folders
+      const foldersRes = await getFolders(selectedSpace.id, node.data.id);
+      if (foldersRes.code !== 0) {
+        console.error(foldersRes.message);
         return;
       }
 
-      const children: TreeNode[] = (childrenRes.data || []).map((block: Block) => ({
+      // Load child pages
+      const pagesRes = await getPages(selectedSpace.id, node.data.id);
+      if (pagesRes.code !== 0) {
+        console.error(pagesRes.message);
+        return;
+      }
+
+      const childFolders: TreeNode[] = (foldersRes.data || []).map((block: Block) => ({
         id: block.id,
-        name: block.title || "Untitled",
-        type: block.type === "page" ? "page" : "block",
+        name: block.title || "Untitled Folder",
+        type: "folder" as const,
         blockType: block.type,
         isLoaded: false,
         blockData: block,
       }));
+
+      const childPages: TreeNode[] = (pagesRes.data || []).map((block: Block) => ({
+        id: block.id,
+        name: block.title || "Untitled Page",
+        type: "page" as const,
+        blockType: block.type,
+        isLoaded: false,
+        blockData: block,
+      }));
+
+      // Folders first, then pages
+      const children = [...childFolders, ...childPages];
 
       setTreeData((prevData) => {
         const updateNode = (nodes: TreeNode[]): TreeNode[] => {
@@ -264,6 +385,160 @@ export default function PagesPage() {
     setIsRefreshingSpaces(true);
     await loadSpaces();
     setIsRefreshingSpaces(false);
+  };
+
+  // Reload tree data
+  const reloadTreeData = async () => {
+    if (!selectedSpace) return;
+
+    try {
+      const foldersRes = await getFolders(selectedSpace.id);
+      const pagesRes = await getPages(selectedSpace.id);
+
+      if (foldersRes.code !== 0 || pagesRes.code !== 0) {
+        console.error(foldersRes.message || pagesRes.message);
+        return;
+      }
+
+      const folders: TreeNode[] = (foldersRes.data || []).map((block) => ({
+        id: block.id,
+        name: block.title || "Untitled Folder",
+        type: "folder" as const,
+        blockType: block.type,
+        isLoaded: false,
+        blockData: block,
+      }));
+
+      const pages: TreeNode[] = (pagesRes.data || []).map((block) => ({
+        id: block.id,
+        name: block.title || "Untitled Page",
+        type: "page" as const,
+        blockType: block.type,
+        isLoaded: false,
+        blockData: block,
+      }));
+
+      setTreeData([...folders, ...pages]);
+    } catch (error) {
+      console.error("Failed to reload tree:", error);
+    }
+  };
+
+  // Handle delete click
+  const handleDeleteClick = (node: TreeNode, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setItemToDelete(node);
+    setDeleteDialogOpen(true);
+  };
+
+  // Handle delete
+  const handleDelete = async () => {
+    if (!itemToDelete || !selectedSpace) return;
+
+    try {
+      setIsDeleting(true);
+
+      const deleteFunc = itemToDelete.type === "folder" ? deleteFolder : deletePage;
+      const res = await deleteFunc(selectedSpace.id, itemToDelete.id);
+
+      if (res.code !== 0) {
+        console.error(res.message);
+        return;
+      }
+
+      // Clear selected node if it's the deleted one
+      if (selectedNode?.id === itemToDelete.id) {
+        setSelectedNode(null);
+        setContentBlocks([]);
+      }
+
+      // Reload tree data
+      await reloadTreeData();
+    } catch (error) {
+      console.error("Failed to delete:", error);
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setItemToDelete(null);
+    }
+  };
+
+  // Handle create click
+  const handleCreateClick = (type: "folder" | "page", parentId?: string | null) => {
+    setCreateType(type);
+    setCreateParentId(parentId ?? null);
+    setCreateTitle("");
+    setCreateDialogOpen(true);
+  };
+
+  // Handle create
+  const handleCreate = async () => {
+    if (!selectedSpace || !createTitle.trim()) return;
+
+    try {
+      setIsCreating(true);
+
+      const data = {
+        parent_id: createParentId || undefined,
+        title: createTitle.trim(),
+        props: {},
+      };
+
+      const createFunc = createType === "folder" ? createFolder : createPage;
+      const res = await createFunc(selectedSpace.id, data);
+
+      if (res.code !== 0) {
+        console.error(res.message);
+        return;
+      }
+
+      // If creating under a parent, reload that parent's children
+      if (createParentId) {
+        const parentNode = treeRef.current?.get(createParentId);
+        if (parentNode) {
+          // Mark parent as not loaded to force reload
+          setTreeData((prevData) => {
+            const updateNode = (nodes: TreeNode[]): TreeNode[] => {
+              return nodes.map((n) => {
+                if (n.id === createParentId) {
+                  return {
+                    ...n,
+                    isLoaded: false,
+                  };
+                }
+                if (n.children) {
+                  return {
+                    ...n,
+                    children: updateNode(n.children),
+                  };
+                }
+                return n;
+              });
+            };
+            return updateNode(prevData);
+          });
+
+          // Trigger reload by toggling
+          if (parentNode.isOpen) {
+            parentNode.close();
+            setTimeout(() => parentNode.open(), 100);
+          } else {
+            parentNode.open();
+          }
+        }
+      } else {
+        // Reload root level
+        await reloadTreeData();
+      }
+    } catch (error) {
+      console.error("Failed to create:", error);
+    } finally {
+      setIsCreating(false);
+      setCreateDialogOpen(false);
+      setCreateTitle("");
+      setCreateType("folder");
+      setCreateParentId(null);
+    }
   };
 
   return (
@@ -346,6 +621,9 @@ export default function PagesPage() {
           <div className="h-full flex flex-col px-4">
             <div className="mb-4">
               <h2 className="text-lg font-semibold">{t("pagesTitle")}</h2>
+              <p className="text-xs text-muted-foreground mt-1">
+                Folders & Pages
+              </p>
             </div>
 
             <div className="flex-1 overflow-auto">
@@ -364,26 +642,65 @@ export default function PagesPage() {
                     </p>
                   </div>
                 </div>
-              ) : treeData.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-sm text-muted-foreground">
-                    {t("noPages")}
-                  </p>
-                </div>
               ) : (
-                <Tree
-                  ref={treeRef}
-                  data={treeData}
-                  openByDefault={false}
-                  width="100%"
-                  height={750}
-                  indent={12}
-                  rowHeight={32}
-                  onToggle={handleToggle}
-                  onSelect={handleSelect}
-                >
-                  {(props) => <Node {...props} loadingNodes={loadingNodes} />}
-                </Tree>
+                <div className="h-full flex flex-col p-2">
+                  {/* Root directory with create buttons */}
+                  <div className="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-accent transition-colors group mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <FolderOpen className="h-4 w-4 shrink-0 text-blue-500" />
+                      <span className="text-sm font-medium">{t("rootFolder")}</span>
+                    </div>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        className="shrink-0 p-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 transition-colors"
+                        onClick={() => handleCreateClick("folder", null)}
+                        title={t("createFolderTooltip")}
+                      >
+                        <FolderPlus className="h-3 w-3 text-blue-500" />
+                      </button>
+                      <button
+                        className="shrink-0 p-1 rounded-md bg-green-500/10 hover:bg-green-500/20 transition-colors"
+                        onClick={() => handleCreateClick("page", null)}
+                        title={t("createPageTooltip")}
+                      >
+                        <FilePlus className="h-3 w-3 text-green-500" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* File tree */}
+                  {treeData.length === 0 ? (
+                    <div className="flex-1 flex items-center justify-center">
+                      <p className="text-sm text-muted-foreground">
+                        {t("noPages")}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex-1">
+                      <Tree
+                        ref={treeRef}
+                        data={treeData}
+                        openByDefault={false}
+                        width="100%"
+                        height={700}
+                        indent={12}
+                        rowHeight={32}
+                        onToggle={handleToggle}
+                        onSelect={handleSelect}
+                      >
+                        {(props) => (
+                          <Node
+                            {...props}
+                            loadingNodes={loadingNodes}
+                            onDeleteClick={handleDeleteClick}
+                            onCreateClick={handleCreateClick}
+                            t={t}
+                          />
+                        )}
+                      </Tree>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -414,6 +731,97 @@ export default function PagesPage() {
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {itemToDelete?.type === "folder"
+                ? t("deleteFolderTitle")
+                : t("deletePageTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {itemToDelete?.type === "folder"
+                ? t("deleteFolderDescription")
+                : t("deletePageDescription")}{" "}
+              <span className="font-semibold">{itemToDelete?.name}</span>?{" "}
+              {t("deleteWarning")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
+              {t("cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t("deleting")}
+                </>
+              ) : (
+                t("delete")
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Create dialog */}
+      <AlertDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {createType === "folder"
+                ? t("createFolderTitle")
+                : t("createPageTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {createType === "folder"
+                ? t("createFolderDescription")
+                : t("createPageDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <Input
+              type="text"
+              placeholder={t("titlePlaceholder")}
+              value={createTitle}
+              onChange={(e) => setCreateTitle(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && createTitle.trim()) {
+                  handleCreate();
+                }
+              }}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isCreating}>
+              {t("cancel")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCreate}
+              disabled={isCreating || !createTitle.trim()}
+            >
+              {isCreating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t("creating")}
+                </>
+              ) : (
+                <>
+                  <Plus className="h-4 w-4" />
+                  {t("create")}
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

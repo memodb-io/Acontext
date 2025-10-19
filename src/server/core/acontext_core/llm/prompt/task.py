@@ -68,7 +68,7 @@ Use extremely brief wordings to report:
 1. Any user requirement or planning?
 2. How existing tasks are related to current conversation? 
 3. Any new task is created?
-4. Messages are contributed to which task?
+4. Which Messages are contributed to planning? Which of them are contributed to which task?
 5. Which task's status/description need to be updated?
 6. Describe your tool-call actions to correctly manage the tasks.
 7. Confirm your will call `finish` tool after every tools are called

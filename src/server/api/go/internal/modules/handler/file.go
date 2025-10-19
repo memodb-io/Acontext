@@ -1,11 +1,11 @@
 package handler
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
+	"github.com/bytedance/sonic"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/modules/model"
@@ -75,7 +75,7 @@ func (h *FileHandler) CreateFile(c *gin.Context) {
 	// Parse user meta from JSON string
 	var userMeta map[string]interface{}
 	if req.Meta != "" {
-		if err := json.Unmarshal([]byte(req.Meta), &userMeta); err != nil {
+		if err := sonic.Unmarshal([]byte(req.Meta), &userMeta); err != nil {
 			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid meta JSON format", err))
 			return
 		}

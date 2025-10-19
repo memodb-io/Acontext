@@ -14,7 +14,7 @@ type Message struct {
 	Parent    *Message   `gorm:"foreignKey:ParentID;references:ID;constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"parent"`
 	Children  []Message  `gorm:"foreignKey:ParentID;constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"children"`
 
-	Role string `gorm:"type:text;not null;check:role IN ('user','assistant','system','tool','function')" json:"role"`
+	Role string `gorm:"type:text;not null;check:role IN ('user','assistant','system')" json:"role"`
 
 	PartsMeta datatypes.JSONType[Asset] `gorm:"type:jsonb;not null" swaggertype:"-" json:"-"`
 	Parts     []Part                    `gorm:"-" swaggertype:"array,object" json:"parts"`

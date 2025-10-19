@@ -1,6 +1,9 @@
 import { createApiResponse, createApiError } from "@/lib/api-response";
 import { GetMessagesResp } from "@/types";
 
+// Define unified message format for both GET and POST
+const MESSAGE_FORMAT = "acontext";
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ session_id: string }> }
@@ -21,13 +24,16 @@ export async function GET(
       const params = new URLSearchParams({
         limit,
         with_asset_public_url,
+        format: MESSAGE_FORMAT,
       });
       if (cursor) {
         params.append("cursor", cursor);
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_SERVER_URL}/api/v1/session/${session_id}/messages?${params.toString()}`,
+        `${
+          process.env.NEXT_PUBLIC_API_SERVER_URL
+        }/api/v1/session/${session_id}/messages?${params.toString()}`,
         {
           method: "GET",
           headers: {
@@ -74,23 +80,37 @@ export async function POST(
 
       let fetchOptions: RequestInit;
 
-      // 判断是否是 multipart/form-data
+      // Check if it's multipart/form-data
       if (contentType.includes("multipart/form-data")) {
-        // 处理文件上传
+        // Handle file upload
         const formData = await request.formData();
 
-        // 直接转发 FormData 给后端
+        // If there's JSON in payload, add format parameter
+        const payloadStr = formData.get("payload") as string | null;
+        if (payloadStr) {
+          const payload = JSON.parse(payloadStr);
+          payload.format = MESSAGE_FORMAT;
+          formData.set("payload", JSON.stringify(payload));
+        }
+
+        // Forward FormData directly to backend
         fetchOptions = {
           method: "POST",
           headers: {
             Authorization: `Bearer sk-ac-${process.env.ROOT_API_BEARER_TOKEN}`,
-            // 不设置 Content-Type，让浏览器自动设置 multipart/form-data boundary
+            // Don't set Content-Type, let browser automatically set multipart/form-data boundary
           },
           body: formData,
         };
       } else {
-        // 处理 JSON 数据
+        // Handle JSON data
         const body = await request.json();
+
+        // Add format parameter
+        const bodyWithFormat = {
+          ...body,
+          format: MESSAGE_FORMAT,
+        };
 
         fetchOptions = {
           method: "POST",
@@ -98,7 +118,7 @@ export async function POST(
             "Content-Type": "application/json",
             Authorization: `Bearer sk-ac-${process.env.ROOT_API_BEARER_TOKEN}`,
           },
-          body: JSON.stringify(body),
+          body: JSON.stringify(bodyWithFormat),
         };
       }
 
@@ -132,4 +152,3 @@ export async function POST(
     return createApiError("Internal Server Error");
   }
 }
-

@@ -239,15 +239,15 @@ export default function MessagesPage() {
     try {
       setIsSendingMessage(true);
 
-      // 构建 parts 数组
+      // Build parts array
       const parts: MessagePartIn[] = [];
 
-      // 添加文本 part（如果有）
+      // Add text part if present
       if (newMessageText.trim()) {
         parts.push({ type: "text", text: newMessageText });
       }
 
-      // 构建文件映射和文件 parts
+      // Build file mapping and file parts
       const files: Record<string, File> = {};
       uploadedFiles.forEach((fileItem) => {
         const fieldName = fileItem.id;
@@ -258,7 +258,7 @@ export default function MessagesPage() {
         });
       });
 
-      // 发送消息
+      // Send message
       const res = await sendMessage(
         selectedSession.id,
         newMessageRole,

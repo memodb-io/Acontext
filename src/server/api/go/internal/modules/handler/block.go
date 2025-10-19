@@ -570,3 +570,276 @@ func (h *BlockHandler) UpdateBlockSort(c *gin.Context) {
 
 	c.JSON(http.StatusOK, serializer.Response{})
 }
+
+// Folder-related handlers
+
+type CreateFolderReq struct {
+	ParentID *uuid.UUID     `from:"parent_id" json:"parent_id"`
+	Title    string         `form:"title" json:"title"`
+	Props    map[string]any `form:"props" json:"props"`
+}
+
+// CreateFolder godoc
+//
+//	@Summary		Create folder
+//	@Description	Create a new folder in the space
+//	@Tags			folder
+//	@Accept			json
+//	@Produce		json
+//	@Param			space_id	path	string					true	"Space ID"	Format(uuid)
+//	@Param			payload		body	handler.CreateFolderReq	true	"CreateFolder payload"
+//	@Security		BearerAuth
+//	@Success		201	{object}	serializer.Response{data=model.Block}
+//	@Router			/space/{space_id}/folder [post]
+func (h *BlockHandler) CreateFolder(c *gin.Context) {
+	spaceID, err := uuid.Parse(c.Param("space_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	req := CreateFolderReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	folder := model.Block{
+		SpaceID:  spaceID,
+		Type:     model.BlockTypeFolder,
+		ParentID: req.ParentID,
+		Title:    req.Title,
+		Props:    datatypes.NewJSONType(req.Props),
+	}
+	if err := h.svc.CreateFolder(c.Request.Context(), &folder); err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		return
+	}
+
+	c.JSON(http.StatusCreated, serializer.Response{Data: folder})
+}
+
+// DeleteFolder godoc
+//
+//	@Summary		Delete folder
+//	@Description	Delete a folder by its ID in the space
+//	@Tags			folder
+//	@Accept			json
+//	@Produce		json
+//	@Param			space_id	path	string	true	"Space ID"	Format(uuid)
+//	@Param			folder_id	path	string	true	"Folder ID"	Format(uuid)
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response
+//	@Router			/space/{space_id}/folder/{folder_id} [delete]
+func (h *BlockHandler) DeleteFolder(c *gin.Context) {
+	spaceID, err := uuid.Parse(c.Param("space_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	folderID, err := uuid.Parse(c.Param("folder_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	if err := h.svc.DeleteFolder(c.Request.Context(), spaceID, folderID); err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{})
+}
+
+// GetFolderProperties godoc
+//
+//	@Summary		Get folder properties
+//	@Description	Get folder properties by folder ID
+//	@Tags			folder
+//	@Accept			json
+//	@Produce		json
+//	@Param			space_id	path	string	true	"Space ID"	Format(uuid)
+//	@Param			folder_id	path	string	true	"Folder ID"	Format(uuid)
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response{data=model.Block}
+//	@Router			/space/{space_id}/folder/{folder_id}/properties [get]
+func (h *BlockHandler) GetFolderProperties(c *gin.Context) {
+	folderID, err := uuid.Parse(c.Param("folder_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	b, err := h.svc.GetFolderProperties(c.Request.Context(), folderID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{Data: b})
+}
+
+type UpdateFolderPropertiesReq struct {
+	Title string         `form:"title" json:"title"`
+	Props map[string]any `form:"props" json:"props"`
+}
+
+// UpdateFolderProperties godoc
+//
+//	@Summary		Update folder properties
+//	@Description	Update folder title and properties
+//	@Tags			folder
+//	@Accept			json
+//	@Produce		json
+//	@Param			space_id	path	string								true	"Space ID"	Format(uuid)
+//	@Param			folder_id	path	string								true	"Folder ID"	Format(uuid)
+//	@Param			payload		body	handler.UpdateFolderPropertiesReq	true	"UpdateFolderProperties payload"
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response
+//	@Router			/space/{space_id}/folder/{folder_id}/properties [put]
+func (h *BlockHandler) UpdateFolderProperties(c *gin.Context) {
+	folderID, err := uuid.Parse(c.Param("folder_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	req := UpdateFolderPropertiesReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	b := model.Block{
+		ID:    folderID,
+		Title: req.Title,
+		Props: datatypes.NewJSONType(req.Props),
+	}
+	if err := h.svc.UpdateFolderProperties(c.Request.Context(), &b); err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{})
+}
+
+// ListFolders godoc
+//
+//	@Summary		List folders
+//	@Description	List folders in a space, optionally filtered by parent_id (use parent_id query parameter to get children of a specific folder, or omit it to get top-level folders where parent_id is null)
+//	@Tags			folder
+//	@Accept			json
+//	@Produce		json
+//	@Param			space_id	path	string	true	"Space ID"	Format(uuid)
+//	@Param			parent_id	query	string	false	"Parent ID"	Format(uuid)
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response{data=[]model.Block}
+//	@Router			/space/{space_id}/folder [get]
+func (h *BlockHandler) ListFolders(c *gin.Context) {
+	spaceID, err := uuid.Parse(c.Param("space_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	var parentID *uuid.UUID
+	if parentIDStr := c.Query("parent_id"); parentIDStr != "" {
+		pid, err := uuid.Parse(parentIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("parent_id", err))
+			return
+		}
+		parentID = &pid
+	}
+
+	list, err := h.svc.ListFolders(c.Request.Context(), spaceID, parentID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{Data: list})
+}
+
+type MoveFolderReq struct {
+	ParentID *uuid.UUID `form:"parent_id" json:"parent_id"`
+	Sort     *int64     `form:"sort" json:"sort"`
+}
+
+// MoveFolder godoc
+//
+//	@Summary		Move folder (change parent_id)
+//	@Description	Move folder by updating its parent_id
+//	@Tags			folder
+//	@Accept			json
+//	@Produce		json
+//	@Param			space_id	path	string					true	"Space ID"	Format(uuid)
+//	@Param			folder_id	path	string					true	"Folder ID"	Format(uuid)
+//	@Param			payload		body	handler.MoveFolderReq	true	"MoveFolder payload"
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response
+//	@Router			/space/{space_id}/folder/{folder_id}/move [put]
+func (h *BlockHandler) MoveFolder(c *gin.Context) {
+	folderID, err := uuid.Parse(c.Param("folder_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+	req := MoveFolderReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	// Validate: parent_id cannot be the folder itself
+	if req.ParentID != nil && *req.ParentID == folderID {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("parent_id", errors.New("parent_id cannot be self")))
+		return
+	}
+
+	if err := h.svc.MoveFolder(c.Request.Context(), folderID, req.ParentID, req.Sort); err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{})
+}
+
+type UpdateFolderSortReq struct {
+	Sort int64 `form:"sort" json:"sort"`
+}
+
+// UpdateFolderSort godoc
+//
+//	@Summary		Update folder sort
+//	@Description	Update folder sort value
+//	@Tags			folder
+//	@Accept			json
+//	@Produce		json
+//	@Param			space_id	path	string						true	"Space ID"	Format(uuid)
+//	@Param			folder_id	path	string						true	"Folder ID"	Format(uuid)
+//	@Param			payload		body	handler.UpdateFolderSortReq	true	"UpdateFolderSort payload"
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response
+//	@Router			/space/{space_id}/folder/{folder_id}/sort [put]
+func (h *BlockHandler) UpdateFolderSort(c *gin.Context) {
+	folderID, err := uuid.Parse(c.Param("folder_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	req := UpdateFolderSortReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	if err := h.svc.UpdateFolderSort(c.Request.Context(), folderID, req.Sort); err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{})
+}

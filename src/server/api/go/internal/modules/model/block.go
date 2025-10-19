@@ -17,16 +17,22 @@ type BlockTypeConfig struct {
 
 // For backward compatibility, keep the constant definitions
 const (
-	BlockTypePage    = "page"
-	BlockTypeText    = "text"
-	BlockTypeSnippet = "snippet"
+	BlockTypePage   = "page"
+	BlockTypeFolder = "folder"
+	BlockTypeText   = "text"
+	BlockTypeSOP    = "sop"
 )
 
 // BlockType Define all supported block types
 var BlockTypes = map[string]BlockTypeConfig{
+	BlockTypeFolder: {
+		Name:          BlockTypeFolder,
+		AllowChildren: true,
+		RequireParent: false,
+	},
 	BlockTypePage: {
 		Name:          BlockTypePage,
-		AllowChildren: true,
+		AllowChildren: false,
 		RequireParent: false,
 	},
 	BlockTypeText: {
@@ -34,8 +40,8 @@ var BlockTypes = map[string]BlockTypeConfig{
 		AllowChildren: true,
 		RequireParent: true,
 	},
-	BlockTypeSnippet: {
-		Name:          BlockTypeSnippet,
+	BlockTypeSOP: {
+		Name:          BlockTypeSOP,
 		AllowChildren: true,
 		RequireParent: true,
 	},
@@ -99,8 +105,9 @@ func (b *Block) Validate() error {
 		return fmt.Errorf("block type '%s' requires a parent", b.Type)
 	}
 
-	if !config.RequireParent && b.Type != BlockTypePage && b.ParentID == nil {
-		return fmt.Errorf("only page type blocks can exist without a parent")
+	// Only page and folder types can exist without a parent
+	if !config.RequireParent && b.Type != BlockTypePage && b.Type != BlockTypeFolder && b.ParentID == nil {
+		return fmt.Errorf("only page and folder type blocks can exist without a parent")
 	}
 
 	return nil
@@ -123,4 +130,62 @@ func (b *Block) CanHaveChildren() bool {
 		return false
 	}
 	return config.AllowChildren
+}
+
+// ValidateParentType Check if the parent type is valid for this block
+// Other blocks (text, sop, etc.) cannot have folder as parent
+func (b *Block) ValidateParentType(parent *Block) error {
+	if parent == nil {
+		return nil
+	}
+
+	// Pages can have folder or no parent
+	if b.Type == BlockTypePage {
+		if parent.Type != BlockTypeFolder {
+			return fmt.Errorf("page can only have folder as parent")
+		}
+		return nil
+	}
+
+	// Folders can have folder or no parent
+	if b.Type == BlockTypeFolder {
+		if parent.Type != BlockTypeFolder {
+			return fmt.Errorf("folder can only have folder as parent")
+		}
+		return nil
+	}
+
+	// Other blocks (text, sop, etc.) cannot have folder as parent
+	if parent.Type == BlockTypeFolder {
+		return fmt.Errorf("block type '%s' cannot have folder as parent", b.Type)
+	}
+
+	return nil
+}
+
+// GetFolderPath Get the hierarchical path for a folder from Props
+func (b *Block) GetFolderPath() string {
+	if b.Type != BlockTypeFolder {
+		return ""
+	}
+	propsData := b.Props.Data()
+	if propsData != nil {
+		if path, ok := propsData["path"].(string); ok {
+			return path
+		}
+	}
+	return ""
+}
+
+// SetFolderPath Set the hierarchical path for a folder in Props
+func (b *Block) SetFolderPath(path string) {
+	if b.Type != BlockTypeFolder {
+		return
+	}
+	propsData := b.Props.Data()
+	if propsData == nil {
+		propsData = make(map[string]any)
+	}
+	propsData["path"] = path
+	b.Props = datatypes.NewJSONType(propsData)
 }

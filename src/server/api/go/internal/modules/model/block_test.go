@@ -20,13 +20,18 @@ func TestIsValidBlockType(t *testing.T) {
 			expected:  true,
 		},
 		{
+			name:      "valid folder type",
+			blockType: BlockTypeFolder,
+			expected:  true,
+		},
+		{
 			name:      "valid text type",
 			blockType: BlockTypeText,
 			expected:  true,
 		},
 		{
-			name:      "valid code snippet type",
-			blockType: BlockTypeSnippet,
+			name:      "valid code sop type",
+			blockType: BlockTypeSOP,
 			expected:  true,
 		},
 		{
@@ -62,6 +67,16 @@ func TestGetBlockTypeConfig(t *testing.T) {
 			wantErr:   false,
 			expected: BlockTypeConfig{
 				Name:          BlockTypePage,
+				AllowChildren: false,
+				RequireParent: false,
+			},
+		},
+		{
+			name:      "get folder type config",
+			blockType: BlockTypeFolder,
+			wantErr:   false,
+			expected: BlockTypeConfig{
+				Name:          BlockTypeFolder,
 				AllowChildren: true,
 				RequireParent: false,
 			},
@@ -77,11 +92,11 @@ func TestGetBlockTypeConfig(t *testing.T) {
 			},
 		},
 		{
-			name:      "get code snippet type config",
-			blockType: BlockTypeSnippet,
+			name:      "get code sop type config",
+			blockType: BlockTypeSOP,
 			wantErr:   false,
 			expected: BlockTypeConfig{
-				Name:          BlockTypeSnippet,
+				Name:          BlockTypeSOP,
 				AllowChildren: true,
 				RequireParent: true,
 			},
@@ -115,14 +130,20 @@ func TestGetAllBlockTypes(t *testing.T) {
 
 		// Verify contains expected types
 		assert.Contains(t, allTypes, BlockTypePage)
+		assert.Contains(t, allTypes, BlockTypeFolder)
 		assert.Contains(t, allTypes, BlockTypeText)
-		assert.Contains(t, allTypes, BlockTypeSnippet)
+		assert.Contains(t, allTypes, BlockTypeSOP)
 
 		// Verify configuration for each type
 		pageConfig := allTypes[BlockTypePage]
 		assert.Equal(t, BlockTypePage, pageConfig.Name)
-		assert.True(t, pageConfig.AllowChildren)
+		assert.False(t, pageConfig.AllowChildren)
 		assert.False(t, pageConfig.RequireParent)
+
+		folderConfig := allTypes[BlockTypeFolder]
+		assert.Equal(t, BlockTypeFolder, folderConfig.Name)
+		assert.True(t, folderConfig.AllowChildren)
+		assert.False(t, folderConfig.RequireParent)
 
 		textConfig := allTypes[BlockTypeText]
 		assert.Equal(t, BlockTypeText, textConfig.Name)
@@ -161,12 +182,12 @@ func TestBlock_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "valid code snippet block (with parent)",
+			name: "valid code sop block (with parent)",
 			block: Block{
 				SpaceID:  spaceID,
-				Type:     BlockTypeSnippet,
+				Type:     BlockTypeSOP,
 				ParentID: &parentID,
-				Title:    "test code snippet",
+				Title:    "test code sop",
 			},
 			wantErr: false,
 		},
@@ -191,11 +212,11 @@ func TestBlock_Validate(t *testing.T) {
 			errMsg:  "requires a parent",
 		},
 		{
-			name: "code snippet block missing parent",
+			name: "code sop block missing parent",
 			block: Block{
 				SpaceID: spaceID,
-				Type:    BlockTypeSnippet,
-				Title:   "test code snippet",
+				Type:    BlockTypeSOP,
+				Title:   "test code sop",
 			},
 			wantErr: true,
 			errMsg:  "requires a parent",
@@ -207,6 +228,25 @@ func TestBlock_Validate(t *testing.T) {
 				Type:     BlockTypePage,
 				ParentID: &parentID,
 				Title:    "child page",
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid folder block without parent",
+			block: Block{
+				SpaceID: spaceID,
+				Type:    BlockTypeFolder,
+				Title:   "root folder",
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid folder block with parent",
+			block: Block{
+				SpaceID:  spaceID,
+				Type:     BlockTypeFolder,
+				ParentID: &parentID,
+				Title:    "subfolder",
 			},
 			wantErr: false,
 		},
@@ -304,9 +344,16 @@ func TestBlock_CanHaveChildren(t *testing.T) {
 		expected bool
 	}{
 		{
-			name: "page block can have children",
+			name: "page block cannot have children",
 			block: Block{
 				Type: BlockTypePage,
+			},
+			expected: false,
+		},
+		{
+			name: "folder block can have children",
+			block: Block{
+				Type: BlockTypeFolder,
 			},
 			expected: true,
 		},
@@ -318,9 +365,9 @@ func TestBlock_CanHaveChildren(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "code snippet block can have children",
+			name: "code sop block can have children",
 			block: Block{
-				Type: BlockTypeSnippet,
+				Type: BlockTypeSOP,
 			},
 			expected: true,
 		},
@@ -359,8 +406,9 @@ func TestBlock_TableName(t *testing.T) {
 func TestBlockTypeConstants(t *testing.T) {
 	t.Run("verify block type constants", func(t *testing.T) {
 		assert.Equal(t, "page", BlockTypePage)
+		assert.Equal(t, "folder", BlockTypeFolder)
 		assert.Equal(t, "text", BlockTypeText)
-		assert.Equal(t, "snippet", BlockTypeSnippet)
+		assert.Equal(t, "sop", BlockTypeSOP)
 	})
 }
 
@@ -370,8 +418,15 @@ func TestBlockTypes_Configuration(t *testing.T) {
 		pageConfig, exists := BlockTypes[BlockTypePage]
 		assert.True(t, exists)
 		assert.Equal(t, BlockTypePage, pageConfig.Name)
-		assert.True(t, pageConfig.AllowChildren)
+		assert.False(t, pageConfig.AllowChildren)
 		assert.False(t, pageConfig.RequireParent)
+
+		// Verify folder type configuration
+		folderConfig, exists := BlockTypes[BlockTypeFolder]
+		assert.True(t, exists)
+		assert.Equal(t, BlockTypeFolder, folderConfig.Name)
+		assert.True(t, folderConfig.AllowChildren)
+		assert.False(t, folderConfig.RequireParent)
 
 		// Verify text type configuration
 		textConfig, exists := BlockTypes[BlockTypeText]
@@ -380,11 +435,230 @@ func TestBlockTypes_Configuration(t *testing.T) {
 		assert.True(t, textConfig.AllowChildren)
 		assert.True(t, textConfig.RequireParent)
 
-		// Verify code snippet type configuration
-		snippetConfig, exists := BlockTypes[BlockTypeSnippet]
+		// Verify code sop type configuration
+		sopConfig, exists := BlockTypes[BlockTypeSOP]
 		assert.True(t, exists)
-		assert.Equal(t, BlockTypeSnippet, snippetConfig.Name)
-		assert.True(t, snippetConfig.AllowChildren)
-		assert.True(t, snippetConfig.RequireParent)
+		assert.Equal(t, BlockTypeSOP, sopConfig.Name)
+		assert.True(t, sopConfig.AllowChildren)
+		assert.True(t, sopConfig.RequireParent)
 	})
+}
+
+func TestBlock_ValidateParentType(t *testing.T) {
+	tests := []struct {
+		name    string
+		block   Block
+		parent  *Block
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "page with folder parent - valid",
+			block: Block{
+				Type: BlockTypePage,
+			},
+			parent: &Block{
+				Type: BlockTypeFolder,
+			},
+			wantErr: false,
+		},
+		{
+			name: "page with page parent - invalid",
+			block: Block{
+				Type: BlockTypePage,
+			},
+			parent: &Block{
+				Type: BlockTypePage,
+			},
+			wantErr: true,
+			errMsg:  "page can only have folder as parent",
+		},
+		{
+			name: "page without parent - valid",
+			block: Block{
+				Type: BlockTypePage,
+			},
+			parent:  nil,
+			wantErr: false,
+		},
+		{
+			name: "folder with folder parent - valid",
+			block: Block{
+				Type: BlockTypeFolder,
+			},
+			parent: &Block{
+				Type: BlockTypeFolder,
+			},
+			wantErr: false,
+		},
+		{
+			name: "folder with page parent - invalid",
+			block: Block{
+				Type: BlockTypeFolder,
+			},
+			parent: &Block{
+				Type: BlockTypePage,
+			},
+			wantErr: true,
+			errMsg:  "folder can only have folder as parent",
+		},
+		{
+			name: "folder without parent - valid",
+			block: Block{
+				Type: BlockTypeFolder,
+			},
+			parent:  nil,
+			wantErr: false,
+		},
+		{
+			name: "text with page parent - valid",
+			block: Block{
+				Type: BlockTypeText,
+			},
+			parent: &Block{
+				Type: BlockTypePage,
+			},
+			wantErr: false,
+		},
+		{
+			name: "text with folder parent - invalid",
+			block: Block{
+				Type: BlockTypeText,
+			},
+			parent: &Block{
+				Type: BlockTypeFolder,
+			},
+			wantErr: true,
+			errMsg:  "cannot have folder as parent",
+		},
+		{
+			name: "sop with text parent - valid",
+			block: Block{
+				Type: BlockTypeSOP,
+			},
+			parent: &Block{
+				Type: BlockTypeText,
+			},
+			wantErr: false,
+		},
+		{
+			name: "sop with folder parent - invalid",
+			block: Block{
+				Type: BlockTypeSOP,
+			},
+			parent: &Block{
+				Type: BlockTypeFolder,
+			},
+			wantErr: true,
+			errMsg:  "cannot have folder as parent",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.block.ValidateParentType(tt.parent)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestBlock_GetFolderPath(t *testing.T) {
+	tests := []struct {
+		name     string
+		block    Block
+		expected string
+	}{
+		{
+			name: "folder with path in props",
+			block: Block{
+				Type:  BlockTypeFolder,
+				Props: datatypes.NewJSONType(map[string]any{"path": "folder1/folder2"}),
+			},
+			expected: "folder1/folder2",
+		},
+		{
+			name: "folder without path in props",
+			block: Block{
+				Type:  BlockTypeFolder,
+				Props: datatypes.NewJSONType(map[string]any{}),
+			},
+			expected: "",
+		},
+		{
+			name: "folder with empty props data",
+			block: Block{
+				Type:  BlockTypeFolder,
+				Props: datatypes.NewJSONType(map[string]any(nil)),
+			},
+			expected: "",
+		},
+		{
+			name: "non-folder type",
+			block: Block{
+				Type:  BlockTypePage,
+				Props: datatypes.NewJSONType(map[string]any{"path": "should/be/ignored"}),
+			},
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := tt.block.GetFolderPath()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestBlock_SetFolderPath(t *testing.T) {
+	tests := []struct {
+		name     string
+		block    Block
+		path     string
+		expected string
+	}{
+		{
+			name: "set path on folder",
+			block: Block{
+				Type:  BlockTypeFolder,
+				Props: datatypes.NewJSONType(map[string]any{}),
+			},
+			path:     "folder1/folder2",
+			expected: "folder1/folder2",
+		},
+		{
+			name: "set path on folder with existing props",
+			block: Block{
+				Type:  BlockTypeFolder,
+				Props: datatypes.NewJSONType(map[string]any{"other": "data"}),
+			},
+			path:     "new/path",
+			expected: "new/path",
+		},
+		{
+			name: "set path on non-folder type",
+			block: Block{
+				Type:  BlockTypePage,
+				Props: datatypes.NewJSONType(map[string]any{}),
+			},
+			path:     "should/not/set",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.block.SetFolderPath(tt.path)
+			result := tt.block.GetFolderPath()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
 }

@@ -143,6 +143,25 @@
     "loadingPages": "Loading pages...",
     "noPages": "No pages found in this space.",
     "selectPagePrompt": "Select a page to view its content",
-    "noBlocks": "This page has no content blocks."
+    "noBlocks": "This page has no content blocks.",
+    "rootFolder": "Root",
+    "createFolderTooltip": "Create new folder",
+    "createPageTooltip": "Create new page",
+    "deleteTooltip": "Delete",
+    "deleteFolderTitle": "Delete Folder",
+    "deletePageTitle": "Delete Page",
+    "deleteFolderDescription": "Are you sure you want to delete folder",
+    "deletePageDescription": "Are you sure you want to delete page",
+    "deleteWarning": "This action cannot be undone.",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "deleting": "Deleting...",
+    "createFolderTitle": "Create New Folder",
+    "createPageTitle": "Create New Page",
+    "createFolderDescription": "Enter a title for the new folder",
+    "createPageDescription": "Enter a title for the new page",
+    "titlePlaceholder": "Enter title...",
+    "create": "Create",
+    "creating": "Creating..."
   }
 }

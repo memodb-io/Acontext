@@ -125,7 +125,7 @@ func TestBlockService_CreatePage(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "valid parent page",
+			name: "valid parent folder",
 			block: &model.Block{
 				SpaceID:  spaceID,
 				ParentID: &parentID,
@@ -134,7 +134,7 @@ func TestBlockService_CreatePage(t *testing.T) {
 			setup: func(repo *MockBlockRepo) {
 				parentBlock := &model.Block{
 					ID:   parentID,
-					Type: model.BlockTypePage,
+					Type: model.BlockTypeFolder,
 				}
 				repo.On("Get", ctx, parentID).Return(parentBlock, nil)
 				repo.On("NextSort", ctx, spaceID, &parentID).Return(int64(2), nil)
@@ -154,12 +154,12 @@ func TestBlockService_CreatePage(t *testing.T) {
 			setup: func(repo *MockBlockRepo) {
 				parentBlock := &model.Block{
 					ID:   parentID,
-					Type: "text", // Not a page type
+					Type: model.BlockTypePage, // pages cannot have page children
 				}
 				repo.On("Get", ctx, parentID).Return(parentBlock, nil)
 			},
 			wantErr: true,
-			errMsg:  "parent must be a page",
+			errMsg:  "page can only have folder as parent",
 		},
 	}
 
@@ -309,6 +309,24 @@ func TestBlockService_CreateBlock(t *testing.T) {
 			wantErr: true,
 			errMsg:  "parent cannot have children",
 		},
+		{
+			name: "text block with folder parent - invalid",
+			block: &model.Block{
+				SpaceID:  spaceID,
+				ParentID: &parentID,
+				Type:     "text",
+				Title:    "test block",
+			},
+			setup: func(repo *MockBlockRepo) {
+				parentBlock := &model.Block{
+					ID:   parentID,
+					Type: model.BlockTypeFolder,
+				}
+				repo.On("Get", ctx, parentID).Return(parentBlock, nil)
+			},
+			wantErr: true,
+			errMsg:  "cannot have folder as parent",
+		},
 	}
 
 	for _, tt := range tests {
@@ -324,6 +342,309 @@ func TestBlockService_CreateBlock(t *testing.T) {
 				if tt.errMsg != "" {
 					assert.Contains(t, err.Error(), tt.errMsg)
 				}
+			} else {
+				assert.NoError(t, err)
+			}
+
+			repo.AssertExpectations(t)
+		})
+	}
+}
+
+// Folder service tests
+
+func TestBlockService_CreateFolder(t *testing.T) {
+	ctx := context.Background()
+	spaceID := uuid.New()
+	parentID := uuid.New()
+
+	tests := []struct {
+		name         string
+		block        *model.Block
+		setup        func(*MockBlockRepo)
+		wantErr      bool
+		errMsg       string
+		expectedPath string
+	}{
+		{
+			name: "successful folder creation without parent",
+			block: &model.Block{
+				SpaceID: spaceID,
+				Title:   "RootFolder",
+			},
+			setup: func(repo *MockBlockRepo) {
+				repo.On("NextSort", ctx, spaceID, (*uuid.UUID)(nil)).Return(int64(1), nil)
+				repo.On("Create", ctx, mock.MatchedBy(func(b *model.Block) bool {
+					return b.Type == model.BlockTypeFolder && b.Sort == 1 && b.GetFolderPath() == "RootFolder"
+				})).Return(nil)
+			},
+			wantErr:      false,
+			expectedPath: "RootFolder",
+		},
+		{
+			name: "successful folder creation with parent",
+			block: &model.Block{
+				SpaceID:  spaceID,
+				ParentID: &parentID,
+				Title:    "Subfolder",
+			},
+			setup: func(repo *MockBlockRepo) {
+				parentBlock := &model.Block{
+					ID:   parentID,
+					Type: model.BlockTypeFolder,
+				}
+				parentBlock.SetFolderPath("RootFolder")
+				repo.On("Get", ctx, parentID).Return(parentBlock, nil)
+				repo.On("NextSort", ctx, spaceID, &parentID).Return(int64(2), nil)
+				repo.On("Create", ctx, mock.MatchedBy(func(b *model.Block) bool {
+					return b.Type == model.BlockTypeFolder && b.Sort == 2 && b.GetFolderPath() == "RootFolder/Subfolder"
+				})).Return(nil)
+			},
+			wantErr:      false,
+			expectedPath: "RootFolder/Subfolder",
+		},
+		{
+			name: "invalid parent type",
+			block: &model.Block{
+				SpaceID:  spaceID,
+				ParentID: &parentID,
+				Title:    "Subfolder",
+			},
+			setup: func(repo *MockBlockRepo) {
+				parentBlock := &model.Block{
+					ID:   parentID,
+					Type: model.BlockTypePage, // pages cannot be folder parents
+				}
+				repo.On("Get", ctx, parentID).Return(parentBlock, nil)
+			},
+			wantErr: true,
+			errMsg:  "folder can only have folder as parent",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &MockBlockRepo{}
+			tt.setup(repo)
+
+			service := NewBlockService(repo)
+			err := service.CreateFolder(ctx, tt.block)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, model.BlockTypeFolder, tt.block.Type)
+				if tt.expectedPath != "" {
+					assert.Equal(t, tt.expectedPath, tt.block.GetFolderPath())
+				}
+			}
+
+			repo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBlockService_DeleteFolder(t *testing.T) {
+	ctx := context.Background()
+	spaceID := uuid.New()
+	folderID := uuid.New()
+
+	tests := []struct {
+		name     string
+		folderID uuid.UUID
+		setup    func(*MockBlockRepo)
+		wantErr  bool
+	}{
+		{
+			name:     "successful folder deletion",
+			folderID: folderID,
+			setup: func(repo *MockBlockRepo) {
+				repo.On("Delete", ctx, spaceID, folderID).Return(nil)
+			},
+			wantErr: false,
+		},
+		{
+			name:     "deletion failure",
+			folderID: folderID,
+			setup: func(repo *MockBlockRepo) {
+				repo.On("Delete", ctx, spaceID, folderID).Return(errors.New("database error"))
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &MockBlockRepo{}
+			tt.setup(repo)
+
+			service := NewBlockService(repo)
+			err := service.DeleteFolder(ctx, spaceID, tt.folderID)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+
+			repo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBlockService_MoveFolder(t *testing.T) {
+	ctx := context.Background()
+	folderID := uuid.New()
+	newParentID := uuid.New()
+
+	tests := []struct {
+		name         string
+		folderID     uuid.UUID
+		newParentID  *uuid.UUID
+		targetSort   *int64
+		setup        func(*MockBlockRepo)
+		wantErr      bool
+		errMsg       string
+		expectedPath string
+	}{
+		{
+			name:        "move folder to root",
+			folderID:    folderID,
+			newParentID: nil,
+			targetSort:  nil,
+			setup: func(repo *MockBlockRepo) {
+				folder := &model.Block{
+					ID:    folderID,
+					Type:  model.BlockTypeFolder,
+					Title: "MovedFolder",
+				}
+				folder.SetFolderPath("OldParent/MovedFolder")
+				repo.On("Get", ctx, folderID).Return(folder, nil)
+				repo.On("Update", ctx, mock.MatchedBy(func(b *model.Block) bool {
+					return b.GetFolderPath() == "MovedFolder"
+				})).Return(nil)
+				repo.On("MoveToParentAppend", ctx, folderID, (*uuid.UUID)(nil)).Return(nil)
+			},
+			wantErr:      false,
+			expectedPath: "MovedFolder",
+		},
+		{
+			name:        "move folder to new parent",
+			folderID:    folderID,
+			newParentID: &newParentID,
+			targetSort:  nil,
+			setup: func(repo *MockBlockRepo) {
+				folder := &model.Block{
+					ID:    folderID,
+					Type:  model.BlockTypeFolder,
+					Title: "MovedFolder",
+				}
+				newParent := &model.Block{
+					ID:   newParentID,
+					Type: model.BlockTypeFolder,
+				}
+				newParent.SetFolderPath("NewParent")
+				repo.On("Get", ctx, folderID).Return(folder, nil)
+				repo.On("Get", ctx, newParentID).Return(newParent, nil)
+				repo.On("Update", ctx, mock.MatchedBy(func(b *model.Block) bool {
+					return b.GetFolderPath() == "NewParent/MovedFolder"
+				})).Return(nil)
+				repo.On("MoveToParentAppend", ctx, folderID, &newParentID).Return(nil)
+			},
+			wantErr:      false,
+			expectedPath: "NewParent/MovedFolder",
+		},
+		{
+			name:        "move folder to invalid parent type",
+			folderID:    folderID,
+			newParentID: &newParentID,
+			targetSort:  nil,
+			setup: func(repo *MockBlockRepo) {
+				folder := &model.Block{
+					ID:    folderID,
+					Type:  model.BlockTypeFolder,
+					Title: "MovedFolder",
+				}
+				invalidParent := &model.Block{
+					ID:   newParentID,
+					Type: model.BlockTypePage, // pages cannot be folder parents
+				}
+				repo.On("Get", ctx, folderID).Return(folder, nil)
+				repo.On("Get", ctx, newParentID).Return(invalidParent, nil)
+			},
+			wantErr: true,
+			errMsg:  "folder can only have folder as parent",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &MockBlockRepo{}
+			tt.setup(repo)
+
+			service := NewBlockService(repo)
+			err := service.MoveFolder(ctx, tt.folderID, tt.newParentID, tt.targetSort)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
+			} else {
+				assert.NoError(t, err)
+			}
+
+			repo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBlockService_ListFolders(t *testing.T) {
+	ctx := context.Background()
+	spaceID := uuid.New()
+	parentID := uuid.New()
+
+	tests := []struct {
+		name     string
+		spaceID  uuid.UUID
+		parentID *uuid.UUID
+		setup    func(*MockBlockRepo)
+		wantErr  bool
+	}{
+		{
+			name:     "list top-level folders",
+			spaceID:  spaceID,
+			parentID: nil,
+			setup: func(repo *MockBlockRepo) {
+				repo.On("ListBySpace", ctx, spaceID, model.BlockTypeFolder, (*uuid.UUID)(nil)).Return([]model.Block{}, nil)
+			},
+			wantErr: false,
+		},
+		{
+			name:     "list folders with parent filter",
+			spaceID:  spaceID,
+			parentID: &parentID,
+			setup: func(repo *MockBlockRepo) {
+				repo.On("ListBySpace", ctx, spaceID, model.BlockTypeFolder, &parentID).Return([]model.Block{}, nil)
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &MockBlockRepo{}
+			tt.setup(repo)
+
+			service := NewBlockService(repo)
+			_, err := service.ListFolders(ctx, tt.spaceID, tt.parentID)
+
+			if tt.wantErr {
+				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
 			}

@@ -10,7 +10,7 @@ export function LangSwitch() {
   const [ZH, EN] = locales;
   const locale = useLocale();
 
-  // 切换语言
+  // Switch language
   function onChangeLang(value: Locale) {
     const locale = value as Locale;
     setLocale(locale);

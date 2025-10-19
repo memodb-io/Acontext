@@ -88,10 +88,10 @@ type SendMQPublishJSON struct {
 }
 
 type PartIn struct {
-	Type      string                 `json:"type" validate:"required,oneof=text image audio video file tool-call tool-result data"` // "text" | "image" | ...
-	Text      string                 `json:"text,omitempty"`                                                                        // Text sharding
-	FileField string                 `json:"file_field,omitempty"`                                                                  // File field name in the form
-	Meta      map[string]interface{} `json:"meta,omitempty"`                                                                        // [Optional] metadata
+	Type      string                 `json:"type" validate:"required,oneof=text image audio video file tool-call tool-use tool-result data"` // "text" | "image" | ...
+	Text      string                 `json:"text,omitempty"`                                                                                 // Text sharding
+	FileField string                 `json:"file_field,omitempty"`                                                                           // File field name in the form
+	Meta      map[string]interface{} `json:"meta,omitempty"`                                                                                 // [Optional] metadata
 }
 
 func (p *PartIn) Validate() error {
@@ -108,22 +108,31 @@ func (p *PartIn) Validate() error {
 		if p.Text == "" {
 			return errors.New("text part requires non-empty text field")
 		}
-	case "tool-call":
+	case "tool-call", "tool-use":
 		if p.Meta == nil {
-			return errors.New("tool-call part requires meta field")
+			return errors.New("tool-call/tool-use part requires meta field")
 		}
-		if _, ok := p.Meta["tool_name"]; !ok {
-			return errors.New("tool-call part requires 'tool_name' in meta")
+		// tool-call uses 'tool_name', tool-use uses 'name'
+		if _, hasToolName := p.Meta["tool_name"]; !hasToolName {
+			if _, hasName := p.Meta["name"]; !hasName {
+				return errors.New("tool-call/tool-use part requires 'tool_name' or 'name' in meta")
+			}
 		}
-		if _, ok := p.Meta["arguments"]; !ok {
-			return errors.New("tool-call part requires 'arguments' in meta")
+		// tool-call uses 'arguments', tool-use uses 'input'
+		if _, hasArguments := p.Meta["arguments"]; !hasArguments {
+			if _, hasInput := p.Meta["input"]; !hasInput {
+				return errors.New("tool-call/tool-use part requires 'arguments' or 'input' in meta")
+			}
 		}
 	case "tool-result":
 		if p.Meta == nil {
 			return errors.New("tool-result part requires meta field")
 		}
-		if _, ok := p.Meta["tool_call_id"]; !ok {
-			return errors.New("tool-result part requires 'tool_call_id' in meta")
+		// OpenAI uses 'tool_call_id', Anthropic uses 'tool_use_id'
+		if _, hasToolCallID := p.Meta["tool_call_id"]; !hasToolCallID {
+			if _, hasToolUseID := p.Meta["tool_use_id"]; !hasToolUseID {
+				return errors.New("tool-result part requires 'tool_call_id' or 'tool_use_id' in meta")
+			}
 		}
 	case "data":
 		if p.Meta == nil {

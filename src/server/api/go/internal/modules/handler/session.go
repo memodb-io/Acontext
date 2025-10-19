@@ -15,6 +15,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
+	"github.com/memodb-io/Acontext/internal/pkg/utils/converter"
 	"gorm.io/datatypes"
 )
 
@@ -265,14 +266,15 @@ func (h *SessionHandler) ConnectToSpace(c *gin.Context) {
 }
 
 type SendMessageReq struct {
-	Role  string           `form:"role" json:"role" binding:"required" validate:"oneof=user assistant system tool function" example:"user"`
-	Parts []service.PartIn `form:"parts" json:"parts" binding:"required"`
+	Role   string           `form:"role" json:"role" binding:"required" validate:"oneof=user assistant system" example:"user"`
+	Parts  []service.PartIn `form:"parts" json:"parts" binding:"required"`
+	Format string           `form:"format" json:"format" binding:"omitempty,oneof=acontext openai anthropic" example:"openai" enums:"acontext,openai,anthropic"`
 }
 
 // SendMessage godoc
 //
 //	@Summary		Send message to session
-//	@Description	Supports JSON and multipart/form-data. In multipart mode: the payload is a JSON string placed in a form field.
+//	@Description	Supports JSON and multipart/form-data. In multipart mode: the payload is a JSON string placed in a form field. The format parameter indicates the format of the input message (default: openai, same as GET).
 //	@Tags			session
 //	@Accept			json
 //	@Accept			multipart/form-data
@@ -331,6 +333,30 @@ func (h *SessionHandler) SendMessage(c *gin.Context) {
 		}
 	}
 
+	// Normalize input format to internal format
+	formatStr := req.Format
+	if formatStr == "" {
+		formatStr = string(converter.FormatOpenAI) // Default to OpenAI format, same as GET
+	}
+
+	format, err := converter.ValidateFormat(formatStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid format", err))
+		return
+	}
+
+	normalizer, err := converter.GetNormalizer(format)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.ParamErr("failed to get normalizer", err))
+		return
+	}
+
+	normalizedRole, normalizedParts, err := normalizer.Normalize(req.Role, req.Parts)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("failed to normalize message", err))
+		return
+	}
+
 	project, ok := c.MustGet("project").(*model.Project)
 	if !ok {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
@@ -345,8 +371,8 @@ func (h *SessionHandler) SendMessage(c *gin.Context) {
 	out, err := h.svc.SendMessage(c.Request.Context(), service.SendMessageInput{
 		ProjectID: project.ID,
 		SessionID: sessionID,
-		Role:      req.Role,
-		Parts:     req.Parts,
+		Role:      normalizedRole,
+		Parts:     normalizedParts,
 		Files:     fileMap,
 	})
 	if err != nil {
@@ -361,19 +387,21 @@ type GetMessagesReq struct {
 	Limit              int    `form:"limit,default=20" json:"limit" binding:"required,min=1,max=200" example:"20"`
 	Cursor             string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
 	WithAssetPublicURL bool   `form:"with_asset_public_url,default=true" json:"with_asset_public_url" example:"true"`
+	Format             string `form:"format,default=openai" json:"format" binding:"omitempty,oneof=acontext openai anthropic" example:"openai" enums:"acontext,openai,anthropic"`
 }
 
 // GetMessages godoc
 //
 //	@Summary		Get messages from session
-//	@Description	Get messages from session.
+//	@Description	Get messages from session. Default format is openai. Can convert to acontext (original) or anthropic format.
 //	@Tags			session
 //	@Accept			json
 //	@Produce		json
 //	@Param			session_id				path	string	true	"Session ID"	format(uuid)
 //	@Param			limit					query	integer	false	"Limit of messages to return, default 20. Max 200."
 //	@Param			cursor					query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
-//	@Param			with_asset_public_url	query	string	false	"Whether to return asset public url, default is true"	example:"true"
+//	@Param			with_asset_public_url	query	string	false	"Whether to return asset public url, default is true"								example:"true"
+//	@Param			format					query	string	false	"Format to convert messages to: acontext (original), openai (default), anthropic."	enums(acontext,openai,anthropic)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.GetMessagesOutput}
 //	@Router			/session/{session_id}/messages [get]
@@ -401,5 +429,29 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, serializer.Response{Data: out})
+	// Convert messages to specified format (default: openai)
+	formatStr := req.Format
+	if formatStr == "" {
+		formatStr = string(converter.FormatOpenAI)
+	}
+
+	format, err := converter.ValidateFormat(formatStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid format", err))
+		return
+	}
+
+	convertedOut, err := converter.GetConvertedMessagesOutput(
+		out.Items,
+		format,
+		out.PublicURLs,
+		out.NextCursor,
+		out.HasMore,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to convert messages", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{Data: convertedOut})
 }

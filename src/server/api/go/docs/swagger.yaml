@@ -25,6 +25,16 @@ definitions:
     - parent_id
     - type
     type: object
+  handler.CreateFolderReq:
+    properties:
+      parent_id:
+        type: string
+      props:
+        additionalProperties: {}
+        type: object
+      title:
+        type: string
+    type: object
   handler.CreatePageReq:
     properties:
       parent_id:
@@ -99,6 +109,13 @@ definitions:
     required:
     - parent_id
     type: object
+  handler.MoveFolderReq:
+    properties:
+      parent_id:
+        type: string
+      sort:
+        type: integer
+    type: object
   handler.MovePageReq:
     properties:
       parent_id:
@@ -108,6 +125,13 @@ definitions:
     type: object
   handler.SendMessageReq:
     properties:
+      format:
+        enum:
+        - acontext
+        - openai
+        - anthropic
+        example: openai
+        type: string
       parts:
         items:
           $ref: '#/definitions/service.PartIn'
@@ -117,8 +141,6 @@ definitions:
         - user
         - assistant
         - system
-        - tool
-        - function
         example: user
         type: string
     required:
@@ -142,6 +164,19 @@ definitions:
     properties:
       file:
         $ref: '#/definitions/model.File'
+    type: object
+  handler.UpdateFolderPropertiesReq:
+    properties:
+      props:
+        additionalProperties: {}
+        type: object
+      title:
+        type: string
+    type: object
+  handler.UpdateFolderSortReq:
+    properties:
+      sort:
+        type: integer
     type: object
   handler.UpdatePagePropertiesReq:
     properties:
@@ -425,6 +460,7 @@ definitions:
         - video
         - file
         - tool-call
+        - tool-use
         - tool-result
         - data
         type: string
@@ -882,7 +918,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get messages from session.
+      description: Get messages from session. Default format is openai. Can convert
+        to acontext (original) or anthropic format.
       parameters:
       - description: Session ID
         format: uuid
@@ -902,6 +939,15 @@ paths:
       - description: Whether to return asset public url, default is true
         in: query
         name: with_asset_public_url
+        type: string
+      - description: 'Format to convert messages to: acontext (original), openai (default),
+          anthropic.'
+        enum:
+        - acontext
+        - openai
+        - anthropic
+        in: query
+        name: format
         type: string
       produces:
       - application/json
@@ -925,7 +971,8 @@ paths:
       - application/json
       - multipart/form-data
       description: 'Supports JSON and multipart/form-data. In multipart mode: the
-        payload is a JSON string placed in a form field.'
+        payload is a JSON string placed in a form field. The format parameter indicates
+        the format of the input message (default: openai, same as GET).'
       parameters:
       - description: Session ID
         format: uuid
@@ -1345,6 +1392,250 @@ paths:
       summary: Update space configs
       tags:
       - space
+  /space/{space_id}/folder:
+    get:
+      consumes:
+      - application/json
+      description: List folders in a space, optionally filtered by parent_id (use
+        parent_id query parameter to get children of a specific folder, or omit it
+        to get top-level folders where parent_id is null)
+      parameters:
+      - description: Space ID
+        format: uuid
+        in: path
+        name: space_id
+        required: true
+        type: string
+      - description: Parent ID
+        format: uuid
+        in: query
+        name: parent_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Block'
+                  type: array
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List folders
+      tags:
+      - folder
+    post:
+      consumes:
+      - application/json
+      description: Create a new folder in the space
+      parameters:
+      - description: Space ID
+        format: uuid
+        in: path
+        name: space_id
+        required: true
+        type: string
+      - description: CreateFolder payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateFolderReq'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Block'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Create folder
+      tags:
+      - folder
+  /space/{space_id}/folder/{folder_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a folder by its ID in the space
+      parameters:
+      - description: Space ID
+        format: uuid
+        in: path
+        name: space_id
+        required: true
+        type: string
+      - description: Folder ID
+        format: uuid
+        in: path
+        name: folder_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/serializer.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete folder
+      tags:
+      - folder
+  /space/{space_id}/folder/{folder_id}/move:
+    put:
+      consumes:
+      - application/json
+      description: Move folder by updating its parent_id
+      parameters:
+      - description: Space ID
+        format: uuid
+        in: path
+        name: space_id
+        required: true
+        type: string
+      - description: Folder ID
+        format: uuid
+        in: path
+        name: folder_id
+        required: true
+        type: string
+      - description: MoveFolder payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handler.MoveFolderReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/serializer.Response'
+      security:
+      - BearerAuth: []
+      summary: Move folder (change parent_id)
+      tags:
+      - folder
+  /space/{space_id}/folder/{folder_id}/properties:
+    get:
+      consumes:
+      - application/json
+      description: Get folder properties by folder ID
+      parameters:
+      - description: Space ID
+        format: uuid
+        in: path
+        name: space_id
+        required: true
+        type: string
+      - description: Folder ID
+        format: uuid
+        in: path
+        name: folder_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Block'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get folder properties
+      tags:
+      - folder
+    put:
+      consumes:
+      - application/json
+      description: Update folder title and properties
+      parameters:
+      - description: Space ID
+        format: uuid
+        in: path
+        name: space_id
+        required: true
+        type: string
+      - description: Folder ID
+        format: uuid
+        in: path
+        name: folder_id
+        required: true
+        type: string
+      - description: UpdateFolderProperties payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateFolderPropertiesReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/serializer.Response'
+      security:
+      - BearerAuth: []
+      summary: Update folder properties
+      tags:
+      - folder
+  /space/{space_id}/folder/{folder_id}/sort:
+    put:
+      consumes:
+      - application/json
+      description: Update folder sort value
+      parameters:
+      - description: Space ID
+        format: uuid
+        in: path
+        name: space_id
+        required: true
+        type: string
+      - description: Folder ID
+        format: uuid
+        in: path
+        name: folder_id
+        required: true
+        type: string
+      - description: UpdateFolderSort payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateFolderSortReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/serializer.Response'
+      security:
+      - BearerAuth: []
+      summary: Update folder sort
+      tags:
+      - folder
   /space/{space_id}/page:
     get:
       consumes:

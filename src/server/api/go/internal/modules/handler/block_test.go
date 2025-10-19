@@ -119,6 +119,49 @@ func (m *MockBlockService) UpdateBlockSort(ctx context.Context, blockID uuid.UUI
 	return args.Error(0)
 }
 
+// Folder-related mock methods
+
+func (m *MockBlockService) CreateFolder(ctx context.Context, b *model.Block) error {
+	args := m.Called(ctx, b)
+	return args.Error(0)
+}
+
+func (m *MockBlockService) DeleteFolder(ctx context.Context, spaceID uuid.UUID, folderID uuid.UUID) error {
+	args := m.Called(ctx, spaceID, folderID)
+	return args.Error(0)
+}
+
+func (m *MockBlockService) GetFolderProperties(ctx context.Context, folderID uuid.UUID) (*model.Block, error) {
+	args := m.Called(ctx, folderID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Block), args.Error(1)
+}
+
+func (m *MockBlockService) UpdateFolderProperties(ctx context.Context, b *model.Block) error {
+	args := m.Called(ctx, b)
+	return args.Error(0)
+}
+
+func (m *MockBlockService) ListFolders(ctx context.Context, spaceID uuid.UUID, parentID *uuid.UUID) ([]model.Block, error) {
+	args := m.Called(ctx, spaceID, parentID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.Block), args.Error(1)
+}
+
+func (m *MockBlockService) MoveFolder(ctx context.Context, folderID uuid.UUID, newParentID *uuid.UUID, targetSort *int64) error {
+	args := m.Called(ctx, folderID, newParentID, targetSort)
+	return args.Error(0)
+}
+
+func (m *MockBlockService) UpdateFolderSort(ctx context.Context, folderID uuid.UUID, sort int64) error {
+	args := m.Called(ctx, folderID, sort)
+	return args.Error(0)
+}
+
 func setupRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	return gin.New()
@@ -326,6 +369,228 @@ func TestBlockHandler_CreateBlock(t *testing.T) {
 			body, _ := sonic.Marshal(tt.requestBody)
 			req := httptest.NewRequest("POST", "/space/"+tt.spaceIDParam+"/block", bytes.NewBuffer(body))
 			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			mockService.AssertExpectations(t)
+		})
+	}
+}
+
+// Folder handler tests
+
+func TestBlockHandler_CreateFolder(t *testing.T) {
+	spaceID := uuid.New()
+	parentID := uuid.New()
+
+	tests := []struct {
+		name           string
+		spaceIDParam   string
+		requestBody    CreateFolderReq
+		setup          func(*MockBlockService)
+		expectedStatus int
+		expectedError  bool
+	}{
+		{
+			name:         "successful folder creation",
+			spaceIDParam: spaceID.String(),
+			requestBody: CreateFolderReq{
+				Title: "Test Folder",
+				Props: map[string]any{"description": "test folder"},
+			},
+			setup: func(svc *MockBlockService) {
+				svc.On("CreateFolder", mock.Anything, mock.MatchedBy(func(b *model.Block) bool {
+					return b.SpaceID == spaceID && b.Title == "Test Folder" && b.Type == model.BlockTypeFolder
+				})).Return(nil)
+			},
+			expectedStatus: http.StatusCreated,
+			expectedError:  false,
+		},
+		{
+			name:         "folder creation with parent",
+			spaceIDParam: spaceID.String(),
+			requestBody: CreateFolderReq{
+				ParentID: &parentID,
+				Title:    "Subfolder",
+			},
+			setup: func(svc *MockBlockService) {
+				svc.On("CreateFolder", mock.Anything, mock.MatchedBy(func(b *model.Block) bool {
+					return b.SpaceID == spaceID && b.ParentID != nil && *b.ParentID == parentID
+				})).Return(nil)
+			},
+			expectedStatus: http.StatusCreated,
+			expectedError:  false,
+		},
+		{
+			name:         "invalid space ID",
+			spaceIDParam: "invalid-uuid",
+			requestBody: CreateFolderReq{
+				Title: "Test Folder",
+			},
+			setup:          func(svc *MockBlockService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  true,
+		},
+		{
+			name:         "service layer error",
+			spaceIDParam: spaceID.String(),
+			requestBody: CreateFolderReq{
+				Title: "Test Folder",
+			},
+			setup: func(svc *MockBlockService) {
+				svc.On("CreateFolder", mock.Anything, mock.Anything).Return(errors.New("database error"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+			expectedError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := &MockBlockService{}
+			tt.setup(mockService)
+
+			handler := NewBlockHandler(mockService)
+			router := setupRouter()
+			router.POST("/space/:space_id/folder", handler.CreateFolder)
+
+			body, _ := sonic.Marshal(tt.requestBody)
+			req := httptest.NewRequest("POST", "/space/"+tt.spaceIDParam+"/folder", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			mockService.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBlockHandler_DeleteFolder(t *testing.T) {
+	spaceID := uuid.New()
+	folderID := uuid.New()
+
+	tests := []struct {
+		name           string
+		spaceIDParam   string
+		folderIDParam  string
+		setup          func(*MockBlockService)
+		expectedStatus int
+	}{
+		{
+			name:          "successful folder deletion",
+			spaceIDParam:  spaceID.String(),
+			folderIDParam: folderID.String(),
+			setup: func(svc *MockBlockService) {
+				svc.On("DeleteFolder", mock.Anything, spaceID, folderID).Return(nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "invalid space ID",
+			spaceIDParam:   "invalid-uuid",
+			folderIDParam:  folderID.String(),
+			setup:          func(svc *MockBlockService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "invalid folder ID",
+			spaceIDParam:   spaceID.String(),
+			folderIDParam:  "invalid-uuid",
+			setup:          func(svc *MockBlockService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:          "service layer error",
+			spaceIDParam:  spaceID.String(),
+			folderIDParam: folderID.String(),
+			setup: func(svc *MockBlockService) {
+				svc.On("DeleteFolder", mock.Anything, spaceID, folderID).Return(errors.New("deletion failed"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := &MockBlockService{}
+			tt.setup(mockService)
+
+			handler := NewBlockHandler(mockService)
+			router := setupRouter()
+			router.DELETE("/space/:space_id/folder/:folder_id", handler.DeleteFolder)
+
+			req := httptest.NewRequest("DELETE", "/space/"+tt.spaceIDParam+"/folder/"+tt.folderIDParam, nil)
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			mockService.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBlockHandler_ListFolders(t *testing.T) {
+	spaceID := uuid.New()
+	parentID := uuid.New()
+
+	tests := []struct {
+		name           string
+		spaceIDParam   string
+		queryParam     string
+		setup          func(*MockBlockService)
+		expectedStatus int
+	}{
+		{
+			name:         "list top-level folders",
+			spaceIDParam: spaceID.String(),
+			queryParam:   "",
+			setup: func(svc *MockBlockService) {
+				svc.On("ListFolders", mock.Anything, spaceID, (*uuid.UUID)(nil)).Return([]model.Block{}, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:         "list folders with parent filter",
+			spaceIDParam: spaceID.String(),
+			queryParam:   "?parent_id=" + parentID.String(),
+			setup: func(svc *MockBlockService) {
+				svc.On("ListFolders", mock.Anything, spaceID, &parentID).Return([]model.Block{}, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "invalid space ID",
+			spaceIDParam:   "invalid-uuid",
+			queryParam:     "",
+			setup:          func(svc *MockBlockService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:         "service layer error",
+			spaceIDParam: spaceID.String(),
+			queryParam:   "",
+			setup: func(svc *MockBlockService) {
+				svc.On("ListFolders", mock.Anything, spaceID, (*uuid.UUID)(nil)).Return(nil, errors.New("database error"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := &MockBlockService{}
+			tt.setup(mockService)
+
+			handler := NewBlockHandler(mockService)
+			router := setupRouter()
+			router.GET("/space/:space_id/folder", handler.ListFolders)
+
+			req := httptest.NewRequest("GET", "/space/"+tt.spaceIDParam+"/folder"+tt.queryParam, nil)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
