@@ -11,7 +11,7 @@ import (
 const (
 	// ArtifactInfoKey is used to store artifact-related system metadata
 	// This key is reserved for storing file path, filename, mime type, size, etc.
-	ArtifactInfoKey = "__file_info__"
+	ArtifactInfoKey = "__artifact_info__"
 )
 
 // GetReservedKeys returns a list of all reserved metadata keys
