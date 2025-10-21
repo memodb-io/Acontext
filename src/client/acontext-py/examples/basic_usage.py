@@ -2,6 +2,11 @@
 End-to-end usage sample for the Acontext Python SDK.
 """
 
+import sys
+import os
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from acontext import AcontextClient, MessagePart, FileUpload
 from acontext.errors import APIError, AcontextError, TransportError
 

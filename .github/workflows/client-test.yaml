@@ -17,16 +17,12 @@ on:
       - '.github/workflows/client-test.yaml'
 
 jobs:
-  test:
+  test:  
     runs-on: ubuntu-latest
-    permissions:
+    permissions: 
       contents: read
-    defaults:
-      run:
-        working-directory: src/client/acontext-py
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Install uv
         uses: astral-sh/setup-uv@v6
@@ -34,11 +30,65 @@ jobs:
       - name: Set up Python
         run: uv python install 3.13
 
-      - name: Sync dependencies
-        run: uv sync
+      - name: Install dependencies
+        working-directory: src/client/acontext-py
+        run: |
+          uv sync 
 
-      - name: Run lint
-        run: uv run ruff check .
+      - name: Run lint and test
+        working-directory:  src/client/acontext-py
+        run: |
+          uv run ruff check .
+          uv run pytest tests/
 
-      - name: Run tests
-        run: uv run pytest tests/
+      - name: Start containers
+        working-directory: src/server
+        run: |
+          cp .env.example .env
+          cp core/config.yaml.example core/config.yaml
+          docker compose up -d
+
+      - name: Wait for containers to start
+        working-directory: src/server
+        run: |
+          set -a; . ./.env; set +a 
+          until docker compose exec acontext-server-pg pg_isready -U $DATABASE_USER -d $DATABASE_NAME; do
+            echo "Waiting for PostgreSQL to be ready..."
+            sleep 5
+          done
+
+          until docker compose exec acontext-server-minio curl -f http://127.0.0.1:9000/minio/health/ready; do
+            echo "Waiting for MinIO to be ready..."
+            sleep 5
+          done
+
+          docker compose exec acontext-server-minio mc alias set local http://127.0.0.1:9000 $S3_ACCESS_KEY $S3_SECRET_KEY 
+
+          until docker compose exec acontext-server-minio mc ls local/$S3_BUCKET >/dev/null 2>&1; do
+            echo "Waiting for S3 bucket '$S3_BUCKET' to be created..."
+            sleep 5
+          done
+
+          API_PORT=${API_EXPORT_PORT:-8029}
+          UI_PORT=${UI_EXPORT_PORT:-3000}
+
+          until curl -fsS "http://127.0.0.1:${API_PORT}/health" >/dev/null; do
+            echo "Waiting for API to be ready on port ${API_PORT}..."
+            sleep 5
+          done
+
+          until curl -fsS "http://127.0.0.1:${UI_PORT}" >/dev/null; do
+            echo "Waiting for UI to be ready on port ${UI_PORT}..."
+            sleep 5
+          done
+
+      - name: e2e test
+        working-directory: src/client/acontext-py 
+        run: |
+          uv run examples/basic_usage.py
+
+      - name: Stop containers
+        working-directory: src/server
+        if: ${{ always() }}
+        run: |
+          docker compose down
