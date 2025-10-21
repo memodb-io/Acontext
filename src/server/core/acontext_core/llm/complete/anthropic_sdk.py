@@ -3,6 +3,7 @@ import json
 from typing import Optional
 from .clients import get_anthropic_async_client_instance
 from anthropic.types import Message, ContentBlock
+from time import perf_counter
 from ...env import LOG, DEFAULT_CORE_CONFIG
 from ...schema.llm import LLMResponse
 
@@ -102,15 +103,18 @@ async def anthropic_complete(
         request_params["tools"] = anthropic_tools
 
     try:
+        _start_s = perf_counter()
         response: Message = await anthropic_async_client.messages.create(
             **request_params
         )
+        _end_s = perf_counter()
 
         LOG.info(
             f"LLM Complete: {prompt_id} {model}. "
             f"cached {response.usage.cache_read_input_tokens}, "
             f"input {response.usage.input_tokens}, "
-            f"total {response.usage.input_tokens + response.usage.output_tokens}"
+            f"total {response.usage.input_tokens + response.usage.output_tokens}, "
+            f"time {_end_s - _start_s:.4f}s"
         )
 
         # Extract content from response

@@ -5,8 +5,8 @@ from ..utils import asUUID
 
 class SOPStep(BaseModel):
     tool_name: str
-    argument_template: dict[str, Any]
-    props: Optional[dict] = None
+    goal: str
+    action: str
 
 
 class SOPData(BaseModel):

@@ -22,4 +22,21 @@ async def sop_agent_curd(
     current_task: TaskSchema,
     max_iterations=3,  # task curd agent only receive one turn of actions
 ):
-    pass
+    from ..tool.sop_lib.submit import _submit_sop_tool
+    from rich import print
+
+    tools = [_submit_sop_tool.schema.model_dump()]
+
+    print(tools[0])
+    r = await llm_complete(
+        prompt="call submit_sop tool with some example data", tools=tools
+    )
+    if r.ok():
+
+        print(r.unpack()[0].tool_calls[0])
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    asyncio.run(sop_agent_curd(1, 1, 1, 1))
