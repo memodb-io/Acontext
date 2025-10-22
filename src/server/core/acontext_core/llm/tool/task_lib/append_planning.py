@@ -52,7 +52,7 @@ Use this when messages are about the agent/user is planning general plan, and th
                             "type": "array",
                             "items": {"type": "integer"},
                             "description": "List of message IDs to append to the planning section.",
-                        },
+                        }
                     },
                     "required": ["message_ids"],
                 },

@@ -28,8 +28,8 @@ class TaskPrompt(BasePrompt):
 
 ## Planning Detection
 - Planning messages often consist of user and agent discussions, clarify what's tasks to do at next.
-- Append those messages to planning section.
-- Make sure the planning section have the full context of user requirements.
+- Append those messages to planning section using `append_messages_to_planning_section` tool.
+- Appending the full messages of user requirements (user requirements and agent responses)
 
 ## Task Creation/Modifcation
 - Tasks are often confirmed by the agent's response to user's requirements, don't invent them.
@@ -54,7 +54,7 @@ class TaskPrompt(BasePrompt):
     - You should include necessary infos/numbers that may help the following tasks
     - Narrate progress in the first person as the agent.
     - Facts over General. Don't say "I encountered many errors", say "I encountered python syntax error then the compiling error."
-
+- If user mentioned any preference on this task, extract in the clean format 'user expects/wants...' in 'user_preference' field.
 
 ## Update Task Status 
 - `pending`: For tasks not yet started

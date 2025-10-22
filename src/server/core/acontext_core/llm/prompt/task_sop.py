@@ -12,8 +12,7 @@ class TaskSOPPrompt(BasePrompt):
     "use_when": str,
     "notes": str,
     "sop":[
-        {"tool_name": str, "argument_template": dict},
-        ...
+        {"tool_name": str, "goal": str, "action": str}, ...
     ]
 }
 ### Format Breaking down
@@ -21,15 +20,16 @@ class TaskSOPPrompt(BasePrompt):
 - 'notes': An brief guideline to instruct how to proceed this SOP, maybe containing user requirements, tool-use annotations.
 - 'sop': a structured array that contains tool-calling steps in correct order, for each step:
     - 'tool_name': exact corresponding tool name from history
-    - 'argument_template': a json of the certain tool-calling arguments and their values that necessage to this SOP.
-      For example, "arugment_template": {"website": "xxx.com", "action": "click shopping tab in navbar"}
+    - 'goal': which state you need to achieve with this tool in this step.
+    - 'action': describe necessary arguments' values to achieve the goal.
 
 ## Input
-### Raw History Input
-...
-
 ### User Planning History
-...
+The conversation history of 
+### Raw History Input
+
+
+
 
 ## Think before Answer
 ...
