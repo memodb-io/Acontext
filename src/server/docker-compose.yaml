@@ -55,43 +55,56 @@ services:
       timeout: 5s
       retries: 5
 
-  # --- MinIO ---
-  acontext-server-minio:
-    image: minio/minio:latest
-    container_name: acontext-server-minio
+  # --- SeaweedFS ---
+  acontext-server-seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: acontext-server-seaweedfs
     restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
-      MINIO_BROWSER_REDIRECT_URL: http://127.0.0.1:9001
-    command: server /data --address ":9000" --console-address ":9001"
+      # S3 credentials - no config file needed!
+      WEED_S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      WEED_S3_SECRET_KEY: ${S3_SECRET_KEY}
+      # Storage settings
+      WEED_MASTER_VOLUME_GROWTH_COPY_1: 1
+      WEED_MASTER_DEFAULT_REPLICATION: "000"
+    command: >
+      server
+      -s3
+      -s3.port=9000
+      -dir=/data
+      -volume.max=100
+      -volume.publicUrl=${S3_ENDPOINT:-http://127.0.0.1:9000}
+      -ip=acontext-server-seaweedfs
+      -ip.bind=0.0.0.0
+      -metricsPort=9324
     ports:
-      - "${S3_API_EXPORT_PORT:-9000}:9000" # S3 API
-      - "${S3_CONSOLE_EXPORT_PORT:-9001}:9001" # MinIO Console
+      - "${S3_API_EXPORT_PORT:-9000}:9000" # S3 API (compatible with MinIO port)
+      - "${S3_CONSOLE_EXPORT_PORT:-9001}:8888" # Filer UI (mapped to 9001 for consistency)
+      - "9333:9333" # Master UI (additional)
     volumes:
       - ${S3_LOCATION}:/data
     healthcheck:
-      test:
-        [
-          "CMD-SHELL",
-          "curl -f http://127.0.0.1:9000/minio/health/ready || exit 1",
-        ]
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:9333/cluster/status || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
 
-  # init Bucket
-  acontext-server-minio-setup:
-    image: minio/mc:latest
-    container_name: acontext-server-minio-setup
+  # init Bucket for SeaweedFS
+  acontext-server-seaweedfs-setup:
+    image: amazon/aws-cli:latest
+    container_name: acontext-server-seaweedfs-setup
     depends_on:
-      acontext-server-minio:
+      acontext-server-seaweedfs:
         condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      AWS_DEFAULT_REGION: ${S3_REGION:-auto}
     entrypoint: >
       /bin/sh -c "
-      mc alias set local http://acontext-server-minio:9000 ${S3_ACCESS_KEY} ${S3_SECRET_KEY} &&
-      mc mb -p local/${S3_BUCKET} || true &&
-      echo '✅ MinIO ready with bucket: ${S3_BUCKET}'
+      aws configure set default.s3.signature_version s3v4 &&
+      aws --endpoint-url=http://acontext-server-seaweedfs:9000 s3 mb s3://${S3_BUCKET} 2>/dev/null || true &&
+      echo '✅ SeaweedFS ready with bucket: ${S3_BUCKET}'
       "
     restart: "no"
 
@@ -120,7 +133,7 @@ services:
       RABBITMQ_VHOST_ENCODED: ${RABBITMQ_VHOST_ENCODED:-%2F}
       RABBITMQ_EXPORT_PORT: 5672
       S3_ENDPOINT: ${S3_ENDPOINT:-http://127.0.0.1:9000}
-      S3_INTERNAL_ENDPOINT: http://acontext-server-minio:9000
+      S3_INTERNAL_ENDPOINT: http://acontext-server-seaweedfs:9000
       S3_REGION: ${S3_REGION}
       S3_ACCESS_KEY: ${S3_ACCESS_KEY}
       S3_SECRET_KEY: ${S3_SECRET_KEY}
@@ -134,7 +147,7 @@ services:
         condition: service_healthy
       acontext-server-rabbitmq:
         condition: service_healthy
-      acontext-server-minio:
+      acontext-server-seaweedfs:
         condition: service_healthy
 
   # acontext-server-ui
