@@ -45,9 +45,8 @@ async def process_space_task(
     await TSOP.sop_agent_curd(
         project_id,
         space_id,
-        task.id,
+        task,
         messages_data,
-        max_iterations=project_config.default_sop_agent_max_iterations,
     )
 
     # 3. Create block and trigger space_agent to save it

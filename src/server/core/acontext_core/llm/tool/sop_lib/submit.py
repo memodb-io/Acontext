@@ -1,3 +1,4 @@
+from pydantic import ValidationError
 from ..base import Tool, ToolPool
 from ....schema.llm import ToolSchema
 from ....schema.result import Result
@@ -8,7 +9,15 @@ from .ctx import SOPCtx
 
 
 async def submit_sop_handler(ctx: SOPCtx, llm_arguments: dict) -> Result[str]:
-    pass
+    from rich import print
+
+    print(llm_arguments)
+    try:
+        sop_data = SOPData.model_validate(llm_arguments)
+    except ValidationError as e:
+        return Result.reject(f"Invalid SOP data: {str(e)}")
+    print(sop_data)
+    return Result.resolve("SOP submitted")
 
 
 _submit_sop_tool = (
@@ -17,7 +26,7 @@ _submit_sop_tool = (
         ToolSchema(
             function={
                 "name": "submit_sop",
-                "description": "Create a new task by inserting it after the specified task order. This is used when identifying new tasks from conversation messages.",
+                "description": "Submit a new tool-calling SOP. In the order of 'use_when', 'notes', 'tool_sops'.",
                 "parameters": SOPData.model_json_schema(),
             }
         )

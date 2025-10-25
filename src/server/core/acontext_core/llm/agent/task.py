@@ -45,7 +45,7 @@ def pack_previous_messages_section(
             task_descs.append("(no task linked)")
     return "\n---\n".join(
         [
-            f"{td}\n{m.to_string(truncate_chars=200)}"
+            f"{td}\n{m.to_string(truncate_chars=256)}"
             for td, m in zip(task_descs, messages)
         ]
     )
