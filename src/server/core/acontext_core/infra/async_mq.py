@@ -76,7 +76,7 @@ class ConnectionConfig:
 
     url: str
     connection_name: str = DEFAULT_CORE_CONFIG.mq_connection_name
-    heartbeat: int = 600
+    heartbeat: int = 32
     blocked_connection_timeout: int = 300
 
 
