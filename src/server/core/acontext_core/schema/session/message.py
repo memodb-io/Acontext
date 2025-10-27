@@ -6,20 +6,16 @@ from ..utils import asUUID
 
 STRING_TYPES = {"text", "tool-call", "tool-result"}
 
-REPLACE_NAME = {
-    "assistant": "agent",
-    "tool": "agent_action",
-    "tool-result": "agent_action_result",
-    "function": "agent_action",
-}
+ROLE_REPLACE_NAME = {"assistant": "agent"}
 
 
 def pack_part_line(role: str, part: Part, truncate_chars: int = None) -> str:
-    role = REPLACE_NAME.get(role, role)
+    role = ROLE_REPLACE_NAME.get(role, role)
+    header = f"<{role}>({part.type})"
     if part.type not in STRING_TYPES:
-        r = f"<{role}> [{part.type} file: {part.filename}]"
+        r = f"{header} [file: {part.filename}]"
     elif part.type == "text":
-        r = f"<{role}> {part.text}"
+        r = f"{header} {part.text}"
     elif part.type == "tool-call":
         tool_call_meta = ToolCallMeta(**part.meta)
         tool_data = json.dumps(
@@ -28,7 +24,7 @@ def pack_part_line(role: str, part: Part, truncate_chars: int = None) -> str:
                 "arguments": tool_call_meta.arguments,
             }
         )
-        r = f"<{role}> {tool_data}"
+        r = f"{header} {tool_data}"
     else:
         raise TypeError(f"Unknown message part type: {part.type}")
     if truncate_chars is None or len(r) < truncate_chars:

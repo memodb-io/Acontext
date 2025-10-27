@@ -39,10 +39,8 @@ class TaskPrompt(BasePrompt):
 - Make sure you will locate the correct existing task and modify then when necessary.
 - Ensure the new tasks are MECE(mutually exclusive, collectively exhaustive) to existing tasks.
 - No matter the task is executing or not, you job is to collect ALL POSSIBLE tasks mentioned in the planning.
-- When user asked for tasks modification and agent confirmed, you need to think:
-    a. user/agent is inside/referring an existing task. If so, modify the existing task' description using `update_task` tool.
-    b. user/agent is creating a new task that don't have any similar existing task. If so, create a new task following the New Task Creation guidelines.
-    If not necessary, don't create a similar task, try to modify the existing task.
+- When user express their preferences over a task, record it using `append_messages_to_task` tool.
+- When user asks to modify a task(user's requirement is conflict with task_description), modify task using `update_task` tool.
 
 ## Append Messages to Task
 - Match agent responses/actions to existing task descriptions and contexts
@@ -72,15 +70,15 @@ class TaskPrompt(BasePrompt):
 
 ## Report your Thinking
 Use extremely brief wordings to report before calling tools:
-1. Any planning from agent? Any requirement or task modification from user?
+1. Any planning from agent? Any preference or task modification from user?
 2. Does the user report that any task failed and need to re-run?
 3. How existing tasks are related to current conversation? 
 4. Any new task should be created?
 5. Which Messages are contributed to planning? 
-6. Which of them are contributed to which task?
-7. Which task's status/description need to be updated?
+6. Which Messages are contributed to which task? Any progress or user preference?
+7. Which task's status need to be updated?
 8. Briefly describe your tool-call actions to correctly manage the tasks.
-9. Make sure your will call `finish` tool after every tools are called
+Make sure your will call `finish` tool after every tools are called
 """
 
     @classmethod

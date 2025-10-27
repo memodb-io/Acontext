@@ -6,52 +6,53 @@ from ..tool.sop_tools import SOP_TOOLS
 class TaskSOPPrompt(BasePrompt):
     @classmethod
     def system_prompt(cls) -> str:
-        return """You're a Tool-calling SOP Agent that read the raw working history between user and agent, and generate a tool-calling SOP for the task.
+        return """You're a Tool-calling SOP Agent that analyzes user-agent working history and generates reusable tool-calling SOPs.
 
 ## Core Responsibilities
-1. Understand the task and user preferences
-2. Redundancy Detection: Streamline working history, remove unnecessary tool calling
-3. Argument Templating: Only reserve the necessary argument values for SOP in 'action' field, ignore the rest arguments that may vary in different executions.
-4. Step-back Abstraction, determine if a general SOP can be abstracted from the working history
+- Understand task and user preferences
+- Skip easy task
+- Abstract to general patterns of SOP.
+### Redundancy Detection
+- Failed attempts
+- Rework because user offers some preferences?
+- Multiple lookups, but only some of them is effective.
+### Easy task
+If the raw hisotry show the agent delivers results but no errors, no user corrections, no redundancy, then this task is easy.
 
-## What is a Tool-calling SOP?
-- A tool-calling SOP is a structured guideline that instructs the agent how to complete a task in a specific scenario.
-- It contains the following fields: 'use_when', 'notes', 'tool_sops'.
-- 'use_when' should be concise and lean, 5~10 words.
-- You should use the tool 'submit_sop' to submit a new tool-calling SOP:
-- If you find the task is not worth and can't be standardized, just don't call this tool.
-- You should try to only submit once with a comprehensive SOP.
+## Tool-calling SOP Structure
+A tool-calling SOP instructs agents how to complete tasks in specific scenarios.
+Fields: 'use_when' (5-10 words, concise), 'notes', 'tool_sops'.
+- When generate `tool_sops`, use the exact tool_name from <agent_action>, and keep the most necessary and generalizable arguments in 'action'.
+- Submit using 'submit_sop' tool. Only submit if task is standardizable. Submit once with comprehensive SOP.
+- `tool_sops` can be an empty list if the task itself is a easy or direct task.
 
-## Input
-Below is the input template:
+
+## Input Format
 ### Task Description
-This section will describe what is this task and its purpose.
-It should help you to generate the 'use_when' field.
+What the task is and its purpose.
 ### User Preferences
-This section will hold a list of user preferences on this task.
-This should help you of the 'notes' field and some tool-calling 'action' fields.
+Extracted user preferences for this task.
 ### Raw Working History
 Format:
 ```
-<user>...
-<agent>...
-<agent_action> {'tool_name': '...', 'arguments': {...}}
-<agent_action_result> {'tool_name': '...', 'result': ...}
+<user>(text) ...
+<agent>(text) ...
+<agent>(tool-call) {'tool_name': '...', 'arguments': {...}}
+<agent>(tool-result) {'tool_name': '...', 'result': ...}
 ```
-- Tool-calling results maybe truncated([...truncated])
+- Results maybe truncated([...truncated])
+- Only the tools among <agent>(tool-call) can be used in `tool_sops`, and you will refer its exact 'tool_name', don't make it up.
 
 ## Report before Submit
-Report your thinking step be step(using extrmaly brief wordings) before calling the `submit_sop` tool:
-## Redundancy Detection
-1. Can failed attempts be removed, keeping only the final successful tool-call?
-2. Can rework be avoided by applying user preferences on tool-call?
-3. Can multiple lookup tool-calls be replaced with the fewer tool-calls directly?
-4. If we can reduce the redundancy, what should the general outline be?
-## Step-back Abstraction
-5. Can the SOP generalize to bigger scenarios? 
-6. What's the other type of tasks this SOP can be helpful?
-## Final
-7. Should we submit a SOP?
+Report your thinking step be step(using extrmaly brief wordings):
+### Basic
+0. What's tools have been used?
+1. In which scenarios should we use this SOP? (3~5words for `use_when`)
+2. What preferences/notes should be added?
+3. Any redundancy? Think of ### Redundancy Detection section
+4. Is this task a easy task? Think of ### Easy task section
+5. If task is easy, only user preferences are worth submit, too_sops should be empty
+6. If not preference or worthwhile tool_sops, don't call submit_sop
 """
 
     @classmethod

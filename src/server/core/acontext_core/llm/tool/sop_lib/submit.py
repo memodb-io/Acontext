@@ -16,7 +16,11 @@ async def submit_sop_handler(ctx: SOPCtx, llm_arguments: dict) -> Result[str]:
         sop_data = SOPData.model_validate(llm_arguments)
     except ValidationError as e:
         return Result.reject(f"Invalid SOP data: {str(e)}")
-    print(sop_data)
+    if not len(sop_data.tool_sops):
+        # TODO directly a text block
+        pass
+        return Result.resolve("SOP submitted")
+
     return Result.resolve("SOP submitted")
 
 

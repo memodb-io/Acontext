@@ -32,9 +32,34 @@ async def sop_agent_curd(
     message_blobs: list[MessageBlob],
 ):
 
-    task_desc, user_perferences, raw_messages = pack_task_data(
-        current_task, message_blobs
-    )
+    # task_desc, user_perferences, raw_messages = pack_task_data(
+    #     current_task, message_blobs
+    # )
+    task_desc = "Collect the latest news and key information about iPhone 15 Pro Max and report the findings to the user before starting any coding."
+    user_perferences = "- user expects the message to be collected and reported before any landing page coding."
+    raw_messages = """<agent>(text) I need to search the latest news about iPhone 15 pro max first
+<agent>(tool-call) {"tool_name": "search_news", "arguments": {"query": "iPhone 15 pro max launching"}}
+<agent>(tool-call) {"tool_name": "search_news", "arguments": {"query": "iPhone 15 pro max price"}}
+<agent>(tool-call) {"tool_name": "search_news", "arguments": {"query": "iPhone 15 pro max features specif
+ications"}}
+<agent>(text) Based on my search results, here's what I found about the iPhone 15 Pro Max:
+<agent>(text) ## iPhone 15 Pro Max Key Information
+
+**Launch Details:**
+- Released in September 2023
+- Available in Natural Titanium, Blue Titanium, White Titanium, and Black Titanium
+
+**Key Features:**                                                                                        - 6.7-inch Super Retina XDR display                                                                      - A17 Pro chip with 6-core GPU                                                                           - Pro camera system with 48MP main camera                                                                - Action Button replacing the mute switch
+- USB-C connectivity
+- Titanium design
+
+**Pricing:**
+- Starting at $1,199 for 256GB
+- 512GB model at $1,399
+- 1TB model at $1,599
+
+This information should be perfect for creating an engaging landing page. Should I proceed with initializ
+ing the Next.js project?"""
 
     LOG.info(f"Task SOP before: {task_desc}, {user_perferences}, {raw_messages}")
 
@@ -95,5 +120,10 @@ async def sop_agent_curd(
 
 if __name__ == "__main__":
     import asyncio
+    from dataclasses import dataclass
 
-    asyncio.run(sop_agent_curd(1, 1, 1, 1))
+    @dataclass
+    class Mock:
+        id: int = 1
+
+    asyncio.run(sop_agent_curd(1, 1, Mock(), []))
