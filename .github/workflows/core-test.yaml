@@ -44,27 +44,7 @@ jobs:
         run: |
           cp .env.example .env
           cp core/config.yaml.example core/config.yaml
-          sh scripts/local_dev_deps.sh &
-      - name: Wait for containers to start
-        working-directory: ./src/server
-        run: |
-          set -a; . ./.env; set +a 
-          until docker compose exec acontext-server-pg pg_isready -U $DATABASE_USER -d $DATABASE_NAME; do
-            echo "Waiting for PostgreSQL to be ready..."
-            sleep 5
-          done
-
-          until docker compose exec acontext-server-minio curl -f http://127.0.0.1:9000/minio/health/ready; do
-            echo "Waiting for MinIO to be ready..."
-            sleep 5
-          done
-
-          docker compose exec acontext-server-minio mc alias set local http://127.0.0.1:9000 $S3_ACCESS_KEY $S3_SECRET_KEY 
-
-          until docker compose exec acontext-server-minio mc ls local/$S3_BUCKET >/dev/null 2>&1; do
-            echo "Waiting for S3 bucket '$S3_BUCKET' to be created..."
-            sleep 5
-          done
+          docker compose up acontext-server-pg acontext-server-redis acontext-server-rabbitmq acontext-server-seaweedfs-setup acontext-server-seaweedfs -d
       - name: Test with pytest
         run: |
           cd core
