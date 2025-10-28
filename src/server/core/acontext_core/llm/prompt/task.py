@@ -69,7 +69,7 @@ class TaskPrompt(BasePrompt):
 - Message with ID format: <message id=N> ... </message>, inside the tag is the message content, the id field indicates the message id.
 
 ## Report your Thinking
-Use extremely brief wordings to report before calling tools:
+Use extremely brief wordings to report using the 'report_thinking' tool before calling other tools:
 1. Any planning from agent? Any preference or task modification from user?
 2. Does the user report that any task failed and need to re-run?
 3. How existing tasks are related to current conversation? 
@@ -110,11 +110,12 @@ Please analyze the above information and determine the actions.
         ].schema
         append_messages_to_task_tool = TASK_TOOLS["append_messages_to_task"].schema
         finish_tool = TASK_TOOLS["finish"].schema
-
+        thinking_tool = TASK_TOOLS["report_thinking"].schema
         return [
             insert_task_tool,
             update_task_tool,
             append_messages_to_planning_tool,
             append_messages_to_task_tool,
             finish_tool,
+            thinking_tool,
         ]

@@ -12,6 +12,7 @@ async def submit_sop_handler(ctx: SOPCtx, llm_arguments: dict) -> Result[str]:
     from rich import print
 
     print(llm_arguments)
+    print(ctx)
     try:
         sop_data = SOPData.model_validate(llm_arguments)
     except ValidationError as e:

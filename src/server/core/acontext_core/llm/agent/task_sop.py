@@ -30,6 +30,7 @@ async def sop_agent_curd(
     space_id: asUUID,
     current_task: TaskSchema,
     message_blobs: list[MessageBlob],
+    max_iterations=3,
 ):
 
     # task_desc, user_perferences, raw_messages = pack_task_data(
@@ -49,7 +50,11 @@ ications"}}
 - Released in September 2023
 - Available in Natural Titanium, Blue Titanium, White Titanium, and Black Titanium
 
-**Key Features:**                                                                                        - 6.7-inch Super Retina XDR display                                                                      - A17 Pro chip with 6-core GPU                                                                           - Pro camera system with 48MP main camera                                                                - Action Button replacing the mute switch
+**Key Features:**                                                                                        
+- 6.7-inch Super Retina XDR display                                                                      
+- A17 Pro chip with 6-core GPU                                                                           
+- Pro camera system with 48MP main camera                                                                
+- Action Button replacing the mute switch
 - USB-C connectivity
 - Titanium design
 
@@ -65,6 +70,7 @@ ing the Next.js project?"""
 
     json_tools = [tool.model_dump() for tool in TaskSOPPrompt.tool_schema()]
     already_iterations = 0
+    already_submit = False
     _messages = [
         {
             "role": "user",
@@ -73,7 +79,7 @@ ing the Next.js project?"""
             ),
         }
     ]
-    while already_iterations < 1:
+    while already_iterations < max_iterations:
         r = await llm_complete(
             system_prompt=TaskSOPPrompt.system_prompt(),
             history_messages=_messages,
@@ -90,10 +96,12 @@ ing the Next.js project?"""
             break
         use_tools = llm_return.tool_calls
         tool_response = []
-        USE_CTX = SOPCtx(project_id, space_id, current_task.id)
+        USE_CTX = SOPCtx(project_id, space_id, task=current_task)
         for tool_call in use_tools:
             try:
                 tool_name = tool_call.function.name
+                if tool_name == "submit_sop":
+                    already_submit = True
                 tool_arguments = tool_call.function.arguments
                 tool = SOP_TOOLS[tool_name]
                 with bound_logging_vars(tool=tool_name):
@@ -114,6 +122,9 @@ ing the Next.js project?"""
             except Exception as e:
                 return Result.reject(f"Tool {tool_name} error: {str(e)}")
         _messages.extend(tool_response)
+        if already_submit:
+            LOG.info("submit_sop called, exit the loop")
+            break
         already_iterations += 1
     return Result.resolve(None)
 

@@ -4,6 +4,7 @@ from .task_lib.append_planning import _append_messages_to_planning_section_tool
 from .task_lib.append import _append_messages_to_task_tool
 from .task_lib.finish import _finish_tool
 from .base import ToolPool
+from .util_lib.think import _thinking_tool
 
 TASK_TOOLS: ToolPool = {}
 
@@ -16,3 +17,4 @@ TASK_TOOLS[_append_messages_to_task_tool.schema.function.name] = (
     _append_messages_to_task_tool
 )
 TASK_TOOLS[_finish_tool.schema.function.name] = _finish_tool
+TASK_TOOLS[_thinking_tool.schema.function.name] = _thinking_tool

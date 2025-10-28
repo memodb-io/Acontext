@@ -42,12 +42,13 @@ async def process_space_task(
             return
         planning_message, _ = r.unpack()
     # 2. call agent to digest raw messages to SOP
-    await TSOP.sop_agent_curd(
-        project_id,
-        space_id,
-        task,
-        messages_data,
-    )
+    print("SKIP task")
+    # await TSOP.sop_agent_curd(
+    #     project_id,
+    #     space_id,
+    #     task,
+    #     messages_data,
+    # )
 
     # 3. Create block and trigger space_agent to save it
     # TODO: Implement Block creation logic

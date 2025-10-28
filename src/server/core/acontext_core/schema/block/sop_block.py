@@ -17,11 +17,11 @@ class SOPStep(BaseModel):
 class SOPData(BaseModel):
     use_when: str = Field(
         ...,
-        description="The scenario when this sop maybe used, e.g. 'Broswering xxx.com for items' infos', 'Query Lung disease from Database'",
+        description="The scenario when this sop maybe used (3~5words), e.g. 'Broswering xxx.com for items' infos', 'Query Lung disease from Database'",
     )
-    notes: str = Field(
+    preferences: str = Field(
         ...,
-        description="An brief guideline to instruct how to proceed this SOP, containing user requirements, tool-use annotations.",
+        description="User preferences on this SOP if any.",
     )
     tool_sops: List[SOPStep]
 
