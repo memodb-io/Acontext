@@ -7,6 +7,15 @@ import (
 	"gorm.io/datatypes"
 )
 
+// MessageFormat represents the format for message input/output conversion
+type MessageFormat string
+
+const (
+	FormatAcontext  MessageFormat = "acontext"
+	FormatOpenAI    MessageFormat = "openai"
+	FormatAnthropic MessageFormat = "anthropic"
+)
+
 type Message struct {
 	ID        uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
 	SessionID uuid.UUID  `gorm:"type:uuid;not null;index;index:idx_session_created,priority:1" json:"session_id"`

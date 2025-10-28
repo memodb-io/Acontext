@@ -99,6 +99,7 @@ definitions:
     type: object
   handler.SendMessageReq:
     properties:
+      blob: {}
       format:
         enum:
         - acontext
@@ -106,13 +107,8 @@ definitions:
         - anthropic
         example: openai
         type: string
-      parts: {}
-      role:
-        example: user
-        type: string
     required:
-    - parts
-    - role
+    - blob
     type: object
   handler.UpdateArtifactResp:
     properties:
@@ -221,6 +217,8 @@ definitions:
         type: string
       id:
         type: string
+      meta:
+        type: object
       parent:
         $ref: '#/definitions/model.Message'
       parent_id:
@@ -919,10 +917,11 @@ paths:
       - multipart/form-data
       description: 'Supports JSON and multipart/form-data. In multipart mode: the
         payload is a JSON string placed in a form field. The format parameter indicates
-        the format of the input message (default: openai, same as GET). The parts
-        field structure varies based on the format: for openai, use OpenAI message
-        content format; for anthropic, use Anthropic content blocks format; for acontext
-        (internal), use the internal Part format.'
+        the format of the input message (default: openai, same as GET). The blob field
+        should be a complete message object: for openai, use OpenAI ChatCompletionMessageParam
+        format (with role and content); for anthropic, use Anthropic MessageParam
+        format (with role and content); for acontext (internal), use {role, parts}
+        format.'
       parameters:
       - description: Session ID
         format: uuid

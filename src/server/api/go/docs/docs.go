@@ -825,7 +825,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Supports JSON and multipart/form-data. In multipart mode: the payload is a JSON string placed in a form field. The format parameter indicates the format of the input message (default: openai, same as GET). The parts field structure varies based on the format: for openai, use OpenAI message content format; for anthropic, use Anthropic content blocks format; for acontext (internal), use the internal Part format.",
+                "description": "Supports JSON and multipart/form-data. In multipart mode: the payload is a JSON string placed in a form field. The format parameter indicates the format of the input message (default: openai, same as GET). The blob field should be a complete message object: for openai, use OpenAI ChatCompletionMessageParam format (with role and content); for anthropic, use Anthropic MessageParam format (with role and content); for acontext (internal), use {role, parts} format.",
                 "consumes": [
                     "application/json",
                     "multipart/form-data"
@@ -1871,10 +1871,10 @@ const docTemplate = `{
         "handler.SendMessageReq": {
             "type": "object",
             "required": [
-                "parts",
-                "role"
+                "blob"
             ],
             "properties": {
+                "blob": {},
                 "format": {
                     "type": "string",
                     "enum": [
@@ -1883,11 +1883,6 @@ const docTemplate = `{
                         "anthropic"
                     ],
                     "example": "openai"
-                },
-                "parts": {},
-                "role": {
-                    "type": "string",
-                    "example": "user"
                 }
             }
         },
@@ -2057,6 +2052,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "meta": {
+                    "type": "object"
                 },
                 "parent": {
                     "$ref": "#/definitions/model.Message"

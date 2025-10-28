@@ -7,19 +7,10 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/service"
 )
 
-// MessageFormat represents the format to convert messages to
-type MessageFormat string
-
-const (
-	FormatAcontext  MessageFormat = "acontext"
-	FormatOpenAI    MessageFormat = "openai"
-	FormatAnthropic MessageFormat = "anthropic"
-)
-
 // ConvertMessagesInput represents the input for converting messages
 type ConvertMessagesInput struct {
 	Messages   []model.Message
-	Format     MessageFormat
+	Format     model.MessageFormat
 	PublicURLs map[string]service.PublicURL
 }
 
@@ -30,28 +21,33 @@ type MessageConverter interface {
 
 // ConvertMessages converts messages to the specified format
 func ConvertMessages(input ConvertMessagesInput) (interface{}, error) {
-	if input.Format == FormatAcontext || input.Format == "" {
-		return input.Messages, nil
+	var converter MessageConverter
+
+	// Default to Acontext format if not specified
+	format := input.Format
+	if format == "" {
+		format = model.FormatAcontext
 	}
 
-	var converter MessageConverter
-	switch input.Format {
-	case FormatOpenAI:
+	switch format {
+	case model.FormatAcontext:
+		converter = &AcontextConverter{}
+	case model.FormatOpenAI:
 		converter = &OpenAIConverter{}
-	case FormatAnthropic:
+	case model.FormatAnthropic:
 		converter = &AnthropicConverter{}
 	default:
-		return nil, fmt.Errorf("unsupported format: %s", input.Format)
+		return nil, fmt.Errorf("unsupported format: %s", format)
 	}
 
 	return converter.Convert(input.Messages, input.PublicURLs)
 }
 
 // ValidateFormat checks if the format is valid
-func ValidateFormat(format string) (MessageFormat, error) {
-	mf := MessageFormat(format)
+func ValidateFormat(format string) (model.MessageFormat, error) {
+	mf := model.MessageFormat(format)
 	switch mf {
-	case FormatAcontext, FormatOpenAI, FormatAnthropic:
+	case model.FormatAcontext, model.FormatOpenAI, model.FormatAnthropic:
 		return mf, nil
 	default:
 		return "", fmt.Errorf("invalid format: %s, supported formats: acontext, openai, anthropic", format)
@@ -61,7 +57,7 @@ func ValidateFormat(format string) (MessageFormat, error) {
 // GetConvertedMessagesOutput wraps the converted messages with metadata
 func GetConvertedMessagesOutput(
 	messages []model.Message,
-	format MessageFormat,
+	format model.MessageFormat,
 	publicURLs map[string]service.PublicURL,
 	nextCursor string,
 	hasMore bool,
@@ -85,7 +81,7 @@ func GetConvertedMessagesOutput(
 	}
 
 	// Include public_urls only if format is None (original format)
-	if format == FormatAcontext && len(publicURLs) > 0 {
+	if format == model.FormatAcontext && len(publicURLs) > 0 {
 		result["public_urls"] = publicURLs
 	}
 

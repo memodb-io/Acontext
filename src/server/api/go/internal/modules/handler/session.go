@@ -14,7 +14,8 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
-	"github.com/memodb-io/Acontext/internal/pkg/utils/converter"
+	"github.com/memodb-io/Acontext/internal/pkg/converter"
+	"github.com/memodb-io/Acontext/internal/pkg/normalizer"
 	"gorm.io/datatypes"
 )
 
@@ -265,15 +266,14 @@ func (h *SessionHandler) ConnectToSpace(c *gin.Context) {
 }
 
 type SendMessageReq struct {
-	Role   string      `form:"role" json:"role" binding:"required" example:"user"`
-	Parts  interface{} `form:"parts" json:"parts" binding:"required"`
+	Blob   interface{} `form:"blob" json:"blob" binding:"required"`
 	Format string      `form:"format" json:"format" binding:"omitempty,oneof=acontext openai anthropic" example:"openai" enums:"acontext,openai,anthropic"`
 }
 
 // SendMessage godoc
 //
 //	@Summary		Send message to session
-//	@Description	Supports JSON and multipart/form-data. In multipart mode: the payload is a JSON string placed in a form field. The format parameter indicates the format of the input message (default: openai, same as GET). The parts field structure varies based on the format: for openai, use OpenAI message content format; for anthropic, use Anthropic content blocks format; for acontext (internal), use the internal Part format.
+//	@Description	Supports JSON and multipart/form-data. In multipart mode: the payload is a JSON string placed in a form field. The format parameter indicates the format of the input message (default: openai, same as GET). The blob field should be a complete message object: for openai, use OpenAI ChatCompletionMessageParam format (with role and content); for anthropic, use Anthropic MessageParam format (with role and content); for acontext (internal), use {role, parts} format.
 //	@Tags			session
 //	@Accept			json
 //	@Accept			multipart/form-data
@@ -310,7 +310,7 @@ func (h *SessionHandler) SendMessage(c *gin.Context) {
 	// Determine format
 	formatStr := req.Format
 	if formatStr == "" {
-		formatStr = string(converter.FormatOpenAI) // Default to OpenAI format
+		formatStr = string(model.FormatOpenAI) // Default to OpenAI format
 	}
 
 	format, err := converter.ValidateFormat(formatStr)
@@ -320,99 +320,64 @@ func (h *SessionHandler) SendMessage(c *gin.Context) {
 	}
 
 	// Parse and normalize based on format
+	// Blob contains the complete message object, directly use official SDK validation
 	var normalizedRole string
 	var normalizedParts []service.PartIn
 	var fileFields []string
 
+	blobJSON, err := sonic.Marshal(req.Blob)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid blob", err))
+		return
+	}
+
 	switch format {
-	case converter.FormatAcontext:
-		// Parse as internal format
-		partsBytes, err := sonic.Marshal(req.Parts)
+	case model.FormatAcontext:
+		// Parse and validate using Acontext normalizer
+		norm := &normalizer.AcontextNormalizer{}
+		normalizedRole, normalizedParts, err = norm.NormalizeFromAcontextMessage(blobJSON)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid parts", err))
-			return
-		}
-		var internalParts []service.PartIn
-		if err := sonic.Unmarshal(partsBytes, &internalParts); err != nil {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid parts format for acontext", err))
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("failed to normalize Acontext message", err))
 			return
 		}
 
-		// Validate role for internal format
-		validRoles := map[string]bool{"user": true, "assistant": true, "system": true}
-		if !validRoles[req.Role] {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid role", fmt.Errorf("role must be one of: user, assistant, system")))
-			return
-		}
-
-		// Validate each part
-		for _, p := range internalParts {
-			if err := p.Validate(); err != nil {
-				c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid part", err))
-				return
-			}
+		// Collect file fields from normalized parts
+		for _, p := range normalizedParts {
 			if p.FileField != "" {
 				fileFields = append(fileFields, p.FileField)
 			}
 		}
 
-		normalizedRole = req.Role
-		normalizedParts = internalParts
-
-	case converter.FormatOpenAI:
-		// Parse as OpenAI format
-		partsBytes, err := sonic.Marshal(req.Parts)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid parts", err))
-			return
-		}
-		var openaiParts []converter.OpenAIPartIn
-		if err := sonic.Unmarshal(partsBytes, &openaiParts); err != nil {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid parts format for openai", err))
-			return
-		}
-
-		// Collect file fields
-		for _, p := range openaiParts {
-			if p.FileField != "" {
-				fileFields = append(fileFields, p.FileField)
-			}
-		}
-
-		// Normalize
-		normalizer := &converter.OpenAINormalizer{}
-		normalizedRole, normalizedParts, err = normalizer.NormalizeFromOpenAI(req.Role, openaiParts)
+	case model.FormatOpenAI:
+		// Parse and validate using official OpenAI SDK
+		norm := &normalizer.OpenAINormalizer{}
+		normalizedRole, normalizedParts, err = norm.NormalizeFromOpenAIMessage(blobJSON)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, serializer.ParamErr("failed to normalize OpenAI message", err))
 			return
 		}
 
-	case converter.FormatAnthropic:
-		// Parse as Anthropic format
-		partsBytes, err := sonic.Marshal(req.Parts)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid parts", err))
-			return
-		}
-		var anthropicParts []converter.AnthropicPartIn
-		if err := sonic.Unmarshal(partsBytes, &anthropicParts); err != nil {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid parts format for anthropic", err))
-			return
-		}
-
-		// Collect file fields
-		for _, p := range anthropicParts {
+		// Collect file fields from normalized parts
+		for _, p := range normalizedParts {
 			if p.FileField != "" {
 				fileFields = append(fileFields, p.FileField)
 			}
 		}
 
-		// Normalize
-		normalizer := &converter.AnthropicNormalizer{}
-		normalizedRole, normalizedParts, err = normalizer.NormalizeFromAnthropic(req.Role, anthropicParts)
+	case model.FormatAnthropic:
+		// Parse and validate using official Anthropic SDK
+		norm := &normalizer.AnthropicNormalizer{}
+		normalizedRole, normalizedParts, err = norm.NormalizeFromAnthropicMessage(blobJSON)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, serializer.ParamErr("failed to normalize Anthropic message", err))
 			return
+		}
+
+		// Collect file fields from normalized parts
+		for _, p := range normalizedParts {
+			if p.FileField != "" {
+				fileFields = append(fileFields, p.FileField)
+			}
 		}
 
 	default:
@@ -518,7 +483,7 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 	// Convert messages to specified format (default: openai)
 	formatStr := req.Format
 	if formatStr == "" {
-		formatStr = string(converter.FormatOpenAI)
+		formatStr = string(model.FormatOpenAI)
 	}
 
 	format, err := converter.ValidateFormat(formatStr)
