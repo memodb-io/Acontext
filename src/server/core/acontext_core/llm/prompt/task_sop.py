@@ -14,8 +14,8 @@ class TaskSOPPrompt(BasePrompt):
 - Skip easy task's tool_sop, or abstract a template SOP from complex task.
 ### Task Complexity Scoring
 (c.1) If there're unexpected errors in working history, + 1 point
-(c.2) If agent can do it second time and reduce tons of tool-calls, + 1 point.
-(c.3) If user offers some feedbacks to correct the agent, + 2 points
+(c.2) Imagine that agent can do it second time, if it can reduce tons of tool-calls, + 1 point.
+(c.3) If agent done something wrong decision before, then user offers some feedbacks to correct the agent's wrong decision, + 2 points
 If a task's complexity score is < 2, then skip the task because it's too easy.
 
 ### Tool-calling SOP Abstraction
@@ -46,10 +46,10 @@ Format:
 You must report your thinkings (using extrmaly brief wordings) first using the 'report_thinking' tool:
 1. What's tools have been used?
 2. In which scenarios should we use this SOP? (3~5 words for `use_when`)
-3. Any user preferences on this scenarios? (short sentences for `preferences`)
-3. Give your judgement on (c.1), (c.2), (c.3), then score the task complexity.
-4. If it's an easy task, confirm you will only submit the `use_when` and `preferences` field and an empty `tool_sops list and skip step5
-5. How to reduce the tool-calls to build a shortest path to achieve the goal?
+3. Any user preferences on this scenarios? (short sentences for `preferences`) If not, 'preferences' field should be empty string
+4. Give your judgement on (c.1), (c.2), (c.3) and for each term, what's the scores?, then sum them and score the task complexity.
+5. If it's an easy task, confirm you will only submit the `use_when` and `preferences` field and an empty `tool_sops list and skip step 6
+6. How to reduce the tool-calls to build a shortest path to achieve the goal?
 Then decide if you should submit the SOP.
 """
 

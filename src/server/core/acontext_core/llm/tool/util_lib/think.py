@@ -23,7 +23,7 @@ _thinking_tool = (
         ToolSchema(
             function={
                 "name": "report_thinking",
-                "description": "Call this tool to report your thinking step by step",
+                "description": "Use this tool to report your thinking step by step. It will not obtain new information or change the database, but just append the thought to the log.",
                 "parameters": {
                     "type": "object",
                     "properties": {
