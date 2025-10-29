@@ -30,9 +30,6 @@ func (c *AnthropicConverter) Convert(messages []model.Message, publicURLs map[st
 		result = append(result, anthropicMsg)
 	}
 
-	// Anthropic API requires alternating user/assistant messages and no adjacent same roles
-	result = c.mergeAdjacentSameRole(result)
-
 	return result, nil
 }
 
@@ -259,7 +256,8 @@ func (c *AnthropicConverter) convertDocumentPart(part model.Part, publicURLs map
 	}
 
 	if sourceType, ok := part.Meta["type"].(string); ok {
-		if sourceType == "base64" {
+		switch sourceType {
+		case "base64":
 			mediaType, _ := part.Meta["media_type"].(string)
 			data, _ := part.Meta["data"].(string)
 			if mediaType != "" && data != "" {
@@ -270,7 +268,7 @@ func (c *AnthropicConverter) convertDocumentPart(part model.Part, publicURLs map
 				block := anthropic.NewDocumentBlock(source)
 				return &block
 			}
-		} else if sourceType == "url" {
+		case "url":
 			url, _ := part.Meta["url"].(string)
 			if url != "" {
 				// Use URLPDFSourceParam for URL documents
@@ -323,26 +321,4 @@ func (c *AnthropicConverter) getAssetURL(asset *model.Asset, publicURLs map[stri
 		return publicURL.URL
 	}
 	return ""
-}
-
-func (c *AnthropicConverter) mergeAdjacentSameRole(messages []anthropic.MessageParam) []anthropic.MessageParam {
-	if len(messages) <= 1 {
-		return messages
-	}
-
-	merged := make([]anthropic.MessageParam, 0, len(messages))
-	current := messages[0]
-
-	for i := 1; i < len(messages); i++ {
-		if messages[i].Role == current.Role {
-			// Merge content
-			current.Content = append(current.Content, messages[i].Content...)
-		} else {
-			merged = append(merged, current)
-			current = messages[i]
-		}
-	}
-	merged = append(merged, current)
-
-	return merged
 }
