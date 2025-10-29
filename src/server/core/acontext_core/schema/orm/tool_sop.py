@@ -19,7 +19,7 @@ class ToolSOP(CommonMixin):
 
     __table_args__ = (Index("ix_tool_sop_tool_reference_id", "tool_reference_id"),)
 
-    goal: str = field(metadata={"db": Column(String, nullable=False)})
+    action: str = field(metadata={"db": Column(String, nullable=False)})
 
     tool_reference_id: asUUID = field(
         metadata={

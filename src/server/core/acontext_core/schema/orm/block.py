@@ -13,6 +13,7 @@ from sqlalchemy.orm import relationship, foreign, remote
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from typing import TYPE_CHECKING, Optional, List, Dict, Any
 from .base import ORM_BASE, CommonMixin
+from ..result import Result
 from ..utils import asUUID
 
 if TYPE_CHECKING:
@@ -27,13 +28,17 @@ BLOCK_TYPES = {
         "allow_children": True,
         "require_parent": False,
     },
+    "folder": {
+        "name": "folder",
+        "allow_children": True,
+        "require_parent": False,
+    },
     "text": {
         "name": "text",
         "allow_children": True,
         "require_parent": True,
         "props_schema": {
-            "use_when": str,
-            "notes": str,
+            "preferences": str,
         },
     },
     "sop": {
@@ -41,13 +46,13 @@ BLOCK_TYPES = {
         "allow_children": True,
         "require_parent": True,
         "props_schema": {
-            "use_when": str,
-            "notes": str,
+            "preferences": str,
         },
     },
 }
 
 # Block type constants matching Go version
+BLOCK_TYPE_FOLDER = "folder"
 BLOCK_TYPE_PAGE = "page"
 BLOCK_TYPE_TEXT = "text"
 BLOCK_TYPE_SOP = "sop"
@@ -161,6 +166,7 @@ class Block(CommonMixin):
                 Boolean,
                 nullable=False,
                 default=False,
+                server_default="false",
             )
         },
     )
@@ -211,29 +217,18 @@ class Block(CommonMixin):
         },
     )
 
-    def validate(self) -> None:
-        """Validate the fields of a Block"""
-        # Check if the type is valid
+    def validate_for_creation(self) -> Result[None]:
+        """Validate the constraints for creation"""
         if not is_valid_block_type(self.type):
-            raise ValueError(f"invalid block type: {self.type}")
+            return Result.reject(f"invalid block type: {self.type}")
 
         config = get_block_type_config(self.type)
 
         # Check the parent-child relationship constraints
         if config["require_parent"] and self.parent_id is None:
-            raise ValueError(f"block type '{self.type}' requires a parent")
+            return Result.reject(f"block type '{self.type}' requires a parent")
 
-        if (
-            not config["require_parent"]
-            and self.type != BLOCK_TYPE_PAGE
-            and self.parent_id is None
-        ):
-            raise ValueError("only page type blocks can exist without a parent")
-
-    def validate_for_creation(self) -> None:
-        """Validate the constraints for creation"""
-        self.validate()
-        # Can add specific validation logic for creation here
+        return Result.resolve(None)
 
     def can_have_children(self) -> bool:
         """Check if the block type can have children"""

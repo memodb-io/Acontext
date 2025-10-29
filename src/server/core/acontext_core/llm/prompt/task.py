@@ -27,7 +27,7 @@ class TaskPrompt(BasePrompt):
 - `failed`
 
 ## Planning Detection
-- Planning messages often consist of user and agent discussions, clarify what's tasks to do at next.
+- Planning messages often consist of user and agent discussions, clarify what's tasks to do at next, not the actual execution process.
 - Append those messages to planning section using `append_messages_to_planning_section` tool.
 - Appending the full messages of user requirements (user requirements and agent responses)
 
@@ -74,7 +74,7 @@ Use extremely brief wordings to report using the 'report_thinking' tool before c
 2. Does the user report that any task failed and need to re-run?
 3. How existing tasks are related to current conversation? 
 4. Any new task should be created?
-5. Which Messages are contributed to planning? 
+5. Which Messages are contributed to planning? Not the execution.
 6. Which Messages are contributed to which task? Any progress or user preference?
 7. Which task's status need to be updated?
 8. Briefly describe your tool-call actions to correctly manage the tasks.
