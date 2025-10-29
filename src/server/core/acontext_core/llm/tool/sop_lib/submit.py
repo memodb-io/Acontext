@@ -1,9 +1,11 @@
 from pydantic import ValidationError
-from ....infra.async_mq import MQ_CLIENT
 from ..base import Tool, ToolPool
+from ....service.constants import EX, RK
+from ....infra.async_mq import MQ_CLIENT
 from ....schema.llm import ToolSchema
 from ....schema.result import Result
 from ....schema.block.sop_block import SOPData
+from ....schema.mq.sop import SOPComplete
 from ....service.data import task as TD
 from ....env import LOG
 from .ctx import SOPCtx
@@ -19,7 +21,17 @@ async def submit_sop_handler(ctx: SOPCtx, llm_arguments: dict) -> Result[str]:
     if not len(sop_data.tool_sops) and not len(sop_data.preferences.strip()):
         LOG.info("Agent submitted an empty SOP, drop")
         return Result.resolve("SOP submitted")
-    # await MQ_CLIENT.publish()
+    sop_complete_message = SOPComplete(
+        project_id=ctx.project_id,
+        space_id=ctx.space_id,
+        task_id=ctx.task.id,
+        sop_data=sop_data,
+    )
+    await MQ_CLIENT.publish(
+        exchange_name=EX.space_task,
+        routing_key=RK.space_task_sop_complete,
+        body=sop_complete_message.model_dump_json(),
+    )
     return Result.resolve("SOP submitted")
 
 
