@@ -36,17 +36,13 @@ async def process_space_task(
             MessageBlob(message_id=m.id, role=m.role, parts=m.parts, task_id=m.task_id)
             for m in messages
         ]
-
-        r = await TD.fetch_planning_task(db_session, session_id)
-        if not r.ok():
-            return
-        planning_message, _ = r.unpack()
     # 2. call agent to digest raw messages to SOP
     await TSOP.sop_agent_curd(
         project_id,
         space_id,
         task,
         messages_data,
+        max_iterations=project_config.default_sop_agent_max_iterations,
     )
 
     # 3. Create block and trigger space_agent to save it
@@ -58,33 +54,30 @@ async def process_space_task(
         "sop": [
             {
                 "tool_name": "web_search",
-                "argument_template": {
-                    "query": "test query",
-                    "website": "example.com"
-                }
+                "argument_template": {"query": "test query", "website": "example.com"},
             },
             {
                 "tool_name": "extract_data",
                 "argument_template": {
                     "selector": ".content",
-                    "fields": ["title", "description"]
-                }
-            }
-        ]
+                    "fields": ["title", "description"],
+                },
+            },
+        ],
     }
-    
+
     # 4. Publish MQ message to trigger construct_agent after SOP completion
     sop_complete_message = SOPComplete(
         project_id=project_id,
         space_id=space_id,
         task_id=task.id,
-        sop_data=mock_sop_data
+        sop_data=mock_sop_data,
     )
-    
+
     await MQ_CLIENT.publish(
         exchange_name=EX.space_task,
         routing_key=RK.space_task_sop_complete,
         body=sop_complete_message.model_dump_json(),
     )
-    
+
     LOG.info(f"Published SOP complete message for task {task.id}")

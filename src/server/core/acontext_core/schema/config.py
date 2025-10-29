@@ -10,6 +10,7 @@ class ProjectConfig(BaseModel):
     project_session_message_buffer_max_overflow: int = 12
     project_session_message_buffer_ttl_seconds: int = 10
     default_task_agent_max_iterations: int = 3
+    default_sop_agent_max_iterations: int = 3
 
 
 class CoreConfig(BaseModel):
