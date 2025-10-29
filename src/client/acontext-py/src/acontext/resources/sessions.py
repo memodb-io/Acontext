@@ -1,13 +1,16 @@
-"""
-Sessions endpoints.
-"""
+"""Sessions endpoints."""
 
 import json
-from typing import Any, Mapping, MutableMapping, Sequence
+from dataclasses import asdict, field, is_dataclass
+from enum import Enum
+from typing import Any, BinaryIO, Mapping, MutableMapping
 
-from .._constants import SUPPORTED_ROLES
-from ..messages import MessagePart, build_message_payload
 from ..client_types import RequesterProtocol
+from ..messages import AcontextMessage, MessagePart
+from ..uploads import FileUpload, normalize_file_upload
+
+UploadPayload = FileUpload | tuple[str, BinaryIO | bytes] | tuple[str, BinaryIO | bytes, str | None]
+MessageBlob = AcontextMessage 
 
 
 class SessionsAPI:
@@ -63,29 +66,34 @@ class SessionsAPI:
         self,
         session_id: str,
         *,
-        role: str,
-        parts: Sequence[MessagePart | str | Mapping[str, Any]],
-        format: str | None = None,
+        blob: MessageBlob,
+        format: str | None = "acontext",
+        file_field: str | None = "",
+        file: FileUpload | None = None
     ) -> Any:
-        if role not in SUPPORTED_ROLES:
-            raise ValueError(f"role must be one of {SUPPORTED_ROLES!r}")
-        if not parts:
-            raise ValueError("parts must contain at least one entry")
+        if format not in {"acontext", "openai", "anthropic"}:
+            raise ValueError("format must be one of {'acontext', 'openai', 'anthropic'}")
 
-        payload_parts, files = build_message_payload(parts)
-        payload = {"role": role, "parts": payload_parts}
-        if format is not None:
-            payload["format"] = format
+        payload = {
+            "blob": asdict(blob),
+            "format": format,
+        }
 
-        if files:
+        file_payload: dict[str, tuple[str, BinaryIO, str | None]] | None = None
+        if file:
+            # only support upload one file now
+            file_payload = {
+                file_field: file.as_httpx()
+            }
+
+        if file_payload:
             form_data = {"payload": json.dumps(payload)}
             return self._requester.request(
                 "POST",
                 f"/session/{session_id}/messages",
                 data=form_data,
-                files=files,
+                files=file_payload,
             )
-
         return self._requester.request(
             "POST",
             f"/session/{session_id}/messages",

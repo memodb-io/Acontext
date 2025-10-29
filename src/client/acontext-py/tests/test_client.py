@@ -1,4 +1,5 @@
 import json
+from dataclasses import asdict, dataclass
 from typing import Any, Dict
 from unittest.mock import patch
 
@@ -6,7 +7,7 @@ import httpx
 import pytest
 
 from acontext.client import AcontextClient, FileUpload, MessagePart  # noqa: E402
-from acontext.messages import build_message_payload  # noqa: E402
+from acontext.messages import build_acontext_message  # noqa: E402
 from acontext.errors import APIError, TransportError  # noqa: E402
 
 
@@ -24,25 +25,21 @@ def client() -> AcontextClient:
         client.close()
 
 
-def test_build_message_payload_with_file() -> None:
-    file_part = MessagePart.file_part(
-        ("document.txt", b"hello world", "text/plain"),
-        meta={"source": "unit-test"},
+def test_build_acontext_message_with_meta() -> None:
+    message = build_acontext_message(
+        role="assistant",
+        parts=[MessagePart.text_part("hi")],
+        meta={"name": "bot"},
     )
-    parts = [MessagePart.text_part("hi"), file_part]
 
-    payload, files = build_message_payload(parts)
-
-    assert payload == [
-        {"type": "text", "text": "hi"},
-        {"type": "file", "meta": {"source": "unit-test"}, "file_field": "file_1"},
-    ]
-
-    assert "file_1" in files
-    filename, stream, content_type = files["file_1"]
-    assert filename == "document.txt"
-    assert content_type == "text/plain"
-    assert stream.read() == b"hello world"
+    assert message.role == "assistant"
+    assert message.parts[0].text == "hi"
+    assert message.meta == {"name": "bot"}
+    assert asdict(message) == {
+        "role": "assistant",
+        "parts": [{"type": "text", "text": "hi"}],
+        "meta": {"name": "bot"},
+    }
 
 
 def test_handle_response_returns_data() -> None:
@@ -72,11 +69,21 @@ def test_request_transport_error(mock_request) -> None:
 def test_send_message_with_files_uses_multipart_payload(mock_request, client: AcontextClient) -> None:
     mock_request.return_value = {"message": "ok"}
 
-    file_upload = FileUpload(filename="image.png", content=b"bytes", content_type="image/png")
+    blob = build_acontext_message(role="user", parts=[MessagePart.text_part("hello")])
+    blob_payload = asdict(blob)
+
+    class _DummyStream:
+        def read(self) -> bytes:
+            return b"bytes"
+
+    dummy_stream = _DummyStream()
+    upload = FileUpload(filename="image.png", content=dummy_stream, content_type="image/png")
+
     client.sessions.send_message(
         "session-id",
-        role="user",
-        parts=[MessagePart.text_part("hello"), MessagePart.file_part(file_upload)],
+        blob=blob_payload,
+        format="acontext",
+        file=upload,
     )
 
     mock_request.assert_called_once()
@@ -84,30 +91,128 @@ def test_send_message_with_files_uses_multipart_payload(mock_request, client: Ac
     method, path = args
     assert method == "POST"
     assert path == "/session/session-id/messages"
+    assert kwargs["data"] is not None
     assert "files" in kwargs
-    assert "data" in kwargs
 
     payload_json = json.loads(kwargs["data"]["payload"])
-    assert payload_json["role"] == "user"
-    assert payload_json["parts"][0]["text"] == "hello"
-    assert payload_json["parts"][1]["file_field"] == "file_1"
+    assert payload_json["format"] == "acontext"
+    message_blob = payload_json["blob"]
+    assert message_blob["role"] == "user"
+    assert message_blob["parts"][0]["text"] == "hello"
 
-    filename, stream, content_type = kwargs["files"]["file_1"]
-    assert filename == "image.png"
-    assert content_type == "image/png"
-    assert stream.read() == b"bytes"
+    files_payload = kwargs["files"]
+    assert isinstance(files_payload, set)
+    assert "image.png" in files_payload
+    assert "image/png" in files_payload
+    assert dummy_stream in files_payload
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_send_message_can_include_format(mock_request, client: AcontextClient) -> None:
+def test_send_message_requires_blob(mock_request, client: AcontextClient) -> None:
+    with pytest.raises(ValueError):
+        client.sessions.send_message("session-id", format="openai", blob=None, file=None)
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_send_message_requires_format_when_cannot_infer(mock_request, client: AcontextClient) -> None:
+    with pytest.raises(ValueError):
+        client.sessions.send_message(
+            "session-id",
+            blob={"message": "hi"},
+            file=None,
+        )
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_send_message_rejects_unknown_format(mock_request, client: AcontextClient) -> None:
+    with pytest.raises(ValueError):
+        client.sessions.send_message(
+            "session-id",
+            blob={"role": "user", "content": "hi"},
+            format="legacy",
+            file=None,
+        )
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_send_message_explicit_format_still_supported(mock_request, client: AcontextClient) -> None:
     mock_request.return_value = {"message": "ok"}
 
     client.sessions.send_message(
         "session-id",
-        role="user",
-        parts=[MessagePart.text_part("hello")],
-        format="acontext",
+        blob={"role": "user", "content": "hi"},
+        format="openai",
+        file=None,
     )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "POST"
+    assert path == "/session/session-id/messages"
+    assert "json_data" in kwargs
+    assert kwargs["json_data"]["format"] == "openai"
+    assert kwargs["json_data"]["blob"]["content"] == "hi"
+
+
+@dataclass
+class _FakeOpenAIMessage:
+    __module__ = "openai.types.chat"
+
+    role: str
+
+    def model_dump(self) -> dict[str, Any]:
+        return {"role": self.role, "content": "hello"}
+
+
+@dataclass
+class _FakeAnthropicMessage:
+    __module__ = "anthropic.types.messages"
+
+    role: str
+
+    def model_dump(self) -> dict[str, Any]:
+        return {"role": self.role, "content": [{"type": "text", "text": "hi"}]}
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_send_message_infers_openai_format(mock_request, client: AcontextClient) -> None:
+    mock_request.return_value = {"message": "ok"}
+
+    client.sessions.send_message(
+        "session-id",
+        blob=_FakeOpenAIMessage(role="user"),
+        file=None,
+    )
+
+    mock_request.assert_called_once()
+    _, kwargs = mock_request.call_args
+    assert kwargs["json_data"]["format"] == "openai"
+    assert kwargs["json_data"]["blob"]["content"] == "hello"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_send_message_infers_anthropic_format(mock_request, client: AcontextClient) -> None:
+    mock_request.return_value = {"message": "ok"}
+
+    client.sessions.send_message(
+        "session-id",
+        blob=_FakeAnthropicMessage(role="user"),
+        file=None,
+    )
+
+    mock_request.assert_called_once()
+    _, kwargs = mock_request.call_args
+    assert kwargs["json_data"]["format"] == "anthropic"
+    assert kwargs["json_data"]["blob"]["content"][0]["text"] == "hi"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_send_message_infers_acontext_format(mock_request, client: AcontextClient) -> None:
+    mock_request.return_value = {"message": "ok"}
+
+    blob = {"role": "assistant", "parts": [{"type": "text", "text": "hi"}]}
+    client.sessions.send_message("session-id", blob=blob, file=None)
 
     mock_request.assert_called_once()
     _, kwargs = mock_request.call_args

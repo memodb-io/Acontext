@@ -5,9 +5,14 @@ End-to-end usage sample for the Acontext Python SDK.
 import sys
 import os
 
+from acontext.resources.sessions import UploadPayload
+
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from dataclasses import asdict
+
 from acontext import AcontextClient, MessagePart, FileUpload
+from acontext.messages import build_acontext_message
 from acontext.errors import APIError, AcontextError, TransportError
 
 
@@ -18,28 +23,30 @@ def main() -> None:
         space_id = space["id"]
 
         session = client.sessions.create(space_id=space_id)
-        client.sessions.send_message(
-            session["id"],
+        blob = build_acontext_message(
             role="user",
             parts=[MessagePart.text_part("Hello from the example!")],
         )
+        client.sessions.send_message(session["id"], blob=blob, format="acontext")
 
-        # Attach a text file alongside another message
+        # Attach a file
+        file_field = "retro_notes.md"
+        blob = build_acontext_message(
+            role="user",
+            parts=[
+                MessagePart.file_field_part(file_field),
+            ],
+        )
         client.sessions.send_message(
             session["id"],
-            role="user",
+            blob=blob,
             format="acontext",
-            parts=[
-                MessagePart.text_part("Uploading the sprint outline."),
-                MessagePart.file_part(
-                    FileUpload(
-                        filename="sprint_plan.txt",
-                        content=b"- Align on scope\n- Demo the new upload flow\n",
-                        content_type="text/plain",
-                    ),
-                    meta={"description": "Sprint TODOs"},
-                ),
-            ],
+            file_field=file_field,
+            file=FileUpload(
+                filename=file_field,
+                content=b"# Retro Notes\nWe shipped file uploads successfully!\n",
+                content_type="text/markdown",
+            )
         )
 
         # Upload a file to a disk-backed artifact store for later reuse
