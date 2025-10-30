@@ -28,7 +28,6 @@ func NewDiskService(r repo.DiskRepo, s3 *blob.S3Deps) DiskService {
 
 func (s *diskService) Create(ctx context.Context, projectID uuid.UUID) (*model.Disk, error) {
 	disk := &model.Disk{
-		ID:        uuid.New(),
 		ProjectID: projectID,
 	}
 

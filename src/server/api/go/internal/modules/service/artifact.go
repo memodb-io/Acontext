@@ -73,7 +73,6 @@ func (s *artifactService) Create(ctx context.Context, in CreateArtifactInput) (*
 	}
 
 	artifact := &model.Artifact{
-		ID:        uuid.New(),
 		DiskID:    in.DiskID,
 		Path:      in.Path,
 		Filename:  in.Filename,
