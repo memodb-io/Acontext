@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -43,6 +44,12 @@ type CreateArtifactReq struct {
 //	@Success		201	{object}	serializer.Response{data=model.Artifact}
 //	@Router			/disk/{disk_id}/artifact [post]
 func (h *ArtifactHandler) UpsertArtifact(c *gin.Context) {
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
 	req := CreateArtifactReq{}
 	if err := c.ShouldBind(&req); err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
@@ -91,7 +98,14 @@ func (h *ArtifactHandler) UpsertArtifact(c *gin.Context) {
 		}
 	}
 
-	artifactRecord, err := h.svc.Create(c.Request.Context(), diskID, filePath, actualFilename, file, userMeta)
+	artifactRecord, err := h.svc.Create(c.Request.Context(), service.CreateArtifactInput{
+		ProjectID:  project.ID,
+		DiskID:     diskID,
+		Path:       filePath,
+		Filename:   actualFilename,
+		FileHeader: file,
+		UserMeta:   userMeta,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
 		return

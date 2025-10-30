@@ -158,18 +158,9 @@ func (s *sessionService) SendMessage(ctx context.Context, in SendMessageInput) (
 			}
 
 			// upload asset to S3
-			umeta, err := s.blob.UploadFormFile(ctx, "assets/"+in.ProjectID.String(), fh)
+			asset, err := s.blob.UploadFormFile(ctx, "assets/"+in.ProjectID.String(), fh)
 			if err != nil {
 				return nil, fmt.Errorf("upload %s failed: %w", p.FileField, err)
-			}
-
-			asset := &model.Asset{
-				Bucket: umeta.Bucket,
-				S3Key:  umeta.Key,
-				ETag:   umeta.ETag,
-				SHA256: umeta.SHA256,
-				MIME:   umeta.MIME,
-				SizeB:  umeta.SizeB,
 			}
 
 			part.Asset = asset
@@ -184,7 +175,7 @@ func (s *sessionService) SendMessage(ctx context.Context, in SendMessageInput) (
 	}
 
 	// upload parts to S3 as JSON file
-	partsUmeta, err := s.blob.UploadJSON(ctx, "parts/"+in.ProjectID.String(), parts)
+	asset, err := s.blob.UploadJSON(ctx, "parts/"+in.ProjectID.String(), parts)
 	if err != nil {
 		return nil, fmt.Errorf("upload parts to S3 failed: %w", err)
 	}
@@ -199,15 +190,8 @@ func (s *sessionService) SendMessage(ctx context.Context, in SendMessageInput) (
 		SessionID: in.SessionID,
 		Role:      in.Role,
 		Meta:      datatypes.NewJSONType(messageMeta), // Store message-level metadata
-		PartsMeta: datatypes.NewJSONType(model.Asset{
-			Bucket: partsUmeta.Bucket,
-			S3Key:  partsUmeta.Key,
-			ETag:   partsUmeta.ETag,
-			SHA256: partsUmeta.SHA256,
-			MIME:   partsUmeta.MIME,
-			SizeB:  partsUmeta.SizeB,
-		}),
-		Parts: parts,
+		PartsMeta: datatypes.NewJSONType(*asset),
+		Parts:     parts,
 	}
 
 	if err := s.r.CreateMessageWithAssets(ctx, &msg); err != nil {

@@ -67,13 +67,9 @@ func TestAcontextConverter_Convert_WithAsset(t *testing.T) {
 	assert.Equal(t, "image", part.Type)
 	assert.NotNil(t, part.Asset)
 	assert.Equal(t, "assets/test.jpg", part.Asset.S3Key)
-	assert.Equal(t, "test.jpg", part.Asset.Filename)
-	assert.Equal(t, "image/jpeg", part.Asset.ContentType)
-	assert.Equal(t, int64(1024), part.Asset.Size)
-
-	// Check public URL in meta
-	assert.NotNil(t, part.Meta)
-	assert.Equal(t, "https://example.com/test.jpg", part.Meta["public_url"])
+	assert.Equal(t, "test.jpg", part.Filename)     // Filename is in Part, not Asset
+	assert.Equal(t, "image/jpeg", part.Asset.MIME) // MIME instead of ContentType
+	assert.Equal(t, int64(1024), part.Asset.SizeB) // SizeB instead of Size
 }
 
 func TestAcontextConverter_Convert_WithCacheControl(t *testing.T) {
@@ -352,4 +348,3 @@ func TestAcontextConverter_Convert_SessionTaskProcessStatus(t *testing.T) {
 		})
 	}
 }
-

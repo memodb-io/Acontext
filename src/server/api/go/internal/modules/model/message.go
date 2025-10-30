@@ -60,12 +60,3 @@ type Part struct {
 	// embedding、ocr、asr、caption...
 	Meta map[string]any `json:"meta,omitempty"`
 }
-
-type Asset struct {
-	Bucket string `json:"bucket"`
-	S3Key  string `json:"s3_key"`
-	ETag   string `json:"etag"`
-	SHA256 string `json:"sha256"`
-	MIME   string `json:"mime"`
-	SizeB  int64  `json:"size_b"`
-}

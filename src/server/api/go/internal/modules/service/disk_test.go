@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/memodb-io/Acontext/internal/infra/blob"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -41,12 +40,12 @@ type MockS3Deps struct {
 	mock.Mock
 }
 
-func (m *MockS3Deps) UploadFormFile(ctx context.Context, s3Key string, fileHeader interface{}) (*blob.UploadedMeta, error) {
+func (m *MockS3Deps) UploadFormFile(ctx context.Context, s3Key string, fileHeader interface{}) (*model.Asset, error) {
 	args := m.Called(ctx, s3Key, fileHeader)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*blob.UploadedMeta), args.Error(1)
+	return args.Get(0).(*model.Asset), args.Error(1)
 }
 
 func (m *MockS3Deps) PresignGet(ctx context.Context, s3Key string, expire time.Duration) (string, error) {
