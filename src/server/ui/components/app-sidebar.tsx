@@ -20,7 +20,7 @@ import { NavMain } from "@/components/nav-main";
 
 import Image from "next/image";
 import Link from "next/link";
-import { Folder, Database, MessageSquare } from "lucide-react";
+import { Folder, Database, MessageSquare, LayoutDashboard } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Separator } from "@/components/ui/separator";
 
@@ -31,6 +31,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const data = {
     navMain: [
+      {
+        title: t("dashboard"),
+        url: "/dashboard",
+        icon: LayoutDashboard,
+      },
       {
         title: t("disk"),
         url: "/disk",
