@@ -4,7 +4,7 @@ Support for constructing session messages.
 
 from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 @dataclass(slots=True)
 class MessagePart:
@@ -39,14 +39,14 @@ class AcontextMessage:
     Represents an Acontext-format message payload.
     """
 
-    role: str
+    role: Literal["user", "assistant", "system"]
     parts: list[MessagePart]
     meta: MutableMapping[str, Any] | None = None
 
 
 def build_acontext_message(
     *,
-    role: str,
+    role: Literal["user", "assistant", "system"],
     parts: Sequence[MessagePart | str | Mapping[str, Any]],
     meta: Mapping[str, Any] | None = None,
 ) -> AcontextMessage:
