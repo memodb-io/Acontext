@@ -63,6 +63,24 @@ class SessionsAPI:
         payload = {"space_id": space_id}
         self._requester.request("POST", f"/session/{session_id}/connect_to_space", json_data=payload)
 
+    def get_tasks(
+        self,
+        session_id: str,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+    ) -> Any:
+        params: dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        if cursor is not None:
+            params["cursor"] = cursor
+        return self._requester.request(
+            "GET",
+            f"/session/{session_id}/task",
+            params=params or None,
+        )
+
     def send_message(
         self,
         session_id: str,

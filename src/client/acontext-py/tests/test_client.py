@@ -261,6 +261,33 @@ def test_sessions_get_messages_forwards_format(mock_request, client: AcontextCli
     assert path == "/session/session-id/messages"
     assert kwargs["params"] == {"format": "acontext", "time_desc": "true"}
 
+@patch("acontext.client.AcontextClient.request")
+def test_sessions_get_tasks_without_filters(mock_request, client: AcontextClient) -> None:
+    mock_request.return_value = {"items": []}
+
+    client.sessions.get_tasks("session-id")
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/session/session-id/task"
+    assert kwargs["params"] is None
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sessions_get_tasks_with_filters(mock_request, client: AcontextClient) -> None:
+    mock_request.return_value = {"items": []}
+
+    client.sessions.get_tasks("session-id", limit=10, cursor="cursor")
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/session/session-id/task"
+    assert kwargs["params"] == {"limit": 10, "cursor": "cursor"}
+
 
 @patch("acontext.client.AcontextClient.request")
 def test_blocks_list_without_filters(mock_request, client: AcontextClient) -> None:

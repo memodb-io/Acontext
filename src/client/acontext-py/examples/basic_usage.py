@@ -6,10 +6,9 @@ import sys
 import os
 import json
 from openai.types.chat import ChatCompletionUserMessageParam, ChatCompletionAssistantMessageParam, ChatCompletionMessageFunctionToolCallParam
-from openai.types.chat.chat_completion_content_part_param import File, FileFile
 from openai.types.chat.chat_completion_message_function_tool_call_param import Function
 
-from anthropic.types import MessageParam, DocumentBlockParam,PlainTextSourceParam, TextBlockParam, ToolUseBlockParam
+from anthropic.types import MessageParam, TextBlockParam, ToolUseBlockParam
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
@@ -85,30 +84,6 @@ def main() -> None:
         )
         client.sessions.send_message(session["id"], blob=blob, format="openai")
 
-        file_field = "retro_notes.md"
-        blob = ChatCompletionUserMessageParam(
-            role="user",
-            content=[
-                File(
-                    file=FileFile(
-                        file_id=file_field,
-                        filename=file_field
-                    ),
-                    type="file"
-                )
-            ]
-        )
-        client.sessions.send_message(
-            session["id"],
-            blob=blob,
-            format="openai",
-            file_field=file_field,
-            file=FileUpload(
-                filename=file_field,
-                content=b"# Retro Notes\nWe shipped file uploads successfully by using openai format!\n",
-                content_type="text/markdown",
-            )
-        )
         blob = ChatCompletionAssistantMessageParam(
             role="assistant",
             content="Sure! I'll help you create a weather API client. Let me first check what weather APIs are available.",
@@ -137,27 +112,6 @@ def main() -> None:
         )
         client.sessions.send_message(session["id"], blob=blob, format="anthropic")
 
-        file_field = "retro_notes.md"
-        blob = MessageParam(
-            role="user",
-            content=[
-                DocumentBlockParam(
-                    source=PlainTextSourceParam(data="Retro Notes\nWe shipped file uploads successfully by using anthropic format!"),
-                    type="document",
-                )
-            ]
-        )
-        client.sessions.send_message(
-            session["id"],
-            blob=blob,
-            format="anthropic",
-            file_field=file_field,
-            file=FileUpload(
-                filename=file_field,
-                content=b"# Retro Notes\nWe shipped file uploads successfully by using openai format!\n",
-                content_type="text/markdown",
-            )
-        )
         blob = MessageParam(
             role="assistant",
             content=[
