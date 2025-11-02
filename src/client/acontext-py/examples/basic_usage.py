@@ -253,11 +253,11 @@ def run() -> dict[str, Any]:
 
     with AcontextClient(api_key=api_key, base_url=base_url) as client:
         space_id, report["spaces"] = exercise_spaces(client)
-        # report["blocks"] = exercise_blocks(client, space_id)
-        # report["sessions"] = exercise_sessions(client, space_id)
-        # report["disks"] = exercise_disks(client)
-        # client.spaces.delete(space_id)
-        # report["spaces_after_delete"] = client.spaces.list()
+        report["blocks"] = exercise_blocks(client, space_id)
+        report["sessions"] = exercise_sessions(client, space_id)
+        report["disks"] = exercise_disks(client)
+        client.spaces.delete(space_id)
+        report["spaces_after_delete"] = client.spaces.list()
 
     return report
 

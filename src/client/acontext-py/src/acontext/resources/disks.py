@@ -43,10 +43,6 @@ class DisksAPI:
         """
         params = build_params(limit=limit, cursor=cursor, time_desc=time_desc)
         data = self._requester.request("GET", "/disk", params=params or None)
-        #TODO: delete
-        # Handle case where API returns an array directly instead of an object
-        # if isinstance(data, list):
-        #     data = {"items": data, "has_more": False}
         return ListDisksOutput.model_validate(data)
 
     def create(self) -> Disk:

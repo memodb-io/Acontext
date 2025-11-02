@@ -2,6 +2,7 @@
 High-level synchronous client for the Acontext API.
 """
 
+import os
 from collections.abc import Mapping, MutableMapping
 from typing import Any, BinaryIO
 
@@ -16,41 +17,68 @@ from .resources.blocks import BlocksAPI as BlocksAPI
 from .resources.sessions import SessionsAPI as SessionsAPI
 from .resources.spaces import SpacesAPI as SpacesAPI
 
+
 class AcontextClient:
-    """
-    Synchronous HTTP client for the Acontext REST API.
-
-    Example::
-
-        from acontext import AcontextClient, MessagePart
-
-        with AcontextClient(api_key="sk_...") as client:
-            spaces = client.spaces.list()
-            session = client.sessions.create(space_id=spaces[0]["id"])
-            client.sessions.send_message(
-                session["id"],
-                role="user",
-                parts=[MessagePart.text_part("Hello Acontext!")],
-            )
-    """
 
     def __init__(
         self,
         *,
-        api_key: str,
-        base_url: str = DEFAULT_BASE_URL,
+        api_key: str | None = None,
+        base_url: str | None = None,
         timeout: float | httpx.Timeout | None = 10.0,
         user_agent: str | None = None,
         client: httpx.Client | None = None,
     ) -> None:
-        if not api_key:
-            raise ValueError("api_key is required")
+        """
+        Initialize the Acontext client.
 
+        Args:
+            api_key: API key for authentication. Can also be set via ACONTEXT_API_KEY env var.
+            base_url: Base URL for the API. Defaults to DEFAULT_BASE_URL. Can also be set via ACONTEXT_BASE_URL env var.
+            timeout: Request timeout in seconds. Defaults to 10.0. Can also be set via ACONTEXT_TIMEOUT env var.
+                   Can also be an httpx.Timeout object.
+            user_agent: Custom user agent string. Can also be set via ACONTEXT_USER_AGENT env var.
+            client: Optional httpx.Client instance to reuse. If provided, headers and base_url
+                   will be merged with the client configuration.
+        """
+        # Priority: explicit parameters > environment variables > defaults
+        # Load api_key from parameter or environment variable
+        api_key = api_key or os.getenv("ACONTEXT_API_KEY")
+        if not api_key or not api_key.strip():
+            raise ValueError(
+                "api_key is required. Provide it either as a parameter (api_key='...') "
+                "or set the ACONTEXT_API_KEY environment variable."
+            )
+
+        # Load other parameters from environment variables if not provided
+        if base_url is None:
+            base_url = os.getenv("ACONTEXT_BASE_URL", DEFAULT_BASE_URL)
         base_url = base_url.rstrip("/")
+
+        if user_agent is None:
+            user_agent = os.getenv("ACONTEXT_USER_AGENT", DEFAULT_USER_AGENT)
+
+        # Handle timeout: support both float and httpx.Timeout
+        if timeout is None:
+            timeout_str = os.getenv("ACONTEXT_TIMEOUT")
+            if timeout_str:
+                try:
+                    timeout = float(timeout_str)
+                except ValueError:
+                    timeout = 10.0
+            else:
+                timeout = 10.0
+
+        # Determine actual timeout value
+        if isinstance(timeout, httpx.Timeout):
+            actual_timeout = timeout
+        else:
+            actual_timeout = float(timeout)
+
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Accept": "application/json",
-            "User-Agent": user_agent or DEFAULT_USER_AGENT,
+            "User-Agent": user_agent,
         }
 
         if client is not None:
@@ -63,11 +91,15 @@ class AcontextClient:
                     client.headers[name] = value
             self._base_url = str(client.base_url) or base_url
         else:
-            self._client = httpx.Client(base_url=base_url, headers=headers, timeout=timeout)
+            self._client = httpx.Client(
+                base_url=base_url,
+                headers=headers,
+                timeout=actual_timeout,
+            )
             self._owns_client = True
             self._base_url = base_url
 
-        self._timeout = timeout
+        self._timeout = actual_timeout
 
         self.spaces = SpacesAPI(self)
         self.sessions = SessionsAPI(self)
@@ -130,7 +162,6 @@ class AcontextClient:
                 parsed = None
         else:
             parsed = None
-        print(parsed)
 
         if response.status_code >= 400:
             message = response.reason_phrase

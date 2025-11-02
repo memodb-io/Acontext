@@ -55,10 +55,6 @@ class SessionsAPI:
             params["space_id"] = space_id
         params.update(build_params(not_connected=not_connected, limit=limit, cursor=cursor, time_desc=time_desc))
         data = self._requester.request("GET", "/session", params=params or None)
-        #TODO: delete
-        # Handle case where API returns an empty array directly instead of an object
-        # if isinstance(data, list):
-        #     data = {"items": data, "has_more": False}
         return ListSessionsOutput.model_validate(data)
 
     def create(
@@ -158,10 +154,6 @@ class SessionsAPI:
             f"/session/{session_id}/task",
             params=params or None,
         )
-        #TODO: delete
-        # Handle case where API returns an array directly instead of an object
-        # if isinstance(data, list):
-        #     data = {"items": data, "has_more": False}
         return GetTasksOutput.model_validate(data)
 
     def send_message(
