@@ -77,6 +77,17 @@ class DiskArtifactsAPI:
         file_path: str | None = None,
         meta: Mapping[str, Any] | MutableMapping[str, Any] | None = None,
     ) -> Artifact:
+        """Upload a file to create or update an artifact.
+        
+        Args:
+            disk_id: The UUID of the disk.
+            file: The file to upload (FileUpload object or tuple format).
+            file_path: Directory path (not including filename), defaults to "/".
+            meta: Custom metadata as JSON-serializable dict, defaults to None.
+            
+        Returns:
+            Artifact containing the created/updated artifact information.
+        """
         upload = normalize_file_upload(file)
         files = {"file": upload.as_httpx()}
         form: dict[str, Any] = {}
@@ -97,15 +108,17 @@ class DiskArtifactsAPI:
         disk_id: str,
         *,
         file_path: str,
+        filename: str,
         with_public_url: bool | None = None,
         with_content: bool | None = None,
         expire: int | None = None,
     ) -> GetArtifactResp:
-        """Get an artifact by disk ID and file path.
+        """Get an artifact by disk ID, file path, and filename.
         
         Args:
             disk_id: The UUID of the disk.
-            file_path: The path of the file within the disk.
+            file_path: Directory path (not including filename).
+            filename: The filename of the artifact.
             with_public_url: Whether to include a presigned public URL. Defaults to None.
             with_content: Whether to include file content. Defaults to None.
             expire: URL expiration time in seconds. Defaults to None.
@@ -113,8 +126,9 @@ class DiskArtifactsAPI:
         Returns:
             GetArtifactResp containing the artifact and optionally public URL and content.
         """
+        full_path = f"{file_path.rstrip('/')}/{filename}"
         params = build_params(
-            file_path=file_path,
+            file_path=full_path,
             with_public_url=with_public_url,
             with_content=with_content,
             expire=expire,
@@ -127,10 +141,23 @@ class DiskArtifactsAPI:
         disk_id: str,
         *,
         file_path: str,
+        filename: str,
         meta: Mapping[str, Any] | MutableMapping[str, Any],
     ) -> UpdateArtifactResp:
+        """Update an artifact's metadata.
+        
+        Args:
+            disk_id: The UUID of the disk.
+            file_path: Directory path (not including filename).
+            filename: The filename of the artifact.
+            meta: Custom metadata as JSON-serializable dict.
+            
+        Returns:
+            UpdateArtifactResp containing the updated artifact information.
+        """
+        full_path = f"{file_path.rstrip('/')}/{filename}"
         payload = {
-            "file_path": file_path,
+            "file_path": full_path,
             "meta": json.dumps(cast(Mapping[str, Any], meta)),
         }
         data = self._requester.request("PUT", f"/disk/{disk_id}/artifact", json_data=payload)
@@ -141,8 +168,17 @@ class DiskArtifactsAPI:
         disk_id: str,
         *,
         file_path: str,
+        filename: str,
     ) -> None:
-        params = {"file_path": file_path}
+        """Delete an artifact by disk ID, file path, and filename.
+        
+        Args:
+            disk_id: The UUID of the disk.
+            file_path: Directory path (not including filename).
+            filename: The filename of the artifact.
+        """
+        full_path = f"{file_path.rstrip('/')}/{filename}"
+        params = {"file_path": full_path}
         self._requester.request("DELETE", f"/disk/{disk_id}/artifact", params=params)
 
     def list(

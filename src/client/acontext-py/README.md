@@ -49,7 +49,7 @@ try:
             content=b"# Retro Notes\nWe shipped file uploads successfully!\n",
             content_type="text/markdown",
         ),
-        file_path="notes/retro.md",
+        file_path="/notes/",
         meta={"source": "readme-demo"},
     )
 finally:

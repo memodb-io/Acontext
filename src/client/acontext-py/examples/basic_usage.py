@@ -220,13 +220,14 @@ def exercise_disks(client: AcontextClient) -> dict[str, Any]:
     client.disks.artifacts.upsert(
         disk_id,
         file=upload,
-        file_path=f"notes/{upload.filename}",
+        file_path="/notes/",
         meta={"source": "sdk-e2e"},
     )
 
     summary["artifact_get"] = client.disks.artifacts.get(
         disk_id,
-        file_path=f"notes/{upload.filename}",
+        file_path="/notes/",
+        filename=upload.filename,
         with_public_url=True,
         with_content=True,
         expire=60,
@@ -234,13 +235,14 @@ def exercise_disks(client: AcontextClient) -> dict[str, Any]:
 
     client.disks.artifacts.update(
         disk_id,
-        file_path=f"notes/{upload.filename}",
+        file_path="/notes/",
+        filename=upload.filename,
         meta={"source": "sdk-e2e", "reviewed": True},
     )
 
     summary["artifact_list"] = client.disks.artifacts.list(disk_id, path="/notes/")
 
-    client.disks.artifacts.delete(disk_id, file_path=f"notes/{upload.filename}")
+    client.disks.artifacts.delete(disk_id, file_path="notes", filename=upload.filename)
     client.disks.delete(disk_id)
     summary["disks_after_delete"] = client.disks.list()
 

@@ -552,7 +552,7 @@ def test_disk_artifacts_upsert_uses_multipart_payload(mock_request, client: Acon
     client.disks.artifacts.upsert(
         "disk-id",
         file=FileUpload(filename="file.txt", content=b"data", content_type="text/plain"),
-        file_path="/folder/file.txt",
+        file_path="/folder",
         meta={"source": "unit-test"},
     )
 
@@ -563,7 +563,7 @@ def test_disk_artifacts_upsert_uses_multipart_payload(mock_request, client: Acon
     assert path == "/disk/disk-id/artifact"
     assert "files" in kwargs
     assert "data" in kwargs
-    assert kwargs["data"]["file_path"] == "/folder/file.txt"
+    assert kwargs["data"]["file_path"] == "/folder"
     meta = json.loads(kwargs["data"]["meta"])
     assert meta["source"] == "unit-test"
     filename, stream, content_type = kwargs["files"]["file"]
@@ -588,7 +588,8 @@ def test_disk_artifacts_get_translates_query_params(mock_request, client: Aconte
 
     client.disks.artifacts.get(
         "disk-id",
-        file_path="/folder/file.txt",
+        file_path="/folder",
+        filename="file.txt",
         with_public_url=False,
         with_content=True,
         expire=900,
