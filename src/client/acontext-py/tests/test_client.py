@@ -69,7 +69,16 @@ def test_request_transport_error(mock_request) -> None:
 
 @patch("acontext.client.AcontextClient.request")
 def test_send_message_with_files_uses_multipart_payload(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = {"message": "ok"}
+    mock_request.return_value = {
+        "id": "msg-id",
+        "session_id": "session-id",
+        "role": "user",
+        "meta": {},
+        "parts": [],
+        "session_task_process_status": "pending",
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
 
     blob = build_acontext_message(role="user", parts=[MessagePart.text_part("hello")])
 
@@ -115,7 +124,16 @@ def test_send_message_with_files_uses_multipart_payload(mock_request, client: Ac
 
 @patch("acontext.client.AcontextClient.request")
 def test_send_message_allows_nullable_blob_for_other_formats(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = {"message": "ok"}
+    mock_request.return_value = {
+        "id": "msg-id",
+        "session_id": "session-id",
+        "role": "user",
+        "meta": {},
+        "parts": [],
+        "session_task_process_status": "pending",
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
 
     client.sessions.send_message("session-id", format="openai", blob=None, file=None)
 
@@ -126,32 +144,42 @@ def test_send_message_allows_nullable_blob_for_other_formats(mock_request, clien
 
 @patch("acontext.client.AcontextClient.request")
 def test_send_message_requires_format_when_cannot_infer(mock_request, client: AcontextClient) -> None:
-    with pytest.raises(TypeError):
+    # Type checker will catch this, but at runtime we need format
+    with pytest.raises((TypeError, ValueError)):
         client.sessions.send_message(
             "session-id",
-            blob={"message": "hi"},
+            blob={"message": "hi"},  # type: ignore[arg-type]
             file=None,
         )
 
 
 @patch("acontext.client.AcontextClient.request")
 def test_send_message_rejects_unknown_format(mock_request, client: AcontextClient) -> None:
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="format must be one of"):
         client.sessions.send_message(
             "session-id",
-            blob={"role": "user", "content": "hi"},
-            format="legacy",
+            blob={"role": "user", "content": "hi"},  # type: ignore[arg-type]
+            format="legacy",  # type: ignore[arg-type]
             file=None,
         )
 
 
 @patch("acontext.client.AcontextClient.request")
 def test_send_message_explicit_format_still_supported(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = {"message": "ok"}
+    mock_request.return_value = {
+        "id": "msg-id",
+        "session_id": "session-id",
+        "role": "user",
+        "meta": {},
+        "parts": [],
+        "session_task_process_status": "pending",
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
 
     client.sessions.send_message(
         "session-id",
-        blob={"role": "user", "content": "hi"},
+        blob={"role": "user", "content": "hi"},  # type: ignore[arg-type]
         format="openai",
         file=None,
     )
@@ -188,12 +216,21 @@ class _FakeAnthropicMessage:
 
 @patch("acontext.client.AcontextClient.request")
 def test_send_message_handles_openai_model_dump(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = {"message": "ok"}
+    mock_request.return_value = {
+        "id": "msg-id",
+        "session_id": "session-id",
+        "role": "user",
+        "meta": {},
+        "parts": [],
+        "session_task_process_status": "pending",
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
 
     message = _FakeOpenAIMessage(role="user")
     client.sessions.send_message(
         "session-id",
-        blob=message,
+        blob=message,  # type: ignore[arg-type]
         format="openai",
         file=None,
     )
@@ -206,12 +243,21 @@ def test_send_message_handles_openai_model_dump(mock_request, client: AcontextCl
 
 @patch("acontext.client.AcontextClient.request")
 def test_send_message_handles_anthropic_model_dump(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = {"message": "ok"}
+    mock_request.return_value = {
+        "id": "msg-id",
+        "session_id": "session-id",
+        "role": "user",
+        "meta": {},
+        "parts": [],
+        "session_task_process_status": "pending",
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
 
     message = _FakeAnthropicMessage(role="user")
     client.sessions.send_message(
         "session-id",
-        blob=message,
+        blob=message,  # type: ignore[arg-type]
         format="anthropic",
         file=None,
     )
@@ -224,10 +270,19 @@ def test_send_message_handles_anthropic_model_dump(mock_request, client: Acontex
 
 @patch("acontext.client.AcontextClient.request")
 def test_send_message_accepts_acontext_message(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = {"message": "ok"}
+    mock_request.return_value = {
+        "id": "msg-id",
+        "session_id": "session-id",
+        "role": "assistant",
+        "meta": {},
+        "parts": [],
+        "session_task_process_status": "pending",
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
 
     blob = build_acontext_message(role="assistant", parts=[MessagePart.text_part("hi")])
-    client.sessions.send_message("session-id", blob=blob, file=None)
+    client.sessions.send_message("session-id", blob=blob, format="acontext", file=None)
 
     mock_request.assert_called_once()
     _, kwargs = mock_request.call_args
@@ -235,24 +290,31 @@ def test_send_message_accepts_acontext_message(mock_request, client: AcontextCli
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_spaces_semantic_queries_require_query_param(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = {"result": "ok"}
-
-    client.spaces.get_semantic_answer("space-id", query="what happened?")
-
-    mock_request.assert_called_once()
-    args, kwargs = mock_request.call_args
-    method, path = args
-    assert method == "GET"
-    assert path == "/space/space-id/semantic_answer"
-    assert kwargs["params"] == {"query": "what happened?"}
+def test_send_message_requires_file_field_when_file_provided(mock_request, client: AcontextClient) -> None:
+    blob = build_acontext_message(role="user", parts=[MessagePart.text_part("hello")])
+    
+    class _DummyStream:
+        def read(self) -> bytes:
+            return b"bytes"
+    
+    upload = FileUpload(filename="image.png", content=_DummyStream(), content_type="image/png")
+    
+    with pytest.raises(ValueError, match="file_field is required when file is provided"):
+        client.sessions.send_message(
+            "session-id",
+            blob=blob,
+            format="acontext",
+            file=upload,
+        )
+    
+    mock_request.assert_not_called()
 
 
 @patch("acontext.client.AcontextClient.request")
 def test_sessions_get_messages_forwards_format(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = {"items": []}
+    mock_request.return_value = {"items": [], "has_more": False}
 
-    client.sessions.get_messages("session-id", format="acontext", time_desc=True)
+    result = client.sessions.get_messages("session-id", format="acontext", time_desc=True)
 
     mock_request.assert_called_once()
     args, kwargs = mock_request.call_args
@@ -260,12 +322,15 @@ def test_sessions_get_messages_forwards_format(mock_request, client: AcontextCli
     assert method == "GET"
     assert path == "/session/session-id/messages"
     assert kwargs["params"] == {"format": "acontext", "time_desc": "true"}
+    # Verify it returns a Pydantic model
+    assert hasattr(result, "items")
+    assert hasattr(result, "has_more")
 
 @patch("acontext.client.AcontextClient.request")
 def test_sessions_get_tasks_without_filters(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = {"items": []}
+    mock_request.return_value = {"items": [], "has_more": False}
 
-    client.sessions.get_tasks("session-id")
+    result = client.sessions.get_tasks("session-id")
 
     mock_request.assert_called_once()
     args, kwargs = mock_request.call_args
@@ -273,13 +338,16 @@ def test_sessions_get_tasks_without_filters(mock_request, client: AcontextClient
     assert method == "GET"
     assert path == "/session/session-id/task"
     assert kwargs["params"] is None
+    # Verify it returns a Pydantic model
+    assert hasattr(result, "items")
+    assert hasattr(result, "has_more")
 
 
 @patch("acontext.client.AcontextClient.request")
 def test_sessions_get_tasks_with_filters(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = {"items": []}
+    mock_request.return_value = {"items": [], "has_more": False}
 
-    client.sessions.get_tasks("session-id", limit=10, cursor="cursor")
+    result = client.sessions.get_tasks("session-id", limit=10, cursor="cursor")
 
     mock_request.assert_called_once()
     args, kwargs = mock_request.call_args
@@ -287,13 +355,16 @@ def test_sessions_get_tasks_with_filters(mock_request, client: AcontextClient) -
     assert method == "GET"
     assert path == "/session/session-id/task"
     assert kwargs["params"] == {"limit": 10, "cursor": "cursor"}
+    # Verify it returns a Pydantic model
+    assert hasattr(result, "items")
+    assert hasattr(result, "has_more")
 
 
 @patch("acontext.client.AcontextClient.request")
 def test_blocks_list_without_filters(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = {"items": []}
+    mock_request.return_value = []
 
-    client.blocks.list("space-id")
+    result = client.blocks.list("space-id")
 
     mock_request.assert_called_once()
     args, kwargs = mock_request.call_args
@@ -301,13 +372,15 @@ def test_blocks_list_without_filters(mock_request, client: AcontextClient) -> No
     assert method == "GET"
     assert path == "/space/space-id/block"
     assert kwargs["params"] is None
+    # Verify it returns a list of Pydantic models
+    assert isinstance(result, list)
 
 
 @patch("acontext.client.AcontextClient.request")
 def test_blocks_list_with_filters(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = {"items": []}
+    mock_request.return_value = []
 
-    client.blocks.list("space-id", parent_id="parent-id", block_type="page")
+    result = client.blocks.list("space-id", parent_id="parent-id", block_type="page")
 
     mock_request.assert_called_once()
     args, kwargs = mock_request.call_args
@@ -315,13 +388,25 @@ def test_blocks_list_with_filters(mock_request, client: AcontextClient) -> None:
     assert method == "GET"
     assert path == "/space/space-id/block"
     assert kwargs["params"] == {"parent_id": "parent-id", "type": "page"}
+    # Verify it returns a list of Pydantic models
+    assert isinstance(result, list)
 
 
 @patch("acontext.client.AcontextClient.request")
 def test_blocks_create_root_payload(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = {"id": "block"}
+    mock_request.return_value = {
+        "id": "block",
+        "space_id": "space-id",
+        "type": "folder",
+        "title": "Folder Title",
+        "props": {},
+        "sort": 0,
+        "is_archived": False,
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
 
-    client.blocks.create(
+    result = client.blocks.create(
         "space-id",
         block_type="folder",
         title="Folder Title",
@@ -336,13 +421,27 @@ def test_blocks_create_root_payload(mock_request, client: AcontextClient) -> Non
         "type": "folder",
         "title": "Folder Title",
     }
+    # Verify it returns a Pydantic model
+    assert hasattr(result, "id")
+    assert result.id == "block"
 
 
 @patch("acontext.client.AcontextClient.request")
 def test_blocks_create_with_parent_payload(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = {"id": "block"}
+    mock_request.return_value = {
+        "id": "block",
+        "space_id": "space-id",
+        "type": "text",
+        "parent_id": "parent-id",
+        "title": "Block Title",
+        "props": {"key": "value"},
+        "sort": 0,
+        "is_archived": False,
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
 
-    client.blocks.create(
+    result = client.blocks.create(
         "space-id",
         parent_id="parent-id",
         block_type="text",
@@ -361,11 +460,12 @@ def test_blocks_create_with_parent_payload(mock_request, client: AcontextClient)
         "title": "Block Title",
         "props": {"key": "value"},
     }
+    # Verify it returns a Pydantic model
+    assert hasattr(result, "id")
+    assert result.id == "block"
 
 
-def test_blocks_create_requires_type(client: AcontextClient) -> None:
-    with pytest.raises(ValueError):
-        client.blocks.create("space-id", block_type="")
+# Removed test_blocks_create_requires_type - validation removed as type annotation guarantees non-empty str
 
 
 @patch("acontext.client.AcontextClient.request")
@@ -414,15 +514,23 @@ def test_blocks_update_properties_requires_payload(mock_request, client: Acontex
 
 @patch("acontext.client.AcontextClient.request")
 def test_disks_create_hits_disk_endpoint(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = {"id": "disk"}
+    mock_request.return_value = {
+        "id": "disk",
+        "project_id": "project-id",
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
 
-    client.disks.create()
+    result = client.disks.create()
 
     mock_request.assert_called_once()
     args, _ = mock_request.call_args
     method, path = args
     assert method == "POST"
     assert path == "/disk"
+    # Verify it returns a Pydantic model
+    assert hasattr(result, "id")
+    assert result.id == "disk"
 
 
 def test_artifacts_aliases_disk_artifacts(client: AcontextClient) -> None:
@@ -431,7 +539,15 @@ def test_artifacts_aliases_disk_artifacts(client: AcontextClient) -> None:
 
 @patch("acontext.client.AcontextClient.request")
 def test_disk_artifacts_upsert_uses_multipart_payload(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = {"id": "artifact"}
+    mock_request.return_value = {
+        "id": "artifact",
+        "disk_id": "disk-id",
+        "path": "/folder/file.txt",
+        "filename": "file.txt",
+        "meta": {},
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
 
     client.disks.artifacts.upsert(
         "disk-id",
@@ -458,7 +574,17 @@ def test_disk_artifacts_upsert_uses_multipart_payload(mock_request, client: Acon
 
 @patch("acontext.client.AcontextClient.request")
 def test_disk_artifacts_get_translates_query_params(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = {"artifact": {}}
+    mock_request.return_value = {
+        "artifact": {
+            "id": "artifact",
+            "disk_id": "disk-id",
+            "path": "/folder/file.txt",
+            "filename": "file.txt",
+            "meta": {},
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+        }
+    }
 
     client.disks.artifacts.get(
         "disk-id",

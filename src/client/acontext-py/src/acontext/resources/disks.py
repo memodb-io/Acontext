@@ -6,12 +6,17 @@ import json
 from collections.abc import Mapping, MutableMapping
 from typing import Any, BinaryIO, cast
 
+from .._utils import build_params
 from ..client_types import RequesterProtocol
+from ..types.disk import (
+    Artifact,
+    Disk,
+    GetArtifactResp,
+    ListArtifactsResp,
+    ListDisksOutput,
+    UpdateArtifactResp,
+)
 from ..uploads import FileUpload, normalize_file_upload
-
-
-def _bool_to_str(value: bool) -> str:
-    return "true" if value else "false"
 
 
 class DisksAPI:
@@ -19,13 +24,46 @@ class DisksAPI:
         self._requester = requester
         self.artifacts = DiskArtifactsAPI(requester)
 
-    def list(self) -> Any:
-        return self._requester.request("GET", "/disk")
+    def list(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        time_desc: bool | None = None,
+    ) -> ListDisksOutput:
+        """List all disks in the project.
+        
+        Args:
+            limit: Maximum number of disks to return. Defaults to None.
+            cursor: Cursor for pagination. Defaults to None.
+            time_desc: Order by created_at descending if True, ascending if False. Defaults to None.
+            
+        Returns:
+            ListDisksOutput containing the list of disks and pagination information.
+        """
+        params = build_params(limit=limit, cursor=cursor, time_desc=time_desc)
+        data = self._requester.request("GET", "/disk", params=params or None)
+        #TODO: delete
+        # Handle case where API returns an array directly instead of an object
+        # if isinstance(data, list):
+        #     data = {"items": data, "has_more": False}
+        return ListDisksOutput.model_validate(data)
 
-    def create(self) -> Any:
-        return self._requester.request("POST", "/disk")
+    def create(self) -> Disk:
+        """Create a new disk.
+        
+        Returns:
+            The created Disk object.
+        """
+        data = self._requester.request("POST", "/disk")
+        return Disk.model_validate(data)
 
     def delete(self, disk_id: str) -> None:
+        """Delete a disk by its ID.
+        
+        Args:
+            disk_id: The UUID of the disk to delete.
+        """
         self._requester.request("DELETE", f"/disk/{disk_id}")
 
 
@@ -42,7 +80,7 @@ class DiskArtifactsAPI:
         | tuple[str, BinaryIO | bytes, str | None],
         file_path: str | None = None,
         meta: Mapping[str, Any] | MutableMapping[str, Any] | None = None,
-    ) -> Any:
+    ) -> Artifact:
         upload = normalize_file_upload(file)
         files = {"file": upload.as_httpx()}
         form: dict[str, Any] = {}
@@ -50,12 +88,13 @@ class DiskArtifactsAPI:
             form["file_path"] = file_path
         if meta is not None:
             form["meta"] = json.dumps(cast(Mapping[str, Any], meta))
-        return self._requester.request(
+        data = self._requester.request(
             "POST",
             f"/disk/{disk_id}/artifact",
             data=form or None,
             files=files,
         )
+        return Artifact.model_validate(data)
 
     def get(
         self,
@@ -65,15 +104,27 @@ class DiskArtifactsAPI:
         with_public_url: bool | None = None,
         with_content: bool | None = None,
         expire: int | None = None,
-    ) -> Any:
-        params: dict[str, Any] = {"file_path": file_path}
-        if with_public_url is not None:
-            params["with_public_url"] = _bool_to_str(with_public_url)
-        if with_content is not None:
-            params["with_content"] = _bool_to_str(with_content)
-        if expire is not None:
-            params["expire"] = expire
-        return self._requester.request("GET", f"/disk/{disk_id}/artifact", params=params)
+    ) -> GetArtifactResp:
+        """Get an artifact by disk ID and file path.
+        
+        Args:
+            disk_id: The UUID of the disk.
+            file_path: The path of the file within the disk.
+            with_public_url: Whether to include a presigned public URL. Defaults to None.
+            with_content: Whether to include file content. Defaults to None.
+            expire: URL expiration time in seconds. Defaults to None.
+            
+        Returns:
+            GetArtifactResp containing the artifact and optionally public URL and content.
+        """
+        params = build_params(
+            file_path=file_path,
+            with_public_url=with_public_url,
+            with_content=with_content,
+            expire=expire,
+        )
+        data = self._requester.request("GET", f"/disk/{disk_id}/artifact", params=params)
+        return GetArtifactResp.model_validate(data)
 
     def update(
         self,
@@ -81,12 +132,13 @@ class DiskArtifactsAPI:
         *,
         file_path: str,
         meta: Mapping[str, Any] | MutableMapping[str, Any],
-    ) -> Any:
+    ) -> UpdateArtifactResp:
         payload = {
             "file_path": file_path,
             "meta": json.dumps(cast(Mapping[str, Any], meta)),
         }
-        return self._requester.request("PUT", f"/disk/{disk_id}/artifact", json_data=payload)
+        data = self._requester.request("PUT", f"/disk/{disk_id}/artifact", json_data=payload)
+        return UpdateArtifactResp.model_validate(data)
 
     def delete(
         self,
@@ -102,8 +154,9 @@ class DiskArtifactsAPI:
         disk_id: str,
         *,
         path: str | None = None,
-    ) -> Any:
+    ) -> ListArtifactsResp:
         params: dict[str, Any] = {}
         if path is not None:
             params["path"] = path
-        return self._requester.request("GET", f"/disk/{disk_id}/artifact/ls", params=params or None)
+        data = self._requester.request("GET", f"/disk/{disk_id}/artifact/ls", params=params or None)
+        return ListArtifactsResp.model_validate(data)

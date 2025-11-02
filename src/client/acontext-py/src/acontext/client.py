@@ -123,7 +123,7 @@ class AcontextClient:
         content_type = response.headers.get("content-type", "")
 
         parsed: Mapping[str, Any] | MutableMapping[str, Any] | None
-        if "application/json" in content_type or content_type.startswith("application/problem+json"):
+        if "application/json" in content_type:
             try:
                 parsed = response.json()
             except ValueError:
