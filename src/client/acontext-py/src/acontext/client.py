@@ -130,6 +130,7 @@ class AcontextClient:
                 parsed = None
         else:
             parsed = None
+        print(parsed)
 
         if response.status_code >= 400:
             message = response.reason_phrase
