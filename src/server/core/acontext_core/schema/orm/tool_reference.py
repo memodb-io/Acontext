@@ -23,10 +23,6 @@ class ToolReference(CommonMixin):
     __table_args__ = (Index("ix_tool_reference_project_id", "project_id"),)
 
     name: str = field(metadata={"db": Column(String, nullable=False)})
-    description: Optional[str] = field(metadata={"db": Column(String, nullable=True)})
-    arguments_schema: Optional[dict] = field(
-        metadata={"db": Column(JSONB, nullable=True)}
-    )
 
     project_id: asUUID = field(
         metadata={
@@ -36,6 +32,13 @@ class ToolReference(CommonMixin):
                 nullable=False,
             )
         }
+    )
+
+    description: Optional[str] = field(
+        default=None, metadata={"db": Column(String, nullable=True)}
+    )
+    arguments_schema: Optional[dict] = field(
+        default=None, metadata={"db": Column(JSONB, nullable=True)}
     )
 
     # Relationships

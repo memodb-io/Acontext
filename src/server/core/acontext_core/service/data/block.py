@@ -7,9 +7,10 @@ from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...schema.orm.block import (
     BLOCK_TYPE_FOLDER,
+    BLOCK_TYPE_ROOT,
     BLOCK_TYPE_PAGE,
     BLOCK_TYPE_SOP,
-    BLOCK_TYPE_TEXT,
+    BLOCK_PARENT_ALLOW,
 )
 from ...schema.orm import Block, ToolReference, ToolSOP, Space
 from ...schema.utils import asUUID
@@ -18,12 +19,26 @@ from ...schema.block.sop_block import SOPData
 
 
 async def _find_block_sort(
-    db_session: AsyncSession, space_id: asUUID, par_block_id: asUUID
+    db_session: AsyncSession,
+    space_id: asUUID,
+    par_block_id: Optional[asUUID],
+    block_type: str,
 ) -> Result[int]:
     if par_block_id is not None:
         parent_block = await db_session.get(Block, par_block_id)
         if parent_block is None:
             return Result.reject(f"Parent block {par_block_id} not found")
+        parent_type = parent_block.type
+    else:
+        parent_type = BLOCK_TYPE_ROOT
+
+    if block_type not in BLOCK_PARENT_ALLOW:
+        return Result.reject(f"Block type {block_type} is not supported")
+    print("!!!!", parent_type, block_type)
+    if parent_type not in BLOCK_PARENT_ALLOW[block_type]:
+        return Result.reject(
+            f"Parent block {par_block_id}(type {parent_type}) is not allowed to have children of type {block_type}"
+        )
     next_sort_query = (
         select(func.coalesce(func.max(Block.sort), -1) + 1)
         .where(Block.space_id == space_id)
@@ -36,20 +51,21 @@ async def _find_block_sort(
     return Result.resolve(next_sort)
 
 
-async def create_new_page(
+async def create_new_path_block(
     db_session: AsyncSession,
     space_id: asUUID,
     title: str,
     props: Optional[dict] = None,
     par_block_id: Optional[asUUID] = None,
+    type: str = BLOCK_TYPE_PAGE,
 ) -> Result[asUUID]:
-    r = await _find_block_sort(db_session, space_id, par_block_id)
+    r = await _find_block_sort(db_session, space_id, par_block_id, block_type=type)
     if not r.ok():
         return r
     next_sort = r.unpack()[0]
     new_block = Block(
         space_id=space_id,
-        type=BLOCK_TYPE_PAGE,
+        type=type,
         parent_id=par_block_id,
         title=title,
         props=props,
@@ -74,7 +90,9 @@ async def write_sop_block_to_parent(
 
     project_id = space.project_id
     # 1. add block to table
-    r = await _find_block_sort(db_session, space_id, par_block_id)
+    r = await _find_block_sort(
+        db_session, space_id, par_block_id, block_type=BLOCK_TYPE_SOP
+    )
     if not r.ok():
         return r
     next_sort = r.unpack()[0]
@@ -128,4 +146,4 @@ async def write_sop_block_to_parent(
 
     await db_session.flush()
 
-    return new_block.id
+    return Result.resolve(new_block.id)

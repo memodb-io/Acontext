@@ -53,10 +53,19 @@ BLOCK_TYPES = {
 }
 
 # Block type constants matching Go version
+BLOCK_TYPE_ROOT = None
 BLOCK_TYPE_FOLDER = "folder"
 BLOCK_TYPE_PAGE = "page"
 BLOCK_TYPE_TEXT = "text"
 BLOCK_TYPE_SOP = "sop"
+
+PATH_BLOCK = {BLOCK_TYPE_FOLDER, BLOCK_TYPE_PAGE}
+BLOCK_PARENT_ALLOW = {
+    BLOCK_TYPE_FOLDER: {BLOCK_TYPE_FOLDER, BLOCK_TYPE_ROOT},
+    BLOCK_TYPE_PAGE: {BLOCK_TYPE_FOLDER, BLOCK_TYPE_ROOT},
+    BLOCK_TYPE_SOP: {BLOCK_TYPE_PAGE},
+    BLOCK_TYPE_TEXT: {BLOCK_TYPE_PAGE},
+}
 
 
 def is_valid_block_type(block_type: str) -> bool:
@@ -92,7 +101,7 @@ class Block(CommonMixin):
         ),
         # Check constraints matching Go version
         CheckConstraint(
-            "type IN ('page', 'text', 'sop')",
+            "type IN ('folder', 'page', 'text', 'sop')",
             name="ck_block_type",
         ),
     )
