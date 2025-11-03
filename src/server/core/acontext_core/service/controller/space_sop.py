@@ -4,7 +4,7 @@ from ...infra.db import DB_CLIENT
 from ...schema.session.task import TaskStatus
 from ...schema.session.message import MessageBlob
 from ...schema.utils import asUUID
-from ...llm.agent import task_construct as TC
+from ...llm.agent import space_construct as SC
 from ...schema.result import ResultError
 from ...env import LOG, DEFAULT_CORE_CONFIG
 from ...schema.config import ProjectConfig
@@ -22,20 +22,20 @@ async def process_sop_complete(
     Process SOP completion and trigger construct agent
     """
     LOG.info(f"Processing SOP completion for task {task_id}")
-    
+
     # Call construct agent
-    construct_result = await TC.construct_agent_curd(
+    construct_result = await SC.construct_agent_curd(
         project_id,
         space_id,
         task_id,
         sop_data,
         max_iterations=project_config.default_sop_agent_max_iterations,
     )
-    
+
     if construct_result.ok():
         result_data, _ = construct_result.unpack()
         LOG.info(f"Construct agent completed successfully: {result_data}")
     else:
         LOG.error(f"Construct agent failed: {construct_result}")
-    
+
     return construct_result

@@ -94,6 +94,7 @@ class Block(CommonMixin):
         # Indexes matching Go version
         Index("idx_blocks_space", "space_id"),
         Index("idx_blocks_space_type", "space_id", "type"),
+        Index("idx_blocks_space_type", "space_id", "title"),
         Index("idx_blocks_space_type_archived", "space_id", "type", "is_archived"),
         # Unique constraint for space, parent, sort combination
         Index(

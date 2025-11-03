@@ -13,18 +13,10 @@ from ...schema.orm.block import (
     BLOCK_TYPE_TEXT,
 )
 from ...schema.orm import Block, ToolReference, ToolSOP, Space
+from ...schema.block.path_node import PathNode
 from ...schema.utils import asUUID
 from ...schema.result import Result
 from ...schema.block.sop_block import SOPData
-
-
-async def fetch_block_by_id(
-    db_session: AsyncSession, space_id: asUUID, block_id: asUUID
-) -> Result[Block]:
-    block = await db_session.get(Block, block_id)
-    if block is None:
-        return Result.reject(f"Block {block_id} not found")
-    return Result.resolve(block)
 
 
 async def assert_block_type(
@@ -73,19 +65,30 @@ async def list_paths_under_block(
     space_id: asUUID,
     block_id: Optional[asUUID] = None,
     path_prefix: str = "",
-) -> Result[dict[str, asUUID]]:
+    depth: int = 0,
+) -> Result[tuple[dict[str, PathNode], int, int]]:
+    if path_prefix and not path_prefix.endswith("/"):
+        path_prefix += "/"
     # 2. list all page and folder block
     r = await fetch_path_children_by_id(db_session, space_id, block_id)
     if not r.ok():
         return r
     blocks = r.data
 
-    # 3. build path dictionary
     path_dict: dict[str, asUUID] = {}
-
+    sub_page_num = sum([1 for block in blocks if block["type"] == BLOCK_TYPE_PAGE])
+    sub_folder_num = sum([1 for block in blocks if block["type"] == BLOCK_TYPE_FOLDER])
+    if depth < 0:
+        # don't list acutally path, only return some static information
+        return Result.resolve((path_dict, sub_page_num, sub_folder_num))
+    # 3. build path dictionary
     for block in blocks:
         if block["type"] == BLOCK_TYPE_PAGE:
-            path_dict[f"{path_prefix}{block['title']}"] = block["id"]
+            path_dict[f"{path_prefix}{block['title']}"] = PathNode(
+                id=block["id"],
+                title=block["title"],
+                type=block["type"],
+            )
         # Recursively fetch paths for folder blocks
         elif block["type"] == BLOCK_TYPE_FOLDER:
             r = await list_paths_under_block(
@@ -93,11 +96,20 @@ async def list_paths_under_block(
                 space_id,
                 block["id"],
                 path_prefix=f"{path_prefix}{block['title']}/",
+                depth=depth - 1,
             )
             if not r.ok():
                 return r
-            path_dict.update(r.data)
+
+            path_dict.update(r.data[0])
+            path_dict[f"{path_prefix}{block['title']}/"] = PathNode(
+                id=block["id"],
+                title=block["title"],
+                type=block["type"],
+                sub_page_num=r.data[1],
+                sub_folder_num=r.data[2],
+            )
         else:
             raise ValueError(f"Invalid block type: {block['type']}")
 
-    return Result.resolve(path_dict)
+    return Result.resolve((path_dict, sub_page_num, sub_folder_num))
