@@ -1,0 +1,182 @@
+name: acontext-server
+services:
+  # --- PostgreSQL ---
+  acontext-server-pg:
+    image: pgvector/pgvector:pg16
+    container_name: acontext-server-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DATABASE_USER:-acontext}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-helloworld}
+      POSTGRES_DB: ${DATABASE_NAME:-acontext}
+    ports:
+      - "${DATABASE_EXPORT_PORT:-5432}:5432"
+    volumes:
+      - ${DATABASE_LOCATION:-./db/pg}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-acontext} -d ${DATABASE_NAME:-acontext}"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  # --- Redis ---
+  acontext-server-redis:
+    image: redis:7.4
+    container_name: acontext-server-redis
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-helloworld}"]
+    ports:
+      - "${REDIS_EXPORT_PORT:-6379}:6379"
+    volumes:
+      - ${REDIS_LOCATION:-./db/redis}:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-helloworld}", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  # --- RabbitMQ ---
+  acontext-server-rabbitmq:
+    image: rabbitmq:3-management
+    container_name: acontext-server-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-acontext}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-helloworld}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    ports:
+      - "${RABBITMQ_EXPORT_PORT:-5672}:5672"
+      - "${RABBITMQ_ADMIN_EXPORT_PORT:-15672}:15672"
+    volumes:
+      - ${RABBITMQ_LOCATION:-./db/rabbitmq}:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  # --- SeaweedFS ---
+  acontext-server-seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: acontext-server-seaweedfs
+    restart: unless-stopped
+    environment:
+      WEED_S3_ACCESS_KEY: ${S3_ACCESS_KEY:-acontext}
+      WEED_S3_SECRET_KEY: ${S3_SECRET_KEY:-helloworld}
+      WEED_MASTER_VOLUME_GROWTH_COPY_1: 1
+      WEED_MASTER_DEFAULT_REPLICATION: "000"
+    command: >
+      server
+      -s3
+      -s3.port=9000
+      -dir=/data
+      -volume.max=100
+      -volume.publicUrl=${S3_ENDPOINT:-http://127.0.0.1:9000}
+      -ip=acontext-server-seaweedfs
+      -ip.bind=0.0.0.0
+      -metricsPort=9324
+    ports:
+      - "${S3_API_EXPORT_PORT:-9000}:9000"
+      - "${S3_CONSOLE_EXPORT_PORT:-9001}:8888"
+      - "9333:9333"
+    volumes:
+      - ${S3_LOCATION:-./db/s3}:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://127.0.0.1:9333/cluster/status || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  # init Bucket for SeaweedFS
+  acontext-server-seaweedfs-setup:
+    image: amazon/aws-cli:latest
+    container_name: acontext-server-seaweedfs-setup
+    depends_on:
+      acontext-server-seaweedfs:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY:-acontext}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY:-helloworld}
+      AWS_DEFAULT_REGION: ${S3_REGION:-auto}
+    entrypoint: >
+      /bin/sh -c "
+      aws configure set default.s3.signature_version s3v4 &&
+      aws --endpoint-url=http://acontext-server-seaweedfs:9000 s3 mb s3://${S3_BUCKET:-acontext-assets} 2>/dev/null || true &&
+      echo '✅ SeaweedFS ready with bucket: ${S3_BUCKET:-acontext-assets}'
+      "
+    restart: "no"
+
+  # acontext-server-core
+  acontext-server-core:
+    image: ${CORE_IMAGE:-ghcr.io/memodb-io/acontext-core:latest}
+    container_name: acontext-server-core
+    restart: unless-stopped
+    environment:
+      LLM_BASE_URL: ${LLM_BASE_URL}
+      LLM_API_KEY: ${LLM_API_KEY}
+      LLM_SDK: ${LLM_SDK}
+      DATABASE_URL: postgresql://${DATABASE_USER:-acontext}:${DATABASE_PASSWORD:-helloworld}@acontext-server-pg:5432/${DATABASE_NAME:-acontext}
+      MQ_URL: amqp://${RABBITMQ_USER:-acontext}:${RABBITMQ_PASSWORD:-helloworld}@acontext-server-rabbitmq:5672/
+      REDIS_URL: redis://:${REDIS_PASSWORD:-helloworld}@acontext-server-redis:6379
+      S3_ENDPOINT: http://acontext-server-seaweedfs:9000
+    ports:
+      - "${CORE_EXPORT_PORT:-8019}:8000"
+    depends_on:
+      acontext-server-pg:
+        condition: service_healthy
+      acontext-server-redis:
+        condition: service_healthy
+      acontext-server-rabbitmq:
+        condition: service_healthy
+      acontext-server-seaweedfs:
+        condition: service_healthy
+
+  # acontext-server-api
+  acontext-server-api:
+    image: ${API_IMAGE:-ghcr.io/memodb-io/acontext-api:latest}
+    container_name: acontext-server-api
+    restart: unless-stopped
+    environment:
+      API_EXPORT_PORT: ${API_EXPORT_PORT:-8029}
+      ROOT_API_BEARER_TOKEN: ${ROOT_API_BEARER_TOKEN:-your-root-api-bearer-token}
+      DATABASE_HOST: ${DATABASE_HOST:-acontext-server-pg}
+      DATABASE_USER: ${DATABASE_USER:-acontext}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-helloworld}
+      DATABASE_NAME: ${DATABASE_NAME:-acontext}
+      DATABASE_EXPORT_PORT: ${DATABASE_EXPORT_PORT:-5432}
+      REDIST_HOST: acontext-server-redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-helloworld}
+      REDIS_EXPORT_PORT: ${REDIS_EXPORT_PORT:-6379}
+      RABBITMQ_HOST: ${RABBITMQ_HOST:-acontext-server-rabbitmq}
+      RABBITMQ_USER: ${RABBITMQ_USER:-acontext}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-helloworld}
+      RABBITMQ_VHOST: ${RABBITMQ_VHOST:-/}
+      RABBITMQ_VHOST_ENCODED: ${RABBITMQ_VHOST_ENCODED:-%2F}
+      RABBITMQ_EXPORT_PORT: ${RABBITMQ_EXPORT_PORT:-5672}
+      S3_ENDPOINT: ${S3_ENDPOINT:-http://127.0.0.1:19000}
+      S3_INTERNAL_ENDPOINT: http://acontext-server-seaweedfs:9000
+      S3_REGION: ${S3_REGION:-us-east-1}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-acontext}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-helloworld}
+      S3_BUCKET: ${S3_BUCKET:-acontext-assets}
+    ports:
+      - "${API_EXPORT_PORT:-8029}:8029"
+    depends_on:
+      - acontext-server-core
+
+  # acontext-server-ui
+  acontext-server-ui:
+    image: ${UI_IMAGE:-ghcr.io/memodb-io/acontext-ui:latest}
+    container_name: acontext-server-ui
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
+      NEXT_PUBLIC_API_SERVER_URL: http://acontext-server-api:8029
+      NEXT_PUBLIC_BASE_PATH: ""
+      ROOT_API_BEARER_TOKEN: ${ROOT_API_BEARER_TOKEN:-your-root-api-bearer-token}
+    ports:
+      - "${UI_EXPORT_PORT:-3000}:3000"
+    depends_on:
+      - acontext-server-api
+

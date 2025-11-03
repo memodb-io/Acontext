@@ -1,0 +1,64 @@
+# Binaries
+acontext-cli
+acontext-cli.exe
+acontext-cli-*
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+*.out
+
+# Build directories
+dist/
+build/
+bin/
+out/
+
+# Go specific
+*.mod.sum
+go.work
+go.work.sum
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Coverage
+*.coverprofile
+coverage.html
+coverage.out
+
+# Temporary files
+*.tmp
+*.log
+tmp/
+temp/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Test outputs
+test-results/
+my-acontext-app/
+
+# Release artifacts
+checksums.txt
+*.tar.gz
+*.zip
+
+# Snapshots (for GoReleaser testing)
+dist/**
+

@@ -1,0 +1,149 @@
+name: CLI Test
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'src/client/acontext-cli/**'
+      - '.github/workflows/cli-test.yaml'
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'src/client/acontext-cli/**'
+      - '.github/workflows/cli-test.yaml'
+
+env:
+  GO_VERSION: '1.25.1'
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/client/acontext-cli
+    strategy:
+      matrix:
+        go-version: ['1.25.1']
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          go-version-file: src/client/acontext-cli/go.mod
+          cache: true
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('src/client/acontext-cli/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run tests
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.out
+          flags: unittests
+          name: codecov-cli
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/client/acontext-cli
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          go-version-file: src/client/acontext-cli/go.mod
+          cache: true
+
+      - name: Tidy dependencies
+        run: go mod tidy
+
+      - name: Verify build works
+        run: go build ./...
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+          working-directory: src/client/acontext-cli
+          args: --timeout=5m ./...
+          only-new-issues: ${{ github.event_name == 'pull_request' }}
+
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: src/client/acontext-cli
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        go-version: ['1.25.1']
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          go-version-file: src/client/acontext-cli/go.mod
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Build
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            go build -ldflags "-X main.version=dev" -o acontext-cli.exe main.go
+          else
+            go build -ldflags "-X main.version=dev" -o acontext-cli main.go
+          fi
+
+      - name: Test binary
+        shell: bash
+        run: |
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            ./acontext-cli.exe version
+          else
+            ./acontext-cli version
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: acontext-cli-${{ matrix.os }}
+          path: |
+            ${{ matrix.os == 'windows-latest' && 'src/client/acontext-cli/acontext-cli.exe' || 'src/client/acontext-cli/acontext-cli' }}
+
