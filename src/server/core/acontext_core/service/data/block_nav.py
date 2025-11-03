@@ -1,3 +1,4 @@
+from pathlib import Path
 from sqlalchemy import String
 from typing import List, Optional
 from sqlalchemy import select, delete, update, func
@@ -26,44 +27,55 @@ async def fetch_block_by_id(
     return Result.resolve(block)
 
 
-async def fetch_block_children_by_id(
-    db_session: AsyncSession, space_id: asUUID, block_id: asUUID, allow_types: list[str]
-) -> Result[List[Block]]:
+async def assert_block_type(
+    db_session: AsyncSession, space_id: asUUID, block_id: asUUID, block_type: str
+) -> Result[None]:
     query = (
-        select(Block)
+        select(Block.type).where(Block.space_id == space_id).where(Block.id == block_id)
+    )
+    result = await db_session.execute(query)
+    par_type = result.mappings().one_or_none()
+    if par_type is None:
+        return Result.reject(f"Block {block_id} not found")
+    if par_type["type"] != block_type:
+        return Result.reject(
+            f"Block {block_id}(type {par_type['type']}) is not a {block_type}"
+        )
+    return Result.resolve(None)
+
+
+async def fetch_path_children_by_id(
+    db_session: AsyncSession, space_id: asUUID, block_id: asUUID
+) -> Result[List[dict]]:
+    if block_id is not None:
+        r = await assert_block_type(db_session, space_id, block_id, BLOCK_TYPE_FOLDER)
+        if not r.ok():
+            return r
+    query = (
+        select(Block.id, Block.title, Block.type)
         .where(Block.space_id == space_id)
         .where(
             Block.parent_id == block_id,
-            Block.type.in_(allow_types),
+            Block.type.in_([BLOCK_TYPE_FOLDER, BLOCK_TYPE_PAGE]),
         )
     )
     result = await db_session.execute(query)
-    blocks = result.scalars().all()
+    blocks = result.mappings().all()
+    blocks = [
+        {"id": block["id"], "title": block["title"], "type": block["type"]}
+        for block in blocks
+    ]
     return Result.resolve(blocks)
 
 
 async def list_paths_under_block(
     db_session: AsyncSession,
     space_id: asUUID,
-    depth: int,
     block_id: Optional[asUUID] = None,
     path_prefix: str = "",
 ) -> Result[dict[str, asUUID]]:
-    # 1. find the block, assert it either root or folder
-    if block_id is not None:
-        r = await fetch_block_by_id(db_session, space_id, block_id)
-        if not r.ok():
-            return r
-        folder_block = r.data
-        if folder_block.type != BLOCK_TYPE_FOLDER:
-            return Result.reject(
-                f"Block {block_id}(type {folder_block.type}) is not a folder"
-            )
-
     # 2. list all page and folder block
-    r = await fetch_block_children_by_id(
-        db_session, space_id, block_id, [BLOCK_TYPE_FOLDER, BLOCK_TYPE_PAGE]
-    )
+    r = await fetch_path_children_by_id(db_session, space_id, block_id)
     if not r.ok():
         return r
     blocks = r.data
@@ -72,21 +84,20 @@ async def list_paths_under_block(
     path_dict: dict[str, asUUID] = {}
 
     for block in blocks:
-        path_dict[f"{path_prefix}{block.title}"] = block.id
-
+        if block["type"] == BLOCK_TYPE_PAGE:
+            path_dict[f"{path_prefix}{block['title']}"] = block["id"]
         # Recursively fetch paths for folder blocks
-        if block.type == BLOCK_TYPE_FOLDER and depth > 0:
+        elif block["type"] == BLOCK_TYPE_FOLDER:
             r = await list_paths_under_block(
                 db_session,
                 space_id,
-                depth - 1,
-                block.id,
+                block["id"],
+                path_prefix=f"{path_prefix}{block['title']}/",
             )
             if not r.ok():
                 return r
-            sub_paths = r.data
-            # Add sub-paths with current folder as prefix
-            for sub_path, sub_id in sub_paths.items():
-                path_dict[f"{path_prefix}{block.title}/{sub_path}"] = sub_id
+            path_dict.update(r.data)
+        else:
+            raise ValueError(f"Invalid block type: {block['type']}")
 
     return Result.resolve(path_dict)
