@@ -46,7 +46,7 @@ async def _create_page_handler(
         title=page.title,
         type=BLOCK_TYPE_PAGE,
     )
-    return Result.resolve(f"Page {title} created under {folder_path}")
+    return Result.resolve(f"Page {page.title} created under {folder_path}")
 
 
 _create_page_tool = (

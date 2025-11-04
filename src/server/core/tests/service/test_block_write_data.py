@@ -17,6 +17,7 @@ from acontext_core.service.data.block import (
     write_sop_block_to_parent,
     _find_block_sort,
     move_path_block_to_new_parent,
+    decrease_block_children_sort_by_1,
 )
 
 
@@ -1573,7 +1574,7 @@ class TestMovePathBlock:
                 page_ids.append(r.data.id)
 
             # Move all pages to TargetFolder
-            for page_id in page_ids:
+            for page_id in page_ids[::-1]:
                 r = await move_path_block_to_new_parent(
                     session, space.id, page_id, target_folder_id
                 )
@@ -1583,5 +1584,59 @@ class TestMovePathBlock:
             for page_id in page_ids:
                 page = await session.get(Block, page_id)
                 assert page.parent_id == target_folder_id
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_move_pages_to_same_folder_with_sort(self):
+        """Test moving multiple pages to the same folder"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            r = await create_new_path_block(
+                session, space.id, "Page 0", type=BLOCK_TYPE_PAGE
+            )
+            assert r.ok()
+            page_id = r.data.id  # sort=0
+            # Create a target folder
+            r = await create_new_path_block(
+                session, space.id, "TargetFolder", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            target_folder_id = r.data.id  # sort=1
+
+            # Create multiple pages
+            for i in range(3):
+                r = await create_new_path_block(
+                    session,
+                    space.id,
+                    f"Page{i}",
+                    type=BLOCK_TYPE_PAGE,
+                    par_block_id=target_folder_id,
+                )
+                assert r.ok()
+
+            # Move all pages to TargetFolder
+            r = await move_path_block_to_new_parent(
+                session, space.id, page_id, target_folder_id
+            )
+            assert r.ok()
+            page = r.data
+
+            # Verify all pages are now in TargetFolder
+            assert page.title == "Page_0"
+            assert page.parent_id == target_folder_id
+            assert page.sort == 3
 
             await session.delete(project)

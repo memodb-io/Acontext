@@ -23,5 +23,7 @@ class SpaceConstructPrompt(BasePrompt):
             SPACE_TOOLS["ls"].schema,
             SPACE_TOOLS["create_page"].schema,
             SPACE_TOOLS["create_folder"].schema,
+            SPACE_TOOLS["move"].schema,
+            SPACE_TOOLS["rename"].schema,
             SPACE_TOOLS["report_thinking"].schema,
         ]

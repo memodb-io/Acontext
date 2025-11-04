@@ -22,7 +22,7 @@ async def build_space_ctx(
         before_use_ctx.db_session = db_session
         return before_use_ctx
     LOG.info(f"Building space context for project {project_id} and space {space_id}")
-    ctx = SpaceCtx(db_session, project_id, space_id, data_candidate, {"/": None})
+    ctx = SpaceCtx(db_session, project_id, space_id, data_candidate, [], {"/": None})
     return ctx
 
 
@@ -53,7 +53,7 @@ async def space_construct_agent_curd(
     _messages = [
         {
             "role": "user",
-            "content": "List root pages to me. If no pages, create a new path named 'mock_page' under 'test' folder and check if it's created successfully.",
+            "content": "Create a demo folder tree first. Then try to move some pages and rename some pages",
         }
     ]
     USE_CTX = None

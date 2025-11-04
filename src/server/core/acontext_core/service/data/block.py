@@ -1,3 +1,4 @@
+import asyncio
 import numpy as np
 from sqlalchemy import String
 from typing import List, Optional
@@ -28,10 +29,12 @@ async def _find_block_sort(
     block_type: str,
 ) -> Result[int]:
     if par_block_id is not None:
-        parent_block = await db_session.get(Block, par_block_id)
-        if parent_block is None:
+        query = select(Block.type).where(Block.id == par_block_id)
+        result = await db_session.execute(query)
+        par_block = result.mappings().one_or_none()
+        if par_block is None:
             return Result.reject(f"Parent block {par_block_id} not found")
-        parent_type = parent_block.type
+        parent_type = par_block["type"]
     else:
         parent_type = BLOCK_TYPE_ROOT
 
@@ -51,6 +54,23 @@ async def _find_block_sort(
     if next_sort is None:
         return Result.reject(f"Failed to find next sort for block {par_block_id}")
     return Result.resolve(next_sort)
+
+
+async def decrease_block_children_sort_by_1(
+    db_session: AsyncSession,
+    space_id: asUUID,
+    block_id: Optional[asUUID],
+    gt_sort: int,
+) -> Result[None]:
+    query = (
+        update(Block)
+        .where(Block.space_id == space_id)
+        .where(Block.parent_id == block_id)
+        .where(Block.sort > gt_sort)
+        .values(sort=Block.sort - 1)
+    )
+    result = await db_session.execute(query)
+    return Result.resolve(None)
 
 
 async def create_new_block_embedding(
@@ -132,7 +152,7 @@ async def move_path_block_to_new_parent(
     space_id: asUUID,
     path_block_id: asUUID,
     new_par_block_id: asUUID,
-) -> Result[None]:
+) -> Result[Block]:
 
     path_block = await db_session.get(Block, path_block_id)
     if path_block is None:
@@ -154,9 +174,19 @@ async def move_path_block_to_new_parent(
             f"Cycle detected, can't move a parent block to its child block"
         )
 
+    r = await _find_block_sort(
+        db_session, space_id, new_par_block_id, block_type=BLOCK_TYPE_FOLDER
+    )
+    if not r.ok():
+        return r
+    next_sort = r.data
     path_block.parent_id = new_par_block_id
+    path_block.sort = next_sort
+
+    flag_modified(path_block, "parent_id")
+    flag_modified(path_block, "sort")
     await db_session.flush()
-    return Result.resolve(None)
+    return Result.resolve(path_block)
 
 
 async def write_sop_block_to_parent(
@@ -252,3 +282,63 @@ async def update_block(
         flag_modified(block, "props")
     await db_session.flush()
     return Result.resolve(block)
+
+
+async def delete_block_recursively(
+    db_session: AsyncSession,
+    space_id: asUUID,
+    block_id: asUUID,
+) -> Result[None]:
+    """
+    Recursively delete a block and all its children.
+    This function will:
+    1. Verify the block exists and belongs to the space
+    2. Recursively delete all children blocks
+    3. Delete the block itself (cascading to embeddings and tool_sops)
+    4. Adjust the sort order of sibling blocks
+    """
+    # Fetch the block with its children eagerly loaded
+    query = (
+        select(Block)
+        .where(Block.id == block_id)
+        .where(Block.space_id == space_id)
+        .options(selectinload(Block.children))
+    )
+    result = await db_session.execute(query)
+    block = result.scalar_one_or_none()
+
+    if block is None:
+        return Result.reject(f"Block {block_id} not found in space {space_id}")
+
+    # Store parent_id and sort for later sibling adjustment
+    parent_id = block.parent_id
+    block_sort = block.sort
+
+    # Recursively delete all children
+    # We need to collect child IDs first to avoid issues with the children collection being modified
+    child_ids = [child.id for child in block.children]
+    delete_tasks = [
+        delete_block_recursively(db_session, space_id, ci) for ci in child_ids
+    ]
+    delete_results = await asyncio.gather(*delete_tasks)
+    delete_wrong = [r for r in delete_results if not r.ok()]
+    if len(delete_wrong):
+        return Result.reject(
+            f"Failed to delete some children blocks: {[r.error for r in delete_wrong]}"
+        )
+
+    # Delete the block itself
+    # This will cascade delete:
+    # - BlockEmbeddings (cascade="all, delete-orphan")
+    # - ToolSOP entries (cascade="all, delete-orphan")
+    await db_session.delete(block)
+    await db_session.flush()
+
+    # Adjust the sort order of sibling blocks that come after this one
+    r = await decrease_block_children_sort_by_1(
+        db_session, space_id, parent_id, block_sort - 1
+    )
+    if not r.ok():
+        return r
+
+    return Result.resolve(None)
