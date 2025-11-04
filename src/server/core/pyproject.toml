@@ -10,6 +10,7 @@ dependencies = [
     "anthropic>=0.67.0",
     "asyncpg>=0.30.0",
     "fastapi[standard]>=0.116.1",
+    "numpy>=2.3.4",
     "openai>=1.95.1",
     "pgvector>=0.4.1",
     "pydantic>=2.11.7",

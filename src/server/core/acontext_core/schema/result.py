@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Generic, TypeVar, Type, Optional, Union
 from .error_code import Code
 from ..env import LOG

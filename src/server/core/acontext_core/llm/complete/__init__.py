@@ -26,7 +26,6 @@ async def llm_complete(
     tools=None,
     **kwargs,
 ) -> Result[LLMResponse]:
-    _context_vars = get_logging_contextvars()
 
     use_model = model or DEFAULT_CORE_CONFIG.llm_simple_model
     use_complete_func = FACTORIES[DEFAULT_CORE_CONFIG.llm_sdk]
@@ -45,7 +44,7 @@ async def llm_complete(
             **kwargs,
         )
         _end_s = time.perf_counter()
-        LOG.debug(f"LLM Complete finished in {_end_s - _start_s:.4f}s")
+        LOG.info(f"LLM Complete finished in {_end_s - _start_s:.4f}s")
     except Exception as e:
         return Result.reject(f"LLM complete failed - error: {str(e)}")
 

@@ -175,10 +175,6 @@ class DatabaseClient:
             await conn.run_sync(ORM_BASE.metadata.create_all)
 
         self._table_created = True
-        async with self.get_session_context() as db_session:
-            await check_legal_embedding_dim(
-                BlockEmbedding, db_session, DEFAULT_CORE_CONFIG.block_embedding_dim
-            )
 
     async def drop_tables(self) -> None:
         """Drop all tables defined in the ORM models."""
@@ -216,6 +212,10 @@ async def init_database() -> None:
     """Initialize the database (create tables)."""
     await DB_CLIENT.create_tables()
     assert await DB_CLIENT.health_check(), "Database health check failed"
+    async with DB_CLIENT.get_session_context() as db_session:
+        await check_legal_embedding_dim(
+            BlockEmbedding, db_session, DEFAULT_CORE_CONFIG.block_embedding_dim
+        )
     logger.info(f"Database created successfully {DB_CLIENT.get_pool_status()}")
 
 
