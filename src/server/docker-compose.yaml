@@ -60,7 +60,7 @@ services:
     image: chrislusf/seaweedfs:latest
     container_name: acontext-server-seaweedfs
     restart: unless-stopped
-    user: root
+    #user: root  # https://github.com/seaweedfs/seaweedfs/pull/7399
     environment:
       # S3 credentials - no config file needed!
       WEED_S3_ACCESS_KEY: ${S3_ACCESS_KEY:-acontext}
