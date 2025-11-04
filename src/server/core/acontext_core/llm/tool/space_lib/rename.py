@@ -29,6 +29,13 @@ async def _rename_handler(
     )
     if not r.ok():
         return r
+    path_block = r.data
+
+    # Update path cache
+    new_title = path_block.title
+    new_path = "/" + "/".join(BN.path_to_parts(path)[:-1] + [new_title])
+    path_block.title = new_title
+    ctx.path_2_block_ids[new_path] = path_block
     return Result.resolve(f"'{path}' renamed to '{new_title}'")
 
 

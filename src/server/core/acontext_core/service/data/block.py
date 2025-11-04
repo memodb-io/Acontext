@@ -18,13 +18,7 @@ from ...schema.orm import Block, BlockEmbedding, ToolReference, ToolSOP, Space
 from ...schema.utils import asUUID
 from ...schema.result import Result
 from ...schema.block.sop_block import SOPData
-from .block_nav import assert_block_type
-
-
-def _normalize_path_block_title(title: str) -> str:
-    title = title.replace("/", "_")
-    title = title.replace(" ", "_")
-    return title
+from .block_nav import assert_block_type, _normalize_path_block_title
 
 
 async def _find_block_sort(
@@ -241,7 +235,7 @@ async def update_block(
     block_id: asUUID,
     title: str | None = None,
     patch_props: dict | None = None,
-):
+) -> Result[Block]:
     block = await db_session.get(Block, block_id)
 
     if block is None:
@@ -250,6 +244,7 @@ async def update_block(
         return Result.reject(f"Block {block_id} is not in space {space_id}")
 
     if title is not None:
+        title = _normalize_path_block_title(title)
         block.title = title
         flag_modified(block, "title")
     if patch_props is not None:

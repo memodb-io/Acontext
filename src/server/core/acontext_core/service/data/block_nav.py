@@ -19,6 +19,20 @@ from ...schema.result import Result
 from ...schema.block.sop_block import SOPData
 
 
+def _normalize_path_block_title(title: str) -> str:
+    title = title.replace("/", "_")
+    title = title.replace(" ", "_")
+    return title
+
+
+def path_to_parts(path: str) -> List[str]:
+    path_parts = path.strip("/").split("/")
+    path_parts = [
+        _normalize_path_block_title(part.strip()) for part in path_parts if part.strip()
+    ]
+    return path_parts
+
+
 async def assert_block_type(
     db_session: AsyncSession, space_id: asUUID, block_id: asUUID, block_type: str
 ) -> Result[None]:
@@ -119,9 +133,11 @@ async def find_block_by_path(
     db_session: AsyncSession,
     space_id: asUUID,
     abs_path: str,
-) -> Result[PathNode]:
-    path_parts = abs_path.strip("/").split("/")
-    path_parts = [part.strip() for part in path_parts if part.strip()]
+) -> Result[PathNode | None]:
+    path_parts = path_to_parts(abs_path)
+    if not len(path_parts):  # root
+        return Result.resolve(None)
+
     parent_id = None
     for part in path_parts:
         query = (

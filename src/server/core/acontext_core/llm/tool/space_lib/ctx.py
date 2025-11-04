@@ -17,9 +17,9 @@ class SpaceCtx:
 
     async def find_block(self, path: str) -> Result[PathNode]:
         if path in self.path_2_block_ids:
-            return self.path_2_block_ids[path]
+            return Result.resolve(self.path_2_block_ids[path])
         r = await BN.find_block_by_path(self.db_session, self.space_id, path)
         if not r.ok():
             return r
         self.path_2_block_ids[path] = r.data
-        return r.data
+        return Result.resolve(r.data)

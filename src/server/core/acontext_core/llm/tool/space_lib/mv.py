@@ -41,6 +41,9 @@ async def _move_handler(
         return Result.resolve(
             f"Unable to move '{from_path}' to '{to_folder}', with error {r.error}"
         )
+
+    # update path caches
+    ctx.path_2_block_ids[f"{to_folder}{from_path_block.title}"] = from_path_block
     return Result.resolve(f"'{from_path}' moved to '{to_folder}'")
 
 
