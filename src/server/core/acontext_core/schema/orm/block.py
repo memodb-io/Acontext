@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from .space import Space
     from .tool_sop import ToolSOP
     from .block_embedding import BlockEmbedding
+    from .block_reference import BlockReference
 
 
 # Block type configuration matching Go version
@@ -58,6 +59,7 @@ BLOCK_TYPE_FOLDER = "folder"
 BLOCK_TYPE_PAGE = "page"
 BLOCK_TYPE_TEXT = "text"
 BLOCK_TYPE_SOP = "sop"
+BLOCK_TYPE_REFERENCE = "reference"
 
 PATH_BLOCK = {BLOCK_TYPE_FOLDER, BLOCK_TYPE_PAGE}
 BLOCK_PARENT_ALLOW = {
@@ -65,6 +67,7 @@ BLOCK_PARENT_ALLOW = {
     BLOCK_TYPE_PAGE: {BLOCK_TYPE_FOLDER, BLOCK_TYPE_ROOT},
     BLOCK_TYPE_SOP: {BLOCK_TYPE_PAGE},
     BLOCK_TYPE_TEXT: {BLOCK_TYPE_PAGE},
+    BLOCK_TYPE_REFERENCE: {BLOCK_TYPE_PAGE},
 }
 
 
@@ -94,7 +97,7 @@ class Block(CommonMixin):
         # Indexes matching Go version
         Index("idx_blocks_space", "space_id"),
         Index("idx_blocks_space_type", "space_id", "type"),
-        Index("idx_blocks_space_type", "space_id", "title"),
+        Index("idx_blocks_space_title", "space_id", "title"),
         Index("idx_blocks_space_type_archived", "space_id", "type", "is_archived"),
         # Unique constraint for space, parent, sort combination
         Index(
@@ -102,7 +105,7 @@ class Block(CommonMixin):
         ),
         # Check constraints matching Go version
         CheckConstraint(
-            "type IN ('folder', 'page', 'text', 'sop')",
+            "type IN ('folder', 'page', 'text', 'sop', 'reference')",
             name="ck_block_type",
         ),
     )
@@ -235,6 +238,38 @@ class Block(CommonMixin):
             "db": relationship(
                 "BlockEmbedding",
                 back_populates="block",
+                cascade="all, delete-orphan",
+                lazy="select",
+            )
+        },
+    )
+
+    block_reference: Optional["BlockReference"] = field(
+        default=None,
+        init=False,
+        metadata={
+            "db": relationship(
+                "BlockReference",
+                foreign_keys="[BlockReference.block_id]",
+                back_populates="block",
+                cascade="all, delete-orphan",
+                lazy="select",
+                uselist=False,  # One-to-one relationship
+            )
+        },
+    )
+
+    # Blocks that reference this block (as the target of their reference)
+    # When this block is deleted, cascade delete all BlockReference records
+    # that reference it, which in turn deletes the blocks containing those references
+    referenced_by: List["BlockReference"] = field(
+        default_factory=list,
+        init=False,
+        metadata={
+            "db": relationship(
+                "BlockReference",
+                foreign_keys="[BlockReference.reference_block_id]",
+                back_populates="reference_block",
                 cascade="all, delete-orphan",
                 lazy="select",
             )

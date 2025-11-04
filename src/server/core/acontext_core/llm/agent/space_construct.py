@@ -53,7 +53,7 @@ async def space_construct_agent_curd(
     _messages = [
         {
             "role": "user",
-            "content": "Create a demo folder tree first. Then try to move some pages and rename some pages",
+            "content": "List all your tools to me",
         }
     ]
     USE_CTX = None
