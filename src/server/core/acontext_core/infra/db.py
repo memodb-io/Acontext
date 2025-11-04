@@ -1,5 +1,6 @@
 import traceback
-from typing import AsyncGenerator, Optional
+from typing import Optional
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 from sqlalchemy.ext.asyncio import (
@@ -9,7 +10,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
 )
 from sqlalchemy.pool import AsyncAdaptedQueuePool
-from sqlalchemy import event, text
+from sqlalchemy import text
 from sqlalchemy.exc import DisconnectionError, OperationalError
 
 # from ..schema.orm import Base
@@ -47,24 +48,30 @@ class DatabaseClient:
             )
 
         logger.info(f"SQLAlchemy Engine URL: {self.database_url}")
-        self._engine: AsyncEngine = self._create_engine()
+        self._engine: AsyncEngine | None = self._create_engine()
         self._table_created: bool = False
-        self._sessionmaker: async_sessionmaker[AsyncSession] = async_sessionmaker(
-            bind=self.engine,
-            class_=AsyncSession,
-            expire_on_commit=False,
-            autoflush=True,
-            autocommit=False,
+        self._sessionmaker: async_sessionmaker[AsyncSession] | None = (
+            async_sessionmaker(
+                bind=self.engine,
+                class_=AsyncSession,
+                expire_on_commit=False,
+                autoflush=True,
+                autocommit=False,
+            )
         )
 
     @property
     def engine(self) -> AsyncEngine:
         """Get the database engine, creating it if necessary."""
+        if self._engine is None:
+            raise ValueError("Engine not initialized")
         return self._engine
 
     @property
     def sessionmaker(self) -> async_sessionmaker[AsyncSession]:
         """Get the session maker, creating it if necessary."""
+        if self._sessionmaker is None:
+            raise ValueError("Sessionmaker not initialized")
         return self._sessionmaker
 
     def _create_engine(self) -> AsyncEngine:
@@ -190,16 +197,16 @@ class DatabaseClient:
             self._sessionmaker = None
             logger.info("Database connections closed")
 
-    def get_pool_status(self) -> dict:
+    def get_pool_status(self) -> dict[str, int | str]:
         """Get current connection pool status for monitoring."""
         if not self._engine:
             return {"status": "engine_not_initialized"}
 
         pool = self._engine.pool
         return {
-            "size": pool.size(),
-            "checked_in": pool.checkedin(),
-            "checked_out": pool.checkedout(),
+            "size": pool.size(),  # pyright: ignore[reportAttributeAccessIssue]
+            "checked_in": pool.checkedin(),  # pyright: ignore[reportAttributeAccessIssue]
+            "checked_out": pool.checkedout(),  # pyright: ignore[reportAttributeAccessIssue]
         }
 
 
