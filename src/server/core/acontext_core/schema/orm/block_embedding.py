@@ -1,4 +1,4 @@
-import uuid
+import numpy as np
 from dataclasses import dataclass, field
 from sqlalchemy import String, ForeignKey, Index, Column, Integer, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,7 +28,6 @@ class BlockEmbedding(CommonMixin):
 
     __table_args__ = (
         # Indexes for efficient queries
-        Index("idx_block_embeddings_block", "block_id"),
         Index("idx_block_embeddings_space", "space_id"),
         Index("idx_block_embeddings_space_type", "space_id", "block_type"),
         # Vector similarity search index (using IVFFlat or HNSW)
@@ -65,7 +64,7 @@ class BlockEmbedding(CommonMixin):
     )
 
     # Vector embedding - adjust dimensions as needed (e.g., 1536 for OpenAI, 768 for others)
-    embedding: List[float] = field(
+    embedding: np.ndarray = field(
         metadata={
             "db": Column(
                 Vector(

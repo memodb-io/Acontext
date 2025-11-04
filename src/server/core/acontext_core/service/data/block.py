@@ -1,3 +1,4 @@
+import numpy as np
 from sqlalchemy import String
 from typing import List, Optional
 from sqlalchemy import select, delete, update, func
@@ -5,6 +6,7 @@ from sqlalchemy import select, delete, update
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.asyncio import AsyncSession
+from ...llm.embeddings import get_embedding
 from ...schema.orm.block import (
     BLOCK_TYPE_FOLDER,
     BLOCK_TYPE_ROOT,
@@ -12,7 +14,7 @@ from ...schema.orm.block import (
     BLOCK_TYPE_SOP,
     BLOCK_PARENT_ALLOW,
 )
-from ...schema.orm import Block, ToolReference, ToolSOP, Space
+from ...schema.orm import Block, BlockEmbedding, ToolReference, ToolSOP, Space
 from ...schema.utils import asUUID
 from ...schema.result import Result
 from ...schema.block.sop_block import SOPData
@@ -56,6 +58,29 @@ async def _find_block_sort(
     return Result.resolve(next_sort)
 
 
+async def create_new_block_embedding(
+    db_session: AsyncSession,
+    block: Block,
+    content_to_embed: str,
+    configs: Optional[dict] = None,
+) -> Result[BlockEmbedding]:
+    r = await get_embedding([content_to_embed])
+    if not r.ok():
+        return r
+    embedding = r.data.embedding
+    new_embedding = BlockEmbedding(
+        block_id=block.id,
+        space_id=block.space_id,
+        block_type=block.type,
+        embedding=embedding[0],
+        configs=configs,
+    )
+    db_session.add(new_embedding)
+    await db_session.flush()
+    flag_modified(block, "embeddings")
+    return Result.resolve(new_embedding)
+
+
 async def create_new_path_block(
     db_session: AsyncSession,
     space_id: asUUID,
@@ -82,6 +107,11 @@ async def create_new_path_block(
         return r
     db_session.add(new_block)
     await db_session.flush()
+
+    # add embedding for path block
+    r = await create_new_block_embedding(db_session, new_block, title)
+    if not r.ok():
+        return r
     return Result.resolve(new_block)
 
 

@@ -21,7 +21,7 @@ from acontext_core.service.data.block import (
 
 class TestPageBlock:
     @pytest.mark.asyncio
-    async def test_create_new_page_success(self):
+    async def test_create_new_page_success(self, mock_block_get_embedding):
         """Test creating a new page block"""
         db_client = DatabaseClient()
         await db_client.create_tables()
@@ -46,7 +46,7 @@ class TestPageBlock:
                 page_id = r.data.id
                 assert page_id is not None
                 page_ids.append(page_id)
-
+            assert mock_block_get_embedding.await_count == 3
             # Verify pages were created with correct sort order
             for i, page_id in enumerate(page_ids):
                 page = await session.get(Block, page_id)

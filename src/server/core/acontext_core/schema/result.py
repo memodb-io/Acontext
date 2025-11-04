@@ -23,6 +23,7 @@ class Error(BaseModel):
 
 
 class Result(BaseModel, Generic[T]):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     data: Optional[T]
     error: Error
 
