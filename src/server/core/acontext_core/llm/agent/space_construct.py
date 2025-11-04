@@ -32,7 +32,7 @@ async def space_construct_agent_curd(
     space_id: asUUID,
     task_id: asUUID,
     sop_data: SOPData,
-    max_iterations=3,
+    max_iterations=16,
 ) -> Result[Dict[str, Any]]:
     """
     Construct Agent - Process SOP data and build into Space
@@ -53,7 +53,7 @@ async def space_construct_agent_curd(
     _messages = [
         {
             "role": "user",
-            "content": "List root pages to me",
+            "content": "List root pages to me. If no pages, create a new path named 'mock_page' under 'test' folder and check if it's created successfully.",
         }
     ]
     USE_CTX = None

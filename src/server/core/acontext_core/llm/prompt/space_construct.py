@@ -19,4 +19,9 @@ class SpaceConstructPrompt(BasePrompt):
 
     @classmethod
     def tool_schema(cls) -> list[ToolSchema]:
-        return [SPACE_TOOLS["ls"].schema, SPACE_TOOLS["report_thinking"].schema]
+        return [
+            SPACE_TOOLS["ls"].schema,
+            SPACE_TOOLS["create_page"].schema,
+            SPACE_TOOLS["create_folder"].schema,
+            SPACE_TOOLS["report_thinking"].schema,
+        ]

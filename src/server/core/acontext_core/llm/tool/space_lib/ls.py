@@ -18,10 +18,10 @@ async def _ls_handler(
     folder_path = llm_arguments.get("folder_path", "/")
 
     if folder_path not in ctx.path_2_block_ids:
-        return Result.resolve(f"Folder {folder_path} not found")
+        return Result.resolve(f"Path {folder_path} not found")
     path_block = ctx.path_2_block_ids[folder_path]
     if path_block is not None and path_block.type != BLOCK_TYPE_FOLDER:
-        return Result.resolve(f"Folder {folder_path} is not a folder, can't be listed")
+        return Result.resolve(f"Path {folder_path} is not a folder, can't be listed")
 
     r = await BN.list_paths_under_block(
         ctx.db_session,
@@ -59,10 +59,11 @@ _ls_tool = (
                         },
                         "depth": {
                             "type": "integer",
-                            "description": "Maximum path depth to list. Default to 1.",
+                            "description": """Maximum path depth to list. 
+Default to 1, meaning list the sub-paths of sub-folders. 2 means list the sub-paths of sub-folders of sub-folders, etc.""",
                         },
                     },
-                    "required": ["folder_path"],
+                    "required": ["folder_path", "depth"],
                 },
             },
         )
