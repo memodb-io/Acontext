@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from sqlalchemy import ForeignKey, Index, Column
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from .base import ORM_BASE, TimestampMixin
 from ..utils import asUUID
@@ -18,6 +18,7 @@ class BlockReference(TimestampMixin):
     BlockReference table records a one-to-one relationship with blocks.
     Each reference block can only have one BlockReference row.
     It records which block references another block.
+    When the referenced block is deleted, reference_block_id is set to NULL.
     """
 
     __tablename__ = "block_references"
@@ -42,14 +43,15 @@ class BlockReference(TimestampMixin):
     )
 
     # The block being referenced
-    reference_block_id: asUUID = field(
+    reference_block_id: Optional[asUUID] = field(
+        default=None,
         metadata={
             "db": Column(
                 UUID(as_uuid=True),
-                ForeignKey("blocks.id", ondelete="CASCADE", onupdate="CASCADE"),
-                nullable=False,
+                ForeignKey("blocks.id", ondelete="SET NULL", onupdate="CASCADE"),
+                nullable=True,
             )
-        }
+        },
     )
 
     # Relationships
@@ -65,7 +67,8 @@ class BlockReference(TimestampMixin):
         },
     )
 
-    reference_block: "Block" = field(
+    reference_block: Optional["Block"] = field(
+        default=None,
         init=False,
         metadata={
             "db": relationship(
@@ -73,6 +76,7 @@ class BlockReference(TimestampMixin):
                 foreign_keys=lambda: [BlockReference.reference_block_id],
                 back_populates="referenced_by",
                 lazy="select",
+                passive_deletes=True,  # Let database handle SET NULL
             )
         },
     )

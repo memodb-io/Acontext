@@ -260,8 +260,8 @@ class Block(CommonMixin):
     )
 
     # Blocks that reference this block (as the target of their reference)
-    # When this block is deleted, cascade delete all BlockReference records
-    # that reference it, which in turn deletes the blocks containing those references
+    # When this block is deleted, all BlockReference records that reference it
+    # will have their reference_block_id set to NULL (broken references)
     referenced_by: List["BlockReference"] = field(
         default_factory=list,
         init=False,
@@ -270,8 +270,8 @@ class Block(CommonMixin):
                 "BlockReference",
                 foreign_keys="[BlockReference.reference_block_id]",
                 back_populates="reference_block",
-                cascade="all, delete-orphan",
                 lazy="select",
+                passive_deletes=True,  # Let database handle SET NULL
             )
         },
     )
