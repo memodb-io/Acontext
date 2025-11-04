@@ -20,7 +20,10 @@ if TYPE_CHECKING:
 class ToolReference(CommonMixin):
     __tablename__ = "tool_references"
 
-    __table_args__ = (Index("ix_tool_reference_project_id", "project_id"),)
+    __table_args__ = (
+        Index("ix_tool_reference_project_id", "project_id"),
+        Index("ix_tool_reference_project_id_name", "project_id", "name"),
+    )
 
     name: str = field(metadata={"db": Column(String, nullable=False)})
 

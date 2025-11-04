@@ -18,9 +18,11 @@ async def _create_folder_handler(
     title = BD._normalize_path_block_title(llm_arguments["title"])
     view_when = llm_arguments.get("view_when", "")
 
-    if folder_path not in ctx.path_2_block_ids:
-        return Result.resolve(f"Path {folder_path} not found")
-    path_block = ctx.path_2_block_ids[folder_path]
+    r = await ctx.find_block(folder_path)
+    if not r.ok():
+        return Result.resolve(f"Path {folder_path} not found, with error {r.error}")
+    path_block = r.data
+
     if path_block is not None and path_block.type != BLOCK_TYPE_FOLDER:
         return Result.resolve(
             f"Path {folder_path} is not a folder, can't have sub-folder"
@@ -57,11 +59,11 @@ _create_folder_tool = (
                     "properties": {
                         "folder_path": {
                             "type": "string",
-                            "description": "The path to the parent folder. Root is '/'. Folder path must end with '/'",
+                            "description": "The absolute path to the parent folder. Root is '/'. Folder path must end with '/'",
                         },
                         "title": {
                             "type": "string",
-                            "description": "Folder Title. Use Snake Case naming convention. Maximum 5 words.",
+                            "description": "Folder Title. Use Snake Case naming convention. Maximum 5 words. Title can't contain '/'.",
                         },
                         "view_when": {
                             "type": "string",

@@ -113,3 +113,49 @@ async def list_paths_under_block(
             raise ValueError(f"Invalid block type: {block['type']}")
 
     return Result.resolve((path_dict, sub_page_num, sub_folder_num))
+
+
+async def find_block_by_path(
+    db_session: AsyncSession,
+    space_id: asUUID,
+    abs_path: str,
+) -> Result[PathNode]:
+    path_parts = abs_path.strip("/").split("/")
+    path_parts = [part.strip() for part in path_parts if part.strip()]
+    parent_id = None
+    for part in path_parts:
+        query = (
+            select(Block.id, Block.type, Block.title)
+            .where(Block.space_id == space_id, Block.parent_id == parent_id)
+            .where(Block.title == part)
+            .where(Block.type.in_([BLOCK_TYPE_FOLDER, BLOCK_TYPE_PAGE]))
+        )
+        result = await db_session.execute(query)
+        block = result.mappings().one_or_none()
+        if block is None:
+            return Result.reject(f"Path {abs_path} not found")
+        parent_id = block["id"]
+    if block["type"] == BLOCK_TYPE_PAGE:
+        return Result.resolve(
+            PathNode(
+                id=block["id"],
+                title=block["title"],
+                type=block["type"],
+            )
+        )
+    if block["type"] == BLOCK_TYPE_FOLDER:
+        r = await list_paths_under_block(db_session, space_id, block["id"], depth=-1)
+        if not r.ok():
+            return r
+        _, sub_page_num, sub_folder_num = r.data
+        return Result.resolve(
+            PathNode(
+                id=block["id"],
+                title=block["title"],
+                type=block["type"],
+                sub_page_num=sub_page_num,
+                sub_folder_num=sub_folder_num,
+            )
+        )
+    # unknown branch
+    raise ValueError(f"Invalid block type: {block['type']}")

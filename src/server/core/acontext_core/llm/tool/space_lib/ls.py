@@ -17,9 +17,11 @@ async def _ls_handler(
     depth = llm_arguments.get("depth", 1)
     folder_path = llm_arguments.get("folder_path", "/")
 
-    if folder_path not in ctx.path_2_block_ids:
-        return Result.resolve(f"Path {folder_path} not found")
-    path_block = ctx.path_2_block_ids[folder_path]
+    r = await ctx.find_block(folder_path)
+    if not r.ok():
+        return Result.resolve(f"Path {folder_path} not found, with error {r.error}")
+    path_block = r.data
+
     if path_block is not None and path_block.type != BLOCK_TYPE_FOLDER:
         return Result.resolve(f"Path {folder_path} is not a folder, can't be listed")
 
@@ -55,7 +57,7 @@ _ls_tool = (
                     "properties": {
                         "folder_path": {
                             "type": "string",
-                            "description": "The folder to list. Root is '/'",
+                            "description": "The absolute path to the folder to list. Root is '/'",
                         },
                         "depth": {
                             "type": "integer",

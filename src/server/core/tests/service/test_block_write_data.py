@@ -16,6 +16,7 @@ from acontext_core.service.data.block import (
     create_new_path_block,
     write_sop_block_to_parent,
     _find_block_sort,
+    move_path_block_to_new_parent,
 )
 
 
@@ -1132,5 +1133,455 @@ class TestBlockParentChildRelationships:
                     assert folder.parent_id is None  # First folder is at root
                 else:
                     assert folder.parent_id == folder_ids[i - 1]  # Child of previous
+
+            await session.delete(project)
+
+
+class TestMovePathBlock:
+    """Test moving path blocks (pages and folders) to new parents"""
+
+    @pytest.mark.asyncio
+    async def test_move_page_to_folder_success(self):
+        """Test successfully moving a page to a new folder parent"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create two folders
+            r = await create_new_path_block(
+                session, space.id, "Folder1", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            folder1_id = r.data.id
+
+            r = await create_new_path_block(
+                session, space.id, "Folder2", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            folder2_id = r.data.id
+
+            # Create a page in Folder1
+            r = await create_new_path_block(
+                session, space.id, "Page1", par_block_id=folder1_id
+            )
+            assert r.ok()
+            page_id = r.data.id
+
+            # Verify initial parent
+            page = await session.get(Block, page_id)
+            assert page.parent_id == folder1_id
+
+            # Move page to Folder2
+            r = await move_path_block_to_new_parent(
+                session, space.id, page_id, folder2_id
+            )
+            assert r.ok()
+
+            # Verify page was moved
+            await session.refresh(page)
+            assert page.parent_id == folder2_id
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_move_folder_to_folder_success(self):
+        """Test successfully moving a folder to a new folder parent"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create folders: ParentFolder, ChildFolder (initially at root)
+            r = await create_new_path_block(
+                session, space.id, "ParentFolder", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            parent_folder_id = r.data.id
+
+            r = await create_new_path_block(
+                session, space.id, "ChildFolder", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            child_folder_id = r.data.id
+
+            # Verify ChildFolder is at root level
+            child_folder = await session.get(Block, child_folder_id)
+            assert child_folder.parent_id is None
+
+            # Move ChildFolder into ParentFolder
+            r = await move_path_block_to_new_parent(
+                session, space.id, child_folder_id, parent_folder_id
+            )
+            assert r.ok()
+
+            # Verify folder was moved
+            await session.refresh(child_folder)
+            assert child_folder.parent_id == parent_folder_id
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_move_page_block_not_found(self):
+        """Test moving a non-existent page fails"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create a folder
+            r = await create_new_path_block(
+                session, space.id, "Folder1", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            folder_id = r.data.id
+
+            # Try to move non-existent page
+            fake_page_id = uuid.uuid4()
+            r = await move_path_block_to_new_parent(
+                session, space.id, fake_page_id, folder_id
+            )
+            assert not r.ok()
+            assert "not found" in r.error.errmsg.lower()
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_move_invalid_block_type(self):
+        """Test moving a block that is not a folder or page fails"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create a page and a folder
+            r = await create_new_path_block(
+                session, space.id, "ParentPage", type=BLOCK_TYPE_PAGE
+            )
+            assert r.ok()
+            page_id = r.data.id
+
+            r = await create_new_path_block(
+                session, space.id, "TargetFolder", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            folder_id = r.data.id
+
+            # Create an SOP block under the page
+            sop_data = SOPData(
+                use_when="Test SOP",
+                preferences="Test preferences",
+                tool_sops=[],
+            )
+            r = await write_sop_block_to_parent(session, space.id, page_id, sop_data)
+            assert r.ok()
+            sop_id = r.data
+
+            # Try to move SOP block (should fail - only folders and pages can be moved)
+            r = await move_path_block_to_new_parent(
+                session, space.id, sop_id, folder_id
+            )
+            assert not r.ok()
+            assert "not a folder or page" in r.error.errmsg.lower()
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_move_page_to_non_folder_fails(self):
+        """Test moving a page to a non-folder parent fails"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create two pages
+            r = await create_new_path_block(
+                session, space.id, "Page1", type=BLOCK_TYPE_PAGE
+            )
+            assert r.ok()
+            page1_id = r.data.id
+
+            r = await create_new_path_block(
+                session, space.id, "Page2", type=BLOCK_TYPE_PAGE
+            )
+            assert r.ok()
+            page2_id = r.data.id
+
+            # Try to move Page2 into Page1 (should fail - pages can't be parents)
+            r = await move_path_block_to_new_parent(
+                session, space.id, page2_id, page1_id
+            )
+            assert not r.ok()
+            # The error message should indicate that the parent is not a folder
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_move_page_to_nonexistent_parent_fails(self):
+        """Test moving a page to a non-existent parent fails"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create a page
+            r = await create_new_path_block(
+                session, space.id, "Page1", type=BLOCK_TYPE_PAGE
+            )
+            assert r.ok()
+            page_id = r.data.id
+
+            # Try to move to non-existent parent
+            fake_parent_id = uuid.uuid4()
+            r = await move_path_block_to_new_parent(
+                session, space.id, page_id, fake_parent_id
+            )
+            assert not r.ok()
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_move_folder_to_its_own_child_fails(self):
+        """Test moving a folder into its own child creates a cycle and fails"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create folder hierarchy: Parent -> Child -> Grandchild
+            r = await create_new_path_block(
+                session, space.id, "Parent", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            parent_id = r.data.id
+
+            r = await create_new_path_block(
+                session,
+                space.id,
+                "Child",
+                par_block_id=parent_id,
+                type=BLOCK_TYPE_FOLDER,
+            )
+            assert r.ok()
+            child_id = r.data.id
+
+            r = await create_new_path_block(
+                session,
+                space.id,
+                "Grandchild",
+                par_block_id=child_id,
+                type=BLOCK_TYPE_FOLDER,
+            )
+            assert r.ok()
+            grandchild_id = r.data.id
+
+            # Try to move Parent into Child (would create cycle)
+            r = await move_path_block_to_new_parent(
+                session, space.id, parent_id, child_id
+            )
+            assert not r.ok()
+            assert "cycle" in r.error.errmsg.lower()
+
+            # Try to move Parent into Grandchild (would create cycle)
+            r = await move_path_block_to_new_parent(
+                session, space.id, parent_id, grandchild_id
+            )
+            assert not r.ok()
+            assert "cycle" in r.error.errmsg.lower()
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_move_folder_to_itself_fails(self):
+        """Test moving a folder to itself fails"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create a folder
+            r = await create_new_path_block(
+                session, space.id, "Folder", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            folder_id = r.data.id
+
+            # Try to move folder into itself (cycle detection)
+            r = await move_path_block_to_new_parent(
+                session, space.id, folder_id, folder_id
+            )
+            assert not r.ok()
+            assert "cycle" in r.error.errmsg.lower()
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_move_page_with_children(self):
+        """Test moving a folder with children successfully moves the entire subtree"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create folder structure: Folder1 with Page1, and Folder2 (target)
+            r = await create_new_path_block(
+                session, space.id, "Folder1", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            folder1_id = r.data.id
+
+            r = await create_new_path_block(
+                session, space.id, "Page1", par_block_id=folder1_id
+            )
+            assert r.ok()
+            page1_id = r.data.id
+
+            r = await create_new_path_block(
+                session, space.id, "Folder2", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            folder2_id = r.data.id
+
+            # Move Folder1 (with its child Page1) into Folder2
+            r = await move_path_block_to_new_parent(
+                session, space.id, folder1_id, folder2_id
+            )
+            assert r.ok()
+
+            # Verify Folder1's parent changed
+            folder1 = await session.get(Block, folder1_id)
+            assert folder1.parent_id == folder2_id
+
+            # Verify Page1 is still a child of Folder1 (not affected by the move)
+            page1 = await session.get(Block, page1_id)
+            assert page1.parent_id == folder1_id
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_move_multiple_pages_to_same_folder(self):
+        """Test moving multiple pages to the same folder"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create a target folder
+            r = await create_new_path_block(
+                session, space.id, "TargetFolder", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            target_folder_id = r.data.id
+
+            # Create multiple pages at root level
+            page_ids = []
+            for i in range(3):
+                r = await create_new_path_block(
+                    session, space.id, f"Page{i}", type=BLOCK_TYPE_PAGE
+                )
+                assert r.ok()
+                page_ids.append(r.data.id)
+
+            # Move all pages to TargetFolder
+            for page_id in page_ids:
+                r = await move_path_block_to_new_parent(
+                    session, space.id, page_id, target_folder_id
+                )
+                assert r.ok()
+
+            # Verify all pages are now in TargetFolder
+            for page_id in page_ids:
+                page = await session.get(Block, page_id)
+                assert page.parent_id == target_folder_id
 
             await session.delete(project)

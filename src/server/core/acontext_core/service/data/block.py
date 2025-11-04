@@ -18,6 +18,7 @@ from ...schema.orm import Block, BlockEmbedding, ToolReference, ToolSOP, Space
 from ...schema.utils import asUUID
 from ...schema.result import Result
 from ...schema.block.sop_block import SOPData
+from .block_nav import assert_block_type
 
 
 def _normalize_path_block_title(title: str) -> str:
@@ -115,6 +116,55 @@ async def create_new_path_block(
     return Result.resolve(new_block)
 
 
+async def find_all_parent_ids(
+    db_session: AsyncSession, space_id: asUUID, block_id: asUUID | None
+) -> Result[List[asUUID]]:
+    if block_id is None:
+        return Result.resolve([])
+    parent_ids: List[asUUID] = [block_id]
+    while block_id is not None:
+        query = select(Block.parent_id).where(
+            Block.space_id == space_id, Block.id == block_id
+        )
+        result = await db_session.execute(query)
+        block = result.mappings().one_or_none()
+        parent_ids.append(block["parent_id"])
+        block_id = block["parent_id"]
+    return Result.resolve(parent_ids)
+
+
+async def move_path_block_to_new_parent(
+    db_session: AsyncSession,
+    space_id: asUUID,
+    path_block_id: asUUID,
+    new_par_block_id: asUUID,
+) -> Result[None]:
+
+    path_block = await db_session.get(Block, path_block_id)
+    if path_block is None:
+        return Result.reject(f"Path block {path_block_id} not found")
+    if path_block.type != BLOCK_TYPE_FOLDER and path_block.type != BLOCK_TYPE_PAGE:
+        return Result.reject(f"Path block {path_block_id} is not a folder or page")
+    r = await assert_block_type(
+        db_session, space_id, new_par_block_id, BLOCK_TYPE_FOLDER
+    )
+    if not r.ok():
+        return r
+
+    r = await find_all_parent_ids(db_session, space_id, new_par_block_id)
+    if not r.ok():
+        return r
+    maybe_cycle_all_parent_ids = r.data
+    if path_block_id in maybe_cycle_all_parent_ids:
+        return Result.reject(
+            f"Cycle detected, can't move a parent block to its child block"
+        )
+
+    path_block.parent_id = new_par_block_id
+    await db_session.flush()
+    return Result.resolve(None)
+
+
 async def write_sop_block_to_parent(
     db_session: AsyncSession, space_id: asUUID, par_block_id: asUUID, sop_data: SOPData
 ) -> Result[asUUID]:
@@ -183,3 +233,27 @@ async def write_sop_block_to_parent(
     await db_session.flush()
 
     return Result.resolve(new_block.id)
+
+
+async def update_block(
+    db_session: AsyncSession,
+    space_id: asUUID,
+    block_id: asUUID,
+    title: str | None = None,
+    patch_props: dict | None = None,
+):
+    block = await db_session.get(Block, block_id)
+
+    if block is None:
+        return Result.reject(f"Block {block_id} not found")
+    if block.space_id != space_id:
+        return Result.reject(f"Block {block_id} is not in space {space_id}")
+
+    if title is not None:
+        block.title = title
+        flag_modified(block, "title")
+    if patch_props is not None:
+        block.props.update(patch_props)
+        flag_modified(block, "props")
+    await db_session.flush()
+    return Result.resolve(block)
