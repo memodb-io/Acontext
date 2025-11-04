@@ -2,7 +2,14 @@ import pytest
 import uuid
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from acontext_core.schema.orm import Block, Project, Space, ToolReference, ToolSOP
+from acontext_core.schema.orm import (
+    Block,
+    BlockEmbedding,
+    Project,
+    Space,
+    ToolReference,
+    ToolSOP,
+)
 from acontext_core.schema.result import Result
 from acontext_core.schema.error_code import Code
 from acontext_core.schema.block.sop_block import SOPData, SOPStep
@@ -18,6 +25,7 @@ from acontext_core.service.data.block import (
     _find_block_sort,
     move_path_block_to_new_parent,
     decrease_block_children_sort_by_1,
+    delete_block_recursively,
 )
 
 
@@ -1638,5 +1646,522 @@ class TestMovePathBlock:
             assert page.title == "Page_0"
             assert page.parent_id == target_folder_id
             assert page.sort == 3
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_move_page_updates_original_parent_children_sort(self):
+        """Test that moving a page updates the sort order of remaining children in the original parent"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create source folder with 4 pages
+            r = await create_new_path_block(
+                session, space.id, "SourceFolder", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            source_folder_id = r.data.id
+
+            # Create 4 pages in SourceFolder (sort: 0, 1, 2, 3)
+            page_ids = []
+            for i in range(4):
+                r = await create_new_path_block(
+                    session,
+                    space.id,
+                    f"Page{i}",
+                    type=BLOCK_TYPE_PAGE,
+                    par_block_id=source_folder_id,
+                )
+                assert r.ok()
+                page_ids.append(r.data.id)
+
+            # Verify initial sort order
+            for i, page_id in enumerate(page_ids):
+                page = await session.get(Block, page_id)
+                assert page.sort == i, f"Page{i} should have sort={i}"
+                assert page.parent_id == source_folder_id
+
+            # Create target folder
+            r = await create_new_path_block(
+                session, space.id, "TargetFolder", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            target_folder_id = r.data.id
+
+            # Move Page1 (sort=1) to TargetFolder
+            r = await move_path_block_to_new_parent(
+                session, space.id, page_ids[1], target_folder_id
+            )
+            assert r.ok()
+
+            # Verify moved page is now in TargetFolder with sort=0
+            moved_page = await session.get(Block, page_ids[1])
+            assert moved_page.parent_id == target_folder_id
+            assert (
+                moved_page.sort == 0
+            ), "Moved page should be first child in target folder"
+
+            # Verify remaining children in SourceFolder have updated sort values
+            # Page0 (originally sort=0) should remain at sort=0
+            page0 = await session.get(Block, page_ids[0])
+            assert page0.parent_id == source_folder_id
+            assert page0.sort == 0, "Page0 should remain at sort=0"
+
+            # Page2 (originally sort=2) should now be at sort=1
+            page2 = await session.get(Block, page_ids[2])
+            assert page2.parent_id == source_folder_id
+            assert page2.sort == 1, "Page2 should be decremented to sort=1"
+
+            # Page3 (originally sort=3) should now be at sort=2
+            page3 = await session.get(Block, page_ids[3])
+            assert page3.parent_id == source_folder_id
+            assert page3.sort == 2, "Page3 should be decremented to sort=2"
+
+            # Verify there are exactly 3 children left in SourceFolder
+            query = select(func.count()).where(Block.parent_id == source_folder_id)
+            result = await session.execute(query)
+            count = result.scalar()
+            assert count == 3, "SourceFolder should have 3 children after move"
+
+            await session.delete(project)
+
+
+class TestDeleteBlock:
+    @pytest.mark.asyncio
+    async def test_delete_simple_page(self):
+        """Test deleting a simple page block"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            # Create test data
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create pages
+            r = await create_new_path_block(session, space.id, "Page_0")
+            assert r.ok()
+            page0_id = r.data.id
+
+            r = await create_new_path_block(session, space.id, "Page_1")
+            assert r.ok()
+            page1_id = r.data.id
+
+            r = await create_new_path_block(session, space.id, "Page_2")
+            assert r.ok()
+            page2_id = r.data.id
+
+            # Delete the middle page
+            r = await delete_block_recursively(session, space.id, page1_id)
+            assert r.ok()
+
+            # Verify page is deleted
+            deleted_page = await session.get(Block, page1_id)
+            assert deleted_page is None
+
+            # Verify embedding is deleted
+            query = select(BlockEmbedding).where(BlockEmbedding.block_id == page1_id)
+            result = await session.execute(query)
+            embeddings = result.scalars().all()
+            assert len(embeddings) == 0
+
+            # Verify other pages still exist
+            page0 = await session.get(Block, page0_id)
+            assert page0 is not None
+            assert page0.sort == 0
+
+            page2 = await session.get(Block, page2_id)
+            assert page2 is not None
+            assert page2.sort == 1  # Should be decremented from 2 to 1
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_delete_folder_with_children(self):
+        """Test deleting a folder with child pages"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create a folder
+            r = await create_new_path_block(
+                session, space.id, "TestFolder", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            folder_id = r.data.id
+
+            # Create child pages
+            child_ids = []
+            for i in range(3):
+                r = await create_new_path_block(
+                    session, space.id, f"ChildPage_{i}", par_block_id=folder_id
+                )
+                assert r.ok()
+                child_ids.append(r.data.id)
+
+            # Delete the folder
+            r = await delete_block_recursively(session, space.id, folder_id)
+            assert r.ok()
+
+            # Verify folder is deleted
+            deleted_folder = await session.get(Block, folder_id)
+            assert deleted_folder is None
+
+            # Verify all children are deleted
+            for child_id in child_ids:
+                deleted_child = await session.get(Block, child_id)
+                assert deleted_child is None
+
+            # Verify embeddings are deleted for all blocks
+            for block_id in [folder_id] + child_ids:
+                query = select(BlockEmbedding).where(
+                    BlockEmbedding.block_id == block_id
+                )
+                result = await session.execute(query)
+                embeddings = result.scalars().all()
+                assert len(embeddings) == 0
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_delete_nested_folder_structure(self):
+        """Test deleting a deeply nested folder structure"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create root folder
+            r = await create_new_path_block(
+                session, space.id, "RootFolder", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            root_folder_id = r.data.id
+
+            # Create nested folders
+            r = await create_new_path_block(
+                session,
+                space.id,
+                "SubFolder1",
+                type=BLOCK_TYPE_FOLDER,
+                par_block_id=root_folder_id,
+            )
+            assert r.ok()
+            sub_folder1_id = r.data.id
+
+            r = await create_new_path_block(
+                session,
+                space.id,
+                "SubFolder2",
+                type=BLOCK_TYPE_FOLDER,
+                par_block_id=sub_folder1_id,
+            )
+            assert r.ok()
+            sub_folder2_id = r.data.id
+
+            # Create pages at different levels
+            r = await create_new_path_block(
+                session, space.id, "RootPage", par_block_id=root_folder_id
+            )
+            assert r.ok()
+            root_page_id = r.data.id
+
+            r = await create_new_path_block(
+                session, space.id, "SubPage1", par_block_id=sub_folder1_id
+            )
+            assert r.ok()
+            sub_page1_id = r.data.id
+
+            r = await create_new_path_block(
+                session, space.id, "SubPage2", par_block_id=sub_folder2_id
+            )
+            assert r.ok()
+            sub_page2_id = r.data.id
+
+            all_block_ids = [
+                root_folder_id,
+                sub_folder1_id,
+                sub_folder2_id,
+                root_page_id,
+                sub_page1_id,
+                sub_page2_id,
+            ]
+
+            # Delete the root folder
+            r = await delete_block_recursively(session, space.id, root_folder_id)
+            assert r.ok()
+
+            # Verify all blocks are deleted
+            for block_id in all_block_ids:
+                deleted_block = await session.get(Block, block_id)
+                assert deleted_block is None, f"Block {block_id} should be deleted"
+
+            # Verify all embeddings are deleted
+            for block_id in all_block_ids:
+                query = select(BlockEmbedding).where(
+                    BlockEmbedding.block_id == block_id
+                )
+                result = await session.execute(query)
+                embeddings = result.scalars().all()
+                assert len(embeddings) == 0
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_delete_page_with_sop_blocks(self):
+        """Test deleting a page that has SOP blocks"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create a page
+            r = await create_new_path_block(session, space.id, "PageWithSOP")
+            assert r.ok()
+            page_id = r.data.id
+
+            # Create SOP blocks
+            sop_data = SOPData(
+                use_when="When doing task X",
+                preferences="Follow best practices",
+                tool_sops=[
+                    SOPStep(tool_name="tool1", action="Do action 1"),
+                    SOPStep(tool_name="tool2", action="Do action 2"),
+                ],
+            )
+            r = await write_sop_block_to_parent(session, space.id, page_id, sop_data)
+            assert r.ok()
+            sop_block_id = r.data
+
+            # Delete the page
+            r = await delete_block_recursively(session, space.id, page_id)
+            assert r.ok()
+
+            # Verify page is deleted
+            deleted_page = await session.get(Block, page_id)
+            assert deleted_page is None
+
+            # Verify SOP block is deleted
+            deleted_sop = await session.get(Block, sop_block_id)
+            assert deleted_sop is None
+
+            # Verify ToolSOP entries are deleted
+            query = select(ToolSOP).where(ToolSOP.sop_block_id == sop_block_id)
+            result = await session.execute(query)
+            tool_sops = result.scalars().all()
+            assert len(tool_sops) == 0
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_delete_block_not_found(self):
+        """Test deleting a non-existent block"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Try to delete a non-existent block
+            fake_id = uuid.uuid4()
+            r = await delete_block_recursively(session, space.id, fake_id)
+            assert not r.ok()
+            assert "not found" in r.error.errmsg.lower()
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_delete_block_wrong_space(self):
+        """Test deleting a block from the wrong space"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space1 = Space(project_id=project.id)
+            session.add(space1)
+            await session.flush()
+
+            space2 = Space(project_id=project.id)
+            session.add(space2)
+            await session.flush()
+
+            # Create a page in space1
+            r = await create_new_path_block(session, space1.id, "Page")
+            assert r.ok()
+            page_id = r.data.id
+
+            # Try to delete from space2
+            r = await delete_block_recursively(session, space2.id, page_id)
+            assert not r.ok()
+            assert "not found" in r.error.errmsg.lower()
+
+            # Verify page still exists in space1
+            page = await session.get(Block, page_id)
+            assert page is not None
+            assert page.space_id == space1.id
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_delete_block_sort_order_adjustment(self):
+        """Test that sort order is correctly adjusted after deletion"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create a folder
+            r = await create_new_path_block(
+                session, space.id, "Folder", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            folder_id = r.data.id
+
+            # Create multiple pages in the folder
+            page_ids = []
+            for i in range(5):
+                r = await create_new_path_block(
+                    session, space.id, f"Page_{i}", par_block_id=folder_id
+                )
+                assert r.ok()
+                page_ids.append(r.data.id)
+
+            # Verify initial sort order
+            for i, page_id in enumerate(page_ids):
+                page = await session.get(Block, page_id)
+                assert page.sort == i
+
+            # Delete Page_2 (sort=2)
+            r = await delete_block_recursively(session, space.id, page_ids[2])
+            assert r.ok()
+
+            # Verify sort order is adjusted
+            page0 = await session.get(Block, page_ids[0])
+            assert page0.sort == 0
+
+            page1 = await session.get(Block, page_ids[1])
+            assert page1.sort == 1
+
+            # page_ids[2] is deleted
+
+            page3 = await session.get(Block, page_ids[3])
+            assert page3.sort == 2  # Decremented from 3
+
+            page4 = await session.get(Block, page_ids[4])
+            assert page4.sort == 3  # Decremented from 4
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_delete_multiple_blocks_in_sequence(self):
+        """Test deleting multiple blocks in sequence"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create pages
+            page_ids = []
+            for i in range(5):
+                r = await create_new_path_block(session, space.id, f"Page_{i}")
+                assert r.ok()
+                page_ids.append(r.data.id)
+
+            # Delete pages 1, 3, and 4
+            for idx in [1, 3, 4]:
+                r = await delete_block_recursively(session, space.id, page_ids[idx])
+                assert r.ok()
+
+            # Verify only pages 0 and 2 remain
+            page0 = await session.get(Block, page_ids[0])
+            assert page0 is not None
+            assert page0.sort == 0
+
+            page2 = await session.get(Block, page_ids[2])
+            assert page2 is not None
+            assert page2.sort == 1
+
+            # Verify deleted pages
+            for idx in [1, 3, 4]:
+                deleted_page = await session.get(Block, page_ids[idx])
+                assert deleted_page is None
 
             await session.delete(project)

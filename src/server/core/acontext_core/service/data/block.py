@@ -1,4 +1,3 @@
-import asyncio
 import numpy as np
 from sqlalchemy import String
 from typing import List, Optional
@@ -179,12 +178,21 @@ async def move_path_block_to_new_parent(
     )
     if not r.ok():
         return r
+
+    before_par_block_id = path_block.parent_id
+    before_sort = path_block.sort
     next_sort = r.data
     path_block.parent_id = new_par_block_id
     path_block.sort = next_sort
-
     flag_modified(path_block, "parent_id")
     flag_modified(path_block, "sort")
+    await db_session.flush()
+    # update the before parent block's children sort
+    r = await decrease_block_children_sort_by_1(
+        db_session, space_id, before_par_block_id, before_sort - 1
+    )
+    if not r.ok():
+        return r
     await db_session.flush()
     return Result.resolve(path_block)
 
@@ -316,16 +324,15 @@ async def delete_block_recursively(
 
     # Recursively delete all children
     # We need to collect child IDs first to avoid issues with the children collection being modified
+    # Note: We must delete sequentially because all operations share the same db session
     child_ids = [child.id for child in block.children]
-    delete_tasks = [
-        delete_block_recursively(db_session, space_id, ci) for ci in child_ids
-    ]
-    delete_results = await asyncio.gather(*delete_tasks)
-    delete_wrong = [r for r in delete_results if not r.ok()]
-    if len(delete_wrong):
-        return Result.reject(
-            f"Failed to delete some children blocks: {[r.error for r in delete_wrong]}"
-        )
+    for child_id in child_ids:
+        r = await delete_block_recursively(db_session, space_id, child_id)
+        if not r.ok():
+            return r
+
+    # Clear the children collection to prevent cascade from trying to delete already-deleted children
+    block.children = []
 
     # Delete the block itself
     # This will cascade delete:
