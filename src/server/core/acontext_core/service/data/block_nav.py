@@ -175,3 +175,64 @@ async def find_block_by_path(
         )
     # unknown branch
     raise ValueError(f"Invalid block type: {block['type']}")
+
+
+async def recover_path_by_id(
+    db_session: AsyncSession,
+    space_id: asUUID,
+    block_id: asUUID,
+    add_folder_slash: bool = False,
+) -> Result[str]:
+    path_parts = []
+    while block_id is not None:
+        query = select(Block.id, Block.title, Block.parent_id).where(
+            Block.space_id == space_id, Block.id == block_id
+        )
+        result = await db_session.execute(query)
+        block = result.mappings().one_or_none()
+        if block is None:
+            return Result.reject(f"Unknown block {block_id}")
+        path_parts.append(block["title"])
+        block_id: Optional[asUUID] = block["parent_id"]
+    base = "/" + "/".join(path_parts[::-1])
+    if add_folder_slash:
+        return Result.resolve(base.rstrip("/") + "/")
+    return Result.resolve(base)
+
+
+async def get_path_info_by_id(
+    db_session: AsyncSession, space_id: asUUID, block_id: asUUID
+) -> Result[tuple[str, PathNode]]:
+    query = select(Block.id, Block.type, Block.title).where(
+        Block.space_id == space_id, Block.id == block_id
+    )
+    result = await db_session.execute(query)
+    block = result.mappings().one_or_none()
+    if block is None:
+        return Result.reject(f"Block {block_id} not found")
+    if block["type"] == BLOCK_TYPE_PAGE:
+        pn = PathNode(id=block["id"], title=block["title"], type=block["type"])
+        r = await recover_path_by_id(db_session, space_id, block["id"])
+        if not r.ok():
+            return r
+        return Result.resolve((r.data, pn))
+    elif block["type"] == BLOCK_TYPE_FOLDER:
+        r = await list_paths_under_block(db_session, space_id, block["id"], depth=-1)
+        if not r.ok():
+            return r
+        _, sub_page_num, sub_folder_num = r.data
+        pn = PathNode(
+            id=block["id"],
+            title=block["title"],
+            type=block["type"],
+            sub_page_num=sub_page_num,
+            sub_folder_num=sub_folder_num,
+        )
+        r = await recover_path_by_id(
+            db_session, space_id, block["id"], add_folder_slash=True
+        )
+        if not r.ok():
+            return r
+        return Result.resolve((r.data, pn))
+    else:
+        return Result.reject(f"Invalid path block type: {block['type']}")

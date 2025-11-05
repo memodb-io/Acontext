@@ -5,7 +5,10 @@ from acontext_core.schema.orm.block import BLOCK_TYPE_FOLDER, BLOCK_TYPE_PAGE
 from acontext_core.infra.db import DatabaseClient
 from acontext_core.service.data.block import create_new_path_block
 from acontext_core.schema.block.path_node import repr_path_tree
-from acontext_core.service.data.block_nav import list_paths_under_block
+from acontext_core.service.data.block_nav import (
+    list_paths_under_block,
+    get_path_info_by_id,
+)
 
 
 class TestBlockNav:
@@ -182,6 +185,69 @@ class TestBlockNav:
             assert len(paths) == 0
             assert sub_page_num == 0
             assert sub_folder_num == 0
+
+            # Clean up
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_get_path_info_by_id_basic(self):
+        """Test getting path info for a page and folder by ID"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            # Create test data
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create a folder structure:
+            # - TestFolder/
+            #   - TestPage
+
+            # Create TestFolder
+            r = await create_new_path_block(
+                session, space.id, "TestFolder", type=BLOCK_TYPE_FOLDER
+            )
+            assert r.ok()
+            folder_id = r.data.id
+
+            # Create TestPage under TestFolder
+            r = await create_new_path_block(
+                session, space.id, "TestPage", par_block_id=folder_id
+            )
+            assert r.ok()
+            page_id = r.data.id
+
+            # Test 1: Get path info for the page
+            r = await get_path_info_by_id(session, space.id, page_id)
+            assert r.ok()
+            path_str, path_node = r.data
+
+            assert path_str == "/TestFolder/TestPage"
+            assert path_node.id == page_id
+            assert path_node.title == "TestPage"
+            assert path_node.type == BLOCK_TYPE_PAGE
+            assert path_node.sub_page_num == 0
+            assert path_node.sub_folder_num == 0
+
+            # Test 2: Get path info for the folder
+            r = await get_path_info_by_id(session, space.id, folder_id)
+            assert r.ok()
+            path_str, path_node = r.data
+
+            assert path_str == "/TestFolder/"
+            assert path_node.id == folder_id
+            assert path_node.title == "TestFolder"
+            assert path_node.type == BLOCK_TYPE_FOLDER
+            assert path_node.sub_page_num == 1  # Contains TestPage
+            assert path_node.sub_folder_num == 0
 
             # Clean up
             await session.delete(project)
