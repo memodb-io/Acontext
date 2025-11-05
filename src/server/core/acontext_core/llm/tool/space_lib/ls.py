@@ -51,21 +51,16 @@ _ls_tool = (
         ToolSchema(
             function={
                 "name": "ls",
-                "description": "List pages and folders",
+                "description": "List pages and folders under a folder",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "folder_path": {
                             "type": "string",
                             "description": "The absolute path to the folder to list. Root is '/'",
-                        },
-                        "depth": {
-                            "type": "integer",
-                            "description": """Maximum path depth to list. 
-Default to 1, meaning list the sub-paths of sub-folders. 2 means list the sub-paths of sub-folders of sub-folders, etc.""",
-                        },
+                        }
                     },
-                    "required": ["folder_path", "depth"],
+                    "required": ["folder_path"],
                 },
             },
         )

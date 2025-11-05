@@ -37,11 +37,14 @@ async def _rename_handler(
     )
     if not r.ok():
         return r
-    path_block = r.data
+    path_block_db = r.data
     # Update path cache
-    new_title = path_block.title
+    new_title = path_block_db.title
     new_path = "/" + "/".join(BN.path_to_parts(path)[:-1] + [new_title])
     path_block.title = new_title
+    if new_view_when:
+        path_block.props["view_when"] = new_view_when
+    del ctx.path_2_block_ids[path]
     ctx.path_2_block_ids[new_path] = path_block
     return Result.resolve(f"'{path}' renamed to '{new_title}'")
 
@@ -66,7 +69,7 @@ _rename_tool = (
                         },
                         "new_view_when": {
                             "type": "string",
-                            "description": "New view_when description for the page or folder.",
+                            "description": "New view_when description for the page or folder. If no need to update, don't pass this field.",
                         },
                     },
                     "required": ["path", "new_title"],

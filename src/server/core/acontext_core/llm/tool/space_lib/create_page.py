@@ -45,6 +45,7 @@ async def _create_page_handler(
         id=page.id,
         title=page.title,
         type=BLOCK_TYPE_PAGE,
+        props=page.props,
     )
     return Result.resolve(f"Page {page.title} created under {folder_path}")
 

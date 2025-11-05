@@ -58,7 +58,7 @@ async def fetch_path_children_by_id(
         if not r.ok():
             return r
     query = (
-        select(Block.id, Block.title, Block.type)
+        select(Block.id, Block.title, Block.type, Block.props)
         .where(Block.space_id == space_id)
         .where(
             Block.parent_id == block_id,
@@ -68,7 +68,12 @@ async def fetch_path_children_by_id(
     result = await db_session.execute(query)
     blocks = result.mappings().all()
     blocks = [
-        {"id": block["id"], "title": block["title"], "type": block["type"]}
+        {
+            "id": block["id"],
+            "title": block["title"],
+            "type": block["type"],
+            "props": block["props"],
+        }
         for block in blocks
     ]
     return Result.resolve(blocks)
@@ -102,6 +107,7 @@ async def list_paths_under_block(
                 id=block["id"],
                 title=block["title"],
                 type=block["type"],
+                props=block["props"],
             )
         # Recursively fetch paths for folder blocks
         elif block["type"] == BLOCK_TYPE_FOLDER:
@@ -120,6 +126,7 @@ async def list_paths_under_block(
                 id=block["id"],
                 title=block["title"],
                 type=block["type"],
+                props=block["props"],
                 sub_page_num=r.data[1],
                 sub_folder_num=r.data[2],
             )
@@ -141,7 +148,7 @@ async def find_block_by_path(
     parent_id = None
     for part in path_parts:
         query = (
-            select(Block.id, Block.type, Block.title)
+            select(Block.id, Block.type, Block.title, Block.props)
             .where(Block.space_id == space_id, Block.parent_id == parent_id)
             .where(Block.title == part)
             .where(Block.type.in_([BLOCK_TYPE_FOLDER, BLOCK_TYPE_PAGE]))
@@ -157,6 +164,7 @@ async def find_block_by_path(
                 id=block["id"],
                 title=block["title"],
                 type=block["type"],
+                props=block["props"],
             )
         )
     if block["type"] == BLOCK_TYPE_FOLDER:
@@ -169,6 +177,7 @@ async def find_block_by_path(
                 id=block["id"],
                 title=block["title"],
                 type=block["type"],
+                props=block["props"],
                 sub_page_num=sub_page_num,
                 sub_folder_num=sub_folder_num,
             )
@@ -203,7 +212,7 @@ async def recover_path_by_id(
 async def get_path_info_by_id(
     db_session: AsyncSession, space_id: asUUID, block_id: asUUID
 ) -> Result[tuple[str, PathNode]]:
-    query = select(Block.id, Block.type, Block.title).where(
+    query = select(Block.id, Block.type, Block.title, Block.props).where(
         Block.space_id == space_id, Block.id == block_id
     )
     result = await db_session.execute(query)
@@ -211,7 +220,12 @@ async def get_path_info_by_id(
     if block is None:
         return Result.reject(f"Block {block_id} not found")
     if block["type"] == BLOCK_TYPE_PAGE:
-        pn = PathNode(id=block["id"], title=block["title"], type=block["type"])
+        pn = PathNode(
+            id=block["id"],
+            title=block["title"],
+            type=block["type"],
+            props=block["props"],
+        )
         r = await recover_path_by_id(db_session, space_id, block["id"])
         if not r.ok():
             return r
@@ -225,6 +239,7 @@ async def get_path_info_by_id(
             id=block["id"],
             title=block["title"],
             type=block["type"],
+            props=block["props"],
             sub_page_num=sub_page_num,
             sub_folder_num=sub_folder_num,
         )

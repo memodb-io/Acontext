@@ -43,6 +43,7 @@ async def _create_folder_handler(
         id=folder.id,
         title=folder.title,
         type=BLOCK_TYPE_FOLDER,
+        props=folder.props,
     )
     return Result.resolve(f"Folder {folder.title} created under {folder_path}")
 

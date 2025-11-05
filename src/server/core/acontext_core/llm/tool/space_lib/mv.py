@@ -43,6 +43,7 @@ async def _move_handler(
         )
 
     # update path caches
+    del ctx.path_2_block_ids[from_path]
     ctx.path_2_block_ids[f"{to_folder}{from_path_block.title}"] = from_path_block
     return Result.resolve(f"'{from_path}' moved to '{to_folder}'")
 
