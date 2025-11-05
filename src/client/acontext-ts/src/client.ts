@@ -122,20 +122,26 @@ export class AcontextClient implements RequesterProtocol {
               formData.append(key, blob, file.filename);
             } else {
               // Node.js environment: form-data package accepts Buffer directly
-              formData.append(key, file.content, {
+              // form-data's append signature differs from browser FormData
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (formData as any).append(key, file.content, {
                 filename: file.filename,
                 contentType: file.contentType,
               });
             }
           } else {
             // ReadableStream: pass as-is (form-data handles it)
-            formData.append(key, file.content as any, {
+            // form-data's append signature differs from browser FormData
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (formData as any).append(key, file.content, {
               filename: file.filename,
               contentType: file.contentType,
             });
           }
         }
 
+        // FormData type differs between browser and Node.js (form-data package)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         body = formData as any;
         // Don't set Content-Type for FormData, let the browser/Node set it with boundary
         delete requestHeaders['Content-Type'];
@@ -149,6 +155,8 @@ export class AcontextClient implements RequesterProtocol {
         for (const [key, value] of Object.entries(options.data)) {
           formData.append(key, value);
         }
+        // FormData type differs between browser and Node.js (form-data package)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         body = formData as any;
         delete requestHeaders['Content-Type'];
       }
@@ -266,9 +274,9 @@ export class AcontextClient implements RequesterProtocol {
 
     // Fallback to node-fetch for older Node versions
     try {
-      // @ts-ignore - node-fetch is an optional peer dependency
-      const nodeFetch = await import('node-fetch');
-      return nodeFetch.default as typeof fetch;
+      // node-fetch is an optional peer dependency, use dynamic import with type assertion
+      const nodeFetch = await import('node-fetch' as string) as { default: typeof fetch };
+      return nodeFetch.default;
     } catch {
       throw new Error(
         'fetch is not available. Please use Node.js 18+ or install node-fetch'
@@ -276,7 +284,7 @@ export class AcontextClient implements RequesterProtocol {
     }
   }
 
-  private async getFormData(): Promise<any> {
+  private async getFormData(): Promise<new () => FormData> {
     // Try to use global FormData if available
     if (typeof FormData !== 'undefined') {
       return FormData;
@@ -284,8 +292,9 @@ export class AcontextClient implements RequesterProtocol {
 
     // Fallback to form-data for older Node versions
     try {
-      // @ts-ignore - form-data is an optional peer dependency
-      const FormDataModule = await import('form-data');
+      // form-data is an optional peer dependency, use dynamic import with type assertion
+      const FormDataModule = await import('form-data' as string) as { default: new () => FormData };
+      // form-data package has different API than browser FormData, but compatible enough
       return FormDataModule.default;
     } catch {
       throw new Error(

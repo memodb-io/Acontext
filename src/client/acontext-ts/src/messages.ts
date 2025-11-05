@@ -7,7 +7,7 @@ import { z } from 'zod';
 export const MessagePartSchema = z.object({
   type: z.string(),
   text: z.string().nullable().optional(),
-  meta: z.record(z.unknown()).nullable().optional(),
+  meta: z.record(z.string(), z.unknown()).nullable().optional(),
   file_field: z.string().nullable().optional(),
 });
 
@@ -61,7 +61,7 @@ export class MessagePart {
 export const AcontextMessageSchema = z.object({
   role: z.enum(['user', 'assistant', 'system']),
   parts: z.array(MessagePartSchema),
-  meta: z.record(z.unknown()).nullable().optional(),
+  meta: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 export type AcontextMessageInput = z.infer<typeof AcontextMessageSchema>;

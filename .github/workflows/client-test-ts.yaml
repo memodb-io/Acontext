@@ -59,7 +59,7 @@ jobs:
           timeout=120
           elapsed=0
           while [ $elapsed -lt $timeout ]; do
-            if curl -f http://localhost:8029/api/v1/health > /dev/null 2>&1; then
+            if curl -f http://localhost:8029/health > /dev/null 2>&1; then
               echo "API is ready"
               exit 0
             fi

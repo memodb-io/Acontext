@@ -3,7 +3,7 @@
  */
 
 import { RequesterProtocol } from '../client-types';
-import { AcontextMessage } from '../messages';
+import { AcontextMessage, AcontextMessageInput } from '../messages';
 import { FileUpload } from '../uploads';
 import { buildParams } from '../utils';
 import {
@@ -146,7 +146,8 @@ export class SessionsAPI {
         payload.blob = blob.toJSON();
       } else {
         // Try to parse as AcontextMessageInput
-        const message = new AcontextMessage(blob as any);
+        // MessageBlob can be Record<string, unknown>, which may not match AcontextMessageInput exactly
+        const message = new AcontextMessage(blob as AcontextMessageInput);
         payload.blob = message.toJSON();
       }
     } else {

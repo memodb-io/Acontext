@@ -25,7 +25,7 @@ export const ArtifactSchema = z.object({
   disk_id: z.string(),
   path: z.string(),
   filename: z.string(),
-  meta: z.record(z.unknown()),
+  meta: z.record(z.string(), z.unknown()),
   created_at: z.string(),
   updated_at: z.string(),
 });

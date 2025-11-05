@@ -11,7 +11,7 @@ export const BlockSchema: z.ZodType<Block> = z.lazy(() =>
     type: z.string(),
     parent_id: z.string().nullable().optional(),
     title: z.string(),
-    props: z.record(z.unknown()),
+    props: z.record(z.string(), z.unknown()),
     sort: z.number(),
     is_archived: z.boolean(),
     created_at: z.string(),

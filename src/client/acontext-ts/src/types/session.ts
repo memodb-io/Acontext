@@ -20,7 +20,7 @@ export const PartSchema = z.object({
   text: z.string().nullable().optional(),
   asset: AssetSchema.nullable().optional(),
   filename: z.string().nullable().optional(),
-  meta: z.record(z.unknown()).nullable().optional(),
+  meta: z.record(z.string(), z.unknown()).nullable().optional(),
 });
 
 export type Part = z.infer<typeof PartSchema>;
@@ -30,7 +30,7 @@ export const MessageSchema = z.object({
   session_id: z.string(),
   parent_id: z.string().nullable(),
   role: z.string(),
-  meta: z.record(z.unknown()),
+  meta: z.record(z.string(), z.unknown()),
   parts: z.array(PartSchema),
   task_id: z.string().nullable(),
   session_task_process_status: z.string(),
@@ -44,7 +44,7 @@ export const SessionSchema = z.object({
   id: z.string(),
   project_id: z.string(),
   space_id: z.string().nullable(),
-  configs: z.record(z.unknown()),
+  configs: z.record(z.string(), z.unknown()),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -56,7 +56,7 @@ export const TaskSchema = z.object({
   session_id: z.string(),
   project_id: z.string(),
   order: z.number(),
-  data: z.record(z.unknown()),
+  data: z.record(z.string(), z.unknown()),
   status: z.string(),
   is_planning: z.boolean(),
   space_digested: z.boolean(),
@@ -85,7 +85,7 @@ export const GetMessagesOutputSchema = z.object({
   items: z.array(z.unknown()),
   next_cursor: z.string().nullable().optional(),
   has_more: z.boolean(),
-  public_urls: z.record(PublicURLSchema).nullable().optional(),
+  public_urls: z.record(z.string(), PublicURLSchema).nullable().optional(),
 });
 
 export type GetMessagesOutput = z.infer<typeof GetMessagesOutputSchema>;
