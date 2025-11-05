@@ -29,6 +29,7 @@ class CoreConfig(BaseModel):
     block_embedding_dim: int = 1536
     block_embedding_api_key: Optional[str] = None
     block_embedding_base_url: Optional[str] = None
+    block_embedding_search_cosine_distance_threshold: float = 0.5
 
     # Core Configuration
     logging_format: str = "text"

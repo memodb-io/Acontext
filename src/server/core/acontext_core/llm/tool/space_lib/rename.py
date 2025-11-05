@@ -19,18 +19,25 @@ async def _rename_handler(
         return Result.resolve("Path and new title are required")
     path = llm_arguments["path"]
     new_title = llm_arguments["new_title"]
+    new_view_when = llm_arguments.get("new_view_when", None)
     r = await ctx.find_block(path)
     if not r.ok():
         return Result.resolve(f"Path {path} not found, with error {r.error}")
     path_block = r.data
 
+    new_props = None
+    if new_view_when:
+        new_props = {"view_when": new_view_when}
     r = await BD.update_block(
-        ctx.db_session, ctx.space_id, path_block.id, title=new_title
+        ctx.db_session,
+        ctx.space_id,
+        path_block.id,
+        title=new_title,
+        patch_props=new_props,
     )
     if not r.ok():
         return r
     path_block = r.data
-
     # Update path cache
     new_title = path_block.title
     new_path = "/" + "/".join(BN.path_to_parts(path)[:-1] + [new_title])
@@ -45,7 +52,7 @@ _rename_tool = (
         ToolSchema(
             function={
                 "name": "rename",
-                "description": "Rename base name of a page or folder. For example, /a/b/c -> /a/b/c1. Title can't contain '/'.",
+                "description": "Rename title of a page or folder. Title can't contain '/'. Also you can update the view_when of the page or folder when necessary",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -56,6 +63,10 @@ _rename_tool = (
                         "new_title": {
                             "type": "string",
                             "description": "New title for the page or folder. Title can't contain '/'. Use Snake Case naming convention",
+                        },
+                        "new_view_when": {
+                            "type": "string",
+                            "description": "New view_when description for the page or folder.",
                         },
                     },
                     "required": ["path", "new_title"],

@@ -15,7 +15,7 @@ async def search_path_blocks(
     space_id: asUUID,
     query_text: str,
     topk: int = 10,
-    threshold: float = 0.8,
+    threshold: float = 0.5,
     fetch_ratio: float = 1.5,
 ) -> Result[List[Tuple[Block, float]]]:
     """

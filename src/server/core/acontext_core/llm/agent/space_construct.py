@@ -53,7 +53,7 @@ async def space_construct_agent_curd(
     _messages = [
         {
             "role": "user",
-            "content": "List all your tools to me",
+            "content": "Use search_title to check if /b/a/c page exists, if not, create it. After you created it, search it again to make sure it exists.",
         }
     ]
     USE_CTX = None

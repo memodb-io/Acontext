@@ -7,6 +7,7 @@ class PathNode(BaseModel):
     id: asUUID
     title: str
     type: str
+    props: dict | None = None
     sub_page_num: int = 0
     sub_folder_num: int = 0
 

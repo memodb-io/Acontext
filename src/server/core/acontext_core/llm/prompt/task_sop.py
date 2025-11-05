@@ -25,7 +25,7 @@ abstract a template SOP from complex task for a certain scenario, using 'submit_
 - Template SOP must be the shortest possible too-calls to achieve the goal, remove all the redundancies.
 - When generate `tool_sops`, use the exact tool_name from <agent_action>, and keep the most necessary and generalizable arguments in 'action'.
     - `tool_sops` can be an empty list if the task itself is a easy task.
-
+- If this task involves repetitive workflows applied to different inputs, only retain the most concise SOP from a single workflow.
 
 ## Input Format
 ### Task Description

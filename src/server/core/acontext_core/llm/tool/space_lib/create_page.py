@@ -55,7 +55,7 @@ _create_page_tool = (
         ToolSchema(
             function={
                 "name": "create_page",
-                "description": "Create a new page under a folder",
+                "description": "Create a new page under a folder.",
                 "parameters": {
                     "type": "object",
                     "properties": {

@@ -53,7 +53,7 @@ _create_folder_tool = (
         ToolSchema(
             function={
                 "name": "create_folder",
-                "description": "Create a new folder under a folder",
+                "description": "Create a new folder under a folder.",
                 "parameters": {
                     "type": "object",
                     "properties": {
