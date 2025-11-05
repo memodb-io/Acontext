@@ -123,7 +123,10 @@ async def create_new_path_block(
     await db_session.flush()
 
     # add embedding for path block
-    r = await create_new_block_embedding(db_session, new_block, title)
+    index_content = title
+    if props and "view_when" in props:
+        index_content += " " + props["view_when"]
+    r = await create_new_block_embedding(db_session, new_block, index_content)
     if not r.ok():
         return r
     return Result.resolve(new_block)
@@ -263,7 +266,9 @@ async def write_sop_block_to_parent(
         db_session.add(tool_sop)
 
     await db_session.flush()
-
+    r = await create_new_block_embedding(db_session, new_block, sop_data.use_when)
+    if not r.ok():
+        return r
     return Result.resolve(new_block.id)
 
 

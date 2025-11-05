@@ -188,6 +188,7 @@ class DatabaseClient:
         async with self.engine.begin() as conn:
             await conn.run_sync(ORM_BASE.metadata.drop_all)
         logger.warning("All database tables dropped")
+        self._table_created = False
 
     async def close(self) -> None:
         """Close the database engine and all connections."""
