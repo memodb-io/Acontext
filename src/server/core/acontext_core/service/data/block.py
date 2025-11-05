@@ -99,7 +99,7 @@ async def create_new_path_block(
     db_session: AsyncSession,
     space_id: asUUID,
     title: str,
-    props: Optional[dict] = None,
+    props: dict | None = None,
     par_block_id: Optional[asUUID] = None,
     type: str = BLOCK_TYPE_PAGE,
 ) -> Result[Block]:
@@ -113,7 +113,7 @@ async def create_new_path_block(
         type=type,
         parent_id=par_block_id,
         title=title,
-        props=props,
+        props=props or {},
         sort=next_sort,
     )
     r = new_block.validate_for_creation()
