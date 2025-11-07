@@ -1,4 +1,8 @@
-FROM golang:1.25 AS build-stage
+FROM --platform=$BUILDPLATFORM golang:1.25 AS build-stage
+
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+RUN echo "I am running on $BUILDPLATFORM, building for $TARGETPLATFORM" 
 
 WORKDIR /app
 
@@ -7,7 +11,10 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=0 go build -o /acontext-api ./cmd/server/main.go
+ARG TARGETOS
+ARG TARGETARCH
+
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -o /acontext-api ./cmd/server/main.go
 
 FROM build-stage AS run-test-stage
 RUN go test -v ./...

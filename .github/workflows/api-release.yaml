@@ -10,7 +10,7 @@ permissions:
   packages: write
 
 jobs:
-  goreleaser:
+  api-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -31,9 +31,6 @@ jobs:
           tags: |
             type=sha
             type=semver,pattern={{version}},match=v(\d.\d.\d)$
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3 
