@@ -1,13 +1,21 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 from acontext_core.schema.orm import Block, Project, Space
-from acontext_core.schema.orm.block import BLOCK_TYPE_FOLDER, BLOCK_TYPE_PAGE
+from acontext_core.schema.orm.block import (
+    BLOCK_TYPE_FOLDER,
+    BLOCK_TYPE_PAGE,
+    BLOCK_TYPE_TEXT,
+    BLOCK_TYPE_SOP,
+    BLOCK_TYPE_REFERENCE,
+    CONTENT_BLOCK,
+)
 from acontext_core.infra.db import DatabaseClient
 from acontext_core.service.data.block import create_new_path_block
 from acontext_core.schema.block.path_node import repr_path_tree
 from acontext_core.service.data.block_nav import (
     list_paths_under_block,
     get_path_info_by_id,
+    read_blocks_from_par_id,
 )
 
 
@@ -248,6 +256,147 @@ class TestBlockNav:
             assert path_node.type == BLOCK_TYPE_FOLDER
             assert path_node.sub_page_num == 1  # Contains TestPage
             assert path_node.sub_folder_num == 0
+
+            # Clean up
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_read_blocks_from_par_id(self):
+        """Test reading blocks from a parent block with type filtering"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            # Create test data
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            # Create a parent page block
+            r = await create_new_path_block(
+                session, space.id, "ParentPage", type=BLOCK_TYPE_PAGE
+            )
+            assert r.ok()
+            parent_id = r.data.id
+
+            # Create child blocks of different types
+            # Text block 1
+            text_block_1 = Block(
+                space_id=space.id,
+                parent_id=parent_id,
+                type=BLOCK_TYPE_TEXT,
+                title="Text Block 1",
+                sort=0,
+            )
+            session.add(text_block_1)
+            await session.flush()
+
+            # Text block 2
+            text_block_2 = Block(
+                space_id=space.id,
+                parent_id=parent_id,
+                type=BLOCK_TYPE_TEXT,
+                title="Text Block 2",
+                sort=1,
+            )
+            session.add(text_block_2)
+            await session.flush()
+
+            # SOP block
+            sop_block = Block(
+                space_id=space.id,
+                parent_id=parent_id,
+                type=BLOCK_TYPE_SOP,
+                title="SOP Block",
+                sort=2,
+            )
+            session.add(sop_block)
+            await session.flush()
+
+            # Reference block (not in CONTENT_BLOCK)
+            ref_block = Block(
+                space_id=space.id,
+                parent_id=parent_id,
+                type=BLOCK_TYPE_REFERENCE,
+                title="Reference Block",
+                sort=3,
+            )
+            session.add(ref_block)
+            await session.flush()
+
+            # Test 1: Read all content blocks (default behavior)
+            r = await read_blocks_from_par_id(session, space.id, parent_id)
+            assert r.ok()
+            blocks = r.data
+
+            # Should return only TEXT and SOP blocks (CONTENT_BLOCK)
+            assert len(blocks) == 3
+            assert blocks[0].id == text_block_1.id
+            assert blocks[0].type == BLOCK_TYPE_TEXT
+            assert blocks[1].id == text_block_2.id
+            assert blocks[1].type == BLOCK_TYPE_TEXT
+            assert blocks[2].id == sop_block.id
+            assert blocks[2].type == BLOCK_TYPE_SOP
+
+            # Test 2: Read only TEXT blocks
+            r = await read_blocks_from_par_id(
+                session, space.id, parent_id, allowed_types={BLOCK_TYPE_TEXT}
+            )
+            assert r.ok()
+            blocks = r.data
+
+            assert len(blocks) == 2
+            assert blocks[0].type == BLOCK_TYPE_TEXT
+            assert blocks[1].type == BLOCK_TYPE_TEXT
+            assert blocks[0].id == text_block_1.id
+            assert blocks[1].id == text_block_2.id
+
+            # Test 3: Read only SOP blocks
+            r = await read_blocks_from_par_id(
+                session, space.id, parent_id, allowed_types={BLOCK_TYPE_SOP}
+            )
+            assert r.ok()
+            blocks = r.data
+
+            assert len(blocks) == 1
+            assert blocks[0].type == BLOCK_TYPE_SOP
+            assert blocks[0].id == sop_block.id
+
+            # Test 4: Read REFERENCE blocks
+            r = await read_blocks_from_par_id(
+                session, space.id, parent_id, allowed_types={BLOCK_TYPE_REFERENCE}
+            )
+            assert r.ok()
+            blocks = r.data
+
+            assert len(blocks) == 1
+            assert blocks[0].type == BLOCK_TYPE_REFERENCE
+            assert blocks[0].id == ref_block.id
+
+            # Test 5: Read with empty allowed_types (should return empty)
+            r = await read_blocks_from_par_id(
+                session, space.id, parent_id, allowed_types=set()
+            )
+            assert r.ok()
+            blocks = r.data
+
+            assert len(blocks) == 0
+
+            # Test 6: Read from non-existent parent (should return empty)
+            import uuid
+
+            non_existent_id = uuid.uuid4()
+            r = await read_blocks_from_par_id(session, space.id, non_existent_id)
+            assert r.ok()
+            blocks = r.data
+
+            assert len(blocks) == 0
 
             # Clean up
             await session.delete(project)

@@ -15,7 +15,7 @@ from ....schema.session.task import TaskStatus
 from .ctx import SpaceCtx
 
 
-async def _search_title_handler(
+async def _search_content_handler(
     ctx: SpaceCtx,
     llm_arguments: dict,
 ) -> Result[str]:
@@ -46,17 +46,20 @@ async def _search_title_handler(
         display_results.append(
             json.dumps(
                 {
-                    "path": path,
-                    "block_order": content_block.order,
+                    "page_path": path,
+                    "block_index": content_block.order,
                     "content": content_block.props,
-                }
+                },
+                ensure_ascii=False,
             )
         )
     display_section = "\n".join(display_results)
-    return Result.resolve(f"Found {len(block_distances)} blocks: \n{display_section}")
+    return Result.resolve(
+        f"Found {len(block_distances)} blocks, display in JSON: \n{display_section}"
+    )
 
 
-_search_title_tool = (
+_search_content_tool = (
     Tool()
     .use_schema(
         ToolSchema(
@@ -80,5 +83,5 @@ _search_title_tool = (
             },
         )
     )
-    .use_handler(_search_title_handler)
+    .use_handler(_search_content_handler)
 )

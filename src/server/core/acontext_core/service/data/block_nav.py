@@ -11,6 +11,7 @@ from ...schema.orm.block import (
     BLOCK_TYPE_PAGE,
     BLOCK_TYPE_SOP,
     BLOCK_TYPE_TEXT,
+    CONTENT_BLOCK,
 )
 from ...schema.orm import Block, ToolReference, ToolSOP, Space
 from ...schema.block.path_node import PathNode
@@ -251,3 +252,20 @@ async def get_path_info_by_id(
         return Result.resolve((r.data, pn))
     else:
         return Result.reject(f"Invalid path block type: {block['type']}")
+
+
+async def read_blocks_from_par_id(
+    db_session: AsyncSession,
+    space_id: asUUID,
+    block_id: asUUID,
+    allowed_types: set[str] = CONTENT_BLOCK,
+) -> Result[List[Block]]:
+    query = (
+        select(Block)
+        .where(Block.space_id == space_id, Block.parent_id == block_id)
+        .where(Block.type.in_(allowed_types))
+        .order_by(Block.sort)
+    )
+    result = await db_session.execute(query)
+    blocks = result.scalars().all()
+    return Result.resolve(blocks)
