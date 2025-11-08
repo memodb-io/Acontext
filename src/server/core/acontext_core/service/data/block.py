@@ -233,7 +233,7 @@ async def write_sop_block_to_parent(
     db_session.add(new_block)
     await db_session.flush()
 
-    for sop_step in sop_data.tool_sops:
+    for i, sop_step in enumerate(sop_data.tool_sops):
         tool_name = sop_step.tool_name.strip()
         if not tool_name:
             return Result.reject(f"Tool name is empty")
@@ -258,6 +258,7 @@ async def write_sop_block_to_parent(
 
         # Create ToolSOP entry linking tool to the SOP block
         tool_sop = ToolSOP(
+            order=i,
             action=sop_step.action,  # The action describes what to do with the tool
             tool_reference_id=tool_reference.id,
             sop_block_id=new_block.id,

@@ -23,3 +23,12 @@ class SpaceCtx:
             return r
         self.path_2_block_ids[path] = r.data
         return Result.resolve(r.data)
+
+    async def find_path_by_id(self, block_id: asUUID) -> Result[tuple[str, PathNode]]:
+        r = await BN.get_path_info_by_id(self.db_session, self.space_id, block_id)
+        if not r.ok():
+            return r
+        path, path_node = r.data
+        # update path cache
+        self.path_2_block_ids[path] = path_node
+        return Result.resolve((path, path_node))

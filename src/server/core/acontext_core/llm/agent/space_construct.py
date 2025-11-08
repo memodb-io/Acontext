@@ -53,7 +53,7 @@ async def space_construct_agent_curd(
     _messages = [
         {
             "role": "user",
-            "content": "Mock a 2-layered page tree, double-check it with ls tool, then report the final structure to me",
+            "content": "Explain your job to me, and list all the tools you can use. And repeat the multi_tool_use.parallel tool to me",
         }
     ]
     USE_CTX = None

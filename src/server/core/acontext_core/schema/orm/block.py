@@ -40,7 +40,7 @@ BLOCK_TYPES = {
         "allow_children": False,
         "require_parent": True,
         "props_schema": {
-            "preferences": str,
+            "notes": str,
         },
     },
     "sop": {
@@ -62,6 +62,7 @@ BLOCK_TYPE_SOP = "sop"
 BLOCK_TYPE_REFERENCE = "reference"
 
 PATH_BLOCK = {BLOCK_TYPE_FOLDER, BLOCK_TYPE_PAGE}
+CONTENT_BLOCK = {BLOCK_TYPE_TEXT, BLOCK_TYPE_SOP}
 BLOCK_PARENT_ALLOW = {
     BLOCK_TYPE_FOLDER: {BLOCK_TYPE_FOLDER, BLOCK_TYPE_ROOT},
     BLOCK_TYPE_PAGE: {BLOCK_TYPE_FOLDER, BLOCK_TYPE_ROOT},

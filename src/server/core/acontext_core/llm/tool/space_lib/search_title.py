@@ -33,12 +33,10 @@ async def _search_title_handler(
     block_distances = r.data
     display_results = []
     for b, d in block_distances:
-        r = await BN.get_path_info_by_id(ctx.db_session, ctx.space_id, b.id)
+        r = await ctx.find_path_by_id(b.id)
         if not r.ok():
             return r
         path, path_node = r.data
-        # update path cache
-        ctx.path_2_block_ids[path] = path_node
         if path_node.type == BLOCK_TYPE_PAGE:
             display_results.append(f"- ({d:.3f})  {path} (page)")
         if path_node.type == BLOCK_TYPE_FOLDER:

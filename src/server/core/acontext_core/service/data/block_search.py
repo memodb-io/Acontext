@@ -3,21 +3,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Tuple, cast
 
 from ...schema.orm import Block, BlockEmbedding
-from ...schema.orm.block import PATH_BLOCK
+from ...schema.orm.block import PATH_BLOCK, CONTENT_BLOCK
 from ...schema.utils import asUUID
 from ...schema.result import Result
 from ...llm.embeddings import get_embedding
 from ...env import LOG
 
 
-async def search_path_blocks(
+async def search_blocks(
     db_session: AsyncSession,
     space_id: asUUID,
     query_text: str,
+    block_types: list[str],
     topk: int = 10,
     threshold: float = 0.5,
     fetch_ratio: float = 1.5,
-) -> Result[List[Tuple[Block, float]]]:
+):
     """
     Search for page and folder blocks using semantic vector similarity.
 
@@ -72,7 +73,7 @@ async def search_path_blocks(
         .join(BlockEmbedding, Block.id == BlockEmbedding.block_id)
         .where(
             Block.space_id == space_id,
-            Block.type.in_(list(PATH_BLOCK)),  # Only page and folder blocks
+            Block.type.in_(block_types),  # Only page and folder blocks
             Block.is_archived == False,  # Exclude archived blocks
             distance <= threshold,  # Apply distance threshold
         )
@@ -108,3 +109,35 @@ async def search_path_blocks(
     except Exception as e:
         LOG.error(f"Error in search_path_blocks: {e}")
         return Result.reject(f"Vector search failed: {str(e)}")
+
+
+async def search_path_blocks(
+    db_session: AsyncSession,
+    space_id: asUUID,
+    query_text: str,
+    topk: int = 10,
+    threshold: float = 0.5,
+    fetch_ratio: float = 1.5,
+) -> Result[List[Tuple[Block, float]]]:
+    return await search_blocks(
+        db_session, space_id, query_text, list(PATH_BLOCK), topk, threshold, fetch_ratio
+    )
+
+
+async def search_content_blocks(
+    db_session: AsyncSession,
+    space_id: asUUID,
+    query_text: str,
+    topk: int = 10,
+    threshold: float = 0.5,
+    fetch_ratio: float = 1.5,
+) -> Result[List[Tuple[Block, float]]]:
+    return await search_blocks(
+        db_session,
+        space_id,
+        query_text,
+        list(CONTENT_BLOCK),
+        topk,
+        threshold,
+        fetch_ratio,
+    )
