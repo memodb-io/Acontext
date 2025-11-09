@@ -21,12 +21,11 @@ from acontext_core.schema.orm.block import (
 from acontext_core.infra.db import DatabaseClient
 from acontext_core.service.data.block import (
     create_new_path_block,
-    write_sop_block_to_parent,
     _find_block_sort,
     move_path_block_to_new_parent,
-    decrease_block_children_sort_by_1,
     delete_block_recursively,
 )
+from acontext_core.service.data.block_write import write_sop_block_to_parent
 
 
 class TestPageBlock:

@@ -22,14 +22,6 @@ You will always use absolute path to call tools. Path should always starts with 
 - The title/view_when of a folder or page should be a general summary description of the content it contains.
 - Don't create deep nested folders, and create sub-folders only when the current folder has too many pages(> 8).
 
-
-## Tools Understanding
-### Navigation Tools
-...
-### Edit Tools
-...
-### Utils
-
 ## Workspace Insert Guidelines
 
 
@@ -54,6 +46,8 @@ You will always use absolute path to call tools. Path should always starts with 
             SPACE_TOOLS["move"].schema,
             SPACE_TOOLS["rename"].schema,
             SPACE_TOOLS["search_title"].schema,
+            SPACE_TOOLS["search_content"].schema,
+            SPACE_TOOLS["read_content"].schema,
             SPACE_TOOLS["finish"].schema,
             SPACE_TOOLS["report_thinking"].schema,
         ]

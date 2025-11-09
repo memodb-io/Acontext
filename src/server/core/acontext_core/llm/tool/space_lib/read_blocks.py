@@ -71,7 +71,7 @@ async def _read_blocks_handler(
         rendered_block = r.data
         rendered_blocks.append(
             {
-                "block_index": rendered_block.order,
+                "block_index": rendered_block.order + 1,
                 "type": rendered_block.type,
                 "content": rendered_block.props,
             }

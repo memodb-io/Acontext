@@ -55,18 +55,19 @@ async def _find_block_sort(
     return Result.resolve(next_sort)
 
 
-async def decrease_block_children_sort_by_1(
+async def update_block_children_sort_by_delta(
     db_session: AsyncSession,
     space_id: asUUID,
     block_id: Optional[asUUID],
     gt_sort: int,
+    delta: int = 1,
 ) -> Result[None]:
     query = (
         update(Block)
         .where(Block.space_id == space_id)
         .where(Block.parent_id == block_id)
         .where(Block.sort > gt_sort)
-        .values(sort=Block.sort - 1)
+        .values(sort=Block.sort + delta)
     )
     result = await db_session.execute(query)
     return Result.resolve(None)
@@ -191,86 +192,13 @@ async def move_path_block_to_new_parent(
     flag_modified(path_block, "sort")
     await db_session.flush()
     # update the before parent block's children sort
-    r = await decrease_block_children_sort_by_1(
-        db_session, space_id, before_par_block_id, before_sort - 1
+    r = await update_block_children_sort_by_delta(
+        db_session, space_id, before_par_block_id, before_sort - 1, delta=-1
     )
     if not r.ok():
         return r
     await db_session.flush()
     return Result.resolve(path_block)
-
-
-async def write_sop_block_to_parent(
-    db_session: AsyncSession, space_id: asUUID, par_block_id: asUUID, sop_data: SOPData
-) -> Result[asUUID]:
-    if not sop_data.tool_sops and not sop_data.preferences.strip():
-        return Result.reject(f"SOP data is empty")
-    space = await db_session.get(Space, space_id)
-    if space is None:
-        raise ValueError(f"Space {space_id} not found")
-
-    project_id = space.project_id
-    # 1. add block to table
-    r = await _find_block_sort(
-        db_session, space_id, par_block_id, block_type=BLOCK_TYPE_SOP
-    )
-    if not r.ok():
-        return r
-    next_sort = r.unpack()[0]
-    new_block = Block(
-        space_id=space_id,
-        type=BLOCK_TYPE_SOP,
-        parent_id=par_block_id,
-        title=sop_data.use_when,
-        props={
-            "preferences": sop_data.preferences.strip(),
-        },
-        sort=next_sort,
-    )
-    r = new_block.validate_for_creation()
-    if not r.ok():
-        return r
-    db_session.add(new_block)
-    await db_session.flush()
-
-    for i, sop_step in enumerate(sop_data.tool_sops):
-        tool_name = sop_step.tool_name.strip()
-        if not tool_name:
-            return Result.reject(f"Tool name is empty")
-        tool_name = tool_name.lower()
-        # Try to find existing ToolReference
-        tool_ref_query = (
-            select(ToolReference)
-            .where(ToolReference.project_id == project_id)
-            .where(ToolReference.name == tool_name)
-        )
-        result = await db_session.execute(tool_ref_query)
-        tool_reference = result.scalars().first()
-
-        # If ToolReference doesn't exist, create it
-        if tool_reference is None:
-            tool_reference = ToolReference(
-                name=tool_name,
-                project_id=project_id,
-            )
-            db_session.add(tool_reference)
-            await db_session.flush()  # Flush to get the tool_reference ID
-
-        # Create ToolSOP entry linking tool to the SOP block
-        tool_sop = ToolSOP(
-            order=i,
-            action=sop_step.action,  # The action describes what to do with the tool
-            tool_reference_id=tool_reference.id,
-            sop_block_id=new_block.id,
-            props=None,  # Or store additional metadata if needed
-        )
-        db_session.add(tool_sop)
-
-    await db_session.flush()
-    r = await create_new_block_embedding(db_session, new_block, sop_data.use_when)
-    if not r.ok():
-        return r
-    return Result.resolve(new_block.id)
 
 
 async def update_block(
@@ -348,8 +276,8 @@ async def delete_block_recursively(
     await db_session.flush()
 
     # Adjust the sort order of sibling blocks that come after this one
-    r = await decrease_block_children_sort_by_1(
-        db_session, space_id, parent_id, block_sort - 1
+    r = await update_block_children_sort_by_delta(
+        db_session, space_id, parent_id, block_sort - 1, delta=-1
     )
     if not r.ok():
         return r

@@ -12,7 +12,7 @@ class SpaceCtx:
     project_id: asUUID
     space_id: asUUID
     candidate_data: list[dict]
-    already_inserted_candidate_data: list[int]
+    already_inserted_candidate_data: set[int]
     path_2_block_ids: dict[str, PathNode | None]
 
     async def find_block(self, path: str) -> Result[PathNode]:

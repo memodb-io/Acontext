@@ -22,7 +22,7 @@ async def build_space_ctx(
         before_use_ctx.db_session = db_session
         return before_use_ctx
     LOG.info(f"Building space context for project {project_id} and space {space_id}")
-    ctx = SpaceCtx(db_session, project_id, space_id, data_candidate, [], {"/": None})
+    ctx = SpaceCtx(db_session, project_id, space_id, data_candidate, set(), {"/": None})
     return ctx
 
 
@@ -49,11 +49,12 @@ async def space_construct_agent_curd(
     """
 
     json_tools = [tool.model_dump() for tool in SpaceConstructPrompt.tool_schema()]
+    print([t["function"]["name"] for t in json_tools])
     already_iterations = 0
     _messages = [
         {
             "role": "user",
-            "content": "Explain your job to me, and list all the tools you can use. And repeat the multi_tool_use.parallel tool to me",
+            "content": "List all the exact tool names you can use.",
         }
     ]
     USE_CTX = None

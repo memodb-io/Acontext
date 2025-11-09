@@ -47,7 +47,7 @@ async def _search_content_handler(
             json.dumps(
                 {
                     "page_path": path,
-                    "block_index": content_block.order,
+                    "block_index": content_block.order + 1,
                     "content": content_block.props,
                 },
                 ensure_ascii=False,
