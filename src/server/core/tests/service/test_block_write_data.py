@@ -465,6 +465,88 @@ class TestSOPBlock:
 
             await session.delete(project)
 
+    @pytest.mark.asyncio
+    async def test_write_sop_with_after_block_index(self):
+        """Test inserting SOP block at specific position using after_block_index parameter"""
+        db_client = DatabaseClient()
+        await db_client.create_tables()
+
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_key_hmac", secret_key_hash_phc="test_key_hash"
+            )
+            session.add(project)
+            await session.flush()
+
+            space = Space(project_id=project.id)
+            session.add(space)
+            await session.flush()
+
+            r = await create_new_path_block(session, space.id, "Parent Page")
+            assert r.ok()
+            parent_id = r.data.id
+
+            # Create 3 existing SOP blocks (sort: 0, 1, 2)
+            sop_ids = []
+            for i in range(3):
+                sop_data = SOPData(
+                    use_when=f"SOP {i}",
+                    preferences=f"Preference {i}",
+                    tool_sops=[],
+                )
+                r = await write_sop_block_to_parent(
+                    session, space.id, parent_id, sop_data
+                )
+                assert r.ok()
+                sop_ids.append(r.data)
+
+            # Verify initial sort order
+            for i, sop_id in enumerate(sop_ids):
+                sop = await session.get(Block, sop_id)
+                assert sop is not None
+                assert sop.sort == i
+                assert sop.title == f"SOP {i}"
+
+            # Insert new SOP at position 2 (after block with sort=1, which means after_block_index=2)
+            new_sop_data = SOPData(
+                use_when="Inserted SOP",
+                preferences="Inserted preference",
+                tool_sops=[],
+            )
+            r = await write_sop_block_to_parent(
+                session, space.id, parent_id, new_sop_data, after_block_index=2
+            )
+            assert r.ok()
+            new_sop_id = r.data
+
+            # Verify the new SOP is at position 2
+            new_sop = await session.get(Block, new_sop_id)
+            assert new_sop is not None
+            assert new_sop.sort == 2
+            assert new_sop.title == "Inserted SOP"
+
+            # Verify existing blocks: 0 and 1 should remain unchanged
+            sop_0 = await session.get(Block, sop_ids[0])
+            assert sop_0.sort == 0
+            assert sop_0.title == "SOP 0"
+
+            sop_1 = await session.get(Block, sop_ids[1])
+            assert sop_1.sort == 1
+            assert sop_1.title == "SOP 1"
+
+            # Verify block at position 2 was shifted to position 3
+            sop_2 = await session.get(Block, sop_ids[2])
+            assert sop_2.sort == 3
+            assert sop_2.title == "SOP 2"
+
+            # Verify all 4 SOPs exist under parent
+            query = select(func.count()).where(Block.parent_id == parent_id)
+            result = await session.execute(query)
+            count = result.scalar()
+            assert count == 4
+
+            await session.delete(project)
+
 
 class TestFindBlockSort:
     @pytest.mark.asyncio

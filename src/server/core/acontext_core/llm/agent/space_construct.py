@@ -49,12 +49,11 @@ async def space_construct_agent_curd(
     """
 
     json_tools = [tool.model_dump() for tool in SpaceConstructPrompt.tool_schema()]
-    print([t["function"]["name"] for t in json_tools])
     already_iterations = 0
     _messages = [
         {
             "role": "user",
-            "content": "List all the exact tool names you can use.",
+            "content": "What's your job? Can you think any tool missing in order to complete your job?",
         }
     ]
     USE_CTX = None

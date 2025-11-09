@@ -5,6 +5,7 @@ from ....schema.utils import asUUID
 from ....schema.result import Result
 from ....service.data import block_nav as BN
 from ....service.data import block as BD
+from ....service.data import block_write as BW
 from ....schema.session.task import TaskStatus
 from .ctx import SpaceCtx
 
@@ -28,7 +29,7 @@ async def _insert_data_handler(
     if candidate_index in ctx.already_inserted_candidate_data:
         return Result.resolve(f"Candidate data {candidate_index} already inserted")
     ctx.already_inserted_candidate_data.add(candidate_index)
-    candidate_data = ctx.candidate_data[candidate_index]
+    insert_data = ctx.candidate_data[candidate_index]
     r = await ctx.find_block(page_path)
     if not r.ok():
         return Result.resolve(f"Page {page_path} not found: {r.error}")
@@ -37,14 +38,26 @@ async def _insert_data_handler(
         return Result.resolve(
             f"Path {page_path} is not a page (type: {page_block.type})"
         )
+    r = await BW.write_block_to_page(
+        ctx.db_session,
+        ctx.space_id,
+        page_block.id,
+        insert_data,
+        after_block_index=after_block_index,
+    )
+    if not r.ok():
+        return Result.resolve(f"Failed to insert candidate data: {r.error}")
+    return Result.resolve(
+        f"Inserted candidate data {candidate_index} to page {page_path} after block index {after_block_index}"
+    )
 
 
-_insert_candidate_data_tool = (
+_insert_candidate_data_as_content_tool = (
     Tool()
     .use_schema(
         ToolSchema(
             function={
-                "name": "insert_candidate_data_as_block",
+                "name": "insert_candidate_data_as_content",
                 "description": "Insert candidate data to a page as a block.",
                 "parameters": {
                     "type": "object",

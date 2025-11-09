@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from ....schema.block.path_node import PathNode
+from ....schema.block.general import GeneralBlockData
 from ....schema.result import Result
 from ....infra.db import AsyncSession
 from ....schema.utils import asUUID
@@ -11,7 +12,7 @@ class SpaceCtx:
     db_session: AsyncSession
     project_id: asUUID
     space_id: asUUID
-    candidate_data: list[dict]
+    candidate_data: list[GeneralBlockData]
     already_inserted_candidate_data: set[int]
     path_2_block_ids: dict[str, PathNode | None]
 

@@ -269,3 +269,16 @@ async def read_blocks_from_par_id(
     result = await db_session.execute(query)
     blocks = result.scalars().all()
     return Result.resolve(blocks)
+
+
+async def get_block_by_sort(
+    db_session: AsyncSession, space_id: asUUID, par_block_id: asUUID, sort: int
+) -> Result[Block]:
+    query = select(Block).where(
+        Block.space_id == space_id, Block.parent_id == par_block_id, Block.sort == sort
+    )
+    result = await db_session.execute(query)
+    block = result.scalar_one_or_none()
+    if block is None:
+        return Result.reject(f"Block not found")
+    return Result.resolve(block)

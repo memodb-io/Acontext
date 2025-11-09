@@ -20,7 +20,11 @@ from ...schema.result import Result
 from ...schema.block.sop_block import SOPData
 from ...schema.block.general import GeneralBlockData
 from .block_nav import assert_block_type, _normalize_path_block_title
-from .block import _find_block_sort, create_new_block_embedding
+from .block import (
+    _find_block_sort,
+    create_new_block_embedding,
+    update_block_children_sort_by_delta,
+)
 
 
 async def write_sop_block_to_parent(
@@ -44,6 +48,19 @@ async def write_sop_block_to_parent(
     if not r.ok():
         return r
     next_sort = r.unpack()[0]
+    if after_block_index is not None:
+        if after_block_index < 0 or after_block_index > next_sort:
+            return Result.reject(
+                f"after_block_index out of range, it should be in [0, {next_sort}]"
+            )
+        next_sort = after_block_index
+        r = await update_block_children_sort_by_delta(
+            db_session, space_id, par_block_id, after_block_index - 1, delta=1
+        )
+        if not r.ok():
+            return r
+        await db_session.flush()
+
     new_block = Block(
         space_id=space_id,
         type=BLOCK_TYPE_SOP,
@@ -118,5 +135,9 @@ async def write_block_to_page(
         return Result.reject(f"Block type {data['type']} is not supported")
     block_data = BLOCK_DATA_FACTORY[data["type"]].model_validate(data["data"])
     return await WRITE_BLOCK_FACTORY[data["type"]](
-        db_session, space_id, par_block_id, block_data
+        db_session,
+        space_id,
+        par_block_id,
+        block_data,
+        after_block_index=after_block_index,
     )

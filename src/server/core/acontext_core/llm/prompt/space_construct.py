@@ -48,6 +48,9 @@ You will always use absolute path to call tools. Path should always starts with 
             SPACE_TOOLS["search_title"].schema,
             SPACE_TOOLS["search_content"].schema,
             SPACE_TOOLS["read_content"].schema,
+            SPACE_TOOLS["delete_content"].schema,
+            SPACE_TOOLS["delete_path"].schema,
+            SPACE_TOOLS["insert_candidate_data_as_content"].schema,
             SPACE_TOOLS["finish"].schema,
             SPACE_TOOLS["report_thinking"].schema,
         ]

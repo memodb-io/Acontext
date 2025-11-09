@@ -69,7 +69,7 @@ async def update_block_children_sort_by_delta(
         .where(Block.sort > gt_sort)
         .values(sort=Block.sort + delta)
     )
-    result = await db_session.execute(query)
+    await db_session.execute(query)
     return Result.resolve(None)
 
 
