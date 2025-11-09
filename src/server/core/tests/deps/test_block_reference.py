@@ -16,8 +16,6 @@ async def test_block_reference_set_null_on_delete():
     db_client = DatabaseClient()
 
     # Drop and recreate tables to ensure schema is up-to-date with new SET NULL constraint
-    await db_client.drop_tables()
-    db_client._table_created = False  # Reset flag to allow recreation
     await db_client.create_tables()
 
     async with db_client.get_session_context() as session:

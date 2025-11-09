@@ -16,26 +16,7 @@ from .constants import EX, RK
 from .data import message as MD
 from .data import project as PD
 from .controller import message as MC
-
-
-async def check_session_message_lock_or_set(session_id: str) -> bool:
-    async with REDIS_CLIENT.get_client_context() as client:
-        _session_lock = f"session.message.insert.lock.{session_id}"
-        # Use SET with NX (not exists) and EX (expire) for atomic lock acquisition
-        result = await client.set(
-            _session_lock,
-            "1",
-            nx=True,  # Only set if key doesn't exist
-            ex=DEFAULT_CORE_CONFIG.session_message_processing_timeout_seconds,
-        )
-        # Returns True if the lock was acquired (key didn't exist), False if it already existed
-        return result is not None
-
-
-async def release_session_message_lock(session_id: str):
-    async with REDIS_CLIENT.get_client_context() as client:
-        _session_lock = f"session.message.insert.lock.{session_id}"
-        await client.delete(_session_lock)
+from .utils import check_redis_lock_or_set, release_redis_lock
 
 
 async def waiting_for_message_notify(wait_for_seconds: int, body: InsertNewMessage):
@@ -95,7 +76,9 @@ async def insert_new_message(body: InsertNewMessage, message: Message):
             )
             return
 
-    _l = await check_session_message_lock_or_set(str(body.session_id))
+    _l = await check_redis_lock_or_set(
+        body.project_id, f"session.message.insert.{body.session_id}"
+    )
     if not _l:
         LOG.debug(
             f"Current Session is locked. "
@@ -131,7 +114,9 @@ async def insert_new_message(body: InsertNewMessage, message: Message):
             project_config, body.project_id, body.session_id
         )
     finally:
-        await release_session_message_lock(str(body.session_id))
+        await release_redis_lock(
+            body.project_id, f"session.message.insert.{body.session_id}"
+        )
 
 
 register_consumer(
@@ -175,7 +160,9 @@ async def buffer_new_message(body: InsertNewMessage, message: Message):
         if eil:
             return
     LOG.info(f"Message {body.message_id} IDLE, process it now")
-    _l = await check_session_message_lock_or_set(str(body.session_id))
+    _l = await check_redis_lock_or_set(
+        body.project_id, f"session.message.insert.{body.session_id}"
+    )
     if not _l:
         LOG.info(
             f"Current Session is locked, resend Message {body.message_id} to insert queue."
@@ -191,4 +178,6 @@ async def buffer_new_message(body: InsertNewMessage, message: Message):
             project_config, body.project_id, body.session_id
         )
     finally:
-        await release_session_message_lock(str(body.session_id))
+        await release_redis_lock(
+            body.project_id, f"session.message.insert.{body.session_id}"
+        )

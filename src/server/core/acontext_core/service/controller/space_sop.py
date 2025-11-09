@@ -1,3 +1,4 @@
+from ...schema.block.sop_block import SOPData
 from ..data import message as MD
 from ..data import task as TD
 from ...infra.db import DB_CLIENT
@@ -16,7 +17,7 @@ async def process_sop_complete(
     project_id: asUUID,
     space_id: asUUID,
     task_id: asUUID,
-    sop_data: dict,
+    sop_data: SOPData,
 ):
     """
     Process SOP completion and trigger construct agent
