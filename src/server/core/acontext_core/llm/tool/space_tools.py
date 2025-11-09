@@ -8,7 +8,6 @@ from .space_lib.search_title import _search_title_tool
 from .space_lib.search_content import _search_content_tool
 from .space_lib.read_blocks import _read_blocks_tool
 from .space_lib.delete_block import _delete_block_tool
-from .space_lib.delete_path import _delete_path_tool
 from .space_lib.insert_candidate_data_as_content import (
     _insert_candidate_data_as_content_tool,
 )
@@ -28,7 +27,7 @@ SPACE_TOOLS[_search_title_tool.schema.function.name] = _search_title_tool
 SPACE_TOOLS[_search_content_tool.schema.function.name] = _search_content_tool
 SPACE_TOOLS[_read_blocks_tool.schema.function.name] = _read_blocks_tool
 SPACE_TOOLS[_delete_block_tool.schema.function.name] = _delete_block_tool
-SPACE_TOOLS[_delete_path_tool.schema.function.name] = _delete_path_tool
+# SPACE_TOOLS[_delete_path_tool.schema.function.name] = _delete_path_tool
 SPACE_TOOLS[_insert_candidate_data_as_content_tool.schema.function.name] = (
     _insert_candidate_data_as_content_tool
 )

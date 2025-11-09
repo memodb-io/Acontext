@@ -104,6 +104,7 @@ async def create_new_path_block(
     par_block_id: Optional[asUUID] = None,
     type: str = BLOCK_TYPE_PAGE,
 ) -> Result[Block]:
+    props = props or {}
     r = await _find_block_sort(db_session, space_id, par_block_id, block_type=type)
     if not r.ok():
         return r
@@ -114,7 +115,7 @@ async def create_new_path_block(
         type=type,
         parent_id=par_block_id,
         title=title,
-        props=props or {},
+        props=props,
         sort=next_sort,
     )
     r = new_block.validate_for_creation()
@@ -125,7 +126,7 @@ async def create_new_path_block(
 
     # add embedding for path block
     index_content = title
-    if props and "view_when" in props:
+    if "view_when" in props:
         index_content += " " + props["view_when"]
     r = await create_new_block_embedding(db_session, new_block, index_content)
     if not r.ok():
