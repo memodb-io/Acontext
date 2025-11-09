@@ -12,8 +12,24 @@ env:
   GO_VERSION: '1.25.1'
 
 jobs:
-  release:
-    name: Release
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # TODO: add changelog generation
+      - name: Generate Changelog
+        run: echo "# Changelog" > ${{ github.workspace }}-CHANGELOG.txt
+
+      - name: Create Release with Notes
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: ${{ github.workspace }}-CHANGELOG.txt
+
+  upload-binaries:
+    name: Upload Binaries
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -25,9 +41,6 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Create Release with Notes
-        uses: softprops/action-gh-release@v1
 
       - name: Go Release Binaries 
         uses: wangyoucao577/go-release-action@v1
