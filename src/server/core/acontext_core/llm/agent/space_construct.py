@@ -53,7 +53,7 @@ async def space_construct_agent_curd(
     _messages = [
         {
             "role": "user",
-            "content": "What's your job? Can you think any tool missing in order to complete your job?",
+            "content": "Create a mock folder and page, then delete it. Make sure you check if the path is deleted successfully",
         }
     ]
     USE_CTX = None

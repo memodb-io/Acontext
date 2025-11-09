@@ -16,7 +16,7 @@ async def _delete_path_handler(
 ) -> Result[str]:
     if "path" not in llm_arguments:
         return Result.resolve("page_path and block_index are required")
-    path = llm_arguments["page_path"]
+    path = llm_arguments["path"]
     r = await ctx.find_block(path)
     if not r.ok():
         return Result.resolve(f"Path {path} not found: {r.error}")
