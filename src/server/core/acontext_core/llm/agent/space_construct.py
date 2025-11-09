@@ -1,5 +1,6 @@
 from typing import List, Dict, Any
 
+from ...schema.block.general import GeneralBlockData
 from ...env import LOG, bound_logging_vars
 from ...infra.db import AsyncSession, DB_CLIENT
 from ..complete import llm_complete, response_to_sendable_message
@@ -26,6 +27,12 @@ async def build_space_ctx(
     return ctx
 
 
+def pack_candidate_data_list(data: list[GeneralBlockData]) -> str:
+    return "\n".join(
+        [f"<candidate_data id={i}>{d}</candidate_data>" for i, d in enumerate(data)]
+    )
+
+
 @track_process
 async def space_construct_agent_curd(
     project_id: asUUID,
@@ -33,7 +40,7 @@ async def space_construct_agent_curd(
     task_id: asUUID,
     sop_data: SOPData,
     max_iterations=16,
-) -> Result[Dict[str, Any]]:
+) -> Result[None]:
     """
     Construct Agent - Process SOP data and build into Space
 
@@ -50,12 +57,21 @@ async def space_construct_agent_curd(
 
     json_tools = [tool.model_dump() for tool in SpaceConstructPrompt.tool_schema()]
     already_iterations = 0
+    candidate_data_list = [
+        {
+            "type": "sop",
+            "data": sop_data.model_dump(),
+        }
+    ]
     _messages = [
         {
             "role": "user",
-            "content": "Create a mock folder and page, then delete it. Make sure you check if the path is deleted successfully",
+            "content": SpaceConstructPrompt.pack_task_input(
+                pack_candidate_data_list([candidate_data_list])
+            ),
         }
     ]
+    just_finish = False
     USE_CTX = None
     while already_iterations < max_iterations:
         r = await llm_complete(
@@ -88,7 +104,7 @@ async def space_construct_agent_curd(
                             db_session,
                             project_id,
                             space_id,
-                            [sop_data],
+                            candidate_data_list,
                             before_use_ctx=USE_CTX,
                         )
                         r = await tool.handler(USE_CTX, tool_arguments)
@@ -109,3 +125,8 @@ async def space_construct_agent_curd(
             except Exception as e:
                 return Result.reject(f"Tool {tool_name} error: {str(e)}")
         _messages.extend(tool_response)
+        if just_finish:
+            LOG.info("finish tool called, exit the loop")
+            break
+        already_iterations += 1
+    return Result.resolve(None)

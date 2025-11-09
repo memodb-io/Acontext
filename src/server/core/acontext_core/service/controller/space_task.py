@@ -36,8 +36,7 @@ async def process_space_task(
             MessageBlob(message_id=m.id, role=m.role, parts=m.parts, task_id=m.task_id)
             for m in messages
         ]
-    # 2. call agent to digest raw messages to SOP
-    await TSOP.sop_agent_curd(
+    r = await TSOP.sop_agent_curd(
         project_id,
         space_id,
         task,

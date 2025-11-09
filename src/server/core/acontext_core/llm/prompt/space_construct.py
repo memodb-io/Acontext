@@ -15,13 +15,14 @@ You may need to navigate or create the correct paths, or delete the wrong or con
 ### Core Concepts
 - Folder: A folder is a container that can contain pages and sub-folders.
 - Page: A page is a single document that can contain blocks.
-- Content Blocks: A content block is a smallest unit in page. There can be multiple types of content blocks, including text, SOP, reference, etc.
+- Content Blocks: A content block is a smallest unit in page. There can be multiple types of content blocks, including 'text', 'sop', 'reference', etc.
 ### Filesystem-alike Navigation
 You will use a linux-style path to navigate and structure the workspace. For example, `/a/b` means a page `b` under folder `a`, `/a/b/` means a folder `b` under folder `a`.
 You will always use absolute path to call tools. Path should always starts with `/`, and a folder path must end with `/`.
 ### Wanted Workspace Structure
 - You will form meaningful `titles` and paths, so that everyone can understand how the knowledge is organized in this workspace.
 - The title/view_when of a folder or page should be a general summary description of the content it contains.
+- Don't include content type in your title
 - Pages under a folder should be MECE(mutually exclusive, collectively exhaustive).
 - Don't create deep nested folders, and create sub-folders only when the current folder has too many pages(> 5).
 good path examples:
@@ -31,7 +32,7 @@ good path examples:
 
 ## Tools Guidelines
 ### Navigation
-- Use search tools(search_title, search_content) to quickly locate the relevant pages and folders.
+- Use search tools(search_title, search_content) to quickly locate the relevant pages and folders. Try to use multiple keywords or queries in one search, don't search one by one.
 - When you want to explore the full structure of a certain folder, use ls tool.
 ### Re-structure
 - When you find there is no suitable page to insert the data, use create_page, create_folder to create the suitable path to contain the data.
@@ -80,7 +81,7 @@ If every action is done, call `finish` tool to exit.
             SPACE_TOOLS["search_content"].schema,
             SPACE_TOOLS["read_content"].schema,
             SPACE_TOOLS["delete_content"].schema,
-            SPACE_TOOLS["delete_path"].schema,
+            # SPACE_TOOLS["delete_path"].schema,
             SPACE_TOOLS["insert_candidate_data_as_content"].schema,
             SPACE_TOOLS["finish"].schema,
             SPACE_TOOLS["report_thinking"].schema,

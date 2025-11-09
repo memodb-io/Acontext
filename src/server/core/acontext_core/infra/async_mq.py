@@ -333,6 +333,8 @@ class AsyncSingleThreadMQConsumer:
         if self._publish_channle is None:
             raise RuntimeError("No active MQ Publish Channel")
 
+        if self._publish_channle.is_closed:
+            self._publish_channle = await self.connection.channel()
         # Create a channel for publishing
         # Create the message
         message = Message(

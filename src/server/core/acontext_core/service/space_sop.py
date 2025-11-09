@@ -31,7 +31,6 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
     MQ Consumer for SOP completion - Process SOP data with construct agent
     """
     LOG.info(f"Received SOP complete for task {body.task_id}")
-    
     try:
         async with DB_CLIENT.get_session_context() as db_session:
             # First get the task to find its session_id
@@ -40,7 +39,7 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
                 LOG.error(f"Task not found: {body.task_id}")
                 return
             task_data, _ = r.unpack()
-            
+
             # Verify session exists and has space
             r = await SD.fetch_session(db_session, task_data.session_id)
             if not r.ok():
@@ -50,7 +49,7 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
             if session_data.space_id is None:
                 LOG.info(f"Session {task_data.session_id} has no linked space")
                 return
-            
+
             # Get project config
             r = await PD.get_project_config(db_session, body.project_id)
             project_config, eil = r.unpack()
@@ -62,7 +61,7 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
         await SSC.process_sop_complete(
             project_config, body.project_id, body.space_id, body.task_id, body.sop_data
         )
-            
+
     except Exception as e:
         LOG.error(f"Error in space_sop_complete_task: {e}")
         print(f"Space SOP Complete Task Error: {e}")
