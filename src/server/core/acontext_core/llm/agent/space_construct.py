@@ -67,7 +67,7 @@ async def space_construct_agent_curd(
         {
             "role": "user",
             "content": SpaceConstructPrompt.pack_task_input(
-                pack_candidate_data_list([candidate_data_list])
+                pack_candidate_data_list(candidate_data_list)
             ),
         }
     ]

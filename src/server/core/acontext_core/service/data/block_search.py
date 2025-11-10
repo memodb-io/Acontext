@@ -18,7 +18,7 @@ async def search_blocks(
     topk: int = 10,
     threshold: float = 0.5,
     fetch_ratio: float = 1.5,
-):
+) -> Result[List[Tuple[Block, float]]]:
     """
     Search for page and folder blocks using semantic vector similarity.
 
@@ -99,11 +99,12 @@ async def search_blocks(
 
         # Get top-K unique blocks (already sorted by distance)
         results = list(seen.values())[:topk]
+        print([(dp[0].title, dp[1]) for dp in results])
 
-        LOG.info(
-            f"Search '{query_text[:50]}...' found {len(results)} unique blocks "
-            f"(from {len(rows)} total embeddings)"
-        )
+        # LOG.info(
+        #     f"Search '{query_text[:50]}...' found {len(results)} unique blocks "
+        #     f"(from {len(rows)} total embeddings)"
+        # )
         return Result.resolve(results)
 
     except Exception as e:
