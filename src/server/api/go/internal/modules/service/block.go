@@ -36,7 +36,7 @@ func NewBlockService(r repo.BlockRepo) BlockService { return &blockService{r: r}
 
 // validateAndPrepareCreate validates a block for creation and prepares its parent
 func (s *blockService) validateAndPrepareCreate(ctx context.Context, b *model.Block) (*model.Block, error) {
-	if err := b.ValidateForCreation(); err != nil {
+	if err := b.Validate(); err != nil {
 		return nil, err
 	}
 
@@ -99,6 +99,40 @@ func (s *blockService) Create(ctx context.Context, b *model.Block) error {
 	return s.r.Create(ctx, b)
 }
 
+// isDescendant checks if candidateID is a descendant of ancestorID in the tree
+func (s *blockService) isDescendant(ctx context.Context, ancestorID uuid.UUID, candidateID uuid.UUID) (bool, error) {
+	// Start from candidateID and traverse up the parent chain
+	currentID := candidateID
+
+	// Limit depth to prevent infinite loops in case of data corruption
+	maxDepth := 1000
+	depth := 0
+
+	for depth < maxDepth {
+		block, err := s.r.Get(ctx, currentID)
+		if err != nil {
+			return false, err
+		}
+
+		// Check if we've reached the ancestor
+		if block.ID == ancestorID {
+			return true, nil
+		}
+
+		// If no parent, we've reached the root without finding ancestor
+		if block.ParentID == nil {
+			return false, nil
+		}
+
+		// Move up to parent
+		currentID = *block.ParentID
+		depth++
+	}
+
+	// If we exceeded max depth, something is wrong - be safe and return true
+	return true, errors.New("max depth exceeded while checking descendant, possible circular reference")
+}
+
 // validateAndPrepareMove validates a block move and prepares the new parent
 func (s *blockService) validateAndPrepareMove(ctx context.Context, blockID uuid.UUID, newParentID *uuid.UUID) (*model.Block, *model.Block, error) {
 	if len(blockID) == 0 {
@@ -114,6 +148,15 @@ func (s *blockService) validateAndPrepareMove(ctx context.Context, blockID uuid.
 	if newParentID != nil {
 		if *newParentID == blockID {
 			return nil, nil, errors.New("new parent cannot be the same as the block")
+		}
+
+		// Check for circular reference: newParentID cannot be a descendant of blockID
+		isDesc, err := s.isDescendant(ctx, blockID, *newParentID)
+		if err != nil {
+			return nil, nil, err
+		}
+		if isDesc {
+			return nil, nil, errors.New("new parent cannot be a descendant of the block (would create circular reference)")
 		}
 
 		parent, err = s.r.Get(ctx, *newParentID)

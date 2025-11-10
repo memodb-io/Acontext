@@ -1,0 +1,103 @@
+name: TypeScript Client Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/client/acontext-ts
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+          cache-dependency-path: src/client/acontext-ts/package-lock.json
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          # Install peer dependencies for Node.js environment
+          npm install --no-save node-fetch@^3.3.2 form-data@^4.0.0 || true
+
+      - name: Run lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Start containers
+        working-directory: src/server
+        run: |
+          cp .env.example .env
+          cp core/config.yaml.example core/config.yaml
+
+          docker compose up acontext-server-pg acontext-server-redis acontext-server-rabbitmq acontext-server-seaweedfs-setup acontext-server-seaweedfs acontext-server-api -d
+
+      - name: Wait for API to be ready
+        run: |
+          timeout=120
+          elapsed=0
+          while [ $elapsed -lt $timeout ]; do
+            if curl -f http://localhost:8029/health > /dev/null 2>&1; then
+              echo "API is ready"
+              exit 0
+            fi
+            echo "Waiting for API to be ready... ($elapsed/$timeout seconds)"
+            sleep 5
+            elapsed=$((elapsed + 5))
+          done
+          echo "API did not become ready in time"
+          exit 1
+
+      - name: Run tests
+        run: npm test
+        env:
+          CI: true
+          ACONTEXT_API_KEY: sk-ac-your-root-api-bearer-token
+          ACONTEXT_BASE_URL: http://localhost:8029/api/v1
+
+      - name: Extract version from package.json
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if version exists
+        id: check_version
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if npm view @acontext/acontext@$VERSION version > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Version $VERSION already exists on npm"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Version $VERSION does not exist on npm"
+          fi
+
+      - name: Publish to npm
+        if: steps.check_version.outputs.exists == 'false'
+        run: npm publish --access public
+
+      - name: Stop containers
+        working-directory: src/server
+        if: ${{ always() }}
+        run: |
+          docker compose down
+

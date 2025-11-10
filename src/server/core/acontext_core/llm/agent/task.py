@@ -45,7 +45,7 @@ def pack_previous_messages_section(
             task_descs.append("(no task linked)")
     return "\n---\n".join(
         [
-            f"{td}\n{m.to_string(truncate_chars=200)}"
+            f"{td}\n{m.to_string(truncate_chars=256)}"
             for td, m in zip(task_descs, messages)
         ]
     )
@@ -165,7 +165,8 @@ async def task_agent_curd(
                     t, eil = r.unpack()
                     if eil:
                         return r
-                LOG.info(f"Tool Call: {tool_name} - {tool_arguments} -> {t}")
+                if tool_name != "report_thinking":
+                    LOG.info(f"Tool Call: {tool_name} - {tool_arguments} -> {t}")
                 tool_response.append(
                     {
                         "role": "tool",

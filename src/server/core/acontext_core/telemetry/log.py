@@ -83,7 +83,7 @@ def __get_text_logger():
     logger.setLevel(logging.INFO)
 
     formatter = CustomTextFormatter(
-        f"{TerminalColorMarks.BOLD}{TerminalColorMarks.BLUE}%(name)s |{TerminalColorMarks.END} %(asctime)s - %(levelname)s - %(message)s"
+        f"{TerminalColorMarks.BOLD}{TerminalColorMarks.BLUE}|{TerminalColorMarks.END} %(asctime)s - %(levelname)s - %(message)s"
     )
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)

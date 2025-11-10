@@ -54,6 +54,7 @@ func BuildContainer() *do.Injector {
 				&model.Block{},
 				&model.Disk{},
 				&model.Artifact{},
+				&model.AssetReference{},
 			)
 		}
 
@@ -102,20 +103,37 @@ func BuildContainer() *do.Injector {
 	})
 
 	// Repo
+	do.Provide(inj, func(i *do.Injector) (repo.AssetReferenceRepo, error) {
+		return repo.NewAssetReferenceRepo(
+			do.MustInvoke[*gorm.DB](i),
+			do.MustInvoke[*blob.S3Deps](i),
+		), nil
+	})
 	do.Provide(inj, func(i *do.Injector) (repo.SpaceRepo, error) {
 		return repo.NewSpaceRepo(do.MustInvoke[*gorm.DB](i)), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (repo.SessionRepo, error) {
-		return repo.NewSessionRepo(do.MustInvoke[*gorm.DB](i)), nil
+		return repo.NewSessionRepo(
+			do.MustInvoke[*gorm.DB](i),
+			do.MustInvoke[repo.AssetReferenceRepo](i),
+			do.MustInvoke[*blob.S3Deps](i),
+			do.MustInvoke[*zap.Logger](i),
+		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (repo.BlockRepo, error) {
 		return repo.NewBlockRepo(do.MustInvoke[*gorm.DB](i)), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (repo.DiskRepo, error) {
-		return repo.NewDiskRepo(do.MustInvoke[*gorm.DB](i)), nil
+		return repo.NewDiskRepo(
+			do.MustInvoke[*gorm.DB](i),
+			do.MustInvoke[repo.AssetReferenceRepo](i),
+		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (repo.ArtifactRepo, error) {
-		return repo.NewArtifactRepo(do.MustInvoke[*gorm.DB](i)), nil
+		return repo.NewArtifactRepo(
+			do.MustInvoke[*gorm.DB](i),
+			do.MustInvoke[repo.AssetReferenceRepo](i),
+		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (repo.TaskRepo, error) {
 		return repo.NewTaskRepo(do.MustInvoke[*gorm.DB](i)), nil
@@ -128,6 +146,7 @@ func BuildContainer() *do.Injector {
 	do.Provide(inj, func(i *do.Injector) (service.SessionService, error) {
 		return service.NewSessionService(
 			do.MustInvoke[repo.SessionRepo](i),
+			do.MustInvoke[repo.AssetReferenceRepo](i),
 			do.MustInvoke[*zap.Logger](i),
 			do.MustInvoke[*blob.S3Deps](i),
 			do.MustInvoke[*mq.Publisher](i),
@@ -138,10 +157,7 @@ func BuildContainer() *do.Injector {
 		return service.NewBlockService(do.MustInvoke[repo.BlockRepo](i)), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (service.DiskService, error) {
-		return service.NewDiskService(
-			do.MustInvoke[repo.DiskRepo](i),
-			do.MustInvoke[*blob.S3Deps](i),
-		), nil
+		return service.NewDiskService(do.MustInvoke[repo.DiskRepo](i)), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (service.ArtifactService, error) {
 		return service.NewArtifactService(

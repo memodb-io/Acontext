@@ -1,0 +1,53 @@
+{
+  "name": "@acontext/acontext",
+  "version": "0.0.1",
+  "description": "TypeScript SDK for the Acontext API",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "jest",
+    "lint": "eslint src",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "acontext",
+    "sdk",
+    "client",
+    "api",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "@types/node": "^24.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.46.3",
+    "@typescript-eslint/parser": "^8.46.3",
+    "eslint": "^9.39.1",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.5",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "node-fetch": "^3.3.2",
+    "form-data": "^4.0.0"
+  },
+  "peerDependenciesMeta": {
+    "node-fetch": {
+      "optional": true
+    },
+    "form-data": {
+      "optional": true
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ]
+}
+

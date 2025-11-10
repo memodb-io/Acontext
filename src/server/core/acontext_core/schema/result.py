@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Generic, TypeVar, Type, Optional, Union
 from .error_code import Code
 from ..env import LOG
@@ -23,6 +23,7 @@ class Error(BaseModel):
 
 
 class Result(BaseModel, Generic[T]):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     data: Optional[T]
     error: Error
 

@@ -6,37 +6,30 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Parent directory path
-const parentDir = path.resolve(__dirname, '../../');
 // Current directory path
 const currentDir = path.resolve(__dirname, '../');
+const envFilePath = path.join(currentDir, '.env');
 
-console.log('🔄 Syncing environment files from parent directory...');
+console.log('🔄 Checking for .env file...');
 
 try {
-  // Read all files from parent directory
-  const files = fs.readdirSync(parentDir);
-
-  // Filter all files starting with .env
-  const envFiles = files.filter(file => file.startsWith('.env'));
-
-  if (envFiles.length === 0) {
-    console.log('⚠️  No .env files found in parent directory');
+  // Check if .env file exists
+  if (fs.existsSync(envFilePath)) {
+    console.log('✅ .env file already exists');
     process.exit(0);
   }
 
-  // Copy all .env files to current directory
-  envFiles.forEach(file => {
-    const sourcePath = path.join(parentDir, file);
-    const targetPath = path.join(currentDir, file);
+  // Create .env file with default values
+  const defaultEnvContent = `NEXT_PUBLIC_BASE_URL="http://localhost:3000"
+NEXT_PUBLIC_BASE_PATH=""
+NEXT_PUBLIC_API_SERVER_URL="http://localhost:8029"
+ROOT_API_BEARER_TOKEN="your-root-api-bearer-token"
+`;
 
-    fs.copyFileSync(sourcePath, targetPath);
-    console.log(`✅ Copied ${file}`);
-  });
-
-  console.log(`✨ Successfully synced ${envFiles.length} environment file(s)`);
+  fs.writeFileSync(envFilePath, defaultEnvContent, 'utf8');
+  console.log('✨ Created .env file with default values');
 } catch (error) {
-  console.error('❌ Error syncing environment files:', error.message);
+  console.error('❌ Error creating .env file:', error.message);
   process.exit(1);
 }
 

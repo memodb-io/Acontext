@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -43,6 +44,12 @@ type CreateArtifactReq struct {
 //	@Success		201	{object}	serializer.Response{data=model.Artifact}
 //	@Router			/disk/{disk_id}/artifact [post]
 func (h *ArtifactHandler) UpsertArtifact(c *gin.Context) {
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
 	req := CreateArtifactReq{}
 	if err := c.ShouldBind(&req); err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
@@ -91,7 +98,14 @@ func (h *ArtifactHandler) UpsertArtifact(c *gin.Context) {
 		}
 	}
 
-	artifactRecord, err := h.svc.Create(c.Request.Context(), diskID, filePath, actualFilename, file, userMeta)
+	artifactRecord, err := h.svc.Create(c.Request.Context(), service.CreateArtifactInput{
+		ProjectID:  project.ID,
+		DiskID:     diskID,
+		Path:       filePath,
+		Filename:   actualFilename,
+		FileHeader: file,
+		UserMeta:   userMeta,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
 		return
@@ -117,6 +131,12 @@ type DeleteArtifactReq struct {
 //	@Success		200	{object}	serializer.Response{}
 //	@Router			/disk/{disk_id}/artifact [delete]
 func (h *ArtifactHandler) DeleteArtifact(c *gin.Context) {
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
 	req := DeleteArtifactReq{}
 	if err := c.ShouldBind(&req); err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
@@ -138,7 +158,7 @@ func (h *ArtifactHandler) DeleteArtifact(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.DeleteByPath(c.Request.Context(), diskID, filePath, filename); err != nil {
+	if err := h.svc.DeleteByPath(c.Request.Context(), project.ID, diskID, filePath, filename); err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
 		return
 	}
@@ -333,6 +353,12 @@ func (h *ArtifactHandler) ListArtifacts(c *gin.Context) {
 	// Set default path to root directory if not provided
 	if pathQuery == "" {
 		pathQuery = "/"
+	} else {
+		// Validate that path does not contain filename
+		if path, _ := path.SplitFilePath(pathQuery); path != pathQuery {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("both ends of the path must be '/'", errors.New("both ends of the path must be '/'")))
+			return
+		}
 	}
 
 	// Validate the path parameter

@@ -37,11 +37,7 @@ uv run -m fastapi dev
 
 ```bash
 # current path: ./src/server/core
-uv run -m gunicorn api:app \
-    --workers 4 \
-    --worker-class uvicorn.workers.UvicornWorker \
-    --bind 0.0.0.0:8000 \
-    --timeout 120
+uv run -m uvicorn api:app --host 0.0.0.0 --port 8000
 ```
 
 - Service Healthcheck

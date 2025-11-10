@@ -6,11 +6,12 @@ from typing import Literal, Mapping, Optional, Any, Type
 
 class ProjectConfig(BaseModel):
     project_session_message_use_previous_messages_turns: int = 3
-    project_session_message_buffer_max_turns: int = 6
-    project_session_message_buffer_max_overflow: int = 12
-    project_session_message_buffer_ttl_seconds: int = 10
-    default_task_agent_max_iterations: int = 3
-    default_sop_agent_max_iterations: int = 3
+    project_session_message_buffer_max_turns: int = 32
+    project_session_message_buffer_max_overflow: int = 16
+    project_session_message_buffer_ttl_seconds: int = 60  # 1 minutes
+    default_task_agent_max_iterations: int = 4
+    default_sop_agent_max_iterations: int = 4
+    default_space_construct_agent_max_iterations: int = 16
 
 
 class CoreConfig(BaseModel):
@@ -24,10 +25,18 @@ class CoreConfig(BaseModel):
 
     llm_simple_model: str = "gpt-4.1"
 
+    block_embedding_provider: Literal["openai", "jina"] = "openai"
+    block_embedding_model: str = "text-embedding-3-small"
+    block_embedding_dim: int = 1536
+    block_embedding_api_key: Optional[str] = None
+    block_embedding_base_url: Optional[str] = None
+    block_embedding_search_cosine_distance_threshold: float = 0.8
+
     # Core Configuration
     logging_format: str = "text"
     session_message_session_lock_wait_seconds: int = 1
     session_message_processing_timeout_seconds: int = 60
+    space_task_sop_lock_wait_seconds: int = 1
 
     # MQ Configuration
     mq_url: str = "amqp://acontext:helloworld@127.0.0.1:15672/"
@@ -97,3 +106,8 @@ def filter_value_from_json(
             continue
         json_already_keys[key] = value
     return json_already_keys
+
+
+def post_validate_core_config_sanity(config: CoreConfig):
+    # TODO: add cross-params validation
+    pass

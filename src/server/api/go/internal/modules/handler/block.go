@@ -9,6 +9,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
+	"github.com/memodb-io/Acontext/internal/pkg/utils/path"
 	"gorm.io/datatypes"
 )
 
@@ -54,6 +55,11 @@ func (h *BlockHandler) CreateBlock(c *gin.Context) {
 
 	if !model.IsValidBlockType(req.Type) {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("type", errors.New("invalid block type")))
+		return
+	}
+
+	if _, filename := path.SplitFilePath(req.Title); filename != req.Title {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("title", errors.New("title cannot contain path")))
 		return
 	}
 
@@ -163,6 +169,11 @@ func (h *BlockHandler) UpdateBlockProperties(c *gin.Context) {
 	req := UpdateBlockPropertiesReq{}
 	if err := c.ShouldBind(&req); err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	if _, filename := path.SplitFilePath(req.Title); filename != req.Title {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("title", errors.New("title cannot contain path")))
 		return
 	}
 

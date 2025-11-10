@@ -224,6 +224,7 @@ async def append_progress_to_task(
     db_session: AsyncSession,
     task_id: asUUID,
     progress: str,
+    user_preference: str = None,
 ) -> Result[None]:
     # append the progress to the task
     # Use coalesce to handle NULL, then append to the array
@@ -241,6 +242,12 @@ async def append_progress_to_task(
     if "progresses" not in task.data:
         task.data["progresses"] = []
     task.data["progresses"].append(progress)
+
+    if user_preference is not None:
+        if "user_preferences" not in task.data:
+            task.data["user_preferences"] = []
+        task.data["user_preferences"].append(user_preference)
+
     flag_modified(task, "data")
 
     await db_session.flush()

@@ -1,0 +1,58 @@
+name: CLI Release
+
+on:
+  push:
+    tags:
+      - 'cli/v*.*.*'
+
+permissions:
+  contents: write 
+
+env:
+  GO_VERSION: '1.25.1'
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # TODO: add changelog generation
+      - name: Generate Changelog
+        run: echo "# Changelog" > ${{ github.workspace }}-CHANGELOG.txt
+
+      - name: Create Release with Notes
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: ${{ github.workspace }}-CHANGELOG.txt
+
+  upload-binaries:
+    name: Upload Binaries
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Go Release Binaries 
+        uses: wangyoucao577/go-release-action@v1
+        with:
+          goversion: ${{ env.GO_VERSION }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          goos: ${{ matrix.goos }}
+          goarch: ${{ matrix.goarch }}
+          release_tag: ${{ github.ref_name }}
+          overwrite: true
+          pre_command: export CGO_ENABLED=0
+          ldflags: -s -w -extldflags -static -X main.version=${{ github.ref_name }}
+          project_path: src/client/acontext-cli
+          binary_name: acontext-cli
+          asset_name: "${{ matrix.goos }}_${{ matrix.goarch }}"

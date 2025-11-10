@@ -25,7 +25,7 @@ class Asset(BaseModel):
 
 
 class ToolCallMeta(BaseModel):
-    tool_name: str
+    name: str
     arguments: dict
 
 
@@ -78,8 +78,8 @@ class Message(CommonMixin):
 
     role: str = field(metadata={"db": Column(String, nullable=False)})
 
-    # Store Asset data as JSONB (matches Go's PartsMeta field)
-    parts_meta: dict = field(metadata={"db": Column(JSONB, nullable=False)})
+    # Store Asset data as JSONB (matches Go's PartsAssetMeta field)
+    parts_asset_meta: dict = field(metadata={"db": Column(JSONB, nullable=False)})
 
     parts: Optional[List[Part]] = field(default=None)
 

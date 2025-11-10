@@ -9,6 +9,9 @@ from ...schema.result import ResultError
 from ...env import LOG, DEFAULT_CORE_CONFIG
 from ...schema.config import ProjectConfig
 from ...schema.session.task import TaskSchema
+from ...infra.async_mq import MQ_CLIENT
+from ...schema.mq.sop import SOPComplete
+from ...service.constants import EX, RK
 
 
 async def process_space_task(
@@ -33,19 +36,10 @@ async def process_space_task(
             MessageBlob(message_id=m.id, role=m.role, parts=m.parts, task_id=m.task_id)
             for m in messages
         ]
-
-        r = await TD.fetch_planning_task(db_session, session_id)
-        if not r.ok():
-            return
-        planning_message, _ = r.unpack()
-    # 2. call agent to digest raw messages to SOP
-    await TSOP.sop_agent_curd(
+    r = await TSOP.sop_agent_curd(
         project_id,
         space_id,
-        task.id,
+        task,
         messages_data,
         max_iterations=project_config.default_sop_agent_max_iterations,
     )
-
-    # 3. Create block and trigger space_agent to save it
-    ...

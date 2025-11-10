@@ -14,9 +14,8 @@ COPY ./uv.lock /app
 RUN uv sync --frozen --no-dev --no-cache-dir
 
 # Copy the application code
-COPY ./acontext_server /app/acontext_server
+COPY ./acontext_core /app/acontext_core
 COPY ./api.py /app
-
 
 
 # Expose port 8029 (FastAPI default)
@@ -26,4 +25,4 @@ EXPOSE 8000
 ENV PYTHONUNBUFFERED=1
 
 # Run the FastAPI server using uvicorn
-CMD ["/app/.venv/bin/uvicorn", "api:app", "--host", "0.0.0.0"]
+CMD ["/app/.venv/bin/uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]

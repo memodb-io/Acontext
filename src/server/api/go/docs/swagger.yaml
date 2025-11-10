@@ -400,6 +400,39 @@ definitions:
       next_cursor:
         type: string
     type: object
+  service.ListDisksOutput:
+    properties:
+      has_more:
+        type: boolean
+      items:
+        items:
+          $ref: '#/definitions/model.Disk'
+        type: array
+      next_cursor:
+        type: string
+    type: object
+  service.ListSessionsOutput:
+    properties:
+      has_more:
+        type: boolean
+      items:
+        items:
+          $ref: '#/definitions/model.Session'
+        type: array
+      next_cursor:
+        type: string
+    type: object
+  service.ListSpacesOutput:
+    properties:
+      has_more:
+        type: boolean
+      items:
+        items:
+          $ref: '#/definitions/model.Space'
+        type: array
+      next_cursor:
+        type: string
+    type: object
   service.PublicURL:
     properties:
       expire_at:
@@ -418,6 +451,22 @@ paths:
       consumes:
       - application/json
       description: List all disks under a project
+      parameters:
+      - description: Limit of disks to return, default 20. Max 200.
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor for pagination. Use the cursor from the previous response
+          to get the next page.
+        in: query
+        name: cursor
+        type: string
+      - description: Order by created_at descending if true, ascending if false (default
+          false)
+        example: false
+        in: query
+        name: time_desc
+        type: boolean
       produces:
       - application/json
       responses:
@@ -428,9 +477,7 @@ paths:
             - $ref: '#/definitions/serializer.Response'
             - properties:
                 data:
-                  items:
-                    $ref: '#/definitions/model.Disk'
-                  type: array
+                  $ref: '#/definitions/service.ListDisksOutput'
               type: object
       security:
       - BearerAuth: []
@@ -690,10 +737,24 @@ paths:
         in: query
         name: space_id
         type: string
-      - description: Filter sessions not connected to any space (true/false)
-        example: "true"
+      - description: Filter sessions not connected to any space (default false)
+        example: false
         in: query
         name: not_connected
+        type: boolean
+      - description: Limit of sessions to return, default 20. Max 200.
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor for pagination. Use the cursor from the previous response
+          to get the next page.
+        in: query
+        name: cursor
+        type: string
+      - description: Order by created_at descending if true, ascending if false (default
+          false)
+        in: query
+        name: time_desc
         type: string
       produces:
       - application/json
@@ -705,9 +766,7 @@ paths:
             - $ref: '#/definitions/serializer.Response'
             - properties:
                 data:
-                  items:
-                    $ref: '#/definitions/model.Session'
-                  type: array
+                  $ref: '#/definitions/service.ListSessionsOutput'
               type: object
       security:
       - BearerAuth: []
@@ -981,6 +1040,12 @@ paths:
         in: query
         name: cursor
         type: string
+      - description: Order by created_at descending if true, ascending if false (default
+          false)
+        example: false
+        in: query
+        name: time_desc
+        type: boolean
       produces:
       - application/json
       responses:
@@ -1003,6 +1068,21 @@ paths:
       consumes:
       - application/json
       description: Get all spaces under a project
+      parameters:
+      - description: Limit of spaces to return, default 20. Max 200.
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor for pagination. Use the cursor from the previous response
+          to get the next page.
+        in: query
+        name: cursor
+        type: string
+      - description: Order by created_at descending if true, ascending if false (default
+          false)
+        in: query
+        name: time_desc
+        type: string
       produces:
       - application/json
       responses:
@@ -1013,9 +1093,7 @@ paths:
             - $ref: '#/definitions/serializer.Response'
             - properties:
                 data:
-                  items:
-                    $ref: '#/definitions/model.Space'
-                  type: array
+                  $ref: '#/definitions/service.ListSpacesOutput'
               type: object
       security:
       - BearerAuth: []

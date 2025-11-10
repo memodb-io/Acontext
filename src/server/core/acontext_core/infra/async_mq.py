@@ -76,7 +76,7 @@ class ConnectionConfig:
 
     url: str
     connection_name: str = DEFAULT_CORE_CONFIG.mq_connection_name
-    heartbeat: int = 600
+    heartbeat: int = 32
     blocked_connection_timeout: int = 300
 
 
@@ -333,6 +333,8 @@ class AsyncSingleThreadMQConsumer:
         if self._publish_channle is None:
             raise RuntimeError("No active MQ Publish Channel")
 
+        if self._publish_channle.is_closed:
+            self._publish_channle = await self.connection.channel()
         # Create a channel for publishing
         # Create the message
         message = Message(

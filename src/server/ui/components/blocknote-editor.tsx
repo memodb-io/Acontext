@@ -133,8 +133,8 @@ export function BlockNoteEditor({
     try {
       // Update editor content when blocks change
       if (initialContent.length > 0) {
-        // @ts-expect-error - BlockNote type definitions are complex, our Block format needs type casting
-        editor.replaceBlocks(editor.document, initialContent);
+        // BlockNote type definitions are complex, our Block format needs type casting
+        editor.replaceBlocks(editor.document, initialContent as Parameters<typeof editor.replaceBlocks>[1]);
       } else if (blocks.length === 0) {
         // If blocks are empty, replace with an empty paragraph
         editor.replaceBlocks(editor.document, [{

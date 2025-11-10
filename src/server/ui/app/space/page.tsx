@@ -81,12 +81,22 @@ export default function SpacesPage() {
   const loadSpaces = async () => {
     try {
       setIsLoadingSpaces(true);
-      const res = await getSpaces();
-      if (res.code !== 0) {
-        console.error(res.message);
-        return;
+      const allSpcs: Space[] = [];
+      let cursor: string | undefined = undefined;
+      let hasMore = true;
+
+      while (hasMore) {
+        const res = await getSpaces(50, cursor, false);
+        if (res.code !== 0) {
+          console.error(res.message);
+          break;
+        }
+        allSpcs.push(...(res.data?.items || []));
+        cursor = res.data?.next_cursor;
+        hasMore = res.data?.has_more || false;
       }
-      setSpaces(res.data || []);
+
+      setSpaces(allSpcs);
     } catch (error) {
       console.error("Failed to load spaces:", error);
     } finally {
@@ -268,7 +278,7 @@ export default function SpacesPage() {
 
   const handleGoToPages = (spaceId: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    router.push(`/space/${spaceId}/pages`);
+    router.push(`/space/${spaceId}/skills`);
   };
 
   return (

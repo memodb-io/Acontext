@@ -2,11 +2,9 @@
 Support for constructing session messages.
 """
 
+from collections.abc import Mapping, MutableMapping, Sequence
 from dataclasses import dataclass
-from typing import Any, BinaryIO, Mapping, MutableMapping, Sequence, Tuple
-
-from .uploads import FileUpload, normalize_file_upload
-
+from typing import Any, Literal
 
 @dataclass(slots=True)
 class MessagePart:
@@ -18,7 +16,6 @@ class MessagePart:
             ``tool-result`` or ``data``.
         text: Optional textual payload for ``text`` parts.
         meta: Optional metadata dictionary accepted by the API.
-        file: Optional file attachment; required for binary part types.
         file_field: Optional field name to use in the multipart body. When omitted the
             client will auto-generate deterministic field names.
     """
@@ -26,22 +23,47 @@ class MessagePart:
     type: str
     text: str | None = None
     meta: Mapping[str, Any] | None = None
-    file: FileUpload | tuple[str, BinaryIO | bytes] | tuple[str, BinaryIO | bytes, str | None] | None = None
     file_field: str | None = None
 
     @classmethod
     def text_part(cls, text: str, *, meta: Mapping[str, Any] | None = None) -> "MessagePart":
         return cls(type="text", text=text, meta=meta)
-
+    
     @classmethod
-    def file_part(
-        cls,
-        upload: FileUpload | tuple[str, BinaryIO | bytes] | tuple[str, BinaryIO | bytes, str | None],
-        *,
-        meta: Mapping[str, Any] | None = None,
-        type: str = "file",
-    ) -> "MessagePart":
-        return cls(type=type, file=upload, meta=meta)
+    def file_field_part(cls, file_field: str, *, meta: Mapping[str, Any] | None = None) -> "MessagePart":
+        return cls(type="file", file_field=file_field, meta=meta)
+
+@dataclass(slots=True)
+class AcontextMessage:
+    """
+    Represents an Acontext-format message payload.
+    """
+
+    role: Literal["user", "assistant", "system"]
+    parts: list[MessagePart]
+    meta: MutableMapping[str, Any] | None = None
+
+
+def build_acontext_message(
+    *,
+    role: Literal["user", "assistant", "system"],
+    parts: Sequence[MessagePart | str | Mapping[str, Any]],
+    meta: Mapping[str, Any] | None = None,
+) -> AcontextMessage:
+    """
+    Construct an Acontext-format message blob and associated multipart files.
+    """
+    if role not in {"user", "assistant", "system"}:
+        raise ValueError("role must be one of {'user', 'assistant', 'system'}")
+
+    normalized_parts = [normalize_message_part(part) for part in parts]
+
+    message = AcontextMessage(
+        role=role,
+        parts=normalized_parts,
+        meta=dict(meta) if meta is not None else None,
+    )
+    return message
 
 
 def normalize_message_part(part: MessagePart | str | Mapping[str, Any]) -> MessagePart:
@@ -52,43 +74,10 @@ def normalize_message_part(part: MessagePart | str | Mapping[str, Any]) -> Messa
     if isinstance(part, Mapping):
         if "type" not in part:
             raise ValueError("mapping message parts must include a 'type'")
-        file = part.get("file")
-        normalized_file: FileUpload | tuple[str, BinaryIO | bytes] | tuple[str, BinaryIO | bytes, str | None] | None
-        if file is None:
-            normalized_file = None
-        else:
-            normalized_file = file  # type: ignore[assignment]
         return MessagePart(
             type=str(part["type"]),
             text=part.get("text"),
             meta=part.get("meta"),
-            file=normalized_file,
             file_field=part.get("file_field"),
         )
     raise TypeError("unsupported message part type")
-
-
-def build_message_payload(
-    parts: Sequence[MessagePart | str | Mapping[str, Any]],
-) -> tuple[list[MutableMapping[str, Any]], dict[str, Tuple[str, BinaryIO, str | None]]]:
-    payload_parts: list[MutableMapping[str, Any]] = []
-    files: dict[str, Tuple[str, BinaryIO, str | None]] = {}
-
-    for idx, raw_part in enumerate(parts):
-        part = normalize_message_part(raw_part)
-        payload: MutableMapping[str, Any] = {"type": part.type}
-
-        if part.meta is not None:
-            payload["meta"] = dict(part.meta)
-        if part.text is not None:
-            payload["text"] = part.text
-
-        if part.file is not None:
-            upload = normalize_file_upload(part.file)
-            field_name = part.file_field or f"file_{idx}"
-            payload["file_field"] = field_name
-            files[field_name] = upload.as_httpx()
-
-        payload_parts.append(payload)
-
-    return payload_parts, files

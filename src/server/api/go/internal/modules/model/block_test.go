@@ -87,7 +87,7 @@ func TestGetBlockTypeConfig(t *testing.T) {
 			wantErr:   false,
 			expected: BlockTypeConfig{
 				Name:          BlockTypeText,
-				AllowChildren: true,
+				AllowChildren: false,
 				RequireParent: true,
 			},
 		},
@@ -97,7 +97,7 @@ func TestGetBlockTypeConfig(t *testing.T) {
 			wantErr:   false,
 			expected: BlockTypeConfig{
 				Name:          BlockTypeSOP,
-				AllowChildren: true,
+				AllowChildren: false,
 				RequireParent: true,
 			},
 		},
@@ -147,7 +147,7 @@ func TestGetAllBlockTypes(t *testing.T) {
 
 		textConfig := allTypes[BlockTypeText]
 		assert.Equal(t, BlockTypeText, textConfig.Name)
-		assert.True(t, textConfig.AllowChildren)
+		assert.False(t, textConfig.AllowChildren)
 		assert.True(t, textConfig.RequireParent)
 	})
 }
@@ -323,7 +323,7 @@ func TestBlock_ValidateForCreation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.block.ValidateForCreation()
+			err := tt.block.Validate()
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -358,18 +358,18 @@ func TestBlock_CanHaveChildren(t *testing.T) {
 			expected: true,
 		},
 		{
-			name: "text block can have children",
+			name: "text block cannot have children",
 			block: Block{
 				Type: BlockTypeText,
 			},
-			expected: true,
+			expected: false,
 		},
 		{
-			name: "code sop block can have children",
+			name: "code sop block cannot have children",
 			block: Block{
 				Type: BlockTypeSOP,
 			},
-			expected: true,
+			expected: false,
 		},
 		{
 			name: "invalid type block cannot have children",
@@ -432,105 +432,16 @@ func TestBlockTypes_Configuration(t *testing.T) {
 		textConfig, exists := BlockTypes[BlockTypeText]
 		assert.True(t, exists)
 		assert.Equal(t, BlockTypeText, textConfig.Name)
-		assert.True(t, textConfig.AllowChildren)
+		assert.False(t, textConfig.AllowChildren)
 		assert.True(t, textConfig.RequireParent)
 
 		// Verify code sop type configuration
 		sopConfig, exists := BlockTypes[BlockTypeSOP]
 		assert.True(t, exists)
 		assert.Equal(t, BlockTypeSOP, sopConfig.Name)
-		assert.True(t, sopConfig.AllowChildren)
+		assert.False(t, sopConfig.AllowChildren)
 		assert.True(t, sopConfig.RequireParent)
 	})
-}
-
-func TestBlock_CanBeChildOf(t *testing.T) {
-	tests := []struct {
-		name     string
-		child    Block
-		parent   *Block
-		expected bool
-	}{
-		{
-			name:     "folder at root level - valid",
-			child:    Block{Type: BlockTypeFolder},
-			parent:   nil,
-			expected: true,
-		},
-		{
-			name:     "page at root level - valid",
-			child:    Block{Type: BlockTypePage},
-			parent:   nil,
-			expected: true,
-		},
-		{
-			name:     "text at root level - invalid",
-			child:    Block{Type: BlockTypeText},
-			parent:   nil,
-			expected: false,
-		},
-		{
-			name:     "folder under folder - valid",
-			child:    Block{Type: BlockTypeFolder},
-			parent:   &Block{Type: BlockTypeFolder},
-			expected: true,
-		},
-		{
-			name:     "page under folder - valid",
-			child:    Block{Type: BlockTypePage},
-			parent:   &Block{Type: BlockTypeFolder},
-			expected: true,
-		},
-		{
-			name:     "text under folder - invalid",
-			child:    Block{Type: BlockTypeText},
-			parent:   &Block{Type: BlockTypeFolder},
-			expected: false,
-		},
-		{
-			name:     "folder under page - invalid",
-			child:    Block{Type: BlockTypeFolder},
-			parent:   &Block{Type: BlockTypePage},
-			expected: false,
-		},
-		{
-			name:     "page under page - invalid",
-			child:    Block{Type: BlockTypePage},
-			parent:   &Block{Type: BlockTypePage},
-			expected: false,
-		},
-		{
-			name:     "text under page - valid",
-			child:    Block{Type: BlockTypeText},
-			parent:   &Block{Type: BlockTypePage},
-			expected: true,
-		},
-		{
-			name:     "sop under page - valid",
-			child:    Block{Type: BlockTypeSOP},
-			parent:   &Block{Type: BlockTypePage},
-			expected: true,
-		},
-		{
-			name:     "sop under text - valid",
-			child:    Block{Type: BlockTypeSOP},
-			parent:   &Block{Type: BlockTypeText},
-			expected: true,
-		},
-		{
-			name:     "folder under text - invalid",
-			child:    Block{Type: BlockTypeFolder},
-			parent:   &Block{Type: BlockTypeText},
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := tt.child.CanBeChildOf(tt.parent)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
 }
 
 func TestBlock_ValidateParentType(t *testing.T) {
@@ -640,14 +551,15 @@ func TestBlock_ValidateParentType(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "sop with text parent - valid",
+			name: "sop with text parent - invalid (text cannot have children)",
 			block: Block{
 				Type: BlockTypeSOP,
 			},
 			parent: &Block{
 				Type: BlockTypeText,
 			},
-			wantErr: false,
+			wantErr: true,
+			errMsg:  "cannot be a child of",
 		},
 		{
 			name: "sop with folder parent - invalid",

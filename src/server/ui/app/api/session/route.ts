@@ -1,20 +1,29 @@
 import { createApiResponse, createApiError } from "@/lib/api-response";
-import { Session } from "@/types";
+import { Session, GetSessionsResp } from "@/types";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const spaceId = searchParams.get("space_id");
   const notConnected = searchParams.get("not_connected");
+  const limit = parseInt(searchParams.get("limit") || "20");
+  const cursor = searchParams.get("cursor") || undefined;
+  const time_desc = searchParams.get("time_desc") === "true";
 
-  const getSessions = new Promise<Session[]>(async (resolve, reject) => {
+  const getSessions = new Promise<GetSessionsResp>(async (resolve, reject) => {
     try {
       // Build query parameters
-      const params = new URLSearchParams();
+      const params = new URLSearchParams({
+        limit: limit.toString(),
+        time_desc: time_desc.toString(),
+      });
       if (spaceId) {
         params.append("space_id", spaceId);
       }
       if (notConnected) {
         params.append("not_connected", notConnected);
+      }
+      if (cursor) {
+        params.append("cursor", cursor);
       }
 
       const queryString = params.toString();
@@ -45,7 +54,7 @@ export async function GET(request: Request) {
 
   try {
     const res = await getSessions;
-    return createApiResponse(res || []);
+    return createApiResponse(res);
   } catch (error) {
     console.error(error);
     return createApiError("Internal Server Error");

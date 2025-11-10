@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -23,8 +24,8 @@ func (m *MockSessionRepo) Create(ctx context.Context, s *model.Session) error {
 	return args.Error(0)
 }
 
-func (m *MockSessionRepo) Delete(ctx context.Context, s *model.Session) error {
-	args := m.Called(ctx, s)
+func (m *MockSessionRepo) Delete(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID) error {
+	args := m.Called(ctx, projectID, sessionID)
 	return args.Error(0)
 }
 
@@ -54,12 +55,45 @@ func (m *MockSessionRepo) ListBySessionWithCursor(ctx context.Context, sessionID
 	return args.Get(0).([]model.Message), args.Error(1)
 }
 
-func (m *MockSessionRepo) List(ctx context.Context, projectID uuid.UUID, spaceID *uuid.UUID, notConnected bool) ([]model.Session, error) {
-	args := m.Called(ctx, projectID, spaceID, notConnected)
+func (m *MockSessionRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, spaceID *uuid.UUID, notConnected bool, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Session, error) {
+	args := m.Called(ctx, projectID, spaceID, notConnected, afterCreatedAt, afterID, limit, timeDesc)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]model.Session), args.Error(1)
+}
+
+func (m *MockSessionRepo) ListAllMessagesBySession(ctx context.Context, sessionID uuid.UUID) ([]model.Message, error) {
+	args := m.Called(ctx, sessionID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.Message), args.Error(1)
+}
+
+// MockAssetReferenceRepo is a mock implementation of AssetReferenceRepo
+type MockAssetReferenceRepo struct {
+	mock.Mock
+}
+
+func (m *MockAssetReferenceRepo) IncrementAssetRef(ctx context.Context, projectID uuid.UUID, asset model.Asset) error {
+	args := m.Called(ctx, projectID, asset)
+	return args.Error(0)
+}
+
+func (m *MockAssetReferenceRepo) DecrementAssetRef(ctx context.Context, projectID uuid.UUID, asset model.Asset) error {
+	args := m.Called(ctx, projectID, asset)
+	return args.Error(0)
+}
+
+func (m *MockAssetReferenceRepo) BatchIncrementAssetRefs(ctx context.Context, projectID uuid.UUID, assets []model.Asset) error {
+	args := m.Called(ctx, projectID, assets)
+	return args.Error(0)
+}
+
+func (m *MockAssetReferenceRepo) BatchDecrementAssetRefs(ctx context.Context, projectID uuid.UUID, assets []model.Asset) error {
+	args := m.Called(ctx, projectID, assets)
+	return args.Error(0)
 }
 
 // MockBlobService is a mock implementation of blob service
@@ -135,7 +169,18 @@ func TestSessionService_Create(t *testing.T) {
 			tt.setup(repo)
 
 			logger := zap.NewNop()
-			service := NewSessionService(repo, logger, nil, nil, nil)
+			mockAssetRefRepo := &MockAssetReferenceRepo{}
+			cfg := &config.Config{
+				RabbitMQ: config.MQCfg{
+					ExchangeName: config.MQExchangeName{
+						SessionMessage: "session.message",
+					},
+					RoutingKey: config.MQRoutingKey{
+						SessionMessageInsert: "session.message.insert",
+					},
+				},
+			}
+			service := NewSessionService(repo, mockAssetRefRepo, logger, nil, nil, cfg)
 
 			err := service.Create(ctx, tt.session)
 
@@ -171,9 +216,7 @@ func TestSessionService_Delete(t *testing.T) {
 			projectID: projectID,
 			sessionID: sessionID,
 			setup: func(repo *MockSessionRepo) {
-				repo.On("Delete", ctx, mock.MatchedBy(func(s *model.Session) bool {
-					return s.ID == sessionID && s.ProjectID == projectID
-				})).Return(nil)
+				repo.On("Delete", ctx, projectID, sessionID).Return(nil)
 			},
 			wantErr: false,
 		},
@@ -183,7 +226,7 @@ func TestSessionService_Delete(t *testing.T) {
 			sessionID: uuid.UUID{},
 			setup: func(repo *MockSessionRepo) {
 				// Empty UUID will call Delete, because len(uuid.UUID{}) != 0
-				repo.On("Delete", ctx, mock.AnythingOfType("*model.Session")).Return(nil)
+				repo.On("Delete", ctx, projectID, mock.AnythingOfType("uuid.UUID")).Return(nil)
 			},
 			wantErr: false, // Actually won't error
 		},
@@ -192,7 +235,7 @@ func TestSessionService_Delete(t *testing.T) {
 			projectID: projectID,
 			sessionID: sessionID,
 			setup: func(repo *MockSessionRepo) {
-				repo.On("Delete", ctx, mock.AnythingOfType("*model.Session")).Return(errors.New("deletion failed"))
+				repo.On("Delete", ctx, projectID, sessionID).Return(errors.New("deletion failed"))
 			},
 			wantErr: true,
 		},
@@ -204,7 +247,18 @@ func TestSessionService_Delete(t *testing.T) {
 			tt.setup(repo)
 
 			logger := zap.NewNop()
-			service := NewSessionService(repo, logger, nil, nil, nil)
+			mockAssetRefRepo := &MockAssetReferenceRepo{}
+			cfg := &config.Config{
+				RabbitMQ: config.MQCfg{
+					ExchangeName: config.MQExchangeName{
+						SessionMessage: "session.message",
+					},
+					RoutingKey: config.MQRoutingKey{
+						SessionMessageInsert: "session.message.insert",
+					},
+				},
+			}
+			service := NewSessionService(repo, mockAssetRefRepo, logger, nil, nil, cfg)
 
 			err := service.Delete(ctx, tt.projectID, tt.sessionID)
 
@@ -278,7 +332,18 @@ func TestSessionService_GetByID(t *testing.T) {
 			tt.setup(repo)
 
 			logger := zap.NewNop()
-			service := NewSessionService(repo, logger, nil, nil, nil)
+			mockAssetRefRepo := &MockAssetReferenceRepo{}
+			cfg := &config.Config{
+				RabbitMQ: config.MQCfg{
+					ExchangeName: config.MQExchangeName{
+						SessionMessage: "session.message",
+					},
+					RoutingKey: config.MQRoutingKey{
+						SessionMessageInsert: "session.message.insert",
+					},
+				},
+			}
+			service := NewSessionService(repo, mockAssetRefRepo, logger, nil, nil, cfg)
 
 			result, err := service.GetByID(ctx, tt.session)
 
@@ -339,7 +404,18 @@ func TestSessionService_UpdateByID(t *testing.T) {
 			tt.setup(repo)
 
 			logger := zap.NewNop()
-			service := NewSessionService(repo, logger, nil, nil, nil)
+			mockAssetRefRepo := &MockAssetReferenceRepo{}
+			cfg := &config.Config{
+				RabbitMQ: config.MQCfg{
+					ExchangeName: config.MQExchangeName{
+						SessionMessage: "session.message",
+					},
+					RoutingKey: config.MQRoutingKey{
+						SessionMessageInsert: "session.message.insert",
+					},
+				},
+			}
+			service := NewSessionService(repo, mockAssetRefRepo, logger, nil, nil, cfg)
 
 			err := service.UpdateByID(ctx, tt.session)
 
@@ -364,16 +440,19 @@ func TestSessionService_List(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		spaceID      *uuid.UUID
-		notConnected bool
+		input        ListSessionsInput
 		setup        func(*MockSessionRepo)
 		wantErr      bool
 		errMsg       string
 	}{
 		{
-			name:         "successful sessions retrieval - all sessions",
-			spaceID:      nil,
-			notConnected: false,
+			name: "successful sessions retrieval - all sessions",
+			input: ListSessionsInput{
+				ProjectID:    projectID,
+				SpaceID:      nil,
+				NotConnected: false,
+				Limit:        10,
+			},
 			setup: func(repo *MockSessionRepo) {
 				expectedSessions := []model.Session{
 					{
@@ -385,14 +464,18 @@ func TestSessionService_List(t *testing.T) {
 						ProjectID: projectID,
 					},
 				}
-				repo.On("List", ctx, projectID, (*uuid.UUID)(nil), false).Return(expectedSessions, nil)
+				repo.On("ListWithCursor", ctx, projectID, (*uuid.UUID)(nil), false, time.Time{}, uuid.UUID{}, 11, false).Return(expectedSessions, nil)
 			},
 			wantErr: false,
 		},
 		{
-			name:         "successful sessions retrieval - filter by space_id",
-			spaceID:      &spaceID,
-			notConnected: false,
+			name: "successful sessions retrieval - filter by space_id",
+			input: ListSessionsInput{
+				ProjectID:    projectID,
+				SpaceID:      &spaceID,
+				NotConnected: false,
+				Limit:        10,
+			},
 			setup: func(repo *MockSessionRepo) {
 				expectedSessions := []model.Session{
 					{
@@ -401,14 +484,18 @@ func TestSessionService_List(t *testing.T) {
 						SpaceID:   &spaceID,
 					},
 				}
-				repo.On("List", ctx, projectID, &spaceID, false).Return(expectedSessions, nil)
+				repo.On("ListWithCursor", ctx, projectID, &spaceID, false, time.Time{}, uuid.UUID{}, 11, false).Return(expectedSessions, nil)
 			},
 			wantErr: false,
 		},
 		{
-			name:         "successful sessions retrieval - not connected",
-			spaceID:      nil,
-			notConnected: true,
+			name: "successful sessions retrieval - not connected",
+			input: ListSessionsInput{
+				ProjectID:    projectID,
+				SpaceID:      nil,
+				NotConnected: true,
+				Limit:        10,
+			},
 			setup: func(repo *MockSessionRepo) {
 				expectedSessions := []model.Session{
 					{
@@ -417,25 +504,33 @@ func TestSessionService_List(t *testing.T) {
 						SpaceID:   nil,
 					},
 				}
-				repo.On("List", ctx, projectID, (*uuid.UUID)(nil), true).Return(expectedSessions, nil)
+				repo.On("ListWithCursor", ctx, projectID, (*uuid.UUID)(nil), true, time.Time{}, uuid.UUID{}, 11, false).Return(expectedSessions, nil)
 			},
 			wantErr: false,
 		},
 		{
-			name:         "empty sessions list",
-			spaceID:      nil,
-			notConnected: false,
+			name: "empty sessions list",
+			input: ListSessionsInput{
+				ProjectID:    projectID,
+				SpaceID:      nil,
+				NotConnected: false,
+				Limit:        10,
+			},
 			setup: func(repo *MockSessionRepo) {
-				repo.On("List", ctx, projectID, (*uuid.UUID)(nil), false).Return([]model.Session{}, nil)
+				repo.On("ListWithCursor", ctx, projectID, (*uuid.UUID)(nil), false, time.Time{}, uuid.UUID{}, 11, false).Return([]model.Session{}, nil)
 			},
 			wantErr: false,
 		},
 		{
-			name:         "list failure",
-			spaceID:      nil,
-			notConnected: false,
+			name: "list failure",
+			input: ListSessionsInput{
+				ProjectID:    projectID,
+				SpaceID:      nil,
+				NotConnected: false,
+				Limit:        10,
+			},
 			setup: func(repo *MockSessionRepo) {
-				repo.On("List", ctx, projectID, (*uuid.UUID)(nil), false).Return(nil, errors.New("database error"))
+				repo.On("ListWithCursor", ctx, projectID, (*uuid.UUID)(nil), false, time.Time{}, uuid.UUID{}, 11, false).Return(nil, errors.New("database error"))
 			},
 			wantErr: true,
 		},
@@ -447,9 +542,20 @@ func TestSessionService_List(t *testing.T) {
 			tt.setup(repo)
 
 			logger := zap.NewNop()
-			service := NewSessionService(repo, logger, nil, nil, nil)
+			mockAssetRefRepo := &MockAssetReferenceRepo{}
+			cfg := &config.Config{
+				RabbitMQ: config.MQCfg{
+					ExchangeName: config.MQExchangeName{
+						SessionMessage: "session.message",
+					},
+					RoutingKey: config.MQRoutingKey{
+						SessionMessageInsert: "session.message.insert",
+					},
+				},
+			}
+			service := NewSessionService(repo, mockAssetRefRepo, logger, nil, nil, cfg)
 
-			result, err := service.List(ctx, projectID, tt.spaceID, tt.notConnected)
+			result, err := service.List(ctx, tt.input)
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -672,8 +778,19 @@ func TestSessionService_GetMessages(t *testing.T) {
 			tt.setup(repo)
 
 			logger := zap.NewNop()
+			mockAssetRefRepo := &MockAssetReferenceRepo{}
+			cfg := &config.Config{
+				RabbitMQ: config.MQCfg{
+					ExchangeName: config.MQExchangeName{
+						SessionMessage: "session.message",
+					},
+					RoutingKey: config.MQRoutingKey{
+						SessionMessageInsert: "session.message.insert",
+					},
+				},
+			}
 			// Note: blob is nil in test, so GetMessages will skip DownloadJSON and PresignGet
-			service := NewSessionService(repo, logger, nil, nil, nil)
+			service := NewSessionService(repo, mockAssetRefRepo, logger, nil, nil, cfg)
 
 			result, err := service.GetMessages(ctx, tt.input)
 

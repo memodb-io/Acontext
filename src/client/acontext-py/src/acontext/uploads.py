@@ -4,7 +4,7 @@ Utilities for working with file uploads.
 
 import io
 from dataclasses import dataclass
-from typing import BinaryIO, Tuple
+from typing import BinaryIO
 
 
 @dataclass(slots=True)
@@ -19,7 +19,7 @@ class FileUpload:
     content: BinaryIO | bytes
     content_type: str | None = None
 
-    def as_httpx(self) -> Tuple[str, BinaryIO, str | None]:
+    def as_httpx(self) -> tuple[str, BinaryIO, str | None]:
         """
         Convert to the tuple format expected by ``httpx``.
         """

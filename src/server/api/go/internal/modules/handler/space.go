@@ -24,6 +24,12 @@ type CreateSpaceReq struct {
 	Configs map[string]interface{} `form:"configs" json:"configs"`
 }
 
+type GetSpacesReq struct {
+	Limit    int    `form:"limit,default=20" json:"limit" binding:"required,min=1,max=200" example:"20"`
+	Cursor   string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
+	TimeDesc bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
+}
+
 // GetSpaces godoc
 //
 //	@Summary		Get spaces
@@ -31,23 +37,37 @@ type CreateSpaceReq struct {
 //	@Tags			space
 //	@Accept			json
 //	@Produce		json
+//	@Param			limit		query	integer	false	"Limit of spaces to return, default 20. Max 200."
+//	@Param			cursor		query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
+//	@Param			time_desc	query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example:"false"
 //	@Security		BearerAuth
-//	@Success		200	{object}	serializer.Response{data=[]model.Space}
+//	@Success		200	{object}	serializer.Response{data=service.ListSpacesOutput}
 //	@Router			/space [get]
 func (h *SpaceHandler) GetSpaces(c *gin.Context) {
+	req := GetSpacesReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
 	project, ok := c.MustGet("project").(*model.Project)
 	if !ok {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
 		return
 	}
 
-	spaces, err := h.svc.List(c.Request.Context(), project.ID)
+	out, err := h.svc.List(c.Request.Context(), service.ListSpacesInput{
+		ProjectID: project.ID,
+		Limit:     req.Limit,
+		Cursor:    req.Cursor,
+		TimeDesc:  req.TimeDesc,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
 		return
 	}
 
-	c.JSON(http.StatusOK, serializer.Response{Data: spaces})
+	c.JSON(http.StatusOK, serializer.Response{Data: out})
 }
 
 // CreateSpace godoc

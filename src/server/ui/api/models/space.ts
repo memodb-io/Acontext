@@ -1,9 +1,22 @@
 import service, { Res } from "../http";
-import { Space, Session, GetMessagesResp, GetTasksResp, Block, MessageRole, PartType } from "@/types";
+import { Space, Session, GetMessagesResp, GetTasksResp, GetSpacesResp, GetSessionsResp, Block, MessageRole, PartType } from "@/types";
 
 // Space APIs
-export const getSpaces = async (): Promise<Res<Space[]>> => {
-  return await service.get("/api/space");
+export const getSpaces = async (
+  limit: number = 20,
+  cursor?: string,
+  time_desc: boolean = false
+): Promise<Res<GetSpacesResp>> => {
+  const params = new URLSearchParams({
+    limit: limit.toString(),
+    time_desc: time_desc.toString(),
+  });
+  if (cursor) {
+    params.append("cursor", cursor);
+  }
+  return await service.get(
+    `/api/space?${params.toString()}`
+  );
 };
 
 export const createSpace = async (
@@ -30,14 +43,23 @@ export const updateSpaceConfigs = async (
 // Session APIs
 export const getSessions = async (
   spaceId?: string,
-  notConnected?: boolean
-): Promise<Res<Session[]>> => {
-  const params = new URLSearchParams();
+  notConnected?: boolean,
+  limit: number = 20,
+  cursor?: string,
+  time_desc: boolean = false
+): Promise<Res<GetSessionsResp>> => {
+  const params = new URLSearchParams({
+    limit: limit.toString(),
+    time_desc: time_desc.toString(),
+  });
   if (spaceId) {
     params.append("space_id", spaceId);
   }
   if (notConnected !== undefined) {
     params.append("not_connected", notConnected.toString());
+  }
+  if (cursor) {
+    params.append("cursor", cursor);
   }
   const queryString = params.toString();
   return await service.get(

@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
+	"github.com/memodb-io/Acontext/internal/modules/service"
 	"github.com/memodb-io/Acontext/internal/pkg/utils/fileparser"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -26,8 +27,8 @@ type MockArtifactService struct {
 	mock.Mock
 }
 
-func (m *MockArtifactService) Create(ctx context.Context, diskID uuid.UUID, path string, filename string, fileHeader *multipart.FileHeader, userMeta map[string]interface{}) (*model.Artifact, error) {
-	args := m.Called(ctx, diskID, path, filename, fileHeader, userMeta)
+func (m *MockArtifactService) Create(ctx context.Context, in service.CreateArtifactInput) (*model.Artifact, error) {
+	args := m.Called(ctx, in)
 	return args.Get(0).(*model.Artifact), args.Error(1)
 }
 
@@ -66,8 +67,8 @@ func (m *MockArtifactService) GetByDiskID(ctx context.Context, diskID uuid.UUID)
 	return args.Get(0).([]*model.Artifact), args.Error(1)
 }
 
-func (m *MockArtifactService) DeleteByPath(ctx context.Context, diskID uuid.UUID, path string, filename string) error {
-	args := m.Called(ctx, diskID, path, filename)
+func (m *MockArtifactService) DeleteByPath(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, path string, filename string) error {
+	args := m.Called(ctx, projectID, diskID, path, filename)
 	return args.Error(0)
 }
 
@@ -104,7 +105,7 @@ func TestArtifactHandler_UpsertArtifact(t *testing.T) {
 		meta           string
 		fileContent    string
 		fileName       string
-		mockSetup      func(*MockArtifactService, string)
+		mockSetup      func(*MockArtifactService, string, uuid.UUID)
 		expectedStatus int
 	}{
 		{
@@ -114,7 +115,7 @@ func TestArtifactHandler_UpsertArtifact(t *testing.T) {
 			meta:        `{"description": "test file"}`,
 			fileContent: "test content",
 			fileName:    "test.txt",
-			mockSetup: func(m *MockArtifactService, diskIDStr string) {
+			mockSetup: func(m *MockArtifactService, diskIDStr string, projectID uuid.UUID) {
 				diskID := uuid.MustParse(diskIDStr)
 				expectedFile := &model.Artifact{
 					ID:       uuid.New(),
@@ -139,7 +140,9 @@ func TestArtifactHandler_UpsertArtifact(t *testing.T) {
 						SizeB:  12,
 					}),
 				}
-				m.On("Create", mock.Anything, diskID, "/test/", "test.txt", mock.Anything, mock.Anything).Return(expectedFile, nil)
+				m.On("Create", mock.Anything, mock.MatchedBy(func(in service.CreateArtifactInput) bool {
+					return in.ProjectID == projectID && in.DiskID == diskID && in.Path == "/test/" && in.Filename == "test.txt" && in.FileHeader != nil
+				})).Return(expectedFile, nil)
 			},
 			expectedStatus: http.StatusCreated,
 		},
@@ -148,7 +151,8 @@ func TestArtifactHandler_UpsertArtifact(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := new(MockArtifactService)
-			tt.mockSetup(mockService, tt.diskID)
+			projectID := uuid.New()
+			tt.mockSetup(mockService, tt.diskID, projectID)
 
 			handler := NewArtifactHandler(mockService)
 
@@ -185,6 +189,8 @@ func TestArtifactHandler_UpsertArtifact(t *testing.T) {
 			c.Params = []gin.Param{
 				{Key: "disk_id", Value: tt.diskID},
 			}
+			// Inject project into context
+			c.Set("project", &model.Project{ID: projectID})
 
 			// Call handler
 			handler.UpsertArtifact(c)
@@ -211,16 +217,16 @@ func TestArtifactHandler_DeleteArtifact(t *testing.T) {
 		name           string
 		diskID         string
 		filePath       string
-		mockSetup      func(*MockArtifactService, string, string)
+		mockSetup      func(*MockArtifactService, string, string, uuid.UUID)
 		expectedStatus int
 	}{
 		{
 			name:     "successful file deletion",
 			diskID:   uuid.New().String(),
 			filePath: "/test/test.txt",
-			mockSetup: func(m *MockArtifactService, diskIDStr string, filePath string) {
+			mockSetup: func(m *MockArtifactService, diskIDStr string, filePath string, projectID uuid.UUID) {
 				diskID := uuid.MustParse(diskIDStr)
-				m.On("DeleteByPath", mock.Anything, diskID, "/test/", "test.txt").Return(nil)
+				m.On("DeleteByPath", mock.Anything, projectID, diskID, "/test/", "test.txt").Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -229,7 +235,8 @@ func TestArtifactHandler_DeleteArtifact(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := new(MockArtifactService)
-			tt.mockSetup(mockService, tt.diskID, tt.filePath)
+			projectID := uuid.New()
+			tt.mockSetup(mockService, tt.diskID, tt.filePath, projectID)
 
 			handler := NewArtifactHandler(mockService)
 
@@ -245,6 +252,8 @@ func TestArtifactHandler_DeleteArtifact(t *testing.T) {
 			c.Params = []gin.Param{
 				{Key: "disk_id", Value: tt.diskID},
 			}
+			// Inject project into context
+			c.Set("project", &model.Project{ID: projectID})
 
 			// Call handler
 			handler.DeleteArtifact(c)

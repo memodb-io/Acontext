@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/modules/model"
@@ -39,8 +40,8 @@ func (m *MockSpaceRepo) Get(ctx context.Context, s *model.Space) (*model.Space, 
 	return args.Get(0).(*model.Space), args.Error(1)
 }
 
-func (m *MockSpaceRepo) List(ctx context.Context, projectID uuid.UUID) ([]model.Space, error) {
-	args := m.Called(ctx, projectID)
+func (m *MockSpaceRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Space, error) {
+	args := m.Called(ctx, projectID, afterCreatedAt, afterID, limit, timeDesc)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -319,12 +320,17 @@ func TestSpaceService_List(t *testing.T) {
 
 	tests := []struct {
 		name    string
+		input   ListSpacesInput
 		setup   func(*MockSpaceRepo)
 		wantErr bool
 		errMsg  string
 	}{
 		{
 			name: "successful spaces retrieval",
+			input: ListSpacesInput{
+				ProjectID: projectID,
+				Limit:     10,
+			},
 			setup: func(repo *MockSpaceRepo) {
 				expectedSpaces := []model.Space{
 					{
@@ -336,21 +342,29 @@ func TestSpaceService_List(t *testing.T) {
 						ProjectID: projectID,
 					},
 				}
-				repo.On("List", ctx, projectID).Return(expectedSpaces, nil)
+				repo.On("ListWithCursor", ctx, projectID, time.Time{}, uuid.UUID{}, 11, false).Return(expectedSpaces, nil)
 			},
 			wantErr: false,
 		},
 		{
 			name: "empty spaces list",
+			input: ListSpacesInput{
+				ProjectID: projectID,
+				Limit:     10,
+			},
 			setup: func(repo *MockSpaceRepo) {
-				repo.On("List", ctx, projectID).Return([]model.Space{}, nil)
+				repo.On("ListWithCursor", ctx, projectID, time.Time{}, uuid.UUID{}, 11, false).Return([]model.Space{}, nil)
 			},
 			wantErr: false,
 		},
 		{
 			name: "list failure",
+			input: ListSpacesInput{
+				ProjectID: projectID,
+				Limit:     10,
+			},
 			setup: func(repo *MockSpaceRepo) {
-				repo.On("List", ctx, projectID).Return(nil, errors.New("database error"))
+				repo.On("ListWithCursor", ctx, projectID, time.Time{}, uuid.UUID{}, 11, false).Return(nil, errors.New("database error"))
 			},
 			wantErr: true,
 		},
@@ -362,7 +376,7 @@ func TestSpaceService_List(t *testing.T) {
 			tt.setup(repo)
 
 			service := NewSpaceService(repo)
-			result, err := service.List(ctx, projectID)
+			result, err := service.List(ctx, tt.input)
 
 			if tt.wantErr {
 				assert.Error(t, err)

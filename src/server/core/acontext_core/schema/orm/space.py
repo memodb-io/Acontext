@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from .project import Project
     from .session import Session
     from .block import Block
+    from .block_embedding import BlockEmbedding
 
 
 @ORM_BASE.mapped
@@ -48,7 +49,19 @@ class Space(CommonMixin):
         default_factory=list,
         metadata={
             "db": relationship(
-                "Block", 
+                "Block",
+                back_populates="space",
+                cascade="all, delete-orphan",
+            )
+        },
+    )
+
+    block_embeddings: List["BlockEmbedding"] = field(
+        default_factory=list,
+        init=False,
+        metadata={
+            "db": relationship(
+                "BlockEmbedding",
                 back_populates="space",
                 cascade="all, delete-orphan",
             )

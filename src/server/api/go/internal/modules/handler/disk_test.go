@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/modules/model"
+	"github.com/memodb-io/Acontext/internal/modules/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -34,12 +35,12 @@ func (m *MockDiskService) Delete(ctx context.Context, projectID uuid.UUID, diskI
 	return args.Error(0)
 }
 
-func (m *MockDiskService) List(ctx context.Context, projectID uuid.UUID) ([]*model.Disk, error) {
-	args := m.Called(ctx, projectID)
+func (m *MockDiskService) List(ctx context.Context, in service.ListDisksInput) (*service.ListDisksOutput, error) {
+	args := m.Called(ctx, in)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*model.Disk), args.Error(1)
+	return args.Get(0).(*service.ListDisksOutput), args.Error(1)
 }
 
 func setupDiskRouter() *gin.Engine {
@@ -140,21 +141,27 @@ func TestDiskHandler_ListDisks(t *testing.T) {
 		{
 			name: "successful list with disks",
 			setup: func(svc *MockDiskService) {
-				svc.On("List", mock.Anything, projectID).Return([]*model.Disk{disk1, disk2}, nil)
+				svc.On("List", mock.Anything, mock.Anything).Return(&service.ListDisksOutput{
+					Items:   []*model.Disk{disk1, disk2},
+					HasMore: false,
+				}, nil)
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "successful list with empty result",
 			setup: func(svc *MockDiskService) {
-				svc.On("List", mock.Anything, projectID).Return([]*model.Disk{}, nil)
+				svc.On("List", mock.Anything, mock.Anything).Return(&service.ListDisksOutput{
+					Items:   []*model.Disk{},
+					HasMore: false,
+				}, nil)
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "service error",
 			setup: func(svc *MockDiskService) {
-				svc.On("List", mock.Anything, projectID).Return(nil, errors.New("service error"))
+				svc.On("List", mock.Anything, mock.Anything).Return(nil, errors.New("service error"))
 			},
 			expectedStatus: http.StatusInternalServerError,
 		},

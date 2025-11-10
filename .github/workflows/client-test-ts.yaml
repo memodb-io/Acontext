@@ -1,0 +1,86 @@
+name: TypeScript Client Test
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'src/client/acontext-ts/**'
+      - '.github/workflows/client-test-ts.yaml'
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'src/client/acontext-ts/**'
+      - '.github/workflows/client-test-ts.yaml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/client/acontext-ts/package-lock.json
+
+      - name: Install dependencies
+        working-directory: src/client/acontext-ts
+        run: |
+          npm ci
+          # Install peer dependencies for Node.js environment
+          npm install --no-save node-fetch@^3.3.2 form-data@^4.0.0 || true
+
+      - name: Run lint
+        working-directory: src/client/acontext-ts
+        run: npm run lint
+
+      - name: Build
+        working-directory: src/client/acontext-ts
+        run: npm run build
+
+      - name: Start containers
+        working-directory: src/server
+        run: |
+          cp .env.example .env
+          cp core/config.yaml.example core/config.yaml
+
+          docker compose up acontext-server-pg acontext-server-redis acontext-server-rabbitmq acontext-server-seaweedfs-setup acontext-server-seaweedfs acontext-server-api -d
+
+      - name: Wait for API to be ready
+        run: |
+          timeout=120
+          elapsed=0
+          while [ $elapsed -lt $timeout ]; do
+            if curl -f http://localhost:8029/health > /dev/null 2>&1; then
+              echo "API is ready"
+              exit 0
+            fi
+            echo "Waiting for API to be ready... ($elapsed/$timeout seconds)"
+            sleep 5
+            elapsed=$((elapsed + 5))
+          done
+          echo "API did not become ready in time"
+          exit 1
+
+      - name: Run tests
+        working-directory: src/client/acontext-ts
+        run: npm test
+        env:
+          CI: true
+          ACONTEXT_API_KEY: sk-ac-your-root-api-bearer-token
+          ACONTEXT_BASE_URL: http://localhost:8029/api/v1
+
+      - name: Stop containers
+        working-directory: src/server
+        if: ${{ always() }}
+        run: |
+          docker compose down
+

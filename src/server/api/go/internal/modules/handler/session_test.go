@@ -64,12 +64,12 @@ func (m *MockSessionService) GetMessages(ctx context.Context, in service.GetMess
 	return args.Get(0).(*service.GetMessagesOutput), args.Error(1)
 }
 
-func (m *MockSessionService) List(ctx context.Context, projectID uuid.UUID, spaceID *uuid.UUID, notConnected bool) ([]model.Session, error) {
-	args := m.Called(ctx, projectID, spaceID, notConnected)
+func (m *MockSessionService) List(ctx context.Context, in service.ListSessionsInput) (*service.ListSessionsOutput, error) {
+	args := m.Called(ctx, in)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]model.Session), args.Error(1)
+	return args.Get(0).(*service.ListSessionsOutput), args.Error(1)
 }
 
 func setupSessionRouter() *gin.Engine {
@@ -91,19 +91,22 @@ func TestSessionHandler_GetSessions(t *testing.T) {
 			name:        "successful sessions retrieval - all sessions",
 			queryParams: "",
 			setup: func(svc *MockSessionService) {
-				expectedSessions := []model.Session{
-					{
-						ID:        uuid.New(),
-						ProjectID: projectID,
-						Configs:   datatypes.JSONMap{"temperature": 0.7},
+				expectedOutput := &service.ListSessionsOutput{
+					Items: []model.Session{
+						{
+							ID:        uuid.New(),
+							ProjectID: projectID,
+							Configs:   datatypes.JSONMap{"temperature": 0.7},
+						},
+						{
+							ID:        uuid.New(),
+							ProjectID: projectID,
+							Configs:   datatypes.JSONMap{"model": "gpt-4"},
+						},
 					},
-					{
-						ID:        uuid.New(),
-						ProjectID: projectID,
-						Configs:   datatypes.JSONMap{"model": "gpt-4"},
-					},
+					HasMore: false,
 				}
-				svc.On("List", mock.Anything, projectID, (*uuid.UUID)(nil), false).Return(expectedSessions, nil)
+				svc.On("List", mock.Anything, mock.Anything).Return(expectedOutput, nil)
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -111,15 +114,18 @@ func TestSessionHandler_GetSessions(t *testing.T) {
 			name:        "successful sessions retrieval - filter by space_id",
 			queryParams: "?space_id=" + spaceID.String(),
 			setup: func(svc *MockSessionService) {
-				expectedSessions := []model.Session{
-					{
-						ID:        uuid.New(),
-						ProjectID: projectID,
-						SpaceID:   &spaceID,
-						Configs:   datatypes.JSONMap{},
+				expectedOutput := &service.ListSessionsOutput{
+					Items: []model.Session{
+						{
+							ID:        uuid.New(),
+							ProjectID: projectID,
+							SpaceID:   &spaceID,
+							Configs:   datatypes.JSONMap{},
+						},
 					},
+					HasMore: false,
 				}
-				svc.On("List", mock.Anything, projectID, &spaceID, false).Return(expectedSessions, nil)
+				svc.On("List", mock.Anything, mock.Anything).Return(expectedOutput, nil)
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -127,15 +133,18 @@ func TestSessionHandler_GetSessions(t *testing.T) {
 			name:        "successful sessions retrieval - not connected",
 			queryParams: "?not_connected=true",
 			setup: func(svc *MockSessionService) {
-				expectedSessions := []model.Session{
-					{
-						ID:        uuid.New(),
-						ProjectID: projectID,
-						SpaceID:   nil,
-						Configs:   datatypes.JSONMap{},
+				expectedOutput := &service.ListSessionsOutput{
+					Items: []model.Session{
+						{
+							ID:        uuid.New(),
+							ProjectID: projectID,
+							SpaceID:   nil,
+							Configs:   datatypes.JSONMap{},
+						},
 					},
+					HasMore: false,
 				}
-				svc.On("List", mock.Anything, projectID, (*uuid.UUID)(nil), true).Return(expectedSessions, nil)
+				svc.On("List", mock.Anything, mock.Anything).Return(expectedOutput, nil)
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -143,7 +152,7 @@ func TestSessionHandler_GetSessions(t *testing.T) {
 			name:        "empty sessions list",
 			queryParams: "",
 			setup: func(svc *MockSessionService) {
-				svc.On("List", mock.Anything, projectID, (*uuid.UUID)(nil), false).Return([]model.Session{}, nil)
+				svc.On("List", mock.Anything, mock.Anything).Return(&service.ListSessionsOutput{Items: []model.Session{}, HasMore: false}, nil)
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -159,7 +168,7 @@ func TestSessionHandler_GetSessions(t *testing.T) {
 			name:        "service layer error",
 			queryParams: "",
 			setup: func(svc *MockSessionService) {
-				svc.On("List", mock.Anything, projectID, (*uuid.UUID)(nil), false).Return(nil, errors.New("database error"))
+				svc.On("List", mock.Anything, mock.Anything).Return(nil, errors.New("database error"))
 			},
 			expectedStatus: http.StatusInternalServerError,
 		},

@@ -77,6 +77,7 @@ export interface Message {
   role: string;
   meta?: Record<string, unknown>;
   parts: Part[];
+  task_id?: string | null;
   session_task_process_status: string;
   created_at: string;
   updated_at: string;
@@ -104,6 +105,24 @@ export interface Task {
 
 export interface GetTasksResp {
   items: Task[];
+  next_cursor?: string;
+  has_more: boolean;
+}
+
+export interface GetSpacesResp {
+  items: Space[];
+  next_cursor?: string;
+  has_more: boolean;
+}
+
+export interface GetSessionsResp {
+  items: Session[];
+  next_cursor?: string;
+  has_more: boolean;
+}
+
+export interface GetDisksResp {
+  items: Disk[];
   next_cursor?: string;
   has_more: boolean;
 }

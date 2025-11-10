@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/modules/model"
+	"github.com/memodb-io/Acontext/internal/modules/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"gorm.io/datatypes"
@@ -45,12 +46,12 @@ func (m *MockSpaceService) GetByID(ctx context.Context, s *model.Space) (*model.
 	return args.Get(0).(*model.Space), args.Error(1)
 }
 
-func (m *MockSpaceService) List(ctx context.Context, projectID uuid.UUID) ([]model.Space, error) {
-	args := m.Called(ctx, projectID)
+func (m *MockSpaceService) List(ctx context.Context, in service.ListSpacesInput) (*service.ListSpacesOutput, error) {
+	args := m.Called(ctx, in)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]model.Space), args.Error(1)
+	return args.Get(0).(*service.ListSpacesOutput), args.Error(1)
 }
 
 func setupSpaceRouter() *gin.Engine {
@@ -69,33 +70,36 @@ func TestSpaceHandler_GetSpaces(t *testing.T) {
 		{
 			name: "successful spaces retrieval",
 			setup: func(svc *MockSpaceService) {
-				expectedSpaces := []model.Space{
-					{
-						ID:        uuid.New(),
-						ProjectID: projectID,
-						Configs:   datatypes.JSONMap{"theme": "dark"},
+				expectedOutput := &service.ListSpacesOutput{
+					Items: []model.Space{
+						{
+							ID:        uuid.New(),
+							ProjectID: projectID,
+							Configs:   datatypes.JSONMap{"theme": "dark"},
+						},
+						{
+							ID:        uuid.New(),
+							ProjectID: projectID,
+							Configs:   datatypes.JSONMap{"language": "zh-CN"},
+						},
 					},
-					{
-						ID:        uuid.New(),
-						ProjectID: projectID,
-						Configs:   datatypes.JSONMap{"language": "zh-CN"},
-					},
+					HasMore: false,
 				}
-				svc.On("List", mock.Anything, projectID).Return(expectedSpaces, nil)
+				svc.On("List", mock.Anything, mock.Anything).Return(expectedOutput, nil)
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "empty spaces list",
 			setup: func(svc *MockSpaceService) {
-				svc.On("List", mock.Anything, projectID).Return([]model.Space{}, nil)
+				svc.On("List", mock.Anything, mock.Anything).Return(&service.ListSpacesOutput{Items: []model.Space{}, HasMore: false}, nil)
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
 			name: "service layer error",
 			setup: func(svc *MockSpaceService) {
-				svc.On("List", mock.Anything, projectID).Return(nil, errors.New("database error"))
+				svc.On("List", mock.Anything, mock.Anything).Return(nil, errors.New("database error"))
 			},
 			expectedStatus: http.StatusInternalServerError,
 		},

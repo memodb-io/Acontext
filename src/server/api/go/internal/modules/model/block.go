@@ -37,12 +37,12 @@ var BlockTypes = map[string]BlockTypeConfig{
 	},
 	BlockTypeText: {
 		Name:          BlockTypeText,
-		AllowChildren: true,
+		AllowChildren: false,
 		RequireParent: true,
 	},
 	BlockTypeSOP: {
 		Name:          BlockTypeSOP,
-		AllowChildren: true,
+		AllowChildren: false,
 		RequireParent: true,
 	},
 }
@@ -113,16 +113,6 @@ func (b *Block) Validate() error {
 	return nil
 }
 
-// ValidateForCreation Validate the constraints for creation
-func (b *Block) ValidateForCreation() error {
-	if err := b.Validate(); err != nil {
-		return err
-	}
-
-	// Can add specific validation logic for creation here
-	return nil
-}
-
 // CanHaveChildren Check if the block type can have children
 func (b *Block) CanHaveChildren() bool {
 	config, err := GetBlockTypeConfig(b.Type)
@@ -132,38 +122,40 @@ func (b *Block) CanHaveChildren() bool {
 	return config.AllowChildren
 }
 
-// CanBeChildOf Check if this block can be a child of the given parent
-// This is a more specific check than ValidateParentType
-func (b *Block) CanBeChildOf(parent *Block) bool {
-	// No parent means root level - only folder and page allowed
-	if parent == nil {
-		return b.Type == BlockTypeFolder || b.Type == BlockTypePage
-	}
-
-	// Check what can be under each parent type
-	switch parent.Type {
-	case BlockTypeFolder:
-		// Folder can only contain folder and page
-		return b.Type == BlockTypeFolder || b.Type == BlockTypePage
-	case BlockTypePage:
-		// Page can only contain other blocks (not folder or page)
-		return b.Type != BlockTypeFolder && b.Type != BlockTypePage
-	default:
-		// Other blocks (text, sop, etc.) can contain other blocks (not folder or page)
-		return b.Type != BlockTypeFolder && b.Type != BlockTypePage
-	}
-}
-
 // ValidateParentType Check if the parent type is valid for this block
 // Rules:
 // - Page can have folder as parent or no parent
 // - Folder can have folder as parent or no parent
 // - Other blocks (text, sop, etc.) must have page (or other non-folder block) as parent
 func (b *Block) ValidateParentType(parent *Block) error {
-	if !b.CanBeChildOf(parent) {
-		if parent == nil {
+	// No parent means root level - only folder and page allowed
+	if parent == nil {
+		if b.Type != BlockTypeFolder && b.Type != BlockTypePage {
 			return fmt.Errorf("block type '%s' cannot exist at root level", b.Type)
 		}
+		return nil
+	}
+
+	// First check if the parent can have children
+	if !parent.CanHaveChildren() {
+		return fmt.Errorf("block type '%s' cannot be a child of '%s' (parent cannot have children)", b.Type, parent.Type)
+	}
+
+	// Check what can be under each parent type
+	var canBeChild bool
+	switch parent.Type {
+	case BlockTypeFolder:
+		// Folder can only contain folder and page
+		canBeChild = b.Type == BlockTypeFolder || b.Type == BlockTypePage
+	case BlockTypePage:
+		// Page can only contain other blocks (not folder or page)
+		canBeChild = b.Type != BlockTypeFolder && b.Type != BlockTypePage
+	default:
+		// Other blocks (text, sop, etc.) cannot have children
+		canBeChild = false
+	}
+
+	if !canBeChild {
 		return fmt.Errorf("block type '%s' cannot be a child of '%s'", b.Type, parent.Type)
 	}
 	return nil

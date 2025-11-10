@@ -27,8 +27,8 @@ type Message struct {
 
 	Meta datatypes.JSONType[map[string]any] `gorm:"type:jsonb;not null;default:'{}'" swaggertype:"object" json:"meta"`
 
-	PartsMeta datatypes.JSONType[Asset] `gorm:"type:jsonb;not null" swaggertype:"-" json:"-"`
-	Parts     []Part                    `gorm:"-" swaggertype:"array,object" json:"parts"`
+	PartsAssetMeta datatypes.JSONType[Asset] `gorm:"type:jsonb;not null" swaggertype:"-" json:"-"`
+	Parts          []Part                    `gorm:"-" swaggertype:"array,object" json:"parts"`
 
 	TaskID *uuid.UUID `gorm:"type:uuid;index" json:"task_id"`
 
@@ -59,13 +59,4 @@ type Part struct {
 
 	// embedding、ocr、asr、caption...
 	Meta map[string]any `json:"meta,omitempty"`
-}
-
-type Asset struct {
-	Bucket string `json:"bucket"`
-	S3Key  string `json:"s3_key"`
-	ETag   string `json:"etag"`
-	SHA256 string `json:"sha256"`
-	MIME   string `json:"mime"`
-	SizeB  int64  `json:"size_b"`
 }

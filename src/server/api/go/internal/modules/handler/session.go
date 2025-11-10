@@ -32,6 +32,14 @@ type CreateSessionReq struct {
 	Configs map[string]interface{} `form:"configs" json:"configs"`
 }
 
+type GetSessionsReq struct {
+	SpaceID      string `form:"space_id" json:"space_id" format:"uuid" example:"123e4567-e89b-12d3-a456-42661417"`
+	NotConnected bool   `form:"not_connected,default=false" json:"not_connected" example:"false"`
+	Limit        int    `form:"limit,default=20" json:"limit" binding:"required,min=1,max=200" example:"20"`
+	Cursor       string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
+	TimeDesc     bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
+}
+
 // GetSessions godoc
 //
 //	@Summary		Get sessions
@@ -39,12 +47,21 @@ type CreateSessionReq struct {
 //	@Tags			session
 //	@Accept			json
 //	@Produce		json
-//	@Param			space_id		query	string	false	"Space ID to filter sessions"								format(uuid)
-//	@Param			not_connected	query	string	false	"Filter sessions not connected to any space (true/false)"	example(true)
+//	@Param			space_id		query	string	false	"Space ID to filter sessions"									format(uuid)
+//	@Param			not_connected	query	boolean	false	"Filter sessions not connected to any space (default false)"	example(false)
+//	@Param			limit			query	integer	false	"Limit of sessions to return, default 20. Max 200."
+//	@Param			cursor			query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
+//	@Param			time_desc		query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example:"false"
 //	@Security		BearerAuth
-//	@Success		200	{object}	serializer.Response{data=[]model.Session}
+//	@Success		200	{object}	serializer.Response{data=service.ListSessionsOutput}
 //	@Router			/session [get]
 func (h *SessionHandler) GetSessions(c *gin.Context) {
+	req := GetSessionsReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
 	project, ok := c.MustGet("project").(*model.Project)
 	if !ok {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
@@ -53,9 +70,8 @@ func (h *SessionHandler) GetSessions(c *gin.Context) {
 
 	// Parse space_id query parameter
 	var spaceID *uuid.UUID
-	spaceIDStr := c.Query("space_id")
-	if spaceIDStr != "" {
-		parsed, err := uuid.Parse(spaceIDStr)
+	if req.SpaceID != "" {
+		parsed, err := uuid.Parse(req.SpaceID)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid space_id", err))
 			return
@@ -63,20 +79,20 @@ func (h *SessionHandler) GetSessions(c *gin.Context) {
 		spaceID = &parsed
 	}
 
-	// Parse not_connected query parameter
-	notConnected := false
-	notConnectedStr := c.Query("not_connected")
-	if notConnectedStr == "true" {
-		notConnected = true
-	}
-
-	sessions, err := h.svc.List(c.Request.Context(), project.ID, spaceID, notConnected)
+	out, err := h.svc.List(c.Request.Context(), service.ListSessionsInput{
+		ProjectID:    project.ID,
+		SpaceID:      spaceID,
+		NotConnected: req.NotConnected,
+		Limit:        req.Limit,
+		Cursor:       req.Cursor,
+		TimeDesc:     req.TimeDesc,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
 		return
 	}
 
-	c.JSON(http.StatusOK, serializer.Response{Data: sessions})
+	c.JSON(http.StatusOK, serializer.Response{Data: out})
 }
 
 // CreateSession godoc

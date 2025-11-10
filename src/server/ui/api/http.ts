@@ -23,7 +23,7 @@ const request = async <T = any>(
 ): Promise<T> => {
   return await ofetch<T>(url, {
     method,
-    baseURL: `${process.env["NEXT_PUBLIC_BASE_URL"]}${process.env["NEXT_PUBLIC_BASE_PATH"] || ""}`,
+    baseURL: `${process.env["NEXT_PUBLIC_BASE_URL"] || "http://127.0.0.1:3000"}${process.env["NEXT_PUBLIC_BASE_PATH"] || ""}`,
     params: data.params,
     headers: data.headers,
     credentials: "include",

@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/modules/model"
@@ -13,7 +14,7 @@ type SpaceRepo interface {
 	Delete(ctx context.Context, s *model.Space) error
 	Update(ctx context.Context, s *model.Space) error
 	Get(ctx context.Context, s *model.Space) (*model.Space, error)
-	List(ctx context.Context, projectID uuid.UUID) ([]model.Space, error)
+	ListWithCursor(ctx context.Context, projectID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Space, error)
 }
 
 type spaceRepo struct{ db *gorm.DB }
@@ -38,8 +39,28 @@ func (r *spaceRepo) Get(ctx context.Context, s *model.Space) (*model.Space, erro
 	return s, r.db.WithContext(ctx).Where(&model.Space{ID: s.ID}).First(s).Error
 }
 
-func (r *spaceRepo) List(ctx context.Context, projectID uuid.UUID) ([]model.Space, error) {
+func (r *spaceRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Space, error) {
+	q := r.db.WithContext(ctx).Where("project_id = ?", projectID)
+
+	// Apply cursor-based pagination filter if cursor is provided
+	if !afterCreatedAt.IsZero() && afterID != uuid.Nil {
+		// Determine comparison operator based on sort direction
+		comparisonOp := ">"
+		if timeDesc {
+			comparisonOp = "<"
+		}
+		q = q.Where(
+			"(created_at "+comparisonOp+" ?) OR (created_at = ? AND id "+comparisonOp+" ?)",
+			afterCreatedAt, afterCreatedAt, afterID,
+		)
+	}
+
+	// Apply ordering based on sort direction
+	orderBy := "created_at ASC, id ASC"
+	if timeDesc {
+		orderBy = "created_at DESC, id DESC"
+	}
+
 	var spaces []model.Space
-	err := r.db.WithContext(ctx).Where(&model.Space{ProjectID: projectID}).Order("created_at DESC").Find(&spaces).Error
-	return spaces, err
+	return spaces, q.Order(orderBy).Limit(limit).Find(&spaces).Error
 }

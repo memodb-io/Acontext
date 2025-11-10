@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from sqlalchemy import ForeignKey, Index, Column, String
+from sqlalchemy import ForeignKey, Index, Column, String, Integer, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from typing import TYPE_CHECKING, Optional, List
@@ -17,9 +17,17 @@ if TYPE_CHECKING:
 class ToolSOP(CommonMixin):
     __tablename__ = "tool_sops"
 
-    __table_args__ = (Index("ix_tool_sop_tool_reference_id", "tool_reference_id"),)
+    __table_args__ = (
+        Index("ix_tool_sop_tool_reference_id", "tool_reference_id"),
+        UniqueConstraint(
+            "sop_block_id",
+            "order",
+            name="uq_sop_block_id_order",
+        ),
+    )
 
-    placeholder_arguments: dict = field(metadata={"db": Column(JSONB, nullable=False)})
+    order: int = field(metadata={"db": Column(Integer, nullable=False)})
+    action: str = field(metadata={"db": Column(String, nullable=False)})
 
     tool_reference_id: asUUID = field(
         metadata={

@@ -1,0 +1,80 @@
+project_name: acontext-cli
+
+# Build configuration
+builds:
+  - id: acontext-cli
+    main: main.go
+    binary: acontext-cli
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+
+# Archive configuration
+archives:
+  - id: default
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - templates/**/*
+
+# Checksums
+checksum:
+  name_template: 'checksums.txt'
+
+# Snapshots (for testing)
+snapshot:
+  name_template: "{{ .Tag }}-next"
+
+# Changelog
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+# Release
+release:
+  github:
+    owner: memodb-io
+    name: Acontext
+  mode: replace
+  draft: false
+  prerelease: auto
+
+# Homebrew (macOS)
+brews:
+  - name: acontext-cli
+    tap:
+      owner: memodb-io
+      name: homebrew-tap
+    homepage: https://acontext.io
+    description: Acontext CLI - Build context-aware AI applications
+    license: MIT
+    test: |
+      system "#{bin}/acontext-cli version"
+    install: |
+      bin.install "acontext-cli" => "acontext"
+    commit_author:
+      name: Acontext Bot
+      email: bot@acontext.io
+
+# Build hooks
+before:
+  hooks:
+    - go mod download
+    - go mod tidy
+

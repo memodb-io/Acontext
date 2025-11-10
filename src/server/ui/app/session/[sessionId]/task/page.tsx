@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,7 @@ export default function TasksPage() {
   const t = useTranslations("space");
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const sessionId = params.sessionId as string;
   const { resolvedTheme } = useTheme();
 
@@ -114,6 +115,26 @@ export default function TasksPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
+
+  // Handle opening task dialog from URL parameter
+  useEffect(() => {
+    const taskId = searchParams.get("taskId");
+    if (taskId && allTasks.length > 0 && !isLoadingTasks) {
+      const task = allTasks.find((t) => t.id === taskId);
+      if (task) {
+        setSelectedTask(task);
+        setDetailDialogOpen(true);
+        // Clean up URL parameter after opening dialog
+        const newSearchParams = new URLSearchParams(searchParams.toString());
+        newSearchParams.delete("taskId");
+        const newUrl = newSearchParams.toString()
+          ? `${window.location.pathname}?${newSearchParams.toString()}`
+          : window.location.pathname;
+        router.replace(newUrl);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, allTasks, isLoadingTasks]);
 
   const handleOpenDetailDialog = (task: Task) => {
     setSelectedTask(task);

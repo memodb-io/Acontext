@@ -2,7 +2,8 @@
 Custom exceptions raised by the acontext Python client.
 """
 
-from typing import Any, Mapping, MutableMapping
+from collections.abc import Mapping, MutableMapping
+from typing import Any
 
 
 class AcontextError(Exception):

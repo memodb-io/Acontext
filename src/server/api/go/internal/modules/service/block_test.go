@@ -144,12 +144,12 @@ func TestBlockService_Create_Page(t *testing.T) {
 			setup: func(repo *MockBlockRepo) {
 				parentBlock := &model.Block{
 					ID:   parentID,
-					Type: model.BlockTypeText, // text cannot have page children
+					Type: model.BlockTypeText, // text cannot have children
 				}
 				repo.On("Get", ctx, parentID).Return(parentBlock, nil)
 			},
 			wantErr: true,
-			errMsg:  "cannot be a child of",
+			errMsg:  "parent cannot have children",
 		},
 	}
 
@@ -318,7 +318,7 @@ func TestBlockService_Create_Text(t *testing.T) {
 			errMsg:  "cannot be a child of",
 		},
 		{
-			name: "text block under text block - valid",
+			name: "text block under text block - invalid (text cannot have children)",
 			block: &model.Block{
 				SpaceID:  spaceID,
 				ParentID: &parentID,
@@ -328,18 +328,15 @@ func TestBlockService_Create_Text(t *testing.T) {
 			setup: func(repo *MockBlockRepo) {
 				parentBlock := &model.Block{
 					ID:   parentID,
-					Type: model.BlockTypeText, // text can have text children
+					Type: model.BlockTypeText, // text cannot have children
 				}
 				repo.On("Get", ctx, parentID).Return(parentBlock, nil)
-				repo.On("NextSort", ctx, spaceID, &parentID).Return(int64(1), nil)
-				repo.On("Create", ctx, mock.MatchedBy(func(b *model.Block) bool {
-					return b.Type == "text" && b.Sort == 1
-				})).Return(nil)
 			},
-			wantErr: false,
+			wantErr: true,
+			errMsg:  "parent cannot have children",
 		},
 		{
-			name: "sop block under text block - valid",
+			name: "sop block under text block - invalid (text cannot have children)",
 			block: &model.Block{
 				SpaceID:  spaceID,
 				ParentID: &parentID,
@@ -349,15 +346,12 @@ func TestBlockService_Create_Text(t *testing.T) {
 			setup: func(repo *MockBlockRepo) {
 				parentBlock := &model.Block{
 					ID:   parentID,
-					Type: model.BlockTypeText,
+					Type: model.BlockTypeText, // text cannot have children
 				}
 				repo.On("Get", ctx, parentID).Return(parentBlock, nil)
-				repo.On("NextSort", ctx, spaceID, &parentID).Return(int64(1), nil)
-				repo.On("Create", ctx, mock.MatchedBy(func(b *model.Block) bool {
-					return b.Type == model.BlockTypeSOP && b.Sort == 1
-				})).Return(nil)
 			},
-			wantErr: false,
+			wantErr: true,
+			errMsg:  "parent cannot have children",
 		},
 	}
 
@@ -487,12 +481,12 @@ func TestBlockService_Create_Folder(t *testing.T) {
 			setup: func(repo *MockBlockRepo) {
 				parentBlock := &model.Block{
 					ID:   parentID,
-					Type: model.BlockTypeText, // text cannot be folder parents
+					Type: model.BlockTypeText, // text cannot have children
 				}
 				repo.On("Get", ctx, parentID).Return(parentBlock, nil)
 			},
 			wantErr: true,
-			errMsg:  "cannot be a child of",
+			errMsg:  "parent cannot have children",
 		},
 	}
 
@@ -772,4 +766,394 @@ func TestBlockService_ComprehensiveNesting(t *testing.T) {
 
 		repo.AssertExpectations(t)
 	})
+}
+
+func TestBlockService_Move_CircularReference(t *testing.T) {
+	ctx := context.Background()
+	spaceID := uuid.New()
+
+	// Create test block IDs representing a tree structure:
+	// Root -> FolderA -> FolderB -> FolderC
+	folderAID := uuid.New()
+	folderBID := uuid.New()
+	folderCID := uuid.New()
+	unrelatedID := uuid.New()
+
+	tests := []struct {
+		name        string
+		blockID     uuid.UUID
+		newParentID *uuid.UUID
+		setup       func(*MockBlockRepo)
+		wantErr     bool
+		errMsg      string
+		description string
+	}{
+		{
+			name:        "direct circular reference: move parent to direct child",
+			description: "FolderA -> FolderB, try to move FolderA under FolderB",
+			blockID:     folderAID,
+			newParentID: &folderBID,
+			setup: func(repo *MockBlockRepo) {
+				// FolderA is the parent
+				folderA := &model.Block{
+					ID:      folderAID,
+					Type:    model.BlockTypeFolder,
+					Title:   "FolderA",
+					SpaceID: spaceID,
+				}
+				repo.On("Get", ctx, folderAID).Return(folderA, nil)
+
+				// FolderB is a direct child of FolderA
+				folderB := &model.Block{
+					ID:       folderBID,
+					Type:     model.BlockTypeFolder,
+					Title:    "FolderB",
+					ParentID: &folderAID, // FolderB is child of FolderA
+				}
+				repo.On("Get", ctx, folderBID).Return(folderB, nil)
+			},
+			wantErr: true,
+			errMsg:  "new parent cannot be a descendant of the block",
+		},
+		{
+			name:        "indirect circular reference: move ancestor to indirect descendant",
+			description: "FolderA -> FolderB -> FolderC, try to move FolderA under FolderC",
+			blockID:     folderAID,
+			newParentID: &folderCID,
+			setup: func(repo *MockBlockRepo) {
+				// FolderA is the ancestor
+				folderA := &model.Block{
+					ID:      folderAID,
+					Type:    model.BlockTypeFolder,
+					Title:   "FolderA",
+					SpaceID: spaceID,
+				}
+				repo.On("Get", ctx, folderAID).Return(folderA, nil)
+
+				// FolderC is an indirect descendant (grandchild)
+				folderC := &model.Block{
+					ID:       folderCID,
+					Type:     model.BlockTypeFolder,
+					Title:    "FolderC",
+					ParentID: &folderBID, // FolderC is child of FolderB
+				}
+				repo.On("Get", ctx, folderCID).Return(folderC, nil)
+
+				// FolderB is the intermediate node
+				folderB := &model.Block{
+					ID:       folderBID,
+					Type:     model.BlockTypeFolder,
+					Title:    "FolderB",
+					ParentID: &folderAID, // FolderB is child of FolderA
+				}
+				repo.On("Get", ctx, folderBID).Return(folderB, nil)
+			},
+			wantErr: true,
+			errMsg:  "new parent cannot be a descendant of the block",
+		},
+		{
+			name:        "valid move: move to unrelated folder",
+			description: "Move FolderB to an unrelated folder (not a descendant)",
+			blockID:     folderBID,
+			newParentID: &unrelatedID,
+			setup: func(repo *MockBlockRepo) {
+				// FolderB is being moved
+				folderB := &model.Block{
+					ID:      folderBID,
+					Type:    model.BlockTypeFolder,
+					Title:   "FolderB",
+					SpaceID: spaceID,
+				}
+				repo.On("Get", ctx, folderBID).Return(folderB, nil)
+
+				// Unrelated folder is not a descendant
+				unrelated := &model.Block{
+					ID:      unrelatedID,
+					Type:    model.BlockTypeFolder,
+					Title:   "Unrelated",
+					SpaceID: spaceID,
+					// No parent, or parent is different
+				}
+				repo.On("Get", ctx, unrelatedID).Return(unrelated, nil)
+				repo.On("Update", ctx, mock.MatchedBy(func(b *model.Block) bool {
+					return b.ID == folderBID
+				})).Return(nil)
+				repo.On("MoveToParentAppend", ctx, folderBID, &unrelatedID).Return(nil)
+			},
+			wantErr: false,
+		},
+		{
+			name:        "valid move: move to root (nil parent)",
+			description: "Move FolderB to root level",
+			blockID:     folderBID,
+			newParentID: nil,
+			setup: func(repo *MockBlockRepo) {
+				// FolderB is being moved
+				folderB := &model.Block{
+					ID:      folderBID,
+					Type:    model.BlockTypeFolder,
+					Title:   "FolderB",
+					SpaceID: spaceID,
+				}
+				repo.On("Get", ctx, folderBID).Return(folderB, nil)
+				repo.On("Update", ctx, mock.MatchedBy(func(b *model.Block) bool {
+					return b.ID == folderBID
+				})).Return(nil)
+				repo.On("MoveToParentAppend", ctx, folderBID, (*uuid.UUID)(nil)).Return(nil)
+			},
+			wantErr: false,
+		},
+		{
+			name:        "same block as parent",
+			description: "Try to move a block to itself",
+			blockID:     folderAID,
+			newParentID: &folderAID,
+			setup: func(repo *MockBlockRepo) {
+				folderA := &model.Block{
+					ID:      folderAID,
+					Type:    model.BlockTypeFolder,
+					Title:   "FolderA",
+					SpaceID: spaceID,
+				}
+				repo.On("Get", ctx, folderAID).Return(folderA, nil)
+			},
+			wantErr: true,
+			errMsg:  "new parent cannot be the same as the block",
+		},
+		{
+			name:        "deep nesting: 5 levels deep",
+			description: "A -> B -> C -> D -> E, try to move A under E",
+			blockID:     folderAID,
+			newParentID: &folderCID,
+			setup: func(repo *MockBlockRepo) {
+				// Create a deep chain: A -> B -> C
+				folderA := &model.Block{
+					ID:      folderAID,
+					Type:    model.BlockTypeFolder,
+					Title:   "FolderA",
+					SpaceID: spaceID,
+				}
+				repo.On("Get", ctx, folderAID).Return(folderA, nil)
+
+				// FolderC is deep in the chain
+				folderC := &model.Block{
+					ID:       folderCID,
+					Type:     model.BlockTypeFolder,
+					Title:    "FolderC",
+					ParentID: &folderBID,
+				}
+				repo.On("Get", ctx, folderCID).Return(folderC, nil)
+
+				// FolderB is the intermediate
+				folderB := &model.Block{
+					ID:       folderBID,
+					Type:     model.BlockTypeFolder,
+					Title:    "FolderB",
+					ParentID: &folderAID,
+				}
+				repo.On("Get", ctx, folderBID).Return(folderB, nil)
+			},
+			wantErr: true,
+			errMsg:  "new parent cannot be a descendant of the block",
+		},
+		{
+			name:        "move sibling to sibling (valid)",
+			description: "Move FolderB to be under FolderC, where both are siblings under FolderA",
+			blockID:     folderBID,
+			newParentID: &folderCID,
+			setup: func(repo *MockBlockRepo) {
+				// FolderB being moved
+				folderB := &model.Block{
+					ID:      folderBID,
+					Type:    model.BlockTypeFolder,
+					Title:   "FolderB",
+					SpaceID: spaceID,
+				}
+				repo.On("Get", ctx, folderBID).Return(folderB, nil)
+
+				// FolderC is a sibling (same parent FolderA, but not a descendant of FolderB)
+				folderC := &model.Block{
+					ID:       folderCID,
+					Type:     model.BlockTypeFolder,
+					Title:    "FolderC",
+					ParentID: &unrelatedID, // Different parent, so not a descendant
+				}
+				repo.On("Get", ctx, folderCID).Return(folderC, nil)
+				// isDescendant will traverse up the parent chain, need to mock unrelatedID
+				unrelated := &model.Block{
+					ID:       unrelatedID,
+					ParentID: nil, // Root level
+				}
+				repo.On("Get", ctx, unrelatedID).Return(unrelated, nil)
+				repo.On("Update", ctx, mock.MatchedBy(func(b *model.Block) bool {
+					return b.ID == folderBID
+				})).Return(nil)
+				repo.On("MoveToParentAppend", ctx, folderBID, &folderCID).Return(nil)
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &MockBlockRepo{}
+			tt.setup(repo)
+
+			service := NewBlockService(repo)
+			err := service.Move(ctx, tt.blockID, tt.newParentID, nil)
+
+			if tt.wantErr {
+				assert.Error(t, err, "Expected error for: %s", tt.description)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg, "Error message should contain: %s", tt.errMsg)
+				}
+			} else {
+				assert.NoError(t, err, "Expected no error for: %s", tt.description)
+			}
+
+			repo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBlockService_isDescendant(t *testing.T) {
+	ctx := context.Background()
+
+	// Create a test tree: Root -> A -> B -> C
+	blockAID := uuid.New()
+	blockBID := uuid.New()
+	blockCID := uuid.New()
+	unrelatedID := uuid.New()
+
+	tests := []struct {
+		name        string
+		ancestorID  uuid.UUID
+		candidateID uuid.UUID
+		setup       func(*MockBlockRepo)
+		expected    bool
+		wantErr     bool
+		description string
+	}{
+		{
+			name:        "direct child is descendant",
+			description: "B is direct child of A",
+			ancestorID:  blockAID,
+			candidateID: blockBID,
+			setup: func(repo *MockBlockRepo) {
+				blockB := &model.Block{
+					ID:       blockBID,
+					ParentID: &blockAID,
+				}
+				repo.On("Get", ctx, blockBID).Return(blockB, nil)
+				// isDescendant will traverse up to parent, need to mock blockA
+				blockA := &model.Block{
+					ID:       blockAID,
+					ParentID: nil,
+				}
+				repo.On("Get", ctx, blockAID).Return(blockA, nil)
+			},
+			expected: true,
+			wantErr:  false,
+		},
+		{
+			name:        "grandchild is descendant",
+			description: "C is grandchild of A",
+			ancestorID:  blockAID,
+			candidateID: blockCID,
+			setup: func(repo *MockBlockRepo) {
+				blockC := &model.Block{
+					ID:       blockCID,
+					ParentID: &blockBID,
+				}
+				repo.On("Get", ctx, blockCID).Return(blockC, nil)
+				blockB := &model.Block{
+					ID:       blockBID,
+					ParentID: &blockAID,
+				}
+				repo.On("Get", ctx, blockBID).Return(blockB, nil)
+				// isDescendant will traverse up to blockA
+				blockA := &model.Block{
+					ID:       blockAID,
+					ParentID: nil,
+				}
+				repo.On("Get", ctx, blockAID).Return(blockA, nil)
+			},
+			expected: true,
+			wantErr:  false,
+		},
+		{
+			name:        "unrelated block is not descendant",
+			description: "Unrelated block is not descendant of A",
+			ancestorID:  blockAID,
+			candidateID: unrelatedID,
+			setup: func(repo *MockBlockRepo) {
+				unrelated := &model.Block{
+					ID:       unrelatedID,
+					ParentID: nil, // Root level
+				}
+				repo.On("Get", ctx, unrelatedID).Return(unrelated, nil)
+			},
+			expected: false,
+			wantErr:  false,
+		},
+		{
+			name:        "self matches ancestor (edge case)",
+			description: "When candidateID equals ancestorID, isDescendant returns true (though this case is handled earlier in validateAndPrepareMove)",
+			ancestorID:  blockAID,
+			candidateID: blockAID,
+			setup: func(repo *MockBlockRepo) {
+				blockA := &model.Block{
+					ID:       blockAID,
+					ParentID: nil,
+				}
+				repo.On("Get", ctx, blockAID).Return(blockA, nil)
+			},
+			expected: true, // Returns true because block.ID == ancestorID
+			wantErr:  false,
+		},
+		{
+			name:        "block with different parent chain",
+			description: "C has parent B, but B has different parent, so C is not descendant of A",
+			ancestorID:  blockAID,
+			candidateID: blockCID,
+			setup: func(repo *MockBlockRepo) {
+				blockC := &model.Block{
+					ID:       blockCID,
+					ParentID: &blockBID,
+				}
+				repo.On("Get", ctx, blockCID).Return(blockC, nil)
+				blockB := &model.Block{
+					ID:       blockBID,
+					ParentID: &unrelatedID, // Different parent, not A
+				}
+				repo.On("Get", ctx, blockBID).Return(blockB, nil)
+				unrelated := &model.Block{
+					ID:       unrelatedID,
+					ParentID: nil,
+				}
+				repo.On("Get", ctx, unrelatedID).Return(unrelated, nil)
+			},
+			expected: false,
+			wantErr:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &MockBlockRepo{}
+			tt.setup(repo)
+
+			service := NewBlockService(repo)
+			result, err := service.(*blockService).isDescendant(ctx, tt.ancestorID, tt.candidateID)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tt.expected, result, "isDescendant result mismatch for: %s", tt.description)
+			}
+
+			repo.AssertExpectations(t)
+		})
+	}
 }

@@ -1,17 +1,28 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Any
 from ..utils import asUUID
 
 
 class SOPStep(BaseModel):
-    tool_name: str
-    argument_template: dict[str, Any]
-    props: Optional[dict] = None
+    tool_name: str = Field(
+        ...,
+        description="exact corresponding tool name from history",
+    )
+    action: str = Field(
+        ...,
+        description="only describe necessary arguments' VALUEs to proceed the SOP. If not arguments are needed, an empty string is expected.",
+    )
 
 
 class SOPData(BaseModel):
-    use_when: str
-    notes: str
+    use_when: str = Field(
+        ...,
+        description="The scenario when this sop maybe used (3~5words), e.g. 'Broswering xxx.com for items' infos', 'Query Lung disease from Database'",
+    )
+    preferences: str = Field(
+        ...,
+        description="User preferences on this SOP if any.",
+    )
     tool_sops: List[SOPStep]
 
 

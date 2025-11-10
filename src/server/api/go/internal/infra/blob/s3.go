@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"net/url"
 	"path/filepath"
@@ -21,6 +22,7 @@ import (
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/bytedance/sonic"
 	"github.com/memodb-io/Acontext/internal/config"
+	"github.com/memodb-io/Acontext/internal/modules/model"
 )
 
 type S3Deps struct {
@@ -98,6 +100,15 @@ func NewS3(ctx context.Context, cfg *config.Config) (*S3Deps, error) {
 		sse = &v
 	}
 
+	if cfg.S3.Bucket == "" {
+		return nil, errors.New("s3 bucket is empty")
+	}
+	if _, err := client.HeadBucket(ctx, &s3.HeadBucketInput{
+		Bucket: aws.String(cfg.S3.Bucket),
+	}); err != nil {
+		return nil, fmt.Errorf("connect to s3 bucket %s: %w", cfg.S3.Bucket, err)
+	}
+
 	return &S3Deps{
 		Client:    client,
 		Uploader:  uploader,
@@ -143,15 +154,6 @@ func (s *S3Deps) PresignGet(ctx context.Context, key string, expire time.Duratio
 	return ps.URL, nil
 }
 
-type UploadedMeta struct {
-	Bucket string
-	Key    string
-	ETag   string
-	SHA256 string
-	MIME   string
-	SizeB  int64
-}
-
 // Add helper function to clean ETag
 func cleanETag(etag string) string {
 	if etag == "" {
@@ -161,31 +163,73 @@ func cleanETag(etag string) string {
 	return strings.Trim(etag, `"`)
 }
 
-func (u *S3Deps) UploadFormFile(ctx context.Context, keyPrefix string, fh *multipart.FileHeader) (*UploadedMeta, error) {
-	file, err := fh.Open()
-	if err != nil {
-		return nil, err
+// uploadWithDedup performs content-addressed deduplicated upload.
+// It searches for existing objects under keyPrefix that contain the given sumHex in the key.
+// If found, returns its metadata; otherwise uploads the new content using date + sumHex + ext as key.
+func (u *S3Deps) uploadWithDedup(
+	ctx context.Context,
+	keyPrefix string,
+	sumHex string,
+	contentType string,
+	ext string,
+	size int64,
+	body io.Reader,
+	metadata map[string]string,
+) (*model.Asset, error) {
+	// Check for existing object with pagination support
+	listInput := &s3.ListObjectsV2Input{
+		Bucket: &u.Bucket,
+		Prefix: &keyPrefix,
 	}
-	defer file.Close()
 
-	sumHex, err := sha256OfFileHeader(fh)
-	if err != nil {
-		return nil, fmt.Errorf("calc sha256: %w", err)
+	var continuationToken *string
+	for {
+		listInput.ContinuationToken = continuationToken
+		result, err := u.Client.ListObjectsV2(ctx, listInput)
+		if err != nil {
+			break
+		}
+
+		if result.Contents != nil {
+			for _, obj := range result.Contents {
+				if obj.Key != nil && strings.Contains(*obj.Key, sumHex) {
+					if headResult, herr := u.Client.HeadObject(ctx, &s3.HeadObjectInput{
+						Bucket: &u.Bucket,
+						Key:    obj.Key,
+					}); herr == nil {
+						return &model.Asset{
+							Bucket: u.Bucket,
+							S3Key:  *obj.Key,
+							ETag:   cleanETag(*headResult.ETag),
+							SHA256: sumHex,
+							MIME:   contentType,
+							SizeB:  aws.ToInt64(headResult.ContentLength),
+						}, nil
+					}
+				}
+			}
+		}
+
+		// Check if there are more pages
+		if !aws.ToBool(result.IsTruncated) {
+			break
+		}
+		continuationToken = result.NextContinuationToken
 	}
 
-	ext := strings.ToLower(filepath.Ext(fh.Filename))
+	// No existing file found, upload new file with date prefix
 	datePrefix := time.Now().UTC().Format("2006/01/02")
 	key := fmt.Sprintf("%s/%s/%s%s", keyPrefix, datePrefix, sumHex, ext)
 
 	input := &s3.PutObjectInput{
 		Bucket:      aws.String(u.Bucket),
 		Key:         aws.String(key),
-		Body:        file,
-		ContentType: aws.String(fh.Header.Get("Content-Type")),
-		Metadata: map[string]string{
-			"sha256": sumHex,
-			"name":   fh.Filename,
-		},
+		Body:        body,
+		ContentType: aws.String(contentType),
+		Metadata:    metadata,
+	}
+	if u.SSE != nil {
+		input.ServerSideEncryption = *u.SSE
 	}
 
 	out, err := u.Uploader.Upload(ctx, input)
@@ -193,18 +237,58 @@ func (u *S3Deps) UploadFormFile(ctx context.Context, keyPrefix string, fh *multi
 		return nil, err
 	}
 
-	return &UploadedMeta{
+	return &model.Asset{
 		Bucket: u.Bucket,
-		Key:    key,
-		ETag:   cleanETag(*out.ETag), // Clean the ETag
+		S3Key:  key,
+		ETag:   cleanETag(*out.ETag),
 		SHA256: sumHex,
-		MIME:   fh.Header.Get("Content-Type"),
-		SizeB:  fh.Size,
+		MIME:   contentType,
+		SizeB:  size,
 	}, nil
 }
 
+// UploadFormFile uploads a file to S3 with automatic deduplication
+// It checks if a file with the same SHA256 already exists under the keyPrefix
+// If found, returns the existing file metadata; otherwise uploads the new file
+func (u *S3Deps) UploadFormFile(ctx context.Context, keyPrefix string, fh *multipart.FileHeader) (*model.Asset, error) {
+	file, err := fh.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	// Read file content into memory
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, file); err != nil {
+		return nil, err
+	}
+	fileContent := buf.Bytes()
+
+	// Calculate SHA256 of the file content
+	h := sha256.New()
+	h.Write(fileContent)
+	sumHex := hex.EncodeToString(h.Sum(nil))
+
+	ext := strings.ToLower(filepath.Ext(fh.Filename))
+	contentType := fh.Header.Get("Content-Type")
+
+	return u.uploadWithDedup(
+		ctx,
+		keyPrefix,
+		sumHex,
+		contentType,
+		ext,
+		int64(len(fileContent)),
+		bytes.NewReader(fileContent),
+		map[string]string{
+			"sha256": sumHex,
+			"name":   fh.Filename,
+		},
+	)
+}
+
 // UploadJSON uploads JSON data to S3 and returns metadata
-func (u *S3Deps) UploadJSON(ctx context.Context, keyPrefix string, data interface{}) (*UploadedMeta, error) {
+func (u *S3Deps) UploadJSON(ctx context.Context, keyPrefix string, data interface{}) (*model.Asset, error) {
 	// Serialize data to JSON
 	jsonData, err := sonic.Marshal(data)
 	if err != nil {
@@ -216,34 +300,18 @@ func (u *S3Deps) UploadJSON(ctx context.Context, keyPrefix string, data interfac
 	h.Write(jsonData)
 	sumHex := hex.EncodeToString(h.Sum(nil))
 
-	// Generate S3 key with date prefix
-	datePrefix := time.Now().UTC().Format("2006/01/02")
-	key := fmt.Sprintf("%s/%s/%s.json", keyPrefix, datePrefix, sumHex)
-
-	// Upload to S3
-	input := &s3.PutObjectInput{
-		Bucket:      aws.String(u.Bucket),
-		Key:         aws.String(key),
-		Body:        bytes.NewReader(jsonData),
-		ContentType: aws.String("application/json"),
-		Metadata: map[string]string{
+	return u.uploadWithDedup(
+		ctx,
+		keyPrefix,
+		sumHex,
+		"application/json",
+		".json",
+		int64(len(jsonData)),
+		bytes.NewReader(jsonData),
+		map[string]string{
 			"sha256": sumHex,
 		},
-	}
-
-	out, err := u.Uploader.Upload(ctx, input)
-	if err != nil {
-		return nil, err
-	}
-
-	return &UploadedMeta{
-		Bucket: u.Bucket,
-		Key:    key,
-		ETag:   cleanETag(*out.ETag), // Clean the ETag
-		SHA256: sumHex,
-		MIME:   "application/json",
-		SizeB:  int64(len(jsonData)),
-	}, nil
+	)
 }
 
 // DownloadJSON downloads JSON data from S3 and unmarshals it into the provided interface
@@ -295,4 +363,64 @@ func (u *S3Deps) DownloadFile(ctx context.Context, key string) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+// DeleteObject deletes an object from S3
+func (u *S3Deps) DeleteObject(ctx context.Context, key string) error {
+	if key == "" {
+		return errors.New("key is empty")
+	}
+
+	_, err := u.Client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: &u.Bucket,
+		Key:    &key,
+	})
+	if err != nil {
+		return fmt.Errorf("delete object from S3: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteObjects deletes multiple objects from S3
+func (u *S3Deps) DeleteObjects(ctx context.Context, keys []string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+
+	// Convert keys to S3 object identifiers
+	objects := make([]s3types.ObjectIdentifier, 0, len(keys))
+	for _, key := range keys {
+		if key != "" {
+			objects = append(objects, s3types.ObjectIdentifier{
+				Key: aws.String(key),
+			})
+		}
+	}
+
+	if len(objects) == 0 {
+		return nil
+	}
+
+	// Delete objects in batches (S3 allows up to 1000 objects per request)
+	const batchSize = 1000
+	for i := 0; i < len(objects); i += batchSize {
+		end := i + batchSize
+		if end > len(objects) {
+			end = len(objects)
+		}
+
+		_, err := u.Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+			Bucket: &u.Bucket,
+			Delete: &s3types.Delete{
+				Objects: objects[i:end],
+				Quiet:   aws.Bool(true), // Don't return deleted objects in response
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("delete objects from S3: %w", err)
+		}
+	}
+
+	return nil
 }

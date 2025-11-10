@@ -384,12 +384,22 @@ export default function DiskPage() {
   const loadDisks = async () => {
     try {
       setIsLoadingDisks(true);
-      const res = await getDisks();
-      if (res.code !== 0) {
-        console.error(res.message);
-        return;
+      const allDsks: Disk[] = [];
+      let cursor: string | undefined = undefined;
+      let hasMore = true;
+
+      while (hasMore) {
+        const res = await getDisks(50, cursor, false);
+        if (res.code !== 0) {
+          console.error(res.message);
+          break;
+        }
+        allDsks.push(...(res.data?.items || []));
+        cursor = res.data?.next_cursor;
+        hasMore = res.data?.has_more || false;
       }
-      setDisks(res.data || []);
+
+      setDisks(allDsks);
     } catch (error) {
       console.error("Failed to load disks:", error);
     } finally {

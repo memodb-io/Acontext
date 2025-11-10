@@ -31,6 +31,7 @@ type GetTasksInput struct {
 	SessionID uuid.UUID `json:"session_id"`
 	Limit     int       `json:"limit"`
 	Cursor    string    `json:"cursor"`
+	TimeDesc  bool      `json:"time_desc"`
 }
 
 type GetTasksOutput struct {
@@ -52,7 +53,7 @@ func (s *taskService) GetTasks(ctx context.Context, in GetTasksInput) (*GetTasks
 	}
 
 	// Query limit+1 is used to determine has_more
-	tasks, err := s.r.ListBySessionWithCursor(ctx, in.SessionID, afterT, afterID, in.Limit+1)
+	tasks, err := s.r.ListBySessionWithCursor(ctx, in.SessionID, afterT, afterID, in.Limit+1, in.TimeDesc)
 	if err != nil {
 		return nil, err
 	}

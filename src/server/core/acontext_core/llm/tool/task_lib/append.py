@@ -17,6 +17,8 @@ async def _append_messages_to_task_handler(
     task_order: int = llm_arguments.get("task_order", None)
     message_order_indexes = llm_arguments.get("message_ids", [])
     progress_note = llm_arguments.get("progress", None)
+    user_preference = llm_arguments.get("user_preference", "").strip()
+
     if not task_order:
         return Result.resolve(
             f"You must provide a task order argument, so that we can attach messages to the task. Appending failed."
@@ -49,7 +51,7 @@ async def _append_messages_to_task_handler(
         return r
     if progress_note is not None:
         r = await TD.append_progress_to_task(
-            ctx.db_session, actually_task_id, progress_note
+            ctx.db_session, actually_task_id, progress_note, user_preference or None
         )
         if not r.ok():
             return r
@@ -78,6 +80,10 @@ _append_messages_to_task_tool = (
                         "progress": {
                             "type": "string",
                             "description": "The progress and learnings from relevant messages. Narrate progress in the first person as the agent.",
+                        },
+                        "user_preference": {
+                            "type": "string",
+                            "description": "Any user-mentioned preference on this task. If None, an empty string is expected.",
                         },
                         "message_ids": {
                             "type": "array",

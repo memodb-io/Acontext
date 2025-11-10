@@ -33,6 +33,27 @@ const docTemplate = `{
                     "disk"
                 ],
                 "summary": "List disks",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit of disks to return, default 20. Max 200.",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor for pagination. Use the cursor from the previous response to get the next page.",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Order by created_at descending if true, ascending if false (default false)",
+                        "name": "time_desc",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -45,10 +66,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/model.Disk"
-                                            }
+                                            "$ref": "#/definitions/service.ListDisksOutput"
                                         }
                                     }
                                 }
@@ -474,10 +492,28 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "type": "string",
-                        "example": "true",
-                        "description": "Filter sessions not connected to any space (true/false)",
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Filter sessions not connected to any space (default false)",
                         "name": "not_connected",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit of sessions to return, default 20. Max 200.",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor for pagination. Use the cursor from the previous response to get the next page.",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Order by created_at descending if true, ascending if false (default false)",
+                        "name": "time_desc",
                         "in": "query"
                     }
                 ],
@@ -493,10 +529,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/model.Session"
-                                            }
+                                            "$ref": "#/definitions/service.ListSessionsOutput"
                                         }
                                     }
                                 }
@@ -928,6 +961,13 @@ const docTemplate = `{
                         "description": "Cursor for pagination. Use the cursor from the previous response to get the next page.",
                         "name": "cursor",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Order by created_at descending if true, ascending if false (default false)",
+                        "name": "time_desc",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -970,6 +1010,26 @@ const docTemplate = `{
                     "space"
                 ],
                 "summary": "Get spaces",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit of spaces to return, default 20. Max 200.",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor for pagination. Use the cursor from the previous response to get the next page.",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Order by created_at descending if true, ascending if false (default false)",
+                        "name": "time_desc",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -982,10 +1042,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/model.Space"
-                                            }
+                                            "$ref": "#/definitions/service.ListSpacesOutput"
                                         }
                                     }
                                 }
@@ -2334,6 +2391,57 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/model.Task"
+                    }
+                },
+                "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.ListDisksOutput": {
+            "type": "object",
+            "properties": {
+                "has_more": {
+                    "type": "boolean"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Disk"
+                    }
+                },
+                "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.ListSessionsOutput": {
+            "type": "object",
+            "properties": {
+                "has_more": {
+                    "type": "boolean"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Session"
+                    }
+                },
+                "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.ListSpacesOutput": {
+            "type": "object",
+            "properties": {
+                "has_more": {
+                    "type": "boolean"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.Space"
                     }
                 },
                 "next_cursor": {

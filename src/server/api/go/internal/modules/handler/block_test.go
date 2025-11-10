@@ -108,6 +108,17 @@ func TestBlockHandler_CreateBlock_Page(t *testing.T) {
 			expectedError:  true,
 		},
 		{
+			name:         "title contains path separator",
+			spaceIDParam: spaceID.String(),
+			requestBody: CreateBlockReq{
+				Type:  model.BlockTypePage,
+				Title: "path/to/page",
+			},
+			setup:          func(svc *MockBlockService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  true,
+		},
+		{
 			name:         "service layer error",
 			spaceIDParam: spaceID.String(),
 			requestBody: CreateBlockReq{
@@ -248,6 +259,17 @@ func TestBlockHandler_CreateBlock_Text(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
+			name:         "title contains path separator",
+			spaceIDParam: spaceID.String(),
+			requestBody: CreateBlockReq{
+				ParentID: &parentID,
+				Type:     "text",
+				Title:    "path/to/block",
+			},
+			setup:          func(svc *MockBlockService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
 			name:         "service layer error",
 			spaceIDParam: spaceID.String(),
 			requestBody: CreateBlockReq{
@@ -334,6 +356,17 @@ func TestBlockHandler_CreateBlock_Folder(t *testing.T) {
 			requestBody: CreateBlockReq{
 				Type:  model.BlockTypeFolder,
 				Title: "Test Folder",
+			},
+			setup:          func(svc *MockBlockService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  true,
+		},
+		{
+			name:         "title contains path separator",
+			spaceIDParam: spaceID.String(),
+			requestBody: CreateBlockReq{
+				Type:  model.BlockTypeFolder,
+				Title: "folder/subfolder",
 			},
 			setup:          func(svc *MockBlockService) {},
 			expectedStatus: http.StatusBadRequest,
@@ -498,6 +531,86 @@ func TestBlockHandler_ListBlocks_Folders(t *testing.T) {
 			router.GET("/space/:space_id/block", handler.ListBlocks)
 
 			req := httptest.NewRequest("GET", "/space/"+tt.spaceIDParam+"/block"+tt.queryParam, nil)
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			mockService.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBlockHandler_UpdateBlockProperties(t *testing.T) {
+	blockID := uuid.New()
+
+	type UpdateBlockPropertiesReq struct {
+		Title string         `json:"title"`
+		Props map[string]any `json:"props"`
+	}
+
+	tests := []struct {
+		name           string
+		blockIDParam   string
+		requestBody    UpdateBlockPropertiesReq
+		setup          func(*MockBlockService)
+		expectedStatus int
+	}{
+		{
+			name:         "successful update",
+			blockIDParam: blockID.String(),
+			requestBody: UpdateBlockPropertiesReq{
+				Title: "Updated Title",
+				Props: map[string]any{"color": "blue"},
+			},
+			setup: func(svc *MockBlockService) {
+				svc.On("UpdateBlockProperties", mock.Anything, mock.MatchedBy(func(b *model.Block) bool {
+					return b.ID == blockID && b.Title == "Updated Title"
+				})).Return(nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "invalid block ID",
+			blockIDParam:   "invalid-uuid",
+			requestBody:    UpdateBlockPropertiesReq{Title: "Updated Title"},
+			setup:          func(svc *MockBlockService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:         "title contains path separator",
+			blockIDParam: blockID.String(),
+			requestBody: UpdateBlockPropertiesReq{
+				Title: "path/to/block",
+			},
+			setup:          func(svc *MockBlockService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:         "service layer error",
+			blockIDParam: blockID.String(),
+			requestBody: UpdateBlockPropertiesReq{
+				Title: "Updated Title",
+			},
+			setup: func(svc *MockBlockService) {
+				svc.On("UpdateBlockProperties", mock.Anything, mock.Anything).Return(errors.New("update failed"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := &MockBlockService{}
+			tt.setup(mockService)
+
+			handler := NewBlockHandler(mockService)
+			router := setupRouter()
+			router.PUT("/space/:space_id/block/:block_id/properties", handler.UpdateBlockProperties)
+
+			body, _ := sonic.Marshal(tt.requestBody)
+			req := httptest.NewRequest("PUT", "/space/"+uuid.New().String()+"/block/"+tt.blockIDParam+"/properties", bytes.NewBuffer(body))
+			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)

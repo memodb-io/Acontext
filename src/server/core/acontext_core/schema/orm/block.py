@@ -13,11 +13,14 @@ from sqlalchemy.orm import relationship, foreign, remote
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from typing import TYPE_CHECKING, Optional, List, Dict, Any
 from .base import ORM_BASE, CommonMixin
+from ..result import Result
 from ..utils import asUUID
 
 if TYPE_CHECKING:
     from .space import Space
     from .tool_sop import ToolSOP
+    from .block_embedding import BlockEmbedding
+    from .block_reference import BlockReference
 
 
 # Block type configuration matching Go version
@@ -27,30 +30,46 @@ BLOCK_TYPES = {
         "allow_children": True,
         "require_parent": False,
     },
+    "folder": {
+        "name": "folder",
+        "allow_children": True,
+        "require_parent": False,
+    },
     "text": {
         "name": "text",
-        "allow_children": True,
+        "allow_children": False,
         "require_parent": True,
         "props_schema": {
-            "use_when": str,
             "notes": str,
         },
     },
     "sop": {
         "name": "sop",
-        "allow_children": True,
+        "allow_children": False,
         "require_parent": True,
         "props_schema": {
-            "use_when": str,
-            "notes": str,
+            "preferences": str,
         },
     },
 }
 
 # Block type constants matching Go version
+BLOCK_TYPE_ROOT = None
+BLOCK_TYPE_FOLDER = "folder"
 BLOCK_TYPE_PAGE = "page"
 BLOCK_TYPE_TEXT = "text"
 BLOCK_TYPE_SOP = "sop"
+BLOCK_TYPE_REFERENCE = "reference"
+
+PATH_BLOCK = {BLOCK_TYPE_FOLDER, BLOCK_TYPE_PAGE}
+CONTENT_BLOCK = {BLOCK_TYPE_TEXT, BLOCK_TYPE_SOP}
+BLOCK_PARENT_ALLOW = {
+    BLOCK_TYPE_FOLDER: {BLOCK_TYPE_FOLDER, BLOCK_TYPE_ROOT},
+    BLOCK_TYPE_PAGE: {BLOCK_TYPE_FOLDER, BLOCK_TYPE_ROOT},
+    BLOCK_TYPE_SOP: {BLOCK_TYPE_PAGE},
+    BLOCK_TYPE_TEXT: {BLOCK_TYPE_PAGE},
+    BLOCK_TYPE_REFERENCE: {BLOCK_TYPE_PAGE},
+}
 
 
 def is_valid_block_type(block_type: str) -> bool:
@@ -79,6 +98,7 @@ class Block(CommonMixin):
         # Indexes matching Go version
         Index("idx_blocks_space", "space_id"),
         Index("idx_blocks_space_type", "space_id", "type"),
+        Index("idx_blocks_space_title", "space_id", "title"),
         Index("idx_blocks_space_type_archived", "space_id", "type", "is_archived"),
         # Unique constraint for space, parent, sort combination
         Index(
@@ -86,7 +106,7 @@ class Block(CommonMixin):
         ),
         # Check constraints matching Go version
         CheckConstraint(
-            "type IN ('page', 'text', 'sop')",
+            "type IN ('folder', 'page', 'text', 'sop', 'reference')",
             name="ck_block_type",
         ),
     )
@@ -161,6 +181,7 @@ class Block(CommonMixin):
                 Boolean,
                 nullable=False,
                 default=False,
+                server_default="false",
             )
         },
     )
@@ -211,29 +232,63 @@ class Block(CommonMixin):
         },
     )
 
-    def validate(self) -> None:
-        """Validate the fields of a Block"""
-        # Check if the type is valid
+    embeddings: List["BlockEmbedding"] = field(
+        default_factory=list,
+        init=False,
+        metadata={
+            "db": relationship(
+                "BlockEmbedding",
+                back_populates="block",
+                cascade="all, delete-orphan",
+                lazy="select",
+            )
+        },
+    )
+
+    block_reference: Optional["BlockReference"] = field(
+        default=None,
+        init=False,
+        metadata={
+            "db": relationship(
+                "BlockReference",
+                foreign_keys="[BlockReference.block_id]",
+                back_populates="block",
+                cascade="all, delete-orphan",
+                lazy="select",
+                uselist=False,  # One-to-one relationship
+            )
+        },
+    )
+
+    # Blocks that reference this block (as the target of their reference)
+    # When this block is deleted, all BlockReference records that reference it
+    # will have their reference_block_id set to NULL (broken references)
+    referenced_by: List["BlockReference"] = field(
+        default_factory=list,
+        init=False,
+        metadata={
+            "db": relationship(
+                "BlockReference",
+                foreign_keys="[BlockReference.reference_block_id]",
+                back_populates="reference_block",
+                lazy="select",
+                passive_deletes=True,  # Let database handle SET NULL
+            )
+        },
+    )
+
+    def validate_for_creation(self) -> Result[None]:
+        """Validate the constraints for creation"""
         if not is_valid_block_type(self.type):
-            raise ValueError(f"invalid block type: {self.type}")
+            return Result.reject(f"invalid block type: {self.type}")
 
         config = get_block_type_config(self.type)
 
         # Check the parent-child relationship constraints
         if config["require_parent"] and self.parent_id is None:
-            raise ValueError(f"block type '{self.type}' requires a parent")
+            return Result.reject(f"block type '{self.type}' requires a parent")
 
-        if (
-            not config["require_parent"]
-            and self.type != BLOCK_TYPE_PAGE
-            and self.parent_id is None
-        ):
-            raise ValueError("only page type blocks can exist without a parent")
-
-    def validate_for_creation(self) -> None:
-        """Validate the constraints for creation"""
-        self.validate()
-        # Can add specific validation logic for creation here
+        return Result.resolve(None)
 
     def can_have_children(self) -> bool:
         """Check if the block type can have children"""

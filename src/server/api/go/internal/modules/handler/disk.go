@@ -45,6 +45,12 @@ func (h *DiskHandler) CreateDisk(c *gin.Context) {
 	c.JSON(http.StatusCreated, serializer.Response{Data: disk})
 }
 
+type ListDisksReq struct {
+	Limit    int    `form:"limit,default=20" json:"limit" binding:"required,min=1,max=200" example:"20"`
+	Cursor   string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
+	TimeDesc bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
+}
+
 // ListDisks godoc
 //
 //	@Summary		List disks
@@ -52,23 +58,37 @@ func (h *DiskHandler) CreateDisk(c *gin.Context) {
 //	@Tags			disk
 //	@Accept			json
 //	@Produce		json
+//	@Param			limit		query	integer	false	"Limit of disks to return, default 20. Max 200."
+//	@Param			cursor		query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
+//	@Param			time_desc	query	boolean	false	"Order by created_at descending if true, ascending if false (default false)"	example(false)
 //	@Security		BearerAuth
-//	@Success		200	{object}	serializer.Response{data=[]model.Disk}
+//	@Success		200	{object}	serializer.Response{data=service.ListDisksOutput}
 //	@Router			/disk [get]
 func (h *DiskHandler) ListDisks(c *gin.Context) {
+	req := ListDisksReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
 	project, ok := c.MustGet("project").(*model.Project)
 	if !ok {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
 		return
 	}
 
-	disks, err := h.svc.List(c.Request.Context(), project.ID)
+	out, err := h.svc.List(c.Request.Context(), service.ListDisksInput{
+		ProjectID: project.ID,
+		Limit:     req.Limit,
+		Cursor:    req.Cursor,
+		TimeDesc:  req.TimeDesc,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
 		return
 	}
 
-	c.JSON(http.StatusOK, serializer.Response{Data: disks})
+	c.JSON(http.StatusOK, serializer.Response{Data: out})
 }
 
 // DeleteDisk godoc

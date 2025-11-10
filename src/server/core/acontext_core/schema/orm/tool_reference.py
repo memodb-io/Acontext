@@ -20,9 +20,12 @@ if TYPE_CHECKING:
 class ToolReference(CommonMixin):
     __tablename__ = "tool_references"
 
-    __table_args__ = (Index("ix_tool_reference_project_id", "project_id"),)
+    __table_args__ = (
+        Index("ix_tool_reference_project_id", "project_id"),
+        Index("ix_tool_reference_project_id_name", "project_id", "name"),
+    )
 
-    tool_name: str = field(metadata={"db": Column(String, nullable=False)})
+    name: str = field(metadata={"db": Column(String, nullable=False)})
 
     project_id: asUUID = field(
         metadata={
@@ -33,10 +36,11 @@ class ToolReference(CommonMixin):
             )
         }
     )
-    tool_description: Optional[str] = field(
+
+    description: Optional[str] = field(
         default=None, metadata={"db": Column(String, nullable=True)}
     )
-    tool_arguments_schema: Optional[dict] = field(
+    arguments_schema: Optional[dict] = field(
         default=None, metadata={"db": Column(JSONB, nullable=True)}
     )
 

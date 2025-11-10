@@ -1,8 +1,21 @@
 import service, { Res } from "../http";
-import { Disk, ListArtifactsResp, GetArtifactResp } from "@/types";
+import { Disk, ListArtifactsResp, GetArtifactResp, GetDisksResp } from "@/types";
 
-export const getDisks = async (): Promise<Res<Disk[]>> => {
-  return await service.get("/api/disk");
+export const getDisks = async (
+  limit: number = 20,
+  cursor?: string,
+  time_desc: boolean = false
+): Promise<Res<GetDisksResp>> => {
+  const params = new URLSearchParams({
+    limit: limit.toString(),
+    time_desc: time_desc.toString(),
+  });
+  if (cursor) {
+    params.append("cursor", cursor);
+  }
+  return await service.get(
+    `/api/disk?${params.toString()}`
+  );
 };
 
 export const getListArtifacts = async (

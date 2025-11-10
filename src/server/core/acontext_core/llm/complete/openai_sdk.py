@@ -3,6 +3,7 @@ from typing import Optional
 from .clients import get_openai_async_client_instance
 from openai.types.chat import ChatCompletion
 from openai.types.chat import ChatCompletionMessageToolCall
+from time import perf_counter
 from ...env import LOG, DEFAULT_CORE_CONFIG
 from ...schema.llm import LLMResponse
 
@@ -47,6 +48,7 @@ async def openai_complete(
     if not messages:
         raise ValueError("No messages provided")
 
+    _start_s = perf_counter()
     response: ChatCompletion = await openai_async_client.chat.completions.create(
         model=model,
         messages=messages,
@@ -56,10 +58,12 @@ async def openai_complete(
         **DEFAULT_CORE_CONFIG.llm_openai_completion_kwargs,
         **kwargs,
     )
+    _end_s = perf_counter()
     cached_tokens = getattr(response.usage.prompt_tokens_details, "cached_tokens", None)
     LOG.info(
         f"LLM Complete: {prompt_id} {model}. "
-        f"cached {cached_tokens}, input {response.usage.prompt_tokens}, total {response.usage.total_tokens}"
+        f"cached {cached_tokens}, input {response.usage.prompt_tokens}, total {response.usage.total_tokens}, "
+        f"time {_end_s - _start_s:.4f}s"
     )
 
     # Only support tool calls

@@ -16,6 +16,9 @@ before:
   hooks:
     - go mod tidy
 
+
+# create binaries only
+# goreleaser build --snapshot --clean --config=.goreleaser.yaml
 builds:
   - id: "acontext-api"
     main: "./cmd/server/main.go"
@@ -23,7 +26,7 @@ builds:
       - CGO_ENABLED=0
     goos:
       - linux
-      #- windows
+      - windows
       - darwin
     goarch:
       - amd64
@@ -31,7 +34,8 @@ builds:
     binary: acontext-api
 
 archives:
-  - format: tar.gz
+  - formats:
+      - tar.gz
     # this name template makes the OS and Arch compatible with the results of `uname`.
     name_template: >-
       {{ .ProjectName }}_
@@ -41,18 +45,19 @@ archives:
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
     # use zip for windows archives
-    # format_overrides:
-    #   - goos: windows
-    #     format: zip
+    format_overrides:
+      - goos: windows
+        formats: 
+          - zip
 
 dockers_v2:
   - id: "acontext-api"
-    dockerfile: "Dockerfile"
+    dockerfile: "Dockerfile.goreleaser"
     images:
       - "ghcr.io/memodb-io/acontext-api"
     tags:
       - "{{.ShortCommit}}"
-     # - "{{.Version}}"
+      - "{{.Version}}"
     extra_files:
       - "configs/config.yaml"
     labels:

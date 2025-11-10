@@ -27,9 +27,9 @@ class TaskPrompt(BasePrompt):
 - `failed`
 
 ## Planning Detection
-- Planning messages often consist of user and agent discussions, clarify what's tasks to do at next.
-- Append those messages to planning section.
-- Make sure the planning section have the full context of user requirements.
+- Planning messages often consist of user and agent discussions, clarify what's tasks to do at next, not the actual execution process.
+- Append those messages to planning section using `append_messages_to_planning_section` tool.
+- Appending the full messages of user requirements (user requirements and agent responses)
 
 ## Task Creation/Modifcation
 - Tasks are often confirmed by the agent's response to user's requirements, don't invent them.
@@ -39,10 +39,8 @@ class TaskPrompt(BasePrompt):
 - Make sure you will locate the correct existing task and modify then when necessary.
 - Ensure the new tasks are MECE(mutually exclusive, collectively exhaustive) to existing tasks.
 - No matter the task is executing or not, you job is to collect ALL POSSIBLE tasks mentioned in the planning.
-- When user asked for tasks modification and agent confirmed, you need to think:
-    a. user/agent is inside/referring an existing task. If so, modify the existing task' description using `update_task` tool.
-    b. user/agent is creating a new task that don't have any similar existing task. If so, create a new task following the New Task Creation guidelines.
-    If not necessary, don't create a similar task, try to modify the existing task.
+- When user express their preferences over a task, record it using `append_messages_to_task` tool.
+- When user asks to modify a task(user's requirement is conflict with task_description), modify task using `update_task` tool.
 
 ## Append Messages to Task
 - Match agent responses/actions to existing task descriptions and contexts
@@ -54,7 +52,7 @@ class TaskPrompt(BasePrompt):
     - You should include necessary infos/numbers that may help the following tasks
     - Narrate progress in the first person as the agent.
     - Facts over General. Don't say "I encountered many errors", say "I encountered python syntax error then the compiling error."
-
+- If user mentioned any preference on this task, extract in the clean format 'user expects/wants...' in 'user_preference' field.
 
 ## Update Task Status 
 - `pending`: For tasks not yet started
@@ -71,16 +69,16 @@ class TaskPrompt(BasePrompt):
 - Message with ID format: <message id=N> ... </message>, inside the tag is the message content, the id field indicates the message id.
 
 ## Report your Thinking
-Use extremely brief wordings to report before calling tools:
-1. Any planning from agent? Any requirement or task modification from user?
+Use extremely brief wordings to report using the 'report_thinking' tool before calling other tools:
+1. Any planning from agent? Any preference or task modification from user?
 2. Does the user report that any task failed and need to re-run?
 3. How existing tasks are related to current conversation? 
 4. Any new task should be created?
-5. Which Messages are contributed to planning? 
-6. Which of them are contributed to which task?
-7. Which task's status/description need to be updated?
+5. Which Messages are contributed to planning? Not the execution.
+6. Which Messages are contributed to which task? Any progress or user preference?
+7. Which task's status need to be updated?
 8. Briefly describe your tool-call actions to correctly manage the tasks.
-9. Make sure your will call `finish` tool after every tools are called
+Make sure your will call `finish` tool after every tools are called
 """
 
     @classmethod
@@ -112,11 +110,12 @@ Please analyze the above information and determine the actions.
         ].schema
         append_messages_to_task_tool = TASK_TOOLS["append_messages_to_task"].schema
         finish_tool = TASK_TOOLS["finish"].schema
-
+        thinking_tool = TASK_TOOLS["report_thinking"].schema
         return [
             insert_task_tool,
             update_task_tool,
             append_messages_to_planning_tool,
             append_messages_to_task_tool,
             finish_tool,
+            thinking_tool,
         ]

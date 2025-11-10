@@ -1,11 +1,24 @@
 import { createApiResponse, createApiError } from "@/lib/api-response";
-import { Disk } from "@/types";
+import { Disk, GetDisksResp } from "@/types";
 
-export async function GET() {
-  const getDisks = new Promise<Disk[]>(async (resolve, reject) => {
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const limit = parseInt(searchParams.get("limit") || "20");
+  const cursor = searchParams.get("cursor") || undefined;
+  const time_desc = searchParams.get("time_desc") === "true";
+
+  const getDisks = new Promise<GetDisksResp>(async (resolve, reject) => {
     try {
+      const params = new URLSearchParams({
+        limit: limit.toString(),
+        time_desc: time_desc.toString(),
+      });
+      if (cursor) {
+        params.append("cursor", cursor);
+      }
+
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_SERVER_URL}/api/v1/disk`,
+        `${process.env.NEXT_PUBLIC_API_SERVER_URL}/api/v1/disk?${params.toString()}`,
         {
           method: "GET",
           headers: {
@@ -30,7 +43,7 @@ export async function GET() {
 
   try {
     const res = await getDisks;
-    return createApiResponse(res || []);
+    return createApiResponse(res);
   } catch (error) {
     console.error(error);
     return createApiError("Internal Server Error");
