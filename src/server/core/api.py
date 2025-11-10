@@ -9,6 +9,7 @@ from acontext_core.schema.api.response import SearchResultBlockItem
 from acontext_core.schema.utils import asUUID
 from acontext_core.env import DEFAULT_CORE_CONFIG
 from acontext_core.service.data import block_search as BS
+from acontext_core.service.data import block_render as BR
 
 
 @asynccontextmanager
@@ -26,7 +27,7 @@ app = FastAPI(lifespan=lifespan)
 
 
 @app.get("/api/v1/space/{space_id}/semantic_glob")
-async def semantic_global(
+async def semantic_glob(
     space_id: asUUID = Path(..., description="Space ID to search within"),
     query: str = Query(..., description="Search query for page/folder titles"),
     limit: int = Query(
@@ -77,6 +78,9 @@ async def semantic_global(
         for block, distance in block_distances:
             item = SearchResultBlockItem(
                 block_id=block.id,
+                title=block.title,
+                type=block.type,
+                props=block.props,
                 distance=distance,
             )
 
@@ -86,7 +90,7 @@ async def semantic_global(
 
 
 @app.get("/api/v1/space/{space_id}/semantic_grep")
-async def semantic_global(
+async def semantic_grep(
     space_id: asUUID = Path(..., description="Space ID to search within"),
     query: str = Query(..., description="Search query for content blocks"),
     limit: int = Query(
@@ -135,8 +139,18 @@ async def semantic_global(
         search_results = []
 
         for block, distance in block_distances:
+            r = await BR.render_content_block(db_session, space_id, block)
+            if not r.ok():
+                LOG.error(f"Render failed: {r.error}")
+                raise HTTPException(status_code=500, detail=str(r.error))
+            rendered_block = r.data
+            if rendered_block.props is None:
+                continue
             item = SearchResultBlockItem(
                 block_id=block.id,
+                title=block.title,
+                type=block.type,
+                props=rendered_block.props,
                 distance=distance,
             )
 
