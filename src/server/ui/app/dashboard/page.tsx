@@ -1,10 +1,9 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useEffect, useMemo, useState, type ReactElement } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts"
-import { HardDrive, MessageSquare, ListChecks, Database, Users, Mail } from "lucide-react"
 import { useTranslations } from "next-intl"
 import {
   Select,
@@ -13,84 +12,49 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { fetchDashboardData } from "./actions"
+import type { DashboardData, TimeRange } from "./actions"
 
-// Time range type
-type TimeRange = "7" | "30" | "90"
+const getDaysFromRange = (timeRange: TimeRange) => parseInt(timeRange, 10)
 
-// Generate mock data for different time ranges
-const generateDailyDiskUsage = (days: number) => {
-  const data = []
+const buildDateLabels = (days: number) => {
   const now = new Date()
+  const labels: string[] = []
+
   for (let i = days - 1; i >= 0; i--) {
     const date = new Date(now)
     date.setDate(date.getDate() - i)
-    data.push({
-      date: `${date.getMonth() + 1}/${date.getDate()}`,
-      usage: Math.floor(Math.random() * 50) + 600, // 600-650 GB
-    })
+    labels.push(`${date.getMonth() + 1}/${date.getDate()}`)
   }
-  return data
+
+  return labels
 }
 
-const generateMessageTokenData = (days: number) => {
-  const data = []
-  const now = new Date()
-  for (let i = days - 1; i >= 0; i--) {
-    const date = new Date(now)
-    date.setDate(date.getDate() - i)
-    data.push({
-      date: `${date.getMonth() + 1}/${date.getDate()}`,
-      tokens: Math.floor(Math.random() * 5000) + 40000, // 40000-45000
-    })
+const createPlaceholderData = (timeRange: TimeRange): DashboardData => {
+  const days = getDaysFromRange(timeRange)
+  const labels = buildDateLabels(days)
+
+  return {
+    taskSuccessRate: labels.map((label) => ({ date: label, successRate: 0 })),
+    taskStatusDistribution: labels.map((label) => ({
+      date: label,
+      completed: 0,
+      inProgress: 0,
+      pending: 0,
+      failed: 0,
+    })),
+    sessionAvgMessageTurns: [],
+    sessionAvgTasks: [],
+    taskAvgMessageTurns: [],
+    storageUsage: labels.map((label) => ({
+      date: label,
+      usage: 0,
+    })),
+    taskStatistics: [],
   }
-  return data
 }
 
-const generateAvgTokenPerMessage = (days: number) => {
-  const data = []
-  const now = new Date()
-  for (let i = days - 1; i >= 0; i--) {
-    const date = new Date(now)
-    date.setDate(date.getDate() - i)
-    data.push({
-      date: `${date.getMonth() + 1}/${date.getDate()}`,
-      avgTokens: Math.floor(Math.random() * 50) + 100, // 100-150 tokens per message
-    })
-  }
-  return data
-}
-
-// Task status data - stacked bar chart format
-const generateTaskStatusData = (days: number) => {
-  const data = []
-  const now = new Date()
-  for (let i = days - 1; i >= 0; i--) {
-    const date = new Date(now)
-    date.setDate(date.getDate() - i)
-    data.push({
-      date: `${date.getMonth() + 1}/${date.getDate()}`,
-      completed: Math.floor(Math.random() * 20) + 10,
-      inProgress: Math.floor(Math.random() * 5) + 2,
-      pending: Math.floor(Math.random() * 10) + 5,
-      failed: Math.floor(Math.random() * 3) + 1,
-    })
-  }
-  return data
-}
-
-const chartConfig = {
-  tokens: {
-    label: "Tokens",
-    color: "#3b82f6",
-  },
-  usage: {
-    label: "Usage",
-    color: "#3b82f6",
-  },
-  quota: {
-    label: "Quota",
-    color: "#e5e7eb",
-  },
+const baseChartConfig = {
   completed: {
     label: "Completed",
     color: "#10b981",
@@ -112,21 +76,115 @@ const chartConfig = {
 export default function DashboardPage() {
   const t = useTranslations("dashboard")
   const [timeRange, setTimeRange] = useState<TimeRange>("7")
+  const [dashboardData, setDashboardData] = useState<DashboardData>(() =>
+    createPlaceholderData("7")
+  )
+  const [isLoading, setIsLoading] = useState(false)
 
-  // Mock statistics
-  const totalDiskUsage = 650 // GB
-  const totalTokens = 371000
-  const totalTasks = 247
-  const totalSpaces = 5
-  const totalSessions = 128
-  const totalMessages = 3542
+  useEffect(() => {
+    let isMounted = true
 
-  // Generate data based on selected time range
-  const days = useMemo(() => parseInt(timeRange), [timeRange])
-  const dailyDiskUsage = useMemo(() => generateDailyDiskUsage(days), [days])
-  const messageTokenData = useMemo(() => generateMessageTokenData(days), [days])
-  const taskStatusData = useMemo(() => generateTaskStatusData(days), [days])
-  const avgTokenPerMessageData = useMemo(() => generateAvgTokenPerMessage(days), [days])
+    const loadData = async () => {
+      setIsLoading(true)
+      try {
+        const data = await fetchDashboardData(timeRange)
+        if (isMounted) {
+          setDashboardData(data)
+        }
+      } catch (error) {
+        console.error("Failed to fetch dashboard data", error)
+        if (isMounted) {
+          setDashboardData(createPlaceholderData(timeRange))
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    setDashboardData(createPlaceholderData(timeRange))
+    loadData()
+
+    return () => {
+      isMounted = false
+    }
+  }, [timeRange])
+
+  const hasTaskSuccessRateData = useMemo(
+    () => dashboardData.taskSuccessRate.some((point) => point.successRate > 0),
+    [dashboardData.taskSuccessRate]
+  )
+  const hasTaskStatusDistributionData = useMemo(
+    () =>
+      dashboardData.taskStatusDistribution.some(
+        (point) =>
+          point.completed > 0 ||
+          point.inProgress > 0 ||
+          point.pending > 0 ||
+          point.failed > 0
+      ),
+    [dashboardData.taskStatusDistribution]
+  )
+  const hasSessionAvgMessageTurnsData = useMemo(
+    () =>
+      dashboardData.sessionAvgMessageTurns.some(
+        (point) => point.avgMessageTurns > 0
+      ),
+    [dashboardData.sessionAvgMessageTurns]
+  )
+  const hasSessionAvgTasksData = useMemo(
+    () =>
+      dashboardData.sessionAvgTasks.some((point) => point.avgTasks > 0),
+    [dashboardData.sessionAvgTasks]
+  )
+  const hasTaskAvgMessageTurnsData = useMemo(
+    () =>
+      dashboardData.taskAvgMessageTurns.some((point) => point.avgTurns > 0),
+    [dashboardData.taskAvgMessageTurns]
+  )
+  const hasStorageUsageData = useMemo(
+    () => dashboardData.storageUsage.some((point) => point.usage > 0),
+    [dashboardData.storageUsage]
+  )
+
+  const chartConfig = useMemo(
+    () => ({
+      ...baseChartConfig,
+      successRate: {
+        label: t("successRate"),
+        color: "#10b981",
+      },
+      avgMessageTurns: {
+        label: t("avgMessageTurns"),
+        color: "#6366f1",
+      },
+      avgTasks: {
+        label: t("avgTasks"),
+        color: "#f59e0b",
+      },
+      avgTurns: {
+        label: t("avgTaskMessageTurns"),
+        color: "#6366f1",
+      },
+      usage: {
+        label: t("storageUsage"),
+        color: "#3b82f6",
+      },
+    }),
+    [t]
+  )
+
+  const renderChart = (hasData: boolean, chart: ReactElement) =>
+    hasData ? (
+      <ChartContainer config={chartConfig} className="h-[300px]">
+        {chart}
+      </ChartContainer>
+    ) : (
+      <div className="flex h-[300px] items-center justify-center text-sm text-muted-foreground">
+        {t("noData")}
+      </div>
+    )
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -145,125 +203,66 @@ export default function DashboardPage() {
               <SelectItem value="90">{t("90days")}</SelectItem>
             </SelectContent>
           </Select>
+          {isLoading && (
+            <span className="text-xs text-muted-foreground">Loading...</span>
+          )}
         </div>
       </div>
 
-      {/* Overview cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {/* Disk usage card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("diskUsage")}</CardTitle>
-            <HardDrive className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalDiskUsage} GB</div>
-            <p className="text-xs text-muted-foreground">
-              {t("diskUsageDetail")}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Total tokens card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("totalTokens")}</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalTokens.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              {t("totalTokensDetail")}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Total tasks card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("totalTasks")}</CardTitle>
-            <ListChecks className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalTasks}</div>
-            <p className="text-xs text-muted-foreground">
-              {t("totalTasksDetail", { completed: 145, inProgress: 32 })}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Total spaces card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("totalSpaces")}</CardTitle>
-            <Database className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalSpaces}</div>
-            <p className="text-xs text-muted-foreground">
-              {t("totalSpacesDetail")}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Total sessions card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("totalSessions")}</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalSessions}</div>
-            <p className="text-xs text-muted-foreground">
-              {t("totalSessionsDetail")}
-            </p>
-          </CardContent>
-        </Card>
-
-        {/* Total messages card */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">{t("totalMessages")}</CardTitle>
-            <Mail className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalMessages.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              {t("totalMessagesDetail")}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Charts section - 2x2 grid */}
+      {/* Charts section - 3 rows */}
       <div className="grid gap-4 md:grid-cols-2">
-        {/* Daily disk usage bar chart */}
+        {/* Task success rate line chart */}
         <Card>
           <CardHeader>
-            <CardTitle>{t("diskUsageChart")}</CardTitle>
-            <CardDescription>{t("diskUsageChartDesc")}</CardDescription>
+            <CardTitle>{t("taskSuccessRateChart")}</CardTitle>
+            <CardDescription>{t("taskSuccessRateChartDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig} className="h-[300px]">
-              <BarChart data={dailyDiskUsage}>
+          {renderChart(
+            hasTaskSuccessRateData,
+            (
+              <LineChart data={dashboardData.taskSuccessRate} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="date"
                   tick={{ fontSize: 12 }}
                   angle={-45}
                   textAnchor="end"
-                  height={80}
+                  height={60}
                 />
-                <YAxis />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <Bar
-                  dataKey="usage"
-                  fill="#3b82f6"
-                  name={t("usage")}
-                  radius={[4, 4, 0, 0]}
+                <YAxis
+                  width={50}
+                  domain={[0, 100]}
+                  tickFormatter={(value) => `${value}%`}
                 />
-              </BarChart>
-            </ChartContainer>
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      formatter={(value) => {
+                        const numericValue = Array.isArray(value)
+                          ? Number(value[0])
+                          : typeof value === "number"
+                            ? value
+                            : Number(value)
+                        if (!Number.isFinite(numericValue)) {
+                          return value ?? "-"
+                        }
+                        return `${numericValue.toFixed(1)}%`
+                      }}
+                    />
+                  }
+                />
+                <Line
+                  type="monotone"
+                  dataKey="successRate"
+                  stroke="#10b981"
+                  strokeWidth={2}
+                  dot={{ fill: "#10b981" }}
+                  name={t("successRate")}
+                />
+              </LineChart>
+            )
+          )}
           </CardContent>
         </Card>
 
@@ -274,17 +273,19 @@ export default function DashboardPage() {
             <CardDescription>{t("taskStatusChartDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig} className="h-[300px]">
-              <BarChart data={taskStatusData}>
+          {renderChart(
+            hasTaskStatusDistributionData,
+            (
+              <BarChart data={dashboardData.taskStatusDistribution} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="date"
                   tick={{ fontSize: 12 }}
                   angle={-45}
                   textAnchor="end"
-                  height={80}
+                  height={60}
                 />
-                <YAxis />
+                <YAxis width={50} />
                 <ChartTooltip content={<ChartTooltipContent />} />
                 <Bar
                   dataKey="completed"
@@ -315,70 +316,156 @@ export default function DashboardPage() {
                   radius={[4, 4, 0, 0]}
                 />
               </BarChart>
-            </ChartContainer>
+            )
+          )}
           </CardContent>
         </Card>
 
-        {/* Message token trend line chart */}
+        {/* Average message turns per session bar chart */}
         <Card>
           <CardHeader>
-            <CardTitle>{t("tokenTrendChart")}</CardTitle>
-            <CardDescription>{t("tokenTrendChartDesc")}</CardDescription>
+            <CardTitle>{t("sessionAvgMessageTurnChart")}</CardTitle>
+            <CardDescription>{t("sessionAvgMessageTurnChartDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig} className="h-[300px]">
-              <LineChart data={messageTokenData}>
+          {renderChart(
+            hasSessionAvgMessageTurnsData,
+            (
+              <BarChart data={dashboardData.sessionAvgMessageTurns} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="date"
                   tick={{ fontSize: 12 }}
                   angle={-45}
                   textAnchor="end"
-                  height={80}
+                  height={60}
                 />
-                <YAxis />
+                <YAxis width={50} />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Line
-                  type="monotone"
-                  dataKey="tokens"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={{ fill: "#3b82f6" }}
+                <Bar
+                  dataKey="avgMessageTurns"
+                  fill="#6366f1"
+                  name={t("avgMessageTurns")}
+                  radius={[4, 4, 0, 0]}
                 />
-              </LineChart>
-            </ChartContainer>
+              </BarChart>
+            )
+          )}
           </CardContent>
         </Card>
 
-        {/* Average token per message line chart */}
+        {/* Average tasks per session bar chart */}
         <Card>
           <CardHeader>
-            <CardTitle>{t("avgTokenPerMessageChart")}</CardTitle>
-            <CardDescription>{t("avgTokenPerMessageChartDesc")}</CardDescription>
+            <CardTitle>{t("sessionAvgTaskCountChart")}</CardTitle>
+            <CardDescription>{t("sessionAvgTaskCountChartDesc")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={chartConfig} className="h-[300px]">
-              <LineChart data={avgTokenPerMessageData}>
+          {renderChart(
+            hasSessionAvgTasksData,
+            (
+              <BarChart data={dashboardData.sessionAvgTasks} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
                   dataKey="date"
                   tick={{ fontSize: 12 }}
                   angle={-45}
                   textAnchor="end"
-                  height={80}
+                  height={60}
                 />
-                <YAxis />
+                <YAxis width={50} />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Line
-                  type="monotone"
-                  dataKey="avgTokens"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  dot={{ fill: "#10b981" }}
-                  name={t("avgTokens")}
+                <Bar
+                  dataKey="avgTasks"
+                  fill="#f59e0b"
+                  name={t("avgTasks")}
+                  radius={[4, 4, 0, 0]}
                 />
-              </LineChart>
-            </ChartContainer>
+              </BarChart>
+            )
+          )}
+          </CardContent>
+        </Card>
+
+        {/* Average message turns per task bar chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("taskAvgMessageTurnChart")}</CardTitle>
+            <CardDescription>{t("taskAvgMessageTurnChartDesc")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+          {renderChart(
+            hasTaskAvgMessageTurnsData,
+            (
+              <BarChart data={dashboardData.taskAvgMessageTurns} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 12 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis width={50} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar
+                  dataKey="avgTurns"
+                  fill="#6366f1"
+                  name={t("avgTaskMessageTurns")}
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            )
+          )}
+          </CardContent>
+        </Card>
+
+        {/* Storage usage bar chart */}
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("storageUsageChart")}</CardTitle>
+            <CardDescription>{t("storageUsageChartDesc")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+          {renderChart(
+            hasStorageUsageData,
+            (
+              <BarChart data={dashboardData.storageUsage} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="date"
+                  tick={{ fontSize: 12 }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis width={50} />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      formatter={(value) => {
+                        const numericValue = Array.isArray(value)
+                          ? Number(value[0])
+                          : typeof value === "number"
+                            ? value
+                            : Number(value)
+                        if (!Number.isFinite(numericValue)) {
+                          return value ?? "-"
+                        }
+                        return `${numericValue.toFixed(2)} KB`
+                      }}
+                    />
+                  }
+                />
+                <Bar
+                  dataKey="usage"
+                  fill="#3b82f6"
+                  name={t("storageUsage")}
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            )
+          )}
           </CardContent>
         </Card>
       </div>
@@ -390,44 +477,46 @@ export default function DashboardPage() {
           <CardDescription>{t("taskDetailTableDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-2">{t("status")}</th>
-                  <th className="text-right p-2">{t("count")}</th>
-                  <th className="text-right p-2">{t("percentage")}</th>
-                  <th className="text-right p-2">{t("avgTime")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b">
-                  <td className="p-2">{t("completed")}</td>
-                  <td className="text-right p-2">145</td>
-                  <td className="text-right p-2">58.7%</td>
-                  <td className="text-right p-2">2.3 {t("minutes")}</td>
-                </tr>
-                <tr className="border-b">
-                  <td className="p-2">{t("inProgress")}</td>
-                  <td className="text-right p-2">32</td>
-                  <td className="text-right p-2">13.0%</td>
-                  <td className="text-right p-2">-</td>
-                </tr>
-                <tr className="border-b">
-                  <td className="p-2">{t("pending")}</td>
-                  <td className="text-right p-2">58</td>
-                  <td className="text-right p-2">23.5%</td>
-                  <td className="text-right p-2">-</td>
-                </tr>
-                <tr>
-                  <td className="p-2">{t("failed")}</td>
-                  <td className="text-right p-2">12</td>
-                  <td className="text-right p-2">4.9%</td>
-                  <td className="text-right p-2">1.8 {t("minutes")}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          {dashboardData.taskStatistics.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left p-2">{t("status")}</th>
+                    <th className="text-right p-2">{t("count")}</th>
+                    <th className="text-right p-2">{t("percentage")}</th>
+                    <th className="text-right p-2">{t("avgTime")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {dashboardData.taskStatistics.map((stat, index) => (
+                    <tr key={stat.status} className={index < dashboardData.taskStatistics.length - 1 ? "border-b" : ""}>
+                      <td className="p-2">
+                        {stat.status === "success"
+                          ? t("completed")
+                          : stat.status === "running"
+                            ? t("inProgress")
+                            : stat.status === "pending"
+                              ? t("pending")
+                              : stat.status === "failed"
+                                ? t("failed")
+                                : stat.status}
+                      </td>
+                      <td className="text-right p-2">{stat.count}</td>
+                      <td className="text-right p-2">{stat.percentage}%</td>
+                      <td className="text-right p-2">
+                        {stat.avgTime !== null ? `${stat.avgTime} ${t("minutes")}` : "-"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="flex h-[150px] items-center justify-center text-sm text-muted-foreground">
+              {t("noData")}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
