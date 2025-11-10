@@ -66,10 +66,6 @@ _create_folder_tool = (
                             "type": "string",
                             "description": "Folder Title. Use Snake Case naming convention. Maximum 5 words. Title can't contain '/'.",
                         },
-                        "view_when": {
-                            "type": "string",
-                            "description": "A expandsion of the title in 1-2 sentences. Only pass this when you find the title is too short to cover the meaning of this folder, otherwise leave it empty string.",
-                        },
                     },
                     "required": ["folder_path", "title"],
                 },

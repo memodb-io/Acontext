@@ -29,7 +29,10 @@ async def build_space_ctx(
 
 def pack_candidate_data_list(data: list[GeneralBlockData]) -> str:
     return "\n".join(
-        [f"<candidate_data id={i}>{d}</candidate_data>" for i, d in enumerate(data)]
+        [
+            f"<candidate_data id={i}>{d['data']}</candidate_data>"
+            for i, d in enumerate(data)
+        ]
     )
 
 

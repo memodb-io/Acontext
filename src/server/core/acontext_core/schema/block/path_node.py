@@ -26,9 +26,9 @@ def repr_path_tree(path_nodes: dict[str, PathNode]) -> str:
 
     _repr_tree = "\n".join(
         (
-            f"{dp[0]} (page, view_when: {dp[1].props.get('view_when', '')})"
+            f"{dp[0]} (page)"
             if dp[1].type == BLOCK_TYPE_PAGE
-            else f"{dp[0]} (folder, has {dp[1].sub_page_num} pages & {dp[1].sub_folder_num} folders, view_when: {dp[1].props.get('view_when', '')})"
+            else f"{dp[0]} (folder, has {dp[1].sub_page_num} pages & {dp[1].sub_folder_num} folders)"
         )
         for dp in remove_not_end_paths
     )

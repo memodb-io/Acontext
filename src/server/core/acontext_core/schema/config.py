@@ -6,11 +6,11 @@ from typing import Literal, Mapping, Optional, Any, Type
 
 class ProjectConfig(BaseModel):
     project_session_message_use_previous_messages_turns: int = 3
-    project_session_message_buffer_max_turns: int = 6
-    project_session_message_buffer_max_overflow: int = 12
-    project_session_message_buffer_ttl_seconds: int = 10
-    default_task_agent_max_iterations: int = 3
-    default_sop_agent_max_iterations: int = 3
+    project_session_message_buffer_max_turns: int = 32
+    project_session_message_buffer_max_overflow: int = 16
+    project_session_message_buffer_ttl_seconds: int = 60  # 1 minutes
+    default_task_agent_max_iterations: int = 4
+    default_sop_agent_max_iterations: int = 4
 
 
 class CoreConfig(BaseModel):

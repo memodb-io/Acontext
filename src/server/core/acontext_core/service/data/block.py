@@ -128,7 +128,7 @@ async def create_new_path_block(
     index_content = title
     if "view_when" in props:
         index_content += " " + props["view_when"]
-    r = await create_new_block_embedding(db_session, new_block, index_content)
+    r = await create_new_block_embedding(db_session, new_block, index_content.strip())
     if not r.ok():
         return r
     return Result.resolve(new_block)

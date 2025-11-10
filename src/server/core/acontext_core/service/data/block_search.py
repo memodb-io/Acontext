@@ -16,7 +16,7 @@ async def search_blocks(
     query_text: str,
     block_types: list[str],
     topk: int = 10,
-    threshold: float = 0.5,
+    threshold: float = 0.8,
     fetch_ratio: float = 1.5,
 ) -> Result[List[Tuple[Block, float]]]:
     """

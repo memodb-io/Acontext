@@ -67,10 +67,6 @@ _rename_tool = (
                             "type": "string",
                             "description": "New title for the page or folder. Title can't contain '/'. Use Snake Case naming convention",
                         },
-                        "new_view_when": {
-                            "type": "string",
-                            "description": "New view_when description for the page or folder. If no need to update, don't pass this field.",
-                        },
                     },
                     "required": ["path", "new_title"],
                 },
