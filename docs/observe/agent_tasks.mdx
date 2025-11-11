@@ -14,9 +14,15 @@ As your agent converses with users, Acontext analyzes the conversation context t
 - **Status monitoring**: Track whether tasks are `pending`, `running`, `success`, or `failed`
 - **Execution insights**: See what your agent planned versus what it actually completed
 
-<Note>
-Task extraction happens asynchronously with a small delay. After sending messages, wait a moment before retrieving tasks to ensure extraction is complete.
-</Note>
+### Task Extraction Has a Delay
+
+Task extraction happens asynchronously with a small delay to optimize costs and performance:
+
+**Batch Processing for Cost Efficiency:**
+- Acontext batches multiple messages together before analyzing them for tasks
+- This reduces the number of LLM calls needed for extraction, saving costs
+- The system waits a few seconds to collect messages before starting extraction
+
 
 ## Quick Start: Test Task Extraction
 
@@ -24,6 +30,7 @@ This example demonstrates how to verify that Acontext correctly extracts tasks f
 
 <CodeGroup>
 ```python Python
+import time
 from acontext import AcontextClient
 
 # Initialize client
@@ -62,15 +69,22 @@ for msg in messages:
         format="openai"
     )
 
-# Wait for task extraction to complete (small async delay)
-import time
-time.sleep(2)
+# Wait for task extraction to complete
+# Poll until tasks are extracted (with timeout)
+max_attempts = 10
+tasks_response = None
+for attempt in range(max_attempts):
+    tasks_response = client.sessions.get_tasks(session.id)
+    if len(tasks_response.items) > 0:
+        break
+    time.sleep(1)  # Wait 1 second between attempts
 
-# Retrieve extracted tasks from the conversation
-tasks_response = client.sessions.get_tasks(session.id)
+if not tasks_response or len(tasks_response.items) == 0:
+    print("No tasks extracted yet, extraction may still be in progress")
+else:
+    print(f"Successfully extracted {len(tasks_response.items)} tasks!")
 
-# Display tasks
-print(f"Total tasks: {len(tasks_response.items)}")
+# Display extracted tasks
 for task in tasks_response.items:
     print(f"\nTask #{task.order}:")
     print(f"  ID: {task.id}")
@@ -134,14 +148,26 @@ async function demonstrateTasks() {
         });
     }
 
-    // Wait for task extraction to complete (small async delay)
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Wait for task extraction to complete
+    // Poll until tasks are extracted (with timeout)
+    const maxAttempts = 10;
+    let tasksResponse = null;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        tasksResponse = await client.sessions.getTasks(session.id);
+        if (tasksResponse.items.length > 0) {
+            break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+    }
 
-    // Retrieve extracted tasks from the conversation
-    const tasksResponse = await client.sessions.getTasks(session.id);
+    if (!tasksResponse || tasksResponse.items.length === 0) {
+        console.log('No tasks extracted yet, extraction may still be in progress');
+        return;
+    }
+    
+    console.log(`Successfully extracted ${tasksResponse.items.length} tasks!`);
 
-    // Display tasks
-    console.log(`Total tasks: ${tasksResponse.items.length}`);
+    // Display extracted tasks
     for (const task of tasksResponse.items) {
         console.log(`\nTask #${task.order}:`);
         console.log(`  ID: ${task.id}`);
@@ -219,66 +245,6 @@ for task in tasks_response.items:
 <Note>
 Progress and preferences are appended to tasks as the conversation continues. Early in a conversation, these arrays may be empty or contain only initial entries.
 </Note>
-
-## Retrieving Task History
-
-For sessions with many extracted tasks, use pagination and filtering to efficiently access task data for analysis.
-
-<CodeGroup>
-```python Python
-# Get the 5 most recent tasks
-recent_tasks = client.sessions.get_tasks(
-    session.id,
-    limit=5,
-    time_desc=True
-)
-
-# Paginate through all tasks
-all_tasks = []
-cursor = None
-
-while True:
-    response = client.sessions.get_tasks(
-        session.id,
-        limit=20,
-        cursor=cursor
-    )
-    all_tasks.extend(response.items)
-    
-    if not response.has_more:
-        break
-    cursor = response.next_cursor
-
-print(f"Retrieved {len(all_tasks)} total tasks")
-```
-
-```typescript TypeScript
-// Get the 5 most recent tasks
-const recentTasks = await client.sessions.getTasks(session.id, {
-    limit: 5,
-    timeDesc: true
-});
-
-// Paginate through all tasks
-const allTasks = [];
-let cursor = null;
-
-while (true) {
-    const response = await client.sessions.getTasks(session.id, {
-        limit: 20,
-        cursor
-    });
-    allTasks.push(...response.items);
-    
-    if (!response.has_more) {
-        break;
-    }
-    cursor = response.next_cursor;
-}
-
-console.log(`Retrieved ${allTasks.length} total tasks`);
-```
-</CodeGroup>
 
 
 ## Use Cases for Agent Developers
@@ -364,8 +330,8 @@ for task in response.items:
 ## Best Practices
 
 <CardGroup cols={2}>
-<Card title="Wait for extraction" icon="clock">
-After sending messages, wait 1-2 seconds before retrieving tasks to ensure the extraction process completes.
+<Card title="Poll for extraction" icon="clock">
+After sending messages, poll the tasks endpoint in a loop until tasks are extracted rather than using fixed delays.
 </Card>
 
 <Card title="Test extraction patterns" icon="flask">
@@ -383,12 +349,8 @@ Track the ratio of `success` to `failed` tasks across sessions to measure and im
 
 ## Next Steps
 
-<CardGroup cols={2}>
-<Card title="Store Messages" icon="database" href="/store/messages/multi-provider">
-Learn how to store and retrieve agent conversation messages.
-</Card>
-
-<Card title="Sessions API" icon="comments" href="/api-reference/endpoint/create">
-Explore the complete Sessions API reference.
+<CardGroup cols={1}>
+<Card title="Tasks Self-learning" icon="database" href="/learn/skill-space">
+Learn how to enable your agent to self-learn skills and SOPs.
 </Card>
 </CardGroup>

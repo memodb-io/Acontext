@@ -15,6 +15,7 @@
         "groups": [
           {
             "group": "Getting started",
+            "icon": "rocket",
             "pages": [
               "index",
               "quickstart",
@@ -23,6 +24,7 @@
           },
           {
             "group": "Context Storage",
+            "icon": "database",
             "pages": [
               {
                 "group": "Messages",
@@ -36,13 +38,17 @@
           },
           {
             "group": "Task Observability",
+            "icon": "radar",
             "pages": [
               "observe/agent_tasks"
             ]
           },
           {
             "group": "Agent Self-learning",
-            "pages": []
+            "icon": "sparkles",
+            "pages": [
+              "learn/skill-space"
+            ]
           }
         ]
       },
