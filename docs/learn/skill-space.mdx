@@ -421,14 +421,16 @@ console.log('Future completed tasks will be learned into the Space');
 When a task completes successfully in a session connected to a Space:
 
 ```mermaid
-graph LR
+graph TB
     A[Task Completed] --> B[Task Extraction]
     B --> C{Space Connected?}
     C -->|Yes| D[Queue for Learning]
     C -->|No| E[Skip Learning]
     D --> F[Extract SOP]
-    F --> G[Store as Skill Block]
-    G --> H[Available for Future Sessions]
+    F --> G{Hard Enough?}
+    G -->|No - Too Simple| H[Skip Learning]
+    G -->|Yes - Complex| I[Store as Skill Block]
+    I --> J[Available for Future Sessions]
 ```
 
 ### What Gets Learned
@@ -439,6 +441,15 @@ Acontext analyzes the task execution to extract:
 - **Patterns**: Common problem-solving strategies
 - **Context**: When and how to apply specific techniques
 - **Preferences**: User requirements and constraints mentioned during the task
+
+### Complexity-Based Filtering
+
+Not all completed tasks result in learned skills. After extracting the SOP (Standard Operating Procedure), Acontext evaluates the complexity:
+
+- **Simple tasks** (e.g., single-step operations, basic queries) are **skipped** to avoid cluttering the skill library
+- **Complex tasks** (e.g., multi-step workflows, problem-solving patterns) are **stored** as reusable skills
+
+This intelligent filtering ensures your Space contains only valuable, reusable knowledge that improves agent performance.
 
 <Warning>
 Tasks that complete **before** a session is connected to a Space will not be learned. Connect sessions to Spaces early to capture all learning opportunities.

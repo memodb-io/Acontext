@@ -96,6 +96,7 @@ const result = await client.spaces.experienceSearch('space-uuid', {
   query: 'How to implement authentication?',
   limit: 10,
   mode: 'fast',
+  semanticThreshold: 0.8,
 });
 
 // Agentic mode - AI-powered iterative search
@@ -103,7 +104,6 @@ const agenticResult = await client.spaces.experienceSearch('space-uuid', {
   query: 'What are the best practices for API security?',
   limit: 10,
   mode: 'agentic',
-  semanticThreshold: 0.8,
   maxIterations: 20,
 });
 

@@ -2,4 +2,246 @@
 title: "Search Skills"
 ---
 
+Experience Search is Acontext's advanced search abilty to find the revelant skills for Agent.
+It can use Embedding or Agent 
+to find relevant content and optionally generate synthesized answers from your knowledge spaces.
+
+## Quick Start
+
+<CodeGroup>
+```python Python
+from acontext import AcontextClient
+
+client = AcontextClient(
+    api_key="sk-ac-your-root-api-bearer-token",
+    base_url="http://localhost:8029/api/v1"
+)
+
+# Fast mode - quick semantic search
+result = client.spaces.experience_search(
+    space_id="space-uuid",
+    query="How to implement authentication?",
+    limit=10,
+    mode="fast"
+)
+
+# Access results
+for block in result.cited_blocks:
+    print(f"{block.title} (distance: {block.distance})")
+
+# Note: final_answer is typically None in fast mode
+```
+
+```typescript TypeScript
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({
+    apiKey: 'sk-ac-your-root-api-bearer-token',
+    baseUrl: 'http://localhost:8029/api/v1'
+});
+
+// Fast mode - quick semantic search
+const result = await client.spaces.experienceSearch('space-uuid', {
+    query: 'How to implement authentication?',
+    limit: 10,
+    mode: 'fast'
+});
+
+// Access results
+for (const block of result.cited_blocks) {
+    console.log(`${block.title} (distance: ${block.distance})`);
+}
+
+// Note: final_answer is typically null in fast mode
+```
+</CodeGroup>
+
+## Search Modes
+
+<CardGroup cols={2}>
+<Card title="Fast Mode" icon="bolt" iconType="duotone">
+Quick semantic search using embeddings. Returns blocks only, no answers.
+</Card>
+
+<Card title="Agentic Mode" icon="brain" iconType="duotone">
+Agentic iterative search with refinement. Can generate synthesized answers.
+</Card>
+</CardGroup>
+
+### Fast Mode Details
+- **Speed**: ~100-500ms response time
+- **Output**: Relevant blocks only (`final_answer` is null)
+- **Best for**: Simple lookups, known information retrieval
+- **Use when**: You need quickly search the skills and latency matters.
+
+### Agentic Mode Details  
+- **Speed**: ~2-10s depending on iterations
+- **Output**: Blocks + optional synthesized answer
+- **Best for**: Complex queries, research, analysis
+- **Use when**: You want AI to deeply understand it's own past and go through its skills like human.
+
+<CodeGroup>
+```python Python
+# Agentic mode with advanced parameters
+result = client.spaces.experience_search(
+    space_id="space-uuid",
+    query="What are the best practices for API security?",
+    mode="agentic",
+    semantic_threshold=0.8,
+    max_iterations=20,
+    limit=15
+)
+```
+
+```typescript TypeScript
+// Agentic mode with advanced parameters
+const result = await client.spaces.experienceSearch('space-uuid', {
+    query: 'What are the best practices for API security?',
+    mode: 'agentic',
+    semanticThreshold: 0.8,
+    maxIterations: 20,
+    limit: 15
+});
+```
+</CodeGroup>
+
+## Response Example
+
+```json
+{
+  "cited_blocks": [
+    {
+      "block_id": "block-uuid",
+      "title": "Authentication Guide", 
+      "type": "page",
+      "props": {
+        "use_when": "...", 
+        "preferences": "...", 
+        "tool_sops": [{"action": "...", "tool_name": "..."}]},
+      "distance": 0.23
+    }
+  ],
+  "final_answer": null  // null in fast mode, string in agentic mode
+}
+```
+
+## Parameters
+
+<ParamField query="query" type="string" required>
+Your search question in natural language
+</ParamField>
+
+<ParamField query="mode" type="string" default="fast">
+Search mode: `"fast"` or `"agentic"`
+</ParamField>
+
+<ParamField query="limit" type="integer" default="10">
+Maximum results to return (1-50)
+</ParamField>
+
+<ParamField query="semantic_threshold" type="number">
+Distance threshold for agentic mode (0=identical, 2=opposite)
+</ParamField>
+
+<ParamField query="max_iterations" type="integer" default="16">
+Maximum iterations for agentic mode (1-100)
+</ParamField>
+
+## Distance Scores
+
+- **0.0-0.5**: Very similar content
+- **0.5-1.0**: Related content  
+- **1.0+**: Less relevant content
+
+<Tip>
+Lower distance scores indicate higher semantic similarity to your query.
+</Tip>
+
+## Using Results in Agent Prompts
+
+Pack search results into prompts for your Agent:
+
+<CodeGroup>
+```python Python
+def build_prompt_with_context(query: str, search_results):
+    """Build a prompt with search context for Agent models."""
+    
+    # Build context from search results
+    context_parts = []
+    for block in search_results.cited_blocks:
+        context_parts.append(f"""
+Use when: {block.title}
+Skill: {block.props}
+""")
+    
+    context = "\n---\n".join(context_parts)
+    
+    # Build final prompt
+    prompt = f"""SKILLS REFERENCES:
+{context}
+
+USER REQUEST: {query}
+
+Please Act to complete the request"""
+    
+    return prompt
+
+# Example usage
+result = client.spaces.experience_search(
+    space_id="space-uuid",
+    query="How should I handle user authentication?",
+    mode="fast",
+    limit=5
+)
+
+prompt = build_prompt_with_context(
+    "How should I handle user authentication?", 
+    result
+)
+
+# Send to your AI
+# response = openai_client.chat.completions.create(...)
+```
+
+```typescript TypeScript
+function buildPromptWithContext(query: string, searchResults: any): string {
+    // Build context from search results
+    const contextParts = searchResults.cited_blocks.map((block: any) => `
+Use when: ${block.title}
+Skill: ${block.props}
+`);
+    
+    const context = contextParts.join('\n---\n');
+    
+    // Build final prompt
+    const prompt = `SKILLS REFERENCES:
+${context}
+
+USER REQUEST: ${query}
+
+Please Act to complete the request`;
+    
+    return prompt;
+}
+
+// Example usage
+const result = await client.spaces.experienceSearch('space-uuid', {
+    query: 'How should I handle user authentication?',
+    mode: 'fast',
+    limit: 5
+});
+
+const prompt = buildPromptWithContext(
+    'How should I handle user authentication?', 
+    result
+);
+
+// Send to your AI model
+// const response = await openai.chat.completions.create(...)
+```
+</CodeGroup>
+
+<Note>
+In agentic mode, you can use the `final_answer` directly instead of building your own prompt, as the AI has already synthesized the information.
+</Note>
 

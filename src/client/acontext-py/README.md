@@ -104,7 +104,6 @@ result = client.spaces.experience_search(
     query="What are the best practices for API security?",
     limit=10,
     mode="agentic",
-    semantic_threshold=0.8,
     max_iterations=20,
 )
 
