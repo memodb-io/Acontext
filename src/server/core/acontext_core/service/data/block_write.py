@@ -67,7 +67,7 @@ async def write_sop_block_to_parent(
     for i, sop_step in enumerate(sop_data.tool_sops):
         tool_name = sop_step.tool_name.strip()
         if not tool_name:
-            return Result.reject(f"Tool name is empty")
+            return Result.reject("Tool name is empty")
         tool_name = tool_name.lower()
         # Try to find existing ToolReference
         tool_ref_query = (

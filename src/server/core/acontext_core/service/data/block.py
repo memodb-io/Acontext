@@ -1,8 +1,5 @@
-import numpy as np
-from sqlalchemy import String
 from typing import List, Optional
-from sqlalchemy import select, delete, update, func
-from sqlalchemy import select, delete, update
+from sqlalchemy import select, update, func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,13 +8,11 @@ from ...schema.orm.block import (
     BLOCK_TYPE_FOLDER,
     BLOCK_TYPE_ROOT,
     BLOCK_TYPE_PAGE,
-    BLOCK_TYPE_SOP,
     BLOCK_PARENT_ALLOW,
 )
-from ...schema.orm import Block, BlockEmbedding, ToolReference, ToolSOP, Space
+from ...schema.orm import Block, BlockEmbedding
 from ...schema.utils import asUUID
 from ...schema.result import Result
-from ...schema.block.sop_block import SOPData
 from .block_nav import assert_block_type, _normalize_path_block_title
 
 
@@ -175,7 +170,7 @@ async def move_path_block_to_new_parent(
     maybe_cycle_all_parent_ids = r.data
     if path_block_id in maybe_cycle_all_parent_ids:
         return Result.reject(
-            f"Cycle detected, can't move a parent block to its child block"
+            "Cycle detected, can't move a parent block to its child block"
         )
 
     r = await _find_block_sort(

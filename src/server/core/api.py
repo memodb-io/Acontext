@@ -19,9 +19,13 @@ from acontext_core.schema.api.response import (
 from acontext_core.schema.tool.tool_reference import ToolReferenceData
 from acontext_core.schema.utils import asUUID
 from acontext_core.schema.block.sop_block import SOPData
-from acontext_core.schema.orm.block import BLOCK_TYPE_SOP
+from acontext_core.schema.orm.block import (
+    BLOCK_TYPE_SOP,
+    PATH_BLOCK,
+)
 from acontext_core.env import DEFAULT_CORE_CONFIG
 from acontext_core.llm.agent import space_search as SS
+from acontext_core.service.data import block as BB
 from acontext_core.service.data import block_write as BW
 from acontext_core.service.data import block_search as BS
 from acontext_core.service.data import block_render as BR
@@ -244,21 +248,38 @@ async def insert_new_block(
     space_id: asUUID = Path(..., description="Space ID to search within"),
     request: InsertBlockRequest = Body(..., description="Request to insert new block"),
 ) -> InsertBlockResponse:
-    if request.type != BLOCK_TYPE_SOP:
+    if request.type == BLOCK_TYPE_SOP:
+
+        try:
+            sop_data = SOPData.model_validate(
+                {**request.props, "use_when": request.title}
+            )
+        except ValidationError as e:
+            raise HTTPException(status_code=500, detail=str(e))
+        async with DB_CLIENT.get_session_context() as db_session:
+            r = await BW.write_sop_block_to_parent(
+                db_session, space_id, request.parent_id, sop_data
+            )
+            if not r.ok():
+                raise HTTPException(status_code=500, detail=str(r.error))
+        return InsertBlockResponse(id=r.data)
+    elif request.type in PATH_BLOCK:
+        async with DB_CLIENT.get_session_context() as db_session:
+            r = await BB.create_new_path_block(
+                db_session,
+                space_id,
+                request.title,
+                request.props,
+                request.parent_id,
+                request.type,
+            )
+            if not r.ok():
+                raise HTTPException(status_code=500, detail=str(r.error))
+            return InsertBlockResponse(id=r.data.id)
+    else:
         raise HTTPException(
             status_code=500, detail=f"Invalid block type: {request.type}"
         )
-    try:
-        sop_data = SOPData.model_validate({**request.props, "use_when": request.title})
-    except ValidationError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    async with DB_CLIENT.get_session_context() as db_session:
-        r = await BW.write_sop_block_to_parent(
-            db_session, space_id, request.parent_id, sop_data
-        )
-        if not r.ok():
-            raise HTTPException(status_code=500, detail=str(r.error))
-    return InsertBlockResponse(id=r.data)
 
 
 @app.post("/api/v1/project/{project_id}/session/{session_id}/flush")
