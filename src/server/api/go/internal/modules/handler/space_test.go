@@ -438,13 +438,13 @@ func TestSpaceHandler_GetExperienceSearch(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := NewSpaceHandler(&MockSpaceService{}, getMockCoreClient())
 			router := setupSpaceRouter()
-			
+
 			// Add middleware to set project in context
 			router.Use(func(c *gin.Context) {
 				c.Set("project", &model.Project{ID: uuid.New()})
 				c.Next()
 			})
-			
+
 			router.GET("/space/:space_id/experience_search", handler.GetExperienceSearch)
 
 			queryString := "?query=" + url.QueryEscape(tt.requestBody.Query)
@@ -493,17 +493,17 @@ func TestSpaceHandler_GetSemanticGlobal(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := NewSpaceHandler(&MockSpaceService{}, getMockCoreClient())
 			router := setupSpaceRouter()
-			
+
 			// Add middleware to set project in context
 			router.Use(func(c *gin.Context) {
 				c.Set("project", &model.Project{ID: uuid.New()})
 				c.Next()
 			})
-			
-			router.GET("/space/:space_id/semantic_global", handler.GetSemanticGlobal)
+
+			router.GET("/space/:space_id/semantic_glob", handler.GetSemanticGlobal)
 
 			queryString := "?query=" + url.QueryEscape(tt.requestBody.Query)
-			req := httptest.NewRequest("GET", "/space/"+tt.spaceIDParam+"/semantic_global"+queryString, nil)
+			req := httptest.NewRequest("GET", "/space/"+tt.spaceIDParam+"/semantic_glob"+queryString, nil)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)
@@ -548,13 +548,13 @@ func TestSpaceHandler_GetSemanticGrep(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			handler := NewSpaceHandler(&MockSpaceService{}, getMockCoreClient())
 			router := setupSpaceRouter()
-			
+
 			// Add middleware to set project in context
 			router.Use(func(c *gin.Context) {
 				c.Set("project", &model.Project{ID: uuid.New()})
 				c.Next()
 			})
-			
+
 			router.GET("/space/:space_id/semantic_grep", handler.GetSemanticGrep)
 
 			queryString := "?query=" + url.QueryEscape(tt.requestBody.Query)

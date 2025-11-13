@@ -3,7 +3,7 @@ Example usage of the Acontext space search APIs.
 
 This example demonstrates how to use the three semantic search endpoints:
 1. experience_search - Advanced AI-powered search with optional agentic mode
-2. semantic_global - Search for page/folder titles using semantic similarity
+2. semantic_glob - Search for page/folder titles using semantic similarity
 3. semantic_grep - Search through content blocks using semantic similarity
 """
 
@@ -66,7 +66,7 @@ def example_experience_search(client: AcontextClient, space_id: str) -> None:
         print(f"  Final answer: {result.final_answer}")
 
 
-def example_semantic_global(client: AcontextClient, space_id: str) -> None:
+def example_semantic_glob(client: AcontextClient, space_id: str) -> None:
     """
     Example: Semantic Global Search
 
@@ -75,7 +75,7 @@ def example_semantic_global(client: AcontextClient, space_id: str) -> None:
     """
     print("\n=== Semantic Global (Title Search) ===\n")
 
-    result = client.spaces.semantic_global(
+    result = client.spaces.semantic_glob(
         space_id,
         query="authentication and authorization pages",
         limit=10,
@@ -143,7 +143,7 @@ async def example_async_search() -> None:
             query="API documentation",
             limit=5,
         )
-        glob_task = client.spaces.semantic_global(
+        glob_task = client.spaces.semantic_glob(
             space_id,
             query="configuration files",
             limit=5,
@@ -181,7 +181,7 @@ def main() -> None:
 
             # Run synchronous examples
             example_experience_search(client, space_id)
-            example_semantic_global(client, space_id)
+            example_semantic_glob(client, space_id)
             example_semantic_grep(client, space_id)
 
     except APIError as exc:

@@ -27,7 +27,9 @@
   "paths": {
     "/disk": {
       "get": {
-        "tags": ["disk"],
+        "tags": [
+          "disk"
+        ],
         "summary": "List disks",
         "description": "List all disks under a project",
         "parameters": [
@@ -95,7 +97,9 @@
         ]
       },
       "post": {
-        "tags": ["disk"],
+        "tags": [
+          "disk"
+        ],
         "summary": "Create disk",
         "description": "Create a disk group under a project",
         "responses": {
@@ -138,7 +142,9 @@
     },
     "/disk/{disk_id}": {
       "delete": {
-        "tags": ["disk"],
+        "tags": [
+          "disk"
+        ],
         "summary": "Delete disk",
         "description": "Delete a disk by its UUID",
         "parameters": [
@@ -182,7 +188,9 @@
     },
     "/session": {
       "get": {
-        "tags": ["session"],
+        "tags": [
+          "session"
+        ],
         "summary": "Get sessions",
         "description": "Get all sessions under a project, optionally filtered by space_id",
         "parameters": [
@@ -267,7 +275,9 @@
         ]
       },
       "post": {
-        "tags": ["session"],
+        "tags": [
+          "session"
+        ],
         "summary": "Create session",
         "description": "Create a new session under a space",
         "requestBody": {
@@ -320,7 +330,9 @@
     },
     "/session/{session_id}": {
       "delete": {
-        "tags": ["session"],
+        "tags": [
+          "session"
+        ],
         "summary": "Delete session",
         "description": "Delete a session by id",
         "parameters": [
@@ -363,7 +375,9 @@
     },
     "/session/{session_id}/configs": {
       "get": {
-        "tags": ["session"],
+        "tags": [
+          "session"
+        ],
         "summary": "Get session configs",
         "description": "Get session configs by id",
         "parameters": [
@@ -416,7 +430,9 @@
         ]
       },
       "put": {
-        "tags": ["session"],
+        "tags": [
+          "session"
+        ],
         "summary": "Update session configs",
         "description": "Update session configs by id",
         "parameters": [
@@ -469,7 +485,9 @@
     },
     "/session/{session_id}/connect_to_space": {
       "post": {
-        "tags": ["session"],
+        "tags": [
+          "session"
+        ],
         "summary": "Connect session to space",
         "description": "Connect a session to a space by id",
         "parameters": [
@@ -522,7 +540,9 @@
     },
     "/session/{session_id}/flush": {
       "post": {
-        "tags": ["session"],
+        "tags": [
+          "session"
+        ],
         "summary": "Flush session",
         "description": "Flush the session buffer for a given session",
         "parameters": [
@@ -577,7 +597,9 @@
     },
     "/session/{session_id}/messages": {
       "get": {
-        "tags": ["session"],
+        "tags": [
+          "session"
+        ],
         "summary": "Get messages from session",
         "description": "Get messages from session. Default format is openai. Can convert to acontext (original) or anthropic format.",
         "parameters": [
@@ -621,7 +643,11 @@
             "description": "Format to convert messages to: acontext (original), openai (default), anthropic.",
             "schema": {
               "type": "string",
-              "enum": ["acontext", "openai", "anthropic"]
+              "enum": [
+                "acontext",
+                "openai",
+                "anthropic"
+              ]
             }
           },
           {
@@ -671,7 +697,9 @@
         ]
       },
       "post": {
-        "tags": ["session"],
+        "tags": [
+          "session"
+        ],
         "summary": "Send message to session",
         "description": "Supports JSON and multipart/form-data. In multipart mode: the payload is a JSON string placed in a form field. The format parameter indicates the format of the input message (default: openai, same as GET). The blob field should be a complete message object: for openai, use OpenAI ChatCompletionMessageParam format (with role and content); for anthropic, use Anthropic MessageParam format (with role and content); for acontext (internal), use {role, parts} format.",
         "parameters": [
@@ -752,7 +780,9 @@
     },
     "/space": {
       "get": {
-        "tags": ["space"],
+        "tags": [
+          "space"
+        ],
         "summary": "Get spaces",
         "description": "Get all spaces under a project",
         "parameters": [
@@ -819,7 +849,9 @@
         ]
       },
       "post": {
-        "tags": ["space"],
+        "tags": [
+          "space"
+        ],
         "summary": "Create space",
         "description": "Create a new space under a project",
         "requestBody": {
@@ -872,7 +904,9 @@
     },
     "/space/{space_id}": {
       "delete": {
-        "tags": ["space"],
+        "tags": [
+          "space"
+        ],
         "summary": "Delete space",
         "description": "Delete a space by its ID",
         "parameters": [
@@ -916,7 +950,9 @@
     },
     "/space/{space_id}/configs": {
       "get": {
-        "tags": ["space"],
+        "tags": [
+          "space"
+        ],
         "summary": "Get space configs",
         "description": "Retrieve the configurations of a space by its ID",
         "parameters": [
@@ -970,7 +1006,9 @@
         ]
       },
       "put": {
-        "tags": ["space"],
+        "tags": [
+          "space"
+        ],
         "summary": "Update space configs",
         "description": "Update the configurations of a space by its ID",
         "parameters": [
@@ -1024,7 +1062,9 @@
     },
     "/space/{space_id}/experience_search": {
       "get": {
-        "tags": ["space"],
+        "tags": [
+          "space"
+        ],
         "summary": "Get experience search",
         "description": "Retrieve the experience search results for a given query within a space by its ID",
         "parameters": [
@@ -1120,9 +1160,11 @@
         ]
       }
     },
-    "/space/{space_id}/semantic_global": {
+    "/space/{space_id}/semantic_glob": {
       "get": {
-        "tags": ["space"],
+        "tags": [
+          "space"
+        ],
         "summary": "Get semantic global",
         "description": "Retrieve the semantic global (glob) search results for page/folder titles within a space by its ID",
         "parameters": [
@@ -1195,7 +1237,7 @@
           {
             "label": "Python",
             "lang": "python",
-            "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Semantic global search\nresults = client.spaces.semantic_global(\n    space_id='space-uuid',\n    query='authentication and authorization pages',\n    limit=10,\n    threshold=1.0\n)\nfor block in results:\n    print(f\"{block.title} - {block.type}\")\n"
+            "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Semantic global search\nresults = client.spaces.semantic_glob(\n    space_id='space-uuid',\n    query='authentication and authorization pages',\n    limit=10,\n    threshold=1.0\n)\nfor block in results:\n    print(f\"{block.title} - {block.type}\")\n"
           },
           {
             "label": "JavaScript",
@@ -1207,7 +1249,9 @@
     },
     "/space/{space_id}/semantic_grep": {
       "get": {
-        "tags": ["space"],
+        "tags": [
+          "space"
+        ],
         "summary": "Get semantic grep",
         "description": "Retrieve the semantic grep search results for content blocks within a space by its ID",
         "parameters": [
@@ -1292,7 +1336,9 @@
     },
     "/space/{space_id}/block": {
       "get": {
-        "tags": ["block"],
+        "tags": [
+          "block"
+        ],
         "summary": "List blocks",
         "description": "List blocks in a space. Use type query parameter to filter by block type (page, folder, text, sop, etc.). Use parent_id query parameter to filter by parent. If both type and parent_id are empty, returns top-level pages and folders.",
         "parameters": [
@@ -1312,7 +1358,12 @@
             "description": "Block type",
             "schema": {
               "type": "string",
-              "enum": ["page", "folder", "text", "sop"]
+              "enum": [
+                "page",
+                "folder",
+                "text",
+                "sop"
+              ]
             }
           },
           {
@@ -1366,7 +1417,9 @@
         ]
       },
       "post": {
-        "tags": ["block"],
+        "tags": [
+          "block"
+        ],
         "summary": "Create block",
         "description": "Create a new block (supports all types: page, folder, text, sop, etc.). For page and folder types, parent_id is optional. For other types, parent_id is required.",
         "parameters": [
@@ -1431,7 +1484,9 @@
     },
     "/space/{space_id}/block/{block_id}": {
       "delete": {
-        "tags": ["block"],
+        "tags": [
+          "block"
+        ],
         "summary": "Delete block",
         "description": "Delete a block by its ID (works for all block types: page, folder, text, sop, etc.)",
         "parameters": [
@@ -1484,7 +1539,9 @@
     },
     "/space/{space_id}/block/{block_id}/properties": {
       "get": {
-        "tags": ["block"],
+        "tags": [
+          "block"
+        ],
         "summary": "Get block properties",
         "description": "Get a block's properties by its ID (works for all block types: page, folder, text, sop, etc.)",
         "parameters": [
@@ -1547,7 +1604,9 @@
         ]
       },
       "put": {
-        "tags": ["block"],
+        "tags": [
+          "block"
+        ],
         "summary": "Update block properties",
         "description": "Update a block's title and properties by its ID (works for all block types: page, folder, text, sop, etc.)",
         "parameters": [
@@ -1610,7 +1669,9 @@
     },
     "/space/{space_id}/block/{block_id}/move": {
       "put": {
-        "tags": ["block"],
+        "tags": [
+          "block"
+        ],
         "summary": "Move block",
         "description": "Move block by updating its parent_id. Works for all block types (page, folder, text, sop, etc.). For page and folder types, parent_id can be null (root level).",
         "parameters": [
@@ -1673,7 +1734,9 @@
     },
     "/space/{space_id}/block/{block_id}/sort": {
       "put": {
-        "tags": ["block"],
+        "tags": [
+          "block"
+        ],
         "summary": "Update block sort",
         "description": "Update block sort value (works for all block types: page, folder, text, sop, etc.)",
         "parameters": [
@@ -1736,7 +1799,9 @@
     },
     "/tool/name": {
       "get": {
-        "tags": ["tool"],
+        "tags": [
+          "tool"
+        ],
         "summary": "Get tool names",
         "description": "Get all tool names within a project",
         "responses": {
@@ -1780,7 +1845,9 @@
         ]
       },
       "put": {
-        "tags": ["tool"],
+        "tags": [
+          "tool"
+        ],
         "summary": "Rename tool names",
         "description": "Rename one or more tool names within a project",
         "requestBody": {
@@ -1955,7 +2022,9 @@
       },
       "ConnectToSpaceReq": {
         "type": "object",
-        "required": ["space_id"],
+        "required": [
+          "space_id"
+        ],
         "properties": {
           "space_id": {
             "type": "string",
@@ -2049,12 +2118,18 @@
       },
       "SendMessageReq": {
         "type": "object",
-        "required": ["blob"],
+        "required": [
+          "blob"
+        ],
         "properties": {
           "blob": {},
           "format": {
             "type": "string",
-            "enum": ["acontext", "openai", "anthropic"],
+            "enum": [
+              "acontext",
+              "openai",
+              "anthropic"
+            ],
             "example": "openai"
           }
         }
@@ -2107,7 +2182,9 @@
       },
       "UpdateSpaceConfigsReq": {
         "type": "object",
-        "required": ["configs"],
+        "required": [
+          "configs"
+        ],
         "properties": {
           "configs": {
             "type": "object",
@@ -2187,7 +2264,9 @@
       },
       "CreateBlockReq": {
         "type": "object",
-        "required": ["type"],
+        "required": [
+          "type"
+        ],
         "properties": {
           "parent_id": {
             "type": "string"
@@ -2257,7 +2336,9 @@
       },
       "RenameToolNameReq": {
         "type": "object",
-        "required": ["rename"],
+        "required": [
+          "rename"
+        ],
         "properties": {
           "rename": {
             "type": "array",
@@ -2270,7 +2351,10 @@
       },
       "ToolRenameItem": {
         "type": "object",
-        "required": ["old_name", "new_name"],
+        "required": [
+          "old_name",
+          "new_name"
+        ],
         "properties": {
           "old_name": {
             "type": "string"

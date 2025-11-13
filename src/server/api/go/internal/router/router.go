@@ -121,7 +121,7 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			space.GET("/:space_id/configs", d.SpaceHandler.GetConfigs)
 
 			space.GET("/:space_id/experience_search", d.SpaceHandler.GetExperienceSearch)
-			space.GET("/:space_id/semantic_global", d.SpaceHandler.GetSemanticGlobal)
+			space.GET("/:space_id/semantic_glob", d.SpaceHandler.GetSemanticGlobal)
 			space.GET("/:space_id/semantic_grep", d.SpaceHandler.GetSemanticGrep)
 
 			block := space.Group("/:space_id/block")

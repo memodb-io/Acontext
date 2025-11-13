@@ -16,7 +16,7 @@ definitions:
         format: uuid
         type: string
     required:
-    - space_id
+      - space_id
     type: object
   handler.CreateBlockReq:
     properties:
@@ -31,7 +31,7 @@ definitions:
         example: text
         type: string
     required:
-    - type
+      - type
     type: object
   handler.CreateSessionReq:
     properties:
@@ -52,9 +52,9 @@ definitions:
   handler.GetArtifactResp:
     properties:
       artifact:
-        $ref: '#/definitions/model.Artifact'
+        $ref: "#/definitions/model.Artifact"
       content:
-        $ref: '#/definitions/fileparser.FileContent'
+        $ref: "#/definitions/fileparser.FileContent"
       public_url:
         type: string
     type: object
@@ -62,7 +62,7 @@ definitions:
     properties:
       artifacts:
         items:
-          $ref: '#/definitions/model.Artifact'
+          $ref: "#/definitions/model.Artifact"
         type: array
       directories:
         items:
@@ -80,24 +80,24 @@ definitions:
     properties:
       rename:
         items:
-          $ref: '#/definitions/handler.ToolRenameItem'
+          $ref: "#/definitions/handler.ToolRenameItem"
         minItems: 1
         type: array
     required:
-    - rename
+      - rename
     type: object
   handler.SendMessageReq:
     properties:
       blob: {}
       format:
         enum:
-        - acontext
-        - openai
-        - anthropic
+          - acontext
+          - openai
+          - anthropic
         example: openai
         type: string
     required:
-    - blob
+      - blob
     type: object
   handler.ToolRenameItem:
     properties:
@@ -106,13 +106,13 @@ definitions:
       old_name:
         type: string
     required:
-    - new_name
-    - old_name
+      - new_name
+      - old_name
     type: object
   handler.UpdateArtifactResp:
     properties:
       artifact:
-        $ref: '#/definitions/model.Artifact'
+        $ref: "#/definitions/model.Artifact"
     type: object
   handler.UpdateBlockPropertiesReq:
     properties:
@@ -139,7 +139,7 @@ definitions:
         additionalProperties: true
         type: object
     required:
-    - configs
+      - configs
     type: object
   httpclient.FlagResponse:
     properties:
@@ -171,7 +171,7 @@ definitions:
     properties:
       cited_blocks:
         items:
-          $ref: '#/definitions/httpclient.SearchResultBlockItem'
+          $ref: "#/definitions/httpclient.SearchResultBlockItem"
         type: array
       final_answer:
         type: string
@@ -324,13 +324,13 @@ definitions:
         type: boolean
       items:
         items:
-          $ref: '#/definitions/model.Message'
+          $ref: "#/definitions/model.Message"
         type: array
       next_cursor:
         type: string
       public_urls:
         additionalProperties:
-          $ref: '#/definitions/service.PublicURL'
+          $ref: "#/definitions/service.PublicURL"
         description: file_name -> url
         type: object
     type: object
@@ -340,7 +340,7 @@ definitions:
         type: boolean
       items:
         items:
-          $ref: '#/definitions/model.Task'
+          $ref: "#/definitions/model.Task"
         type: array
       next_cursor:
         type: string
@@ -351,7 +351,7 @@ definitions:
         type: boolean
       items:
         items:
-          $ref: '#/definitions/model.Disk'
+          $ref: "#/definitions/model.Disk"
         type: array
       next_cursor:
         type: string
@@ -362,7 +362,7 @@ definitions:
         type: boolean
       items:
         items:
-          $ref: '#/definitions/model.Session'
+          $ref: "#/definitions/model.Session"
         type: array
       next_cursor:
         type: string
@@ -373,7 +373,7 @@ definitions:
         type: boolean
       items:
         items:
-          $ref: '#/definitions/model.Space'
+          $ref: "#/definitions/model.Space"
         type: array
       next_cursor:
         type: string
@@ -394,2032 +394,2059 @@ paths:
   /disk:
     get:
       consumes:
-      - application/json
+        - application/json
       description: List all disks under a project
       parameters:
-      - description: Limit of disks to return, default 20. Max 200.
-        in: query
-        name: limit
-        type: integer
-      - description: Cursor for pagination. Use the cursor from the previous response
-          to get the next page.
-        in: query
-        name: cursor
-        type: string
-      - description: Order by created_at descending if true, ascending if false (default
-          false)
-        example: false
-        in: query
-        name: time_desc
-        type: boolean
+        - description: Limit of disks to return, default 20. Max 200.
+          in: query
+          name: limit
+          type: integer
+        - description:
+            Cursor for pagination. Use the cursor from the previous response
+            to get the next page.
+          in: query
+          name: cursor
+          type: string
+        - description:
+            Order by created_at descending if true, ascending if false (default
+            false)
+          example: false
+          in: query
+          name: time_desc
+          type: boolean
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/service.ListDisksOutput'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/service.ListDisksOutput"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: List disks
       tags:
-      - disk
+        - disk
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # List disks
-          disks = client.disks.list(limit=10, time_desc=True)
-          for disk in disks.items:
-              print(f"Disk: {disk.id}")
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # List disks
+            disks = client.disks.list(limit=10, time_desc=True)
+            for disk in disks.items:
+                print(f"Disk: {disk.id}")
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // List disks
-          const disks = await client.disks.list({ limit: 10, timeDesc: true });
-          for (const disk of disks.items) {
-            console.log(`Disk: ${disk.id}`);
-          }
+            // List disks
+            const disks = await client.disks.list({ limit: 10, timeDesc: true });
+            for (const disk of disks.items) {
+              console.log(`Disk: ${disk.id}`);
+            }
     post:
       consumes:
-      - application/json
+        - application/json
       description: Create a disk group under a project
       produces:
-      - application/json
+        - application/json
       responses:
         "201":
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.Disk'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/model.Disk"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Create disk
       tags:
-      - disk
+        - disk
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Create a disk
-          disk = client.disks.create()
-          print(f"Created disk: {disk.id}")
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Create a disk
+            disk = client.disks.create()
+            print(f"Created disk: {disk.id}")
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Create a disk
-          const disk = await client.disks.create();
-          console.log(`Created disk: ${disk.id}`);
+            // Create a disk
+            const disk = await client.disks.create();
+            console.log(`Created disk: ${disk.id}`);
   /disk/{disk_id}:
     delete:
       consumes:
-      - application/json
+        - application/json
       description: Delete a disk by its UUID
       parameters:
-      - description: Disk ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: disk_id
-        required: true
-        type: string
+        - description: Disk ID
+          example: 123e4567-e89b-12d3-a456-426614174000
+          format: uuid
+          in: path
+          name: disk_id
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/serializer.Response'
+            $ref: "#/definitions/serializer.Response"
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Delete disk
       tags:
-      - disk
+        - disk
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Delete a disk
-          client.disks.delete(disk_id='disk-uuid')
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Delete a disk
+            client.disks.delete(disk_id='disk-uuid')
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Delete a disk
-          await client.disks.delete('disk-uuid');
+            // Delete a disk
+            await client.disks.delete('disk-uuid');
   /disk/{disk_id}/artifact:
     delete:
       consumes:
-      - application/json
+        - application/json
       description: Delete an artifact by path and filename
       parameters:
-      - description: Disk ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: disk_id
-        required: true
-        type: string
-      - description: File path including filename
-        in: query
-        name: file_path
-        required: true
-        type: string
+        - description: Disk ID
+          example: 123e4567-e89b-12d3-a456-426614174000
+          format: uuid
+          in: path
+          name: disk_id
+          required: true
+          type: string
+        - description: File path including filename
+          in: query
+          name: file_path
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/serializer.Response'
+            $ref: "#/definitions/serializer.Response"
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Delete artifact
       tags:
-      - artifact
+        - artifact
     get:
       consumes:
-      - application/json
-      description: Get artifact information by path and filename. Optionally include
+        - application/json
+      description:
+        Get artifact information by path and filename. Optionally include
         a presigned URL for downloading and parsed file content.
       parameters:
-      - description: Disk ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: disk_id
-        required: true
-        type: string
-      - description: File path including filename
-        in: query
-        name: file_path
-        required: true
-        type: string
-      - description: Whether to return public URL, default is true
-        in: query
-        name: with_public_url
-        type: boolean
-      - description: Whether to return parsed file content, default is true
-        in: query
-        name: with_content
-        type: boolean
-      - description: 'Expire time in seconds for presigned URL (default: 3600)'
-        in: query
-        name: expire
-        type: integer
+        - description: Disk ID
+          example: 123e4567-e89b-12d3-a456-426614174000
+          format: uuid
+          in: path
+          name: disk_id
+          required: true
+          type: string
+        - description: File path including filename
+          in: query
+          name: file_path
+          required: true
+          type: string
+        - description: Whether to return public URL, default is true
+          in: query
+          name: with_public_url
+          type: boolean
+        - description: Whether to return parsed file content, default is true
+          in: query
+          name: with_content
+          type: boolean
+        - description: "Expire time in seconds for presigned URL (default: 3600)"
+          in: query
+          name: expire
+          type: integer
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/handler.GetArtifactResp'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/handler.GetArtifactResp"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Get artifact
       tags:
-      - artifact
+        - artifact
     post:
       consumes:
-      - multipart/form-data
+        - multipart/form-data
       description: Upload a file and create or update an artifact record under a disk
       parameters:
-      - description: Disk ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: disk_id
-        required: true
-        type: string
-      - description: File path in the disk storage (optional, defaults to '/')
-        in: formData
-        name: file_path
-        type: string
-      - description: File to upload
-        in: formData
-        name: file
-        required: true
-        type: file
-      - description: Custom metadata as JSON string (optional, system metadata will
-          be stored under '__artifact_info__' key)
-        in: formData
-        name: meta
-        type: string
+        - description: Disk ID
+          example: 123e4567-e89b-12d3-a456-426614174000
+          format: uuid
+          in: path
+          name: disk_id
+          required: true
+          type: string
+        - description: File path in the disk storage (optional, defaults to '/')
+          in: formData
+          name: file_path
+          type: string
+        - description: File to upload
+          in: formData
+          name: file
+          required: true
+          type: file
+        - description:
+            Custom metadata as JSON string (optional, system metadata will
+            be stored under '__artifact_info__' key)
+          in: formData
+          name: meta
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "201":
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.Artifact'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/model.Artifact"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Upsert artifact
       tags:
-      - artifact
+        - artifact
     put:
       consumes:
-      - application/json
+        - application/json
       description: Update an artifact's metadata (user-defined metadata only)
       parameters:
-      - description: Disk ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: disk_id
-        required: true
-        type: string
-      - description: File path including filename
-        in: body
-        name: file_path
-        required: true
-        schema:
+        - description: Disk ID
+          example: 123e4567-e89b-12d3-a456-426614174000
+          format: uuid
+          in: path
+          name: disk_id
+          required: true
           type: string
-      - description: Custom metadata as JSON string (system metadata '__artifact_info__'
-          cannot be modified)
-        in: body
-        name: meta
-        required: true
-        schema:
-          type: string
+        - description: File path including filename
+          in: body
+          name: file_path
+          required: true
+          schema:
+            type: string
+        - description:
+            Custom metadata as JSON string (system metadata '__artifact_info__'
+            cannot be modified)
+          in: body
+          name: meta
+          required: true
+          schema:
+            type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/handler.UpdateArtifactResp'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/handler.UpdateArtifactResp"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Update artifact meta
       tags:
-      - artifact
+        - artifact
   /disk/{disk_id}/artifact/ls:
     get:
       consumes:
-      - application/json
+        - application/json
       description: List artifacts in a specific path or all artifacts in a disk
       parameters:
-      - description: Disk ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: disk_id
-        required: true
-        type: string
-      - description: Path filter (optional, defaults to root '/')
-        in: query
-        name: path
-        type: string
+        - description: Disk ID
+          example: 123e4567-e89b-12d3-a456-426614174000
+          format: uuid
+          in: path
+          name: disk_id
+          required: true
+          type: string
+        - description: Path filter (optional, defaults to root '/')
+          in: query
+          name: path
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/handler.ListArtifactsResp'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/handler.ListArtifactsResp"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: List artifacts
       tags:
-      - artifact
+        - artifact
   /session:
     get:
       consumes:
-      - application/json
+        - application/json
       description: Get all sessions under a project, optionally filtered by space_id
       parameters:
-      - description: Space ID to filter sessions
-        format: uuid
-        in: query
-        name: space_id
-        type: string
-      - description: Filter sessions not connected to any space (default false)
-        example: false
-        in: query
-        name: not_connected
-        type: boolean
-      - description: Limit of sessions to return, default 20. Max 200.
-        in: query
-        name: limit
-        type: integer
-      - description: Cursor for pagination. Use the cursor from the previous response
-          to get the next page.
-        in: query
-        name: cursor
-        type: string
-      - description: Order by created_at descending if true, ascending if false (default
-          false)
-        in: query
-        name: time_desc
-        type: string
+        - description: Space ID to filter sessions
+          format: uuid
+          in: query
+          name: space_id
+          type: string
+        - description: Filter sessions not connected to any space (default false)
+          example: false
+          in: query
+          name: not_connected
+          type: boolean
+        - description: Limit of sessions to return, default 20. Max 200.
+          in: query
+          name: limit
+          type: integer
+        - description:
+            Cursor for pagination. Use the cursor from the previous response
+            to get the next page.
+          in: query
+          name: cursor
+          type: string
+        - description:
+            Order by created_at descending if true, ascending if false (default
+            false)
+          in: query
+          name: time_desc
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/service.ListSessionsOutput'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/service.ListSessionsOutput"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Get sessions
       tags:
-      - session
+        - session
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # List sessions
-          sessions = client.sessions.list(
-              space_id='space-uuid',
-              limit=20,
-              time_desc=True
-          )
-          for session in sessions.items:
-              print(f"{session.id}: {session.space_id}")
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # List sessions
+            sessions = client.sessions.list(
+                space_id='space-uuid',
+                limit=20,
+                time_desc=True
+            )
+            for session in sessions.items:
+                print(f"{session.id}: {session.space_id}")
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // List sessions
-          const sessions = await client.sessions.list({
-            spaceId: 'space-uuid',
-            limit: 20,
-            timeDesc: true
-          });
-          for (const session of sessions.items) {
-            console.log(`${session.id}: ${session.space_id}`);
-          }
+            // List sessions
+            const sessions = await client.sessions.list({
+              spaceId: 'space-uuid',
+              limit: 20,
+              timeDesc: true
+            });
+            for (const session of sessions.items) {
+              console.log(`${session.id}: ${session.space_id}`);
+            }
     post:
       consumes:
-      - application/json
+        - application/json
       description: Create a new session under a space
       parameters:
-      - description: CreateSession payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.CreateSessionReq'
+        - description: CreateSession payload
+          in: body
+          name: payload
+          required: true
+          schema:
+            $ref: "#/definitions/handler.CreateSessionReq"
       produces:
-      - application/json
+        - application/json
       responses:
         "201":
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.Session'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/model.Session"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Create session
       tags:
-      - session
+        - session
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Create a session
-          session = client.sessions.create(
-              space_id='space-uuid',
-              configs={"mode": "chat"}
-          )
-          print(f"Created session: {session.id}")
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Create a session
+            session = client.sessions.create(
+                space_id='space-uuid',
+                configs={"mode": "chat"}
+            )
+            print(f"Created session: {session.id}")
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Create a session
-          const session = await client.sessions.create({
-            spaceId: 'space-uuid',
-            configs: { mode: 'chat' }
-          });
-          console.log(`Created session: ${session.id}`);
+            // Create a session
+            const session = await client.sessions.create({
+              spaceId: 'space-uuid',
+              configs: { mode: 'chat' }
+            });
+            console.log(`Created session: ${session.id}`);
   /session/{session_id}:
     delete:
       consumes:
-      - application/json
+        - application/json
       description: Delete a session by id
       parameters:
-      - description: Session ID
-        format: uuid
-        in: path
-        name: session_id
-        required: true
-        type: string
+        - description: Session ID
+          format: uuid
+          in: path
+          name: session_id
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/serializer.Response'
+            $ref: "#/definitions/serializer.Response"
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Delete session
       tags:
-      - session
+        - session
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Delete a session
-          client.sessions.delete(session_id='session-uuid')
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Delete a session
+            client.sessions.delete(session_id='session-uuid')
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Delete a session
-          await client.sessions.delete('session-uuid');
+            // Delete a session
+            await client.sessions.delete('session-uuid');
   /session/{session_id}/configs:
     get:
       consumes:
-      - application/json
+        - application/json
       description: Get session configs by id
       parameters:
-      - description: Session ID
-        format: uuid
-        in: path
-        name: session_id
-        required: true
-        type: string
+        - description: Session ID
+          format: uuid
+          in: path
+          name: session_id
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.Session'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/model.Session"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Get session configs
       tags:
-      - session
+        - session
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Get session configs
-          session = client.sessions.get_configs(session_id='session-uuid')
-          print(session.configs)
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Get session configs
+            session = client.sessions.get_configs(session_id='session-uuid')
+            print(session.configs)
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Get session configs
-          const session = await client.sessions.getConfigs('session-uuid');
-          console.log(session.configs);
+            // Get session configs
+            const session = await client.sessions.getConfigs('session-uuid');
+            console.log(session.configs);
     put:
       consumes:
-      - application/json
+        - application/json
       description: Update session configs by id
       parameters:
-      - description: Session ID
-        format: uuid
-        in: path
-        name: session_id
-        required: true
-        type: string
-      - description: UpdateSessionConfigs payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.UpdateSessionConfigsReq'
+        - description: Session ID
+          format: uuid
+          in: path
+          name: session_id
+          required: true
+          type: string
+        - description: UpdateSessionConfigs payload
+          in: body
+          name: payload
+          required: true
+          schema:
+            $ref: "#/definitions/handler.UpdateSessionConfigsReq"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/serializer.Response'
+            $ref: "#/definitions/serializer.Response"
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Update session configs
       tags:
-      - session
+        - session
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Update session configs
-          client.sessions.update_configs(
-              session_id='session-uuid',
-              configs={"mode": "updated-mode"}
-          )
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Update session configs
+            client.sessions.update_configs(
+                session_id='session-uuid',
+                configs={"mode": "updated-mode"}
+            )
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Update session configs
-          await client.sessions.updateConfigs('session-uuid', {
-            configs: { mode: 'updated-mode' }
-          });
+            // Update session configs
+            await client.sessions.updateConfigs('session-uuid', {
+              configs: { mode: 'updated-mode' }
+            });
   /session/{session_id}/connect_to_space:
     post:
       consumes:
-      - application/json
+        - application/json
       description: Connect a session to a space by id
       parameters:
-      - description: Session ID
-        format: uuid
-        in: path
-        name: session_id
-        required: true
-        type: string
-      - description: ConnectToSpace payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.ConnectToSpaceReq'
+        - description: Session ID
+          format: uuid
+          in: path
+          name: session_id
+          required: true
+          type: string
+        - description: ConnectToSpace payload
+          in: body
+          name: payload
+          required: true
+          schema:
+            $ref: "#/definitions/handler.ConnectToSpaceReq"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/serializer.Response'
+            $ref: "#/definitions/serializer.Response"
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Connect session to space
       tags:
-      - session
+        - session
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Connect session to space
-          client.sessions.connect_to_space(
-              session_id='session-uuid',
-              space_id='space-uuid'
-          )
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Connect session to space
+            client.sessions.connect_to_space(
+                session_id='session-uuid',
+                space_id='space-uuid'
+            )
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Connect session to space
-          await client.sessions.connectToSpace('session-uuid', {
-            spaceId: 'space-uuid'
-          });
+            // Connect session to space
+            await client.sessions.connectToSpace('session-uuid', {
+              spaceId: 'space-uuid'
+            });
   /session/{session_id}/flush:
     post:
       consumes:
-      - application/json
+        - application/json
       description: Flush the session buffer for a given session
       parameters:
-      - description: Session ID
-        format: uuid
-        in: path
-        name: session_id
-        required: true
-        type: string
+        - description: Session ID
+          format: uuid
+          in: path
+          name: session_id
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/httpclient.FlagResponse'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/httpclient.FlagResponse"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Flush session
       tags:
-      - session
+        - session
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Flush session buffer
-          result = client.sessions.flush(session_id='session-uuid')
-          print(result.status)
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Flush session buffer
+            result = client.sessions.flush(session_id='session-uuid')
+            print(result.status)
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Flush session buffer
-          const result = await client.sessions.flush('session-uuid');
-          console.log(result.status);
+            // Flush session buffer
+            const result = await client.sessions.flush('session-uuid');
+            console.log(result.status);
   /session/{session_id}/messages:
     get:
       consumes:
-      - application/json
-      description: Get messages from session. Default format is openai. Can convert
+        - application/json
+      description:
+        Get messages from session. Default format is openai. Can convert
         to acontext (original) or anthropic format.
       parameters:
-      - description: Session ID
-        format: uuid
-        in: path
-        name: session_id
-        required: true
-        type: string
-      - description: Limit of messages to return, default 20. Max 200.
-        in: query
-        name: limit
-        type: integer
-      - description: Cursor for pagination. Use the cursor from the previous response
-          to get the next page.
-        in: query
-        name: cursor
-        type: string
-      - description: Whether to return asset public url, default is true
-        in: query
-        name: with_asset_public_url
-        type: string
-      - description: 'Format to convert messages to: acontext (original), openai (default),
-          anthropic.'
-        enum:
-        - acontext
-        - openai
-        - anthropic
-        in: query
-        name: format
-        type: string
-      - description: Order by created_at descending if true, ascending if false (default
-          false)
-        in: query
-        name: time_desc
-        type: string
+        - description: Session ID
+          format: uuid
+          in: path
+          name: session_id
+          required: true
+          type: string
+        - description: Limit of messages to return, default 20. Max 200.
+          in: query
+          name: limit
+          type: integer
+        - description:
+            Cursor for pagination. Use the cursor from the previous response
+            to get the next page.
+          in: query
+          name: cursor
+          type: string
+        - description: Whether to return asset public url, default is true
+          in: query
+          name: with_asset_public_url
+          type: string
+        - description:
+            "Format to convert messages to: acontext (original), openai (default),
+            anthropic."
+          enum:
+            - acontext
+            - openai
+            - anthropic
+          in: query
+          name: format
+          type: string
+        - description:
+            Order by created_at descending if true, ascending if false (default
+            false)
+          in: query
+          name: time_desc
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/service.GetMessagesOutput'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/service.GetMessagesOutput"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Get messages from session
       tags:
-      - session
+        - session
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Get messages from session
-          messages = client.sessions.get_messages(
-              session_id='session-uuid',
-              limit=50,
-              format='acontext',
-              time_desc=True
-          )
-          for message in messages.items:
-              print(f"{message.role}: {message.parts}")
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Get messages from session
+            messages = client.sessions.get_messages(
+                session_id='session-uuid',
+                limit=50,
+                format='acontext',
+                time_desc=True
+            )
+            for message in messages.items:
+                print(f"{message.role}: {message.parts}")
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Get messages from session
-          const messages = await client.sessions.getMessages('session-uuid', {
-            limit: 50,
-            format: 'acontext',
-            timeDesc: true
-          });
-          for (const message of messages.items) {
-            console.log(`${message.role}: ${JSON.stringify(message.parts)}`);
-          }
+            // Get messages from session
+            const messages = await client.sessions.getMessages('session-uuid', {
+              limit: 50,
+              format: 'acontext',
+              timeDesc: true
+            });
+            for (const message of messages.items) {
+              console.log(`${message.role}: ${JSON.stringify(message.parts)}`);
+            }
     post:
       consumes:
-      - application/json
-      - multipart/form-data
-      description: 'Supports JSON and multipart/form-data. In multipart mode: the
+        - application/json
+        - multipart/form-data
+      description:
+        "Supports JSON and multipart/form-data. In multipart mode: the
         payload is a JSON string placed in a form field. The format parameter indicates
         the format of the input message (default: openai, same as GET). The blob field
         should be a complete message object: for openai, use OpenAI ChatCompletionMessageParam
         format (with role and content); for anthropic, use Anthropic MessageParam
         format (with role and content); for acontext (internal), use {role, parts}
-        format.'
+        format."
       parameters:
-      - description: Session ID
-        format: uuid
-        in: path
-        name: session_id
-        required: true
-        type: string
-      - description: 'SendMessage payload (Content-Type: application/json)'
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.SendMessageReq'
-      - description: 'SendMessage payload (Content-Type: multipart/form-data)'
-        in: formData
-        name: payload
-        type: string
-      - description: When uploading files, the field name must correspond to parts[*].file_field.
-        in: formData
-        name: file
-        type: file
+        - description: Session ID
+          format: uuid
+          in: path
+          name: session_id
+          required: true
+          type: string
+        - description: "SendMessage payload (Content-Type: application/json)"
+          in: body
+          name: payload
+          required: true
+          schema:
+            $ref: "#/definitions/handler.SendMessageReq"
+        - description: "SendMessage payload (Content-Type: multipart/form-data)"
+          in: formData
+          name: payload
+          type: string
+        - description: When uploading files, the field name must correspond to parts[*].file_field.
+          in: formData
+          name: file
+          type: file
       produces:
-      - application/json
+        - application/json
       responses:
         "201":
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.Message'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/model.Message"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Send message to session
       tags:
-      - session
+        - session
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-          from acontext.messages import build_acontext_message
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
+            from acontext.messages import build_acontext_message
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Send a message in Acontext format
-          message = build_acontext_message(role='user', parts=['Hello!'])
-          client.sessions.send_message(
-              session_id='session-uuid',
-              blob=message,
-              format='acontext'
-          )
+            # Send a message in Acontext format
+            message = build_acontext_message(role='user', parts=['Hello!'])
+            client.sessions.send_message(
+                session_id='session-uuid',
+                blob=message,
+                format='acontext'
+            )
 
-          # Send a message in OpenAI format
-          openai_message = {'role': 'user', 'content': 'Hello from OpenAI format!'}
-          client.sessions.send_message(
-              session_id='session-uuid',
-              blob=openai_message,
-              format='openai'
-          )
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient, MessagePart } from '@acontext/acontext';
+            # Send a message in OpenAI format
+            openai_message = {'role': 'user', 'content': 'Hello from OpenAI format!'}
+            client.sessions.send_message(
+                session_id='session-uuid',
+                blob=openai_message,
+                format='openai'
+            )
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient, MessagePart } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Send a message in Acontext format
-          await client.sessions.sendMessage(
-            'session-uuid',
-            {
-              role: 'user',
-              parts: [MessagePart.textPart('Hello!')]
-            },
-            { format: 'acontext' }
-          );
+            // Send a message in Acontext format
+            await client.sessions.sendMessage(
+              'session-uuid',
+              {
+                role: 'user',
+                parts: [MessagePart.textPart('Hello!')]
+              },
+              { format: 'acontext' }
+            );
 
-          // Send a message in OpenAI format
-          await client.sessions.sendMessage(
-            'session-uuid',
-            {
-              role: 'user',
-              content: 'Hello from OpenAI format!'
-            },
-            { format: 'openai' }
-          );
+            // Send a message in OpenAI format
+            await client.sessions.sendMessage(
+              'session-uuid',
+              {
+                role: 'user',
+                content: 'Hello from OpenAI format!'
+              },
+              { format: 'openai' }
+            );
   /session/{session_id}/task:
     get:
       consumes:
-      - application/json
+        - application/json
       description: Get tasks from session with cursor-based pagination
       parameters:
-      - description: Session ID
-        format: uuid
-        in: path
-        name: session_id
-        required: true
-        type: string
-      - description: Limit of tasks to return, default 20. Max 200.
-        in: query
-        name: limit
-        type: integer
-      - description: Cursor for pagination. Use the cursor from the previous response
-          to get the next page.
-        in: query
-        name: cursor
-        type: string
-      - description: Order by created_at descending if true, ascending if false (default
-          false)
-        example: false
-        in: query
-        name: time_desc
-        type: boolean
+        - description: Session ID
+          format: uuid
+          in: path
+          name: session_id
+          required: true
+          type: string
+        - description: Limit of tasks to return, default 20. Max 200.
+          in: query
+          name: limit
+          type: integer
+        - description:
+            Cursor for pagination. Use the cursor from the previous response
+            to get the next page.
+          in: query
+          name: cursor
+          type: string
+        - description:
+            Order by created_at descending if true, ascending if false (default
+            false)
+          example: false
+          in: query
+          name: time_desc
+          type: boolean
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/service.GetTasksOutput'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/service.GetTasksOutput"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Get tasks from session
       tags:
-      - task
+        - task
   /space:
     get:
       consumes:
-      - application/json
+        - application/json
       description: Get all spaces under a project
       parameters:
-      - description: Limit of spaces to return, default 20. Max 200.
-        in: query
-        name: limit
-        type: integer
-      - description: Cursor for pagination. Use the cursor from the previous response
-          to get the next page.
-        in: query
-        name: cursor
-        type: string
-      - description: Order by created_at descending if true, ascending if false (default
-          false)
-        in: query
-        name: time_desc
-        type: string
+        - description: Limit of spaces to return, default 20. Max 200.
+          in: query
+          name: limit
+          type: integer
+        - description:
+            Cursor for pagination. Use the cursor from the previous response
+            to get the next page.
+          in: query
+          name: cursor
+          type: string
+        - description:
+            Order by created_at descending if true, ascending if false (default
+            false)
+          in: query
+          name: time_desc
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/service.ListSpacesOutput'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/service.ListSpacesOutput"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Get spaces
       tags:
-      - space
+        - space
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # List spaces
-          spaces = client.spaces.list(limit=20, time_desc=True)
-          for space in spaces.items:
-              print(f"{space.id}: {space.configs}")
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # List spaces
+            spaces = client.spaces.list(limit=20, time_desc=True)
+            for space in spaces.items:
+                print(f"{space.id}: {space.configs}")
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // List spaces
-          const spaces = await client.spaces.list({ limit: 20, timeDesc: true });
-          for (const space of spaces.items) {
-            console.log(`${space.id}: ${JSON.stringify(space.configs)}`);
-          }
+            // List spaces
+            const spaces = await client.spaces.list({ limit: 20, timeDesc: true });
+            for (const space of spaces.items) {
+              console.log(`${space.id}: ${JSON.stringify(space.configs)}`);
+            }
     post:
       consumes:
-      - application/json
+        - application/json
       description: Create a new space under a project
       parameters:
-      - description: CreateSpace payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.CreateSpaceReq'
+        - description: CreateSpace payload
+          in: body
+          name: payload
+          required: true
+          schema:
+            $ref: "#/definitions/handler.CreateSpaceReq"
       produces:
-      - application/json
+        - application/json
       responses:
         "201":
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.Space'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/model.Space"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Create space
       tags:
-      - space
+        - space
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Create a space
-          space = client.spaces.create(configs={"name": "My Space"})
-          print(f"Created space: {space.id}")
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Create a space
+            space = client.spaces.create(configs={"name": "My Space"})
+            print(f"Created space: {space.id}")
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Create a space
-          const space = await client.spaces.create({ configs: { name: 'My Space' } });
-          console.log(`Created space: ${space.id}`);
+            // Create a space
+            const space = await client.spaces.create({ configs: { name: 'My Space' } });
+            console.log(`Created space: ${space.id}`);
   /space/{space_id}:
     delete:
       consumes:
-      - application/json
+        - application/json
       description: Delete a space by its ID
       parameters:
-      - description: Space ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
+        - description: Space ID
+          example: 123e4567-e89b-12d3-a456-426614174000
+          format: uuid
+          in: path
+          name: space_id
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/serializer.Response'
+            $ref: "#/definitions/serializer.Response"
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Delete space
       tags:
-      - space
+        - space
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Delete a space
-          client.spaces.delete(space_id='space-uuid')
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Delete a space
+            client.spaces.delete(space_id='space-uuid')
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Delete a space
-          await client.spaces.delete('space-uuid');
+            // Delete a space
+            await client.spaces.delete('space-uuid');
   /space/{space_id}/block:
     get:
       consumes:
-      - application/json
-      description: List blocks in a space. Use type query parameter to filter by block
+        - application/json
+      description:
+        List blocks in a space. Use type query parameter to filter by block
         type (page, folder, text, sop, etc.). Use parent_id query parameter to filter
         by parent. If both type and parent_id are empty, returns top-level pages and
         folders.
       parameters:
-      - description: Space ID
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Block type
-        enum:
-        - page
-        - folder
-        - text
-        - sop
-        in: query
-        name: type
-        type: string
-      - description: Parent ID
-        format: uuid
-        in: query
-        name: parent_id
-        type: string
+        - description: Space ID
+          format: uuid
+          in: path
+          name: space_id
+          required: true
+          type: string
+        - description: Block type
+          enum:
+            - page
+            - folder
+            - text
+            - sop
+          in: query
+          name: type
+          type: string
+        - description: Parent ID
+          format: uuid
+          in: query
+          name: parent_id
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/model.Block'
-                  type: array
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    items:
+                      $ref: "#/definitions/model.Block"
+                    type: array
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: List blocks
       tags:
-      - block
+        - block
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # List blocks
-          blocks = client.blocks.list(
-              space_id='space-uuid',
-              parent_id='parent-uuid',
-              block_type='page'
-          )
-          for block in blocks:
-              print(f"{block.id}: {block.title}")
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # List blocks
+            blocks = client.blocks.list(
+                space_id='space-uuid',
+                parent_id='parent-uuid',
+                block_type='page'
+            )
+            for block in blocks:
+                print(f"{block.id}: {block.title}")
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // List blocks
-          const blocks = await client.blocks.list('space-uuid', {
-            parentId: 'parent-uuid',
-            type: 'page'
-          });
-          for (const block of blocks) {
-            console.log(`${block.id}: ${block.title}`);
-          }
+            // List blocks
+            const blocks = await client.blocks.list('space-uuid', {
+              parentId: 'parent-uuid',
+              type: 'page'
+            });
+            for (const block of blocks) {
+              console.log(`${block.id}: ${block.title}`);
+            }
     post:
       consumes:
-      - application/json
-      description: 'Create a new block (supports all types: page, folder, text, sop,
+        - application/json
+      description:
+        "Create a new block (supports all types: page, folder, text, sop,
         etc.). For page and folder types, parent_id is optional. For other types,
-        parent_id is required.'
+        parent_id is required."
       parameters:
-      - description: Space ID
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: CreateBlock payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.CreateBlockReq'
+        - description: Space ID
+          format: uuid
+          in: path
+          name: space_id
+          required: true
+          type: string
+        - description: CreateBlock payload
+          in: body
+          name: payload
+          required: true
+          schema:
+            $ref: "#/definitions/handler.CreateBlockReq"
       produces:
-      - application/json
+        - application/json
       responses:
         "201":
           description: Created
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/httpclient.InsertBlockResponse'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/httpclient.InsertBlockResponse"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Create block
       tags:
-      - block
+        - block
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Create a page
-          page = client.blocks.create(
-              space_id='space-uuid',
-              block_type='page',
-              title='My Page'
-          )
+            # Create a page
+            page = client.blocks.create(
+                space_id='space-uuid',
+                block_type='page',
+                title='My Page'
+            )
 
-          # Create a text block under the page
-          text_block = client.blocks.create(
-              space_id='space-uuid',
-              parent_id=page['id'],
-              block_type='text',
-              title='Content',
-              props={"text": "Block content here"}
-          )
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Create a text block under the page
+            text_block = client.blocks.create(
+                space_id='space-uuid',
+                parent_id=page['id'],
+                block_type='text',
+                title='Content',
+                props={"text": "Block content here"}
+            )
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Create a page
-          const page = await client.blocks.create('space-uuid', {
-            blockType: 'page',
-            title: 'My Page'
-          });
+            // Create a page
+            const page = await client.blocks.create('space-uuid', {
+              blockType: 'page',
+              title: 'My Page'
+            });
 
-          // Create a text block under the page
-          const textBlock = await client.blocks.create('space-uuid', {
-            parentId: page.id,
-            blockType: 'text',
-            title: 'Content',
-            props: { text: 'Block content here' }
-          });
+            // Create a text block under the page
+            const textBlock = await client.blocks.create('space-uuid', {
+              parentId: page.id,
+              blockType: 'text',
+              title: 'Content',
+              props: { text: 'Block content here' }
+            });
   /space/{space_id}/block/{block_id}:
     delete:
       consumes:
-      - application/json
-      description: 'Delete a block by its ID (works for all block types: page, folder,
-        text, sop, etc.)'
+        - application/json
+      description:
+        "Delete a block by its ID (works for all block types: page, folder,
+        text, sop, etc.)"
       parameters:
-      - description: Space ID
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Block ID
-        format: uuid
-        in: path
-        name: block_id
-        required: true
-        type: string
+        - description: Space ID
+          format: uuid
+          in: path
+          name: space_id
+          required: true
+          type: string
+        - description: Block ID
+          format: uuid
+          in: path
+          name: block_id
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/serializer.Response'
+            $ref: "#/definitions/serializer.Response"
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Delete block
       tags:
-      - block
+        - block
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Delete a block
-          client.blocks.delete(space_id='space-uuid', block_id='block-uuid')
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Delete a block
+            client.blocks.delete(space_id='space-uuid', block_id='block-uuid')
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Delete a block
-          await client.blocks.delete('space-uuid', 'block-uuid');
+            // Delete a block
+            await client.blocks.delete('space-uuid', 'block-uuid');
   /space/{space_id}/block/{block_id}/move:
     put:
       consumes:
-      - application/json
-      description: Move block by updating its parent_id. Works for all block types
+        - application/json
+      description:
+        Move block by updating its parent_id. Works for all block types
         (page, folder, text, sop, etc.). For page and folder types, parent_id can
         be null (root level).
       parameters:
-      - description: Space ID
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Block ID
-        format: uuid
-        in: path
-        name: block_id
-        required: true
-        type: string
-      - description: MoveBlock payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.MoveBlockReq'
+        - description: Space ID
+          format: uuid
+          in: path
+          name: space_id
+          required: true
+          type: string
+        - description: Block ID
+          format: uuid
+          in: path
+          name: block_id
+          required: true
+          type: string
+        - description: MoveBlock payload
+          in: body
+          name: payload
+          required: true
+          schema:
+            $ref: "#/definitions/handler.MoveBlockReq"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/serializer.Response'
+            $ref: "#/definitions/serializer.Response"
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Move block
       tags:
-      - block
+        - block
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Move block to a different parent
-          client.blocks.move(
-              space_id='space-uuid',
-              block_id='block-uuid',
-              parent_id='new-parent-uuid'
-          )
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Move block to a different parent
+            client.blocks.move(
+                space_id='space-uuid',
+                block_id='block-uuid',
+                parent_id='new-parent-uuid'
+            )
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Move block to a different parent
-          await client.blocks.move('space-uuid', 'block-uuid', {
-            parentId: 'new-parent-uuid'
-          });
+            // Move block to a different parent
+            await client.blocks.move('space-uuid', 'block-uuid', {
+              parentId: 'new-parent-uuid'
+            });
   /space/{space_id}/block/{block_id}/properties:
     get:
       consumes:
-      - application/json
-      description: 'Get a block''s properties by its ID (works for all block types:
-        page, folder, text, sop, etc.)'
+        - application/json
+      description:
+        "Get a block's properties by its ID (works for all block types:
+        page, folder, text, sop, etc.)"
       parameters:
-      - description: Space ID
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Block ID
-        format: uuid
-        in: path
-        name: block_id
-        required: true
-        type: string
+        - description: Space ID
+          format: uuid
+          in: path
+          name: space_id
+          required: true
+          type: string
+        - description: Block ID
+          format: uuid
+          in: path
+          name: block_id
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.Block'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/model.Block"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Get block properties
       tags:
-      - block
+        - block
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Get block properties
-          block = client.blocks.get_properties(
-              space_id='space-uuid',
-              block_id='block-uuid'
-          )
-          print(f"{block.title}: {block.props}")
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Get block properties
+            block = client.blocks.get_properties(
+                space_id='space-uuid',
+                block_id='block-uuid'
+            )
+            print(f"{block.title}: {block.props}")
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Get block properties
-          const block = await client.blocks.getProperties('space-uuid', 'block-uuid');
-          console.log(`${block.title}: ${JSON.stringify(block.props)}`);
+            // Get block properties
+            const block = await client.blocks.getProperties('space-uuid', 'block-uuid');
+            console.log(`${block.title}: ${JSON.stringify(block.props)}`);
     put:
       consumes:
-      - application/json
-      description: 'Update a block''s title and properties by its ID (works for all
-        block types: page, folder, text, sop, etc.)'
+        - application/json
+      description:
+        "Update a block's title and properties by its ID (works for all
+        block types: page, folder, text, sop, etc.)"
       parameters:
-      - description: Space ID
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Block ID
-        format: uuid
-        in: path
-        name: block_id
-        required: true
-        type: string
-      - description: UpdateBlockProperties payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.UpdateBlockPropertiesReq'
+        - description: Space ID
+          format: uuid
+          in: path
+          name: space_id
+          required: true
+          type: string
+        - description: Block ID
+          format: uuid
+          in: path
+          name: block_id
+          required: true
+          type: string
+        - description: UpdateBlockProperties payload
+          in: body
+          name: payload
+          required: true
+          schema:
+            $ref: "#/definitions/handler.UpdateBlockPropertiesReq"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/serializer.Response'
+            $ref: "#/definitions/serializer.Response"
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Update block properties
       tags:
-      - block
+        - block
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Update block properties
-          client.blocks.update_properties(
-              space_id='space-uuid',
-              block_id='block-uuid',
-              title='Updated Title',
-              props={"text": "Updated content"}
-          )
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Update block properties
+            client.blocks.update_properties(
+                space_id='space-uuid',
+                block_id='block-uuid',
+                title='Updated Title',
+                props={"text": "Updated content"}
+            )
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Update block properties
-          await client.blocks.updateProperties('space-uuid', 'block-uuid', {
-            title: 'Updated Title',
-            props: { text: 'Updated content' }
-          });
+            // Update block properties
+            await client.blocks.updateProperties('space-uuid', 'block-uuid', {
+              title: 'Updated Title',
+              props: { text: 'Updated content' }
+            });
   /space/{space_id}/block/{block_id}/sort:
     put:
       consumes:
-      - application/json
-      description: 'Update block sort value (works for all block types: page, folder,
-        text, sop, etc.)'
+        - application/json
+      description:
+        "Update block sort value (works for all block types: page, folder,
+        text, sop, etc.)"
       parameters:
-      - description: Space ID
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Block ID
-        format: uuid
-        in: path
-        name: block_id
-        required: true
-        type: string
-      - description: UpdateBlockSort payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.UpdateBlockSortReq'
+        - description: Space ID
+          format: uuid
+          in: path
+          name: space_id
+          required: true
+          type: string
+        - description: Block ID
+          format: uuid
+          in: path
+          name: block_id
+          required: true
+          type: string
+        - description: UpdateBlockSort payload
+          in: body
+          name: payload
+          required: true
+          schema:
+            $ref: "#/definitions/handler.UpdateBlockSortReq"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/serializer.Response'
+            $ref: "#/definitions/serializer.Response"
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Update block sort
       tags:
-      - block
+        - block
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Update block sort order
-          client.blocks.update_sort(
-              space_id='space-uuid',
-              block_id='block-uuid',
-              sort=5
-          )
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Update block sort order
+            client.blocks.update_sort(
+                space_id='space-uuid',
+                block_id='block-uuid',
+                sort=5
+            )
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Update block sort order
-          await client.blocks.updateSort('space-uuid', 'block-uuid', {
-            sort: 5
-          });
+            // Update block sort order
+            await client.blocks.updateSort('space-uuid', 'block-uuid', {
+              sort: 5
+            });
   /space/{space_id}/configs:
     get:
       consumes:
-      - application/json
+        - application/json
       description: Retrieve the configurations of a space by its ID
       parameters:
-      - description: Space ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
+        - description: Space ID
+          example: 123e4567-e89b-12d3-a456-426614174000
+          format: uuid
+          in: path
+          name: space_id
+          required: true
+          type: string
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.Space'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/model.Space"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Get space configs
       tags:
-      - space
+        - space
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Get space configs
-          space = client.spaces.get_configs(space_id='space-uuid')
-          print(space.configs)
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Get space configs
+            space = client.spaces.get_configs(space_id='space-uuid')
+            print(space.configs)
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Get space configs
-          const space = await client.spaces.getConfigs('space-uuid');
-          console.log(space.configs);
+            // Get space configs
+            const space = await client.spaces.getConfigs('space-uuid');
+            console.log(space.configs);
     put:
       consumes:
-      - application/json
+        - application/json
       description: Update the configurations of a space by its ID
       parameters:
-      - description: Space ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: UpdateConfigs payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.UpdateSpaceConfigsReq'
+        - description: Space ID
+          example: 123e4567-e89b-12d3-a456-426614174000
+          format: uuid
+          in: path
+          name: space_id
+          required: true
+          type: string
+        - description: UpdateConfigs payload
+          in: body
+          name: payload
+          required: true
+          schema:
+            $ref: "#/definitions/handler.UpdateSpaceConfigsReq"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/serializer.Response'
+            $ref: "#/definitions/serializer.Response"
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Update space configs
       tags:
-      - space
+        - space
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Update space configs
-          client.spaces.update_configs(
-              space_id='space-uuid',
-              configs={"name": "Updated Name", "description": "New description"}
-          )
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Update space configs
+            client.spaces.update_configs(
+                space_id='space-uuid',
+                configs={"name": "Updated Name", "description": "New description"}
+            )
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Update space configs
-          await client.spaces.updateConfigs('space-uuid', {
-            configs: { name: 'Updated Name', description: 'New description' }
-          });
+            // Update space configs
+            await client.spaces.updateConfigs('space-uuid', {
+              configs: { name: 'Updated Name', description: 'New description' }
+            });
   /space/{space_id}/experience_search:
     get:
       consumes:
-      - application/json
-      description: Retrieve the experience search results for a given query within
+        - application/json
+      description:
+        Retrieve the experience search results for a given query within
         a space by its ID
       parameters:
-      - description: Space ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Search query for page/folder titles
-        in: query
-        name: query
-        required: true
-        type: string
-      - description: Maximum number of results to return (1-50, default 10)
-        in: query
-        name: limit
-        type: integer
-      - description: 'Search mode: fast or agentic (default fast)'
-        in: query
-        name: mode
-        type: string
-      - description: Cosine distance threshold (0=identical, 2=opposite)
-        format: float64
-        in: query
-        name: semantic_threshold
-        type: number
-      - description: Maximum number of iterations for agentic search (1-100, default
-          16)
-        in: query
-        name: max_iterations
-        type: integer
+        - description: Space ID
+          example: 123e4567-e89b-12d3-a456-426614174000
+          format: uuid
+          in: path
+          name: space_id
+          required: true
+          type: string
+        - description: Search query for page/folder titles
+          in: query
+          name: query
+          required: true
+          type: string
+        - description: Maximum number of results to return (1-50, default 10)
+          in: query
+          name: limit
+          type: integer
+        - description: "Search mode: fast or agentic (default fast)"
+          in: query
+          name: mode
+          type: string
+        - description: Cosine distance threshold (0=identical, 2=opposite)
+          format: float64
+          in: query
+          name: semantic_threshold
+          type: number
+        - description:
+            Maximum number of iterations for agentic search (1-100, default
+            16)
+          in: query
+          name: max_iterations
+          type: integer
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/httpclient.SpaceSearchResult'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/httpclient.SpaceSearchResult"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Get experience search
       tags:
-      - space
+        - space
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Experience search
-          result = client.spaces.experience_search(
-              space_id='space-uuid',
-              query='How to implement authentication?',
-              limit=10,
-              mode='agentic',
-              max_iterations=20
-          )
-          for block in result.cited_blocks:
-              print(f"{block.title} (distance: {block.distance})")
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Experience search
+            result = client.spaces.experience_search(
+                space_id='space-uuid',
+                query='How to implement authentication?',
+                limit=10,
+                mode='agentic',
+                max_iterations=20
+            )
+            for block in result.cited_blocks:
+                print(f"{block.title} (distance: {block.distance})")
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Experience search
-          const result = await client.spaces.experienceSearch('space-uuid', {
-            query: 'How to implement authentication?',
-            limit: 10,
-            mode: 'agentic',
-            maxIterations: 20
-          });
-          for (const block of result.cited_blocks) {
-            console.log(`${block.title} (distance: ${block.distance})`);
-          }
-  /space/{space_id}/semantic_global:
+            // Experience search
+            const result = await client.spaces.experienceSearch('space-uuid', {
+              query: 'How to implement authentication?',
+              limit: 10,
+              mode: 'agentic',
+              maxIterations: 20
+            });
+            for (const block of result.cited_blocks) {
+              console.log(`${block.title} (distance: ${block.distance})`);
+            }
+  /space/{space_id}/semantic_glob:
     get:
       consumes:
-      - application/json
-      description: Retrieve the semantic global (glob) search results for page/folder
+        - application/json
+      description:
+        Retrieve the semantic global (glob) search results for page/folder
         titles within a space by its ID
       parameters:
-      - description: Space ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Search query for page/folder titles
-        in: query
-        name: query
-        required: true
-        type: string
-      - description: Maximum number of results to return (1-50, default 10)
-        in: query
-        name: limit
-        type: integer
-      - description: Cosine distance threshold (0=identical, 2=opposite)
-        format: float64
-        in: query
-        name: threshold
-        type: number
+        - description: Space ID
+          example: 123e4567-e89b-12d3-a456-426614174000
+          format: uuid
+          in: path
+          name: space_id
+          required: true
+          type: string
+        - description: Search query for page/folder titles
+          in: query
+          name: query
+          required: true
+          type: string
+        - description: Maximum number of results to return (1-50, default 10)
+          in: query
+          name: limit
+          type: integer
+        - description: Cosine distance threshold (0=identical, 2=opposite)
+          format: float64
+          in: query
+          name: threshold
+          type: number
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/httpclient.SearchResultBlockItem'
-                  type: array
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    items:
+                      $ref: "#/definitions/httpclient.SearchResultBlockItem"
+                    type: array
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Get semantic global
       tags:
-      - space
+        - space
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Semantic global search
-          results = client.spaces.semantic_global(
-              space_id='space-uuid',
-              query='authentication and authorization pages',
-              limit=10,
-              threshold=1.0
-          )
-          for block in results:
-              print(f"{block.title} - {block.type}")
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Semantic global search
+            results = client.spaces.semantic_glob(
+                space_id='space-uuid',
+                query='authentication and authorization pages',
+                limit=10,
+                threshold=1.0
+            )
+            for block in results:
+                print(f"{block.title} - {block.type}")
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Semantic global search
-          const results = await client.spaces.semanticGlobal('space-uuid', {
-            query: 'authentication and authorization pages',
-            limit: 10,
-            threshold: 1.0
-          });
-          for (const block of results) {
-            console.log(`${block.title} - ${block.type}`);
-          }
+            // Semantic global search
+            const results = await client.spaces.semanticGlobal('space-uuid', {
+              query: 'authentication and authorization pages',
+              limit: 10,
+              threshold: 1.0
+            });
+            for (const block of results) {
+              console.log(`${block.title} - ${block.type}`);
+            }
   /space/{space_id}/semantic_grep:
     get:
       consumes:
-      - application/json
-      description: Retrieve the semantic grep search results for content blocks within
+        - application/json
+      description:
+        Retrieve the semantic grep search results for content blocks within
         a space by its ID
       parameters:
-      - description: Space ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Search query for content blocks
-        in: query
-        name: query
-        required: true
-        type: string
-      - description: Maximum number of results to return (1-50, default 10)
-        in: query
-        name: limit
-        type: integer
-      - description: Cosine distance threshold (0=identical, 2=opposite)
-        format: float64
-        in: query
-        name: threshold
-        type: number
+        - description: Space ID
+          example: 123e4567-e89b-12d3-a456-426614174000
+          format: uuid
+          in: path
+          name: space_id
+          required: true
+          type: string
+        - description: Search query for content blocks
+          in: query
+          name: query
+          required: true
+          type: string
+        - description: Maximum number of results to return (1-50, default 10)
+          in: query
+          name: limit
+          type: integer
+        - description: Cosine distance threshold (0=identical, 2=opposite)
+          format: float64
+          in: query
+          name: threshold
+          type: number
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/httpclient.SearchResultBlockItem'
-                  type: array
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    items:
+                      $ref: "#/definitions/httpclient.SearchResultBlockItem"
+                    type: array
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Get semantic grep
       tags:
-      - space
+        - space
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Semantic grep search
-          results = client.spaces.semantic_grep(
-              space_id='space-uuid',
-              query='JWT token validation code examples',
-              limit=15,
-              threshold=0.7
-          )
-          for block in results:
-              print(f"{block.title} - distance: {block.distance}")
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Semantic grep search
+            results = client.spaces.semantic_grep(
+                space_id='space-uuid',
+                query='JWT token validation code examples',
+                limit=15,
+                threshold=0.7
+            )
+            for block in results:
+                print(f"{block.title} - distance: {block.distance}")
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Semantic grep search
-          const results = await client.spaces.semanticGrep('space-uuid', {
-            query: 'JWT token validation code examples',
-            limit: 15,
-            threshold: 0.7
-          });
-          for (const block of results) {
-            console.log(`${block.title} - distance: ${block.distance}`);
-          }
+            // Semantic grep search
+            const results = await client.spaces.semanticGrep('space-uuid', {
+              query: 'JWT token validation code examples',
+              limit: 15,
+              threshold: 0.7
+            });
+            for (const block of results) {
+              console.log(`${block.title} - distance: ${block.distance}`);
+            }
   /tool/name:
     get:
       consumes:
-      - application/json
+        - application/json
       description: Get all tool names within a project
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/httpclient.ToolReferenceData'
-                  type: array
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    items:
+                      $ref: "#/definitions/httpclient.ToolReferenceData"
+                    type: array
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Get tool names
       tags:
-      - tool
+        - tool
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Get all tool names
-          tools = client.tools.list()
-          for tool in tools:
-              print(f"{tool.name}: {tool.sop_count} SOPs")
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Get all tool names
+            tools = client.tools.list()
+            for tool in tools:
+                print(f"{tool.name}: {tool.sop_count} SOPs")
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Get all tool names
-          const tools = await client.tools.list();
-          for (const tool of tools) {
-            console.log(`${tool.name}: ${tool.sop_count} SOPs`);
-          }
+            // Get all tool names
+            const tools = await client.tools.list();
+            for (const tool of tools) {
+              console.log(`${tool.name}: ${tool.sop_count} SOPs`);
+            }
     put:
       consumes:
-      - application/json
+        - application/json
       description: Rename one or more tool names within a project
       parameters:
-      - description: Tool rename request
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.RenameToolNameReq'
+        - description: Tool rename request
+          in: body
+          name: payload
+          required: true
+          schema:
+            $ref: "#/definitions/handler.RenameToolNameReq"
       produces:
-      - application/json
+        - application/json
       responses:
         "200":
           description: OK
           schema:
             allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/httpclient.FlagResponse'
-              type: object
+              - $ref: "#/definitions/serializer.Response"
+              - properties:
+                  data:
+                    $ref: "#/definitions/httpclient.FlagResponse"
+                type: object
       security:
-      - BearerAuth: []
+        - BearerAuth: []
       summary: Rename tool names
       tags:
-      - tool
+        - tool
       x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
+        - label: Python
+          lang: python
+          source: |
+            from acontext import AcontextClient
 
-          client = AcontextClient(api_key='sk_project_token')
+            client = AcontextClient(api_key='sk_project_token')
 
-          # Rename tool names
-          result = client.tools.rename([
-              {"old_name": "old_tool_name", "new_name": "new_tool_name"}
-          ])
-          print(result.status)
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
+            # Rename tool names
+            result = client.tools.rename([
+                {"old_name": "old_tool_name", "new_name": "new_tool_name"}
+            ])
+            print(result.status)
+        - label: JavaScript
+          lang: javascript
+          source: |
+            import { AcontextClient } from '@acontext/acontext';
 
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+            const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Rename tool names
-          const result = await client.tools.rename([
-            { oldName: 'old_tool_name', newName: 'new_tool_name' }
-          ]);
-          console.log(result.status);
+            // Rename tool names
+            const result = await client.tools.rename([
+              { oldName: 'old_tool_name', newName: 'new_tool_name' }
+            ]);
+            console.log(result.status);
 schemes:
-- http
-- https
+  - http
+  - https
 securityDefinitions:
   BearerAuth:
     description: Project Bearer token (e.g., "Bearer sk-ac-xxxx")

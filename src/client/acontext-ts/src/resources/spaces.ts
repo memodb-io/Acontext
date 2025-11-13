@@ -129,7 +129,7 @@ export class SpacesAPI {
     });
     const data = await this.requester.request(
       'GET',
-      `/space/${spaceId}/semantic_global`,
+      `/space/${spaceId}/semantic_glob`,
       { params: Object.keys(params).length > 0 ? params : undefined }
     );
     return (data as unknown[]).map((item) =>

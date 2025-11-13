@@ -490,7 +490,7 @@ Search for pages and folders by their titles using semantic similarity (like a s
 
 ```python
 # Find pages about authentication
-results = client.spaces.semantic_global(
+results = client.spaces.semantic_glob(
     space_id="space-uuid",
     query="authentication and authorization pages",
     limit=10,

@@ -129,7 +129,7 @@ class SpacesAPI:
         )
         return SpaceSearchResult.model_validate(data)
 
-    def semantic_global(
+    def semantic_glob(
         self,
         space_id: str,
         *,
@@ -153,7 +153,7 @@ class SpacesAPI:
         """
         params = build_params(query=query, limit=limit, threshold=threshold)
         data = self._requester.request(
-            "GET", f"/space/{space_id}/semantic_global", params=params or None
+            "GET", f"/space/{space_id}/semantic_glob", params=params or None
         )
         return [SearchResultBlockItem.model_validate(item) for item in data]
 

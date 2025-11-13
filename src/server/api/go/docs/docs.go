@@ -2066,7 +2066,7 @@ const docTemplate = `{
                 ]
             }
         },
-        "/space/{space_id}/semantic_global": {
+        "/space/{space_id}/semantic_glob": {
             "get": {
                 "security": [
                     {
@@ -2142,7 +2142,7 @@ const docTemplate = `{
                     {
                         "label": "Python",
                         "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Semantic global search\nresults = client.spaces.semantic_global(\n    space_id='space-uuid',\n    query='authentication and authorization pages',\n    limit=10,\n    threshold=1.0\n)\nfor block in results:\n    print(f\"{block.title} - {block.type}\")\n"
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Semantic global search\nresults = client.spaces.semantic_glob(\n    space_id='space-uuid',\n    query='authentication and authorization pages',\n    limit=10,\n    threshold=1.0\n)\nfor block in results:\n    print(f\"{block.title} - {block.type}\")\n"
                     },
                     {
                         "label": "JavaScript",

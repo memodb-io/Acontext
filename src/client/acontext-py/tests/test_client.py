@@ -770,7 +770,7 @@ def test_spaces_experience_search_with_agentic_mode(
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_spaces_semantic_global(mock_request, client: AcontextClient) -> None:
+def test_spaces_semantic_glob(mock_request, client: AcontextClient) -> None:
     mock_request.return_value = [
         {
             "block_id": "block-1",
@@ -788,7 +788,7 @@ def test_spaces_semantic_global(mock_request, client: AcontextClient) -> None:
         },
     ]
 
-    result = client.spaces.semantic_global(
+    result = client.spaces.semantic_glob(
         "space-id",
         query="authentication pages",
         limit=10,
@@ -799,7 +799,7 @@ def test_spaces_semantic_global(mock_request, client: AcontextClient) -> None:
     args, kwargs = mock_request.call_args
     method, path = args
     assert method == "GET"
-    assert path == "/space/space-id/semantic_global"
+    assert path == "/space/space-id/semantic_glob"
     assert kwargs["params"] == {
         "query": "authentication pages",
         "limit": 10,
