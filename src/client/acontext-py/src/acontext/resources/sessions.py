@@ -18,12 +18,12 @@ from ..types.session import (
 from ..uploads import FileUpload, normalize_file_upload
 from pydantic import BaseModel
 from openai.types.chat import ChatCompletionMessageParam
-from anthropic.types import MessageParam
+from anthropic.types import Message as AnthropicMessage
 
 UploadPayload = (
     FileUpload | tuple[str, BinaryIO | bytes] | tuple[str, BinaryIO | bytes, str | None]
 )
-MessageBlob = AcontextMessage | ChatCompletionMessageParam | MessageParam
+MessageBlob = AcontextMessage | ChatCompletionMessageParam | AnthropicMessage
 
 
 class SessionsAPI:
