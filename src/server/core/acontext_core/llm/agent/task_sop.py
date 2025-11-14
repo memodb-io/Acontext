@@ -1,13 +1,8 @@
-import re
-from typing import List
-from urllib import response
-from ...env import LOG, DEFAULT_CORE_CONFIG, bound_logging_vars
-from ...infra.db import AsyncSession, DB_CLIENT
+from ...env import LOG, bound_logging_vars
 from ...schema.result import Result
 from ...schema.utils import asUUID
-from ...schema.session.task import TaskSchema, TaskStatus
+from ...schema.session.task import TaskSchema
 from ...schema.session.message import MessageBlob
-from ...service.data import task as TD
 from ..complete import llm_complete, response_to_sendable_message
 from ..prompt.task_sop import TaskSOPPrompt, SOP_TOOLS
 from ...util.generate_ids import track_process

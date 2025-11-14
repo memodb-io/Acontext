@@ -11,7 +11,7 @@ from .ctx import SOPCtx
 
 
 async def submit_sop_handler(ctx: SOPCtx, llm_arguments: dict) -> Result[str]:
-    is_easy_task = llm_arguments.pop("is_easy_task", False)
+    is_easy_task = llm_arguments.get("is_easy_task", False)
     try:
         sop_data = SOPData.model_validate(llm_arguments)
     except ValidationError as e:
