@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"mime/multipart"
+	"sort"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -320,6 +321,15 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 			msgs[i].Parts = parts
 		}
 	}
+
+	// Always sort messages from old to new (ascending by created_at)
+	// regardless of the in.TimeDesc parameter used for cursor pagination
+	sort.Slice(msgs, func(i, j int) bool {
+		if msgs[i].CreatedAt.Equal(msgs[j].CreatedAt) {
+			return msgs[i].ID.String() < msgs[j].ID.String()
+		}
+		return msgs[i].CreatedAt.Before(msgs[j].CreatedAt)
+	})
 
 	out := &GetMessagesOutput{
 		Items:   msgs,

@@ -439,11 +439,11 @@ func TestSessionService_List(t *testing.T) {
 	spaceID := uuid.New()
 
 	tests := []struct {
-		name         string
-		input        ListSessionsInput
-		setup        func(*MockSessionRepo)
-		wantErr      bool
-		errMsg       string
+		name    string
+		input   ListSessionsInput
+		setup   func(*MockSessionRepo)
+		wantErr bool
+		errMsg  string
 	}{
 		{
 			name: "successful sessions retrieval - all sessions",
@@ -806,6 +806,177 @@ func TestSessionService_GetMessages(t *testing.T) {
 				assert.NoError(t, err)
 				if result != nil {
 					assert.NotNil(t, result.Items)
+				}
+			}
+
+			repo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestSessionService_GetMessages_SortOrder(t *testing.T) {
+	ctx := context.Background()
+	sessionID := uuid.New()
+
+	// Create test messages with different timestamps
+	now := time.Now()
+	// Use fixed UUIDs with predictable lexicographic ordering
+	msg1ID := uuid.MustParse("00000000-0000-0000-0000-000000000001")
+	msg2ID := uuid.MustParse("00000000-0000-0000-0000-000000000002")
+	msg3ID := uuid.MustParse("00000000-0000-0000-0000-000000000003")
+	msg4ID := uuid.MustParse("00000000-0000-0000-0000-000000000004")
+
+	tests := []struct {
+		name          string
+		input         GetMessagesInput
+		repoMessages  []model.Message // Messages returned from repo (can be in any order)
+		expectedOrder []uuid.UUID     // Expected order in output (from old to new)
+		setup         func(*MockSessionRepo)
+		wantErr       bool
+	}{
+		{
+			name: "messages sorted from old to new when time_desc=false",
+			input: GetMessagesInput{
+				SessionID: sessionID,
+				Limit:     10,
+				TimeDesc:  false,
+			},
+			repoMessages: []model.Message{
+				{ID: msg1ID, SessionID: sessionID, Role: "user", CreatedAt: now.Add(-3 * time.Hour)},
+				{ID: msg2ID, SessionID: sessionID, Role: "assistant", CreatedAt: now.Add(-2 * time.Hour)},
+				{ID: msg3ID, SessionID: sessionID, Role: "user", CreatedAt: now.Add(-1 * time.Hour)},
+			},
+			expectedOrder: []uuid.UUID{msg1ID, msg2ID, msg3ID},
+			setup: func(repo *MockSessionRepo) {
+				msgs := []model.Message{
+					{ID: msg1ID, SessionID: sessionID, Role: "user", CreatedAt: now.Add(-3 * time.Hour)},
+					{ID: msg2ID, SessionID: sessionID, Role: "assistant", CreatedAt: now.Add(-2 * time.Hour)},
+					{ID: msg3ID, SessionID: sessionID, Role: "user", CreatedAt: now.Add(-1 * time.Hour)},
+				}
+				repo.On("ListBySessionWithCursor", ctx, sessionID, time.Time{}, uuid.UUID{}, 11, false).Return(msgs, nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "messages sorted from old to new even when time_desc=true (repo returns desc order)",
+			input: GetMessagesInput{
+				SessionID: sessionID,
+				Limit:     10,
+				TimeDesc:  true,
+			},
+			repoMessages: []model.Message{
+				{ID: msg3ID, SessionID: sessionID, Role: "user", CreatedAt: now.Add(-1 * time.Hour)},
+				{ID: msg2ID, SessionID: sessionID, Role: "assistant", CreatedAt: now.Add(-2 * time.Hour)},
+				{ID: msg1ID, SessionID: sessionID, Role: "user", CreatedAt: now.Add(-3 * time.Hour)},
+			},
+			expectedOrder: []uuid.UUID{msg1ID, msg2ID, msg3ID}, // Still old to new
+			setup: func(repo *MockSessionRepo) {
+				// Repo returns messages in descending order (newest first)
+				msgs := []model.Message{
+					{ID: msg3ID, SessionID: sessionID, Role: "user", CreatedAt: now.Add(-1 * time.Hour)},
+					{ID: msg2ID, SessionID: sessionID, Role: "assistant", CreatedAt: now.Add(-2 * time.Hour)},
+					{ID: msg1ID, SessionID: sessionID, Role: "user", CreatedAt: now.Add(-3 * time.Hour)},
+				}
+				repo.On("ListBySessionWithCursor", ctx, sessionID, time.Time{}, uuid.UUID{}, 11, true).Return(msgs, nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "messages with same timestamp sorted by ID",
+			input: GetMessagesInput{
+				SessionID: sessionID,
+				Limit:     10,
+				TimeDesc:  false,
+			},
+			repoMessages: []model.Message{
+				{ID: msg4ID, SessionID: sessionID, Role: "user", CreatedAt: now},
+				{ID: msg2ID, SessionID: sessionID, Role: "assistant", CreatedAt: now},
+				{ID: msg1ID, SessionID: sessionID, Role: "user", CreatedAt: now},
+			},
+			// When timestamps are equal, sort by ID (lexicographically)
+			expectedOrder: []uuid.UUID{msg1ID, msg2ID, msg4ID}, // Assuming these IDs sort this way lexicographically
+			setup: func(repo *MockSessionRepo) {
+				msgs := []model.Message{
+					{ID: msg4ID, SessionID: sessionID, Role: "user", CreatedAt: now},
+					{ID: msg2ID, SessionID: sessionID, Role: "assistant", CreatedAt: now},
+					{ID: msg1ID, SessionID: sessionID, Role: "user", CreatedAt: now},
+				}
+				repo.On("ListBySessionWithCursor", ctx, sessionID, time.Time{}, uuid.UUID{}, 11, false).Return(msgs, nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "mixed order from repo gets sorted to old-to-new",
+			input: GetMessagesInput{
+				SessionID: sessionID,
+				Limit:     10,
+				TimeDesc:  false,
+			},
+			repoMessages: []model.Message{
+				{ID: msg2ID, SessionID: sessionID, Role: "assistant", CreatedAt: now.Add(-2 * time.Hour)},
+				{ID: msg4ID, SessionID: sessionID, Role: "user", CreatedAt: now},
+				{ID: msg1ID, SessionID: sessionID, Role: "user", CreatedAt: now.Add(-3 * time.Hour)},
+				{ID: msg3ID, SessionID: sessionID, Role: "assistant", CreatedAt: now.Add(-1 * time.Hour)},
+			},
+			expectedOrder: []uuid.UUID{msg1ID, msg2ID, msg3ID, msg4ID},
+			setup: func(repo *MockSessionRepo) {
+				// Repo returns messages in random order
+				msgs := []model.Message{
+					{ID: msg2ID, SessionID: sessionID, Role: "assistant", CreatedAt: now.Add(-2 * time.Hour)},
+					{ID: msg4ID, SessionID: sessionID, Role: "user", CreatedAt: now},
+					{ID: msg1ID, SessionID: sessionID, Role: "user", CreatedAt: now.Add(-3 * time.Hour)},
+					{ID: msg3ID, SessionID: sessionID, Role: "assistant", CreatedAt: now.Add(-1 * time.Hour)},
+				}
+				repo.On("ListBySessionWithCursor", ctx, sessionID, time.Time{}, uuid.UUID{}, 11, false).Return(msgs, nil)
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &MockSessionRepo{}
+			tt.setup(repo)
+
+			logger := zap.NewNop()
+			mockAssetRefRepo := &MockAssetReferenceRepo{}
+			cfg := &config.Config{
+				RabbitMQ: config.MQCfg{
+					ExchangeName: config.MQExchangeName{
+						SessionMessage: "session.message",
+					},
+					RoutingKey: config.MQRoutingKey{
+						SessionMessageInsert: "session.message.insert",
+					},
+				},
+			}
+			service := NewSessionService(repo, mockAssetRefRepo, logger, nil, nil, cfg)
+
+			result, err := service.GetMessages(ctx, tt.input)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Nil(t, result)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, result)
+				assert.NotNil(t, result.Items)
+
+				// Verify the messages are sorted from old to new
+				assert.Equal(t, len(tt.expectedOrder), len(result.Items), "Number of messages should match")
+
+				for i, expectedID := range tt.expectedOrder {
+					assert.Equal(t, expectedID, result.Items[i].ID,
+						"Message at position %d should be %s but got %s", i, expectedID, result.Items[i].ID)
+				}
+
+				// Additionally verify that messages are in ascending time order
+				for i := 1; i < len(result.Items); i++ {
+					prevTime := result.Items[i-1].CreatedAt
+					currTime := result.Items[i].CreatedAt
+					assert.True(t, prevTime.Before(currTime) || prevTime.Equal(currTime),
+						"Messages should be sorted from old to new: message[%d] (%v) should be before or equal to message[%d] (%v)",
+						i-1, prevTime, i, currTime)
 				}
 			}
 
