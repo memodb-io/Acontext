@@ -1,13 +1,12 @@
-import json
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...schema.orm import Block, ToolSOP, ToolReference
+from sqlalchemy.orm import selectinload
+from ...schema.orm import Block, ToolSOP
 from ...schema.orm.block import (
     BLOCK_TYPE_SOP,
     BLOCK_TYPE_TEXT,
 )
 from ...schema.block.general import LLMRenderBlock
-from .block import delete_block_recursively
 from ...schema.utils import asUUID
 from ...schema.result import Result
 from ...env import LOG
@@ -17,17 +16,19 @@ async def render_sop_block(
     db_session: AsyncSession, space_id: asUUID, block: Block
 ) -> Result[LLMRenderBlock]:
     loaded_tools = await db_session.execute(
-        select(ToolSOP).where(ToolSOP.sop_block_id == block.id).order_by(ToolSOP.order)
+        select(ToolSOP)
+        .where(ToolSOP.sop_block_id == block.id)
+        .order_by(ToolSOP.order)
+        .options(selectinload(ToolSOP.tool_reference))
     )
     tool_sops = loaded_tools.scalars().all()
     props = {
         "use_when": block.title,
         "preferences": block.props.get("preferences", ""),
-        "steps": [],
+        "tool_sops": [],
     }
     for step in tool_sops:
-        tool_reference = await db_session.get(ToolReference, step.tool_reference_id)
-        if tool_reference is None:
+        if step.tool_reference is None:
             # FIXME maybe delete the block if the tool reference is not found
             LOG.warning(
                 f"Tool reference {step.tool_reference_id} not found for step {step.id}"
@@ -36,10 +37,10 @@ async def render_sop_block(
             break
         step_data = {
             "order": step.order,
-            "tool_name": tool_reference.name,
+            "tool_name": step.tool_reference.name,
             "action": step.action,
         }
-        props["steps"].append(step_data)
+        props["tool_sops"].append(step_data)
 
     return Result.resolve(
         LLMRenderBlock(
