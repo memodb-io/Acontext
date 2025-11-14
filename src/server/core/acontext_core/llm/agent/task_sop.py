@@ -1,10 +1,13 @@
+from typing import Optional
 from ...env import LOG, bound_logging_vars
 from ...schema.result import Result
 from ...schema.utils import asUUID
 from ...schema.session.task import TaskSchema
 from ...schema.session.message import MessageBlob
+from ...schema.config import ProjectConfig
 from ..complete import llm_complete, response_to_sendable_message
 from ..prompt.task_sop import TaskSOPPrompt, SOP_TOOLS
+from ..prompt.sop_customization import SOPPromptCustomization
 from ...util.generate_ids import track_process
 from ..tool.sop_lib.ctx import SOPCtx
 
@@ -26,6 +29,7 @@ async def sop_agent_curd(
     current_task: TaskSchema,
     message_blobs: list[MessageBlob],
     max_iterations=3,
+    project_config: Optional[ProjectConfig] = None,
 ):
 
     task_desc, user_perferences, raw_messages = pack_task_data(
@@ -33,6 +37,13 @@ async def sop_agent_curd(
     )
 
     LOG.info(f"Task SOP before: {task_desc}, {user_perferences}, {raw_messages}")
+
+    # Build customization from project config
+    customization = None
+    if project_config and project_config.sop_agent_custom_scoring_rules:
+        customization = SOPPromptCustomization(
+            custom_scoring_rules=project_config.sop_agent_custom_scoring_rules
+        )
 
     json_tools = [tool.model_dump() for tool in TaskSOPPrompt.tool_schema()]
     already_iterations = 0
@@ -47,7 +58,7 @@ async def sop_agent_curd(
     ]
     while already_iterations < max_iterations:
         r = await llm_complete(
-            system_prompt=TaskSOPPrompt.system_prompt(),
+            system_prompt=TaskSOPPrompt.system_prompt(customization=customization),
             history_messages=_messages,
             tools=json_tools,
             prompt_kwargs=TaskSOPPrompt.prompt_kwargs(),
