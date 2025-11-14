@@ -26,7 +26,7 @@ class AcontextClient:
         *,
         api_key: str | None = None,
         base_url: str | None = None,
-        timeout: float | httpx.Timeout | None = 10.0,
+        timeout: float | httpx.Timeout | None = 32.0,
         user_agent: str | None = None,
         client: httpx.Client | None = None,
     ) -> None:
@@ -36,7 +36,7 @@ class AcontextClient:
         Args:
             api_key: API key for authentication. Can also be set via ACONTEXT_API_KEY env var.
             base_url: Base URL for the API. Defaults to DEFAULT_BASE_URL. Can also be set via ACONTEXT_BASE_URL env var.
-            timeout: Request timeout in seconds. Defaults to 10.0. Can also be set via ACONTEXT_TIMEOUT env var.
+            timeout: Request timeout in seconds. Defaults to 32.0. Can also be set via ACONTEXT_TIMEOUT env var.
                    Can also be an httpx.Timeout object.
             user_agent: Custom user agent string. Can also be set via ACONTEXT_USER_AGENT env var.
             client: Optional httpx.Client instance to reuse. If provided, headers and base_url

@@ -61,7 +61,7 @@ export class AcontextClient implements RequesterProtocol {
       options.timeout ??
       (typeof process !== 'undefined' && process.env?.ACONTEXT_TIMEOUT
         ? parseFloat(process.env.ACONTEXT_TIMEOUT)
-        : 10000);
+        : 320000);
 
     this.spaces = new SpacesAPI(this);
     this.sessions = new SessionsAPI(this);

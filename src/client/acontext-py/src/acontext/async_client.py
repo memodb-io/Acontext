@@ -26,7 +26,7 @@ class AcontextAsyncClient:
         *,
         api_key: str | None = None,
         base_url: str | None = None,
-        timeout: float | httpx.Timeout | None = 10.0,
+        timeout: float | httpx.Timeout | None = 32.0,
         user_agent: str | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
