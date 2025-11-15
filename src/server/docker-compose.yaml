@@ -198,17 +198,14 @@ services:
       args:
         NODE_ENV: production
         NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
-        NEXT_PUBLIC_API_SERVER_URL: http://acontext-server-api:8029
         NEXT_PUBLIC_BASE_PATH: ""
-        ROOT_API_BEARER_TOKEN: ${ROOT_API_BEARER_TOKEN:-your-root-api-bearer-token}
-        DATABASE_URL: postgresql://${DATABASE_USER:-acontext}:${DATABASE_PASSWORD:-helloworld}@acontext-server-pg:5432/${DATABASE_NAME:-acontext}
     container_name: acontext-server-ui
     restart: unless-stopped
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
-      NEXT_PUBLIC_API_SERVER_URL: http://acontext-server-api:8029
       NEXT_PUBLIC_BASE_PATH: ""
+      API_SERVER_URL: http://acontext-server-api:8029
       ROOT_API_BEARER_TOKEN: ${ROOT_API_BEARER_TOKEN:-your-root-api-bearer-token}
       DATABASE_URL: postgresql://${DATABASE_USER:-acontext}:${DATABASE_PASSWORD:-helloworld}@acontext-server-pg:5432/${DATABASE_NAME:-acontext}
     ports:
