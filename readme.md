@@ -3,8 +3,8 @@
   <br/>
   <a href="https://discord.gg/rpZs5TaSuV">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://assets.memodb.io/Acontext/Acontext-oneway-dark.gif">
-      <img alt="Show Acontext logo" src="https://assets.memodb.io/Acontext/Acontext-oneway.gif" width="418">
+      <source media="(prefers-color-scheme: dark)" srcset="./assets/Acontext-oneway-dark.gif">
+      <img alt="Show Acontext logo" src="./assets/Acontext-oneway.gif" width="418">
     </picture>
   <br/>
   <br/>
@@ -36,6 +36,8 @@
 
 
 
+
+
 Acontext is a context data platform that:
 
 - **Stores** contexts & artifacts, using Postgres and S3
@@ -46,8 +48,8 @@ Acontext is a context data platform that:
 
 We're building it because we believe Acontext can help you:
 
-- **Build a more scalable agent product**
-- **Improve your agent success rate and reduce running steps**
+- **Build a more scalable agent product**: Acontext packs Postgres, Redis, S3, RabbitMQ together to enable multi-modal sessions and aritfacts storages, keep your context managment fast, cheap and easy.
+- **Improve your agent success rate and reduce running steps**: Acontext has built-in **Experience Agent**, which can manage and search the past experiences of tasks. So once your agent successfully completes a complex task for the user, it will almost never make a mistake again.
 
 so that your agent can be more stable and provide greater value to your users.
 
@@ -59,6 +61,8 @@ so that your agent can be more stable and provide greater value to your users.
     </picture>
   <p>How Acontext Learns for your Agents?</p>
 </div>
+
+
 
 
 
