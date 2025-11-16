@@ -70,8 +70,8 @@ Format:
 ```
 <user>(text) ...
 <agent>(text) ...
-<agent>(tool-call) {{'tool_name': '...', 'arguments': {{...}}}}
-<agent>(tool-result) {{'tool_name': '...', 'result': ...}}
+<agent>(tool-call) {{'tool_name': '...', 'arguments': {{'...'}}}}
+<agent>(tool-result) {{'tool_name': '...', 'result': '...'}}
 ```
 - Results maybe truncated([...truncated])
 - Only the tool_names among <agent>(tool-call) can be used in `tool_sops`, don't make it up.
