@@ -1,7 +1,13 @@
 import os
 import yaml
 from pydantic import BaseModel
-from typing import Literal, Mapping, Optional, Any, Type
+from typing import Literal, Mapping, Optional, Any, Type, List
+
+
+class CustomScoringRule(BaseModel):
+    """User-defined scoring rule for task complexity evaluation"""
+    description: str  # User-friendly rule description
+    level: Literal["normal", "critical"]  # Rule importance level
 
 
 class ProjectConfig(BaseModel):
@@ -12,6 +18,9 @@ class ProjectConfig(BaseModel):
     default_task_agent_max_iterations: int = 4
     default_sop_agent_max_iterations: int = 4
     default_space_construct_agent_max_iterations: int = 16
+    
+    # SOP Agent Customization (extensible for future features)
+    sop_agent_custom_scoring_rules: List[CustomScoringRule] = []
 
 
 class CoreConfig(BaseModel):

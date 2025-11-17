@@ -42,4 +42,5 @@ async def process_space_task(
         task,
         messages_data,
         max_iterations=project_config.default_sop_agent_max_iterations,
+        project_config=project_config,
     )

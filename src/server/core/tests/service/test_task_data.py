@@ -89,6 +89,15 @@ class TestFetchCurrentTasks:
         await db_client.create_tables()
 
         async with db_client.get_session_context() as session:
+            # Clean up any existing project with this key
+            existing = await session.execute(
+                select(Project).where(Project.secret_key_hmac == "test_key_hmac2")
+            )
+            existing_project = existing.scalars().first()
+            if existing_project:
+                await session.delete(existing_project)
+                await session.flush()
+            
             # Create test data
             project = Project(
                 secret_key_hmac="test_key_hmac2", secret_key_hash_phc="test_key_hash2"
@@ -160,6 +169,15 @@ class TestUpdateTask:
         await db_client.create_tables()
 
         async with db_client.get_session_context() as session:
+            # Clean up any existing project with this key
+            existing = await session.execute(
+                select(Project).where(Project.secret_key_hmac == "test_key_hmac3")
+            )
+            existing_project = existing.scalars().first()
+            if existing_project:
+                await session.delete(existing_project)
+                await session.flush()
+            
             # Create test data
             project = Project(
                 secret_key_hmac="test_key_hmac3", secret_key_hash_phc="test_key_hash3"

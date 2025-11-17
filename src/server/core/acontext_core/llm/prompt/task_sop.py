@@ -1,21 +1,48 @@
 from .base import BasePrompt, ToolSchema
 from ..tool.sop_tools import SOP_TOOLS
+from typing import Optional
+from .sop_customization import SOPPromptCustomization
 
 
 class TaskSOPPrompt(BasePrompt):
     @classmethod
-    def system_prompt(cls) -> str:
-        return """You're a Tool-calling SOP Agent that analyzes user-agent working history and generates reusable tool-calling SOPs.
+    def system_prompt(cls, customization: Optional[SOPPromptCustomization] = None) -> str:
+        """
+        Generate system prompt for SOP agent.
+        
+        Args:
+            customization: Optional customization config for extending prompt behavior
+            
+        Returns:
+            Complete system prompt string
+        """
+        # Build base scoring rules
+        base_scoring_section = """### Task Complexity Scoring
+(c.1) If there're errors because of the wrong tool parameter passing and it can be avoided, + 1 point
+(c.2) If there're back-and-forth retries (not errors) because agent has a wrong strategy, + 1 point.
+(c.3) If agent done something wrong decision before, then user offers some feedbacks/preferences to correct the agent's wrong decision, + 2 points
+(c.4) User explicitly emphasized saving this workflow or experience, + 5 points"""
+        
+        # Append custom scoring rules if provided
+        if customization and customization.custom_scoring_rules:
+            custom_rules = customization.build_custom_scoring_section(start_index=5)
+            if custom_rules:
+                base_scoring_section += "\n" + custom_rules
+        
+        # Build rule indices list for report section
+        if customization:
+            all_rule_indices = customization.get_all_rule_indices(base_count=4)
+            rule_indices_str = ", ".join(all_rule_indices)
+        else:
+            rule_indices_str = "(c.1), (c.2), (c.3), (c.4)"
+        
+        return f"""You're a Tool-calling SOP Agent that analyzes user-agent working history and generates reusable tool-calling SOPs.
 
 ## Core Responsibilities
 - Understand task and user preferences
 - Give the task's complexity a score. 
 - Skip easy task's tool_sop, or abstract a template SOP from complex task.
-### Task Complexity Scoring
-(c.1) If there're errors because of the wrong tool parameter passing and it can be avoided, + 1 point
-(c.2) If there're back-and-forth retries (not errors) because agent has a wrong strategy, + 1 point.
-(c.3) If agent done something wrong decision before, then user offers some feedbacks/preferences to correct the agent's wrong decision, + 2 points
-(c.4) User explicitly emphasized saving this workflow or experience, + 5 points
+{base_scoring_section}
 If a task's complexity score is < 2, then skip the task because it's too easy, and you should submit a empty SOP with `is_easy_task` set to True.
 else, set `is_easy_task` to False.
 
@@ -43,8 +70,8 @@ Format:
 ```
 <user>(text) ...
 <agent>(text) ...
-<agent>(tool-call) {'tool_name': '...', 'arguments': {...}}
-<agent>(tool-result) {'tool_name': '...', 'result': ...}
+<agent>(tool-call) {{'tool_name': '...', 'arguments': {{'...'}}}}
+<agent>(tool-result) {{'tool_name': '...', 'result': '...'}}
 ```
 - Results maybe truncated([...truncated])
 - Only the tool_names among <agent>(tool-call) can be used in `tool_sops`, don't make it up.
@@ -52,7 +79,7 @@ Format:
 ## Report before Submit
 You must report your thinkings (using extrmaly brief wordings) first using the 'report_thinking' tool:
 1. What's tools have been used?
-2. Give your judgement on (c.1), (c.2), (c.3), (c.4) and for each term, what's the scores?, then sum them and score the task complexity.
+2. Give your judgement on {rule_indices_str} and for each term, what's the scores?, then sum them and score the task complexity.
 3. If it's an easy task, confirm you will set `is_easy_task` to True and only submit the `use_when` and `preferences` field and an empty `tool_sops list
 4. How to reduce the tool-calls to build a shortest path to achieve the goal?
 5. Which parameters/values are related to the future user input and should be removed in 'action' and 'preferences'?
