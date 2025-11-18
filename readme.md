@@ -45,17 +45,18 @@ Acontext is a context data platform that:
 
 <div align="center">
     <picture>
-      <img alt="Acontext Learning" src="./docs/images/acontext_data_flow.png" width="80%">
+      <img alt="Acontext Learning" src="./docs/images/acontext_data_flow.png" width="100%">
     </picture>
   <p>How Does Acontext Learn for Your Agents?</p>
 </div>
 
 
 
+
 We're building it because we believe Acontext can help you:
 
-- **Build a more scalable agent product**: Acontext packs Postgres, Redis, S3, RabbitMQ together to enable multi-modal sessions and artifacts storage, keeping your context management fast, cheap and easy.
-- **Improve your agent success rate and reduce running steps**: Acontext has built-in **Experience Agents** to identify hard tasks, manage and search the past experiences of tasks. So once your agent successfully completes a complex task for the user, it will almost never make a mistake again.
+- **Build a more scalable agent product**
+- **Improve your agent success rate and reduce running steps**
 
 so that your agent can be more stable and provide greater value to your users.
 
@@ -63,13 +64,13 @@ so that your agent can be more stable and provide greater value to your users.
 
 # Core Concepts
 
-- **Session** - A conversation thread that stores messages with multi-modal support. Acontext automatically tracks what tasks your agent plans and executes.
-  - **Task** - A step of agent plan extracted automatically from conversations. Tasks move through `pending` → `running` → `success`/`failed` states. 
+- **Session** - A conversation thread that stores messages with multi-modal support. 
+  - **Task** - extracted automatically from conversations. Tasks move through `pending` → `running` → `success`/`failed` states. 
 
 - **Disk** - File storage for agent artifacts.
 
-- **Space** - A knowledge repository (like Notion) for agent, where learned skills are stored. Connect sessions to a Space to enable automatic skill learning from completed tasks.
-  - **Experience Agents** - Background AI agents that automatically extract tasks and learn skills. You don't interact with them directly.
+- **Space** - A knowledge repository (like Notion) for agent, where learned skills are stored. 
+  - **Experience Agents** - Background AI agents that automatically extract tasks and learn skills. 
   - **Skill Block** - A learned SOP (Standard Operating Procedure) containing `use_when` conditions, user `preferences`, and `tool_sops` patterns. Only complex tasks become skills.
 
 ### How They Work Together
@@ -520,3 +521,8 @@ Join the community for support and discussions:
 
 -   [Discuss with Builders on Acontext Discord](https://discord.gg/rpZs5TaSuV) 👻 
 -  [Follow Acontext on X](https://x.com/acontext_io) 𝕏 
+
+
+
+# LICENSE
+This project is currently licensed under [Apache License 2.0](LICENSE).
