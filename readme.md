@@ -9,8 +9,10 @@
   <br/>
   <br/>
   </a>
-  <h4>Context Data Platform for Self-learning Agents</h4>
-  <strong>Store Contexts ➡️ Observe Tasks ➡️ Learn Skills</strong>
+  <p>
+    <h3>Context Data Platform for Self-learning Agents</h3>
+    <strong>Store Contexts ➡️ Observe Tasks ➡️ Learn Skills</strong>
+  </p>
   <p>
     <a href="https://pypi.org/project/acontext/">
       <img src="https://img.shields.io/pypi/v/acontext.svg">
@@ -34,6 +36,7 @@
     </a>
   </p>
 </div>
+
 
 
 
