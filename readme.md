@@ -48,7 +48,7 @@ Acontext is a context data platform that:
 
 - **Stores** contexts & artifacts
 - **Observes** agent tasks and user feedback.
-- Enables agent **self-learning** by collecting experiences (SOPs).
+- Enables agent **self-learning** by collecting experiences (SOPs).  Context data → extract patterns → create & save skills → reuse & refine → agent improves. Acontext turns raw context into real, reusable experience.
 - Offers a **local Dashboard** to view messages, tasks, artifacts and experiences.
 
 

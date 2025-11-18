@@ -24,6 +24,7 @@ Task extraction happens asynchronously with a small delay to optimize costs and 
 - The system waits a few seconds to collect messages before starting extraction
 
 You can use `flush` method for blocking and waiting for all the tasks to be extracted.
+In production, you don't need to call this method, Acontext will automatically flush the buffer when the buffer is full or IDLE. To understand the buffer mechanism, please refer to [Session Buffer Mechanism](/observe/buffer).
 <CodeGroup>
 ```python Python
 client.sessions.flush(session.id)

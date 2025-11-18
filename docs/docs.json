@@ -40,6 +40,7 @@
             "icon": "radar",
             "pages": [
               "observe/agent_tasks",
+              "observe/buffer",
               "observe/dashboard"
             ]
           },
