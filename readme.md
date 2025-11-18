@@ -537,6 +537,44 @@ This project is currently licensed under [Apache License 2.0](LICENSE).
 
 
 
+# Badges
+
+![Made with Acontext](./assets/badge-made-with-acontext.svg)
+
+```md
+[![Made with Acontext](https://assets.memodb.io/Acontext/badge-made-with-acontext.svg)](https://acontext.io)
+```
+
+```html
+<a href="https://acontext.io">
+  <img
+    width="160"
+    height="30"
+    src="https://assets.memodb.io/Acontext/badge-made-with-acontext.svg"
+    alt="Made with Acontext"
+  />
+</a>
+```
+
+![Made with Acontext (dark)](./assets/badge-made-with-acontext-dark.svg)
+
+```md
+[![Made with Acontext](https://assets.memodb.io/Acontext/badge-made-with-acontext-dark.svg)](https://acontext.io)
+```
+
+```html
+<a href="https://acontext.io">
+  <img
+    width="160"
+    height="30"
+    src="https://assets.memodb.io/Acontext/badge-made-with-acontext-dark.svg"
+    alt="Made with Acontext"
+  />
+</a>
+```
+
+
+
 # Meet the Amazing People Behind This Project:
 
 <a href="https://github.com/memodb-io/Acontext/graphs/contributors">
