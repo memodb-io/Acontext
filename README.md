@@ -14,7 +14,7 @@
   </p>
   <p align="center">
     <a href="https://x.com/acontext_io"><img src="https://img.shields.io/twitter/follow/acontext_io?style=social" alt="Twitter Follow"></a>
-    <a href="https://discord.gg/rpZs5TaSuV"><img src="https://dcbadge.limes.pink/api/server/rpZs5TaSuV?style=flat"></a>
+    <a href="https://discord.gg/rpZs5TaSuV"><img src="https://dcbadge.limes.pink/api/server/rpZs5TaSuV?style=flat" alt="Discord"></a>
     <a href="https://deepwiki.com/memodb-io/Acontext"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
     <a href="https://github.com/memodb-io/Acontext"><img src="https://img.shields.io/github/stars/memodb-io/Acontext?style=social" alt="GitHub stars"></a>
   </p>
