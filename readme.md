@@ -10,6 +10,7 @@
   <br/>
   </a>
   <h4>Context Data Platform for Self-learning Agents</h4>
+  <strong>Store Contexts ➡️ Observe Tasks ➡️ Learn Skills</strong>
   <p>
     <a href="https://pypi.org/project/acontext/">
       <img src="https://img.shields.io/pypi/v/acontext.svg">
@@ -38,21 +39,14 @@
 
 
 
+
+
 Acontext is a context data platform that:
 
 - **Stores** contexts & artifacts
 - **Observes** agent tasks and user feedback.
 - Enables agent **self-learning** by collecting experiences (SOPs).
-- Offers a **local Dashboard** to view everything.
-
-
-
-We're building it because we believe Acontext can help you:
-
-- **Build a more scalable agent product**: Acontext packs Postgres, Redis, S3, RabbitMQ together to enable multi-modal sessions and aritfacts storages, keep your context managment fast, cheap and easy.
-- **Improve your agent success rate and reduce running steps**: Acontext has built-in **Experience Agents**, to identify hard tasks, manage and search the past experiences of tasks. So once your agent successfully completes a complex task for the user, it will almost never make a mistake again.
-
-so that your agent can be more stable and provide greater value to your users.
+- Offers a **local Dashboard** to view messages, tasks, artifacts and experiences.
 
 
 
@@ -60,11 +54,77 @@ so that your agent can be more stable and provide greater value to your users.
     <picture>
       <img alt="Acontext Learning" src="./docs/images/acontext_data_flow.png" width="80%">
     </picture>
-  <p>How Acontext Learns for your Agents?</p>
+  <p>How Does Acontext Learn for Your Agents?</p>
 </div>
 
 
 
+We're building it because we believe Acontext can help you:
+
+- **Build a more scalable agent product**: Acontext packs Postgres, Redis, S3, RabbitMQ together to enable multi-modal sessions and artifacts storage, keeping your context management fast, cheap and easy.
+- **Improve your agent success rate and reduce running steps**: Acontext has built-in **Experience Agents** to identify hard tasks, manage and search the past experiences of tasks. So once your agent successfully completes a complex task for the user, it will almost never make a mistake again.
+
+so that your agent can be more stable and provide greater value to your users.
+
+
+
+# Core Concepts
+
+- **Session** - A conversation thread that stores messages with multi-modal support. Acontext automatically tracks what tasks your agent plans and executes.
+  - **Task** - A step of agent plan extracted automatically from conversations. Tasks move through `pending` → `running` → `success`/`failed` states. 
+
+- **Disk** - File storage for agent artifacts.
+
+- **Space** - A knowledge repository (like Notion) for agent, where learned skills are stored. Connect sessions to a Space to enable automatic skill learning from completed tasks.
+  - **Experience Agents** - Background AI agents that automatically extract tasks and learn skills. You don't interact with them directly.
+  - **Skill Block** - A learned SOP (Standard Operating Procedure) containing `use_when` conditions, user `preferences`, and `tool_sops` patterns. Only complex tasks become skills.
+
+### How They Work Together
+
+```bash
+┌──────┐    ┌────────────┐    ┌─────────────────────────┐    ┌─────────────────────────┐
+│ User │◄──►│ Your Agent │◄──►│ Session (stores msgs)   │    │ Disk (stores artifacts) │
+└──────┘    └─────▲──────┘    └────────────┬────────────┘    └───────────▲─────────────┘
+                  │                        │                              │
+                  │                        │                    ┌─────────┴─────────┐
+                  │                        │                    │ Agent reads/writes│
+                  │                        │                    │ files as needed   │
+                  │                        │                    └───────────────────┘
+                  │                        ▼
+                  │         ┌──────────────────────────────┐
+                  │         │ Task Extraction              │
+                  │         │ (by Experience Agent)        │
+                  │         └──────────────┬───────────────┘
+                  │                        │
+                  │                        ▼
+                  │         ┌──────────────────────────────┐
+                  │         │ Task Completion              │
+                  │         └──────────────┬───────────────┘
+                  │                        │
+                  │                        ▼
+                  │         ┌──────────────────────────────┐
+                  │         │ Space Connected?             │
+                  │         └──────────────┬───────────────┘
+                  │                        │ Yes
+                  │                        ▼
+                  │         ┌──────────────────────────────┐
+                  │         │ Skill Learning               │
+                  │         │ (by Experience Agent)        │
+                  │         └──────────────┬───────────────┘
+                  │                        │
+                  │                        ▼
+                  │         ┌──────────────────────────────┐
+                  │         │ Skill Blocks (stored)        │
+                  │         └──────────────┬───────────────┘
+                  │                        │
+                  │                        ▼
+                  │         ┌──────────────────────────────┐
+                  │         │ Search & Reuse in Future     │
+                  │         └──────────────┬───────────────┘
+                  │                        │
+                  └────────────────────────┘
+                     Skills guide agent behavior
+```
 
 
 
@@ -73,7 +133,7 @@ so that your agent can be more stable and provide greater value to your users.
 
 > 📖 means a document link
 
-We have a `acontext-cli` to help you do quick proof-of-concept. Download it first in your terminal:
+We have an `acontext-cli` to help you do quick proof-of-concept. Download it first in your terminal:
 
 ```bash
 curl -fsSL https://install.acontext.io | sh
@@ -108,7 +168,7 @@ Once it's done, you can access the following endpoints:
 
 # How to Use It?
 
-We're maintaining Python [![pypi](https://img.shields.io/pypi/v/acontext.svg)](https://pypi.org/project/acontext/) and Typescript [![npm](https://img.shields.io/npm/v/@acontext/acontext.svg?logo=npm&logoColor=fff&style=flat&labelColor=2C2C2C&color=28CF8D)]("https://www.npmjs.com/package/@acontext/acontext") SDKs. Below snippets are using Python.
+We're maintaining Python [![pypi](https://img.shields.io/pypi/v/acontext.svg)](https://pypi.org/project/acontext/) and Typescript [![npm](https://img.shields.io/npm/v/@acontext/acontext.svg?logo=npm&logoColor=fff&style=flat&labelColor=2C2C2C&color=28CF8D)]("https://www.npmjs.com/package/@acontext/acontext") SDKs. The snippets below are using Python.
 
 
 
@@ -141,21 +201,34 @@ client.ping()
 
 ## Store
 
-Acontext can manage your sessions and artifacts.
+Acontext can manage agent sessions and artifacts.
 
 ### Save Messages [📖](https://docs.acontext.io/api-reference/session/send-message-to-session)
 
-Acontext offers persistent storage for message data.
+Acontext offers persistent storage for message data. When you call `session.send_message`, Acontext will persist the message and start to monitor this session:
 
 ```python
 session = client.sessions.create()
-messages = [{"role": "user", "content": "Hello, how are you?"}]
 
-r = openai_client.chat.completions.create(model="gpt-4.1", messages=messages)
-print(r.choices[0].message.content)
+messages = [
+    {"role": "user", "content": "I need to write a landing page of iPhone 15 pro max"},
+    {
+        "role": "assistant",
+        "content": "Sure, my plan is below:\n1. Search for the latest news about iPhone 15 pro max\n2. Init Next.js project for the landing page\n3. Deploy the landing page to the website",
+    },
+    {
+        "role": "user",
+        "content": "That sounds good. Let's first collect the message and report to me before any landing page coding.",
+    },
+    {
+        "role": "assistant",
+        "content": "Sure, I will first collect the message then report to you before any landing page coding.",
+    },
+]
 
-client.sessions.send_message(session_id=session.id, blob=messages[0])
-client.sessions.send_message(session_id=session.id, blob=r.choices[0].message)
+# Save messages
+for msg in messages:
+    client.sessions.send_message(session_id=session.id, blob=msg, format="openai")
 ```
 
 > [📖](https://docs.acontext.io/store/messages/multi-provider#anthropic-format) We support Anthropic SDK as well. 
@@ -164,15 +237,16 @@ client.sessions.send_message(session_id=session.id, blob=r.choices[0].message)
 
 ### Load Messages [📖](https://docs.acontext.io/api-reference/session/get-messages-from-session)
 
-Obtain your session messages:
+Obtain your session messages using `sessions.get_messages`
 
 ```python
 r = client.sessions.get_messages(session.id)
 new_msg = r.items
 
-new_msg.append({"role": "user", "content": "Hello again"})
+new_msg.append({"role": "user", "content": "How you doing?"})
 r = openai_client.chat.completions.create(model="gpt-4.1", messages=new_msg)
 print(r.choices[0].message.content)
+client.sessions.send_message(session_id=session.id, blob=r.choices[0].message)
 ```
 
 <div align="center">
@@ -236,12 +310,12 @@ print(f"✓ Download URL: {result.public_url}")
 
 ## Observe [📖](https://docs.acontext.io/observe)
 
-For every session, Acontext will launch a background agent to track the task progress and user feedback.
+For every session, Acontext will automatically launch a background agent to track the task progress and user feedback.
 
 You can use the SDK to retrieve the current state of the agent session.
 
 <details>
-<summary>Code Snippet</summary>
+<summary>Full Script</summary>
 
 ```python
 from acontext import AcontextClient
@@ -268,6 +342,16 @@ messages = [
     {
         "role": "assistant",
         "content": "Sure, I will first collect the message then report to you before any landing page coding.",
+      	"tool_calls": [
+            {
+                "id": "call_001",
+                "type": "function",
+                "function": {
+                    "name": "search_news",
+                    "arguments": "{\"query\": \"iPhone news\"}"
+                }
+            }
+        ]
     },
 ]
 
@@ -277,6 +361,7 @@ for msg in messages:
 
 # Wait for task extraction to complete
 client.sessions.flush(session.id)
+
 # Display extracted tasks
 tasks_response = client.sessions.get_tasks(session.id)
 print(tasks_response)
@@ -299,9 +384,41 @@ for task in tasks_response.items:
             print(f"    - {pref}")
 
 ```
+> `flush` is a blocking call, it will wait for the task extraction to complete.
+> You don't need to call it in production, Acontext has a buffer mechanism to ensure the task extraction is completed right on time.
+
 </details>
 
-You can view the sessions tasks' statuses in Dashboard:
+Script Example Return:
+
+```txt
+Task #1:
+  ID: 60624fcf-7bd2-4ecc-84a3-5cfe8fa1810a
+  Title: Search for the latest news about iPhone 15 Pro Max and report findings to the user before any landing page coding.
+  Status: running
+  Progress updates: 1
+    - User clarified preference for reporting the collected news before starting coding, and I confirmed that the first step will be reporting before moving on to landing page development.
+  User preferences:
+    - user expects a report on latest news about iPhone 15 pro max before any coding work on the landing page.
+
+Task #2:
+  ID: 0036d009-257d-4acb-8244-b289cb48af09
+  Title: Initialize a Next.js project for the iPhone 15 Pro Max landing page.
+  Status: pending
+  Progress updates: 0
+  User preferences:
+
+Task #3:
+  ID: b75306ae-c95b-4f17-9818-223006e4ea7b
+  Title: Deploy the completed landing page to the website.
+  Status: pending
+  Progress updates: 0
+  User preferences:
+```
+
+
+
+You can view the session tasks' statuses in the Dashboard:
 
 <div align="center">
     <picture>
@@ -318,7 +435,7 @@ Acontext can gather a bunch of sessions and learn skills (SOPs) on how to call t
 
 ### Learn Skills to a `Space` [📖](https://docs.acontext.io/learn/skill-space)
 
-A `Space` can store skills, experiences, and memories in a Notion-like system.
+A `Space` can store skills, experiences, and memories in a Notion-like system. You first need to connect a session to `Space` to enable the learning process:
 
 ```python
 # Step 1: Create a Space for skill learning
@@ -331,9 +448,24 @@ session = client.sessions.create(space_id=space.id)
 # ... push the agent working context
 ```
 
-The learning happens in the background and is not real-time (delay around 10-30s).
+The learning happens in the background and is not real-time (delay around 10-30s). 
 
-You can view every `Space` in the Dashboard:
+What Acontext will do in the background:
+
+```mermaid
+graph LR
+    A[Task Completed] --> B[Task Extraction]
+    B --> C{Space Connected?}
+    C -->|Yes| D[Queue for Learning]
+    C -->|No| E[Skip Learning]
+    D --> F[Extract SOP]
+    F --> G{Hard Enough?}
+    G -->|No - Too Simple| H[Skip Learning]
+    G -->|Yes - Complex| I[Store as Skill Block]
+    I --> J[Available for Future Sessions]
+```
+
+Eventually, SOP blocks with tool-call pattern will be saved to `Space`. You can view every `Space` in the Dashboard:
 
 <div align="center">
     <picture>
@@ -347,7 +479,7 @@ You can view every `Space` in the Dashboard:
 
 ### Search Skills from a `Space` [📖](https://docs.acontext.io/learn/search-skills)
 
-To search skills from `Space` and use it in the next session:
+To search skills from a `Space` and use them in the next session:
 
 ```python
 result = client.spaces.experience_search(
@@ -357,7 +489,23 @@ result = client.spaces.experience_search(
 )
 ```
 
-Acontext supports `fast` and `agentic` modes for search. The former uses embedding to match skills. The latter uses a Notion Agent to explore the entire `Space` and tries to cover every skill needed.
+Acontext supports `fast` and `agentic` modes for search. The former uses embeddings to match skills. The latter uses a Notion Agent to explore the entire `Space` and tries to cover every skill needed.
+
+The return is a list of sop blocks, which look like below:
+
+```json
+{
+    "use_when": "star a github repo",
+    "preferences": "use personal account. star but not fork",
+    "tool_sops": [
+        {"tool_name": "goto", "action": "goto the user given github repo url"},
+        {"tool_name": "click", "action": "find login button if any, and start to login first"},
+        ...
+    ]
+}
+```
+
+
 
 
 
