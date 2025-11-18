@@ -1,17 +1,9 @@
 <div align="center">
-  <br/>
-  <br/>
   <a href="https://discord.gg/rpZs5TaSuV">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://assets.memodb.io/Acontext/Acontext-oneway-dark.gif">
-      <img alt="Show Acontext logo" src="https://assets.memodb.io/Acontext/Acontext-oneway.gif" width="418">
-    </picture>
-  <br/>
-  <br/>
+      <img alt="Show Acontext header banner" src="./assets/Acontext-header-banner.png">
   </a>
   <p>
-    <h3>Context Data Platform for Self-learning Agents</h3>
-    <strong>Store Contexts ➡️ Observe Tasks ➡️ Learn Skills</strong>
+    <h3>Store Contexts ➡️ Observe Tasks ➡️ Learn Skills</h3>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
@@ -21,12 +13,25 @@
     <a href="https://github.com/memodb-io/acontext/actions/workflows/cli-test.yaml"><img src="https://github.com/memodb-io/acontext/actions/workflows/cli-test.yaml/badge.svg"></a>
   </p>
   <p align="center">
-    <a href="https://discord.gg/rpZs5TaSuV">
-      <img src="https://dcbadge.limes.pink/api/server/rpZs5TaSuV?style=flat">
-    </a>
+    <a href="https://x.com/acontext_io"><img src="https://img.shields.io/twitter/follow/acontext_io?style=social" alt="Twitter Follow"></a>
+    <a href="https://discord.gg/rpZs5TaSuV"><img src="https://dcbadge.limes.pink/api/server/rpZs5TaSuV?style=flat" alt="Discord"></a>
+    <a href="https://deepwiki.com/memodb-io/Acontext"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+    <a href="https://github.com/memodb-io/Acontext"><img src="https://img.shields.io/github/stars/memodb-io/Acontext?style=social" alt="GitHub stars"></a>
   </p>
-</div>
 
+  <div align="center">
+    <!-- Keep these links. Translations will automatically update with the README. -->
+    <a href="https://zdoc.app/de/memodb-io/Acontext">Deutsch</a> | 
+    <a href="https://zdoc.app/es/memodb-io/Acontext">Español</a> | 
+    <a href="https://zdoc.app/fr/memodb-io/Acontext">Français</a> | 
+    <a href="https://zdoc.app/ja/memodb-io/Acontext">日本語</a> | 
+    <a href="https://zdoc.app/ko/memodb-io/Acontext">한국어</a> | 
+    <a href="https://zdoc.app/pt/memodb-io/Acontext">Português</a> | 
+    <a href="https://zdoc.app/ru/memodb-io/Acontext">Русский</a> | 
+    <a href="https://zdoc.app/zh/memodb-io/Acontext">中文</a>
+  </div>
+  <br/>
+</div>
 
 
 Acontext is a context data platform that:
@@ -74,11 +79,11 @@ so that your agent can be more stable and provide greater value to your users.
 ┌──────┐    ┌────────────┐    ┌─────────────────────────┐    ┌─────────────────────────┐
 │ User │◄──►│ Your Agent │◄──►│ Session (stores msgs)   │    │ Disk (stores artifacts) │
 └──────┘    └─────▲──────┘    └────────────┬────────────┘    └───────────▲─────────────┘
-                  │                        │                              │
-                  │                        │                    ┌─────────┴─────────┐
-                  │                        │                    │ Agent reads/writes│
-                  │                        │                    │ files as needed   │
-                  │                        │                    └───────────────────┘
+                  │                        │                             │
+                  │                        │                   ┌─────────┴─────────┐
+                  │                        │                   │ Agent reads/writes│
+                  │                        │                   │ files as needed   │
+                  │                        │                   └───────────────────┘
                   │                        ▼
                   │         ┌──────────────────────────────┐
                   │         │ Task Extraction              │
@@ -519,3 +524,49 @@ Join the community for support and discussions:
 
 # LICENSE
 This project is currently licensed under [Apache License 2.0](LICENSE).
+
+
+
+# Badges
+
+![Made with Acontext](./assets/badge-made-with-acontext.svg)
+
+```md
+[![Made with Acontext](https://assets.memodb.io/Acontext/badge-made-with-acontext.svg)](https://acontext.io)
+```
+
+```html
+<a href="https://acontext.io">
+  <img
+    width="160"
+    height="30"
+    src="https://assets.memodb.io/Acontext/badge-made-with-acontext.svg"
+    alt="Made with Acontext"
+  />
+</a>
+```
+
+![Made with Acontext (dark)](./assets/badge-made-with-acontext-dark.svg)
+
+```md
+[![Made with Acontext](https://assets.memodb.io/Acontext/badge-made-with-acontext-dark.svg)](https://acontext.io)
+```
+
+```html
+<a href="https://acontext.io">
+  <img
+    width="160"
+    height="30"
+    src="https://assets.memodb.io/Acontext/badge-made-with-acontext-dark.svg"
+    alt="Made with Acontext"
+  />
+</a>
+```
+
+
+
+# Meet the Amazing People Behind This Project:
+
+<a href="https://github.com/memodb-io/Acontext/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=memodb-io/Acontext" />
+</a>
