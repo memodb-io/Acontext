@@ -87,11 +87,11 @@ so that your agent can be more stable and provide greater value to your users.
 ┌──────┐    ┌────────────┐    ┌─────────────────────────┐    ┌─────────────────────────┐
 │ User │◄──►│ Your Agent │◄──►│ Session (stores msgs)   │    │ Disk (stores artifacts) │
 └──────┘    └─────▲──────┘    └────────────┬────────────┘    └───────────▲─────────────┘
-                  │                        │                              │
-                  │                        │                    ┌─────────┴─────────┐
-                  │                        │                    │ Agent reads/writes│
-                  │                        │                    │ files as needed   │
-                  │                        │                    └───────────────────┘
+                  │                        │                             │
+                  │                        │                   ┌─────────┴─────────┐
+                  │                        │                   │ Agent reads/writes│
+                  │                        │                   │ files as needed   │
+                  │                        │                   └───────────────────┘
                   │                        ▼
                   │         ┌──────────────────────────────┐
                   │         │ Task Extraction              │
