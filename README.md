@@ -3,8 +3,7 @@
       <img alt="Show Acontext header banner" src="./assets/Acontext-header-banner.png">
   </a>
   <p>
-    <h3>Context Data Platform for Self-learning Agents</h3>
-    <strong>Store Contexts ➡️ Observe Tasks ➡️ Learn Skills</strong>
+    <h3>Store Contexts ➡️ Observe Tasks ➡️ Learn Skills</h3>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
