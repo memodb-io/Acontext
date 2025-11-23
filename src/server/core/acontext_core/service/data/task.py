@@ -288,3 +288,33 @@ async def append_sop_thinking_to_task(
 
     await db_session.flush()
     return Result.resolve(None)
+
+
+async def fetch_previous_tasks_without_message_ids(
+    db_session: AsyncSession, session_id: asUUID, st_order: int, limit: int = 10
+) -> Result[List[TaskSchema]]:
+    query = (
+        select(Task)
+        .where(Task.session_id == session_id)
+        .where(Task.is_planning == False)  # noqa: E712
+        .where(Task.order < st_order)
+        .order_by(Task.order.desc())
+        .limit(limit)
+    )
+    result = await db_session.execute(query)
+    tasks = list(result.scalars().all())
+    tasks = sorted(tasks, key=lambda t: t.order)
+    return Result.resolve(
+        [
+            TaskSchema(
+                id=t.id,
+                session_id=t.session_id,
+                order=t.order,
+                status=t.status,
+                data=t.data,
+                space_digested=t.space_digested,
+                raw_message_ids=[],
+            )
+            for t in tasks
+        ]
+    )

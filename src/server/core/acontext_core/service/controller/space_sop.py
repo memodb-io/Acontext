@@ -16,7 +16,6 @@ async def process_sop_complete(
     Process SOP completion and trigger construct agent
     """
     LOG.info(f"Processing SOP completion for task {task_id}")
-
     # Call construct agent
     construct_result = await SC.space_construct_agent_curd(
         project_id,

@@ -16,10 +16,11 @@ class ProjectConfig(BaseModel):
     project_session_message_buffer_max_turns: int = 16
     project_session_message_buffer_max_overflow: int = 16
     project_session_message_buffer_ttl_seconds: int = 8  # 4 seconds
-    default_task_agent_max_iterations: int = 4
+    default_task_agent_max_iterations: int = 6
     default_task_agent_previous_progress_num: int = 6
     default_sop_agent_max_iterations: int = 4
     default_space_construct_agent_max_iterations: int = 16
+    default_space_construct_agent_previous_tasks_limit: int = 5
 
     # SOP Agent Customization (extensible for future features)
     sop_agent_custom_scoring_rules: List[CustomScoringRule] = []

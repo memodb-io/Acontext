@@ -134,7 +134,6 @@ async def task_agent_curd(
 
     LOG.info(f"Task Section: {task_section}")
     LOG.info(f"Previous Progress Section: {previous_progress_section}")
-    LOG.info(f"Current Messages Section: {current_messages_section}")
 
     json_tools = [tool.model_dump() for tool in TaskPrompt.tool_schema()]
     already_iterations = 0

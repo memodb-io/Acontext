@@ -1,7 +1,6 @@
 from pydantic import BaseModel
 from ..utils import asUUID
 from ..block.sop_block import SOPData
-from typing import Dict, Any
 
 
 class SOPComplete(BaseModel):

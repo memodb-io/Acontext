@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, List
 from ...env import LOG, bound_logging_vars
 from ...schema.result import Result
 from ...schema.utils import asUUID
@@ -25,21 +25,45 @@ def pack_task_data(
     )
 
 
+def pack_one_task_progress_context(task: TaskSchema) -> str:
+    progresses = task.data.progresses or []
+    progress_context = "\n".join([f"- {p}" for p in progresses])
+    return f"""<task id={task.order}>
+Description: {task.data.task_description}
+Progresses:
+{progress_context}
+</task>
+"""
+
+
+def pack_previous_task_context(
+    previous_tasks: List[TaskSchema], current_task: TaskSchema
+) -> str:
+    prev_tasks = "\n".join(
+        [pack_one_task_progress_context(task) for task in previous_tasks]
+    )
+    return f"""{prev_tasks}
+You're looking at task {current_task.order}.
+"""
+
+
 @track_process
 async def sop_agent_curd(
     project_id: asUUID,
     space_id: asUUID,
     current_task: TaskSchema,
+    previous_tasks: List[TaskSchema],
     message_blobs: list[MessageBlob],
     max_iterations=3,
     project_config: Optional[ProjectConfig] = None,
 ):
-
     task_desc, user_perferences, raw_messages = pack_task_data(
         current_task, message_blobs
     )
+    previous_task_context = pack_previous_task_context(previous_tasks, current_task)
 
-    LOG.info(f"Task SOP before: {task_desc}, {user_perferences}, {raw_messages}")
+    LOG.info(f"Task SOP Input: {task_desc}, {user_perferences}")
+    LOG.info(f"Previous Task Context: {previous_task_context}")
 
     # Build customization from project config
     customization = None
@@ -55,7 +79,7 @@ async def sop_agent_curd(
         {
             "role": "user",
             "content": TaskSOPPrompt.pack_task_input(
-                task_desc, user_perferences, raw_messages
+                previous_task_context, task_desc, user_perferences, raw_messages
             ),
         }
     ]

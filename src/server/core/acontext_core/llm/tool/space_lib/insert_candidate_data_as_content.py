@@ -48,7 +48,6 @@ async def _insert_data_handler(
     )
     if not r.ok():
         return Result.resolve(f"Failed to insert candidate data: {r.error}")
-    await set_space_digests(ctx, candidate_index)
     return Result.resolve(
         f"Inserted candidate data {candidate_index} to page {page_path} after block index {after_block_index}"
     )

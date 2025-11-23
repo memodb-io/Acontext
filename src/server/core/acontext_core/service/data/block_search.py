@@ -75,7 +75,7 @@ async def search_blocks(
         .where(
             Block.space_id == space_id,
             Block.type.in_(block_types),  # Only page and folder blocks
-            Block.is_archived == False,  # Exclude archived blocks
+            Block.is_archived == False,  # Exclude archived blocks  # noqa: E712
             distance <= threshold,  # Apply distance threshold
         )
         .order_by(distance.asc())  # Best matches first
@@ -100,7 +100,6 @@ async def search_blocks(
 
         # Get top-K unique blocks (already sorted by distance)
         results = list(seen.values())[:topk]
-        print([(dp[0].title, dp[1]) for dp in results])
 
         # LOG.info(
         #     f"Search '{query_text[:50]}...' found {len(results)} unique blocks "

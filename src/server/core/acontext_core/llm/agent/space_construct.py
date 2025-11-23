@@ -10,6 +10,7 @@ from ...schema.result import Result
 from ...schema.utils import asUUID
 from ..prompt.space_construct import SpaceConstructPrompt
 from ..tool.space_tools import SPACE_TOOLS, SpaceCtx
+from ..tool.space_lib.insert_candidate_data_as_content import set_space_digests
 
 
 async def build_space_ctx(
@@ -76,12 +77,13 @@ async def space_construct_agent_curd(
         }
         for sop_data in sop_datas
     ]
+    candidate_data_section = pack_candidate_data_list(candidate_data_list)
+    LOG.info(f"Candidate Data Section: {candidate_data_section}")
+
     _messages = [
         {
             "role": "user",
-            "content": SpaceConstructPrompt.pack_task_input(
-                pack_candidate_data_list(candidate_data_list)
-            ),
+            "content": SpaceConstructPrompt.pack_task_input(candidate_data_section),
         }
     ]
     just_finish = False
@@ -143,4 +145,16 @@ async def space_construct_agent_curd(
             LOG.info("finish tool called, exit the loop")
             break
         already_iterations += 1
+
+    async with DB_CLIENT.get_session_context() as db_session:
+        USE_CTX = await build_space_ctx(
+            db_session,
+            project_id,
+            space_id,
+            task_ids,
+            candidate_data_list,
+            before_use_ctx=USE_CTX,
+        )
+        for d_i in USE_CTX.already_inserted_candidate_data:
+            await set_space_digests(USE_CTX, d_i)
     return Result.resolve(None)

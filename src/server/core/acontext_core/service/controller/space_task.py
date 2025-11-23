@@ -7,6 +7,7 @@ from ...llm.agent import task_sop as TSOP
 from ...env import LOG
 from ...schema.config import ProjectConfig
 from ...schema.session.task import TaskSchema
+from ..data import task as TD
 
 
 async def process_space_task(
@@ -31,10 +32,22 @@ async def process_space_task(
             MessageBlob(message_id=m.id, role=m.role, parts=m.parts, task_id=m.task_id)
             for m in messages
         ]
-    r = await TSOP.sop_agent_curd(
+    async with DB_CLIENT.get_session_context() as db_session:
+        r = await TD.fetch_previous_tasks_without_message_ids(
+            db_session,
+            task.session_id,
+            st_order=task.order,
+            limit=project_config.default_space_construct_agent_previous_tasks_limit,
+        )
+        if not r.ok():
+            return
+        PREVIOUS_TASKS = r.data
+
+    await TSOP.sop_agent_curd(
         project_id,
         space_id,
         task,
+        PREVIOUS_TASKS,
         messages_data,
         max_iterations=project_config.default_sop_agent_max_iterations,
         project_config=project_config,
