@@ -34,7 +34,7 @@ export type SearchResultBlockItem = z.infer<typeof SearchResultBlockItemSchema>;
 
 export const SpaceSearchResultSchema = z.object({
   cited_blocks: z.array(SearchResultBlockItemSchema),
-  final_answer: z.string().nullable(),
+  final_answer: z.string().nullable().optional(),
 });
 
 export type SpaceSearchResult = z.infer<typeof SpaceSearchResultSchema>;
