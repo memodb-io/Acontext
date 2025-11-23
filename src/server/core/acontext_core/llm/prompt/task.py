@@ -49,12 +49,11 @@ class TaskPrompt(BasePrompt):
 - If user mentioned any preference on this task, extract in the clean format 'user expects/wants...' in 'user_preference_and_infos' field.
 - If user mentioned any infos(address, email,... etc) so that the task can be completed, extract it and fill it in 'user_preference_and_infos' field.
 
-## Append with Progress
-- Give a brief progress of the task when appending messages
-- Concise and short. only state what the current state.
+## Summary the Task State and Append to Progress
+- Give a concise current state of the task when appending messages
 - Narrate progress in the first person as the agent.
 - Facts over General. Don't say "I encountered many errors", say "I encountered python syntax and rust compiling error."
-- Actual State over Reference. Don't say 'I open the target websit', say "I navigate to https://github.com/trending".
+- Actual Value over Generic. Don't say 'I open the target websit', say "I navigate to https://github.com/trending". Use actual website url, DB table... when possible.
 
 ## Update Task Status 
 - `pending`: For tasks not yet started
@@ -82,7 +81,7 @@ Use extremely brief wordings to report using the 'report_thinking' tool before c
 5. Which Messages are contributed to planning?
 6. Which Messages are contributed to which task? What the progress of the messages brough to the task?
 7. Any user preferences and personal infos in Current Message section related to complete which tasks?
-8. Any progress should be appended?
+8. What's the actual value for state should be appended to progress?
 9. Which task's status need to be updated?
 10. Briefly describe your tool-call actions to correctly manage the tasks.
 
