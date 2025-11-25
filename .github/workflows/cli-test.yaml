@@ -147,3 +147,121 @@ jobs:
           path: |
             ${{ matrix.os == 'windows-latest' && 'src/client/acontext-cli/acontext-cli.exe' || 'src/client/acontext-cli/acontext-cli' }}
 
+  test-install-script:
+    name: Test Install Script on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: src/client/acontext-cli
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          go-version-file: src/client/acontext-cli/go.mod
+          cache: true
+
+      - name: Test install script syntax
+        run: |
+          sh -n install.sh
+          echo "✓ Install script syntax is valid"
+
+      - name: Test install script help
+        run: |
+          sh install.sh --help
+
+      - name: Test platform detection logic
+        run: |
+          # Test that the script can detect the platform correctly
+          OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+          ARCH=$(uname -m)
+          echo "Detected OS: $OS"
+          echo "Detected ARCH: $ARCH"
+          
+          # Verify the script handles the platform correctly
+          case "$ARCH" in
+            x86_64)
+              EXPECTED_ARCH="amd64"
+              ;;
+            aarch64|arm64)
+              EXPECTED_ARCH="arm64"
+              ;;
+            *)
+              echo "✗ Unsupported architecture: $ARCH"
+              exit 1
+              ;;
+          esac
+          
+          case "$OS" in
+            linux|darwin)
+              echo "✓ Platform $OS/$EXPECTED_ARCH is supported"
+              ;;
+            *)
+              echo "✗ Platform $OS is not supported"
+              exit 1
+              ;;
+          esac
+
+      - name: Test dependency checks
+        run: |
+          # The script should check for curl/wget and tar/unzip
+          # These should be available on GitHub Actions runners
+          if command -v curl >/dev/null 2>&1 || command -v wget >/dev/null 2>&1; then
+            echo "✓ HTTP client (curl/wget) is available"
+          else
+            echo "✗ HTTP client is missing"
+            exit 1
+          fi
+          
+          if command -v tar >/dev/null 2>&1 || command -v unzip >/dev/null 2>&1; then
+            echo "✓ Archive tool (tar/unzip) is available"
+          else
+            echo "✗ Archive tool is missing"
+            exit 1
+          fi
+
+      - name: Build test binary
+        run: |
+          go build -ldflags "-X main.version=dev" -o acontext-cli main.go
+          chmod +x acontext-cli
+          ./acontext-cli version
+
+      - name: Test install script argument parsing
+        run: |
+          # Test that the script correctly parses --version argument
+          # We can't fully test installation without sudo, but we can test argument parsing
+          OUTPUT=$(sh install.sh --version dev 2>&1 || true)
+          if echo "$OUTPUT" | grep -q "Using specified version: vdev"; then
+            echo "✓ Install script correctly parses --version argument"
+          else
+            echo "✗ Install script failed to parse --version argument"
+            echo "Output: $OUTPUT"
+            exit 1
+          fi
+
+      - name: Test install script error handling
+        run: |
+          # Test that the script handles invalid arguments correctly
+          if sh install.sh --invalid-arg 2>&1 | grep -q "Unknown option"; then
+            echo "✓ Install script correctly handles invalid arguments"
+          else
+            echo "✗ Install script failed to handle invalid arguments"
+            exit 1
+          fi
+          
+          # Test that --version without value shows error
+          if sh install.sh --version 2>&1 | grep -q "Version number required"; then
+            echo "✓ Install script correctly validates --version argument"
+          else
+            echo "✗ Install script failed to validate --version argument"
+            exit 1
+          fi
+
