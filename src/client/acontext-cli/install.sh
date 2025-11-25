@@ -5,13 +5,6 @@
 
 set -e
 
-# Ensure we're running in bash for proper color support
-if [ -z "$BASH_VERSION" ]; then
-    if command -v bash >/dev/null 2>&1; then
-        exec bash "$0" "$@"
-    fi
-fi
-
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -75,12 +68,12 @@ detect_platform() {
 
 # Check for required tools
 check_dependencies() {
-    if ! command -v curl &> /dev/null && ! command -v wget &> /dev/null; then
+    if ! command -v curl >/dev/null 2>&1 && ! command -v wget >/dev/null 2>&1; then
         print_error "curl or wget is required but not installed"
         exit 1
     fi
     
-    if ! command -v tar &> /dev/null && ! command -v unzip &> /dev/null; then
+    if ! command -v tar >/dev/null 2>&1 && ! command -v unzip >/dev/null 2>&1; then
         print_error "tar or unzip is required but not installed"
         exit 1
     fi
@@ -95,10 +88,10 @@ get_latest_version() {
     
     print_info "Fetching latest version..."
     
-    local api_url="https://api.github.com/repos/${REPO}/releases"
-    local version_json
+    api_url="https://api.github.com/repos/${REPO}/releases"
+    version_json=""
     
-    if command -v curl &> /dev/null; then
+    if command -v curl >/dev/null 2>&1; then
         version_json=$(curl -fsSL "$api_url" 2>/dev/null)
     else
         version_json=$(wget -qO- "$api_url" 2>/dev/null)
@@ -120,13 +113,13 @@ download_binary() {
     print_info "Downloading ${COMMAND_NAME}..." >&2
     
     # URL format: https://github.com/memodb-io/Acontext/releases/download/cli%2Fv0.0.1/darwin_arm64.tar.gz
-    local encoded_version=$(echo "cli/${VERSION}" | sed 's/\//%2F/g')
+    encoded_version=$(echo "cli/${VERSION}" | sed 's/\//%2F/g')
     URL="https://github.com/${REPO}/releases/download/${encoded_version}/${OS}_${ARCH}.tar.gz"
     
     TEMP_DIR=$(mktemp -d)
     TEMP_FILE="${TEMP_DIR}/${COMMAND_NAME}.tar.gz"
     
-    if command -v curl &> /dev/null; then
+    if command -v curl >/dev/null 2>&1; then
         curl -fsSL -o "$TEMP_FILE" "$URL" || {
             print_error "Failed to download from $URL" >&2
             exit 1
@@ -189,7 +182,7 @@ install_binary() {
 
 # Verify installation
 verify_installation() {
-    if command -v "$COMMAND_NAME" &> /dev/null; then
+    if command -v "$COMMAND_NAME" >/dev/null 2>&1; then
         print_success "Installation verified!"
         echo
         $COMMAND_NAME version 2>&1 || true
@@ -226,9 +219,13 @@ main() {
 }
 
 # Parse arguments
-while [[ $# -gt 0 ]]; do
+while [ $# -gt 0 ]; do
     case $1 in
         --version)
+            if [ -z "$2" ]; then
+                print_error "Version number required after --version"
+                exit 1
+            fi
             VERSION="v$2"
             shift 2
             ;;
