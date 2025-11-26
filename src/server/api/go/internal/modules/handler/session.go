@@ -17,6 +17,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/service"
 	"github.com/memodb-io/Acontext/internal/pkg/converter"
 	"github.com/memodb-io/Acontext/internal/pkg/normalizer"
+	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"gorm.io/datatypes"
 )
 
@@ -604,4 +605,46 @@ func (h *SessionHandler) GetLearningStatus(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, serializer.Response{Data: result})
+}
+
+type TokenCountsResp struct {
+	TotalTokens int `json:"total_tokens"`
+}
+
+// GetTokenCounts godoc
+//
+//	@Summary		Get token counts for session
+//	@Description	Get total token counts for all text and tool-call parts in a session
+//	@Tags			session
+//	@Accept			json
+//	@Produce		json
+//	@Param			session_id	path	string	true	"Session ID"	format(uuid)
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response{data=handler.TokenCountsResp}
+//	@Router			/session/{session_id}/token_counts [get]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get token counts\nresult = client.sessions.get_token_counts(session_id='session-uuid')\nprint(f\"Total tokens: {result.total_tokens}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get token counts\nconst result = await client.sessions.getTokenCounts('session-uuid');\nconsole.log(`Total tokens: ${result.total_tokens}`);\n","label":"JavaScript"}]
+func (h *SessionHandler) GetTokenCounts(c *gin.Context) {
+	sessionID, err := uuid.Parse(c.Param("session_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	// Get all messages for the session
+	messages, err := h.svc.GetAllMessages(c.Request.Context(), sessionID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to get messages", err))
+		return
+	}
+
+	// Count tokens for all text and tool-call parts
+	totalTokens, err := tokenizer.CountMessagePartsTokens(c.Request.Context(), messages)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "failed to count tokens", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{Data: TokenCountsResp{
+		TotalTokens: totalTokens,
+	}})
 }

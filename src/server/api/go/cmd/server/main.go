@@ -25,6 +25,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/bootstrap"
 	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/modules/handler"
+	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"github.com/memodb-io/Acontext/internal/router"
 	"github.com/samber/do"
 	"go.uber.org/zap"
@@ -38,6 +39,11 @@ func main() {
 	cfg := do.MustInvoke[*config.Config](inj)
 	log := do.MustInvoke[*zap.Logger](inj)
 	db := do.MustInvoke[*gorm.DB](inj)
+
+	// Initialize tokenizer (vocabulary is already embedded in the package)
+	if err := tokenizer.Init(log); err != nil {
+		log.Sugar().Fatalw("failed to initialize tokenizer", "err", err)
+	}
 
 	// init gin
 	gin.SetMode(cfg.App.Env)

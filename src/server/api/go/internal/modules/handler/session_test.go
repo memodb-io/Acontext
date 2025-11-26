@@ -15,9 +15,11 @@ import (
 	"github.com/memodb-io/Acontext/internal/infra/httpclient"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/service"
+	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"gorm.io/datatypes"
 )
 
@@ -71,6 +73,14 @@ func (m *MockSessionService) List(ctx context.Context, in service.ListSessionsIn
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*service.ListSessionsOutput), args.Error(1)
+}
+
+func (m *MockSessionService) GetAllMessages(ctx context.Context, sessionID uuid.UUID) ([]model.Message, error) {
+	args := m.Called(ctx, sessionID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.Message), args.Error(1)
 }
 
 func setupSessionRouter() *gin.Engine {
@@ -3327,4 +3337,207 @@ func TestMultipleToolCalls_Conversion(t *testing.T) {
 	}
 
 	mockService.AssertExpectations(t)
+}
+
+func TestSessionHandler_GetTokenCounts(t *testing.T) {
+	sessionID := uuid.New()
+
+	// Initialize tokenizer for testing with a test logger
+	testLogger, _ := zap.NewDevelopment()
+	_ = tokenizer.Init(testLogger)
+
+	tests := []struct {
+		name           string
+		sessionIDParam string
+		setup          func(*MockSessionService)
+		expectedStatus int
+		expectedTokens int
+	}{
+		{
+			name:           "successful token count retrieval",
+			sessionIDParam: sessionID.String(),
+			setup: func(svc *MockSessionService) {
+				messages := []model.Message{
+					{
+						ID:        uuid.New(),
+						SessionID: sessionID,
+						Role:      "user",
+						Parts: []model.Part{
+							{
+								Type: "text",
+								Text: "Hello, world!",
+							},
+						},
+					},
+					{
+						ID:        uuid.New(),
+						SessionID: sessionID,
+						Role:      "assistant",
+						Parts: []model.Part{
+							{
+								Type: "text",
+								Text: "How can I help you?",
+							},
+						},
+					},
+				}
+				svc.On("GetAllMessages", mock.Anything, sessionID).Return(messages, nil)
+			},
+			expectedStatus: http.StatusOK,
+			expectedTokens: 8, // Approximate token count for "Hello, world!\nHow can I help you?\n"
+		},
+		{
+			name:           "token count with tool-call",
+			sessionIDParam: sessionID.String(),
+			setup: func(svc *MockSessionService) {
+				messages := []model.Message{
+					{
+						ID:        uuid.New(),
+						SessionID: sessionID,
+						Role:      "assistant",
+						Parts: []model.Part{
+							{
+								Type: "tool-call",
+								Meta: map[string]interface{}{
+									"name":      "get_weather",
+									"arguments": `{"city":"San Francisco"}`,
+									"id":        "call_123",
+								},
+							},
+						},
+					},
+				}
+				svc.On("GetAllMessages", mock.Anything, sessionID).Return(messages, nil)
+			},
+			expectedStatus: http.StatusOK,
+			expectedTokens: 20, // Approximate token count for tool-call meta JSON
+		},
+		{
+			name:           "token count with mixed content",
+			sessionIDParam: sessionID.String(),
+			setup: func(svc *MockSessionService) {
+				messages := []model.Message{
+					{
+						ID:        uuid.New(),
+						SessionID: sessionID,
+						Role:      "user",
+						Parts: []model.Part{
+							{
+								Type: "text",
+								Text: "What's the weather?",
+							},
+						},
+					},
+					{
+						ID:        uuid.New(),
+						SessionID: sessionID,
+						Role:      "assistant",
+						Parts: []model.Part{
+							{
+								Type: "text",
+								Text: "Let me check.",
+							},
+							{
+								Type: "tool-call",
+								Meta: map[string]interface{}{
+									"name":      "get_weather",
+									"arguments": `{"location":"SF"}`,
+								},
+							},
+						},
+					},
+				}
+				svc.On("GetAllMessages", mock.Anything, sessionID).Return(messages, nil)
+			},
+			expectedStatus: http.StatusOK,
+			expectedTokens: 20, // Approximate token count
+		},
+		{
+			name:           "empty messages",
+			sessionIDParam: sessionID.String(),
+			setup: func(svc *MockSessionService) {
+				svc.On("GetAllMessages", mock.Anything, sessionID).Return([]model.Message{}, nil)
+			},
+			expectedStatus: http.StatusOK,
+			expectedTokens: 0,
+		},
+		{
+			name:           "messages with only non-text parts (images, etc.)",
+			sessionIDParam: sessionID.String(),
+			setup: func(svc *MockSessionService) {
+				messages := []model.Message{
+					{
+						ID:        uuid.New(),
+						SessionID: sessionID,
+						Role:      "user",
+						Parts: []model.Part{
+							{
+								Type: "image",
+								Asset: &model.Asset{
+									SHA256: "abc123",
+									S3Key:  "images/test.jpg",
+								},
+							},
+						},
+					},
+				}
+				svc.On("GetAllMessages", mock.Anything, sessionID).Return(messages, nil)
+			},
+			expectedStatus: http.StatusOK,
+			expectedTokens: 0, // Images don't contribute to token count
+		},
+		{
+			name:           "invalid session ID",
+			sessionIDParam: "invalid-uuid",
+			setup:          func(svc *MockSessionService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "service layer error - failed to get messages",
+			sessionIDParam: sessionID.String(),
+			setup: func(svc *MockSessionService) {
+				svc.On("GetAllMessages", mock.Anything, sessionID).Return(nil, errors.New("database error"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := &MockSessionService{}
+			tt.setup(mockService)
+
+			handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+			router := setupSessionRouter()
+			router.GET("/session/:session_id/token_counts", handler.GetTokenCounts)
+
+			req := httptest.NewRequest("GET", "/session/"+tt.sessionIDParam+"/token_counts", nil)
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			mockService.AssertExpectations(t)
+
+			// If successful, verify token count in response
+			if tt.expectedStatus == http.StatusOK {
+				var response map[string]interface{}
+				err := sonic.Unmarshal(w.Body.Bytes(), &response)
+				require.NoError(t, err)
+
+				data, ok := response["data"].(map[string]interface{})
+				require.True(t, ok, "Should have data field")
+
+				totalTokens, ok := data["total_tokens"].(float64)
+				require.True(t, ok, "Should have total_tokens field")
+
+				// Token count may vary slightly, so we check it's a reasonable value
+				if tt.expectedTokens > 0 {
+					assert.Greater(t, int(totalTokens), 0, "Token count should be greater than 0")
+				} else {
+					assert.Equal(t, 0, int(totalTokens), "Token count should be 0 for empty messages")
+				}
+			}
+		})
+	}
 }

@@ -99,6 +99,11 @@ definitions:
     required:
     - blob
     type: object
+  handler.TokenCountsResp:
+    properties:
+      total_tokens:
+        type: integer
+    type: object
   handler.ToolRenameItem:
     properties:
       new_name:
@@ -1624,6 +1629,56 @@ paths:
               cursor: tasks.nextCursor
             });
           }
+  /session/{session_id}/token_counts:
+    get:
+      consumes:
+      - application/json
+      description: Get total token counts for all text and tool-call parts in a session
+      parameters:
+      - description: Session ID
+        format: uuid
+        in: path
+        name: session_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.TokenCountsResp'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get token counts for session
+      tags:
+      - session
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Get token counts
+          result = client.sessions.get_token_counts(session_id='session-uuid')
+          print(f"Total tokens: {result.total_tokens}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Get token counts
+          const result = await client.sessions.getTokenCounts('session-uuid');
+          console.log(`Total tokens: ${result.total_tokens}`);
   /space:
     get:
       consumes:

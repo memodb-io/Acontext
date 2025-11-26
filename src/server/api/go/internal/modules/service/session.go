@@ -30,6 +30,7 @@ type SessionService interface {
 	List(ctx context.Context, in ListSessionsInput) (*ListSessionsOutput, error)
 	SendMessage(ctx context.Context, in SendMessageInput) (*model.Message, error)
 	GetMessages(ctx context.Context, in GetMessagesInput) (*GetMessagesOutput, error)
+	GetAllMessages(ctx context.Context, sessionID uuid.UUID) ([]model.Message, error)
 }
 
 type sessionService struct {
@@ -330,35 +331,10 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 
 	for i, m := range msgs {
 		meta := m.PartsAssetMeta.Data()
-
-		// Try to get parts from Redis cache first, fallback to S3 if not found
-		parts := []model.Part{}
-		cacheHit := false
-
-		if s.redis != nil {
-			if cachedParts, err := s.getPartsFromRedis(ctx, meta.SHA256); err == nil {
-				parts = cachedParts
-				cacheHit = true
-			} else if err != redis.Nil {
-				// Log actual Redis errors (not cache misses)
-				s.log.Warn("failed to get parts from Redis", zap.String("sha256", meta.SHA256), zap.Error(err))
-			}
+		parts := s.loadPartsForMessage(ctx, meta)
+		if len(parts) == 0 {
+			continue // Skip messages with failed parts loading
 		}
-
-		// If cache miss, download from S3
-		if !cacheHit && s.s3 != nil {
-			if err := s.s3.DownloadJSON(ctx, meta.S3Key, &parts); err != nil {
-				continue
-			}
-			// Cache the parts in Redis after successful S3 download
-			if s.redis != nil {
-				if err := s.cachePartsInRedis(ctx, meta.SHA256, parts); err != nil {
-					// Log error but don't fail the request if Redis caching fails
-					s.log.Warn("failed to cache parts in Redis", zap.String("sha256", meta.SHA256), zap.Error(err))
-				}
-			}
-		}
-
 		msgs[i].Parts = parts
 	}
 
@@ -454,4 +430,64 @@ func (s *sessionService) getPartsFromRedis(ctx context.Context, sha256 string) (
 	}
 
 	return parts, nil
+}
+
+// loadPartsForMessage loads parts for a message from cache or S3
+// Returns the loaded parts, or empty slice if loading fails
+func (s *sessionService) loadPartsForMessage(ctx context.Context, meta model.Asset) []model.Part {
+	parts := []model.Part{}
+	cacheHit := false
+
+	// Try to get parts from Redis cache first, fallback to S3 if not found
+	if s.redis != nil {
+		if cachedParts, err := s.getPartsFromRedis(ctx, meta.SHA256); err == nil {
+			parts = cachedParts
+			cacheHit = true
+		} else if err != redis.Nil {
+			// Log actual Redis errors (not cache misses)
+			s.log.Warn("failed to get parts from Redis", zap.String("sha256", meta.SHA256), zap.Error(err))
+		}
+	}
+
+	// If cache miss, download from S3
+	if !cacheHit && s.s3 != nil {
+		if err := s.s3.DownloadJSON(ctx, meta.S3Key, &parts); err != nil {
+			s.log.Warn("failed to download parts from S3", zap.String("sha256", meta.SHA256), zap.Error(err))
+			return parts // Return empty parts on S3 download failure
+		}
+		// Cache the parts in Redis after successful S3 download
+		if s.redis != nil {
+			if err := s.cachePartsInRedis(ctx, meta.SHA256, parts); err != nil {
+				// Log error but don't fail the request if Redis caching fails
+				s.log.Warn("failed to cache parts in Redis", zap.String("sha256", meta.SHA256), zap.Error(err))
+			}
+		}
+	}
+
+	return parts
+}
+
+// GetAllMessages retrieves all messages for a session and loads their parts
+func (s *sessionService) GetAllMessages(ctx context.Context, sessionID uuid.UUID) ([]model.Message, error) {
+	// Get all messages from repository
+	msgs, err := s.sessionRepo.ListAllMessagesBySession(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list messages: %w", err)
+	}
+
+	// Load parts for each message
+	for i, m := range msgs {
+		meta := m.PartsAssetMeta.Data()
+		msgs[i].Parts = s.loadPartsForMessage(ctx, meta)
+	}
+
+	// Sort messages from old to new (ascending by created_at)
+	sort.Slice(msgs, func(i, j int) bool {
+		if msgs[i].CreatedAt.Equal(msgs[j].CreatedAt) {
+			return msgs[i].ID.String() < msgs[j].ID.String()
+		}
+		return msgs[i].CreatedAt.Before(msgs[j].CreatedAt)
+	})
+
+	return msgs, nil
 }

@@ -1311,6 +1311,68 @@ const docTemplate = `{
                 ]
             }
         },
+        "/session/{session_id}/token_counts": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get total token counts for all text and tool-call parts in a session",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "session"
+                ],
+                "summary": "Get token counts for session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Session ID",
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handler.TokenCountsResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get token counts\nresult = client.sessions.get_token_counts(session_id='session-uuid')\nprint(f\"Total tokens: {result.total_tokens}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get token counts\nconst result = await client.sessions.getTokenCounts('session-uuid');\nconsole.log(` + "`" + `Total tokens: ${result.total_tokens}` + "`" + `);\n"
+                    }
+                ]
+            }
+        },
         "/space": {
             "get": {
                 "security": [
@@ -2624,6 +2686,14 @@ const docTemplate = `{
                         "anthropic"
                     ],
                     "example": "openai"
+                }
+            }
+        },
+        "handler.TokenCountsResp": {
+            "type": "object",
+            "properties": {
+                "total_tokens": {
+                    "type": "integer"
                 }
             }
         },
