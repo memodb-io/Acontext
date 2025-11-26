@@ -464,6 +464,27 @@ async def test_async_sessions_get_learning_status(
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
 @pytest.mark.asyncio
+async def test_async_sessions_get_token_counts(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    mock_request.return_value = {
+        "total_tokens": 1234,
+    }
+
+    result = await async_client.sessions.get_token_counts("session-id")
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/session/session-id/token_counts"
+    # Verify it returns a Pydantic model
+    assert hasattr(result, "total_tokens")
+    assert result.total_tokens == 1234
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
 async def test_async_blocks_list_without_filters(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:

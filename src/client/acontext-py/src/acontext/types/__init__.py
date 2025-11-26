@@ -20,6 +20,7 @@ from .session import (
     PublicURL,
     Session,
     Task,
+    TokenCounts,
 )
 from .block import Block
 from .space import (
@@ -55,6 +56,7 @@ __all__ = [
     "PublicURL",
     "Session",
     "Task",
+    "TokenCounts",
     # Space types
     "ListSpacesOutput",
     "SearchResultBlockItem",

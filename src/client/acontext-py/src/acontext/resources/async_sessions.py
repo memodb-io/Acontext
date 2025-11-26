@@ -15,6 +15,7 @@ from ..types.session import (
     ListSessionsOutput,
     Message,
     Session,
+    TokenCounts,
 )
 from ..uploads import FileUpload, normalize_file_upload
 from pydantic import BaseModel
@@ -321,3 +322,17 @@ class AsyncSessionsAPI:
             "GET", f"/session/{session_id}/get_learning_status"
         )
         return LearningStatus.model_validate(data)
+
+    async def get_token_counts(self, session_id: str) -> TokenCounts:
+        """Get total token counts for all text and tool-call parts in a session.
+
+        Args:
+            session_id: The UUID of the session.
+
+        Returns:
+            TokenCounts object containing total_tokens.
+        """
+        data = await self._requester.request(
+            "GET", f"/session/{session_id}/token_counts"
+        )
+        return TokenCounts.model_validate(data)

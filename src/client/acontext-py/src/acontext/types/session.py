@@ -133,3 +133,9 @@ class LearningStatus(BaseModel):
     not_space_digested_count: int = Field(
         ..., description="Number of tasks that are not space digested"
     )
+
+
+class TokenCounts(BaseModel):
+    """Response model for token counts."""
+
+    total_tokens: int = Field(..., description="Total token count for all text and tool-call parts in a session")
