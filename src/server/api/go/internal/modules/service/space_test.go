@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"go.uber.org/zap"
 )
 
 // MockSpaceRepo is a mock implementation of SpaceRepo
@@ -46,6 +48,27 @@ func (m *MockSpaceRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID,
 		return nil, args.Error(1)
 	}
 	return args.Get(0).([]model.Space), args.Error(1)
+}
+
+func (m *MockSpaceRepo) ListExperienceConfirmationsWithCursor(ctx context.Context, spaceID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.ExperienceConfirmation, error) {
+	args := m.Called(ctx, spaceID, afterCreatedAt, afterID, limit, timeDesc)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.ExperienceConfirmation), args.Error(1)
+}
+
+func (m *MockSpaceRepo) GetExperienceConfirmation(ctx context.Context, spaceID uuid.UUID, experienceID uuid.UUID) (*model.ExperienceConfirmation, error) {
+	args := m.Called(ctx, spaceID, experienceID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.ExperienceConfirmation), args.Error(1)
+}
+
+func (m *MockSpaceRepo) DeleteExperienceConfirmation(ctx context.Context, spaceID uuid.UUID, experienceID uuid.UUID) error {
+	args := m.Called(ctx, spaceID, experienceID)
+	return args.Error(0)
 }
 
 func TestSpaceService_Create(t *testing.T) {
@@ -88,7 +111,7 @@ func TestSpaceService_Create(t *testing.T) {
 			repo := &MockSpaceRepo{}
 			tt.setup(repo)
 
-			service := NewSpaceService(repo)
+			service := NewSpaceService(repo, nil, &config.Config{}, zap.NewNop())
 			err := service.Create(ctx, tt.space)
 
 			if tt.wantErr {
@@ -155,7 +178,7 @@ func TestSpaceService_Delete(t *testing.T) {
 			repo := &MockSpaceRepo{}
 			tt.setup(repo)
 
-			service := NewSpaceService(repo)
+			service := NewSpaceService(repo, nil, &config.Config{}, zap.NewNop())
 			err := service.Delete(ctx, tt.projectID, tt.spaceID)
 
 			if tt.wantErr {
@@ -223,7 +246,7 @@ func TestSpaceService_UpdateByID(t *testing.T) {
 			repo := &MockSpaceRepo{}
 			tt.setup(repo)
 
-			service := NewSpaceService(repo)
+			service := NewSpaceService(repo, nil, &config.Config{}, zap.NewNop())
 			err := service.UpdateByID(ctx, tt.space)
 
 			if tt.wantErr {
@@ -295,7 +318,7 @@ func TestSpaceService_GetByID(t *testing.T) {
 			repo := &MockSpaceRepo{}
 			tt.setup(repo)
 
-			service := NewSpaceService(repo)
+			service := NewSpaceService(repo, nil, &config.Config{}, zap.NewNop())
 			result, err := service.GetByID(ctx, tt.space)
 
 			if tt.wantErr {
@@ -375,7 +398,7 @@ func TestSpaceService_List(t *testing.T) {
 			repo := &MockSpaceRepo{}
 			tt.setup(repo)
 
-			service := NewSpaceService(repo)
+			service := NewSpaceService(repo, nil, &config.Config{}, zap.NewNop())
 			result, err := service.List(ctx, tt.input)
 
 			if tt.wantErr {

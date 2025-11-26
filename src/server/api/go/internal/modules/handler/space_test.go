@@ -56,6 +56,22 @@ func (m *MockSpaceService) List(ctx context.Context, in service.ListSpacesInput)
 	return args.Get(0).(*service.ListSpacesOutput), args.Error(1)
 }
 
+func (m *MockSpaceService) ListExperienceConfirmations(ctx context.Context, in service.ListExperienceConfirmationsInput) (*service.ListExperienceConfirmationsOutput, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.ListExperienceConfirmationsOutput), args.Error(1)
+}
+
+func (m *MockSpaceService) ConfirmExperience(ctx context.Context, spaceID uuid.UUID, experienceID uuid.UUID, save bool) (*model.ExperienceConfirmation, error) {
+	args := m.Called(ctx, spaceID, experienceID, save)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.ExperienceConfirmation), args.Error(1)
+}
+
 func setupSpaceRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	return gin.New()
@@ -564,6 +580,173 @@ func TestSpaceHandler_GetSemanticGrep(t *testing.T) {
 			router.ServeHTTP(w, req)
 
 			assert.Equal(t, tt.expectedStatus, w.Code)
+		})
+	}
+}
+
+func TestSpaceHandler_ListExperienceConfirmations(t *testing.T) {
+	projectID := uuid.New()
+	spaceID := uuid.New()
+
+	tests := []struct {
+		name           string
+		spaceIDParam   string
+		queryParams    string
+		setup          func(*MockSpaceService)
+		expectedStatus int
+	}{
+		{
+			name:         "successful experience confirmations retrieval",
+			spaceIDParam: spaceID.String(),
+			queryParams:  "?limit=20&time_desc=false",
+			setup: func(svc *MockSpaceService) {
+				expectedSpace := &model.Space{
+					ID:        spaceID,
+					ProjectID: projectID,
+				}
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Space) bool {
+					return s.ID == spaceID
+				})).Return(expectedSpace, nil)
+
+				expectedOutput := &service.ListExperienceConfirmationsOutput{
+					Items: []model.ExperienceConfirmation{
+						{
+							ID:             uuid.New(),
+							SpaceID:        spaceID,
+							ExperienceData: datatypes.JSONMap{"action": "test_action", "result": "success"},
+						},
+						{
+							ID:             uuid.New(),
+							SpaceID:        spaceID,
+							ExperienceData: datatypes.JSONMap{"action": "another_action", "result": "success"},
+						},
+					},
+					HasMore: false,
+				}
+				svc.On("ListExperienceConfirmations", mock.Anything, mock.Anything).Return(expectedOutput, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:         "empty experience confirmations list",
+			spaceIDParam: spaceID.String(),
+			queryParams:  "?limit=20",
+			setup: func(svc *MockSpaceService) {
+				expectedSpace := &model.Space{
+					ID:        spaceID,
+					ProjectID: projectID,
+				}
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Space) bool {
+					return s.ID == spaceID
+				})).Return(expectedSpace, nil)
+
+				svc.On("ListExperienceConfirmations", mock.Anything, mock.Anything).Return(&service.ListExperienceConfirmationsOutput{
+					Items:   []model.ExperienceConfirmation{},
+					HasMore: false,
+				}, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "invalid space ID",
+			spaceIDParam:   "invalid-uuid",
+			queryParams:    "?limit=20",
+			setup:          func(svc *MockSpaceService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:         "space not found",
+			spaceIDParam: spaceID.String(),
+			queryParams:  "?limit=20",
+			setup: func(svc *MockSpaceService) {
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Space) bool {
+					return s.ID == spaceID
+				})).Return(nil, errors.New("space not found"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+		{
+			name:         "space does not belong to project",
+			spaceIDParam: spaceID.String(),
+			queryParams:  "?limit=20",
+			setup: func(svc *MockSpaceService) {
+				expectedSpace := &model.Space{
+					ID:        spaceID,
+					ProjectID: uuid.New(), // Different project ID
+				}
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Space) bool {
+					return s.ID == spaceID
+				})).Return(expectedSpace, nil)
+			},
+			expectedStatus: http.StatusForbidden,
+		},
+		{
+			name:         "service layer error",
+			spaceIDParam: spaceID.String(),
+			queryParams:  "?limit=20",
+			setup: func(svc *MockSpaceService) {
+				expectedSpace := &model.Space{
+					ID:        spaceID,
+					ProjectID: projectID,
+				}
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Space) bool {
+					return s.ID == spaceID
+				})).Return(expectedSpace, nil)
+
+				svc.On("ListExperienceConfirmations", mock.Anything, mock.Anything).Return(nil, errors.New("database error"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+		{
+			name:         "pagination with cursor",
+			spaceIDParam: spaceID.String(),
+			queryParams:  "?limit=10&cursor=test_cursor&time_desc=true",
+			setup: func(svc *MockSpaceService) {
+				expectedSpace := &model.Space{
+					ID:        spaceID,
+					ProjectID: projectID,
+				}
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Space) bool {
+					return s.ID == spaceID
+				})).Return(expectedSpace, nil)
+
+				expectedOutput := &service.ListExperienceConfirmationsOutput{
+					Items: []model.ExperienceConfirmation{
+						{
+							ID:             uuid.New(),
+							SpaceID:        spaceID,
+							ExperienceData: datatypes.JSONMap{"action": "test"},
+						},
+					},
+					HasMore:    true,
+					NextCursor: "next_cursor_value",
+				}
+				svc.On("ListExperienceConfirmations", mock.Anything, mock.Anything).Return(expectedOutput, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := &MockSpaceService{}
+			tt.setup(mockService)
+
+			handler := NewSpaceHandler(mockService, getMockCoreClient())
+			router := setupSpaceRouter()
+			router.GET("/space/:space_id/get_unconfirmed_experiences", func(c *gin.Context) {
+				project := &model.Project{ID: projectID}
+				c.Set("project", project)
+				handler.ListExperienceConfirmations(c)
+			})
+
+			req := httptest.NewRequest("GET", "/space/"+tt.spaceIDParam+"/get_unconfirmed_experiences"+tt.queryParams, nil)
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			mockService.AssertExpectations(t)
 		})
 	}
 }

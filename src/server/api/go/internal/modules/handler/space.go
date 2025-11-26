@@ -388,3 +388,131 @@ func (h *SpaceHandler) GetSemanticGrep(c *gin.Context) {
 
 	c.JSON(http.StatusOK, serializer.Response{Data: result})
 }
+
+type ListExperienceConfirmationsReq struct {
+	Limit    int    `form:"limit,default=20" json:"limit" binding:"required,min=1,max=200" example:"20"`
+	Cursor   string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
+	TimeDesc bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
+}
+
+// ListExperienceConfirmations godoc
+//
+//	@Summary		Get unconfirmed experiences
+//	@Description	Get all unconfirmed experiences in a space with cursor-based pagination
+//	@Tags			space
+//	@Accept			json
+//	@Produce		json
+//	@Param			space_id	path	string	true	"Space ID"	Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
+//	@Param			limit		query	integer	false	"Limit of confirmations to return, default 20. Max 200."
+//	@Param			cursor		query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
+//	@Param			time_desc	query	boolean	false	"Order by created_at descending if true, ascending if false (default false)"	example(false)
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response{data=service.ListExperienceConfirmationsOutput}
+//	@Router			/space/{space_id}/get_unconfirmed_experiences [get]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get unconfirmed experiences\nexperiences = client.spaces.get_unconfirmed_experiences(\n    space_id='space-uuid',\n    limit=20,\n    time_desc=True\n)\nfor experience in experiences.items:\n    print(f\"{experience.id}: {experience.experience_data}\")\n\n# If there are more, use the cursor for pagination\nif experiences.has_more:\n    next_experiences = client.spaces.get_unconfirmed_experiences(\n        space_id='space-uuid',\n        limit=20,\n        cursor=experiences.next_cursor\n    )\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get unconfirmed experiences\nconst experiences = await client.spaces.getUnconfirmedExperiences('space-uuid', {\n  limit: 20,\n  timeDesc: true\n});\nfor (const experience of experiences.items) {\n  console.log(`${experience.id}: ${JSON.stringify(experience.experience_data)}`);\n}\n\n// If there are more, use the cursor for pagination\nif (experiences.hasMore) {\n  const nextExperiences = await client.spaces.getUnconfirmedExperiences('space-uuid', {\n    limit: 20,\n    cursor: experiences.nextCursor\n  });\n}\n","label":"JavaScript"}]
+func (h *SpaceHandler) ListExperienceConfirmations(c *gin.Context) {
+	spaceID, err := uuid.Parse(c.Param("space_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	req := ListExperienceConfirmationsReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	// Verify the space belongs to the project
+	space, err := h.svc.GetByID(c.Request.Context(), &model.Space{ID: spaceID})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		return
+	}
+	if space.ProjectID != project.ID {
+		c.JSON(http.StatusForbidden, serializer.ParamErr("", errors.New("space does not belong to project")))
+		return
+	}
+
+	out, err := h.svc.ListExperienceConfirmations(c.Request.Context(), service.ListExperienceConfirmationsInput{
+		SpaceID:  spaceID,
+		Limit:    req.Limit,
+		Cursor:   req.Cursor,
+		TimeDesc: req.TimeDesc,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{Data: out})
+}
+
+type ConfirmExperienceReq struct {
+	Save bool `form:"save" json:"save" binding:"required"`
+}
+
+// ConfirmExperience godoc
+//
+//	@Summary		Confirm experience
+//	@Description	Confirm an experience confirmation. If save is false, delete the row. If save is true, get the data first (TODO: process data), then delete the row.
+//	@Tags			space
+//	@Accept			json
+//	@Produce		json
+//	@Param			space_id		path	string	true	"Space ID"	Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
+//	@Param			experience_id	path	string	true	"Experience Confirmation ID"	Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
+//	@Param			save			query	boolean	true	"If true, get data before deleting. If false, just delete."
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response{data=model.ExperienceConfirmation}
+//	@Router			/space/{space_id}/confirm_experience/{experience_id} [post]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Confirm experience and save data\nconfirmation = client.spaces.confirm_experience(\n    space_id='space-uuid',\n    experience_id='experience-uuid',\n    save=True\n)\nprint(f\"Saved confirmation: {confirmation.experience_data}\")\n\n# Confirm experience without saving (just delete)\nclient.spaces.confirm_experience(\n    space_id='space-uuid',\n    experience_id='experience-uuid',\n    save=False\n)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Confirm experience and save data\nconst confirmation = await client.spaces.confirmExperience('space-uuid', 'experience-uuid', {\n  save: true\n});\nconsole.log(`Saved confirmation: ${JSON.stringify(confirmation.experience_data)}`);\n\n// Confirm experience without saving (just delete)\nawait client.spaces.confirmExperience('space-uuid', 'experience-uuid', {\n  save: false\n});\n","label":"JavaScript"}]
+func (h *SpaceHandler) ConfirmExperience(c *gin.Context) {
+	spaceID, err := uuid.Parse(c.Param("space_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	experienceID, err := uuid.Parse(c.Param("experience_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	req := ConfirmExperienceReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	// Verify the space belongs to the project
+	space, err := h.svc.GetByID(c.Request.Context(), &model.Space{ID: spaceID})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		return
+	}
+	if space.ProjectID != project.ID {
+		c.JSON(http.StatusForbidden, serializer.ParamErr("", errors.New("space does not belong to project")))
+		return
+	}
+
+	confirmation, err := h.svc.ConfirmExperience(c.Request.Context(), spaceID, experienceID, req.Save)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{Data: confirmation})
+}

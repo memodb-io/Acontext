@@ -10,6 +10,7 @@ import (
 type ExperienceConfirmation struct {
 	ID             uuid.UUID         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
 	SpaceID        uuid.UUID         `gorm:"type:uuid;not null;index:idx_experience_confirmations_space" json:"space_id"`
+	TaskID         *uuid.UUID        `gorm:"type:uuid;index:idx_experience_confirmations_task" json:"task_id,omitempty"`
 	ExperienceData datatypes.JSONMap `gorm:"type:jsonb;not null" swaggertype:"object" json:"experience_data"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime;not null;default:CURRENT_TIMESTAMP" json:"created_at"`
@@ -17,6 +18,9 @@ type ExperienceConfirmation struct {
 
 	// ExperienceConfirmation <-> Space
 	Space *Space `gorm:"foreignKey:SpaceID;references:ID;constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
+
+	// ExperienceConfirmation <-> Task
+	Task *Task `gorm:"foreignKey:TaskID;references:ID;constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
 }
 
 func (ExperienceConfirmation) TableName() string { return "experience_confirmations" }

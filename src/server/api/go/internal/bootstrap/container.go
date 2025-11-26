@@ -151,7 +151,12 @@ func BuildContainer() *do.Injector {
 
 	// Service
 	do.Provide(inj, func(i *do.Injector) (service.SpaceService, error) {
-		return service.NewSpaceService(do.MustInvoke[repo.SpaceRepo](i)), nil
+		return service.NewSpaceService(
+			do.MustInvoke[repo.SpaceRepo](i),
+			do.MustInvoke[*mq.Publisher](i),
+			do.MustInvoke[*config.Config](i),
+			do.MustInvoke[*zap.Logger](i),
+		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (service.SessionService, error) {
 		return service.NewSessionService(
