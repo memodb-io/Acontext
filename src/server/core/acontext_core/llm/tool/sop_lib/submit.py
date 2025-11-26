@@ -4,6 +4,7 @@ from ....service.constants import EX, RK
 from ....infra.async_mq import MQ_CLIENT
 from ....infra.db import DB_CLIENT
 from ....service.data import task as TD
+from ....service.data import space as SD
 from ....schema.llm import ToolSchema
 from ....schema.result import Result
 from ....schema.block.sop_block import SubmitSOPData, SOPData
@@ -15,6 +16,15 @@ from .ctx import SOPCtx
 async def set_space_digests(ctx: SOPCtx) -> Result[None]:
     async with DB_CLIENT.get_session_context() as db_session:
         return await TD.set_task_space_digested(db_session, ctx.task.id)
+
+
+async def set_experience_confirmation(
+    ctx: SOPCtx, experience_data: dict
+) -> Result[None]:
+    async with DB_CLIENT.get_session_context() as db_session:
+        return await SD.set_experience_confirmation(
+            db_session, ctx.space_id, experience_data
+        )
 
 
 async def submit_sop_handler(ctx: SOPCtx, llm_arguments: dict) -> Result[str]:
@@ -36,6 +46,12 @@ async def submit_sop_handler(ctx: SOPCtx, llm_arguments: dict) -> Result[str]:
         task_id=ctx.task.id,
         sop_data=sop_data,
     )
+    if ctx.enable_user_confirmation_on_new_experiences:
+        await set_experience_confirmation(
+            ctx, {"type": "sop", "data": sop_data.model_dump()}
+        )
+        return Result.resolve("SOP submitted")
+
     await MQ_CLIENT.publish(
         exchange_name=EX.space_task,
         routing_key=RK.space_task_sop_complete,

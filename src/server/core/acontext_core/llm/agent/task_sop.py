@@ -100,7 +100,12 @@ async def sop_agent_curd(
             break
         use_tools = llm_return.tool_calls
         tool_response = []
-        USE_CTX = SOPCtx(project_id, space_id, task=current_task)
+        USE_CTX = SOPCtx(
+            project_id=project_id,
+            enable_user_confirmation_on_new_experiences=project_config.project_enable_user_confirmation_on_new_experiences,
+            space_id=space_id,
+            task=current_task,
+        )
         for tool_call in use_tools:
             try:
                 tool_name = tool_call.function.name

@@ -20,6 +20,9 @@ type Space struct {
 
 	// Space <-> Session
 	Sessions []Session `gorm:"constraint:OnDelete:SET NULL,OnUpdate:CASCADE;" json:"-"`
+
+	// Space <-> ExperienceConfirmation
+	ExperienceConfirmations []ExperienceConfirmation `gorm:"constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
 }
 
 func (Space) TableName() string { return "spaces" }

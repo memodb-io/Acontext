@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import List, Optional
+from typing import List
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import ValidationError
@@ -108,7 +108,8 @@ async def fetch_messages_data_by_ids(
 
         # Fetch parts concurrently for all messages
         parts_tasks = [
-            _fetch_message_parts(message.parts_asset_meta) for message in ordered_messages
+            _fetch_message_parts(message.parts_asset_meta)
+            for message in ordered_messages
         ]
         parts_results = await asyncio.gather(*parts_tasks)
 

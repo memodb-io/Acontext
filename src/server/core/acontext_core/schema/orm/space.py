@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from .session import Session
     from .block import Block
     from .block_embedding import BlockEmbedding
+    from .experience_confirmation import ExperienceConfirmation
 
 
 @ORM_BASE.mapped
@@ -62,6 +63,18 @@ class Space(CommonMixin):
         metadata={
             "db": relationship(
                 "BlockEmbedding",
+                back_populates="space",
+                cascade="all, delete-orphan",
+            )
+        },
+    )
+
+    experience_confirmations: List["ExperienceConfirmation"] = field(
+        default_factory=list,
+        init=False,
+        metadata={
+            "db": relationship(
+                "ExperienceConfirmation",
                 back_populates="space",
                 cascade="all, delete-orphan",
             )

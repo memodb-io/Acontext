@@ -9,6 +9,7 @@ from .block_embedding import BlockEmbedding
 from .block_reference import BlockReference
 from .tool_reference import ToolReference
 from .tool_sop import ToolSOP
+from .experience_confirmation import ExperienceConfirmation
 
 __all__ = [
     "ORM_BASE",
@@ -26,4 +27,5 @@ __all__ = [
     "BlockReference",
     "ToolReference",
     "ToolSOP",
+    "ExperienceConfirmation",
 ]
