@@ -23,7 +23,7 @@ async def set_experience_confirmation(
 ) -> Result[None]:
     async with DB_CLIENT.get_session_context() as db_session:
         return await SD.set_experience_confirmation(
-            db_session, ctx.space_id, experience_data
+            db_session, ctx.space_id, experience_data, ctx.task.id
         )
 
 

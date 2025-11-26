@@ -40,6 +40,9 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
     """
     MQ Consumer for SOP completion - Process SOP data with construct agent
     """
+    if body.task_id is None:
+        LOG.error("Task ID is required for SOP complete")
+        return
     _lock_key = f"{RK.space_task_sop_complete}.{body.space_id}"
     _l = await check_redis_lock_or_set(body.project_id, _lock_key)
     if not _l:

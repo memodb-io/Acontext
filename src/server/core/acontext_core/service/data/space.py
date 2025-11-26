@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...schema.orm import ExperienceConfirmation
@@ -10,6 +10,7 @@ async def set_experience_confirmation(
     db_session: AsyncSession,
     space_id: asUUID,
     experience_data: dict,
+    task_id: Optional[asUUID] = None,
 ) -> Result[ExperienceConfirmation]:
     """
     Create a new experience confirmation for a space.
@@ -18,6 +19,7 @@ async def set_experience_confirmation(
         db_session: Database session
         space_id: UUID of the space
         experience_data: Dictionary containing experience data
+        task_id: Optional UUID of the task (for SOP confirmations)
 
     Returns:
         Result containing the created ExperienceConfirmation
@@ -26,6 +28,7 @@ async def set_experience_confirmation(
         experience_confirmation = ExperienceConfirmation(
             space_id=space_id,
             experience_data=experience_data,
+            task_id=task_id,
         )
 
         db_session.add(experience_confirmation)
