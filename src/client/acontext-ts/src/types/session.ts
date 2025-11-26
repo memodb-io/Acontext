@@ -105,3 +105,9 @@ export const LearningStatusSchema = z.object({
 
 export type LearningStatus = z.infer<typeof LearningStatusSchema>;
 
+export const TokenCountsSchema = z.object({
+  total_tokens: z.number(),
+});
+
+export type TokenCounts = z.infer<typeof TokenCountsSchema>;
+

@@ -19,6 +19,8 @@ import {
   MessageSchema,
   Session,
   SessionSchema,
+  TokenCounts,
+  TokenCountsSchema,
 } from '../types';
 
 export type MessageBlob = AcontextMessage | Record<string, unknown>;
@@ -225,6 +227,17 @@ export class SessionsAPI {
       `/session/${sessionId}/get_learning_status`
     );
     return LearningStatusSchema.parse(data);
+  }
+
+  /**
+   * Get total token counts for all text and tool-call parts in a session.
+   *
+   * @param sessionId - The UUID of the session.
+   * @returns TokenCounts object containing total_tokens.
+   */
+  async getTokenCounts(sessionId: string): Promise<TokenCounts> {
+    const data = await this.requester.request('GET', `/session/${sessionId}/token_counts`);
+    return TokenCountsSchema.parse(data);
   }
 }
 

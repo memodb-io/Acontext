@@ -262,6 +262,17 @@ describe('AcontextClient Integration Tests', () => {
       expect(learningStatus.not_space_digested_count).toBeGreaterThanOrEqual(0);
     });
 
+    test('should get token counts', async () => {
+      if (!createdSessionId) {
+        throw new Error('Session not created');
+      }
+      const tokenCounts = await client.sessions.getTokenCounts(createdSessionId);
+      expect(tokenCounts).toBeDefined();
+      expect(tokenCounts.total_tokens).toBeDefined();
+      expect(typeof tokenCounts.total_tokens).toBe('number');
+      expect(tokenCounts.total_tokens).toBeGreaterThanOrEqual(0);
+    });
+
     test('should update session configs', async () => {
       if (!createdSessionId) {
         throw new Error('Session not created');
