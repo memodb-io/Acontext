@@ -39,3 +39,22 @@ export const SpaceSearchResultSchema = z.object({
 
 export type SpaceSearchResult = z.infer<typeof SpaceSearchResultSchema>;
 
+export const ExperienceConfirmationSchema = z.object({
+  id: z.string(),
+  space_id: z.string(),
+  task_id: z.string().nullable().optional(),
+  experience_data: z.record(z.string(), z.unknown()),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export type ExperienceConfirmation = z.infer<typeof ExperienceConfirmationSchema>;
+
+export const ListExperienceConfirmationsOutputSchema = z.object({
+  items: z.array(ExperienceConfirmationSchema),
+  next_cursor: z.string().nullable().optional(),
+  has_more: z.boolean(),
+});
+
+export type ListExperienceConfirmationsOutput = z.infer<typeof ListExperienceConfirmationsOutputSchema>;
+

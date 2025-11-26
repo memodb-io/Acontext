@@ -902,3 +902,124 @@ def test_spaces_semantic_grep(mock_request, client: AcontextClient) -> None:
     assert result[0].title == "Token Validation Function"
     assert result[0].type == "code_block"
     assert result[0].distance == 0.18
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_spaces_get_unconfirmed_experiences(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = {
+        "items": [
+            {
+                "id": "exp-1",
+                "space_id": "space-id",
+                "task_id": "task-id",
+                "experience_data": {"type": "sop", "data": {"action": "test"}},
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            },
+            {
+                "id": "exp-2",
+                "space_id": "space-id",
+                "task_id": None,
+                "experience_data": {"type": "other", "data": {}},
+                "created_at": "2024-01-02T00:00:00Z",
+                "updated_at": "2024-01-02T00:00:00Z",
+            },
+        ],
+        "next_cursor": "cursor-123",
+        "has_more": True,
+    }
+
+    result = client.spaces.get_unconfirmed_experiences(
+        "space-id", limit=20, cursor="cursor-456", time_desc=True
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/space/space-id/get_unconfirmed_experiences"
+    print(kwargs["params"])
+    assert kwargs["params"] == {
+        "limit": 20,
+        "cursor": "cursor-456",
+        "time_desc": "true",
+    }
+    # Verify response structure
+    assert hasattr(result, "items")
+    assert hasattr(result, "next_cursor")
+    assert hasattr(result, "has_more")
+    assert len(result.items) == 2
+    assert result.items[0].id == "exp-1"
+    assert result.items[0].task_id == "task-id"
+    assert result.items[1].task_id is None
+    assert result.next_cursor == "cursor-123"
+    assert result.has_more is True
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_spaces_get_unconfirmed_experiences_without_options(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = {
+        "items": [],
+        "has_more": False,
+    }
+
+    result = client.spaces.get_unconfirmed_experiences("space-id")
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/space/space-id/get_unconfirmed_experiences"
+    assert kwargs["params"] is None
+    assert len(result.items) == 0
+    assert result.has_more is False
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_spaces_confirm_experience_with_save(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = {
+        "id": "exp-1",
+        "space_id": "space-id",
+        "task_id": "task-id",
+        "experience_data": {"type": "sop", "data": {"action": "test"}},
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
+
+    result = client.spaces.confirm_experience("space-id", "exp-1", save=True)
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "POST"
+    assert path == "/space/space-id/confirm_experience/exp-1"
+    assert kwargs["params"] == {"save": "true"}
+    # Verify response structure
+    assert result is not None
+    assert hasattr(result, "id")
+    assert result.id == "exp-1"
+    assert result.space_id == "space-id"
+    assert result.experience_data == {"type": "sop", "data": {"action": "test"}}
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_spaces_confirm_experience_without_save(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = None
+
+    result = client.spaces.confirm_experience("space-id", "exp-1", save=False)
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "POST"
+    assert path == "/space/space-id/confirm_experience/exp-1"
+    assert kwargs["params"] == {"save": "false"}
+    assert result is None

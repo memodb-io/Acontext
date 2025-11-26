@@ -24,6 +24,8 @@ from .session import (
 )
 from .block import Block
 from .space import (
+    ExperienceConfirmation,
+    ListExperienceConfirmationsOutput,
     ListSpacesOutput,
     SearchResultBlockItem,
     Space,
@@ -58,6 +60,8 @@ __all__ = [
     "Task",
     "TokenCounts",
     # Space types
+    "ExperienceConfirmation",
+    "ListExperienceConfirmationsOutput",
     "ListSpacesOutput",
     "SearchResultBlockItem",
     "Space",

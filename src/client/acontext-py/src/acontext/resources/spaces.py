@@ -8,6 +8,8 @@ from typing import Any, List
 from .._utils import build_params
 from ..client_types import RequesterProtocol
 from ..types.space import (
+    ExperienceConfirmation,
+    ListExperienceConfirmationsOutput,
     ListSpacesOutput,
     SearchResultBlockItem,
     Space,
@@ -184,3 +186,60 @@ class SpacesAPI:
             "GET", f"/space/{space_id}/semantic_grep", params=params or None
         )
         return [SearchResultBlockItem.model_validate(item) for item in data]
+
+    def get_unconfirmed_experiences(
+        self,
+        space_id: str,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        time_desc: bool | None = None,
+    ) -> ListExperienceConfirmationsOutput:
+        """Get all unconfirmed experiences in a space with cursor-based pagination.
+
+        Args:
+            space_id: The UUID of the space.
+            limit: Maximum number of confirmations to return (1-200, default 20).
+            cursor: Cursor for pagination. Use the cursor from the previous response to get the next page.
+            time_desc: Order by created_at descending if True, ascending if False (default False).
+
+        Returns:
+            ListExperienceConfirmationsOutput containing the list of experience confirmations and pagination information.
+        """
+        params = build_params(limit=limit, cursor=cursor, time_desc=time_desc)
+        data = self._requester.request(
+            "GET",
+            f"/space/{space_id}/get_unconfirmed_experiences",
+            params=params or None,
+        )
+        return ListExperienceConfirmationsOutput.model_validate(data)
+
+    def confirm_experience(
+        self,
+        space_id: str,
+        experience_id: str,
+        *,
+        save: bool,
+    ) -> ExperienceConfirmation | None:
+        """Confirm an experience confirmation.
+
+        If save is False, delete the row. If save is True, get the data first,
+        then delete the row.
+
+        Args:
+            space_id: The UUID of the space.
+            experience_id: The UUID of the experience confirmation.
+            save: If True, get data before deleting. If False, just delete.
+
+        Returns:
+            ExperienceConfirmation object if save is True, None otherwise.
+        """
+        params = build_params(save=save)
+        data = self._requester.request(
+            "POST",
+            f"/space/{space_id}/confirm_experience/{experience_id}",
+            params=params or None,
+        )
+        if data is None:
+            return None
+        return ExperienceConfirmation.model_validate(data)

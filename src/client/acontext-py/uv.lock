@@ -3,7 +3,7 @@ requires-python = ">=3.10"
 
 [[package]]
 name = "acontext"
-version = "0.0.3"
+version = "0.0.5"
 source = { editable = "." }
 dependencies = [
     { name = "anthropic" },

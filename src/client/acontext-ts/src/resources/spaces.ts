@@ -5,6 +5,10 @@
 import { RequesterProtocol } from '../client-types';
 import { buildParams } from '../utils';
 import {
+  ExperienceConfirmation,
+  ExperienceConfirmationSchema,
+  ListExperienceConfirmationsOutput,
+  ListExperienceConfirmationsOutputSchema,
   ListSpacesOutput,
   ListSpacesOutputSchema,
   SearchResultBlockItem,
@@ -168,6 +172,66 @@ export class SpacesAPI {
     return (data as unknown[]).map((item) =>
       SearchResultBlockItemSchema.parse(item)
     );
+  }
+
+  /**
+   * Get all unconfirmed experiences in a space with cursor-based pagination.
+   * 
+   * @param spaceId - The UUID of the space
+   * @param options - Pagination options
+   * @returns ListExperienceConfirmationsOutput containing the list of experience confirmations and pagination information
+   */
+  async getUnconfirmedExperiences(
+    spaceId: string,
+    options?: {
+      limit?: number | null;
+      cursor?: string | null;
+      timeDesc?: boolean | null;
+    }
+  ): Promise<ListExperienceConfirmationsOutput> {
+    const params = buildParams({
+      limit: options?.limit ?? null,
+      cursor: options?.cursor ?? null,
+      time_desc: options?.timeDesc ?? null,
+    });
+    const data = await this.requester.request(
+      'GET',
+      `/space/${spaceId}/get_unconfirmed_experiences`,
+      { params: Object.keys(params).length > 0 ? params : undefined }
+    );
+    return ListExperienceConfirmationsOutputSchema.parse(data);
+  }
+
+  /**
+   * Confirm an experience confirmation.
+   * 
+   * If save is false, delete the row. If save is true, get the data first,
+   * then delete the row.
+   * 
+   * @param spaceId - The UUID of the space
+   * @param experienceId - The UUID of the experience confirmation
+   * @param options - Confirmation options
+   * @returns ExperienceConfirmation object if save is true, null otherwise
+   */
+  async confirmExperience(
+    spaceId: string,
+    experienceId: string,
+    options: {
+      save: boolean;
+    }
+  ): Promise<ExperienceConfirmation | null> {
+    const params = buildParams({
+      save: options.save,
+    });
+    const data = await this.requester.request(
+      'POST',
+      `/space/${spaceId}/confirm_experience/${experienceId}`,
+      { params: Object.keys(params).length > 0 ? params : undefined }
+    );
+    if (data === null || data === undefined) {
+      return null;
+    }
+    return ExperienceConfirmationSchema.parse(data);
   }
 }
 

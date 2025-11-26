@@ -44,3 +44,26 @@ class SpaceSearchResult(BaseModel):
         ..., description="List of cited blocks"
     )
     final_answer: str | None = Field(None, description="AI-generated final answer")
+
+
+class ExperienceConfirmation(BaseModel):
+    """Experience confirmation model."""
+
+    id: str = Field(..., description="Experience confirmation UUID")
+    space_id: str = Field(..., description="Space UUID")
+    task_id: str | None = Field(None, description="Task UUID (optional)")
+    experience_data: dict[str, Any] = Field(
+        ..., description="Experience data dictionary"
+    )
+    created_at: str = Field(..., description="ISO 8601 formatted creation timestamp")
+    updated_at: str = Field(..., description="ISO 8601 formatted update timestamp")
+
+
+class ListExperienceConfirmationsOutput(BaseModel):
+    """Response model for listing experience confirmations."""
+
+    items: list[ExperienceConfirmation] = Field(
+        ..., description="List of experience confirmations"
+    )
+    next_cursor: str | None = Field(None, description="Cursor for pagination")
+    has_more: bool = Field(..., description="Whether there are more items")
