@@ -234,11 +234,11 @@ class SpacesAPI:
         Returns:
             ExperienceConfirmation object if save is True, None otherwise.
         """
-        params = build_params(save=save)
+        payload = {"save": save}
         data = self._requester.request(
             "POST",
             f"/space/{space_id}/confirm_experience/{experience_id}",
-            params=params or None,
+            json_data=payload,
         )
         if data is None:
             return None

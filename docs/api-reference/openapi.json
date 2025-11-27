@@ -1649,15 +1649,18 @@
             "format" : "uuid",
             "type" : "string"
           }
-        }, {
-          "description" : "If true, get data before deleting. If false, just delete.",
-          "in" : "query",
-          "name" : "save",
-          "required" : true,
-          "schema" : {
-            "type" : "boolean"
-          }
         } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/handler.ConfirmExperienceReq"
+              }
+            }
+          },
+          "description" : "Confirmation request with save flag",
+          "required" : true
+        },
         "responses" : {
           "200" : {
             "content" : {
@@ -1683,7 +1686,8 @@
           "label" : "JavaScript",
           "lang" : "javascript",
           "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Confirm experience and save data\nconst confirmation = await client.spaces.confirmExperience('space-uuid', 'experience-uuid', {\n  save: true\n});\nconsole.log(`Saved confirmation: ${JSON.stringify(confirmation.experience_data)}`);\n\n// Confirm experience without saving (just delete)\nawait client.spaces.confirmExperience('space-uuid', 'experience-uuid', {\n  save: false\n});\n"
-        } ]
+        } ],
+        "x-codegen-request-body-name" : "request"
       }
     },
     "/space/{space_id}/experience_search" : {
@@ -2040,6 +2044,15 @@
             "type" : "string"
           }
         },
+        "type" : "object"
+      },
+      "handler.ConfirmExperienceReq" : {
+        "properties" : {
+          "save" : {
+            "type" : "boolean"
+          }
+        },
+        "required" : [ "save" ],
         "type" : "object"
       },
       "handler.ConnectToSpaceReq" : {

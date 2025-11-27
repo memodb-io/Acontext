@@ -220,13 +220,11 @@ export class SpacesAPI {
       save: boolean;
     }
   ): Promise<ExperienceConfirmation | null> {
-    const params = buildParams({
-      save: options.save,
-    });
+    const payload = { save: options.save };
     const data = await this.requester.request(
       'POST',
       `/space/${spaceId}/confirm_experience/${experienceId}`,
-      { params: Object.keys(params).length > 0 ? params : undefined }
+      { jsonData: payload }
     );
     if (data === null || data === undefined) {
       return null;

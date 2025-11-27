@@ -859,7 +859,7 @@ async def test_async_spaces_confirm_experience_with_save(
     method, path = args
     assert method == "POST"
     assert path == "/space/space-id/confirm_experience/exp-1"
-    assert kwargs["params"] == {"save": "true"}
+    assert kwargs["json_data"] == {"save": True}
     # Verify response structure
     assert result is not None
     assert hasattr(result, "id")
@@ -884,5 +884,5 @@ async def test_async_spaces_confirm_experience_without_save(
     method, path = args
     assert method == "POST"
     assert path == "/space/space-id/confirm_experience/exp-1"
-    assert kwargs["params"] == {"save": "false"}
+    assert kwargs["json_data"] == {"save": False}
     assert result is None

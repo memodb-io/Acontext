@@ -64,6 +64,7 @@ async def sop_agent_curd(
 
     LOG.info(f"Task SOP Input: {task_desc}, {user_perferences}")
     LOG.info(f"Previous Task Context: {previous_task_context}")
+    print(raw_messages)
 
     # Build customization from project config
     customization = None

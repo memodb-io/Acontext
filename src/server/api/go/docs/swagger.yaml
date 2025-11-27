@@ -9,6 +9,13 @@ definitions:
         description: '"text", "json", "csv", "code"'
         type: string
     type: object
+  handler.ConfirmExperienceReq:
+    properties:
+      save:
+        type: boolean
+    required:
+    - save
+    type: object
   handler.ConnectToSpaceReq:
     properties:
       space_id:
@@ -2442,11 +2449,12 @@ paths:
         name: experience_id
         required: true
         type: string
-      - description: If true, get data before deleting. If false, just delete.
-        in: query
-        name: save
+      - description: Confirmation request with save flag
+        in: body
+        name: request
         required: true
-        type: boolean
+        schema:
+          $ref: '#/definitions/handler.ConfirmExperienceReq'
       produces:
       - application/json
       responses:

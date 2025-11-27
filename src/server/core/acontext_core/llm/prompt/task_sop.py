@@ -22,7 +22,7 @@ class TaskSOPPrompt(BasePrompt):
         base_scoring_section = """(c.1) If there're errors because of the wrong tool parameter passing and it can be avoided, + 1 point
 (c.2) If there're back-and-forth retries (not errors) because agent has a wrong strategy, + 1 point.
 (c.3) If agent done something wrong decision before, then user offers some feedbacks/preferences to correct the agent's wrong decision, + 2 points
-(c.4) User explicitly emphasized to remember during the task, + 2 points"""
+(c.4) User explicitly emphasized to remember or have clear preferences on this task, + 2 points"""
 
         # Append custom scoring rules if provided
         if customization and customization.custom_scoring_rules:
@@ -96,7 +96,7 @@ You must report your thinkings (using extrmaly brief wordings) first using the '
 2. Infer the necessary conditions for the Current Task can happened.
 3. Give your judgement on {rule_indices_str} and for each term, what's the scores?, then sum them and score the task complexity.
 4. If it's an easy task, confirm you will set `is_easy_task` to True and only submit and with an empty `tool_sops list
-5. How to reduce the tool-calls to build a shortest path to achieve the goal?
+5. How to reduce the tool-calls to build a shortest path to achieve the goal? If no tools, skip this step and set `tool_sops` to empty.
 6. Which parameters/values are related to the future user input and should be removed in 'action' and 'preferences'?
 7. Which parameters/values are necessary to make sure the SOP will have no more unexpected errors and back-and-forth retries?
 8. When and with which condidtions should we apply this SOP? (for `use_when`)?

@@ -2196,11 +2196,13 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "type": "boolean",
-                        "description": "If true, get data before deleting. If false, just delete.",
-                        "name": "save",
-                        "in": "query",
-                        "required": true
+                        "description": "Confirmation request with save flag",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.ConfirmExperienceReq"
+                        }
                     }
                 ],
                 "responses": {
@@ -2714,6 +2716,17 @@ const docTemplate = `{
                 "type": {
                     "description": "\"text\", \"json\", \"csv\", \"code\"",
                     "type": "string"
+                }
+            }
+        },
+        "handler.ConfirmExperienceReq": {
+            "type": "object",
+            "required": [
+                "save"
+            ],
+            "properties": {
+                "save": {
+                    "type": "boolean"
                 }
             }
         },

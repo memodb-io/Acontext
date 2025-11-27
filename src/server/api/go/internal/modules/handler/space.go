@@ -455,7 +455,7 @@ func (h *SpaceHandler) ListExperienceConfirmations(c *gin.Context) {
 }
 
 type ConfirmExperienceReq struct {
-	Save bool `form:"save" json:"save" binding:"required"`
+	Save *bool `form:"save" json:"save" binding:"required"`
 }
 
 // ConfirmExperience godoc
@@ -465,9 +465,9 @@ type ConfirmExperienceReq struct {
 //	@Tags			space
 //	@Accept			json
 //	@Produce		json
-//	@Param			space_id		path	string	true	"Space ID"						Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
-//	@Param			experience_id	path	string	true	"Experience Confirmation ID"	Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
-//	@Param			save			query	boolean	true	"If true, get data before deleting. If false, just delete."
+//	@Param			space_id		path	string					true	"Space ID"						Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
+//	@Param			experience_id	path	string					true	"Experience Confirmation ID"	Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
+//	@Param			request			body	ConfirmExperienceReq	true	"Confirmation request with save flag"
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=model.ExperienceConfirmation}
 //	@Router			/space/{space_id}/confirm_experience/{experience_id} [post]
@@ -486,7 +486,7 @@ func (h *SpaceHandler) ConfirmExperience(c *gin.Context) {
 	}
 
 	req := ConfirmExperienceReq{}
-	if err := c.ShouldBind(&req); err != nil {
+	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
 		return
 	}
@@ -508,7 +508,7 @@ func (h *SpaceHandler) ConfirmExperience(c *gin.Context) {
 		return
 	}
 
-	confirmation, err := h.svc.ConfirmExperience(c.Request.Context(), spaceID, experienceID, req.Save)
+	confirmation, err := h.svc.ConfirmExperience(c.Request.Context(), spaceID, experienceID, *req.Save)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
 		return
