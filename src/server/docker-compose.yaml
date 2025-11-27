@@ -117,6 +117,33 @@ services:
       "
     restart: "no"
 
+  # --- Jaeger (OpenTelemetry Collector) ---
+  acontext-server-jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: acontext-server-jaeger
+    restart: unless-stopped
+    user: root  # Run as root to ensure write permissions to mounted volume
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      # Use Badger as storage backend (local file storage, suitable for development)
+      SPAN_STORAGE_TYPE: "badger"
+      BADGER_EPHEMERAL: "false"  # Disable ephemeral storage, enable persistence
+      BADGER_DIRECTORY: "/badger/data"
+      BADGER_SPAN_STORE_TTL: "168h"  # Data retention: 7 days
+    ports:
+      - "${JAEGER_UI_EXPORT_PORT:-16686}:16686"  # Jaeger UI
+      - "${JAEGER_OTLP_GRPC_EXPORT_PORT:-4317}:4317"  # OTLP gRPC receiver
+      - "${JAEGER_OTLP_HTTP_EXPORT_PORT:-4318}:4318"  # OTLP HTTP receiver
+      - "14250:14250"  # gRPC (model.proto)
+      - "14268:14268"  # HTTP (thrift)
+    volumes:
+      - ${JAEGER_STORAGE_LOCATION:-./db/jaeger}:/badger/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:16686"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
   # acontext-server-core
   acontext-server-core:
     build:
@@ -132,6 +159,7 @@ services:
       MQ_URL: amqp://${RABBITMQ_USER:-acontext}:${RABBITMQ_PASSWORD:-helloworld}@acontext-server-rabbitmq:5672/
       REDIS_URL: redis://:${REDIS_PASSWORD:-helloworld}@acontext-server-redis:6379
       S3_ENDPOINT: http://acontext-server-seaweedfs:9000
+      OTEL_EXPORTER_OTLP_ENDPOINT: acontext-server-jaeger:4317
     volumes:
       - ./core/config.yaml:/app/config.yaml
     ports:
@@ -179,6 +207,8 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY:-helloworld}
       S3_BUCKET: ${S3_BUCKET:-acontext-assets}
       CORE_BASE_URL: http://acontext-server-core:8000
+      OTEL_EXPORTER_OTLP_ENDPOINT: acontext-server-jaeger:4317
+      APP_ENV: ${APP_ENV:-development}
     ports:
       - "${API_EXPORT_PORT:-8029}:8029"
     healthcheck:
@@ -195,6 +225,8 @@ services:
         condition: service_started
       acontext-server-seaweedfs-setup:
         condition: service_completed_successfully
+      acontext-server-jaeger:
+        condition: service_healthy
 
   acontext-server-ui:
     build:
