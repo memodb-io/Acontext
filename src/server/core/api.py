@@ -1,10 +1,12 @@
 import asyncio
+import os
 from contextlib import asynccontextmanager
 from pydantic import ValidationError
 from typing import Optional, List
 from fastapi import FastAPI, Query, Path, Body
 from fastapi.exceptions import HTTPException
 from acontext_core.di import setup, cleanup, MQ_CLIENT, LOG, DB_CLIENT
+from acontext_core.telemetry.otel import setup_otel_tracing, instrument_fastapi
 from acontext_core.schema.api.request import (
     SearchMode,
     ToolRenameRequest,
@@ -48,7 +50,19 @@ async def lifespan(app: FastAPI):
     await cleanup()
 
 
+# Setup OpenTelemetry before creating the app
+otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+if otlp_endpoint:
+    setup_otel_tracing(
+        service_name="acontext-core",
+        otlp_endpoint=otlp_endpoint
+    )
+
 app = FastAPI(lifespan=lifespan)
+
+# Instrument FastAPI app after creation (but before startup)
+if otlp_endpoint:
+    instrument_fastapi(app)
 
 
 async def semantic_grep_search_func(
