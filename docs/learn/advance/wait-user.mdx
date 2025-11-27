@@ -24,14 +24,38 @@ You can obtain the unconfirmed experiences by calling the `get_unconfirmed_exper
 <CodeGroup>
 ```python Python
 experiences = client.spaces.get_unconfirmed_experiences(space_id=space.id)
+
+for e in experiences.items:
+    print(f"{e.id}: {e.experience_data}")
 ```
 
 ```typescript TypeScript
 const experiences = await client.spaces.getUnconfirmedExperiences(spaceId);
+
+for (const e of experiences.items) {
+    console.log(`${e.id}: ${JSON.stringify(e.experience_data)}`);
+}
 ```
 </CodeGroup>
 
 You can render those experiences in UI and let users decide whether to learn the skills or not.
+
+Experience data consists of the following fields:
+```json experience_data
+{
+    "type": "sop",
+    "data": {
+        "use_when": "Implement google authentication",
+        "preferences": "Use NextAuth;",
+        "tool_sops": [
+            {
+                "tool_name": "ls",
+                "action": "find the middleware folder",
+            },
+            ...
+        ]
+}
+```
 
 ## Confirm the Experience
 Once user decided, you can confirm the experience by calling the `confirm_experience` method.
