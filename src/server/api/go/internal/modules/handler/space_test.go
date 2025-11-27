@@ -17,6 +17,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"go.opentelemetry.io/otel"
 	"gorm.io/datatypes"
 )
 
@@ -84,6 +85,7 @@ func getMockCoreClient() *httpclient.CoreClient {
 	return &httpclient.CoreClient{
 		BaseURL:    "http://invalid-test-url:99999",
 		HTTPClient: &http.Client{},
+		Propagator: otel.GetTextMapPropagator(), // Initialize propagator to avoid nil pointer panic
 	}
 }
 
