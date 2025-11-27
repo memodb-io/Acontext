@@ -60,6 +60,7 @@
               {
                 "group": "Advance",
                 "pages": [
+                  "learn/advance/wait-user",
                   "learn/advance/design-complex",
                   "learn/advance/experience-agent"
                 ]

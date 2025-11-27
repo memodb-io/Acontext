@@ -1,0 +1,53 @@
+---
+title: "Wait for User Confirmation"
+description: "Acontext can wait for user confirmation before actually leanring skills"
+---
+
+By default, Acontext will automatically learn skills from completed tasks. 
+But this might not be what the user wants, some agent apps, like Manus, provide a way to let users decide whether to learn the skills or not.
+
+Acontext also supports this.
+
+
+## Enable User Confirmation
+You can enable user confirmation by setting the `project_enable_user_confirmation_on_new_experiences` to `true` in the project settings.
+
+```yaml config.yaml
+project_enable_user_confirmation_on_new_experiences: true
+```
+
+## Obtain the Unconfirmed Experiences
+
+Once you enable it, for every worth-learning experience, Acontext will wait for user confirmation before actually learning skills.
+You can obtain the unconfirmed experiences by calling the `get_unconfirmed_experiences` method.
+
+<CodeGroup>
+```python Python
+experiences = client.spaces.get_unconfirmed_experiences(space_id=space.id)
+```
+
+```typescript TypeScript
+const experiences = await client.spaces.getUnconfirmedExperiences(spaceId);
+```
+</CodeGroup>
+
+You can render those experiences in UI and let users decide whether to learn the skills or not.
+
+## Confirm the Experience
+Once user decided, you can confirm the experience by calling the `confirm_experience` method.
+
+<CodeGroup>
+```python Python
+# Use this Experience
+client.spaces.confirm_experience(space_id=space.id, experience_id=experience.id, save=True)
+# Reject this Experience
+client.spaces.confirm_experience(space_id=space.id, experience_id=experience.id, save=False)
+```
+
+```typescript TypeScript
+// Use this Experience
+await client.spaces.confirmExperience(spaceId, experienceId, { save: true });
+// Reject this Experience
+await client.spaces.confirmExperience(spaceId, experienceId, { save: false });
+```
+</CodeGroup>
