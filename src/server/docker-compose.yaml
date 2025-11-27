@@ -175,6 +175,8 @@ services:
         condition: service_healthy
       acontext-server-seaweedfs-setup:
         condition: service_completed_successfully
+      acontext-server-jaeger:
+        condition: service_healthy
 
   # acontext-server-api
   acontext-server-api:
@@ -225,8 +227,6 @@ services:
         condition: service_started
       acontext-server-seaweedfs-setup:
         condition: service_completed_successfully
-      acontext-server-jaeger:
-        condition: service_healthy
 
   acontext-server-ui:
     build:
