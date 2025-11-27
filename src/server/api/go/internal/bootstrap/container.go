@@ -84,9 +84,10 @@ func BuildContainer() *do.Injector {
 
 	// RabbitMQ Publisher
 	do.Provide(inj, func(i *do.Injector) (*mq.Publisher, error) {
+		cfg := do.MustInvoke[*config.Config](i)
 		conn := do.MustInvoke[*amqp.Connection](i)
 		log := do.MustInvoke[*zap.Logger](i)
-		return mq.NewPublisher(conn, log)
+		return mq.NewPublisher(conn, log, cfg)
 	})
 
 	// S3

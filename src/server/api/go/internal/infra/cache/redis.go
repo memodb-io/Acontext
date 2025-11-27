@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/memodb-io/Acontext/internal/config"
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -20,6 +21,14 @@ func New(cfg *config.Config) (*redis.Client, error) {
 	}
 
 	return rdb, nil
+}
+
+// RegisterOpenTelemetryPlugin registers the OpenTelemetry plugin for Redis
+// This should be called after telemetry.SetupTracing() to ensure tracer provider is set
+// The plugin will automatically use the global tracer provider set by telemetry.SetupTracing()
+func RegisterOpenTelemetryPlugin(rdb *redis.Client) error {
+	// InstrumentTracing automatically uses the global tracer provider
+	return redisotel.InstrumentTracing(rdb)
 }
 
 func Close(rdb *redis.Client) error {

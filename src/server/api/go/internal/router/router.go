@@ -17,6 +17,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/pkg/utils/secrets"
 	"github.com/memodb-io/Acontext/internal/pkg/utils/tokens"
+	"github.com/memodb-io/Acontext/internal/telemetry"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -94,7 +95,16 @@ func NewRouter(d RouterDeps) *gin.Engine {
 	serializer.SetLogger(d.Log)
 
 	r := gin.New()
-	r.Use(gin.Recovery(), zapLoggerMiddleware(d.Log))
+	r.Use(gin.Recovery())
+
+	// Add OpenTelemetry middleware if enabled (using configuration system)
+	if d.Config.Telemetry.Enabled && d.Config.Telemetry.OtlpEndpoint != "" {
+		r.Use(telemetry.GinMiddleware(d.Config.App.Name))
+		// Add trace ID to response header
+		r.Use(telemetry.TraceIDMiddleware())
+	}
+
+	r.Use(zapLoggerMiddleware(d.Log))
 
 	// health
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, serializer.Response{Msg: "ok"}) })
