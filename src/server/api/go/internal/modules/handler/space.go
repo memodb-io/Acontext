@@ -397,8 +397,8 @@ type ListExperienceConfirmationsReq struct {
 
 // ListExperienceConfirmations godoc
 //
-//	@Summary		Get unconfirmed experiences
-//	@Description	Get all unconfirmed experiences in a space with cursor-based pagination
+//	@Summary		Get experience confirmations
+//	@Description	Get all experience confirmations in a space with cursor-based pagination
 //	@Tags			space
 //	@Accept			json
 //	@Produce		json
@@ -408,7 +408,7 @@ type ListExperienceConfirmationsReq struct {
 //	@Param			time_desc	query	boolean	false	"Order by created_at descending if true, ascending if false (default false)"	example(false)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.ListExperienceConfirmationsOutput}
-//	@Router			/space/{space_id}/get_unconfirmed_experiences [get]
+//	@Router			/space/{space_id}/experience_confirmations [get]
 //	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get unconfirmed experiences\nexperiences = client.spaces.get_unconfirmed_experiences(\n    space_id='space-uuid',\n    limit=20,\n    time_desc=True\n)\nfor experience in experiences.items:\n    print(f\"{experience.id}: {experience.experience_data}\")\n\n# If there are more, use the cursor for pagination\nif experiences.has_more:\n    next_experiences = client.spaces.get_unconfirmed_experiences(\n        space_id='space-uuid',\n        limit=20,\n        cursor=experiences.next_cursor\n    )\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get unconfirmed experiences\nconst experiences = await client.spaces.getUnconfirmedExperiences('space-uuid', {\n  limit: 20,\n  timeDesc: true\n});\nfor (const experience of experiences.items) {\n  console.log(`${experience.id}: ${JSON.stringify(experience.experience_data)}`);\n}\n\n// If there are more, use the cursor for pagination\nif (experiences.hasMore) {\n  const nextExperiences = await client.spaces.getUnconfirmedExperiences('space-uuid', {\n    limit: 20,\n    cursor: experiences.nextCursor\n  });\n}\n","label":"JavaScript"}]
 func (h *SpaceHandler) ListExperienceConfirmations(c *gin.Context) {
 	spaceID, err := uuid.Parse(c.Param("space_id"))
@@ -470,7 +470,7 @@ type ConfirmExperienceReq struct {
 //	@Param			request			body	ConfirmExperienceReq	true	"Confirmation request with save flag"
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=model.ExperienceConfirmation}
-//	@Router			/space/{space_id}/confirm_experience/{experience_id} [post]
+//	@Router			/space/{space_id}/experience_confirmations/{experience_id} [patch]
 //	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Confirm experience and save data\nconfirmation = client.spaces.confirm_experience(\n    space_id='space-uuid',\n    experience_id='experience-uuid',\n    save=True\n)\nprint(f\"Saved confirmation: {confirmation.experience_data}\")\n\n# Confirm experience without saving (just delete)\nclient.spaces.confirm_experience(\n    space_id='space-uuid',\n    experience_id='experience-uuid',\n    save=False\n)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Confirm experience and save data\nconst confirmation = await client.spaces.confirmExperience('space-uuid', 'experience-uuid', {\n  save: true\n});\nconsole.log(`Saved confirmation: ${JSON.stringify(confirmation.experience_data)}`);\n\n// Confirm experience without saving (just delete)\nawait client.spaces.confirmExperience('space-uuid', 'experience-uuid', {\n  save: false\n});\n","label":"JavaScript"}]
 func (h *SpaceHandler) ConfirmExperience(c *gin.Context) {
 	spaceID, err := uuid.Parse(c.Param("space_id"))

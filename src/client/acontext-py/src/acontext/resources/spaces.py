@@ -209,7 +209,7 @@ class SpacesAPI:
         params = build_params(limit=limit, cursor=cursor, time_desc=time_desc)
         data = self._requester.request(
             "GET",
-            f"/space/{space_id}/get_unconfirmed_experiences",
+            f"/space/{space_id}/experience_confirmations",
             params=params or None,
         )
         return ListExperienceConfirmationsOutput.model_validate(data)
@@ -236,8 +236,8 @@ class SpacesAPI:
         """
         payload = {"save": save}
         data = self._requester.request(
-            "POST",
-            f"/space/{space_id}/confirm_experience/{experience_id}",
+            "PATCH",
+            f"/space/{space_id}/experience_confirmations/{experience_id}",
             json_data=payload,
         )
         if data is None:

@@ -196,7 +196,7 @@ export class SpacesAPI {
     });
     const data = await this.requester.request(
       'GET',
-      `/space/${spaceId}/get_unconfirmed_experiences`,
+      `/space/${spaceId}/experience_confirmations`,
       { params: Object.keys(params).length > 0 ? params : undefined }
     );
     return ListExperienceConfirmationsOutputSchema.parse(data);
@@ -222,8 +222,8 @@ export class SpacesAPI {
   ): Promise<ExperienceConfirmation | null> {
     const payload = { save: options.save };
     const data = await this.requester.request(
-      'POST',
-      `/space/${spaceId}/confirm_experience/${experienceId}`,
+      'PATCH',
+      `/space/${spaceId}/experience_confirmations/${experienceId}`,
       { jsonData: payload }
     );
     if (data === null || data === undefined) {

@@ -796,7 +796,7 @@ async def test_async_spaces_get_unconfirmed_experiences(
     args, kwargs = mock_request.call_args
     method, path = args
     assert method == "GET"
-    assert path == "/space/space-id/get_unconfirmed_experiences"
+    assert path == "/space/space-id/experience_confirmations"
     assert kwargs["params"] == {
         "limit": 20,
         "cursor": "cursor-456",
@@ -830,7 +830,7 @@ async def test_async_spaces_get_unconfirmed_experiences_without_options(
     args, kwargs = mock_request.call_args
     method, path = args
     assert method == "GET"
-    assert path == "/space/space-id/get_unconfirmed_experiences"
+    assert path == "/space/space-id/experience_confirmations"
     assert kwargs["params"] is None
     assert len(result.items) == 0
     assert result.has_more is False
@@ -857,8 +857,8 @@ async def test_async_spaces_confirm_experience_with_save(
     mock_request.assert_called_once()
     args, kwargs = mock_request.call_args
     method, path = args
-    assert method == "POST"
-    assert path == "/space/space-id/confirm_experience/exp-1"
+    assert method == "PATCH"
+    assert path == "/space/space-id/experience_confirmations/exp-1"
     assert kwargs["json_data"] == {"save": True}
     # Verify response structure
     assert result is not None
@@ -882,7 +882,7 @@ async def test_async_spaces_confirm_experience_without_save(
     mock_request.assert_called_once()
     args, kwargs = mock_request.call_args
     method, path = args
-    assert method == "POST"
-    assert path == "/space/space-id/confirm_experience/exp-1"
+    assert method == "PATCH"
+    assert path == "/space/space-id/experience_confirmations/exp-1"
     assert kwargs["json_data"] == {"save": False}
     assert result is None

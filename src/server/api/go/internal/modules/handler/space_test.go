@@ -734,13 +734,13 @@ func TestSpaceHandler_ListExperienceConfirmations(t *testing.T) {
 
 			handler := NewSpaceHandler(mockService, getMockCoreClient())
 			router := setupSpaceRouter()
-			router.GET("/space/:space_id/get_unconfirmed_experiences", func(c *gin.Context) {
+			router.GET("/space/:space_id/experience_confirmations", func(c *gin.Context) {
 				project := &model.Project{ID: projectID}
 				c.Set("project", project)
 				handler.ListExperienceConfirmations(c)
 			})
 
-			req := httptest.NewRequest("GET", "/space/"+tt.spaceIDParam+"/get_unconfirmed_experiences"+tt.queryParams, nil)
+			req := httptest.NewRequest("GET", "/space/"+tt.spaceIDParam+"/experience_confirmations"+tt.queryParams, nil)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)

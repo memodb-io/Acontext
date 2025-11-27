@@ -2427,8 +2427,100 @@ paths:
           await client.spaces.updateConfigs('space-uuid', {
             configs: { name: 'Updated Name', description: 'New description' }
           });
-  /space/{space_id}/confirm_experience/{experience_id}:
-    post:
+  /space/{space_id}/experience_confirmations:
+    get:
+      consumes:
+      - application/json
+      description: Get all experience confirmations in a space with cursor-based pagination
+      parameters:
+      - description: Space ID
+        example: 123e4567-e89b-12d3-a456-426614174000
+        format: uuid
+        in: path
+        name: space_id
+        required: true
+        type: string
+      - description: Limit of confirmations to return, default 20. Max 200.
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor for pagination. Use the cursor from the previous response
+          to get the next page.
+        in: query
+        name: cursor
+        type: string
+      - description: Order by created_at descending if true, ascending if false (default
+          false)
+        example: false
+        in: query
+        name: time_desc
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.ListExperienceConfirmationsOutput'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get experience confirmations
+      tags:
+      - space
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Get unconfirmed experiences
+          experiences = client.spaces.get_unconfirmed_experiences(
+              space_id='space-uuid',
+              limit=20,
+              time_desc=True
+          )
+          for experience in experiences.items:
+              print(f"{experience.id}: {experience.experience_data}")
+
+          # If there are more, use the cursor for pagination
+          if experiences.has_more:
+              next_experiences = client.spaces.get_unconfirmed_experiences(
+                  space_id='space-uuid',
+                  limit=20,
+                  cursor=experiences.next_cursor
+              )
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Get unconfirmed experiences
+          const experiences = await client.spaces.getUnconfirmedExperiences('space-uuid', {
+            limit: 20,
+            timeDesc: true
+          });
+          for (const experience of experiences.items) {
+            console.log(`${experience.id}: ${JSON.stringify(experience.experience_data)}`);
+          }
+
+          // If there are more, use the cursor for pagination
+          if (experiences.hasMore) {
+            const nextExperiences = await client.spaces.getUnconfirmedExperiences('space-uuid', {
+              limit: 20,
+              cursor: experiences.nextCursor
+            });
+          }
+  /space/{space_id}/experience_confirmations/{experience_id}:
+    patch:
       consumes:
       - application/json
       description: 'Confirm an experience confirmation. If save is false, delete the
@@ -2599,98 +2691,6 @@ paths:
           });
           for (const block of result.cited_blocks) {
             console.log(`${block.title} (distance: ${block.distance})`);
-          }
-  /space/{space_id}/get_unconfirmed_experiences:
-    get:
-      consumes:
-      - application/json
-      description: Get all unconfirmed experiences in a space with cursor-based pagination
-      parameters:
-      - description: Space ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Limit of confirmations to return, default 20. Max 200.
-        in: query
-        name: limit
-        type: integer
-      - description: Cursor for pagination. Use the cursor from the previous response
-          to get the next page.
-        in: query
-        name: cursor
-        type: string
-      - description: Order by created_at descending if true, ascending if false (default
-          false)
-        example: false
-        in: query
-        name: time_desc
-        type: boolean
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/service.ListExperienceConfirmationsOutput'
-              type: object
-      security:
-      - BearerAuth: []
-      summary: Get unconfirmed experiences
-      tags:
-      - space
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # Get unconfirmed experiences
-          experiences = client.spaces.get_unconfirmed_experiences(
-              space_id='space-uuid',
-              limit=20,
-              time_desc=True
-          )
-          for experience in experiences.items:
-              print(f"{experience.id}: {experience.experience_data}")
-
-          # If there are more, use the cursor for pagination
-          if experiences.has_more:
-              next_experiences = client.spaces.get_unconfirmed_experiences(
-                  space_id='space-uuid',
-                  limit=20,
-                  cursor=experiences.next_cursor
-              )
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // Get unconfirmed experiences
-          const experiences = await client.spaces.getUnconfirmedExperiences('space-uuid', {
-            limit: 20,
-            timeDesc: true
-          });
-          for (const experience of experiences.items) {
-            console.log(`${experience.id}: ${JSON.stringify(experience.experience_data)}`);
-          }
-
-          // If there are more, use the cursor for pagination
-          if (experiences.hasMore) {
-            const nextExperiences = await client.spaces.getUnconfirmedExperiences('space-uuid', {
-              limit: 20,
-              cursor: experiences.nextCursor
-            });
           }
   /space/{space_id}/semantic_glob:
     get:
