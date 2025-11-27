@@ -50,6 +50,7 @@ async def submit_sop_handler(ctx: SOPCtx, llm_arguments: dict) -> Result[str]:
         await set_experience_confirmation(
             ctx, {"type": "sop", "data": sop_data.model_dump()}
         )
+        await set_space_digests(ctx)
         return Result.resolve("SOP submitted")
 
     await MQ_CLIENT.publish(
