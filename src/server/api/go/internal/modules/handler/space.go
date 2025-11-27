@@ -465,7 +465,7 @@ type ConfirmExperienceReq struct {
 //	@Tags			space
 //	@Accept			json
 //	@Produce		json
-//	@Param			space_id		path	string	true	"Space ID"	Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
+//	@Param			space_id		path	string	true	"Space ID"						Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
 //	@Param			experience_id	path	string	true	"Experience Confirmation ID"	Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
 //	@Param			save			query	boolean	true	"If true, get data before deleting. If false, just delete."
 //	@Security		BearerAuth
