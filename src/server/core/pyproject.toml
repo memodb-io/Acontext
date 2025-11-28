@@ -25,6 +25,9 @@ dependencies = [
     "opentelemetry-sdk>=1.32.0",
     "opentelemetry-exporter-otlp-proto-grpc>=1.32.0",
     "opentelemetry-instrumentation-fastapi>=0.54.0",
+    "opentelemetry-instrumentation-dbapi>=0.54.0",
+    "opentelemetry-instrumentation-sqlalchemy>=0.54.0",
+    "opentelemetry-instrumentation-redis>=0.54.0",
 ]
 
 [dependency-groups]

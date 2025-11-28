@@ -1,4 +1,5 @@
 # FIXME: mq may be closed after a long time idle, around 2 hours!
+import os
 import asyncio
 import json
 import traceback
@@ -152,68 +153,112 @@ class AsyncSingleThreadMQConsumer:
 
     async def _process_message(self, config: ConsumerConfig, message: Message) -> None:
         """Process a single message with retry logic"""
-        async with message.process(requeue=False, ignore_processed=True):
-            retry_count = 0
-            max_retries = config.max_retries
+        # Create span for message processing if OpenTelemetry is enabled
+        span = None
+        otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+        if otlp_endpoint:
+            try:
+                from ..telemetry.otel import create_mq_process_span
+                message_id = getattr(message, "message_id", None)
+                if message_id:
+                    message_id = str(message_id)
+                span = create_mq_process_span(config.queue_name, message_id)
+            except Exception:
+                pass  # If tracing fails, continue without it
+        
+        try:
+            async with message.process(requeue=False, ignore_processed=True):
+                retry_count = 0
+                max_retries = config.max_retries
 
-            while retry_count <= max_retries:
-                try:
-                    # process the body to json
+                while retry_count <= max_retries:
                     try:
-                        payload = json.loads(message.body.decode("utf-8"))
-                        validated_body = config.body_pydantic_type.model_validate(
-                            payload
-                        )
-                        _logging_vars = {
-                            k: payload.get(k, None) for k in LOGGING_FIELDS
-                        }
-                        with bound_logging_vars(
-                            queue_name=config.queue_name, **_logging_vars
-                        ):
-                            _start_s = perf_counter()
-                            await asyncio.wait_for(
-                                config.handler(validated_body, message),
-                                timeout=config.timeout,
+                        # process the body to json
+                        try:
+                            payload = json.loads(message.body.decode("utf-8"))
+                            validated_body = config.body_pydantic_type.model_validate(
+                                payload
                             )
-                            _end_s = perf_counter()
-                            LOG.debug(
-                                f"Queue: {config.queue_name} processed in {_end_s - _start_s:.4f}s"
+                            _logging_vars = {
+                                k: payload.get(k, None) for k in LOGGING_FIELDS
+                            }
+                            with bound_logging_vars(
+                                queue_name=config.queue_name, **_logging_vars
+                            ):
+                                _start_s = perf_counter()
+                                await asyncio.wait_for(
+                                    config.handler(validated_body, message),
+                                    timeout=config.timeout,
+                                )
+                                _end_s = perf_counter()
+                                LOG.debug(
+                                    f"Queue: {config.queue_name} processed in {_end_s - _start_s:.4f}s"
+                                )
+                                if span:
+                                    span.set_attribute("mq.processing_time_seconds", _end_s - _start_s)
+                        except ValidationError as e:
+                            LOG.error(
+                                f"Message validation failed - queue: {config.queue_name}, "
+                                f"error: {str(e)}"
                             )
-                    except ValidationError as e:
-                        LOG.error(
-                            f"Message validation failed - queue: {config.queue_name}, "
-                            f"error: {str(e)}"
-                        )
-                        await message.reject(requeue=False)
-                        return
-                    except asyncio.TimeoutError:
-                        raise TimeoutError(
-                            f"Handler timeout after {config.timeout}s - queue: {config.queue_name}"
-                        )
-                    return  # Success, exit retry loop
+                            if span:
+                                from opentelemetry import trace
+                                span.record_exception(e)
+                                span.set_status(trace.Status(trace.StatusCode.ERROR, "Validation failed"))
+                            await message.reject(requeue=False)
+                            return
+                        except asyncio.TimeoutError:
+                            timeout_error = TimeoutError(
+                                f"Handler timeout after {config.timeout}s - queue: {config.queue_name}"
+                            )
+                            if span:
+                                from opentelemetry import trace
+                                span.record_exception(timeout_error)
+                                span.set_status(trace.Status(trace.StatusCode.ERROR, "Handler timeout"))
+                            raise timeout_error
+                        
+                        # Success
+                        if span:
+                            from opentelemetry import trace
+                            span.set_status(trace.Status(trace.StatusCode.OK))
+                            span.set_attribute("mq.retry_count", retry_count)
+                        return  # Success, exit retry loop
 
-                except Exception as e:
-                    retry_count += 1
-                    _wait_for = config.retry_delay * (retry_count**2)
+                    except Exception as e:
+                        retry_count += 1
+                        _wait_for = config.retry_delay * (retry_count**2)
 
-                    if retry_count <= max_retries:
-                        LOG.warning(
-                            f"Message processing unknown error - queue: {config.queue_name}, "
-                            f"attempt: {retry_count}/{config.max_retries}, "
-                            f"retry after {_wait_for}s, "
-                            f"error: {str(e)}.",
-                            extra={"traceback": traceback.format_exc()},
-                        )
-                        await asyncio.sleep(_wait_for)  # Exponential backoff
-                    else:
-                        LOG.error(
-                            f"Message processing failed permanently - queue: {config.queue_name}, "
-                            f"error: {str(e)}",
-                            extra={"traceback": traceback.format_exc()},
-                        )
-                        # goto DLX if any
-                        await message.reject(requeue=False)
-                        return
+                        if retry_count <= max_retries:
+                            LOG.warning(
+                                f"Message processing unknown error - queue: {config.queue_name}, "
+                                f"attempt: {retry_count}/{config.max_retries}, "
+                                f"retry after {_wait_for}s, "
+                                f"error: {str(e)}.",
+                                extra={"traceback": traceback.format_exc()},
+                            )
+                            if span:
+                                from opentelemetry import trace
+                                span.set_attribute("mq.retry_count", retry_count)
+                                span.set_attribute("mq.retry_delay_seconds", _wait_for)
+                            await asyncio.sleep(_wait_for)  # Exponential backoff
+                        else:
+                            LOG.error(
+                                f"Message processing failed permanently - queue: {config.queue_name}, "
+                                f"error: {str(e)}",
+                                extra={"traceback": traceback.format_exc()},
+                            )
+                            if span:
+                                from opentelemetry import trace
+                                span.record_exception(e)
+                                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+                                span.set_attribute("mq.retry_count", retry_count)
+                                span.set_attribute("mq.failed_permanently", True)
+                            # goto DLX if any
+                            await message.reject(requeue=False)
+                            return
+        finally:
+            if span:
+                span.end()
 
     def cleanup_message_task(self, task: asyncio.Task) -> None:
         try:
@@ -270,9 +315,43 @@ class AsyncSingleThreadMQConsumer:
                             break
 
                         # Process message in background task for concurrency
-                        task = asyncio.create_task(
-                            self._process_message(config, message)
-                        )
+                        async def process_with_tracing():
+                            # Create span for message consumption if OpenTelemetry is enabled
+                            consume_span = None
+                            otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+                            if otlp_endpoint:
+                                try:
+                                    from ..telemetry.otel import create_mq_consume_span
+                                    from opentelemetry import trace, propagate
+                                    
+                                    # Extract trace context from message headers if available
+                                    context = None
+                                    if message.headers:
+                                        headers = {k: str(v) for k, v in message.headers.items()}
+                                        context = propagate.extract(headers)
+                                    
+                                    # Create span with extracted context
+                                    tracer = trace.get_tracer(__name__)
+                                    consume_span = tracer.start_span(
+                                        "mq.consume",
+                                        kind=trace.SpanKind.CONSUMER,
+                                        context=context,
+                                    )
+                                    consume_span.set_attribute("messaging.system", "rabbitmq")
+                                    consume_span.set_attribute("messaging.destination", config.queue_name)
+                                    consume_span.set_attribute("messaging.destination_kind", "queue")
+                                    consume_span.set_attribute("messaging.rabbitmq.exchange", config.exchange_name)
+                                    consume_span.set_attribute("messaging.rabbitmq.routing_key", config.routing_key)
+                                except Exception:
+                                    pass  # If tracing fails, continue without it
+                            
+                            try:
+                                return await self._process_message(config, message)
+                            finally:
+                                if consume_span:
+                                    consume_span.end()
+                        
+                        task = asyncio.create_task(process_with_tracing())
                         self._processing_tasks.add(task)
                         task.add_done_callback(self.cleanup_message_task)
 
@@ -368,27 +447,53 @@ class AsyncSingleThreadMQConsumer:
     async def publish(self, exchange_name: str, routing_key: str, body: str) -> None:
         """Publish a message to an exchange without declaring it"""
         assert len(exchange_name) and len(routing_key)
-        await self.connect()
+        
+        # Create span for message publishing if OpenTelemetry is enabled
+        span = None
+        otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+        if otlp_endpoint:
+            try:
+                from ..telemetry.otel import create_mq_publish_span
+                span = create_mq_publish_span(exchange_name, routing_key)
+                span.set_attribute("messaging.message_payload_size_bytes", len(body.encode("utf-8")))
+            except Exception:
+                pass  # If tracing fails, continue without it
+        
+        try:
+            await self.connect()
 
-        if self._publish_channle is None:
-            raise RuntimeError("No active MQ Publish Channel")
+            if self._publish_channle is None:
+                raise RuntimeError("No active MQ Publish Channel")
 
-        if self._publish_channle.is_closed:
-            self._publish_channle = await self.connection.channel()
-        # Create a channel for publishing
-        # Create the message
-        message = Message(
-            body.encode("utf-8"),
-            content_type="application/json",
-            delivery_mode=2,  # Make message persistent
-        )
+            if self._publish_channle.is_closed:
+                self._publish_channle = await self.connection.channel()
+            # Create a channel for publishing
+            # Create the message
+            message = Message(
+                body.encode("utf-8"),
+                content_type="application/json",
+                delivery_mode=2,  # Make message persistent
+            )
 
-        exchange = await self._publish_channle.get_exchange(exchange_name)
-        await exchange.publish(message, routing_key=routing_key)
+            exchange = await self._publish_channle.get_exchange(exchange_name)
+            await exchange.publish(message, routing_key=routing_key)
 
-        LOG.debug(
-            f"Published message to exchange: {exchange_name}, routing_key: {routing_key}"
-        )
+            LOG.debug(
+                f"Published message to exchange: {exchange_name}, routing_key: {routing_key}"
+            )
+            
+            if span:
+                from opentelemetry import trace
+                span.set_status(trace.Status(trace.StatusCode.OK))
+        except Exception as e:
+            if span:
+                from opentelemetry import trace
+                span.record_exception(e)
+                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+            raise
+        finally:
+            if span:
+                span.end()
 
     # TODO: add connection recovery logic
     async def start(self) -> None:
