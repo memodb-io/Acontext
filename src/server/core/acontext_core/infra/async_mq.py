@@ -6,12 +6,31 @@ import traceback
 from enum import StrEnum
 from pydantic import ValidationError, BaseModel
 from dataclasses import dataclass, field
-from typing import Callable, Awaitable, Any, Dict, Optional, List, Set
+from typing import Callable, Awaitable, Any, Dict, Optional, List, Set, Tuple
+from time import perf_counter
+
 from aio_pika import connect_robust, ExchangeType, Message
 from aio_pika.abc import AbstractConnection, AbstractChannel, AbstractQueue
+
 from ..env import LOG, DEFAULT_CORE_CONFIG, bound_logging_vars
 from ..util.handler_spec import check_handler_function_sanity, get_handler_body_type
-from time import perf_counter
+
+# Optional OpenTelemetry imports - only used when tracing is enabled
+try:
+    from opentelemetry import trace, propagate, context as otel_context
+    from opentelemetry.trace import Status, StatusCode
+    OTEL_AVAILABLE = True
+except ImportError:
+    OTEL_AVAILABLE = False
+    # Create dummy objects to avoid errors
+    trace = None
+    propagate = None
+    otel_context = None
+    # Create a simple enum-like class for StatusCode when OTEL is not available
+    class StatusCode:
+        OK = "OK"
+        ERROR = "ERROR"
+    Status = lambda code, desc=None: None  # Dummy Status function
 
 
 class SpecialHandler(StrEnum):
@@ -19,6 +38,160 @@ class SpecialHandler(StrEnum):
 
 
 LOGGING_FIELDS = {"project_id", "session_id"}
+
+
+def _is_otel_enabled() -> bool:
+    """Check if OpenTelemetry tracing is enabled"""
+    return bool(os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
+
+
+def _extract_trace_context_from_headers(message: Message) -> Optional[Any]:
+    """
+    Extract trace context from message headers for trace propagation.
+    
+    Returns:
+        Extracted trace context or None if extraction fails
+    """
+    if not _is_otel_enabled() or not message.headers or not OTEL_AVAILABLE:
+        return None
+    
+    try:
+        # Convert headers to string dict for propagation
+        headers = {}
+        for k, v in message.headers.items():
+            # aio_pika headers values can be various types
+            if isinstance(v, (str, bytes)):
+                headers[k] = v if isinstance(v, str) else v.decode('utf-8', errors='ignore')
+            else:
+                headers[k] = str(v)
+        
+        if headers:
+            return propagate.extract(headers)
+    except Exception:
+        pass  # If extraction fails, return None
+    
+    return None
+
+
+def _create_consume_span(
+    config: "ConsumerConfig",
+    message: Message,
+    extracted_context: Optional[Any] = None,
+) -> Tuple[Optional[Any], Optional[Any]]:
+    """
+    Create a span for message consumption.
+    
+    Returns:
+        Tuple of (span, context) or (None, None) if tracing is disabled
+    """
+    if not _is_otel_enabled() or not OTEL_AVAILABLE:
+        return None, None
+    
+    try:
+        tracer = trace.get_tracer(__name__)
+        span_context = extracted_context if extracted_context else None
+        consume_span = tracer.start_span(
+            "mq.consume",
+            kind=trace.SpanKind.CONSUMER,
+            context=span_context,
+        )
+        consume_span.set_attribute("messaging.system", "rabbitmq")
+        consume_span.set_attribute("messaging.destination", config.queue_name)
+        consume_span.set_attribute("messaging.destination_kind", "queue")
+        consume_span.set_attribute("messaging.rabbitmq.exchange", config.exchange_name)
+        consume_span.set_attribute("messaging.rabbitmq.routing_key", config.routing_key)
+        
+        consume_context = trace.set_span_in_context(consume_span)
+        return consume_span, consume_context
+    except Exception:
+        return None, None
+
+
+def _create_process_span(
+    config: "ConsumerConfig",
+    message: Message,
+    parent_context: Optional[Any] = None,
+) -> Tuple[Optional[Any], Optional[Any]]:
+    """
+    Create a span for message processing.
+    
+    Returns:
+        Tuple of (span, context) or (None, None) if tracing is disabled
+    """
+    if not _is_otel_enabled() or not OTEL_AVAILABLE:
+        return None, None
+    
+    try:
+        message_id = getattr(message, "message_id", None)
+        if message_id:
+            message_id = str(message_id)
+        
+        tracer = trace.get_tracer(__name__)
+        span = tracer.start_span(
+            "mq.process",
+            kind=trace.SpanKind.CONSUMER,
+            context=parent_context,
+        )
+        span.set_attribute("messaging.system", "rabbitmq")
+        span.set_attribute("messaging.destination", config.queue_name)
+        span.set_attribute("messaging.destination_kind", "queue")
+        if message_id:
+            span.set_attribute("messaging.message_id", message_id)
+        
+        process_context = trace.set_span_in_context(span)
+        return span, process_context
+    except Exception:
+        return None, None
+
+
+def _create_publish_span_and_headers(
+    exchange_name: str,
+    routing_key: str,
+    body: str,
+) -> Tuple[Optional[Any], Dict[str, Any]]:
+    """
+    Create a span for message publishing and inject trace context into headers.
+    
+    Returns:
+        Tuple of (span, headers_dict)
+    """
+    headers = {}
+    span = None
+    
+    if not _is_otel_enabled() or not OTEL_AVAILABLE:
+        return None, headers
+    
+    try:
+        from ..telemetry.otel import create_mq_publish_span
+        
+        span = create_mq_publish_span(exchange_name, routing_key)
+        span.set_attribute("messaging.message_payload_size_bytes", len(body.encode("utf-8")))
+        
+        # Inject trace context into message headers for trace propagation
+        ctx = trace.set_span_in_context(span)
+        propagate.inject(headers, context=ctx)
+    except Exception:
+        pass  # If tracing fails, continue without it
+    
+    return span, headers
+
+
+def _set_span_status(span: Optional[Any], status_code: Any, description: Optional[str] = None) -> None:
+    """Set status on a span if it exists"""
+    if span and OTEL_AVAILABLE:
+        try:
+            span.set_status(Status(status_code, description))
+        except Exception:
+            pass
+
+
+def _record_span_exception(span: Optional[Any], exception: Exception) -> None:
+    """Record an exception on a span if it exists"""
+    if span:
+        try:
+            span.record_exception(exception)
+        except Exception:
+            pass
 
 
 @dataclass
@@ -151,20 +324,15 @@ class AsyncSingleThreadMQConsumer:
             f"routing_key: {consumer_config.routing_key}"
         )
 
-    async def _process_message(self, config: ConsumerConfig, message: Message) -> None:
+    async def _process_message(
+        self,
+        config: ConsumerConfig,
+        message: Message,
+        parent_context: Optional[Any] = None,
+    ) -> None:
         """Process a single message with retry logic"""
         # Create span for message processing if OpenTelemetry is enabled
-        span = None
-        otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-        if otlp_endpoint:
-            try:
-                from ..telemetry.otel import create_mq_process_span
-                message_id = getattr(message, "message_id", None)
-                if message_id:
-                    message_id = str(message_id)
-                span = create_mq_process_span(config.queue_name, message_id)
-            except Exception:
-                pass  # If tracing fails, continue without it
+        span, process_context = _create_process_span(config, message, parent_context)
         
         try:
             async with message.process(requeue=False, ignore_processed=True):
@@ -185,12 +353,29 @@ class AsyncSingleThreadMQConsumer:
                             with bound_logging_vars(
                                 queue_name=config.queue_name, **_logging_vars
                             ):
-                                _start_s = perf_counter()
-                                await asyncio.wait_for(
-                                    config.handler(validated_body, message),
-                                    timeout=config.timeout,
-                                )
-                                _end_s = perf_counter()
+                                # Use the process context for handler execution
+                                # OpenTelemetry uses contextvars which automatically propagate in async
+                                # The process_context is already set when we create the span,
+                                # so subsequent operations (DB queries, etc.) will automatically be in the same trace
+                                if process_context and OTEL_AVAILABLE:
+                                    token = otel_context.attach(process_context)
+                                    try:
+                                        _start_s = perf_counter()
+                                        await asyncio.wait_for(
+                                            config.handler(validated_body, message),
+                                            timeout=config.timeout,
+                                        )
+                                        _end_s = perf_counter()
+                                    finally:
+                                        otel_context.detach(token)
+                                else:
+                                    _start_s = perf_counter()
+                                    await asyncio.wait_for(
+                                        config.handler(validated_body, message),
+                                        timeout=config.timeout,
+                                    )
+                                    _end_s = perf_counter()
+                                
                                 LOG.debug(
                                     f"Queue: {config.queue_name} processed in {_end_s - _start_s:.4f}s"
                                 )
@@ -202,9 +387,8 @@ class AsyncSingleThreadMQConsumer:
                                 f"error: {str(e)}"
                             )
                             if span:
-                                from opentelemetry import trace
-                                span.record_exception(e)
-                                span.set_status(trace.Status(trace.StatusCode.ERROR, "Validation failed"))
+                                _record_span_exception(span, e)
+                                _set_span_status(span, StatusCode.ERROR, "Validation failed")
                             await message.reject(requeue=False)
                             return
                         except asyncio.TimeoutError:
@@ -212,15 +396,13 @@ class AsyncSingleThreadMQConsumer:
                                 f"Handler timeout after {config.timeout}s - queue: {config.queue_name}"
                             )
                             if span:
-                                from opentelemetry import trace
-                                span.record_exception(timeout_error)
-                                span.set_status(trace.Status(trace.StatusCode.ERROR, "Handler timeout"))
+                                _record_span_exception(span, timeout_error)
+                                _set_span_status(span, StatusCode.ERROR, "Handler timeout")
                             raise timeout_error
                         
                         # Success
                         if span:
-                            from opentelemetry import trace
-                            span.set_status(trace.Status(trace.StatusCode.OK))
+                            _set_span_status(span, StatusCode.OK)
                             span.set_attribute("mq.retry_count", retry_count)
                         return  # Success, exit retry loop
 
@@ -237,7 +419,6 @@ class AsyncSingleThreadMQConsumer:
                                 extra={"traceback": traceback.format_exc()},
                             )
                             if span:
-                                from opentelemetry import trace
                                 span.set_attribute("mq.retry_count", retry_count)
                                 span.set_attribute("mq.retry_delay_seconds", _wait_for)
                             await asyncio.sleep(_wait_for)  # Exponential backoff
@@ -248,9 +429,8 @@ class AsyncSingleThreadMQConsumer:
                                 extra={"traceback": traceback.format_exc()},
                             )
                             if span:
-                                from opentelemetry import trace
-                                span.record_exception(e)
-                                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+                                _record_span_exception(span, e)
+                                _set_span_status(span, StatusCode.ERROR, str(e))
                                 span.set_attribute("mq.retry_count", retry_count)
                                 span.set_attribute("mq.failed_permanently", True)
                             # goto DLX if any
@@ -316,37 +496,17 @@ class AsyncSingleThreadMQConsumer:
 
                         # Process message in background task for concurrency
                         async def process_with_tracing():
+                            # Extract trace context from message headers if available
+                            extracted_context = _extract_trace_context_from_headers(message)
+                            
                             # Create span for message consumption if OpenTelemetry is enabled
-                            consume_span = None
-                            otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-                            if otlp_endpoint:
-                                try:
-                                    from ..telemetry.otel import create_mq_consume_span
-                                    from opentelemetry import trace, propagate
-                                    
-                                    # Extract trace context from message headers if available
-                                    context = None
-                                    if message.headers:
-                                        headers = {k: str(v) for k, v in message.headers.items()}
-                                        context = propagate.extract(headers)
-                                    
-                                    # Create span with extracted context
-                                    tracer = trace.get_tracer(__name__)
-                                    consume_span = tracer.start_span(
-                                        "mq.consume",
-                                        kind=trace.SpanKind.CONSUMER,
-                                        context=context,
-                                    )
-                                    consume_span.set_attribute("messaging.system", "rabbitmq")
-                                    consume_span.set_attribute("messaging.destination", config.queue_name)
-                                    consume_span.set_attribute("messaging.destination_kind", "queue")
-                                    consume_span.set_attribute("messaging.rabbitmq.exchange", config.exchange_name)
-                                    consume_span.set_attribute("messaging.rabbitmq.routing_key", config.routing_key)
-                                except Exception:
-                                    pass  # If tracing fails, continue without it
+                            consume_span, consume_context = _create_consume_span(
+                                config, message, extracted_context
+                            )
                             
                             try:
-                                return await self._process_message(config, message)
+                                # Pass consume_context to process_message so it can create child spans
+                                return await self._process_message(config, message, consume_context)
                             finally:
                                 if consume_span:
                                     consume_span.end()
@@ -448,16 +608,8 @@ class AsyncSingleThreadMQConsumer:
         """Publish a message to an exchange without declaring it"""
         assert len(exchange_name) and len(routing_key)
         
-        # Create span for message publishing if OpenTelemetry is enabled
-        span = None
-        otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-        if otlp_endpoint:
-            try:
-                from ..telemetry.otel import create_mq_publish_span
-                span = create_mq_publish_span(exchange_name, routing_key)
-                span.set_attribute("messaging.message_payload_size_bytes", len(body.encode("utf-8")))
-            except Exception:
-                pass  # If tracing fails, continue without it
+        # Create span for message publishing and inject trace context into headers
+        span, headers = _create_publish_span_and_headers(exchange_name, routing_key, body)
         
         try:
             await self.connect()
@@ -467,12 +619,13 @@ class AsyncSingleThreadMQConsumer:
 
             if self._publish_channle.is_closed:
                 self._publish_channle = await self.connection.channel()
-            # Create a channel for publishing
-            # Create the message
+            
+            # Create the message with trace context in headers
             message = Message(
                 body.encode("utf-8"),
                 content_type="application/json",
                 delivery_mode=2,  # Make message persistent
+                headers=headers if headers else None,
             )
 
             exchange = await self._publish_channle.get_exchange(exchange_name)
@@ -483,13 +636,11 @@ class AsyncSingleThreadMQConsumer:
             )
             
             if span:
-                from opentelemetry import trace
-                span.set_status(trace.Status(trace.StatusCode.OK))
+                _set_span_status(span, StatusCode.OK)
         except Exception as e:
             if span:
-                from opentelemetry import trace
-                span.record_exception(e)
-                span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+                _record_span_exception(span, e)
+                _set_span_status(span, StatusCode.ERROR, str(e))
             raise
         finally:
             if span:
