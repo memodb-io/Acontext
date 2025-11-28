@@ -6,7 +6,8 @@ from typing import Optional, List
 from fastapi import FastAPI, Query, Path, Body
 from fastapi.exceptions import HTTPException
 from acontext_core.di import setup, cleanup, MQ_CLIENT, LOG, DB_CLIENT
-from acontext_core.telemetry.otel import setup_otel_tracing, instrument_fastapi
+from acontext_core.telemetry.otel import setup_otel_tracing, instrument_fastapi, shutdown_otel_tracing
+from acontext_core.telemetry.config import TelemetryConfig
 from acontext_core.schema.api.request import (
     SearchMode,
     ToolRenameRequest,
@@ -43,26 +44,46 @@ from sqlalchemy import select, func, cast, Integer
 async def lifespan(app: FastAPI):
     # Startup
     await setup()
+    
+    # Setup OpenTelemetry tracing
+    telemetry_config = TelemetryConfig.from_env()
+    tracer_provider = None
+    if telemetry_config.enabled:
+        try:
+            tracer_provider = setup_otel_tracing(
+                service_name=telemetry_config.service_name,
+                otlp_endpoint=telemetry_config.otlp_endpoint,
+                sample_ratio=telemetry_config.sample_ratio,
+                service_version=telemetry_config.service_version,
+            )
+            instrument_fastapi(app)
+            LOG.info(
+                f"OpenTelemetry tracing enabled: endpoint={telemetry_config.otlp_endpoint}, "
+                f"sample_ratio={telemetry_config.sample_ratio}"
+            )
+        except Exception as e:
+            LOG.warning(
+                f"Failed to setup OpenTelemetry tracing, continuing without tracing: {e}",
+                exc_info=True
+            )
+    
     # Run consumer in the background
     asyncio.create_task(MQ_CLIENT.start())
+    
     yield
+    
     # Shutdown
+    if tracer_provider:
+        try:
+            shutdown_otel_tracing()
+            LOG.info("OpenTelemetry tracing shutdown")
+        except Exception as e:
+            LOG.warning(f"Failed to shutdown OpenTelemetry tracing: {e}", exc_info=True)
+    
     await cleanup()
 
 
-# Setup OpenTelemetry before creating the app
-otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-if otlp_endpoint:
-    setup_otel_tracing(
-        service_name="acontext-core",
-        otlp_endpoint=otlp_endpoint
-    )
-
 app = FastAPI(lifespan=lifespan)
-
-# Instrument FastAPI app after creation (but before startup)
-if otlp_endpoint:
-    instrument_fastapi(app)
 
 
 async def semantic_grep_search_func(

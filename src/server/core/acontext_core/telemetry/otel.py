@@ -10,6 +10,7 @@ from opentelemetry.trace.propagation.tracecontext import TraceContextTextMapProp
 from opentelemetry.baggage.propagation import W3CBaggagePropagator
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.resources import Resource
@@ -19,20 +20,48 @@ from redis.asyncio import Redis
 
 
 def setup_otel_tracing(
-    service_name: str = "acontext-core", otlp_endpoint: Optional[str] = None
+    service_name: str = "acontext-core",
+    otlp_endpoint: Optional[str] = None,
+    sample_ratio: float = 1.0,
+    service_version: str = "0.0.1",
 ) -> Optional[TracerProvider]:
-    """Setup OpenTelemetry tracing for Python Core"""
+    """Setup OpenTelemetry tracing for Python Core
+    
+    Args:
+        service_name: Service name for tracing
+        otlp_endpoint: OTLP endpoint URL (e.g., "http://localhost:4317")
+        sample_ratio: Sampling ratio (0.0-1.0), default 1.0 (100% sampling)
+        service_version: Service version for tracing
+    
+    Returns:
+        TracerProvider instance if tracing is enabled, None otherwise
+    """
     if not otlp_endpoint:
         return None
+
+    # Validate and clamp sample_ratio
+    if sample_ratio <= 0:
+        sample_ratio = 1.0
+    if sample_ratio > 1.0:
+        sample_ratio = 1.0
 
     resource = Resource.create(
         {
             "service.name": service_name,
-            "service.version": "0.0.1",
+            "service.version": service_version,
         }
     )
 
-    provider = TracerProvider(resource=resource)
+    # Configure sampling
+    if sample_ratio >= 1.0:
+        # 100% sampling - use default (AlwaysOn sampler)
+        provider = TracerProvider(resource=resource)
+    else:
+        # Ratio-based sampling
+        provider = TracerProvider(
+            resource=resource,
+            sampler=TraceIdRatioBased(sample_ratio)
+        )
 
     otlp_exporter = OTLPSpanExporter(
         endpoint=otlp_endpoint,
@@ -53,6 +82,24 @@ def setup_otel_tracing(
     )
 
     return provider
+
+
+def shutdown_otel_tracing() -> None:
+    """Shutdown OpenTelemetry tracing gracefully
+    
+    This should be called during application shutdown to ensure
+    all spans are properly exported before the application exits.
+    
+    This function is safe to call even if tracing was not initialized
+    or if shutdown has already been called.
+    """
+    try:
+        provider = trace.get_tracer_provider()
+        if hasattr(provider, 'shutdown'):
+            provider.shutdown()
+    except Exception:
+        # Silently ignore shutdown errors to avoid affecting application shutdown
+        pass
 
 
 def instrument_fastapi(app):

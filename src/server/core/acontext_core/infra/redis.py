@@ -80,14 +80,18 @@ class RedisClient:
         client = Redis(connection_pool=self.pool, decode_responses=True)
         
         # Instrument with OpenTelemetry if enabled
-        otlp_endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-        if otlp_endpoint:
-            try:
+        try:
+            from ..telemetry.config import TelemetryConfig
+            telemetry_config = TelemetryConfig.from_env()
+            if telemetry_config.enabled:
                 from ..telemetry.otel import instrument_redis
                 instrument_redis(client)
                 logger.info("Redis OpenTelemetry instrumentation enabled")
-            except Exception as e:
-                logger.warning(f"Failed to instrument Redis with OpenTelemetry: {e}")
+        except Exception as e:
+            logger.warning(
+                f"Failed to instrument Redis with OpenTelemetry, continuing without tracing: {e}",
+                exc_info=True
+            )
         
         logger.info("Redis client created")
         return client

@@ -42,7 +42,13 @@ LOGGING_FIELDS = {"project_id", "session_id"}
 
 def _is_otel_enabled() -> bool:
     """Check if OpenTelemetry tracing is enabled"""
-    return bool(os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
+    try:
+        from ..telemetry.config import TelemetryConfig
+        config = TelemetryConfig.from_env()
+        return config.enabled
+    except Exception:
+        # Fallback to environment variable check if config loading fails
+        return bool(os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT"))
 
 
 def _extract_trace_context_from_headers(message: Message) -> Optional[Any]:
