@@ -1,8 +1,9 @@
 """
 OpenTelemetry tracing setup for Python Core service.
 """
-import os
 from typing import Optional
+
+from ..env import DEFAULT_CORE_CONFIG
 
 from opentelemetry import trace, propagate
 from opentelemetry.propagators.composite import CompositeHTTPPropagator
@@ -529,4 +530,168 @@ def create_mq_process_span(queue_name: str, message_id: Optional[str] = None) ->
     if message_id:
         span.set_attribute("messaging.message_id", message_id)
     return span
+
+
+def instrument_llm_complete(func):
+    """
+    Decorator to instrument LLM complete functions with OpenTelemetry tracing.
+    
+    This decorator automatically adds tracing to LLM completion calls, including:
+    - Provider and model information
+    - Request parameters (max_tokens, json_mode, etc.)
+    - Response metadata (content, tool_calls, etc.)
+    - Error handling
+    
+    The function should accept parameters: prompt, model, system_prompt, history_messages,
+    json_mode, max_tokens, tools, etc., and return a Result[LLMResponse].
+    
+    Args:
+        func: The LLM complete function to instrument
+        
+    Returns:
+        Wrapped function with OpenTelemetry tracing
+    """
+    from functools import wraps
+    
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        tracer = trace.get_tracer(__name__)
+        
+        # Extract parameters from kwargs (function uses keyword arguments)
+        model = kwargs.get('model')
+        max_tokens = kwargs.get('max_tokens', 1024)
+        json_mode = kwargs.get('json_mode', False)
+        system_prompt = kwargs.get('system_prompt')
+        history_messages = kwargs.get('history_messages', [])
+        tools = kwargs.get('tools')
+        
+        # Get provider and model from config
+        provider = DEFAULT_CORE_CONFIG.llm_sdk
+        use_model = model or DEFAULT_CORE_CONFIG.llm_simple_model
+        
+        span = tracer.start_span(
+            "llm.complete",
+            kind=trace.SpanKind.CLIENT,
+        )
+        
+        exception_occurred = None
+        try:
+            span.set_attribute("llm.provider", provider)
+            span.set_attribute("llm.model", use_model)
+            span.set_attribute("llm.max_tokens", max_tokens)
+            span.set_attribute("llm.json_mode", json_mode)
+            if system_prompt:
+                span.set_attribute("llm.has_system_prompt", True)
+            if history_messages:
+                span.set_attribute("llm.history_messages_count", len(history_messages))
+            if tools:
+                span.set_attribute("llm.has_tools", True)
+                span.set_attribute("llm.tools_count", len(tools) if isinstance(tools, (list, tuple)) else 1)
+            
+            result = await func(*args, **kwargs)
+            
+            # Check if result indicates an error (Result.reject)
+            if hasattr(result, 'ok') and not result.ok():
+                span.set_status(trace.Status(trace.StatusCode.ERROR, str(result)))
+            else:
+                # Extract response from Result
+                if hasattr(result, 'data') and result.data:
+                    response = result.data
+                    # Add response metadata
+                    if hasattr(response, 'content') and response.content:
+                        span.set_attribute("llm.response.has_content", True)
+                    if hasattr(response, 'tool_calls') and response.tool_calls:
+                        span.set_attribute("llm.response.has_tool_calls", True)
+                        span.set_attribute("llm.response.tool_calls_count", len(response.tool_calls))
+                span.set_status(trace.Status(trace.StatusCode.OK))
+            
+            return result
+        except Exception as e:
+            exception_occurred = e
+            span.record_exception(e)
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+            # Re-raise to let the function handle it
+            raise
+        finally:
+            span.end()
+    
+    return wrapper
+
+
+def instrument_llm_embedding(func):
+    """
+    Decorator to instrument LLM embedding functions with OpenTelemetry tracing.
+    
+    This decorator automatically adds tracing to LLM embedding calls, including:
+    - Provider and model information
+    - Phase (query/document)
+    - Text count and length
+    - Response metadata (dimension, batch_size)
+    - Error handling
+    
+    The function should accept parameters: texts, phase, model and return a Result[EmbeddingReturn].
+    
+    Args:
+        func: The LLM embedding function to instrument
+        
+    Returns:
+        Wrapped function with OpenTelemetry tracing
+    """
+    from functools import wraps
+    
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        tracer = trace.get_tracer(__name__)
+        
+        # Extract parameters (texts is first positional arg, others are kwargs)
+        texts = args[0] if args else kwargs.get('texts', [])
+        phase = kwargs.get('phase', 'document')
+        model = kwargs.get('model')
+        
+        # Get provider and model from config
+        provider = DEFAULT_CORE_CONFIG.block_embedding_provider
+        use_model = model or DEFAULT_CORE_CONFIG.block_embedding_model
+        
+        span = tracer.start_span(
+            "llm.embedding",
+            kind=trace.SpanKind.CLIENT,
+        )
+        
+        try:
+            span.set_attribute("llm.provider", provider)
+            span.set_attribute("llm.model", use_model)
+            span.set_attribute("llm.embedding.phase", phase)
+            span.set_attribute("llm.embedding.text_count", len(texts))
+            
+            # Add total text length as attribute
+            total_text_length = sum(len(text) for text in texts)
+            span.set_attribute("llm.embedding.total_text_length", total_text_length)
+            
+            result = await func(*args, **kwargs)
+            
+            # Check if result indicates an error (Result.reject)
+            if hasattr(result, 'ok') and not result.ok():
+                span.set_status(trace.Status(trace.StatusCode.ERROR, str(result)))
+            else:
+                # Extract response from Result
+                if hasattr(result, 'data') and result.data:
+                    response = result.data
+                    # Add response metadata
+                    if hasattr(response, 'embedding') and response.embedding is not None:
+                        embedding_shape = response.embedding.shape if hasattr(response.embedding, 'shape') else None
+                        if embedding_shape:
+                            span.set_attribute("llm.embedding.dimension", embedding_shape[-1] if len(embedding_shape) > 0 else 0)
+                            span.set_attribute("llm.embedding.batch_size", embedding_shape[0] if len(embedding_shape) > 0 else 0)
+                span.set_status(trace.Status(trace.StatusCode.OK))
+            
+            return result
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+            # Re-raise to let the function handle it
+            raise
+        finally:
+            span.end()
+    
+    return wrapper
 
