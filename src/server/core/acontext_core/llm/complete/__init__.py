@@ -1,9 +1,9 @@
-from typing import Callable, Awaitable, Any, Mapping, Optional
+from typing import Callable, Awaitable, Mapping, Optional
 from .openai_sdk import openai_complete
 from .anthropic_sdk import anthropic_complete
 from ...schema.llm import LLMResponse
 from ...schema.result import Result
-from ...env import LOG, DEFAULT_CORE_CONFIG, get_logging_contextvars, bound_logging_vars
+from ...env import LOG, DEFAULT_CORE_CONFIG, bound_logging_vars
 
 
 COMPLETE_FUNC = Callable[..., Awaitable[LLMResponse]]

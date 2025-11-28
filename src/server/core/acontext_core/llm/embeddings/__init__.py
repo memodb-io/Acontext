@@ -1,5 +1,4 @@
 from typing import Literal
-import numpy as np
 from traceback import format_exc
 from ...env import LOG, DEFAULT_CORE_CONFIG
 from ...schema.result import Result
