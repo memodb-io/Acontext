@@ -41,7 +41,7 @@ services:
 
   # --- RabbitMQ ---
   acontext-server-rabbitmq:
-    image: rabbitmq:3-management
+    image: rabbitmq:4-management
     container_name: acontext-server-rabbitmq
     restart: unless-stopped
     environment:
@@ -61,7 +61,7 @@ services:
 
   # --- SeaweedFS ---
   acontext-server-seaweedfs:
-    image: chrislusf/seaweedfs:3.96
+    image: chrislusf/seaweedfs:4.00
     container_name: acontext-server-seaweedfs
     restart: unless-stopped
     user: root # https://github.com/seaweedfs/seaweedfs/pull/7399
@@ -100,7 +100,7 @@ services:
 
   # init Bucket for SeaweedFS
   acontext-server-seaweedfs-setup:
-    image: amazon/aws-cli:latest
+    image: amazon/aws-cli:2.32.6
     container_name: acontext-server-seaweedfs-setup
     depends_on:
       acontext-server-seaweedfs:
@@ -119,7 +119,7 @@ services:
 
   # --- Jaeger (OpenTelemetry Collector) ---
   acontext-server-jaeger:
-    image: jaegertracing/all-in-one:latest
+    image: jaegertracing/all-in-one:1.75.0
     container_name: acontext-server-jaeger
     restart: unless-stopped
     user: root  # Run as root to ensure write permissions to mounted volume
