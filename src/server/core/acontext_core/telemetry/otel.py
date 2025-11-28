@@ -17,6 +17,7 @@ from opentelemetry.sdk.resources import Resource
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy import event
 from redis.asyncio import Redis
+from aiobotocore.client import AioBaseClient
 
 
 def setup_otel_tracing(
@@ -260,6 +261,200 @@ def instrument_redis(client: Redis) -> Redis:
     
     # Replace the execute_command method
     client.execute_command = traced_execute_command
+    
+    return client
+
+
+def instrument_s3(client: AioBaseClient) -> AioBaseClient:
+    """
+    Instrument S3 async client with OpenTelemetry tracing.
+    
+    This wraps S3 client's main operations to add tracing to all S3 operations including:
+    - get_object (download)
+    - put_object (upload)
+    - delete_object (delete)
+    - head_object (metadata)
+    - head_bucket (health check)
+    
+    Args:
+        client: The S3 async client to instrument
+        
+    Returns:
+        The same S3 client instance with tracing enabled (modified in place)
+    """
+    tracer = trace.get_tracer(__name__)
+    
+    # Store original methods
+    original_get_object = client.get_object
+    original_put_object = client.put_object
+    original_delete_object = client.delete_object
+    original_head_object = client.head_object
+    original_head_bucket = client.head_bucket
+    
+    async def traced_get_object(*args, **kwargs):
+        """Wrapped get_object with OpenTelemetry tracing"""
+        bucket = kwargs.get("Bucket") or (args[0] if args else "unknown")
+        key = kwargs.get("Key") or (args[1] if len(args) > 1 else "unknown")
+        
+        span = tracer.start_span(
+            "s3.get_object",
+            kind=trace.SpanKind.CLIENT,
+        )
+        
+        try:
+            span.set_attribute("aws.service", "s3")
+            span.set_attribute("aws.operation", "GetObject")
+            span.set_attribute("aws.s3.bucket", str(bucket))
+            span.set_attribute("aws.s3.key", str(key))
+            
+            result = await original_get_object(*args, **kwargs)
+            
+            # Add response metadata if available
+            if "ContentLength" in result:
+                span.set_attribute("aws.s3.content_length", result["ContentLength"])
+            if "ContentType" in result:
+                span.set_attribute("aws.s3.content_type", result["ContentType"])
+            
+            span.set_status(trace.Status(trace.StatusCode.OK))
+            return result
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+            raise
+        finally:
+            span.end()
+    
+    async def traced_put_object(*args, **kwargs):
+        """Wrapped put_object with OpenTelemetry tracing"""
+        bucket = kwargs.get("Bucket") or (args[0] if args else "unknown")
+        key = kwargs.get("Key") or (args[1] if len(args) > 1 else "unknown")
+        body = kwargs.get("Body") or (args[2] if len(args) > 2 else None)
+        
+        span = tracer.start_span(
+            "s3.put_object",
+            kind=trace.SpanKind.CLIENT,
+        )
+        
+        try:
+            span.set_attribute("aws.service", "s3")
+            span.set_attribute("aws.operation", "PutObject")
+            span.set_attribute("aws.s3.bucket", str(bucket))
+            span.set_attribute("aws.s3.key", str(key))
+            
+            if body:
+                if isinstance(body, bytes):
+                    span.set_attribute("aws.s3.content_length", len(body))
+                elif hasattr(body, "__len__"):
+                    try:
+                        span.set_attribute("aws.s3.content_length", len(body))
+                    except (TypeError, AttributeError):
+                        pass
+            
+            if "ContentType" in kwargs:
+                span.set_attribute("aws.s3.content_type", kwargs["ContentType"])
+            
+            result = await original_put_object(*args, **kwargs)
+            
+            span.set_status(trace.Status(trace.StatusCode.OK))
+            return result
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+            raise
+        finally:
+            span.end()
+    
+    async def traced_delete_object(*args, **kwargs):
+        """Wrapped delete_object with OpenTelemetry tracing"""
+        bucket = kwargs.get("Bucket") or (args[0] if args else "unknown")
+        key = kwargs.get("Key") or (args[1] if len(args) > 1 else "unknown")
+        
+        span = tracer.start_span(
+            "s3.delete_object",
+            kind=trace.SpanKind.CLIENT,
+        )
+        
+        try:
+            span.set_attribute("aws.service", "s3")
+            span.set_attribute("aws.operation", "DeleteObject")
+            span.set_attribute("aws.s3.bucket", str(bucket))
+            span.set_attribute("aws.s3.key", str(key))
+            
+            result = await original_delete_object(*args, **kwargs)
+            
+            span.set_status(trace.Status(trace.StatusCode.OK))
+            return result
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+            raise
+        finally:
+            span.end()
+    
+    async def traced_head_object(*args, **kwargs):
+        """Wrapped head_object with OpenTelemetry tracing"""
+        bucket = kwargs.get("Bucket") or (args[0] if args else "unknown")
+        key = kwargs.get("Key") or (args[1] if len(args) > 1 else "unknown")
+        
+        span = tracer.start_span(
+            "s3.head_object",
+            kind=trace.SpanKind.CLIENT,
+        )
+        
+        try:
+            span.set_attribute("aws.service", "s3")
+            span.set_attribute("aws.operation", "HeadObject")
+            span.set_attribute("aws.s3.bucket", str(bucket))
+            span.set_attribute("aws.s3.key", str(key))
+            
+            result = await original_head_object(*args, **kwargs)
+            
+            # Add response metadata if available
+            if "ContentLength" in result:
+                span.set_attribute("aws.s3.content_length", result["ContentLength"])
+            if "ContentType" in result:
+                span.set_attribute("aws.s3.content_type", result["ContentType"])
+            
+            span.set_status(trace.Status(trace.StatusCode.OK))
+            return result
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+            raise
+        finally:
+            span.end()
+    
+    async def traced_head_bucket(*args, **kwargs):
+        """Wrapped head_bucket with OpenTelemetry tracing"""
+        bucket = kwargs.get("Bucket") or (args[0] if args else "unknown")
+        
+        span = tracer.start_span(
+            "s3.head_bucket",
+            kind=trace.SpanKind.CLIENT,
+        )
+        
+        try:
+            span.set_attribute("aws.service", "s3")
+            span.set_attribute("aws.operation", "HeadBucket")
+            span.set_attribute("aws.s3.bucket", str(bucket))
+            
+            result = await original_head_bucket(*args, **kwargs)
+            
+            span.set_status(trace.Status(trace.StatusCode.OK))
+            return result
+        except Exception as e:
+            span.record_exception(e)
+            span.set_status(trace.Status(trace.StatusCode.ERROR, str(e)))
+            raise
+        finally:
+            span.end()
+    
+    # Replace the methods
+    client.get_object = traced_get_object
+    client.put_object = traced_put_object
+    client.delete_object = traced_delete_object
+    client.head_object = traced_head_object
+    client.head_bucket = traced_head_bucket
     
     return client
 
