@@ -57,7 +57,7 @@ func projectAuthMiddleware(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
 		lookup := tokens.HMAC256Hex(cfg.Root.SecretPepper, secret)
 
 		var project model.Project
-		if err := db.Where(&model.Project{SecretKeyHMAC: lookup}).First(&project).Error; err != nil {
+		if err := db.WithContext(c.Request.Context()).Where(&model.Project{SecretKeyHMAC: lookup}).First(&project).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, serializer.AuthErr("Unauthorized"))
 				return
