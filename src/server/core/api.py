@@ -1,12 +1,15 @@
 import asyncio
-import os
 from contextlib import asynccontextmanager
 from pydantic import ValidationError
 from typing import Optional, List
 from fastapi import FastAPI, Query, Path, Body
 from fastapi.exceptions import HTTPException
 from acontext_core.di import setup, cleanup, MQ_CLIENT, LOG, DB_CLIENT
-from acontext_core.telemetry.otel import setup_otel_tracing, instrument_fastapi, shutdown_otel_tracing
+from acontext_core.telemetry.otel import (
+    setup_otel_tracing,
+    instrument_fastapi,
+    shutdown_otel_tracing,
+)
 from acontext_core.telemetry.config import TelemetryConfig
 from acontext_core.schema.api.request import (
     SearchMode,
@@ -44,7 +47,7 @@ from sqlalchemy import select, func, cast, Integer
 async def lifespan(app: FastAPI):
     # Startup
     await setup()
-    
+
     # Setup OpenTelemetry tracing
     telemetry_config = TelemetryConfig.from_env()
     tracer_provider = None
@@ -64,14 +67,14 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             LOG.warning(
                 f"Failed to setup OpenTelemetry tracing, continuing without tracing: {e}",
-                exc_info=True
+                exc_info=True,
             )
-    
+
     # Run consumer in the background
     asyncio.create_task(MQ_CLIENT.start())
-    
+
     yield
-    
+
     # Shutdown
     if tracer_provider:
         try:
@@ -79,7 +82,7 @@ async def lifespan(app: FastAPI):
             LOG.info("OpenTelemetry tracing shutdown")
         except Exception as e:
             LOG.warning(f"Failed to shutdown OpenTelemetry tracing: {e}", exc_info=True)
-    
+
     await cleanup()
 
 
