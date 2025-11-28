@@ -61,7 +61,7 @@ services:
 
   # --- SeaweedFS ---
   acontext-server-seaweedfs:
-    image: chrislusf/seaweedfs:latest
+    image: chrislusf/seaweedfs:3.96
     container_name: acontext-server-seaweedfs
     restart: unless-stopped
     user: root # https://github.com/seaweedfs/seaweedfs/pull/7399
