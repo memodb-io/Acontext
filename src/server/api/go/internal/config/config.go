@@ -72,15 +72,22 @@ type CoreCfg struct {
 	BaseURL string
 }
 
+type TelemetryCfg struct {
+	OtlpEndpoint string
+	Enabled      bool
+	SampleRatio  float64 // Sampling ratio, range 0.0-1.0, default 1.0 (100%)
+}
+
 type Config struct {
-	App      AppCfg
-	Root     RootCfg
-	Log      LogCfg
-	Database DBCfg
-	Redis    RedisCfg
-	RabbitMQ MQCfg
-	S3       S3Cfg
-	Core     CoreCfg
+	App       AppCfg
+	Root      RootCfg
+	Log       LogCfg
+	Database  DBCfg
+	Redis     RedisCfg
+	RabbitMQ  MQCfg
+	S3        S3Cfg
+	Core      CoreCfg
+	Telemetry TelemetryCfg
 }
 
 func setDefaults(v *viper.Viper) {
@@ -102,6 +109,9 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("rabbitmq.exchangeName.sessionMessage", "session.message")
 	v.SetDefault("rabbitmq.routingKey.sessionMessageInsert", "session.message.insert")
 	v.SetDefault("core.baseURL", "http://127.0.0.1:8019")
+	v.SetDefault("telemetry.otlpEndpoint", "http://127.0.0.1:4317")
+	v.SetDefault("telemetry.enabled", true)
+	v.SetDefault("telemetry.sampleRatio", 1.0) // Default 100% sampling
 }
 
 func Load() (*Config, error) {

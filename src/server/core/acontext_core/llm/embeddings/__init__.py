@@ -1,9 +1,9 @@
 from typing import Literal
-import numpy as np
 from traceback import format_exc
 from ...env import LOG, DEFAULT_CORE_CONFIG
 from ...schema.result import Result
 from ...schema.embedding import EmbeddingReturn
+from ...telemetry.otel import instrument_llm_embedding
 from .jina_embedding import jina_embedding
 from .openai_embedding import openai_embedding
 
@@ -31,14 +31,16 @@ async def embedding_sanity_check():
     LOG.info(f"Embedding dimension matched with Config: {embedding_dim}")
 
 
+@instrument_llm_embedding
 async def get_embedding(
     texts: list[str],
     phase: Literal["query", "document"] = "document",
     model: str = None,
 ) -> Result[EmbeddingReturn]:
     model = model or DEFAULT_CORE_CONFIG.block_embedding_model
+    provider = DEFAULT_CORE_CONFIG.block_embedding_provider
     try:
-        results = await FACTORIES[DEFAULT_CORE_CONFIG.block_embedding_provider](
+        results = await FACTORIES[provider](
             model, texts, phase
         )
     except Exception as e:

@@ -88,6 +88,13 @@ class CoreConfig(BaseModel):
     s3_connection_timeout: float = 60.0
     s3_read_timeout: float = 60.0
 
+    # otel
+    otel_exporter_otlp_endpoint: str = "http://localhost:4317"
+    otel_enabled: bool = True
+    otel_sample_ratio: float = 1.0
+    otel_service_name: str = "acontext-core"
+    otel_service_version: str = "0.0.1"
+
 
 def filter_value_from_env(CLS: Type[BaseModel]) -> dict[str, Any]:
     config_keys = CLS.model_fields.keys()

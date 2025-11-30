@@ -5,6 +5,8 @@ from typing import Optional, List
 from fastapi import FastAPI, Query, Path, Body
 from fastapi.exceptions import HTTPException
 from acontext_core.di import setup, cleanup, MQ_CLIENT, LOG, DB_CLIENT
+from acontext_core.telemetry.otel import setup_otel_tracing, instrument_fastapi, shutdown_otel_tracing
+from acontext_core.telemetry.config import TelemetryConfig
 from acontext_core.schema.api.request import (
     SearchMode,
     ToolRenameRequest,
@@ -36,19 +38,65 @@ from acontext_core.service.session_message import flush_session_message_blocking
 from acontext_core.schema.orm import Task
 from sqlalchemy import select, func, cast, Integer
 
+# Setup OpenTelemetry tracing before app creation
+# This ensures tracer provider is set up before instrumentation
+telemetry_config = TelemetryConfig.from_env()
+tracer_provider = None
+if telemetry_config.enabled:
+    try:
+        tracer_provider = setup_otel_tracing(
+            service_name=telemetry_config.service_name,
+            otlp_endpoint=telemetry_config.otlp_endpoint,
+            sample_ratio=telemetry_config.sample_ratio,
+            service_version=telemetry_config.service_version,
+        )
+        LOG.info(
+            f"OpenTelemetry tracing setup: endpoint={telemetry_config.otlp_endpoint}, "
+            f"sample_ratio={telemetry_config.sample_ratio}"
+        )
+    except Exception as e:
+        LOG.warning(
+            f"Failed to setup OpenTelemetry tracing, continuing without tracing: {e}",
+            exc_info=True
+        )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     await setup()
+    
     # Run consumer in the background
     asyncio.create_task(MQ_CLIENT.start())
+    
     yield
+    
     # Shutdown
+    if tracer_provider:
+        try:
+            shutdown_otel_tracing()
+            LOG.info("OpenTelemetry tracing shutdown")
+        except Exception as e:
+            LOG.warning(f"Failed to shutdown OpenTelemetry tracing: {e}", exc_info=True)
+    
     await cleanup()
 
 
 app = FastAPI(lifespan=lifespan)
+
+# Instrument FastAPI app after creation and route registration
+# This is the recommended approach: instrument after app creation and route registration
+# but before app startup. Routes are registered via decorators during module import,
+# so by the time we reach here, all routes are already registered.
+if tracer_provider:
+    try:
+        instrument_fastapi(app)
+        LOG.info("FastAPI instrumentation enabled")
+    except Exception as e:
+        LOG.warning(
+            f"Failed to instrument FastAPI, continuing without instrumentation: {e}",
+            exc_info=True
+        )
 
 
 async def semantic_grep_search_func(

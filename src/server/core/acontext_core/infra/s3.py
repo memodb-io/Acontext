@@ -155,6 +155,20 @@ class S3Client:
                 **client_kwargs
             ).__aenter__()
 
+            # Instrument with OpenTelemetry if enabled
+            try:
+                from ..telemetry.config import TelemetryConfig
+                telemetry_config = TelemetryConfig.from_env()
+                if telemetry_config.enabled:
+                    from ..telemetry.otel import instrument_s3
+                    instrument_s3(self._client)
+                    logger.info("S3 OpenTelemetry instrumentation enabled")
+            except Exception as e:
+                logger.warning(
+                    f"Failed to instrument S3 with OpenTelemetry, continuing without tracing: {e}",
+                    exc_info=True
+                )
+
         return self._client
 
     async def get_session(self) -> aiobotocore.session.AioSession:

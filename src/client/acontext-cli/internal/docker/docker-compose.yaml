@@ -14,7 +14,11 @@ services:
     volumes:
       - ${DATABASE_LOCATION:-./acontext_data/pg}:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-acontext} -d ${DATABASE_NAME:-acontext}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DATABASE_USER:-acontext} -d ${DATABASE_NAME:-acontext}",
+        ]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -37,7 +41,7 @@ services:
 
   # --- RabbitMQ ---
   acontext-server-rabbitmq:
-    image: rabbitmq:3-management
+    image: rabbitmq:4-management
     container_name: acontext-server-rabbitmq
     restart: unless-stopped
     environment:
@@ -57,7 +61,7 @@ services:
 
   # --- SeaweedFS ---
   acontext-server-seaweedfs:
-    image: chrislusf/seaweedfs:latest
+    image: chrislusf/seaweedfs:4.00
     container_name: acontext-server-seaweedfs
     restart: unless-stopped
     user: root  # https://github.com/seaweedfs/seaweedfs/pull/7399
@@ -96,7 +100,7 @@ services:
 
   # init Bucket for SeaweedFS
   acontext-server-seaweedfs-setup:
-    image: amazon/aws-cli:latest
+    image: amazon/aws-cli:2.32.6
     container_name: acontext-server-seaweedfs-setup
     depends_on:
       acontext-server-seaweedfs:
@@ -113,6 +117,33 @@ services:
       "
     restart: "no"
 
+  # --- Jaeger (OpenTelemetry Collector) ---
+  acontext-server-jaeger:
+    image: jaegertracing/all-in-one:1.75.0
+    container_name: acontext-server-jaeger
+    restart: unless-stopped
+    user: root  # Run as root to ensure write permissions to mounted volume
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      # Use Badger as storage backend (local file storage, suitable for development)
+      SPAN_STORAGE_TYPE: "badger"
+      BADGER_EPHEMERAL: "false"  # Disable ephemeral storage, enable persistence
+      BADGER_DIRECTORY: "/badger/data"
+      BADGER_SPAN_STORE_TTL: "168h"  # Data retention: 7 days
+    ports:
+      - "${JAEGER_UI_EXPORT_PORT:-16686}:16686"  # Jaeger UI
+      - "${JAEGER_OTLP_GRPC_EXPORT_PORT:-4317}:4317"  # OTLP gRPC receiver
+      - "${JAEGER_OTLP_HTTP_EXPORT_PORT:-4318}:4318"  # OTLP HTTP receiver
+      - "14250:14250"  # gRPC (model.proto)
+      - "14268:14268"  # HTTP (thrift)
+    volumes:
+      - ${JAEGER_STORAGE_LOCATION:-./acontext_data/jaeger}:/badger/data
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:16686"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
   # acontext-server-core
   acontext-server-core:
     image: ${CORE_IMAGE:-ghcr.io/memodb-io/acontext-core:latest}
@@ -127,6 +158,7 @@ services:
       MQ_URL: amqp://${RABBITMQ_USER:-acontext}:${RABBITMQ_PASSWORD:-helloworld}@acontext-server-rabbitmq:5672/
       REDIS_URL: redis://:${REDIS_PASSWORD:-helloworld}@acontext-server-redis:6379
       S3_ENDPOINT: http://acontext-server-seaweedfs:9000
+      OTEL_EXPORTER_OTLP_ENDPOINT: acontext-server-jaeger:4317
     ports:
       - "${CORE_EXPORT_PORT:-8019}:8000"
     volumes:
@@ -142,6 +174,8 @@ services:
         condition: service_healthy
       acontext-server-seaweedfs-setup:
         condition: service_completed_successfully
+      acontext-server-jaeger:
+        condition: service_healthy
 
   # acontext-server-api
   acontext-server-api:
@@ -173,10 +207,16 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY:-helloworld}
       S3_BUCKET: ${S3_BUCKET:-acontext-assets}
       CORE_BASE_URL: http://acontext-server-core:8000
+      OTEL_EXPORTER_OTLP_ENDPOINT: acontext-server-jaeger:4317
+      APP_ENV: ${APP_ENV:-development}
     ports:
       - "${API_EXPORT_PORT:-8029}:8029"
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://acontext-server-api:8029/health || exit 1"]
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O- http://acontext-server-api:8029/health || exit 1",
+        ]
       interval: 30s
       timeout: 5s
       retries: 5

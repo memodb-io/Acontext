@@ -23,6 +23,8 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/modules/model"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
+	"go.opentelemetry.io/otel"
 )
 
 type S3Deps struct {
@@ -46,6 +48,12 @@ func NewS3(ctx context.Context, cfg *config.Config) (*S3Deps, error) {
 	acfg, err := awsCfg.LoadDefaultConfig(ctx, loadOpts...)
 	if err != nil {
 		return nil, err
+	}
+
+	// Add OpenTelemetry middleware if tracer provider is set
+	// This should be called after telemetry.SetupTracing() to ensure tracer provider is set
+	if otel.GetTracerProvider() != nil {
+		otelaws.AppendMiddlewares(&acfg.APIOptions)
 	}
 
 	// Helper function to normalize endpoint URL
