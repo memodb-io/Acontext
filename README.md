@@ -35,8 +35,9 @@
 
 
 
+Acontext is a **context data platform** for **cloud-native** AI Agent applications.
 
-Acontext is a context data platform that:
+It can:
 
 - **Stores** contexts & artifacts
 - **Observes** agent tasks and user feedback.
