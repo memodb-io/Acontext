@@ -3,6 +3,7 @@ package telemetry
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -100,8 +101,20 @@ func Shutdown(ctx context.Context) error {
 }
 
 // GinMiddleware returns Gin middleware for OpenTelemetry instrumentation
+// Only traces requests that match /api/ paths
 func GinMiddleware(serviceName string) gin.HandlerFunc {
-	return otelgin.Middleware(serviceName)
+	otelMiddleware := otelgin.Middleware(serviceName)
+
+	return func(c *gin.Context) {
+		// Only instrument requests that start with /api/
+		path := c.Request.URL.Path
+		if strings.HasPrefix(path, "/api/") {
+			otelMiddleware(c)
+		} else {
+			// Skip OpenTelemetry instrumentation for non-API paths
+			c.Next()
+		}
+	}
 }
 
 // TraceIDMiddleware returns a Gin middleware that adds trace ID to response headers
