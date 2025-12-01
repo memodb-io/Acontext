@@ -1084,7 +1084,8 @@ export default function PagesPage() {
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-semibold">{t("contentTitle")}</h2>
               <div className="flex gap-2">
-                {selectedNode && selectedNode.type === "page" && (
+                {/* TODO: Hidden for now */}
+                {selectedNode && selectedNode.type === "page" && false && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
