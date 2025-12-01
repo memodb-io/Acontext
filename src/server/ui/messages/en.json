@@ -8,6 +8,7 @@
     "disk": "Disks",
     "space": "Space",
     "session": "Session",
+    "traces": "Traces",
     "spaceList": "Spaces",
     "sessionList": "Sessions",
     "messageList": "Messages",
@@ -285,5 +286,24 @@
     "saving": "Saving...",
     "addBlock": "Add Block",
     "dragToReorder": "Drag to reorder"
+  },
+  "traces": {
+    "title": "Traces",
+    "timeRangeOptions": {
+      "15m": "Last 15 minutes",
+      "1h": "Last 1 hour",
+      "6h": "Last 6 hours",
+      "24h": "Last 24 hours",
+      "7d": "Last 7 days"
+    },
+    "loading": "Loading traces...",
+    "loadingMore": "Loading more...",
+    "loadMore": "Load More",
+    "noTraces": "No traces found for acontext-api service",
+    "tracesFound": "{count} trace(s) found",
+    "spanCount": "{count} span(s)",
+    "viewInJaeger": "View in Jaeger",
+    "traceIdCopied": "Trace ID copied to clipboard",
+    "copyFailed": "Failed to copy Trace ID"
   }
 }
