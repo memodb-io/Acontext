@@ -299,11 +299,13 @@
     "loading": "加载 traces 中...",
     "loadingMore": "加载更多中...",
     "loadMore": "加载更多",
-    "noTraces": "未找到 acontext-api 服务的 traces",
+    "noTraces": "未找到 traces",
     "tracesFound": "找到 {count} 个 trace",
     "spanCount": "{count} 个 span",
     "viewInJaeger": "在 Jaeger 中查看",
     "traceIdCopied": "Trace ID 已复制到剪贴板",
-    "copyFailed": "复制 Trace ID 失败"
+    "copyFailed": "复制 Trace ID 失败",
+    "lastRefresh": "最后刷新",
+    "autoRefreshIn": "{seconds} 秒后自动刷新"
   }
 }

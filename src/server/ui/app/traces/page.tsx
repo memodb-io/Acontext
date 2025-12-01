@@ -36,6 +36,8 @@ export default function TracesPage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date | null>(null);
+  const [countdown, setCountdown] = useState<number>(30);
 
   // Update ref when traces change
   useEffect(() => {
@@ -147,8 +149,27 @@ export default function TracesPage() {
       setIsLoading(false);
       setIsRefreshing(false);
       setIsLoadingMore(false);
+      // Update last refresh time when loading completes (only for non-append loads)
+      if (!append) {
+        setLastRefreshTime(new Date());
+        setCountdown(30); // Reset countdown to 30 seconds
+      }
     }
   }, [lookback]);
+
+  // Countdown timer
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          return 30; // Reset to 30 when it reaches 0 (auto refresh will trigger)
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   // Initial load and auto refresh
   useEffect(() => {
@@ -202,29 +223,36 @@ export default function TracesPage() {
             {t("tracesFound", { count: traces.length })}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Select value={lookback} onValueChange={setLookback}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="15m">{t("timeRangeOptions.15m")}</SelectItem>
-              <SelectItem value="1h">{t("timeRangeOptions.1h")}</SelectItem>
-              <SelectItem value="6h">{t("timeRangeOptions.6h")}</SelectItem>
-              <SelectItem value="24h">{t("timeRangeOptions.24h")}</SelectItem>
-              <SelectItem value="7d">{t("timeRangeOptions.7d")}</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button
-            onClick={handleRefresh}
-            disabled={isLoading || isRefreshing}
-            variant="outline"
-            size="sm"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-          </Button>
-          {isLoading && (
-            <span className="text-xs text-muted-foreground">{t("loading")}</span>
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex items-center gap-2">
+            <Select value={lookback} onValueChange={setLookback}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="15m">{t("timeRangeOptions.15m")}</SelectItem>
+                <SelectItem value="1h">{t("timeRangeOptions.1h")}</SelectItem>
+                <SelectItem value="6h">{t("timeRangeOptions.6h")}</SelectItem>
+                <SelectItem value="24h">{t("timeRangeOptions.24h")}</SelectItem>
+                <SelectItem value="7d">{t("timeRangeOptions.7d")}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={handleRefresh}
+              disabled={isLoading || isRefreshing}
+              variant="outline"
+              size="sm"
+            >
+              <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+            </Button>
+            {isLoading && (
+              <span className="text-xs text-muted-foreground">{t("loading")}</span>
+            )}
+          </div>
+          {lastRefreshTime && (
+            <p className="text-xs text-muted-foreground">
+              {t("lastRefresh")}: {lastRefreshTime.toLocaleTimeString()} · {t("autoRefreshIn", { seconds: countdown })}
+            </p>
           )}
         </div>
       </div>

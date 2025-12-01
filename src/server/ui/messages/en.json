@@ -299,11 +299,13 @@
     "loading": "Loading traces...",
     "loadingMore": "Loading more...",
     "loadMore": "Load More",
-    "noTraces": "No traces found for acontext-api service",
+    "noTraces": "No traces found",
     "tracesFound": "{count} trace(s) found",
     "spanCount": "{count} span(s)",
     "viewInJaeger": "View in Jaeger",
     "traceIdCopied": "Trace ID copied to clipboard",
-    "copyFailed": "Failed to copy Trace ID"
+    "copyFailed": "Failed to copy Trace ID",
+    "lastRefresh": "Last refresh",
+    "autoRefreshIn": "Auto refresh in {seconds}s"
   }
 }
