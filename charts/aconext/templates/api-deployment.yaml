@@ -62,7 +62,7 @@ spec:
             - name: DATABASE_EXPORT_PORT
               value: {{ include "aconext.postgresql.port" . | quote }}
             - name: DATABASE_USER
-              value: {{ if .Values.postgresql.enabled }}{{ .Values.postgresql.auth.username }}{{ else }}{{ .Values.external.postgresql.username }}{{ end | quote }}
+              value: {{ if .Values.postgresql.enabled }}{{ .Values.postgresql.auth.username | quote }}{{ else }}{{ .Values.external.postgresql.username | quote }}{{ end }}
             {{- if .Values.postgresql.enabled }}
             - name: DATABASE_PASSWORD
               value: {{ .Values.postgresql.auth.password | quote }}
@@ -74,7 +74,7 @@ spec:
                   key: password
             {{- end }}
             - name: DATABASE_NAME
-              value: {{ if .Values.postgresql.enabled }}{{ .Values.postgresql.auth.database }}{{ else }}{{ .Values.external.postgresql.database }}{{ end | quote }}
+              value: {{ if .Values.postgresql.enabled }}{{ .Values.postgresql.auth.database | quote }}{{ else }}{{ .Values.external.postgresql.database | quote }}{{ end }}
             - name: REDIS_HOST
               value: {{ include "aconext.redis.host" . | quote }}
             - name: REDIS_EXPORT_PORT
@@ -94,7 +94,7 @@ spec:
             - name: RABBITMQ_EXPORT_PORT
               value: {{ include "aconext.rabbitmq.port" . | quote }}
             - name: RABBITMQ_USER
-              value: {{ if .Values.rabbitmq.enabled }}{{ .Values.rabbitmq.auth.username }}{{ else }}{{ .Values.external.rabbitmq.username }}{{ end | quote }}
+              value: {{ if .Values.rabbitmq.enabled }}{{ .Values.rabbitmq.auth.username | quote }}{{ else }}{{ .Values.external.rabbitmq.username | quote }}{{ end }}
             {{- if .Values.rabbitmq.enabled }}
             - name: RABBITMQ_PASSWORD
               value: {{ .Values.rabbitmq.auth.password | quote }}
@@ -106,9 +106,9 @@ spec:
                   key: password
             {{- end }}
             - name: RABBITMQ_VHOST
-              value: {{ if .Values.rabbitmq.enabled }}{{ .Values.rabbitmq.auth.vhost | default "/" }}{{ else }}{{ .Values.external.rabbitmq.vhost | default "/" }}{{ end | quote }}
+              value: {{ if .Values.rabbitmq.enabled }}{{ .Values.rabbitmq.auth.vhost | default "/" | quote }}{{ else }}{{ .Values.external.rabbitmq.vhost | default "/" | quote }}{{ end }}
             - name: RABBITMQ_VHOST_ENCODED
-              value: {{ if .Values.rabbitmq.enabled }}{{ .Values.rabbitmq.auth.vhost | default "/" | urlquery }}{{ else }}{{ .Values.external.rabbitmq.vhost | default "/" | urlquery }}{{ end | quote }}
+              value: {{ if .Values.rabbitmq.enabled }}{{ .Values.rabbitmq.auth.vhost | default "/" | urlquery | quote }}{{ else }}{{ .Values.external.rabbitmq.vhost | default "/" | urlquery | quote }}{{ end }}
             {{- if .Values.api.env.S3_ENDPOINT }}
             - name: S3_ENDPOINT
               valueFrom:

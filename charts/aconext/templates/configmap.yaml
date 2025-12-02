@@ -15,8 +15,10 @@ data:
   {{- if .Values.core.env.S3_ENDPOINT }}
   S3_ENDPOINT: {{ .Values.core.env.S3_ENDPOINT | quote }}
   {{- end }}
+  S3_REGION: {{ .Values.core.env.S3_REGION | default "us-east-1" | quote }}
+  S3_BUCKET: {{ .Values.core.env.S3_BUCKET | default "acontext-assets" | quote }}
 {{- end }}
-
+---
 {{- if .Values.api.enabled }}
 apiVersion: v1
 kind: ConfigMap

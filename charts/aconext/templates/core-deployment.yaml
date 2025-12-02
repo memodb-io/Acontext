@@ -32,6 +32,43 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if and .Values.postgresql.enabled .Values.postgresql.auth.postgresPassword }}
+      initContainers:
+        - name: init-vector-extension
+          image: {{ .Values.postgresql.image.registry }}/{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}
+          imagePullPolicy: {{ .Values.postgresql.image.pullPolicy }}
+          command:
+            - /bin/bash
+            - -ec
+            - |
+              export PGHOST={{ include "aconext.postgresql.host" . }}
+              export PGPORT={{ include "aconext.postgresql.port" . }}
+              export PGUSER=postgres
+              export PGPASSWORD=$POSTGRES_PASSWORD
+              export PGDATABASE={{ .Values.postgresql.auth.database | quote }}
+              
+              echo "Waiting for PostgreSQL to be ready..."
+              until PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d postgres -c '\q' 2>/dev/null; do
+                echo "PostgreSQL is unavailable - sleeping"
+                sleep 2
+              done
+              
+              echo "Creating vector extension in database $PGDATABASE..."
+              PGPASSWORD="$POSTGRES_PASSWORD" psql -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" -c "CREATE EXTENSION IF NOT EXISTS vector;" || echo "Extension may already exist or failed to create"
+              
+              echo "Vector extension initialization completed!"
+          env:
+            - name: PGHOST
+              value: {{ include "aconext.postgresql.host" . | quote }}
+            - name: PGPORT
+              value: {{ include "aconext.postgresql.port" . | quote }}
+            - name: PGUSER
+              value: "postgres"
+            - name: POSTGRES_PASSWORD
+              value: {{ .Values.postgresql.auth.postgresPassword | quote }}
+            - name: PGDATABASE
+              value: {{ .Values.postgresql.auth.database | quote }}
+      {{- end }}
       containers:
         - name: core
           {{- with .Values.core.securityContext }}
@@ -81,6 +118,30 @@ spec:
                 configMapKeyRef:
                   name: {{ include "aconext.core.name" . }}-config
                   key: S3_ENDPOINT
+            {{- end }}
+            - name: S3_REGION
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "aconext.core.name" . }}-config
+                  key: S3_REGION
+            - name: S3_BUCKET
+              valueFrom:
+                configMapKeyRef:
+                  name: {{ include "aconext.core.name" . }}-config
+                  key: S3_BUCKET
+            {{- if .Values.secrets.s3.accessKey }}
+            - name: S3_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aconext.fullname" . }}-s3-secret
+                  key: S3_ACCESS_KEY
+            {{- end }}
+            {{- if .Values.secrets.s3.secretKey }}
+            - name: S3_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "aconext.fullname" . }}-s3-secret
+                  key: S3_SECRET_KEY
             {{- end }}
           {{- with .Values.core.livenessProbe }}
           livenessProbe:

@@ -31,6 +31,8 @@ core:
     
     # S3 Configuration (AWS S3)
     S3_ENDPOINT: ""  # AWS S3 endpoint, e.g., https://s3.amazonaws.com or https://s3.us-east-1.amazonaws.com
+    S3_REGION: "us-east-1"  # AWS S3 region
+    S3_BUCKET: "acontext-assets"  # S3 bucket name
   
   resources:
     limits:
@@ -142,8 +144,9 @@ api:
 postgresql:
   enabled: true
   image:
-    repository: postgres
-    tag: "16.1"
+    registry: "docker.io"
+    repository: "bitnamilegacy/postgresql"
+    tag: "17.6.0-debian-12-r4"
     pullPolicy: Always
   auth:
     username: "acontext"
@@ -151,33 +154,49 @@ postgresql:
     database: "acontext"
     postgresPassword: "postgres" 
   persistence:
-    enabled: false
+    enabled: true
+  # Fix for read-only filesystem error: disable readOnlyRootFilesystem
+  # PostgreSQL needs to create lock files in /var/run/postgresql/
+  primary:
+    containerSecurityContext:
+      readOnlyRootFilesystem: false
 
 # Redis configuration (Bitnami chart)
 # Set enabled: false to use external Redis
 redis:
   enabled: true
   image:
-    repository: bitnamilegacy/redis
-    tag: "6.0.16"
+    registry: "docker.io"
+    repository: "bitnamilegacy/redis"
+    tag: "8.2.1-debian-12-r0"
     pullPolicy: Always
   auth:
     enabled: true
     password: "acontext" 
+  persistence:
+    enabled: true
 
 # RabbitMQ configuration (Bitnami chart)
 # Set enabled: false to use external RabbitMQ
 rabbitmq:
   enabled: true
   image:
-    repository: bitnamilegacy/rabbitmq
-    tag: "3.8.12"
+    registry: "docker.io"
+    repository: "bitnamilegacy/rabbitmq"
+    tag: "4.1.3-debian-12-r1"
     pullPolicy: Always
+    debug: true
   auth:
     username: "acontext"
     password: "acontext" 
   persistence:
+    enabled: true
+  volumePermissions:
     enabled: false
+    image:
+      repository: "bitnamilegacy/os-shell"
+      tag: "12-debian-12-r50"
+      pullPolicy: IfNotPresent
 
 # External service configuration (when not using internal services)
 # When using external services, set the corresponding internal service (postgresql/redis/rabbitmq) enabled: false
@@ -231,5 +250,8 @@ secrets:
   s3:
     accessKey: ""  # AWS S3 access key
     secretKey: ""  # AWS S3 secret key
+
+
+# TOOD: opentelemetry collector
 
 # TODO: HTTPRoute configuration (Gateway API)
