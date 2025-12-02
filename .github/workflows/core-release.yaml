@@ -30,7 +30,7 @@ jobs:
           images: ghcr.io/memodb-io/acontext-core
           tags: |
             type=sha
-            type=semver,pattern={{version}},match=v(\d.\d.\d)$
+            type=semver,pattern={{version}},match=core/v(\d+\.\d+\.\d+)$
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -57,7 +57,7 @@ jobs:
 
       - name: Generate Changelog
         run: |
-          echo "# Core ${{ steps.version.outputs.version }}" > ${{ github.workspace }}-CHANGELOG.txt
+          echo "# Core v${{ steps.version.outputs.version }}" > ${{ github.workspace }}-CHANGELOG.txt
           echo "" >> ${{ github.workspace }}-CHANGELOG.txt
           echo "Published to https://github.com/memodb-io/Acontext/pkgs/container/acontext-core" >> ${{ github.workspace }}-CHANGELOG.txt
 

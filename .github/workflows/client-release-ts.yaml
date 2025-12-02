@@ -3,7 +3,7 @@ name: TypeScript Client Release
 on:
   push:
     tags:
-      - 'sdk-ts/v*.*.*'
+      - 'sdk-ts/v*'
   workflow_dispatch:
 
 permissions:
