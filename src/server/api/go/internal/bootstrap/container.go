@@ -59,6 +59,7 @@ func BuildContainer() *do.Injector {
 				&model.ToolReference{},
 				&model.ToolSOP{},
 				&model.ExperienceConfirmation{},
+				&model.Metric{},
 			)
 		}
 

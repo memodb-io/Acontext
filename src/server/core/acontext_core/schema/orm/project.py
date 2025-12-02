@@ -1,8 +1,7 @@
-import uuid
 from dataclasses import dataclass, field
-from sqlalchemy import String, Index, Column, ForeignKey
+from sqlalchemy import String, Index, Column
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.dialects.postgresql import JSONB
 from typing import TYPE_CHECKING, List, Optional
 from .base import ORM_BASE, CommonMixin
 
@@ -11,6 +10,7 @@ if TYPE_CHECKING:
     from .session import Session
     from .task import Task
     from .tool_reference import ToolReference
+    from .metric import Metric
 
 
 @ORM_BASE.mapped
@@ -64,6 +64,15 @@ class Project(CommonMixin):
         metadata={
             "db": relationship(
                 "ToolReference", back_populates="project", cascade="all, delete-orphan"
+            )
+        },
+    )
+
+    metrics: List["Metric"] = field(
+        default_factory=list,
+        metadata={
+            "db": relationship(
+                "Metric", back_populates="project", cascade="all, delete-orphan"
             )
         },
     )

@@ -1,4 +1,3 @@
-import json
 from dataclasses import dataclass, field
 from sqlalchemy import String, ForeignKey, Index, CheckConstraint, Column
 from sqlalchemy.orm import relationship

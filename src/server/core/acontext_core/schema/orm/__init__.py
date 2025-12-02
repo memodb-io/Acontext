@@ -10,6 +10,7 @@ from .block_reference import BlockReference
 from .tool_reference import ToolReference
 from .tool_sop import ToolSOP
 from .experience_confirmation import ExperienceConfirmation
+from .metric import Metric
 
 __all__ = [
     "ORM_BASE",
@@ -28,4 +29,5 @@ __all__ = [
     "ToolReference",
     "ToolSOP",
     "ExperienceConfirmation",
+    "Metric",
 ]
