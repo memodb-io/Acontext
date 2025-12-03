@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import {
   Sidebar,
@@ -20,7 +21,7 @@ import { NavMain } from "@/components/nav-main";
 
 import Image from "next/image";
 import Link from "next/link";
-import { Folder, Database, MessageSquare, LayoutDashboard } from "lucide-react";
+import { Folder, Database, MessageSquare, LayoutDashboard, Activity } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Separator } from "@/components/ui/separator";
 
@@ -28,30 +29,67 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
   const t = useTranslations("sidebar");
   const { open } = useSidebar();
+  const [isJaegerAvailable, setIsJaegerAvailable] = useState(false);
+
+  // Check if Jaeger is available
+  useEffect(() => {
+    const checkJaeger = async () => {
+      try {
+        const response = await fetch("/api/jaeger/check");
+        const result = await response.json();
+        if (result.code === 0) {
+          setIsJaegerAvailable(result.data?.available || false);
+        }
+      } catch (error) {
+        console.error("Failed to check Jaeger availability:", error);
+        setIsJaegerAvailable(false);
+      }
+    };
+
+    checkJaeger();
+    const interval = setInterval(checkJaeger, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const dashboardItem = {
+    title: t("dashboard"),
+    url: "/dashboard",
+    icon: LayoutDashboard,
+  };
+
+  const otherNavItems = [
+    {
+      title: t("disk"),
+      url: "/disk",
+      icon: Folder,
+    },
+    {
+      title: t("space"),
+      url: "/space",
+      icon: Database,
+    },
+    {
+      title: t("session"),
+      url: "/session",
+      icon: MessageSquare,
+    },
+  ];
+
+  // Add traces button after Dashboard if Jaeger is available
+  const navItems = isJaegerAvailable
+    ? [
+        dashboardItem,
+        {
+          title: t("traces"),
+          url: "/traces",
+          icon: Activity,
+        },
+        ...otherNavItems,
+      ]
+    : [dashboardItem, ...otherNavItems];
 
   const data = {
-    navMain: [
-      {
-        title: t("dashboard"),
-        url: "/dashboard",
-        icon: LayoutDashboard,
-      },
-      {
-        title: t("disk"),
-        url: "/disk",
-        icon: Folder,
-      },
-      {
-        title: t("space"),
-        url: "/space",
-        icon: Database,
-      },
-      {
-        title: t("session"),
-        url: "/session",
-        icon: MessageSquare,
-      },
-    ] as {
+    navMain: navItems as {
       title: string;
       url: string;
       icon?: React.ElementType;

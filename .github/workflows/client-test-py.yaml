@@ -7,14 +7,14 @@ on:
       - dev
     paths:
       - 'src/client/acontext-py/**'
-      - '.github/workflows/client-test.yaml'
+      - '.github/workflows/client-test-py.yaml'
   pull_request:
     branches:
       - main
       - dev
     paths:
       - 'src/client/acontext-py/**'
-      - '.github/workflows/client-test.yaml'
+      - '.github/workflows/client-test-py.yaml'
 
 jobs:
   test:  

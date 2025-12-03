@@ -8,6 +8,7 @@
     "disk": "磁盘",
     "space": "空间",
     "session": "会话",
+    "traces": "Traces",
     "spaceList": "空间",
     "sessionList": "会话",
     "messageList": "消息",
@@ -285,5 +286,26 @@
     "saving": "保存中...",
     "addBlock": "添加块",
     "dragToReorder": "拖动重新排序"
+  },
+  "traces": {
+    "title": "Traces",
+    "timeRangeOptions": {
+      "15m": "最近 15 分钟",
+      "1h": "最近 1 小时",
+      "6h": "最近 6 小时",
+      "24h": "最近 24 小时",
+      "7d": "最近 7 天"
+    },
+    "loading": "加载 traces 中...",
+    "loadingMore": "加载更多中...",
+    "loadMore": "加载更多",
+    "noTraces": "未找到 traces",
+    "tracesFound": "找到 {count} 个 trace",
+    "spanCount": "{count} 个 span",
+    "viewInJaeger": "在 Jaeger 中查看",
+    "traceIdCopied": "Trace ID 已复制到剪贴板",
+    "copyFailed": "复制 Trace ID 失败",
+    "lastRefresh": "最后刷新",
+    "autoRefreshIn": "{seconds} 秒后自动刷新"
   }
 }

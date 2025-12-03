@@ -1,3 +1,4 @@
+import asyncio
 from ...env import LOG, bound_logging_vars
 from ...infra.db import AsyncSession, DB_CLIENT
 from ..complete import llm_complete, response_to_sendable_message
@@ -6,6 +7,8 @@ from ...schema.result import Result
 from ...schema.utils import asUUID
 from ..prompt.space_search import SpaceSearchPrompt
 from ..tool.space_search_tools import SPACE_SEARCH_TOOLS, SpaceSearchCtx
+from ...constants import MetricTags
+from ...telemetry.capture_metrics import capture_increment
 
 
 async def build_space_search_ctx(
@@ -102,4 +105,10 @@ async def space_agent_search(
             break
         already_iterations += 1
     USE_CTX.db_session = None  # remove the out-dated session
+    asyncio.create_task(
+        capture_increment(
+            project_id=project_id,
+            tag=MetricTags.new_experience_agentic_search,
+        )
+    )
     return Result.resolve(USE_CTX)

@@ -3,7 +3,7 @@ name: Python Client Release
 on:
   push:
     tags:
-      - 'sdk-py/v*.*.*'
+      - 'sdk-py/v*'
   workflow_dispatch:
 
 permissions:
@@ -32,21 +32,21 @@ jobs:
         with:
           version: "latest"
 
-      - name: Build distribution
-        run: uv build
-
-      - name: Publish to PyPI
-        run: uv publish
-
       - name: Extract version from tag
         id: version
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/sdk-py/v}
           echo "version=$TAG_NAME" >> $GITHUB_OUTPUT
 
+      - name: Build distribution
+        run: uv build
+
+      - name: Publish to PyPI
+        run: uv publish
+
       - name: Generate Changelog
         run: |
-          echo "# Python SDK ${{ steps.version.outputs.version }}" > ${{ github.workspace }}-CHANGELOG.txt
+          echo "# Python SDK v${{ steps.version.outputs.version }}" > ${{ github.workspace }}-CHANGELOG.txt
           echo "" >> ${{ github.workspace }}-CHANGELOG.txt
           echo "Published to https://pypi.org/project/acontext/${{ steps.version.outputs.version }}/" >> ${{ github.workspace }}-CHANGELOG.txt
 

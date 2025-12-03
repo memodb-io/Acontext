@@ -97,8 +97,9 @@ get_latest_version() {
         version_json=$(wget -qO- "$api_url" 2>/dev/null)
     fi
     
-    # Extract the latest CLI version (format: cli/vX.X.X)
-    VERSION=$(echo "$version_json" | grep -o '"tag_name": *"cli/v[^"]*"' | head -1 | sed 's/.*"cli\/\(v[^"]*\)".*/\1/')
+    # Extract all CLI versions (format: cli/vX.X.X) and sort them properly
+    # Extract all version tags, remove "cli/" prefix, sort by version, and get the latest
+    VERSION=$(echo "$version_json" | grep -o '"tag_name": *"cli/v[^"]*"' | sed 's/.*"cli\/\(v[^"]*\)".*/\1/' | sort -V | tail -1)
     
     if [ -z "$VERSION" ]; then
         print_error "Failed to fetch latest version"

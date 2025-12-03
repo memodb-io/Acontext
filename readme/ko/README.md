@@ -14,7 +14,7 @@
   </p>
   <p align="center">
     <a href="https://x.com/acontext_io"><img src="https://img.shields.io/twitter/follow/acontext_io?style=social" alt="Twitter Follow"></a>
-    <a href="https://discord.acontext.io"><img src="https://dcbadge.limes.pink/api/server/SG9xJcqVBu?style=flat" alt="Discord"></a>
+    <a href="https://discord.acontext.io"><img src="https://img.shields.io/badge/dynamic/json?label=Acontext&style=flat&query=approximate_member_count&url=https%3A%2F%2Fdiscord.com%2Fapi%2Fv10%2Finvites%2FSG9xJcqVBu%3Fwith_counts%3Dtrue&logo=discord&logoColor=white&suffix=+members&color=36393f&labelColor=5765F2" alt="Acontext Discord"></a>
   </p>
   <div align="center">
     <!-- Keep these links. Translations will automatically update with the README. -->
@@ -34,7 +34,9 @@
 
 
 
-Acontext는 다음과 같은 컨텍스트 데이터 플랫폼입니다:
+Acontext는 **클라우드 네이티브** AI Agent 애플리케이션을 위한 **컨텍스트 데이터 플랫폼**입니다.
+
+다음과 같은 기능을 제공합니다:
 
 - **저장** 컨텍스트 및 Artifacts
 - **관찰** Agent 작업 및 사용자 피드백.

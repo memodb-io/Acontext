@@ -1,9 +1,10 @@
-from ..base import Tool, ToolPool
+import asyncio
+from ..base import Tool
 from ....schema.llm import ToolSchema
 from ....schema.result import Result
-from ....schema.orm import Task
 from ....service.data import task as TD
-from ....env import LOG
+from ....constants import MetricTags
+from ....telemetry.capture_metrics import capture_increment
 from .ctx import TaskCtx
 
 
@@ -22,6 +23,12 @@ async def insert_task_handler(ctx: TaskCtx, llm_arguments: dict) -> Result[str]:
     t, eil = r.unpack()
     if eil:
         return r
+    asyncio.create_task(
+        capture_increment(
+            project_id=ctx.project_id,
+            tag=MetricTags.new_task_created,
+        )
+    )
     return Result.resolve(f"Task {t.order} created")
 
 

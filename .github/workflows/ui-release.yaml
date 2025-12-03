@@ -30,7 +30,7 @@ jobs:
           images: ghcr.io/memodb-io/acontext-ui
           tags: |
             type=sha
-            type=semver,pattern={{version}},match=v(\d.\d.\d)$
+            type=semver,pattern={{version}},match=ui/v(\d+\.\d+\.\d+)$
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -49,7 +49,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha
 
-    
       - name: Extract version from tag
         id: version
         run: |
@@ -58,7 +57,7 @@ jobs:
 
       - name: Generate Changelog
         run: |
-          echo "# UI ${{ steps.version.outputs.version }}" > ${{ github.workspace }}-CHANGELOG.txt
+          echo "# UI v${{ steps.version.outputs.version }}" > ${{ github.workspace }}-CHANGELOG.txt
           echo "" >> ${{ github.workspace }}-CHANGELOG.txt
           echo "Published to https://github.com/memodb-io/Acontext/pkgs/container/acontext-ui" >> ${{ github.workspace }}-CHANGELOG.txt
 

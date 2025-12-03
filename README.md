@@ -14,9 +14,7 @@
   </p>
   <p align="center">
     <a href="https://x.com/acontext_io"><img src="https://img.shields.io/twitter/follow/acontext_io?style=social" alt="Twitter Follow"></a>
-    <a href="https://discord.acontext.io"><img src="https://img.shields.io/badge/dynamic/json?label=Acontext&style=flat&query=approximate_member_count&url=https%3A%2F%2Fdiscord.com%2Fapi%2Fv10%2Finvites%2FSG9xJcqVBu%3Fwith_counts%3Dtrue&logo=discord&logoColor=white&suffix=+members&color=36393f&labelColor=7289da" 
-    alt="Acontext Discord"
-  ></a>
+    <a href="https://discord.acontext.io"><img src="https://img.shields.io/badge/dynamic/json?label=Acontext&style=flat&query=approximate_member_count&url=https%3A%2F%2Fdiscord.com%2Fapi%2Fv10%2Finvites%2FSG9xJcqVBu%3Fwith_counts%3Dtrue&logo=discord&logoColor=white&suffix=+members&color=36393f&labelColor=5765F2" alt="Acontext Discord"></a>
   </p>
   <div align="center">
     <!-- Keep these links. Translations will automatically update with the README. -->
@@ -35,14 +33,12 @@
 
 
 
-Acontext is a **context data platform** for **cloud-native** AI Agent applications.
+Acontext is a **context data platform** for **cloud-native** AI Agent applications. It can:
 
-It can:
-
-- **Stores** contexts & artifacts
-- **Observes** agent tasks and user feedback.
-- Enables agent **self-learning** by collecting experiences (SOPs) into long-term memory.
-- Offers a **local Dashboard** to view messages, tasks, artifacts and experiences.
+- **Store** contexts & artifacts
+- **Observe** agent tasks and user feedback.
+- Enable agent **self-learning** by collecting experiences (SOPs) into long-term memory.
+- Offer a **Dashboard** to view messages, tasks, artifacts and experiences.
 
 
 
@@ -59,7 +55,7 @@ It can:
 
 We're building it because we believe Acontext can help you:
 
-- **Build a more scalable agent product**
+- **Build a more scalable agent product with better context engineering**
 - **Improve your agent success rate and reduce running steps**
 
 so that your agent can be more stable and provide greater value to your users.
@@ -93,12 +89,36 @@ so that your agent can be more stable and provide greater value to your users.
                   Skills guide the agent
 ```
 
-Your agent skills look like:
+**Session**
+
+You can store context in Acontext, just like a Database but only used for context&artifact.
+
+**Tasks**
+
+For each session, Acontext will automatically track tasks, for example:
+
+```json
+{
+  "task_description": "Star https://github.com/memodb-io/Acontext",
+  "progresses": [
+    "I have navigated to Acontext repo",
+    "Tried to Star but a pop-up required me to login",
+    ...
+  ],
+  "user_preferences": [
+    "user wants to use outlook email to login"
+  ]
+}
+```
+
+**Space**
+
+The self-learned skill will look like this:
 
 ```json
 {
     "use_when": "star a repo on github.com",
-    "preferences": "use personal account. star but not fork",
+    "preferences": "use user's outlook account",
     "tool_sops": [
         {"tool_name": "goto", "action": "goto github.com"},
         {"tool_name": "click", "action": "find login button if any. login first"},
@@ -107,25 +127,23 @@ Your agent skills look like:
 }
 ```
 
-
-
-Agent experience will be stored in a structured `Space`, with folders, pages and blocks. For example:
+Agent Skills will be stored in a structured `Space`, with folders, pages and blocks. For example:
 
 ```txt
 /
 └── github/ (folder)
     └── GTM (page)
-        ├── find_trending_repos (sop block)
-        └── find_contributor_emails (sop block)
+        ├── find_trending_repos (sop)
+        └── find_contributor_emails (sop)
     └── basic_ops (page)
-        ├── create_repo (sop block)
-        └── delete_repo (sop block)
+        ├── create_repo (sop)
+        └── delete_repo (sop)
     ...
 ```
 
 
 
-# 🚀 How to Start It?
+# 🚀 Start the Backend Locally
 
 We have an `acontext-cli` to help you do quick proof-of-concept. Download it first in your terminal:
 
@@ -164,7 +182,7 @@ Once it's done, you can access the following endpoints:
 
 
 
-# 🧐 How to Use It?
+# 🧐 Use Acontext to build Agent
 
 Download end-to-end scripts with `acontext`:
 
@@ -196,7 +214,7 @@ Check our example repo for more templates: [Acontext-Examples](https://github.co
 
 
 
-## Step by Step Explanation
+## SDK Walk-through
 
 <details>
 <summary>Click to Open</summary>

@@ -25,6 +25,8 @@ NEXT_PUBLIC_BASE_PATH=""
 API_SERVER_URL="http://localhost:8029"
 ROOT_API_BEARER_TOKEN="your-root-api-bearer-token"
 DATABASE_URL="postgresql://acontext:helloworld@localhost:15432/acontext"
+JAEGER_INTERNAL_URL="http://localhost:16686"
+JAEGER_URL="http://localhost:16686"
 `;
 
   fs.writeFileSync(envFilePath, defaultEnvContent, 'utf8');

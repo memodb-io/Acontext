@@ -1,7 +1,10 @@
+import asyncio
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Tuple, cast
 
+from ...constants import MetricTags
+from ...telemetry.capture_metrics import capture_increment
 from ...schema.orm import Block, BlockEmbedding
 from ...schema.orm.block import PATH_BLOCK, CONTENT_BLOCK
 from ...schema.utils import asUUID
@@ -127,13 +130,14 @@ async def search_path_blocks(
 
 async def search_content_blocks(
     db_session: AsyncSession,
+    project_id: asUUID,
     space_id: asUUID,
     query_text: str,
     topk: int = 10,
     threshold: float = 0.8,
     fetch_ratio: float = 1.5,
 ) -> Result[List[Tuple[Block, float]]]:
-    return await search_blocks(
+    r = await search_blocks(
         db_session,
         space_id,
         query_text,
@@ -142,3 +146,11 @@ async def search_content_blocks(
         threshold,
         fetch_ratio,
     )
+    if r.ok():
+        asyncio.create_task(
+            capture_increment(
+                project_id=project_id,
+                tag=MetricTags.new_experience_embedding_search,
+            )
+        )
+    return r

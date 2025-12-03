@@ -42,12 +42,23 @@
             ]
           },
           {
-            "group": "Task Observability",
+            "group": "Observability",
             "icon": "radar",
             "pages": [
-              "observe/agent_tasks",
-              "observe/buffer",
-              "observe/dashboard"
+              {
+                "group": "Agent Task",
+                "pages": [
+                  "observe/agent_tasks",
+                  "observe/buffer"
+                ]
+              },
+              {
+                "group": "Metrics and Traces",
+                "pages": [
+                  "observe/dashboard",
+                  "observe/traces"
+                ]
+              }
             ]
           },
           {
@@ -56,10 +67,10 @@
             "pages": [
               "learn/skill-space",
               "learn/search-skills",
-              "learn/tool",
               {
                 "group": "Advance",
                 "pages": [
+                  "learn/tool",
                   "learn/advance/wait-user",
                   "learn/advance/design-complex",
                   "learn/advance/experience-agent"

@@ -17,6 +17,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/pkg/utils/secrets"
 	"github.com/memodb-io/Acontext/internal/pkg/utils/tokens"
+	"github.com/memodb-io/Acontext/internal/telemetry"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -56,7 +57,7 @@ func projectAuthMiddleware(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
 		lookup := tokens.HMAC256Hex(cfg.Root.SecretPepper, secret)
 
 		var project model.Project
-		if err := db.Where(&model.Project{SecretKeyHMAC: lookup}).First(&project).Error; err != nil {
+		if err := db.WithContext(c.Request.Context()).Where(&model.Project{SecretKeyHMAC: lookup}).First(&project).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, serializer.AuthErr("Unauthorized"))
 				return
@@ -94,7 +95,16 @@ func NewRouter(d RouterDeps) *gin.Engine {
 	serializer.SetLogger(d.Log)
 
 	r := gin.New()
-	r.Use(gin.Recovery(), zapLoggerMiddleware(d.Log))
+	r.Use(gin.Recovery())
+
+	// Add OpenTelemetry middleware if enabled (using configuration system)
+	if d.Config.Telemetry.Enabled && d.Config.Telemetry.OtlpEndpoint != "" {
+		r.Use(telemetry.GinMiddleware(d.Config.App.Name))
+		// Add trace ID to response header
+		r.Use(telemetry.TraceIDMiddleware())
+	}
+
+	r.Use(zapLoggerMiddleware(d.Log))
 
 	// health
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, serializer.Response{Msg: "ok"}) })
@@ -124,8 +134,6 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			space.GET("/:space_id/configs", d.SpaceHandler.GetConfigs)
 
 			space.GET("/:space_id/experience_search", d.SpaceHandler.GetExperienceSearch)
-			space.GET("/:space_id/semantic_glob", d.SpaceHandler.GetSemanticGlobal)
-			space.GET("/:space_id/semantic_grep", d.SpaceHandler.GetSemanticGrep)
 
 			space.GET("/:space_id/experience_confirmations", d.SpaceHandler.ListExperienceConfirmations)
 			space.PATCH("/:space_id/experience_confirmations/:experience_id", d.SpaceHandler.ConfirmExperience)

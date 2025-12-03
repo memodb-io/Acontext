@@ -41,6 +41,7 @@ async def _insert_data_handler(
         )
     r = await BW.write_block_to_page(
         ctx.db_session,
+        ctx.project_id,
         ctx.space_id,
         page_block.id,
         insert_data,

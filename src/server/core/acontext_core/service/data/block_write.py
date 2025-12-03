@@ -1,6 +1,10 @@
+import asyncio
 from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import ValidationError
+from ...constants import MetricTags
+from ...telemetry.capture_metrics import capture_increment
 from ...schema.orm.block import BLOCK_TYPE_SOP
 from ...schema.orm import Block, ToolReference, ToolSOP, Space
 from ...schema.utils import asUUID
@@ -113,18 +117,31 @@ BLOCK_DATA_FACTORY = {BLOCK_TYPE_SOP: SOPData}
 
 async def write_block_to_page(
     db_session: AsyncSession,
+    project_id: asUUID,
     space_id: asUUID,
     par_block_id: asUUID,
     data: GeneralBlockData,
     after_block_index: Optional[int] = None,
-):
+) -> Result[asUUID]:
     if data["type"] not in WRITE_BLOCK_FACTORY:
         return Result.reject(f"Block type {data['type']} is not supported")
-    block_data = BLOCK_DATA_FACTORY[data["type"]].model_validate(data["data"])
-    return await WRITE_BLOCK_FACTORY[data["type"]](
+    try:
+        block_data = BLOCK_DATA_FACTORY[data["type"]].model_validate(data["data"])
+    except ValidationError as e:
+        return Result.reject(f"Invalid block data: {e}")
+    r = await WRITE_BLOCK_FACTORY[data["type"]](
         db_session,
         space_id,
         par_block_id,
         block_data,
         after_block_index=after_block_index,
     )
+    if r.ok():
+        asyncio.create_task(
+            capture_increment(
+                project_id=project_id,
+                tag=MetricTags.new_skill_learned,
+            )
+        )
+
+    return r

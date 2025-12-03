@@ -162,7 +162,7 @@ export default function TasksPage() {
   };
 
   return (
-    <div className="h-full bg-background p-6 flex flex-col overflow-hidden">
+    <div className="h-full bg-background p-6 flex flex-col overflow-hidden space-y-2">
       <div className="flex-shrink-0 space-y-4">
         <div className="flex items-stretch gap-2">
           <Button

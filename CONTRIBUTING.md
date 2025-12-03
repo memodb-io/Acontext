@@ -1,6 +1,7 @@
 ## Pull Request
 
 - Please pull request to `dev` branch
+- For any document/readme problem, please raise an issue instead of opening PR. 
 
 
 

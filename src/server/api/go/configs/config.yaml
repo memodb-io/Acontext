@@ -40,3 +40,8 @@ s3:
 
 core:
   baseURL: "${CORE_BASE_URL}"
+
+telemetry:
+  otlpEndpoint: "${OTEL_EXPORTER_OTLP_ENDPOINT}"
+  enabled: true
+  sampleRatio: 1.0  # Sampling ratio, 0.0-1.0, default 1.0 (100%)

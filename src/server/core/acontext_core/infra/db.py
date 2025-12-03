@@ -1,4 +1,5 @@
 import traceback
+import os
 from typing import Optional
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -102,6 +103,20 @@ class DatabaseClient:
 
         # Set up event listeners for connection monitoring
         self._setup_event_listeners(engine)
+        
+        # Instrument with OpenTelemetry if enabled
+        try:
+            from ..telemetry.config import TelemetryConfig
+            telemetry_config = TelemetryConfig.from_env()
+            if telemetry_config.enabled:
+                from ..telemetry.otel import instrument_sqlalchemy
+                instrument_sqlalchemy(engine)
+                logger.info("SQLAlchemy OpenTelemetry instrumentation enabled")
+        except Exception as e:
+            logger.warning(
+                f"Failed to instrument SQLAlchemy with OpenTelemetry, continuing without tracing: {e}",
+                exc_info=True
+            )
 
         return engine
 

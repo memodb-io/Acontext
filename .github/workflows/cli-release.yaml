@@ -3,7 +3,7 @@ name: CLI Release
 on:
   push:
     tags:
-      - 'cli/v*.*.*'
+      - 'cli/v*'
 
 permissions:
   contents: write 
@@ -19,9 +19,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # TODO: add changelog generation
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/cli/v}
+          echo "version=$TAG_NAME" >> $GITHUB_OUTPUT
+
       - name: Generate Changelog
-        run: echo "# Changelog" > ${{ github.workspace }}-CHANGELOG.txt
+        run: |
+          echo "# CLI v${{ steps.version.outputs.version }}" > ${{ github.workspace }}-CHANGELOG.txt
+          echo "" >> ${{ github.workspace }}-CHANGELOG.txt
+          echo "Binary artifacts are available in this release." >> ${{ github.workspace }}-CHANGELOG.txt
 
       - name: Create Release with Notes
         uses: softprops/action-gh-release@v1
@@ -52,7 +60,7 @@ jobs:
           release_tag: ${{ github.ref_name }}
           overwrite: true
           pre_command: export CGO_ENABLED=0
-          ldflags: -s -w -extldflags -static -X main.version=${{ github.ref_name }}
+          ldflags: -s -w -extldflags -static -X main.version=${{ github.ref_name }} -X github.com/memodb-io/Acontext/acontext-cli/internal/telemetry.telemetryBearerToken=${{ secrets.CLI_TELEMETRY_BEARER_TOKEN }}
           project_path: src/client/acontext-cli
           binary_name: acontext-cli
           asset_name: "${{ matrix.goos }}_${{ matrix.goarch }}"

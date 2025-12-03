@@ -2,7 +2,6 @@ import uuid
 from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime
 from dataclasses import dataclass, field, fields
-from pydantic import ValidationError
 from sqlalchemy.orm import registry, RelationshipProperty
 from sqlalchemy import Column
 from sqlalchemy.sql import func

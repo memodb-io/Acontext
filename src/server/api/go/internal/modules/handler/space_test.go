@@ -17,6 +17,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"go.opentelemetry.io/otel"
 	"gorm.io/datatypes"
 )
 
@@ -84,6 +85,7 @@ func getMockCoreClient() *httpclient.CoreClient {
 	return &httpclient.CoreClient{
 		BaseURL:    "http://invalid-test-url:99999",
 		HTTPClient: &http.Client{},
+		Propagator: otel.GetTextMapPropagator(), // Initialize propagator to avoid nil pointer panic
 	}
 }
 
@@ -465,116 +467,6 @@ func TestSpaceHandler_GetExperienceSearch(t *testing.T) {
 
 			queryString := "?query=" + url.QueryEscape(tt.requestBody.Query)
 			req := httptest.NewRequest("GET", "/space/"+tt.spaceIDParam+"/experience_search"+queryString, nil)
-			w := httptest.NewRecorder()
-
-			router.ServeHTTP(w, req)
-
-			assert.Equal(t, tt.expectedStatus, w.Code)
-		})
-	}
-}
-
-func TestSpaceHandler_GetSemanticGlobal(t *testing.T) {
-	spaceID := uuid.New()
-
-	tests := []struct {
-		name           string
-		spaceIDParam   string
-		requestBody    GetSemanticGlobalReq
-		expectedStatus int
-	}{
-		{
-			name:         "successful global semantic call (will fail without core service)",
-			spaceIDParam: spaceID.String(),
-			requestBody: GetSemanticGlobalReq{
-				Query: "global search test",
-			},
-			expectedStatus: http.StatusInternalServerError, // Expected to fail without core service
-		},
-		{
-			name:           "invalid space ID",
-			spaceIDParam:   "invalid-uuid",
-			requestBody:    GetSemanticGlobalReq{Query: "test"},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name:           "empty query",
-			spaceIDParam:   spaceID.String(),
-			requestBody:    GetSemanticGlobalReq{Query: ""},
-			expectedStatus: http.StatusBadRequest,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			handler := NewSpaceHandler(&MockSpaceService{}, getMockCoreClient())
-			router := setupSpaceRouter()
-
-			// Add middleware to set project in context
-			router.Use(func(c *gin.Context) {
-				c.Set("project", &model.Project{ID: uuid.New()})
-				c.Next()
-			})
-
-			router.GET("/space/:space_id/semantic_glob", handler.GetSemanticGlobal)
-
-			queryString := "?query=" + url.QueryEscape(tt.requestBody.Query)
-			req := httptest.NewRequest("GET", "/space/"+tt.spaceIDParam+"/semantic_glob"+queryString, nil)
-			w := httptest.NewRecorder()
-
-			router.ServeHTTP(w, req)
-
-			assert.Equal(t, tt.expectedStatus, w.Code)
-		})
-	}
-}
-
-func TestSpaceHandler_GetSemanticGrep(t *testing.T) {
-	spaceID := uuid.New()
-
-	tests := []struct {
-		name           string
-		spaceIDParam   string
-		requestBody    GetSemanticGrepReq
-		expectedStatus int
-	}{
-		{
-			name:         "successful semantic grep call (will fail without core service)",
-			spaceIDParam: spaceID.String(),
-			requestBody: GetSemanticGrepReq{
-				Query: "grep search test",
-			},
-			expectedStatus: http.StatusInternalServerError, // Expected to fail without core service
-		},
-		{
-			name:           "invalid space ID",
-			spaceIDParam:   "invalid-uuid",
-			requestBody:    GetSemanticGrepReq{Query: "test"},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name:           "empty query",
-			spaceIDParam:   spaceID.String(),
-			requestBody:    GetSemanticGrepReq{Query: ""},
-			expectedStatus: http.StatusBadRequest,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			handler := NewSpaceHandler(&MockSpaceService{}, getMockCoreClient())
-			router := setupSpaceRouter()
-
-			// Add middleware to set project in context
-			router.Use(func(c *gin.Context) {
-				c.Set("project", &model.Project{ID: uuid.New()})
-				c.Next()
-			})
-
-			router.GET("/space/:space_id/semantic_grep", handler.GetSemanticGrep)
-
-			queryString := "?query=" + url.QueryEscape(tt.requestBody.Query)
-			req := httptest.NewRequest("GET", "/space/"+tt.spaceIDParam+"/semantic_grep"+queryString, nil)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)

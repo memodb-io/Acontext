@@ -299,17 +299,22 @@ func promptEnvConfig() (*docker.EnvConfig, error) {
 	// Prompt for Root API Bearer Token
 	var rootAPIBearerToken string
 	if err := survey.AskOne(&survey.Input{
-		Message: "4. Pass a string to build Acontext token (format: sk-ac-xxxx):",
+		Message: "4. Pass a string to build Acontext token:",
 		Default: "your-root-api-bearer-token",
 		Help:    "'sk-ac-' prefix will be added automatically. Enter token part only (xxxx).",
 	}, &rootAPIBearerToken); err != nil {
 		return nil, fmt.Errorf("failed to get Root API Bearer Token: %w", err)
 	}
 
+	// Build complete API key and display it
+	completeAPIKey := fmt.Sprintf("sk-ac-%s", rootAPIBearerToken)
+	// Use ANSI color codes: \033[1m = bold, \033[93m = bright yellow, \033[0m = reset
+	fmt.Printf("  🔑 \033[1m\033[93mACONTEXT_API_KEY=\"%s\"\033[0m\n", completeAPIKey)
+
 	// Prompt for Core Config YAML File (optional)
 	var coreConfigYAMLFile string
 	if err := survey.AskOne(&survey.Input{
-		Message: "5. Configure Acontext by Passing an existing config.yaml (optional):",
+		Message: "5. Configure Acontext by passing an existing config.yaml (optional):",
 		Default: "./config.yaml",
 		Help:    "Path to config.yaml file. Leave empty to use env vars only.",
 	}, &coreConfigYAMLFile); err != nil {

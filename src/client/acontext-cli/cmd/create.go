@@ -107,9 +107,6 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return err
 		}
-		if err != nil {
-			return err
-		}
 		fmt.Printf("✓ Selected template: %s\n", preset.Name)
 		fmt.Println()
 
@@ -264,12 +261,12 @@ func promptTemplate(language string) (string, *config.Preset, error) {
 	}
 
 	presets, err := config.GetPresets(language)
-	
+
 	// Clear loading message if it was shown
 	if needsDiscovery {
 		fmt.Print("\r" + strings.Repeat(" ", 50) + "\r")
 	}
-	
+
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to get presets: %w", err)
 	}
