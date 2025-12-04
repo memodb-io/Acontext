@@ -205,3 +205,23 @@ Get RabbitMQ URL
 {{- $vhost := .Values.rabbitmq.auth.vhost | default .Values.external.rabbitmq.vhost | default "/" }}
 {{- printf "amqp://%s:%s@%s:%s/%s" $user $password $host $port $vhost }}
 {{- end }}
+
+{{/*
+Generate env entries from core.env
+*/}}
+{{- define "aconext.core.env" -}}
+{{- range $key, $value := .Values.core.env }}
+- name: {{ $key }}
+  value: {{ $value | quote }}
+{{- end }}
+{{- end }}
+
+{{/*
+Generate env entries from api.env
+*/}}
+{{- define "aconext.api.env" -}}
+{{- range $key, $value := .Values.api.env }}
+- name: {{ $key }}
+  value: {{ $value | quote }}
+{{- end }}
+{{- end }}

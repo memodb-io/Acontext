@@ -45,11 +45,6 @@ spec:
               containerPort: {{ .Values.api.service.port }}
               protocol: TCP
           env:
-            - name: API_EXPORT_PORT
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "aconext.api.name" . }}-config
-                  key: API_EXPORT_PORT
             {{- if .Values.secrets.api.rootBearerToken }}
             - name: ROOT_API_BEARER_TOKEN
               valueFrom:
@@ -109,31 +104,6 @@ spec:
               value: {{ if .Values.rabbitmq.enabled }}{{ .Values.rabbitmq.auth.vhost | default "/" | quote }}{{ else }}{{ .Values.external.rabbitmq.vhost | default "/" | quote }}{{ end }}
             - name: RABBITMQ_VHOST_ENCODED
               value: {{ if .Values.rabbitmq.enabled }}{{ .Values.rabbitmq.auth.vhost | default "/" | urlquery | quote }}{{ else }}{{ .Values.external.rabbitmq.vhost | default "/" | urlquery | quote }}{{ end }}
-            {{- if .Values.api.env.S3_ENDPOINT }}
-            - name: S3_ENDPOINT
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "aconext.api.name" . }}-config
-                  key: S3_ENDPOINT
-            {{- end }}
-            {{- if .Values.api.env.S3_INTERNAL_ENDPOINT }}
-            - name: S3_INTERNAL_ENDPOINT
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "aconext.api.name" . }}-config
-                  key: S3_INTERNAL_ENDPOINT
-            {{- else if .Values.api.env.S3_ENDPOINT }}
-            - name: S3_INTERNAL_ENDPOINT
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "aconext.api.name" . }}-config
-                  key: S3_ENDPOINT
-            {{- end }}
-            - name: S3_REGION
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "aconext.api.name" . }}-config
-                  key: S3_REGION
             {{- if .Values.secrets.s3.accessKey }}
             - name: S3_ACCESS_KEY
               valueFrom:
@@ -148,13 +118,13 @@ spec:
                   name: {{ include "aconext.fullname" . }}-s3-secret
                   key: S3_SECRET_KEY
             {{- end }}
-            - name: S3_BUCKET
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "aconext.api.name" . }}-config
-                  key: S3_BUCKET
             - name: CORE_BASE_URL
               value: http://{{ include "aconext.core.name" . }}:{{ .Values.core.service.port }}
+            {{- include "aconext.api.env" . | nindent 12 }}
+            {{- if and .Values.api.env.S3_ENDPOINT (not .Values.api.env.S3_INTERNAL_ENDPOINT) }}
+            - name: S3_INTERNAL_ENDPOINT
+              value: {{ .Values.api.env.S3_ENDPOINT | quote }}
+            {{- end }}
           {{- with .Values.api.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}

@@ -88,23 +88,6 @@ spec:
               value: {{ include "aconext.redis.url" . | quote }}
             - name: MQ_URL
               value: {{ include "aconext.rabbitmq.url" . | quote }}
-            {{- if .Values.core.env.LLM_BASE_URL }}
-            - name: LLM_BASE_URL
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "aconext.core.name" . }}-config
-                  key: LLM_BASE_URL
-            {{- end }}
-            - name: LLM_SDK
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "aconext.core.name" . }}-config
-                  key: LLM_SDK
-            - name: LLM_SIMPLE_MODEL
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "aconext.core.name" . }}-config
-                  key: LLM_SIMPLE_MODEL
             {{- if .Values.secrets.llm.apiKey }}
             - name: LLM_API_KEY
               valueFrom:
@@ -112,23 +95,6 @@ spec:
                   name: {{ include "aconext.core.name" . }}-secret
                   key: LLM_API_KEY
             {{- end }}
-            {{- if .Values.core.env.S3_ENDPOINT }}
-            - name: S3_ENDPOINT
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "aconext.core.name" . }}-config
-                  key: S3_ENDPOINT
-            {{- end }}
-            - name: S3_REGION
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "aconext.core.name" . }}-config
-                  key: S3_REGION
-            - name: S3_BUCKET
-              valueFrom:
-                configMapKeyRef:
-                  name: {{ include "aconext.core.name" . }}-config
-                  key: S3_BUCKET
             {{- if .Values.secrets.s3.accessKey }}
             - name: S3_ACCESS_KEY
               valueFrom:
@@ -143,6 +109,7 @@ spec:
                   name: {{ include "aconext.fullname" . }}-s3-secret
                   key: S3_SECRET_KEY
             {{- end }}
+            {{- include "aconext.core.env" . | nindent 12 }}
           {{- with .Values.core.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
