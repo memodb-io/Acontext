@@ -24,20 +24,18 @@ We're always welcome to integrations PRs:
 
 Algorithms
 
-- [ ] Optimize task agent prompt to better reserve conditions of tasks 
-  - [ ] Task progress should contain more states(which website, database table, city...)
-  - [ ]  `use_when` should reserve the states
+- [x] Optimize task agent prompt to better reserve conditions of tasks 
+  - [x] Task progress should contain more states(which website, database table, city...)
+  - [x]  `use_when` should reserve the states
 - [ ] Experience agent on replace/update the existing experience.
 
 Text Matching
 
 - [ ] support `grep` and `glob` in Disks
-- [ ] support `grep` and `glob` in Spaces
 
 Session - Context Engineering
 
 - [x] Count tokens
-- [ ] Message version control
 - [ ] Context editing ([doc](https://platform.claude.com/docs/en/build-with-claude/context-editing))
 
 Dashboard
@@ -50,11 +48,11 @@ Core
 
 SDK: Design `agent` interface: `tool_pool`
 
-- [ ] Offer tool_schema for openai/anthropic can directly operate artifacts
+- [x] Offer tool_schema for openai/anthropic can directly operate artifacts
 
 Chore
 
-- [ ] Telemetry：log detailed callings and latency
+- [x] Telemetry：log detailed callings and latency
 
 Integration
 
@@ -73,6 +71,7 @@ Space
 
 Session - Context Engineering
 
+- [ ] Message version control
 - [ ] Session - Context Offloading based on Disks
 
 Sandbox
