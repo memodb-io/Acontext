@@ -222,8 +222,8 @@ class ReplaceStringTool(BaseTool):
         return f"Found {replacement_count} old_string in {normalized_path}{filename} and replaced it."
 
 
-class ListArtifactsTool(BaseTool):
-    """Tool for listing artifacts in a directory on the Acontext disk."""
+class ListTool(BaseTool):
+    """Tool for listing files in a directory on the Acontext disk."""
 
     @property
     def name(self) -> str:
@@ -231,7 +231,7 @@ class ListArtifactsTool(BaseTool):
 
     @property
     def description(self) -> str:
-        return "List all artifacts (files) and directories in a specified path on the disk."
+        return "List all files and directories in a specified path on the disk."
 
     @property
     def arguments(self) -> dict:
@@ -247,7 +247,7 @@ class ListArtifactsTool(BaseTool):
         return ["file_path"]
 
     def execute(self, ctx: DiskContext, llm_arguments: dict) -> str:
-        """List all artifacts in a specified path."""
+        """List all files in a specified path."""
         file_path = llm_arguments.get("file_path")
         normalized_path = _normalize_path(file_path)
 
@@ -259,7 +259,7 @@ class ListArtifactsTool(BaseTool):
         artifacts_list = [artifact.filename for artifact in result.artifacts]
 
         if not artifacts_list and not result.directories:
-            return f"No artifacts or directories found in '{normalized_path}'"
+            return f"No files or directories found in '{normalized_path}'"
 
         output_parts = []
         if artifacts_list:
@@ -283,7 +283,7 @@ DISK_TOOLS = DiskToolPool()
 DISK_TOOLS.add_tool(WriteFileTool())
 DISK_TOOLS.add_tool(ReadFileTool())
 DISK_TOOLS.add_tool(ReplaceStringTool())
-DISK_TOOLS.add_tool(ListArtifactsTool())
+DISK_TOOLS.add_tool(ListTool())
 
 
 if __name__ == "__main__":
