@@ -1,0 +1,22 @@
+apiVersion: v2
+name: aconext
+description: A Helm chart for Acontext deployment on Kubernetes
+
+type: application
+
+version: 0.0.1
+appVersion: "0.0.1"
+
+dependencies:
+  - name: postgresql
+    repository: https://charts.bitnami.com/bitnami
+    version: 18.1.13
+    condition: postgresql.enabled
+  - name: redis
+    repository: https://charts.bitnami.com/bitnami
+    version: 24.0.0
+    condition: redis.enabled
+  - name: rabbitmq
+    repository: https://charts.bitnami.com/bitnami
+    version: 16.0.14
+    condition: rabbitmq.enabled
