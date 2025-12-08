@@ -38,7 +38,8 @@
                   }
                 ]
               },
-              "store/disk"
+              "store/disk",
+              "store/editing"
             ]
           },
           {
