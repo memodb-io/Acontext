@@ -1112,6 +1112,12 @@ const docTemplate = `{
                         "description": "Order by created_at descending if true, ascending if false (default false)",
                         "name": "time_desc",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "JSON array of edit strategies to apply before format conversion",
+                        "name": "edit_strategies",
+                        "in": "query"
                     }
                 ],
                 "responses": {

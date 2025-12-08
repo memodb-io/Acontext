@@ -823,6 +823,13 @@
           "schema" : {
             "type" : "string"
           }
+        }, {
+          "description" : "JSON array of edit strategies to apply before format conversion",
+          "in" : "query",
+          "name" : "edit_strategies",
+          "schema" : {
+            "type" : "string"
+          }
         } ],
         "responses" : {
           "200" : {

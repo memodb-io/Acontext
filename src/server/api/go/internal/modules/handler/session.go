@@ -507,8 +507,9 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 	limit := 0
 	if req.Limit != nil {
 		limit = *req.Limit
-	
-		// Parse edit strategies if provided
+	}
+
+	// Parse edit strategies if provided
 	var editStrategies []editor.StrategyConfig
 	if req.EditStrategies != "" {
 		if err := sonic.Unmarshal([]byte(req.EditStrategies), &editStrategies); err != nil {
