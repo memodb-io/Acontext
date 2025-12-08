@@ -68,8 +68,11 @@ client = AcontextClient(
 
 edited_session = client.sessions.get_messages(
   session_id="session-uuid"
-  edit_strategy="STRATEGY_NAME",
-  edit_params={...}
+  edit_strategies=[
+    {"type": "STRATEGY_NAME1", "params": {...}},
+    {"type": "STRATEGY_NAME2", "params": {...}},
+    ...
+  ],
 )
 
 original_session = client.sessions.get_messages(
@@ -85,8 +88,11 @@ const client = new AcontextClient({
 });
 
 const editedSession = await client.sessions.getMessages('session-uuid', {
-  editStrategy: 'STRATEGY_NAME',
-  editParams: {...}
+  editStrategies:[
+    { type: 'STRATEGY_NAME1', params: {...} },
+    { type: 'STRATEGY_NAME2', params: {...} },
+    ...
+  ] 
 });
 
 const originalSession = await client.sessions.getMessages('session-uuid');
@@ -99,14 +105,16 @@ This strategy will remove the oldest tool results to reduce the session context.
 ```python Python
 edited_session = client.sessions.get_messages(
   session_id="session-uuid"
-  edit_strategy="remove_tool_result",
-  edit_params={"keep_recent_n_tool_results": 3}
+  edit_strategies=[
+    {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}
+  ],
 )
 ```
 ```typescript TypeScript
 const editedSession = await client.sessions.getMessages('session-uuid', {
-  editStrategy: 'remove_tool_result',
-  editParams: { keepRecentNToolResults: 3 }
+  editStrategies: [
+    { type: 'remove_tool_result', params: { 'keep_recent_n_tool_results': 3 } }
+  ],
 });
 ```
 </CodeGroup>
