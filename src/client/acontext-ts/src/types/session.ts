@@ -111,3 +111,13 @@ export const TokenCountsSchema = z.object({
 
 export type TokenCounts = z.infer<typeof TokenCountsSchema>;
 
+/**
+ * Edit strategy configuration for context editing.
+ * 
+ * Example: { type: 'remove_tool_result', params: { keep_recent_n_tool_results: 3 } }
+ */
+export interface EditStrategy {
+  type: string;
+  params: Record<string, unknown>;
+}
+

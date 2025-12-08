@@ -413,6 +413,56 @@ def test_sessions_get_messages_forwards_format(
 
 
 @patch("acontext.client.AcontextClient.request")
+def test_sessions_get_messages_with_edit_strategies(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = {"items": [], "has_more": False}
+
+    edit_strategies = [
+        {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}
+    ]
+    result = client.sessions.get_messages(
+        "session-id", format="openai", edit_strategies=edit_strategies
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/session/session-id/messages"
+    assert "edit_strategies" in kwargs["params"]
+    # Verify it's JSON encoded
+    import json
+
+    decoded_strategies = json.loads(kwargs["params"]["edit_strategies"])
+    assert decoded_strategies == edit_strategies
+    assert kwargs["params"]["format"] == "openai"
+    # Verify it returns a Pydantic model
+    assert hasattr(result, "items")
+    assert hasattr(result, "has_more")
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sessions_get_messages_without_edit_strategies(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = {"items": [], "has_more": False}
+
+    result = client.sessions.get_messages("session-id", format="openai")
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/session/session-id/messages"
+    # edit_strategies should not be in params when not provided
+    assert "edit_strategies" not in kwargs["params"]
+    # Verify it returns a Pydantic model
+    assert hasattr(result, "items")
+    assert hasattr(result, "has_more")
+
+
+@patch("acontext.client.AcontextClient.request")
 def test_sessions_get_tasks_without_filters(
     mock_request, client: AcontextClient
 ) -> None:

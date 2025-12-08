@@ -178,6 +178,34 @@ describe('AcontextClient Integration Tests', () => {
       expect(messages.has_more).toBeDefined();
     });
 
+    test('should get messages with edit strategies', async () => {
+      if (!createdSessionId) {
+        throw new Error('Session not created');
+      }
+      const editStrategies = [
+        { type: 'remove_tool_result', params: { keep_recent_n_tool_results: 3 } },
+      ];
+      const messages = await client.sessions.getMessages(createdSessionId, {
+        format: 'openai',
+        editStrategies,
+      });
+      expect(messages).toBeDefined();
+      expect(messages.items).toBeInstanceOf(Array);
+      expect(messages.has_more).toBeDefined();
+    });
+
+    test('should get messages without edit strategies', async () => {
+      if (!createdSessionId) {
+        throw new Error('Session not created');
+      }
+      const messages = await client.sessions.getMessages(createdSessionId, {
+        format: 'openai',
+      });
+      expect(messages).toBeDefined();
+      expect(messages.items).toBeInstanceOf(Array);
+      expect(messages.has_more).toBeDefined();
+    });
+
     test('should send message with file upload', async () => {
       if (!createdSessionId) {
         throw new Error('Session not created');

@@ -1,8 +1,19 @@
 """Type definitions for session, message, and task resources."""
 
-from typing import Any
+from typing import Any, TypedDict
 
 from pydantic import BaseModel, Field
+
+
+class EditStrategy(TypedDict):
+    """Edit strategy configuration for context editing.
+
+    Example:
+        {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}
+    """
+
+    type: str
+    params: dict[str, Any]
 
 
 class Asset(BaseModel):
@@ -138,4 +149,7 @@ class LearningStatus(BaseModel):
 class TokenCounts(BaseModel):
     """Response model for token counts."""
 
-    total_tokens: int = Field(..., description="Total token count for all text and tool-call parts in a session")
+    total_tokens: int = Field(
+        ...,
+        description="Total token count for all text and tool-call parts in a session",
+    )

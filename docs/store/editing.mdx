@@ -100,20 +100,40 @@ const originalSession = await client.sessions.getMessages('session-uuid');
 </CodeGroup>
 
 ### Remove Tool Result
-This strategy will remove the oldest tool results to reduce the session context.
+This strategy will replace the oldest tool results' content with "Done" to reduce the session context, while keeping the most recent N tool results intact.
+
+If `keep_recent_n_tool_results` is not specified, it defaults to 3.
+
 <CodeGroup>
 ```python Python
+# With explicit parameter
 edited_session = client.sessions.get_messages(
-  session_id="session-uuid"
+  session_id="session-uuid",
   edit_strategies=[
-    {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}
+    {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 5}}
+  ],
+)
+
+# Using default (keeps 3 most recent)
+edited_session = client.sessions.get_messages(
+  session_id="session-uuid",
+  edit_strategies=[
+    {"type": "remove_tool_result", "params": {}}
   ],
 )
 ```
 ```typescript TypeScript
+// With explicit parameter
 const editedSession = await client.sessions.getMessages('session-uuid', {
   editStrategies: [
-    { type: 'remove_tool_result', params: { 'keep_recent_n_tool_results': 3 } }
+    { type: 'remove_tool_result', params: { keep_recent_n_tool_results: 5 } }
+  ],
+});
+
+// Using default (keeps 3 most recent)
+const editedSession = await client.sessions.getMessages('session-uuid', {
+  editStrategies: [
+    { type: 'remove_tool_result', params: {} }
   ],
 });
 ```

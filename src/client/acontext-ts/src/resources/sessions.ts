@@ -7,6 +7,7 @@ import { AcontextMessage, AcontextMessageInput } from '../messages';
 import { FileUpload } from '../uploads';
 import { buildParams } from '../utils';
 import {
+  EditStrategy,
   GetMessagesOutput,
   GetMessagesOutputSchema,
   GetTasksOutput,
@@ -186,6 +187,7 @@ export class SessionsAPI {
       withAssetPublicUrl?: boolean | null;
       format?: 'acontext' | 'openai' | 'anthropic';
       timeDesc?: boolean | null;
+      editStrategies?: Array<EditStrategy> | null;
     }
   ): Promise<GetMessagesOutput> {
     const params: Record<string, string | number> = {};
@@ -201,6 +203,9 @@ export class SessionsAPI {
         time_desc: options?.timeDesc ?? true, // Default to true
       })
     );
+    if (options?.editStrategies !== undefined && options?.editStrategies !== null) {
+      params.edit_strategies = JSON.stringify(options.editStrategies);
+    }
     const data = await this.requester.request('GET', `/session/${sessionId}/messages`, {
       params: Object.keys(params).length > 0 ? params : undefined,
     });

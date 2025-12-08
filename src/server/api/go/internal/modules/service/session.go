@@ -16,6 +16,7 @@ import (
 	mq "github.com/memodb-io/Acontext/internal/infra/queue"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
+	"github.com/memodb-io/Acontext/internal/pkg/editor"
 	"github.com/memodb-io/Acontext/internal/pkg/paging"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -291,12 +292,13 @@ func (s *sessionService) SendMessage(ctx context.Context, in SendMessageInput) (
 }
 
 type GetMessagesInput struct {
-	SessionID          uuid.UUID     `json:"session_id"`
-	Limit              int           `json:"limit"`
-	Cursor             string        `json:"cursor"`
-	WithAssetPublicURL bool          `json:"with_public_url"`
-	AssetExpire        time.Duration `json:"asset_expire"`
-	TimeDesc           bool          `json:"time_desc"`
+	SessionID          uuid.UUID               `json:"session_id"`
+	Limit              int                     `json:"limit"`
+	Cursor             string                  `json:"cursor"`
+	WithAssetPublicURL bool                    `json:"with_public_url"`
+	AssetExpire        time.Duration           `json:"asset_expire"`
+	TimeDesc           bool                    `json:"time_desc"`
+	EditStrategies     []editor.StrategyConfig `json:"edit_strategies,omitempty"`
 }
 
 type PublicURL struct {
@@ -369,6 +371,14 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 		out.Items = msgs[:in.Limit]
 		last := out.Items[len(out.Items)-1]
 		out.NextCursor = paging.EncodeCursor(last.CreatedAt, last.ID)
+	}
+
+	// Apply edit strategies if provided (before format conversion)
+	if len(in.EditStrategies) > 0 {
+		out.Items, err = editor.ApplyStrategies(out.Items, in.EditStrategies)
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply edit strategies: %w", err)
+		}
 	}
 
 	// Generate presigned URLs for assets if requested
