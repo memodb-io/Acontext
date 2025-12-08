@@ -1933,11 +1933,25 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:           "invalid limit parameter",
+			name:           "limit=0 retrieves all messages",
 			sessionIDParam: sessionID.String(),
 			queryParams:    "?limit=0",
-			setup:          func(svc *MockSessionService) {},
-			expectedStatus: http.StatusBadRequest,
+			setup: func(svc *MockSessionService) {
+				expectedOutput := &service.GetMessagesOutput{
+					Items: []model.Message{
+						{
+							ID:        uuid.New(),
+							SessionID: sessionID,
+							Role:      "user",
+						},
+					},
+					HasMore: false,
+				}
+				svc.On("GetMessages", mock.Anything, mock.MatchedBy(func(in service.GetMessagesInput) bool {
+					return in.SessionID == sessionID && in.Limit == 0
+				})).Return(expectedOutput, nil)
+			},
+			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "service layer error",
@@ -1965,11 +1979,25 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:           "zero limit",
+			name:           "zero limit retrieves all messages",
 			sessionIDParam: sessionID.String(),
 			queryParams:    "?limit=0",
-			setup:          func(svc *MockSessionService) {},
-			expectedStatus: http.StatusBadRequest,
+			setup: func(svc *MockSessionService) {
+				expectedOutput := &service.GetMessagesOutput{
+					Items: []model.Message{
+						{
+							ID:        uuid.New(),
+							SessionID: sessionID,
+							Role:      "user",
+						},
+					},
+					HasMore: false,
+				}
+				svc.On("GetMessages", mock.Anything, mock.MatchedBy(func(in service.GetMessagesInput) bool {
+					return in.SessionID == sessionID && in.Limit == 0
+				})).Return(expectedOutput, nil)
+			},
+			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "invalid limit format (non-numeric)",
@@ -2099,7 +2127,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "default limit when not specified",
+			name:           "no limit parameter retrieves all messages",
 			sessionIDParam: sessionID.String(),
 			queryParams:    "",
 			setup: func(svc *MockSessionService) {
@@ -2114,7 +2142,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 					HasMore: false,
 				}
 				svc.On("GetMessages", mock.Anything, mock.MatchedBy(func(in service.GetMessagesInput) bool {
-					return in.SessionID == sessionID && in.Limit == 20 // default limit
+					return in.SessionID == sessionID && in.Limit == 0 // no limit means fetch all
 				})).Return(expectedOutput, nil)
 			},
 			expectedStatus: http.StatusOK,

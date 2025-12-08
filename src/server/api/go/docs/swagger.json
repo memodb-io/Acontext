@@ -1077,7 +1077,7 @@
                     },
                     {
                         "type": "integer",
-                        "description": "Limit of messages to return, default 20. Max 200.",
+                        "description": "Limit of messages to return. Max 200. If limit is 0 or not provided, all messages will be returned.",
                         "name": "limit",
                         "in": "query"
                     },

@@ -463,7 +463,7 @@ func (h *SessionHandler) SendMessage(c *gin.Context) {
 }
 
 type GetMessagesReq struct {
-	Limit              int    `form:"limit,default=20" json:"limit" binding:"required,min=1,max=200" example:"20"`
+	Limit              *int   `form:"limit" json:"limit" binding:"omitempty,min=0,max=200" example:"20"`
 	Cursor             string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
 	WithAssetPublicURL bool   `form:"with_asset_public_url,default=true" json:"with_asset_public_url" example:"true"`
 	Format             string `form:"format,default=openai" json:"format" binding:"omitempty,oneof=acontext openai anthropic" example:"openai" enums:"acontext,openai,anthropic"`
@@ -478,7 +478,7 @@ type GetMessagesReq struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			session_id				path	string	true	"Session ID"	format(uuid)
-//	@Param			limit					query	integer	false	"Limit of messages to return, default 20. Max 200."
+//	@Param			limit					query	integer	false	"Limit of messages to return. Max 200. If limit is 0 or not provided, all messages will be returned."
 //	@Param			cursor					query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
 //	@Param			with_asset_public_url	query	string	false	"Whether to return asset public url, default is true"								example:"true"
 //	@Param			format					query	string	false	"Format to convert messages to: acontext (original), openai (default), anthropic."	enums(acontext,openai,anthropic)
@@ -499,9 +499,16 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
 		return
 	}
+
+	// If limit is not provided, set it to 0 to fetch all messages
+	limit := 0
+	if req.Limit != nil {
+		limit = *req.Limit
+	}
+
 	out, err := h.svc.GetMessages(c.Request.Context(), service.GetMessagesInput{
 		SessionID:          sessionID,
-		Limit:              req.Limit,
+		Limit:              limit,
 		Cursor:             req.Cursor,
 		WithAssetPublicURL: req.WithAssetPublicURL,
 		AssetExpire:        time.Hour * 24,

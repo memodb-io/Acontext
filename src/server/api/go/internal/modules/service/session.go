@@ -312,23 +312,35 @@ type GetMessagesOutput struct {
 }
 
 func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (*GetMessagesOutput, error) {
-	// Parse cursor (createdAt, id); an empty cursor indicates starting from the latest
-	var afterT time.Time
-	var afterID uuid.UUID
+	var msgs []model.Message
 	var err error
-	if in.Cursor != "" {
-		afterT, afterID, err = paging.DecodeCursor(in.Cursor)
+
+	// Retrieve messages based on limit
+	if in.Limit <= 0 {
+		// If limit <= 0, retrieve all messages
+		msgs, err = s.sessionRepo.ListAllMessagesBySession(ctx, in.SessionID)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Parse cursor (createdAt, id); an empty cursor indicates starting from the latest
+		var afterT time.Time
+		var afterID uuid.UUID
+		if in.Cursor != "" {
+			afterT, afterID, err = paging.DecodeCursor(in.Cursor)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		// Query limit+1 is used to determine has_more
+		msgs, err = s.sessionRepo.ListBySessionWithCursor(ctx, in.SessionID, afterT, afterID, in.Limit+1, in.TimeDesc)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// Query limit+1 is used to determine has_more
-	msgs, err := s.sessionRepo.ListBySessionWithCursor(ctx, in.SessionID, afterT, afterID, in.Limit+1, in.TimeDesc)
-	if err != nil {
-		return nil, err
-	}
-
+	// Load parts for each message
 	for i, m := range msgs {
 		meta := m.PartsAssetMeta.Data()
 		parts := s.loadPartsForMessage(ctx, meta)
@@ -347,17 +359,19 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 		return msgs[i].CreatedAt.Before(msgs[j].CreatedAt)
 	})
 
+	// Build output with pagination info
 	out := &GetMessagesOutput{
 		Items:   msgs,
 		HasMore: false,
 	}
-	if len(msgs) > in.Limit {
+	if in.Limit > 0 && len(msgs) > in.Limit {
 		out.HasMore = true
 		out.Items = msgs[:in.Limit]
 		last := out.Items[len(out.Items)-1]
 		out.NextCursor = paging.EncodeCursor(last.CreatedAt, last.ID)
 	}
 
+	// Generate presigned URLs for assets if requested
 	if in.WithAssetPublicURL && s.s3 != nil {
 		out.PublicURLs = make(map[string]PublicURL)
 		for _, m := range out.Items {

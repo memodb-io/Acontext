@@ -770,6 +770,49 @@ func TestSessionService_GetMessages(t *testing.T) {
 			wantErr: true,
 			errMsg:  "base64", // The actual error message is about base64 decoding
 		},
+		{
+			name: "limit=0 retrieves all messages using ListAllMessagesBySession",
+			input: GetMessagesInput{
+				SessionID: sessionID,
+				Limit:     0,
+				TimeDesc:  false,
+			},
+			setup: func(repo *MockSessionRepo) {
+				msgs := []model.Message{
+					{ID: uuid.New(), SessionID: sessionID, Role: "user"},
+					{ID: uuid.New(), SessionID: sessionID, Role: "assistant"},
+				}
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return(msgs, nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "limit=-1 retrieves all messages using ListAllMessagesBySession",
+			input: GetMessagesInput{
+				SessionID: sessionID,
+				Limit:     -1,
+				TimeDesc:  false,
+			},
+			setup: func(repo *MockSessionRepo) {
+				msgs := []model.Message{
+					{ID: uuid.New(), SessionID: sessionID, Role: "user"},
+				}
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return(msgs, nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "ListAllMessagesBySession error handling",
+			input: GetMessagesInput{
+				SessionID: sessionID,
+				Limit:     0,
+				TimeDesc:  false,
+			},
+			setup: func(repo *MockSessionRepo) {
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return(nil, errors.New("database error"))
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {
