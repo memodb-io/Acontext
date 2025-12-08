@@ -2,6 +2,7 @@ package editor
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/memodb-io/Acontext/internal/modules/model"
 )
@@ -18,9 +19,10 @@ type StrategyConfig struct {
 	Params map[string]interface{} `json:"params"`
 }
 
-// RemoveToolResultStrategy replaces old tool-result parts' text with "Done"
+// RemoveToolResultStrategy replaces old tool-result parts' text with a placeholder
 type RemoveToolResultStrategy struct {
 	KeepRecentN int
+	Placeholder string
 }
 
 // Name returns the strategy name
@@ -28,7 +30,7 @@ func (s *RemoveToolResultStrategy) Name() string {
 	return "remove_tool_result"
 }
 
-// Apply replaces old tool-result parts' text with "Done"
+// Apply replaces old tool-result parts' text with a placeholder
 // Keeps the most recent N tool-result parts with their original content
 func (s *RemoveToolResultStrategy) Apply(messages []model.Message) ([]model.Message, error) {
 	if s.KeepRecentN < 0 {
@@ -62,10 +64,16 @@ func (s *RemoveToolResultStrategy) Apply(messages []model.Message) ([]model.Mess
 
 	numToReplace := totalToolResults - s.KeepRecentN
 
+	// Use the placeholder text (defaults to "Done" if not set)
+	placeholder := s.Placeholder
+	if placeholder == "" {
+		placeholder = "Done"
+	}
+
 	// Replace the text of the oldest tool-result parts
 	for i := 0; i < numToReplace; i++ {
 		pos := toolResultPositions[i]
-		messages[pos.messageIdx].Parts[pos.partIdx].Text = "Done"
+		messages[pos.messageIdx].Parts[pos.partIdx].Text = placeholder
 	}
 
 	return messages, nil
@@ -90,8 +98,19 @@ func CreateStrategy(config StrategyConfig) (EditStrategy, error) {
 			}
 		}
 
+		// Get placeholder text (defaults to "Done" if not provided)
+		placeholder := "Done"
+		if placeholderValue, ok := config.Params["tool_result_placeholder"]; ok {
+			if placeholderStr, ok := placeholderValue.(string); ok {
+				placeholder = strings.TrimSpace(placeholderStr)
+			} else {
+				return nil, fmt.Errorf("tool_result_placeholder must be a string, got %T", placeholderValue)
+			}
+		}
+
 		return &RemoveToolResultStrategy{
 			KeepRecentN: keepRecentNInt,
+			Placeholder: placeholder,
 		}, nil
 	default:
 		return nil, fmt.Errorf("unknown strategy type: %s", config.Type)

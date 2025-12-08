@@ -198,6 +198,49 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "must be >= 0")
 	})
+
+	t.Run("custom placeholder text", func(t *testing.T) {
+		messages := []model.Message{
+			{
+				Role: "user",
+				Parts: []model.Part{
+					{Type: "tool-result", Text: "Result 1"},
+				},
+			},
+			{
+				Role: "user",
+				Parts: []model.Part{
+					{Type: "tool-result", Text: "Result 2"},
+				},
+			},
+		}
+
+		strategy := &RemoveToolResultStrategy{KeepRecentN: 1, Placeholder: "Removed"}
+		result, err := strategy.Apply(messages)
+
+		require.NoError(t, err)
+		// First should be replaced with custom placeholder
+		assert.Equal(t, "Removed", result[0].Parts[0].Text)
+		// Second should keep original
+		assert.Equal(t, "Result 2", result[1].Parts[0].Text)
+	})
+
+	t.Run("empty placeholder defaults to Done", func(t *testing.T) {
+		messages := []model.Message{
+			{
+				Role: "user",
+				Parts: []model.Part{
+					{Type: "tool-result", Text: "Result 1"},
+				},
+			},
+		}
+
+		strategy := &RemoveToolResultStrategy{KeepRecentN: 0, Placeholder: ""}
+		result, err := strategy.Apply(messages)
+
+		require.NoError(t, err)
+		assert.Equal(t, "Done", result[0].Parts[0].Text)
+	})
 }
 
 func TestCreateStrategy(t *testing.T) {
@@ -275,6 +318,54 @@ func TestCreateStrategy(t *testing.T) {
 
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "unknown strategy type")
+	})
+
+	t.Run("create with custom placeholder", func(t *testing.T) {
+		config := StrategyConfig{
+			Type: "remove_tool_result",
+			Params: map[string]interface{}{
+				"keep_recent_n_tool_results": 5,
+				"tool_result_placeholder":    "Cleared",
+			},
+		}
+
+		strategy, err := CreateStrategy(config)
+
+		require.NoError(t, err)
+		rtr, ok := strategy.(*RemoveToolResultStrategy)
+		require.True(t, ok)
+		assert.Equal(t, 5, rtr.KeepRecentN)
+		assert.Equal(t, "Cleared", rtr.Placeholder)
+	})
+
+	t.Run("invalid placeholder type returns error", func(t *testing.T) {
+		config := StrategyConfig{
+			Type: "remove_tool_result",
+			Params: map[string]interface{}{
+				"tool_result_placeholder": 123, // Not a string
+			},
+		}
+
+		_, err := CreateStrategy(config)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "tool_result_placeholder must be a string")
+	})
+
+	t.Run("placeholder string is trimmed", func(t *testing.T) {
+		config := StrategyConfig{
+			Type: "remove_tool_result",
+			Params: map[string]interface{}{
+				"tool_result_placeholder": "  Trimmed  ",
+			},
+		}
+
+		strategy, err := CreateStrategy(config)
+
+		require.NoError(t, err)
+		rtr, ok := strategy.(*RemoveToolResultStrategy)
+		require.True(t, ok)
+		assert.Equal(t, "Trimmed", rtr.Placeholder, "should trim whitespace from placeholder")
 	})
 }
 

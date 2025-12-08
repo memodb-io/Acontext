@@ -8,8 +8,14 @@ from pydantic import BaseModel, Field
 class EditStrategy(TypedDict):
     """Edit strategy configuration for context editing.
 
+    For 'remove_tool_result' strategy:
+    - type: "remove_tool_result"
+    - params:
+        - keep_recent_n_tool_results (int, optional, default: 3): Number of most recent tool results to keep
+        - tool_result_placeholder (str, optional, default: "Done"): Custom text to replace old tool results
+
     Example:
-        {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}
+        {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 5, "tool_result_placeholder": "Cleared"}}
     """
 
     type: str

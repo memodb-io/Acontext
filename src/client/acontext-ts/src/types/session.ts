@@ -114,7 +114,13 @@ export type TokenCounts = z.infer<typeof TokenCountsSchema>;
 /**
  * Edit strategy configuration for context editing.
  * 
- * Example: { type: 'remove_tool_result', params: { keep_recent_n_tool_results: 3 } }
+ * For 'remove_tool_result' strategy:
+ * - type: 'remove_tool_result'
+ * - params:
+ *   - keep_recent_n_tool_results (number, optional, default: 3): Number of most recent tool results to keep
+ *   - tool_result_placeholder (string, optional, default: 'Done'): Custom text to replace old tool results
+ * 
+ * Example: { type: 'remove_tool_result', params: { keep_recent_n_tool_results: 5, tool_result_placeholder: 'Cleared' } }
  */
 export interface EditStrategy {
   type: string;

@@ -100,40 +100,75 @@ const originalSession = await client.sessions.getMessages('session-uuid');
 </CodeGroup>
 
 ### Remove Tool Result
-This strategy will replace the oldest tool results' content with "Done" to reduce the session context, while keeping the most recent N tool results intact.
+This strategy will replace the oldest tool results' content with a placeholder text to reduce the session context, while keeping the most recent N tool results intact.
 
-If `keep_recent_n_tool_results` is not specified, it defaults to 3.
+**Parameters:**
+- `keep_recent_n_tool_results` (optional, default: 3): Number of most recent tool results to keep with original content
+- `tool_result_placeholder` (optional, default: "Done"): Custom text to replace old tool results with
 
 <CodeGroup>
 ```python Python
-# With explicit parameter
+# With explicit parameters
 edited_session = client.sessions.get_messages(
   session_id="session-uuid",
   edit_strategies=[
-    {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 5}}
+    {
+      "type": "remove_tool_result",
+      "params": {
+        "keep_recent_n_tool_results": 5,
+        "tool_result_placeholder": "Tool output removed"
+      }
+    }
   ],
 )
 
-# Using default (keeps 3 most recent)
+# Using defaults (keeps 3 most recent, replaces with "Done")
 edited_session = client.sessions.get_messages(
   session_id="session-uuid",
   edit_strategies=[
     {"type": "remove_tool_result", "params": {}}
   ],
 )
+
+# Custom placeholder only
+edited_session = client.sessions.get_messages(
+  session_id="session-uuid",
+  edit_strategies=[
+    {
+      "type": "remove_tool_result",
+      "params": {"tool_result_placeholder": "[Cleared]"}
+    }
+  ],
+)
 ```
 ```typescript TypeScript
-// With explicit parameter
+// With explicit parameters
 const editedSession = await client.sessions.getMessages('session-uuid', {
   editStrategies: [
-    { type: 'remove_tool_result', params: { keep_recent_n_tool_results: 5 } }
+    {
+      type: 'remove_tool_result',
+      params: {
+        keep_recent_n_tool_results: 5,
+        tool_result_placeholder: 'Tool output removed'
+      }
+    }
   ],
 });
 
-// Using default (keeps 3 most recent)
+// Using defaults (keeps 3 most recent, replaces with "Done")
 const editedSession = await client.sessions.getMessages('session-uuid', {
   editStrategies: [
     { type: 'remove_tool_result', params: {} }
+  ],
+});
+
+// Custom placeholder only
+const editedSession = await client.sessions.getMessages('session-uuid', {
+  editStrategies: [
+    {
+      type: 'remove_tool_result',
+      params: { tool_result_placeholder: '[Cleared]' }
+    }
   ],
 });
 ```
