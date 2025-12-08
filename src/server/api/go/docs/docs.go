@@ -219,6 +219,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "example": "/documents/report.pdf",
                         "description": "File path including filename",
                         "name": "file_path",
                         "in": "query",
@@ -226,18 +227,21 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
+                        "example": true,
                         "description": "Whether to return public URL, default is true",
                         "name": "with_public_url",
                         "in": "query"
                     },
                     {
                         "type": "boolean",
+                        "example": true,
                         "description": "Whether to return parsed file content, default is true",
                         "name": "with_content",
                         "in": "query"
                     },
                     {
                         "type": "integer",
+                        "example": 3600,
                         "description": "Expire time in seconds for presigned URL (default: 3600)",
                         "name": "expire",
                         "in": "query"
@@ -455,6 +459,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "example": "/documents/report.pdf",
                         "description": "File path including filename",
                         "name": "file_path",
                         "in": "query",
@@ -599,6 +604,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "example": "false",
                         "description": "Order by created_at descending if true, ascending if false (default false)",
                         "name": "time_desc",
                         "in": "query"
@@ -1092,6 +1098,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "example": "true",
                         "description": "Whether to return asset public url, default is true",
                         "name": "with_asset_public_url",
                         "in": "query"
@@ -1109,12 +1116,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "example": "false",
                         "description": "Order by created_at descending if true, ascending if false (default false)",
                         "name": "time_desc",
                         "in": "query"
                     },
                     {
                         "type": "string",
+                        "example": "[{\"type\":\"remove_tool_result\",\"params\":{\"keep_recent_n_tool_results\":3}}]",
                         "description": "JSON array of edit strategies to apply before format conversion",
                         "name": "edit_strategies",
                         "in": "query"
@@ -1412,6 +1421,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "example": "false",
                         "description": "Order by created_at descending if true, ascending if false (default false)",
                         "name": "time_desc",
                         "in": "query"

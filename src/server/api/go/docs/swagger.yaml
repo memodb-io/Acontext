@@ -607,6 +607,7 @@ paths:
         required: true
         type: string
       - description: File path including filename
+        example: /documents/report.pdf
         in: query
         name: file_path
         required: true
@@ -663,19 +664,23 @@ paths:
         required: true
         type: string
       - description: File path including filename
+        example: /documents/report.pdf
         in: query
         name: file_path
         required: true
         type: string
       - description: Whether to return public URL, default is true
+        example: true
         in: query
         name: with_public_url
         type: boolean
       - description: Whether to return parsed file content, default is true
+        example: true
         in: query
         name: with_content
         type: boolean
       - description: 'Expire time in seconds for presigned URL (default: 3600)'
+        example: 3600
         in: query
         name: expire
         type: integer
@@ -971,6 +976,7 @@ paths:
         type: string
       - description: Order by created_at descending if true, ascending if false (default
           false)
+        example: "false"
         in: query
         name: time_desc
         type: string
@@ -1404,6 +1410,7 @@ paths:
         name: cursor
         type: string
       - description: Whether to return asset public url, default is true
+        example: "true"
         in: query
         name: with_asset_public_url
         type: string
@@ -1418,10 +1425,12 @@ paths:
         type: string
       - description: Order by created_at descending if true, ascending if false (default
           false)
+        example: "false"
         in: query
         name: time_desc
         type: string
       - description: JSON array of edit strategies to apply before format conversion
+        example: '[{"type":"remove_tool_result","params":{"keep_recent_n_tool_results":3}}]'
         in: query
         name: edit_strategies
         type: string
@@ -1734,6 +1743,7 @@ paths:
         type: string
       - description: Order by created_at descending if true, ascending if false (default
           false)
+        example: "false"
         in: query
         name: time_desc
         type: string

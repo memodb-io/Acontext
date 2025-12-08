@@ -58,7 +58,7 @@ type GetSessionsReq struct {
 //	@Param			not_connected	query	boolean	false	"Filter sessions not connected to any space (default false)"	example(false)
 //	@Param			limit			query	integer	false	"Limit of sessions to return, default 20. Max 200."
 //	@Param			cursor			query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
-//	@Param			time_desc		query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example:"false"
+//	@Param			time_desc		query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example(false)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.ListSessionsOutput}
 //	@Router			/session [get]
@@ -482,10 +482,10 @@ type GetMessagesReq struct {
 //	@Param			session_id				path	string	true	"Session ID"	format(uuid)
 //	@Param			limit					query	integer	false	"Limit of messages to return. Max 200. If limit is 0 or not provided, all messages will be returned."
 //	@Param			cursor					query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
-//	@Param			with_asset_public_url	query	string	false	"Whether to return asset public url, default is true"								example:"true"
+//	@Param			with_asset_public_url	query	string	false	"Whether to return asset public url, default is true"								example(true)
 //	@Param			format					query	string	false	"Format to convert messages to: acontext (original), openai (default), anthropic."	enums(acontext,openai,anthropic)
-//	@Param			time_desc				query	string	false	"Order by created_at descending if true, ascending if false (default false)"		example:"false"
-//	@Param			edit_strategies			query	string	false	"JSON array of edit strategies to apply before format conversion"					example:"[{\"type\":\"remove_tool_result\",\"params\":{\"keep_recent_n_tool_results\":3}}]"
+//	@Param			time_desc				query	string	false	"Order by created_at descending if true, ascending if false (default false)"		example(false)
+//	@Param			edit_strategies			query	string	false	"JSON array of edit strategies to apply before format conversion"					example([{"type":"remove_tool_result","params":{"keep_recent_n_tool_results":3}}])
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.GetMessagesOutput}
 //	@Router			/session/{session_id}/messages [get]

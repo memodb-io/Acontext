@@ -1,25 +1,38 @@
 """Type definitions for session, message, and task resources."""
 
-from typing import Any, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict, Union
 
 from pydantic import BaseModel, Field
 
 
-class EditStrategy(TypedDict):
-    """Edit strategy configuration for context editing.
+class RemoveToolResultParams(TypedDict, total=False):
+    """Parameters for the remove_tool_result edit strategy.
 
-    For 'remove_tool_result' strategy:
-    - type: "remove_tool_result"
-    - params:
-        - keep_recent_n_tool_results (int, optional, default: 3): Number of most recent tool results to keep
-        - tool_result_placeholder (str, optional, default: "Done"): Custom text to replace old tool results
+    Attributes:
+        keep_recent_n_tool_results: Number of most recent tool results to keep with original content.
+            Defaults to 3 if not specified.
+        tool_result_placeholder: Custom text to replace old tool results with.
+            Defaults to "Done" if not specified.
+    """
+
+    keep_recent_n_tool_results: NotRequired[int]
+    tool_result_placeholder: NotRequired[str]
+
+
+class RemoveToolResultStrategy(TypedDict):
+    """Edit strategy to replace old tool results with placeholder text.
 
     Example:
         {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 5, "tool_result_placeholder": "Cleared"}}
     """
 
-    type: str
-    params: dict[str, Any]
+    type: Literal["remove_tool_result"]
+    params: RemoveToolResultParams
+
+
+# Union type for all edit strategies
+# When adding new strategies, add them to this Union: EditStrategy = Union[RemoveToolResultStrategy, OtherStrategy, ...]
+EditStrategy = Union[RemoveToolResultStrategy]
 
 
 class Asset(BaseModel):

@@ -44,7 +44,7 @@ type GetSpacesReq struct {
 //	@Produce		json
 //	@Param			limit		query	integer	false	"Limit of spaces to return, default 20. Max 200."
 //	@Param			cursor		query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
-//	@Param			time_desc	query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example:"false"
+//	@Param			time_desc	query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example(false)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.ListSpacesOutput}
 //	@Router			/space [get]

@@ -126,18 +126,7 @@ edited_session = client.sessions.get_messages(
 edited_session = client.sessions.get_messages(
   session_id="session-uuid",
   edit_strategies=[
-    {"type": "remove_tool_result", "params": {}}
-  ],
-)
-
-# Custom placeholder only
-edited_session = client.sessions.get_messages(
-  session_id="session-uuid",
-  edit_strategies=[
-    {
-      "type": "remove_tool_result",
-      "params": {"tool_result_placeholder": "[Cleared]"}
-    }
+    {"type": "remove_tool_result"}
   ],
 )
 ```
@@ -158,17 +147,7 @@ const editedSession = await client.sessions.getMessages('session-uuid', {
 // Using defaults (keeps 3 most recent, replaces with "Done")
 const editedSession = await client.sessions.getMessages('session-uuid', {
   editStrategies: [
-    { type: 'remove_tool_result', params: {} }
-  ],
-});
-
-// Custom placeholder only
-const editedSession = await client.sessions.getMessages('session-uuid', {
-  editStrategies: [
-    {
-      type: 'remove_tool_result',
-      params: { tool_result_placeholder: '[Cleared]' }
-    }
+    { type: 'remove_tool_result'}
   ],
 });
 ```
