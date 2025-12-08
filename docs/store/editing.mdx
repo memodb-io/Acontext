@@ -46,11 +46,18 @@ You can use the token count to determine if you need to edit the context.
 </Info>
 
 <Info>
-The token count of Acontext is relative and proportional to the length of your session. You can use it to determine whether the current session is too long and needs to be addressed. Please do not use the token count to calculate the cost of LLM, as the actual token consumption of each LLM can vary subtly.
+The token count of Acontext is relative and proportional to the length of your session. 
+You can use it to determine whether the current session is too long and needs to be edited. 
+
+Please do not use the token count to calculate the cost of LLM, as the actual token consumption of each LLM can vary subtly.
 </Info>
 
-## Basic Context Editing SDKs
+## Context Editing On-the-fly
+Acontext supports to edit the session context when you obtain the current messages.
 
+The basic usage is to pass the `edit_strategy` and `edit_params` to the `get_messages` method to get the edited session messages without modifying the original session storage:
+
+<CodeGroup>
 ```python Python
 from acontext import AcontextClient
 
@@ -59,18 +66,50 @@ client = AcontextClient(
     api_key="sk-ac-your-root-api-bearer-token"
 )
 
+edited_session = client.sessions.get_messages(
+  session_id="session-uuid"
+  edit_strategy="STRATEGY_NAME",
+  edit_params={...}
+)
 
-client.sessions.context_edit(session_id="session-uuid", strategy="STRATEGY_NAME", params={...})
- 
-# Edited session
-edited_session = client.sessions.get_messages(session_id="session-uuid")
+original_session = client.sessions.get_messages(
+  session_id="session-uuid"
+)
 ```
+```typescript TypeScript
+import { AcontextClient } from 'acontext';
+
+const client = new AcontextClient({
+  baseUrl: 'http://localhost:8029/api/v1',
+  apiKey: 'sk-ac-your-root-api-bearer-token'
+});
+
+const editedSession = await client.sessions.getMessages('session-uuid', {
+  editStrategy: 'STRATEGY_NAME',
+  editParams: {...}
+});
+
+const originalSession = await client.sessions.getMessages('session-uuid');
+```
+</CodeGroup>
 
 ### Remove Tool Result
+This strategy will remove the oldest tool results to reduce the session context.
+<CodeGroup>
 ```python Python
-client.sessions.context_edit(session_id="session-uuid", strategy="remove_tool_result", params={"keep_recent_n_tool_results": 10})
+edited_session = client.sessions.get_messages(
+  session_id="session-uuid"
+  edit_strategy="remove_tool_result",
+  edit_params={"keep_recent_n_tool_results": 3}
+)
 ```
-
+```typescript TypeScript
+const editedSession = await client.sessions.getMessages('session-uuid', {
+  editStrategy: 'remove_tool_result',
+  editParams: { keepRecentNToolResults: 3 }
+});
+```
+</CodeGroup>
 
 ## Context Engineering and Editing
 
