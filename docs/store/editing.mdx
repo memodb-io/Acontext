@@ -89,8 +89,8 @@ const client = new AcontextClient({
 
 const editedSession = await client.sessions.getMessages('session-uuid', {
   editStrategies:[
-    { type: 'STRATEGY_NAME1', params: {...} },
-    { type: 'STRATEGY_NAME2', params: {...} },
+    { type: 'STRATEGY_NAME1' as const, params: {...} },
+    { type: 'STRATEGY_NAME2' as const, params: {...} },
     ...
   ] 
 });
@@ -135,7 +135,7 @@ edited_session = client.sessions.get_messages(
 const editedSession = await client.sessions.getMessages('session-uuid', {
   editStrategies: [
     {
-      type: 'remove_tool_result',
+      type: 'remove_tool_result' as const,
       params: {
         keep_recent_n_tool_results: 5,
         tool_result_placeholder: 'Tool output removed'
@@ -147,7 +147,7 @@ const editedSession = await client.sessions.getMessages('session-uuid', {
 // Using defaults (keeps 3 most recent, replaces with "Done")
 const editedSession = await client.sessions.getMessages('session-uuid', {
   editStrategies: [
-    { type: 'remove_tool_result'}
+    { type: 'remove_tool_result' as const }
   ],
 });
 ```

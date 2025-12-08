@@ -183,7 +183,7 @@ describe('AcontextClient Integration Tests', () => {
         throw new Error('Session not created');
       }
       const editStrategies = [
-        { type: 'remove_tool_result', params: { keep_recent_n_tool_results: 3 } },
+        { type: 'remove_tool_result' as const, params: { keep_recent_n_tool_results: 3 } },
       ];
       const messages = await client.sessions.getMessages(createdSessionId, {
         format: 'openai',
