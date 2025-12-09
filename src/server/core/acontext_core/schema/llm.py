@@ -25,7 +25,7 @@ class LLMToolCall(BaseModel):
 
 
 class LLMResponse(BaseModel):
-    role: Literal["user", "assistant", "system", "tool"]
+    role: Literal["user", "assistant", "tool"]
     raw_response: BaseModel
 
     content: Optional[str] = None

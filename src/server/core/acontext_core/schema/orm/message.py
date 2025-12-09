@@ -58,7 +58,7 @@ class Message(CommonMixin):
 
     __table_args__ = (
         CheckConstraint(
-            "role IN ('user', 'assistant', 'system', 'tool', 'function')",
+            "role IN ('user', 'assistant', 'tool', 'function')",
             name="ck_message_role",
         ),
         CheckConstraint(
