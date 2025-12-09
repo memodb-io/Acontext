@@ -668,7 +668,6 @@ export default function MessagesPage() {
                 <SelectContent>
                   <SelectItem value="user">user</SelectItem>
                   <SelectItem value="assistant">assistant</SelectItem>
-                  <SelectItem value="system">system</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -681,9 +680,8 @@ export default function MessagesPage() {
                 placeholder={t("messageContentPlaceholder")}
               />
             </div>
-            {/* Only show file attachments for user and assistant roles */}
-            {newMessageRole !== "system" && (
-              <div className="space-y-2">
+            {/* File attachments */}
+            <div className="space-y-2">
                 <label className="text-sm font-medium">
                   {t("attachFiles")}
                 </label>
@@ -771,7 +769,6 @@ export default function MessagesPage() {
                   </div>
                 )}
               </div>
-            )}
 
             {/* Tool Calls - only for assistant role */}
             {newMessageRole === "assistant" && (
