@@ -65,7 +65,7 @@ class Message(BaseModel):
     id: str = Field(..., description="Message UUID")
     session_id: str = Field(..., description="Session UUID")
     parent_id: str | None = Field(None, description="Parent message UUID")
-    role: str = Field(..., description="Message role: 'user', 'assistant', or 'system'")
+    role: str = Field(..., description="Message role: 'user' or 'assistant'")
     meta: dict[str, Any] = Field(..., description="Message metadata")
     parts: list[Part] = Field(..., description="List of message parts")
     task_id: str | None = Field(None, description="Task UUID if associated with a task")
