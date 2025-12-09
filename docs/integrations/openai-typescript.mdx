@@ -198,7 +198,6 @@ async function runAgent(
   conversation: any[]
 ): Promise<[string, any[]]> {
   const messagesToSend: any[] = [
-    { role: 'system', content: 'You are a helpful assistant' },
     ...conversation,
   ];
 

@@ -182,9 +182,7 @@ Handle tool calls in a loop until the agent provides a final response:
 ```python
 def run_agent(client: OpenAI, conversation: list[dict]) -> tuple[str, list[dict]]:
     """Run the agent with tool calling support."""
-    messages_to_send = [
-        {"role": "system", "content": "You are a helpful assistant"}
-    ] + conversation
+    messages_to_send = list(conversation)
     
     new_messages = []
     max_iterations = 10
@@ -420,7 +418,7 @@ acontext_client.sessions.send_message(session_id=session_id, blob=tool_result)
 ## Best Practices
 
 <Tip>
-**Message format**: OpenAI message format is compatible with Acontext, so you can send messages directly without conversion. This includes user, assistant, system, and tool messages.
+**Message format**: OpenAI message format is compatible with Acontext, so you can send messages directly without conversion. This includes user, assistant, and tool messages. System prompts should be handled through session-level or skill-level configuration rather than as messages.
 </Tip>
 
 <Tip>
