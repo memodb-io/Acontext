@@ -23,7 +23,7 @@ type Message struct {
 	Parent    *Message   `gorm:"foreignKey:ParentID;references:ID;constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
 	Children  []Message  `gorm:"foreignKey:ParentID;constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
 
-	Role string `gorm:"type:text;not null;check:role IN ('user','assistant','system')" json:"role"`
+	Role string `gorm:"type:text;not null;check:role IN ('user','assistant')" json:"role"`
 
 	Meta datatypes.JSONType[map[string]any] `gorm:"type:jsonb;not null;default:'{}'" swaggertype:"object" json:"meta"`
 

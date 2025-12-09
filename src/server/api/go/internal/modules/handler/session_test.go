@@ -765,28 +765,6 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 			expectedStatus: http.StatusCreated,
 		},
 		{
-			name:           "openai format - system message",
-			sessionIDParam: sessionID.String(),
-			requestBody: map[string]interface{}{
-				"format": "openai",
-				"blob": map[string]interface{}{
-					"role":    "system",
-					"content": "You are a helpful assistant that speaks like a pirate.",
-				},
-			},
-			setup: func(svc *MockSessionService) {
-				expectedMessage := &model.Message{
-					ID:        uuid.New(),
-					SessionID: sessionID,
-					Role:      "system",
-				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "system"
-				})).Return(expectedMessage, nil)
-			},
-			expectedStatus: http.StatusCreated,
-		},
-		{
 			name:           "openai format - assistant with multiple tool_calls",
 			sessionIDParam: sessionID.String(),
 			requestBody: map[string]interface{}{

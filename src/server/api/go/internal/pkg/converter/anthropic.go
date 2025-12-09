@@ -21,11 +21,6 @@ func (c *AnthropicConverter) Convert(messages []model.Message, publicURLs map[st
 	result := make([]anthropic.MessageParam, 0, len(messages))
 
 	for _, msg := range messages {
-		// Skip system messages - they should be handled separately via system parameter
-		if msg.Role == "system" {
-			continue
-		}
-
 		anthropicMsg := c.convertMessage(msg, publicURLs)
 		result = append(result, anthropicMsg)
 	}
@@ -48,7 +43,6 @@ func (c *AnthropicConverter) convertMessage(msg model.Message, publicURLs map[st
 
 func (c *AnthropicConverter) convertRole(role string) string {
 	// Anthropic roles: "user", "assistant"
-	// Note: "system" messages should be passed via the top-level system parameter
 	switch role {
 	case "assistant":
 		return "assistant"
