@@ -59,7 +59,7 @@ export class MessagePart {
 }
 
 export const AcontextMessageSchema = z.object({
-  role: z.enum(['user', 'assistant', 'system']),
+  role: z.enum(['user', 'assistant']),
   parts: z.array(MessagePartSchema),
   meta: z.record(z.string(), z.unknown()).nullable().optional(),
 });
@@ -67,7 +67,7 @@ export const AcontextMessageSchema = z.object({
 export type AcontextMessageInput = z.infer<typeof AcontextMessageSchema>;
 
 export class AcontextMessage {
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant';
   parts: MessagePart[];
   meta?: Record<string, unknown> | null;
 
@@ -89,12 +89,12 @@ export class AcontextMessage {
 }
 
 export function buildAcontextMessage(options: {
-  role: 'user' | 'assistant' | 'system';
+  role: 'user' | 'assistant';
   parts: (MessagePart | string | MessagePartInput)[];
   meta?: Record<string, unknown> | null;
 }): AcontextMessage {
-  if (!['user', 'assistant', 'system'].includes(options.role)) {
-    throw new Error("role must be one of {'user', 'assistant', 'system'}");
+  if (!['user', 'assistant'].includes(options.role)) {
+    throw new Error("role must be one of {'user', 'assistant'}");
   }
 
   const normalizedParts = options.parts.map((part) => {
