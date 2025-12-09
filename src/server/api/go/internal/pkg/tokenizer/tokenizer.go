@@ -80,23 +80,35 @@ func ExtractTextAndToolContent(parts []model.Part) (string, error) {
 	return content.String(), nil
 }
 
+// CountSingleMessageTokens counts tokens for a single message
+func CountSingleMessageTokens(ctx context.Context, message model.Message) (int, error) {
+	content, err := ExtractTextAndToolContent(message.Parts)
+	if err != nil {
+		return 0, fmt.Errorf("failed to extract content from message %s: %w", message.ID, err)
+	}
+
+	if content == "" {
+		return 0, nil
+	}
+
+	count, err := CountTokens(content)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count tokens for message %s: %w", message.ID, err)
+	}
+
+	return count, nil
+}
+
 // CountMessagePartsTokens counts tokens for all text and tool-call parts in messages
 func CountMessagePartsTokens(ctx context.Context, messages []model.Message) (int, error) {
 	totalTokens := 0
 
 	for _, msg := range messages {
-		content, err := ExtractTextAndToolContent(msg.Parts)
+		count, err := CountSingleMessageTokens(ctx, msg)
 		if err != nil {
-			return 0, fmt.Errorf("failed to extract content from message %s: %w", msg.ID, err)
+			return 0, err
 		}
-
-		if content != "" {
-			count, err := CountTokens(content)
-			if err != nil {
-				return 0, fmt.Errorf("failed to count tokens for message %s: %w", msg.ID, err)
-			}
-			totalTokens += count
-		}
+		totalTokens += count
 	}
 
 	return totalTokens, nil

@@ -223,7 +223,7 @@ Each message receives a unique ID upon creation. You can use these IDs to refere
 
 ### Get all messages from a session
 
-Retrieve messages from a session with pagination support:
+Retrieve messages from a session:
 
 <CodeGroup>
 ```python Python
@@ -237,22 +237,12 @@ client = AcontextClient(
 # Get messages from a session
 result = client.sessions.get_messages(
     session_id="session_uuid",
-    limit=50,
-    format="openai",
-    time_desc=True  # Most recent first
+    format="openai"
 )
 
 print(f"Retrieved {len(result.items)} messages")
 for msg in result.items:
     print(f"- {msg.role}: {msg.content[:50]}...")
-
-# Handle pagination if there are more messages
-if result.next_cursor:
-    next_page = client.sessions.get_messages(
-        session_id="session_uuid",
-        cursor=result.next_cursor,
-        limit=50
-    )
 ```
 
 ```typescript TypeScript
@@ -265,23 +255,13 @@ const client = new AcontextClient({
 
 // Get messages from a session
 const result = await client.sessions.getMessages('session_uuid', {
-  limit: 50,
-  format: 'openai',
-  timeDesc: true  // Most recent first
+  format: 'openai'
 });
 
 console.log(`Retrieved ${result.items.length} messages`);
 result.items.forEach(msg => {
   console.log(`- ${msg.role}: ${msg.content.substring(0, 50)}...`);
 });
-
-// Handle pagination if there are more messages
-if (result.nextCursor) {
-  const nextPage = await client.sessions.getMessages('session_uuid', {
-    cursor: result.nextCursor,
-    limit: 50
-  });
-}
 ```
 </CodeGroup>
 
@@ -341,8 +321,7 @@ try:
     # 3. Retrieve messages later
     result = client.sessions.get_messages(
         session_id=session.id,
-        format="openai",
-        time_desc=False  # Chronological order
+        format="openai"
     )
     
     print(f"\nRetrieved conversation ({len(result.items)} messages):")
@@ -386,8 +365,7 @@ async function storeAndRetrieveConversation() {
     
     // 3. Retrieve messages later
     const result = await client.sessions.getMessages(session.id, {
-      format: 'openai',
-      timeDesc: false  // Chronological order
+      format: 'openai'
     });
     
     console.log(`\nRetrieved conversation (${result.items.length} messages):`);
@@ -403,45 +381,6 @@ async function storeAndRetrieveConversation() {
 storeAndRetrieveConversation();
 ```
 </CodeGroup>
-
-## Pagination and limits
-
-When retrieving large message histories, use pagination to efficiently process results:
-
-<Steps>
-<Step title="Set an appropriate limit">
-Start with a reasonable page size (e.g., 50-100 messages) based on your use case.
-
-```python
-result = client.sessions.get_messages(session_id="session_uuid", limit=50)
-```
-</Step>
-
-<Step title="Check for more pages">
-Look for the `next_cursor` field in the response to determine if more messages exist.
-
-```python
-if result.next_cursor:
-    print("More messages available")
-```
-</Step>
-
-<Step title="Fetch subsequent pages">
-Use the cursor to retrieve the next page of results.
-
-```python
-next_page = client.sessions.get_messages(
-    session_id="session_uuid",
-    cursor=result.next_cursor,
-    limit=50
-)
-```
-</Step>
-</Steps>
-
-<Note>
-The maximum limit per request is typically 100 messages. Check your plan's specific limits in the dashboard.
-</Note>
 
 ## Managing sessions
 
@@ -542,13 +481,6 @@ for (const session of sessions.items.slice(10)) {
 - Use **OpenAI format** if you're working with OpenAI models or want broad compatibility
 - Use **Anthropic format** if you're primarily using Claude models
 - You can convert between formats when retrieving messages
-</Accordion>
-
-<Accordion title="Handle pagination efficiently">
-- Set appropriate page sizes (50-100 messages typically works well)
-- Cache results when possible to reduce API calls
-- Use `time_desc=True` to get most recent messages first
-- Process pages asynchronously for better performance with large histories
 </Accordion>
 </AccordionGroup>
 

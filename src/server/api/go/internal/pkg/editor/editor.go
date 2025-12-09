@@ -2,7 +2,7 @@ package editor
 
 import (
 	"fmt"
-	"strings"
+	"sort"
 
 	"github.com/memodb-io/Acontext/internal/modules/model"
 )
@@ -19,112 +19,63 @@ type StrategyConfig struct {
 	Params map[string]interface{} `json:"params"`
 }
 
-// RemoveToolResultStrategy replaces old tool-result parts' text with a placeholder
-type RemoveToolResultStrategy struct {
-	KeepRecentN int
-	Placeholder string
-}
-
-// Name returns the strategy name
-func (s *RemoveToolResultStrategy) Name() string {
-	return "remove_tool_result"
-}
-
-// Apply replaces old tool-result parts' text with a placeholder
-// Keeps the most recent N tool-result parts with their original content
-func (s *RemoveToolResultStrategy) Apply(messages []model.Message) ([]model.Message, error) {
-	if s.KeepRecentN < 0 {
-		return nil, fmt.Errorf("keep_recent_n_tool_results must be >= 0, got %d", s.KeepRecentN)
-	}
-
-	// First, collect all tool-result parts with their positions
-	type toolResultPosition struct {
-		messageIdx int
-		partIdx    int
-	}
-	var toolResultPositions []toolResultPosition
-
-	for msgIdx, msg := range messages {
-		for partIdx, part := range msg.Parts {
-			if part.Type == "tool-result" {
-				toolResultPositions = append(toolResultPositions, toolResultPosition{
-					messageIdx: msgIdx,
-					partIdx:    partIdx,
-				})
-			}
-		}
-	}
-
-	// Calculate how many to replace (all except the most recent KeepRecentN)
-	totalToolResults := len(toolResultPositions)
-	if totalToolResults <= s.KeepRecentN {
-		// Nothing to replace
-		return messages, nil
-	}
-
-	numToReplace := totalToolResults - s.KeepRecentN
-
-	// Use the placeholder text (defaults to "Done" if not set)
-	placeholder := s.Placeholder
-	if placeholder == "" {
-		placeholder = "Done"
-	}
-
-	// Replace the text of the oldest tool-result parts
-	for i := 0; i < numToReplace; i++ {
-		pos := toolResultPositions[i]
-		messages[pos.messageIdx].Parts[pos.partIdx].Text = placeholder
-	}
-
-	return messages, nil
-}
-
 // CreateStrategy creates a strategy from a config
 func CreateStrategy(config StrategyConfig) (EditStrategy, error) {
 	switch config.Type {
 	case "remove_tool_result":
-		// Default to keeping 3 most recent tool results if parameter not provided
-		keepRecentNInt := 3
-
-		if keepRecentN, ok := config.Params["keep_recent_n_tool_results"]; ok {
-			// Handle both float64 (from JSON unmarshaling) and int
-			switch v := keepRecentN.(type) {
-			case float64:
-				keepRecentNInt = int(v)
-			case int:
-				keepRecentNInt = v
-			default:
-				return nil, fmt.Errorf("keep_recent_n_tool_results must be an integer, got %T", keepRecentN)
-			}
-		}
-
-		// Get placeholder text (defaults to "Done" if not provided)
-		placeholder := "Done"
-		if placeholderValue, ok := config.Params["tool_result_placeholder"]; ok {
-			if placeholderStr, ok := placeholderValue.(string); ok {
-				placeholder = strings.TrimSpace(placeholderStr)
-			} else {
-				return nil, fmt.Errorf("tool_result_placeholder must be a string, got %T", placeholderValue)
-			}
-		}
-
-		return &RemoveToolResultStrategy{
-			KeepRecentN: keepRecentNInt,
-			Placeholder: placeholder,
-		}, nil
+		return createRemoveToolResultStrategy(config.Params)
+	case "token_limit":
+		return createTokenLimitStrategy(config.Params)
 	default:
 		return nil, fmt.Errorf("unknown strategy type: %s", config.Type)
 	}
 }
 
-// ApplyStrategies applies multiple editing strategies in sequence
+// getStrategyPriority returns the priority of a strategy type.
+// Lower numbers are applied first, higher numbers are applied last.
+// This ensures strategies are executed in an optimal order.
+func getStrategyPriority(strategyType string) int {
+	switch strategyType {
+	case "remove_tool_result":
+		return 1 // Content reduction strategies go first
+	case "token_limit":
+		return 100 // Token limit always goes last
+	default:
+		return 50 // unmarked strategies go in the middle
+	}
+}
+
+// sortStrategies sorts strategy configs by their priority.
+// This ensures strategies are applied in the optimal order:
+// 1. Content reduction strategies (e.g., remove_tool_result)
+// 2. Other strategies
+// 3. Token limit (always last)
+func sortStrategies(configs []StrategyConfig) []StrategyConfig {
+	// Create a copy to avoid modifying the original slice
+	sorted := make([]StrategyConfig, len(configs))
+	copy(sorted, configs)
+
+	// Sort by priority
+	sort.SliceStable(sorted, func(i, j int) bool {
+		return getStrategyPriority(sorted[i].Type) < getStrategyPriority(sorted[j].Type)
+	})
+
+	return sorted
+}
+
+// ApplyStrategies applies multiple editing strategies in sequence.
+// Strategies are automatically sorted to ensure optimal execution order,
+// with token_limit always applied last.
 func ApplyStrategies(messages []model.Message, configs []StrategyConfig) ([]model.Message, error) {
 	if len(configs) == 0 {
 		return messages, nil
 	}
 
+	// Sort strategies to ensure optimal execution order
+	sortedConfigs := sortStrategies(configs)
+
 	result := messages
-	for _, config := range configs {
+	for _, config := range sortedConfigs {
 		strategy, err := CreateStrategy(config)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create strategy: %w", err)
