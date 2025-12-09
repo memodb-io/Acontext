@@ -1086,7 +1086,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Limit of messages to return. Max 200. If limit is 0 or not provided, all messages will be returned.",
+                        "description": "Limit of messages to return. Max 200. If limit is 0 or not provided, all messages will be returned. \n\nWARNING!\n Use ` + "`" + `limit` + "`" + ` only for read-only/display purposes (pagination, viewing). Do NOT use ` + "`" + `limit` + "`" + ` to truncate messages before sending to LLM as it may cause tool-call and tool-result unpairing issues. Instead, use the ` + "`" + `token_limit` + "`" + ` edit strategy in ` + "`" + `edit_strategies` + "`" + ` parameter to safely manage message context size.",
                         "name": "limit",
                         "in": "query"
                     },

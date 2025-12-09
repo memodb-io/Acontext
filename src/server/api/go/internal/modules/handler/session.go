@@ -480,7 +480,7 @@ type GetMessagesReq struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			session_id				path	string	true	"Session ID"	format(uuid)
-//	@Param			limit					query	integer	false	"Limit of messages to return. Max 200. If limit is 0 or not provided, all messages will be returned."
+//	@Param			limit					query	integer	false	"Limit of messages to return. Max 200. If limit is 0 or not provided, all messages will be returned. \n\nWARNING!\n Use `limit` only for read-only/display purposes (pagination, viewing). Do NOT use `limit` to truncate messages before sending to LLM as it may cause tool-call and tool-result unpairing issues. Instead, use the `token_limit` edit strategy in `edit_strategies` parameter to safely manage message context size."
 //	@Param			cursor					query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
 //	@Param			with_asset_public_url	query	string	false	"Whether to return asset public url, default is true"								example(true)
 //	@Param			format					query	string	false	"Format to convert messages to: acontext (original), openai (default), anthropic."	enums(acontext,openai,anthropic)
