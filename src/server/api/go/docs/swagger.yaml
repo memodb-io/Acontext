@@ -2535,7 +2535,7 @@ paths:
             });
           }
   /space/{space_id}/experience_confirmations/{experience_id}:
-    patch:
+    put:
       consumes:
       - application/json
       description: 'Confirm an experience confirmation. If save is false, delete the

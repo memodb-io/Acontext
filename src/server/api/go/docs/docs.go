@@ -2257,7 +2257,7 @@ const docTemplate = `{
             }
         },
         "/space/{space_id}/experience_confirmations/{experience_id}": {
-            "patch": {
+            "put": {
                 "security": [
                     {
                         "BearerAuth": []
