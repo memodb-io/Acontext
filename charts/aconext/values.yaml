@@ -238,7 +238,6 @@ secrets:
   # Also used to override internal RabbitMQ credentials if needed
   rabbitmq:
     password: ""
-    erlangCookie: ""
   
   # Application secrets
   llm:
