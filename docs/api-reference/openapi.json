@@ -1698,7 +1698,7 @@
       }
     },
     "/space/{space_id}/experience_confirmations/{experience_id}" : {
-      "patch" : {
+      "put" : {
         "description" : "Confirm an experience confirmation. If save is false, delete the row. If save is true, get the data first (TODO: process data), then delete the row.",
         "parameters" : [ {
           "description" : "Space ID",
@@ -1735,7 +1735,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/_space__space_id__experience_confirmations__experience_id__patch_200_response"
+                  "$ref" : "#/components/schemas/_space__space_id__experience_confirmations__experience_id__put_200_response"
                 }
               }
             },
@@ -2847,7 +2847,7 @@
           "type" : "object"
         } ]
       },
-      "_space__space_id__experience_confirmations__experience_id__patch_200_response" : {
+      "_space__space_id__experience_confirmations__experience_id__put_200_response" : {
         "allOf" : [ {
           "$ref" : "#/components/schemas/serializer.Response"
         }, {
