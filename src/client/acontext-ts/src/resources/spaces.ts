@@ -154,7 +154,7 @@ export class SpacesAPI {
   ): Promise<ExperienceConfirmation | null> {
     const payload = { save: options.save };
     const data = await this.requester.request(
-      'PATCH',
+      'PUT',
       `/space/${spaceId}/experience_confirmations/${experienceId}`,
       { jsonData: payload }
     );
