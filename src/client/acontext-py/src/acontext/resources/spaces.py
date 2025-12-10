@@ -179,7 +179,7 @@ class SpacesAPI:
         """
         payload = {"save": save}
         data = self._requester.request(
-            "PATCH",
+            "PUT",
             f"/space/{space_id}/experience_confirmations/{experience_id}",
             json_data=payload,
         )

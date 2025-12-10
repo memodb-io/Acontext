@@ -181,7 +181,7 @@ class AsyncSpacesAPI:
         """
         payload = {"save": save}
         data = await self._requester.request(
-            "PATCH",
+            "PUT",
             f"/space/{space_id}/experience_confirmations/{experience_id}",
             json_data=payload,
         )
