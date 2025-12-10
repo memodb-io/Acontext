@@ -55,7 +55,7 @@ Please do not use the token count to calculate the cost of LLM, as the actual to
 ## Context Editing On-the-fly
 Acontext supports to edit the session context when you obtain the current messages.
 
-The basic usage is to pass the `edit_strategy` and `edit_params` to the `get_messages` method to get the edited session messages without modifying the original session storage:
+The basic usage is to pass the `edit_strategies` to the `get_messages` method to get the edited session messages without modifying the original session storage:
 
 <CodeGroup>
 ```python Python
@@ -98,6 +98,46 @@ const editedSession = await client.sessions.getMessages('session-uuid', {
 const originalSession = await client.sessions.getMessages('session-uuid');
 ```
 </CodeGroup>
+
+### Token Limit
+This strategy truncates messages based on token count, removing the oldest messages until the total token count is within the specified limit. 
+
+It's useful for managing context window limits and ensuring your session stays within model constraints.
+
+It will:
+- Removes messages from oldest to newest
+- Maintains tool-call/tool-result pairing (when removing a tool-call, its corresponding tool-result is also removed)
+
+<CodeGroup>
+```python Python
+# Limit session to 20,000 tokens
+edited_session = client.sessions.get_messages(
+  session_id="session-uuid",
+  edit_strategies=[
+    {
+      "type": "token_limit",
+      "params": {
+        "limit_tokens": 20000
+      }
+    }
+  ],
+)
+```
+```typescript TypeScript
+// Limit session to 20,000 tokens
+const editedSession = await client.sessions.getMessages('session-uuid', {
+  editStrategies: [
+    {
+      type: 'token_limit' as const,
+      params: {
+        limit_tokens: 20000
+      }
+    }
+  ],
+});
+```
+</CodeGroup>
+
 
 ### Remove Tool Result
 This strategy will replace the oldest tool results' content with a placeholder text to reduce the session context, while keeping the most recent N tool results intact.
@@ -152,6 +192,8 @@ const editedSession = await client.sessions.getMessages('session-uuid', {
 });
 ```
 </CodeGroup>
+
+
 
 ## Context Engineering and Editing
 

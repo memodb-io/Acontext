@@ -30,9 +30,36 @@ class RemoveToolResultStrategy(TypedDict):
     params: RemoveToolResultParams
 
 
+class TokenLimitParams(TypedDict):
+    """Parameters for the token_limit edit strategy.
+
+    Attributes:
+        limit_tokens: Maximum number of tokens to keep. Required parameter.
+            Messages will be removed from oldest to newest until total tokens <= limit_tokens.
+            Tool-call and tool-result pairs are always removed together.
+    """
+
+    limit_tokens: int
+
+
+class TokenLimitStrategy(TypedDict):
+    """Edit strategy to truncate messages based on token count.
+
+    Removes oldest messages until the total token count is within the specified limit.
+    Maintains tool-call/tool-result pairing - when removing a message with tool-calls,
+    the corresponding tool-result messages are also removed.
+
+    Example:
+        {"type": "token_limit", "params": {"limit_tokens": 20000}}
+    """
+
+    type: Literal["token_limit"]
+    params: TokenLimitParams
+
+
 # Union type for all edit strategies
 # When adding new strategies, add them to this Union: EditStrategy = Union[RemoveToolResultStrategy, OtherStrategy, ...]
-EditStrategy = Union[RemoveToolResultStrategy]
+EditStrategy = Union[RemoveToolResultStrategy, TokenLimitStrategy]
 
 
 class Asset(BaseModel):

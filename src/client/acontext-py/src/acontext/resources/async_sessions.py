@@ -278,7 +278,9 @@ class AsyncSessionsAPI:
             time_desc: Order by created_at descending if True, ascending if False. Defaults to None.
             edit_strategies: Optional list of edit strategies to apply before format conversion.
                 Each strategy is a dict with 'type' and 'params' keys.
-                Example: [{"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}]
+                Examples:
+                    - Remove tool results: [{"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}]
+                    - Token limit: [{"type": "token_limit", "params": {"limit_tokens": 20000}}]
                 Defaults to None.
 
         Returns:
