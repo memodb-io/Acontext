@@ -19,9 +19,10 @@ services:
           "CMD-SHELL",
           "pg_isready -U ${DATABASE_USER:-acontext} -d ${DATABASE_NAME:-acontext}",
         ]
-      interval: 30s
-      timeout: 5s
-      retries: 5
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
 
   # --- Redis ---
   acontext-server-redis:
@@ -35,9 +36,10 @@ services:
       - ${REDIS_LOCATION:-./acontext_data/redis}:/data
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-helloworld}", "ping"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   # --- RabbitMQ ---
   acontext-server-rabbitmq:
@@ -55,9 +57,10 @@ services:
       - ${RABBITMQ_LOCATION:-./acontext_data/rabbitmq}:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 30s
+      interval: 15s
       timeout: 5s
-      retries: 5
+      retries: 3
+      start_period: 60s
 
   # --- SeaweedFS ---
   acontext-server-seaweedfs:
@@ -94,9 +97,10 @@ services:
           "CMD-SHELL",
           "wget -q -O- http://acontext-server-seaweedfs:9333/cluster/status || exit 1",
         ]
-      interval: 30s
-      timeout: 5s
-      retries: 5
+      interval: 20s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # init Bucket for SeaweedFS
   acontext-server-seaweedfs-setup:
@@ -142,7 +146,8 @@ services:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:16686"]
       interval: 30s
       timeout: 5s
-      retries: 5
+      retries: 3
+      start_period: 30s
 
   # acontext-server-core
   acontext-server-core:
@@ -177,9 +182,10 @@ services:
           "CMD-SHELL",
           "wget -q -O- http://localhost:8000/health || exit 1",
         ]
-      interval: 30s
+      interval: 15s
       timeout: 5s
-      retries: 5
+      retries: 3
+      start_period: 40s
     depends_on:
       acontext-server-pg:
         condition: service_healthy
@@ -234,9 +240,10 @@ services:
           "CMD-SHELL",
           "wget -q -O- http://acontext-server-api:8029/health || exit 1",
         ]
-      interval: 30s
+      interval: 15s
       timeout: 5s
-      retries: 5
+      retries: 3
+      start_period: 40s
     depends_on:
       acontext-server-core:
         condition: service_healthy
