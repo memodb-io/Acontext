@@ -120,7 +120,7 @@ Get PostgreSQL port
 {{- if .Values.postgresql.enabled }}
 {{- "5432" }}
 {{- else }}
-{{- .Values.external.postgresql.port | default "5432" | quote }}
+{{- .Values.external.postgresql.port | default "5432" }}
 {{- end }}
 {{- end }}
 
@@ -142,7 +142,7 @@ Get Redis port
 {{- if .Values.redis.enabled }}
 {{- "6379" }}
 {{- else }}
-{{- .Values.external.redis.port | default "6379" | quote }}
+{{- .Values.external.redis.port | default "6379" }}
 {{- end }}
 {{- end }}
 
@@ -164,7 +164,7 @@ Get RabbitMQ port
 {{- if .Values.rabbitmq.enabled }}
 {{- "5672" }}
 {{- else }}
-{{- .Values.external.rabbitmq.port | default "5672" | quote }}
+{{- .Values.external.rabbitmq.port | default "5672" }}
 {{- end }}
 {{- end }}
 
@@ -174,9 +174,18 @@ Get PostgreSQL database URL
 {{- define "aconext.postgresql.url" -}}
 {{- $host := include "aconext.postgresql.host" . }}
 {{- $port := include "aconext.postgresql.port" . }}
-{{- $user := .Values.postgresql.auth.username | default .Values.external.postgresql.username }}
-{{- $password := .Values.postgresql.auth.password | default .Values.external.postgresql.password }}
-{{- $database := .Values.postgresql.auth.database | default .Values.external.postgresql.database }}
+{{- $user := "" }}
+{{- $password := "" }}
+{{- $database := "" }}
+{{- if .Values.postgresql.enabled }}
+{{- $user = .Values.postgresql.auth.username }}
+{{- $password = .Values.postgresql.auth.password }}
+{{- $database = .Values.postgresql.auth.database }}
+{{- else }}
+{{- $user = .Values.external.postgresql.username }}
+{{- $password = .Values.secrets.postgresql.password }}
+{{- $database = .Values.external.postgresql.database }}
+{{- end }}
 {{- printf "postgresql://%s:%s@%s:%s/%s" $user $password $host $port $database }}
 {{- end }}
 
@@ -186,9 +195,14 @@ Get Redis URL
 {{- define "aconext.redis.url" -}}
 {{- $host := include "aconext.redis.host" . }}
 {{- $port := include "aconext.redis.port" . }}
-{{- $password := .Values.redis.auth.password | default .Values.external.redis.password }}
+{{- $password := "" }}
+{{- if .Values.redis.enabled }}
+{{- $password = .Values.redis.auth.password }}
+{{- else }}
+{{- $password = .Values.secrets.redis.password }}
+{{- end }}
 {{- if $password }}
-{{- printf "redis://:%s@%s:%s" $password $host $port }}
+{{- printf "rediss://:%s@%s:%s" $password $host $port }}
 {{- else }}
 {{- printf "redis://%s:%s" $host $port }}
 {{- end }}
@@ -200,10 +214,19 @@ Get RabbitMQ URL
 {{- define "aconext.rabbitmq.url" -}}
 {{- $host := include "aconext.rabbitmq.host" . }}
 {{- $port := include "aconext.rabbitmq.port" . }}
-{{- $user := .Values.rabbitmq.auth.username | default .Values.external.rabbitmq.username }}
-{{- $password := .Values.rabbitmq.auth.password | default .Values.external.rabbitmq.password }}
-{{- $vhost := .Values.rabbitmq.auth.vhost | default .Values.external.rabbitmq.vhost | default "/" }}
-{{- printf "amqp://%s:%s@%s:%s/%s" $user $password $host $port $vhost }}
+{{- $user := "" }}
+{{- $password := "" }}
+{{- $vhost := "" }}
+{{- if .Values.rabbitmq.enabled }}
+{{- $user = .Values.rabbitmq.auth.username }}
+{{- $password = .Values.rabbitmq.auth.password }}
+{{- $vhost = .Values.rabbitmq.auth.vhost | default "/" }}
+{{- else }}
+{{- $user = .Values.external.rabbitmq.username }}
+{{- $password = .Values.secrets.rabbitmq.password }}
+{{- $vhost = .Values.external.rabbitmq.vhost | default "/" }}
+{{- end }}
+{{- printf "amqps://%s:%s@%s:%s%s" $user $password $host $port $vhost }}
 {{- end }}
 
 {{/*
