@@ -47,7 +47,7 @@ jobs:
           cp .env.example .env 
           cp core/config.yaml.example core/config.yaml 
 
-          docker compose up acontext-server-pg acontext-server-redis acontext-server-rabbitmq acontext-server-seaweedfs-setup acontext-server-seaweedfs acontext-server-api -d --wait
+          docker compose up -d --wait
         
       - name: e2e test
         working-directory: src/client/acontext-py 

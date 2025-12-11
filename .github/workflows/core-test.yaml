@@ -48,7 +48,7 @@ jobs:
         run: |
           cp .env.example .env 
           cp core/config.yaml.example core/config.yaml 
-          docker compose up acontext-server-pg acontext-server-redis acontext-server-rabbitmq acontext-server-seaweedfs-setup acontext-server-seaweedfs -d --wait
+          docker compose up -d --wait
       
       - name: Test with pytest
         run: |
