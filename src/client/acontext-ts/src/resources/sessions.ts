@@ -57,11 +57,15 @@ export class SessionsAPI {
 
   async create(options?: {
     spaceId?: string | null;
+    disableTaskTracking?: boolean | null;
     configs?: Record<string, unknown>;
   }): Promise<Session> {
     const payload: Record<string, unknown> = {};
     if (options?.spaceId) {
       payload.space_id = options.spaceId;
+    }
+    if (options?.disableTaskTracking !== undefined && options?.disableTaskTracking !== null) {
+      payload.disable_task_tracking = options.disableTaskTracking;
     }
     if (options?.configs !== undefined) {
       payload.configs = options.configs;

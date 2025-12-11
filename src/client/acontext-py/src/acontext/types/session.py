@@ -109,6 +109,9 @@ class Session(BaseModel):
 
     id: str = Field(..., description="Session UUID")
     project_id: str = Field(..., description="Project UUID")
+    disable_task_tracking: bool = Field(
+        False, description="Whether task tracking is disabled for this session"
+    )
     space_id: str | None = Field(None, description="Space UUID, optional")
     configs: dict[str, Any] | None = Field(
         None, description="Session configuration dictionary"

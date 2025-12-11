@@ -72,12 +72,14 @@ class SessionsAPI:
         self,
         *,
         space_id: str | None = None,
+        disable_task_tracking: bool | None = None,
         configs: Mapping[str, Any] | None = None,
     ) -> Session:
         """Create a new session.
 
         Args:
             space_id: Optional space ID to associate with the session. Defaults to None.
+            disable_task_tracking: Whether to disable task tracking for this session. Defaults to None (server default: False).
             configs: Optional session configuration dictionary. Defaults to None.
 
         Returns:
@@ -86,6 +88,8 @@ class SessionsAPI:
         payload: dict[str, Any] = {}
         if space_id:
             payload["space_id"] = space_id
+        if disable_task_tracking is not None:
+            payload["disable_task_tracking"] = disable_task_tracking
         if configs is not None:
             payload["configs"] = configs
         data = self._requester.request("POST", "/session", json_data=payload)
