@@ -7,6 +7,11 @@ Acontext can enable your agent to self-learn skills and standard operating proce
 
 ## How Skill Learning Works
 
+<Frame caption="Dataflow of Acontext">
+<img src="/images/acontext_data_flow.png" alt="Dataflow of Acontext" />
+</Frame>
+
+
 When a session is connected to a Space:
 
 1. **Task Extraction**: As your agent works, Acontext automatically [extracts tasks](/observe/agent_tasks) from the conversation
@@ -14,6 +19,10 @@ When a session is connected to a Space:
 3. **Automatic Learning**: Acontext analyzes the completed task's execution messages and extracts reusable patterns, approaches, and procedures
 4. **Skill Storage**: Learned skills and user preferencesare stored in the Space as searchable knowledge blocks
 5. **Future Use**: Your agent can retrieve and apply these learned skills
+
+<Note>
+Think of Acontext as giving your AI agent a library that remembers and learns, just like humans do.
+</Note>
 
 <Note>
 For now, only tasks with `success` status are learned into skills. Failed or pending tasks are not processed.
