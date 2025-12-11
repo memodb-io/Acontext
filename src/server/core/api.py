@@ -3,7 +3,10 @@ from contextlib import asynccontextmanager
 from typing import Optional, List
 from fastapi import FastAPI, Query, Path, Body
 from fastapi.exceptions import HTTPException
-from acontext_core.di import setup, cleanup, MQ_CLIENT, LOG, DB_CLIENT
+from acontext_core.di import setup, cleanup
+from acontext_core.infra.async_mq import MQ_CLIENT
+from acontext_core.infra.db import DB_CLIENT
+from acontext_core.env import LOG
 from acontext_core.telemetry.otel import (
     setup_otel_tracing,
     instrument_fastapi,

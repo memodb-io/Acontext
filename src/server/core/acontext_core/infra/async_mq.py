@@ -12,7 +12,8 @@ from time import perf_counter
 from aio_pika import connect_robust, ExchangeType, Message
 from aio_pika.abc import AbstractConnection, AbstractChannel, AbstractQueue
 
-from ..env import LOG, DEFAULT_CORE_CONFIG, bound_logging_vars
+from ..env import LOG, DEFAULT_CORE_CONFIG
+from ..telemetry.log import bound_logging_vars
 from ..util.handler_spec import check_handler_function_sanity, get_handler_body_type
 
 # Optional OpenTelemetry imports - only used when tracing is enabled

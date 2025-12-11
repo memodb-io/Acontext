@@ -304,7 +304,7 @@ class TestGetLearningStatusEndpoint:
         # Create test data
         async with db_client.get_session_context() as session:
             project = Project(
-                secret_key_hmac="test_key_hmac4", secret_key_hash_phc="test_key_hash4"
+                secret_key_hmac="test_key_hmac_api_invalid", secret_key_hash_phc="test_key_hash_api_invalid"
             )
             session.add(project)
             await session.commit()

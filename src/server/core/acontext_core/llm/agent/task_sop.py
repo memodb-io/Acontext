@@ -1,5 +1,6 @@
 from typing import Optional, List
-from ...env import LOG, bound_logging_vars
+from ...env import LOG
+from ...telemetry.log import bound_logging_vars
 from ...schema.result import Result
 from ...schema.utils import asUUID
 from ...schema.session.task import TaskSchema
