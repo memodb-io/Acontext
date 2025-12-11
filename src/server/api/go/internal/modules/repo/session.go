@@ -17,6 +17,7 @@ type SessionRepo interface {
 	Delete(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID) error
 	Update(ctx context.Context, s *model.Session) error
 	Get(ctx context.Context, s *model.Session) (*model.Session, error)
+	GetDisableTaskTracking(ctx context.Context, sessionID uuid.UUID) (bool, error)
 	ListWithCursor(ctx context.Context, projectID uuid.UUID, spaceID *uuid.UUID, notConnected bool, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Session, error)
 	CreateMessageWithAssets(ctx context.Context, msg *model.Message) error
 	ListBySessionWithCursor(ctx context.Context, sessionID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Message, error)
@@ -109,6 +110,17 @@ func (r *sessionRepo) Update(ctx context.Context, s *model.Session) error {
 
 func (r *sessionRepo) Get(ctx context.Context, s *model.Session) (*model.Session, error) {
 	return s, r.db.WithContext(ctx).Where(&model.Session{ID: s.ID}).First(s).Error
+}
+
+func (r *sessionRepo) GetDisableTaskTracking(ctx context.Context, sessionID uuid.UUID) (bool, error) {
+	var result struct {
+		DisableTaskTracking bool
+	}
+	err := r.db.WithContext(ctx).Model(&model.Session{}).
+		Select("disable_task_tracking").
+		Where("id = ?", sessionID).
+		First(&result).Error
+	return result.DisableTaskTracking, err
 }
 
 func (r *sessionRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, spaceID *uuid.UUID, notConnected bool, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Session, error) {

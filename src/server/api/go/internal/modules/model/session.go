@@ -8,10 +8,11 @@ import (
 )
 
 type Session struct {
-	ID        uuid.UUID         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	ProjectID uuid.UUID         `gorm:"type:uuid;not null;index" json:"project_id"`
-	SpaceID   *uuid.UUID        `gorm:"type:uuid;index" json:"space_id"`
-	Configs   datatypes.JSONMap `gorm:"type:jsonb" swaggertype:"object" json:"configs"`
+	ID                  uuid.UUID         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	ProjectID           uuid.UUID         `gorm:"type:uuid;not null;index" json:"project_id"`
+	DisableTaskTracking bool              `gorm:"not null;default:false" json:"disable_task_tracking"`
+	SpaceID             *uuid.UUID        `gorm:"type:uuid;index" json:"space_id"`
+	Configs             datatypes.JSONMap `gorm:"type:jsonb" swaggertype:"object" json:"configs"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime;not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime;not null;default:CURRENT_TIMESTAMP" json:"updated_at"`

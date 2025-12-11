@@ -35,8 +35,9 @@ func NewSessionHandler(s service.SessionService, coreClient *httpclient.CoreClie
 }
 
 type CreateSessionReq struct {
-	SpaceID string                 `form:"space_id" json:"space_id" format:"uuid" example:"123e4567-e89b-12d3-a456-42661417"`
-	Configs map[string]interface{} `form:"configs" json:"configs"`
+	SpaceID             string                 `form:"space_id" json:"space_id" format:"uuid" example:"123e4567-e89b-12d3-a456-42661417"`
+	DisableTaskTracking *bool                  `form:"disable_task_tracking" json:"disable_task_tracking" example:"false"`
+	Configs             map[string]interface{} `form:"configs" json:"configs"`
 }
 
 type GetSessionsReq struct {
@@ -129,8 +130,9 @@ func (h *SessionHandler) CreateSession(c *gin.Context) {
 	}
 
 	session := model.Session{
-		ProjectID: project.ID,
-		Configs:   datatypes.JSONMap(req.Configs),
+		ProjectID:           project.ID,
+		DisableTaskTracking: false, // Default value
+		Configs:             datatypes.JSONMap(req.Configs),
 	}
 	if len(req.SpaceID) != 0 {
 		spaceID, err := uuid.Parse(req.SpaceID)
@@ -139,6 +141,9 @@ func (h *SessionHandler) CreateSession(c *gin.Context) {
 			return
 		}
 		session.SpaceID = &spaceID
+	}
+	if req.DisableTaskTracking != nil {
+		session.DisableTaskTracking = *req.DisableTaskTracking
 	}
 	if err := h.svc.Create(c.Request.Context(), &session); err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))

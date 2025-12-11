@@ -2,8 +2,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from .telemetry.log import get_logger, bound_logging_vars, get_logging_contextvars
-from .util.config import DEFAULT_CORE_CONFIG, DEFAULT_PROJECT_CONFIG
+from .telemetry.log import get_logger  # noqa: E402
+from .util.config import DEFAULT_CORE_CONFIG, DEFAULT_PROJECT_CONFIG  # noqa: E402
 
 LOG = get_logger(DEFAULT_CORE_CONFIG.logging_format)
 

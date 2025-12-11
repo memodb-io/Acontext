@@ -278,7 +278,13 @@ func (s *sessionService) SendMessage(ctx context.Context, in SendMessageInput) (
 		return nil, err
 	}
 
-	if s.publisher != nil {
+	// Check if task tracking is disabled for this session
+	disableTaskTracking, err := s.sessionRepo.GetDisableTaskTracking(ctx, in.SessionID)
+	if err != nil {
+		s.log.Error("failed to get disable_task_tracking for session", zap.Error(err))
+		// Continue without publishing, but don't fail the request
+	} else if s.publisher != nil && !disableTaskTracking {
+		// Only publish to MQ if task tracking is enabled
 		if err := s.publisher.PublishJSON(ctx, s.cfg.RabbitMQ.ExchangeName.SessionMessage, s.cfg.RabbitMQ.RoutingKey.SessionMessageInsert, SendMQPublishJSON{
 			ProjectID: in.ProjectID,
 			SessionID: in.SessionID,
