@@ -42,6 +42,11 @@ func (m *MockSessionRepo) Get(ctx context.Context, s *model.Session) (*model.Ses
 	return args.Get(0).(*model.Session), args.Error(1)
 }
 
+func (m *MockSessionRepo) GetDisableTaskTracking(ctx context.Context, sessionID uuid.UUID) (bool, error) {
+	args := m.Called(ctx, sessionID)
+	return args.Bool(0), args.Error(1)
+}
+
 func (m *MockSessionRepo) CreateMessageWithAssets(ctx context.Context, msg *model.Message) error {
 	args := m.Called(ctx, msg)
 	return args.Error(0)
