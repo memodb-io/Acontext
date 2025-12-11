@@ -47,14 +47,15 @@
             "icon": "radar",
             "pages": [
               {
-                "group": "Agent Task",
+                "group": "Agent Task Monitoring",
                 "pages": [
                   "observe/agent_tasks",
-                  "observe/buffer"
+                  "observe/buffer",
+                  "observe/disable_tasks"
                 ]
               },
               {
-                "group": "Metrics and Traces",
+                "group": "BI and Traces",
                 "pages": [
                   "observe/dashboard",
                   "observe/traces"

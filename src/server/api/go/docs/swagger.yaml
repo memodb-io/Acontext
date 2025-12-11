@@ -45,6 +45,9 @@ definitions:
       configs:
         additionalProperties: true
         type: object
+      disable_task_tracking:
+        example: false
+        type: boolean
       space_id:
         example: 123e4567-e89b-12d3-a456-42661417
         format: uuid
@@ -307,6 +310,8 @@ definitions:
         type: object
       created_at:
         type: string
+      disable_task_tracking:
+        type: boolean
       id:
         type: string
       project_id:

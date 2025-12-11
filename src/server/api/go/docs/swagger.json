@@ -2613,6 +2613,10 @@
                     "type": "object",
                     "additionalProperties": true
                 },
+                "disable_task_tracking": {
+                    "type": "boolean",
+                    "example": false
+                },
                 "space_id": {
                     "type": "string",
                     "format": "uuid",
@@ -3010,6 +3014,9 @@
                 },
                 "created_at": {
                     "type": "string"
+                },
+                "disable_task_tracking": {
+                    "type": "boolean"
                 },
                 "id": {
                     "type": "string"

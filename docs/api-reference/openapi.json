@@ -1973,6 +1973,10 @@
             "additionalProperties" : true,
             "type" : "object"
           },
+          "disable_task_tracking" : {
+            "example" : false,
+            "type" : "boolean"
+          },
           "space_id" : {
             "example" : "123e4567-e89b-12d3-a456-000042661417",
             "format" : "uuid",
@@ -2364,6 +2368,9 @@
           },
           "created_at" : {
             "type" : "string"
+          },
+          "disable_task_tracking" : {
+            "type" : "boolean"
           },
           "id" : {
             "type" : "string"

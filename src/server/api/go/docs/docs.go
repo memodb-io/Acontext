@@ -2616,6 +2616,10 @@ const docTemplate = `{
                     "type": "object",
                     "additionalProperties": true
                 },
+                "disable_task_tracking": {
+                    "type": "boolean",
+                    "example": false
+                },
                 "space_id": {
                     "type": "string",
                     "format": "uuid",
@@ -3013,6 +3017,9 @@ const docTemplate = `{
                 },
                 "created_at": {
                     "type": "string"
+                },
+                "disable_task_tracking": {
+                    "type": "boolean"
                 },
                 "id": {
                     "type": "string"
