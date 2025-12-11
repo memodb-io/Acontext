@@ -1,0 +1,77 @@
+{{- if and .Values.httpRoute.enabled .Values.httpRoute.gateway.name }}
+{{- $gatewayNamespace := .Values.httpRoute.gateway.namespace | default .Release.Namespace }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "aconext.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aconext.labels" . | nindent 4 }}
+    app.kubernetes.io/component: httproute
+spec:
+  parentRefs:
+    - name: {{ .Values.httpRoute.gateway.name }}
+      namespace: {{ $gatewayNamespace }}
+      sectionName: http
+{{- if .Values.httpRoute.hostnames }}
+  hostnames:
+    {{- toYaml .Values.httpRoute.hostnames | nindent 4 }}
+{{- end }}
+  rules:
+{{- if .Values.httpRoute.tls.enabled }}
+    # Redirect HTTP to HTTPS when TLS is enabled
+    - matches:
+        - path:
+            type: PathPrefix
+            value: "/"
+      filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+{{- else if and .Values.httpRoute.routes.api.enabled .Values.api.enabled }}
+    # Route HTTP traffic to API service (when TLS is disabled)
+    - matches:
+        - path:
+            type: PathPrefix
+            value: {{ .Values.httpRoute.routes.api.path | quote }}
+      backendRefs:
+        - name: {{ include "aconext.api.name" . }}
+          namespace: {{ .Release.Namespace }}
+          port: {{ .Values.api.service.port }}
+          weight: 100
+{{- end }}
+{{- if .Values.httpRoute.tls.enabled }}
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "aconext.fullname" . }}-https
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "aconext.labels" . | nindent 4 }}
+    app.kubernetes.io/component: httproute-https
+spec:
+  parentRefs:
+    - name: {{ .Values.httpRoute.gateway.name }}
+      namespace: {{ $gatewayNamespace }}
+      sectionName: https
+{{- if .Values.httpRoute.hostnames }}
+  hostnames:
+    {{- toYaml .Values.httpRoute.hostnames | nindent 4 }}
+{{- end }}
+  rules:
+{{- if and .Values.httpRoute.routes.api.enabled .Values.api.enabled }}
+    - matches:
+        - path:
+            type: PathPrefix
+            value: {{ .Values.httpRoute.routes.api.path | quote }}
+      backendRefs:
+        - name: {{ include "aconext.api.name" . }}
+          namespace: {{ .Release.Namespace }}
+          port: {{ .Values.api.service.port }}
+          weight: 100
+{{- end }}
+{{- end }}
+{{- end }}

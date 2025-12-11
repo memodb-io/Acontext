@@ -1,0 +1,51 @@
+name: Publish Helm Chart to GHCR
+
+on:
+  push:
+    tags:
+      - 'chart-v*'
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  CHART_NAME: aconext
+  CHART_PATH: charts/aconext
+  HELM_VERSION: 'v4.0.1'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: ${{ env.HELM_VERSION }}
+
+      - name: Package Helm chart
+        run: |
+          helm dependency update ${{ env.CHART_PATH }}
+
+      - name: Publish new helm chart for aconext
+        run: |
+          echo ${{ secrets.GITHUB_TOKEN }} | helm registry login ghcr.io --username ${{ github.actor }} --password-stdin
+
+          ACONEXT_CHART_VERSION_TAG=$(cat ${{ env.CHART_PATH }}/Chart.yaml | grep version: | cut -d " " -f 2)
+
+          echo "ACONEXT_CHART_VERSION_TAG=${ACONEXT_CHART_VERSION_TAG}" >> $GITHUB_ENV
+
+          helm package ${{ env.CHART_PATH }}/ --version="${ACONEXT_CHART_VERSION_TAG}"
+
+          helm push ${{ env.CHART_NAME }}-"${ACONEXT_CHART_VERSION_TAG}".tgz oci://ghcr.io/${{ github.repository_owner }}/helm-charts
+
+      - name: Output chart location
+        run: |
+          echo "Chart published to: ${{ env.REGISTRY }}/${{ github.repository_owner }}/helm-charts/${{ env.CHART_NAME }}:${ACONEXT_CHART_VERSION_TAG}"
+          echo "Install with: helm install my-release oci://${{ env.REGISTRY }}/${{ github.repository_owner }}/helm-charts/${{ env.CHART_NAME }} --version ${ACONEXT_CHART_VERSION_TAG}"
+
