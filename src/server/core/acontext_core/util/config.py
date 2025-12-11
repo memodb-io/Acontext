@@ -39,7 +39,3 @@ def get_local_project_config() -> ProjectConfig:
 
     VARS = {**_ENV_VARS, **_YAML_VARS}
     return ProjectConfig(**VARS)
-
-
-DEFAULT_CORE_CONFIG = get_local_core_config()
-DEFAULT_PROJECT_CONFIG = get_local_project_config()

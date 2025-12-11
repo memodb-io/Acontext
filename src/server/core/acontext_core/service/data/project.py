@@ -1,13 +1,10 @@
-import asyncio
-import json
-from typing import List, Optional
-from sqlalchemy import select, delete, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from ...schema.orm import Project
 from ...schema.config import ProjectConfig, filter_value_from_json
 from ...schema.result import Result
 from ...schema.utils import asUUID
-from ...util.config import DEFAULT_PROJECT_CONFIG
+from ...env import DEFAULT_PROJECT_CONFIG
 
 
 async def get_project_config(
