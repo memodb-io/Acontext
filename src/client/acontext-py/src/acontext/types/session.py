@@ -1,8 +1,65 @@
 """Type definitions for session, message, and task resources."""
 
-from typing import Any
+from typing import Any, Literal, NotRequired, TypedDict, Union
 
 from pydantic import BaseModel, Field
+
+
+class RemoveToolResultParams(TypedDict, total=False):
+    """Parameters for the remove_tool_result edit strategy.
+
+    Attributes:
+        keep_recent_n_tool_results: Number of most recent tool results to keep with original content.
+            Defaults to 3 if not specified.
+        tool_result_placeholder: Custom text to replace old tool results with.
+            Defaults to "Done" if not specified.
+    """
+
+    keep_recent_n_tool_results: NotRequired[int]
+    tool_result_placeholder: NotRequired[str]
+
+
+class RemoveToolResultStrategy(TypedDict):
+    """Edit strategy to replace old tool results with placeholder text.
+
+    Example:
+        {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 5, "tool_result_placeholder": "Cleared"}}
+    """
+
+    type: Literal["remove_tool_result"]
+    params: RemoveToolResultParams
+
+
+class TokenLimitParams(TypedDict):
+    """Parameters for the token_limit edit strategy.
+
+    Attributes:
+        limit_tokens: Maximum number of tokens to keep. Required parameter.
+            Messages will be removed from oldest to newest until total tokens <= limit_tokens.
+            Tool-call and tool-result pairs are always removed together.
+    """
+
+    limit_tokens: int
+
+
+class TokenLimitStrategy(TypedDict):
+    """Edit strategy to truncate messages based on token count.
+
+    Removes oldest messages until the total token count is within the specified limit.
+    Maintains tool-call/tool-result pairing - when removing a message with tool-calls,
+    the corresponding tool-result messages are also removed.
+
+    Example:
+        {"type": "token_limit", "params": {"limit_tokens": 20000}}
+    """
+
+    type: Literal["token_limit"]
+    params: TokenLimitParams
+
+
+# Union type for all edit strategies
+# When adding new strategies, add them to this Union: EditStrategy = Union[RemoveToolResultStrategy, OtherStrategy, ...]
+EditStrategy = Union[RemoveToolResultStrategy, TokenLimitStrategy]
 
 
 class Asset(BaseModel):
@@ -35,7 +92,7 @@ class Message(BaseModel):
     id: str = Field(..., description="Message UUID")
     session_id: str = Field(..., description="Session UUID")
     parent_id: str | None = Field(None, description="Parent message UUID")
-    role: str = Field(..., description="Message role: 'user', 'assistant', or 'system'")
+    role: str = Field(..., description="Message role: 'user' or 'assistant'")
     meta: dict[str, Any] = Field(..., description="Message metadata")
     parts: list[Part] = Field(..., description="List of message parts")
     task_id: str | None = Field(None, description="Task UUID if associated with a task")
@@ -52,6 +109,9 @@ class Session(BaseModel):
 
     id: str = Field(..., description="Session UUID")
     project_id: str = Field(..., description="Project UUID")
+    disable_task_tracking: bool = Field(
+        False, description="Whether task tracking is disabled for this session"
+    )
     space_id: str | None = Field(None, description="Space UUID, optional")
     configs: dict[str, Any] | None = Field(
         None, description="Session configuration dictionary"
@@ -138,4 +198,7 @@ class LearningStatus(BaseModel):
 class TokenCounts(BaseModel):
     """Response model for token counts."""
 
-    total_tokens: int = Field(..., description="Total token count for all text and tool-call parts in a session")
+    total_tokens: int = Field(
+        ...,
+        description="Total token count for all text and tool-call parts in a session",
+    )

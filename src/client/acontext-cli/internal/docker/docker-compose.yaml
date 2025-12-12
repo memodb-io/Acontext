@@ -19,9 +19,10 @@ services:
           "CMD-SHELL",
           "pg_isready -U ${DATABASE_USER:-acontext} -d ${DATABASE_NAME:-acontext}",
         ]
-      interval: 30s
-      timeout: 5s
-      retries: 5
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
 
   # --- Redis ---
   acontext-server-redis:
@@ -35,9 +36,10 @@ services:
       - ${REDIS_LOCATION:-./acontext_data/redis}:/data
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-helloworld}", "ping"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
 
   # --- RabbitMQ ---
   acontext-server-rabbitmq:
@@ -55,13 +57,14 @@ services:
       - ${RABBITMQ_LOCATION:-./acontext_data/rabbitmq}:/var/lib/rabbitmq
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "ping"]
-      interval: 30s
+      interval: 15s
       timeout: 5s
-      retries: 5
+      retries: 3
+      start_period: 60s
 
   # --- SeaweedFS ---
   acontext-server-seaweedfs:
-    image: chrislusf/seaweedfs:4.00
+    image: chrislusf/seaweedfs:4.02
     container_name: acontext-server-seaweedfs
     restart: unless-stopped
     user: root  # https://github.com/seaweedfs/seaweedfs/pull/7399
@@ -94,9 +97,10 @@ services:
           "CMD-SHELL",
           "wget -q -O- http://acontext-server-seaweedfs:9333/cluster/status || exit 1",
         ]
-      interval: 30s
-      timeout: 5s
-      retries: 5
+      interval: 20s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   # init Bucket for SeaweedFS
   acontext-server-seaweedfs-setup:
@@ -112,8 +116,20 @@ services:
     entrypoint: >
       /bin/sh -c "
       aws configure set default.s3.signature_version s3v4 &&
-      aws --endpoint-url=http://acontext-server-seaweedfs:9000 s3 mb s3://${S3_BUCKET:-acontext-assets} 2>/dev/null || true &&
-      echo '✅ SeaweedFS ready with bucket: ${S3_BUCKET:-acontext-assets}'
+      BUCKET_NAME=${S3_BUCKET:-acontext-assets} &&
+      echo 'Creating bucket: '$$BUCKET_NAME &&
+      aws --endpoint-url=http://acontext-server-seaweedfs:9000 s3 mb s3://$$BUCKET_NAME 2>/dev/null || true &&
+      echo 'Verifying bucket exists...' &&
+      for i in 1 2 3 4 5; do
+        if aws --endpoint-url=http://acontext-server-seaweedfs:9000 s3 ls s3://$$BUCKET_NAME >/dev/null 2>&1; then
+          echo '✅ SeaweedFS ready with bucket: '$$BUCKET_NAME &&
+          exit 0
+        fi
+        echo 'Waiting for bucket to be available... (attempt '$$i'/5)' &&
+        sleep 2
+      done &&
+      echo '❌ Failed to verify bucket creation' &&
+      exit 1
       "
     restart: "no"
 
@@ -142,7 +158,8 @@ services:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:16686"]
       interval: 30s
       timeout: 5s
-      retries: 5
+      retries: 3
+      start_period: 30s
 
   # acontext-server-core
   acontext-server-core:
@@ -171,6 +188,16 @@ services:
       - "${CORE_EXPORT_PORT:-8019}:8000"
     volumes:
       - ${CORE_CONFIG_YAML_FILE:-./config.yaml}:/app/config.yaml:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -q -O- http://localhost:8000/health || exit 1",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
     depends_on:
       acontext-server-pg:
         condition: service_healthy
@@ -192,6 +219,7 @@ services:
     container_name: acontext-server-api
     restart: unless-stopped
     environment:
+      APP_ENV: ${APP_ENV:-release}
       API_EXPORT_PORT: ${API_EXPORT_PORT:-8029}
       ROOT_API_BEARER_TOKEN: ${ROOT_API_BEARER_TOKEN:-your-root-api-bearer-token}
       DATABASE_HOST: ${DATABASE_HOST:-acontext-server-pg}
@@ -216,7 +244,6 @@ services:
       S3_BUCKET: ${S3_BUCKET:-acontext-assets}
       CORE_BASE_URL: http://acontext-server-core:8000
       OTEL_EXPORTER_OTLP_ENDPOINT: acontext-server-jaeger:4317
-      APP_ENV: ${APP_ENV:-development}
     ports:
       - "${API_EXPORT_PORT:-8029}:8029"
     healthcheck:
@@ -225,12 +252,13 @@ services:
           "CMD-SHELL",
           "wget -q -O- http://acontext-server-api:8029/health || exit 1",
         ]
-      interval: 30s
+      interval: 15s
       timeout: 5s
-      retries: 5
+      retries: 3
+      start_period: 40s
     depends_on:
       acontext-server-core:
-        condition: service_started
+        condition: service_healthy
       acontext-server-seaweedfs-setup:
         condition: service_completed_successfully
 

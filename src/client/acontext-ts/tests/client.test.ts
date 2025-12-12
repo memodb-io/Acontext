@@ -129,44 +129,6 @@ describe('AcontextClient Integration Tests', () => {
     //   expect(result).toBeDefined();
     //   expect(result.cited_blocks).toBeInstanceOf(Array);
     // });
-
-    // test('should perform semantic glob search', async () => {
-    //   if (!createdSpaceId) {
-    //     throw new Error('Space not created');
-    //   }
-    //   const results = await client.spaces.semanticGlobal(createdSpaceId, {
-    //     query: 'test pages',
-    //     limit: 10,
-    //     threshold: 1.0,
-    //   });
-    //   expect(results).toBeDefined();
-    //   expect(Array.isArray(results)).toBe(true);
-    //   results.forEach((item) => {
-    //     expect(item.block_id).toBeDefined();
-    //     expect(item.title).toBeDefined();
-    //     expect(item.type).toBeDefined();
-    //     expect(item.props).toBeDefined();
-    //   });
-    // });
-
-    // test('should perform semantic grep search', async () => {
-    //   if (!createdSpaceId) {
-    //     throw new Error('Space not created');
-    //   }
-    //   const results = await client.spaces.semanticGrep(createdSpaceId, {
-    //     query: 'test content',
-    //     limit: 15,
-    //     threshold: 0.7,
-    //   });
-    //   expect(results).toBeDefined();
-    //   expect(Array.isArray(results)).toBe(true);
-    //   results.forEach((item) => {
-    //     expect(item.block_id).toBeDefined();
-    //     expect(item.title).toBeDefined();
-    //     expect(item.type).toBeDefined();
-    //     expect(item.props).toBeDefined();
-    //   });
-    // });
   });
 
   describe('Sessions API', () => {
@@ -210,6 +172,34 @@ describe('AcontextClient Integration Tests', () => {
       }
       const messages = await client.sessions.getMessages(createdSessionId, {
         format: 'acontext',
+      });
+      expect(messages).toBeDefined();
+      expect(messages.items).toBeInstanceOf(Array);
+      expect(messages.has_more).toBeDefined();
+    });
+
+    test('should get messages with edit strategies', async () => {
+      if (!createdSessionId) {
+        throw new Error('Session not created');
+      }
+      const editStrategies = [
+        { type: 'remove_tool_result' as const, params: { keep_recent_n_tool_results: 3 } },
+      ];
+      const messages = await client.sessions.getMessages(createdSessionId, {
+        format: 'openai',
+        editStrategies,
+      });
+      expect(messages).toBeDefined();
+      expect(messages.items).toBeInstanceOf(Array);
+      expect(messages.has_more).toBeDefined();
+    });
+
+    test('should get messages without edit strategies', async () => {
+      if (!createdSessionId) {
+        throw new Error('Session not created');
+      }
+      const messages = await client.sessions.getMessages(createdSessionId, {
+        format: 'openai',
       });
       expect(messages).toBeDefined();
       expect(messages.items).toBeInstanceOf(Array);

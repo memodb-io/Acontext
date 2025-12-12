@@ -2,7 +2,7 @@
 name: Question
 about: Ask a question about Acontext
 title: "[Question]: "
-labels: question
+labels: help wanted
 assignees: ''
 ---
 

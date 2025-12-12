@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from sqlalchemy import ForeignKey, Index, Column
+from sqlalchemy import ForeignKey, Index, Column, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from typing import TYPE_CHECKING, Optional, List
@@ -32,6 +32,13 @@ class Session(CommonMixin):
                 nullable=False,
             )
         }
+    )
+
+    disable_task_tracking: bool = field(
+        default=False,
+        metadata={
+            "db": Column(Boolean, nullable=False, default=False, server_default="false")
+        },
     )
 
     space_id: Optional[asUUID] = field(

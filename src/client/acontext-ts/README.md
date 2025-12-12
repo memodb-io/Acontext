@@ -136,9 +136,134 @@ const result = await client.tools.renameToolName({
 console.log(result); // { status: 0, errmsg: '' }
 ```
 
+## Agent Tools
+
+The SDK provides agent tools that allow LLMs (OpenAI, Anthropic) to interact with Acontext disks through function calling. These tools can be converted to OpenAI or Anthropic tool schemas and executed when the LLM calls them.
+
+### Pre-configured Disk Tools
+
+The SDK includes a pre-configured `DISK_TOOLS` pool with four disk operation tools:
+
+- **`write_file`**: Write text content to a file
+- **`read_file`**: Read a text file with optional line offset and limit
+- **`replace_string`**: Replace strings in a file
+- **`list_artifacts`**: List files and directories in a path
+
+### Getting Tool Schemas for LLM APIs
+
+Convert tools to the appropriate format for your LLM provider:
+
+```typescript
+import { AcontextClient, DISK_TOOLS } from '@acontext/acontext';
+
+const client = new AcontextClient({ apiKey: 'sk-ac-your-root-api-bearer-token' });
+
+// Get OpenAI-compatible tool schemas
+const openaiTools = DISK_TOOLS.toOpenAIToolSchema();
+
+// Get Anthropic-compatible tool schemas
+const anthropicTools = DISK_TOOLS.toAnthropicToolSchema();
+
+// Use with OpenAI API
+import OpenAI from 'openai';
+const openai = new OpenAI({ apiKey: 'your-openai-key' });
+const completion = await openai.chat.completions.create({
+  model: 'gpt-4',
+  messages: [{ role: 'user', content: 'Write a file called hello.txt with "Hello, World!"' }],
+  tools: openaiTools,
+});
+```
+
+### Executing Tools
+
+When an LLM calls a tool, execute it using the tool pool:
+
+```typescript
+import { AcontextClient, DISK_TOOLS } from '@acontext/acontext';
+
+const client = new AcontextClient({ apiKey: 'sk-ac-your-root-api-bearer-token' });
+
+// Create a disk for the tools to operate on
+const disk = await client.disks.create();
+
+// Create a context for the tools
+const ctx = DISK_TOOLS.formatContext(client, disk.id);
+
+// Execute a tool (e.g., after LLM returns a tool call)
+const result = await DISK_TOOLS.executeTool(ctx, 'write_file', {
+  filename: 'hello.txt',
+  file_path: '/notes/',
+  content: 'Hello, World!',
+});
+console.log(result); // File 'hello.txt' written successfully to '/notes/hello.txt'
+
+// Read the file
+const readResult = await DISK_TOOLS.executeTool(ctx, 'read_file', {
+  filename: 'hello.txt',
+  file_path: '/notes/',
+});
+console.log(readResult);
+
+// List files in a directory
+const listResult = await DISK_TOOLS.executeTool(ctx, 'list_artifacts', {
+  file_path: '/notes/',
+});
+console.log(listResult);
+
+// Replace a string in a file
+const replaceResult = await DISK_TOOLS.executeTool(ctx, 'replace_string', {
+  filename: 'hello.txt',
+  file_path: '/notes/',
+  old_string: 'Hello',
+  new_string: 'Hi',
+});
+console.log(replaceResult);
+```
+
+### Creating Custom Tools
+
+You can create custom tools by extending `AbstractBaseTool`:
+
+```typescript
+import { AbstractBaseTool, BaseContext, BaseToolPool } from '@acontext/acontext';
+
+interface MyContext extends BaseContext {
+  // Your context properties
+}
+
+class MyCustomTool extends AbstractBaseTool {
+  readonly name = 'my_custom_tool';
+  readonly description = 'A custom tool that does something';
+  readonly arguments = {
+    param1: {
+      type: 'string',
+      description: 'First parameter',
+    },
+  };
+  readonly requiredArguments = ['param1'];
+
+  async execute(ctx: MyContext, llmArguments: Record<string, unknown>): Promise<string> {
+    const param1 = llmArguments.param1 as string;
+    // Your custom logic here
+    return `Result: ${param1}`;
+  }
+}
+
+// Create a custom tool pool
+class MyToolPool extends BaseToolPool {
+  formatContext(...args: unknown[]): MyContext {
+    // Create and return your context
+    return {};
+  }
+}
+
+const myPool = new MyToolPool();
+myPool.addTool(new MyCustomTool());
+```
+
 ## Semantic search within spaces
 
-The SDK provides three powerful semantic search APIs for finding content within your spaces:
+The SDK provides a powerful semantic search API for finding content within your spaces:
 
 ### 1. Experience Search (Advanced AI-powered search)
 
@@ -172,44 +297,6 @@ for (const block of result.cited_blocks) {
 
 if (result.final_answer) {
   console.log(`AI Answer: ${result.final_answer}`);
-}
-```
-
-### 2. Semantic Glob (Search page/folder titles)
-
-Search for pages and folders by their titles using semantic similarity (like a semantic version of `glob`):
-
-```typescript
-// Find pages about authentication
-const results = await client.spaces.semanticGlobal('space-uuid', {
-  query: 'authentication and authorization pages',
-  limit: 10,
-  threshold: 1.0, // Only show results with distance < 1.0
-});
-
-for (const block of results) {
-  console.log(`${block.title} - ${block.type}`);
-}
-```
-
-### 3. Semantic Grep (Search content blocks)
-
-Search through actual content blocks using semantic similarity (like a semantic version of `grep`):
-
-```typescript
-// Find code examples for JWT validation
-const results = await client.spaces.semanticGrep('space-uuid', {
-  query: 'JWT token validation code examples',
-  limit: 15,
-  threshold: 0.7,
-});
-
-for (const block of results) {
-  console.log(`${block.title} - distance: ${block.distance}`);
-  const content = block.props.text || block.props.content;
-  if (content) {
-    console.log(`Content: ${String(content).substring(0, 100)}...`);
-  }
 }
 ```
 

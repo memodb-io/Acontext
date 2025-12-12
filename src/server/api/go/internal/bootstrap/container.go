@@ -2,6 +2,8 @@ package bootstrap
 
 import (
 	"context"
+	"crypto/tls"
+	"strings"
 	"time"
 
 	"github.com/memodb-io/Acontext/internal/config"
@@ -80,6 +82,23 @@ func BuildContainer() *do.Injector {
 	// RabbitMQ Connection
 	do.Provide(inj, func(i *do.Injector) (*amqp.Connection, error) {
 		cfg := do.MustInvoke[*config.Config](i)
+
+		// Check if TLS is enabled via config or URL protocol
+		useTLS := cfg.RabbitMQ.EnableTLS || strings.HasPrefix(cfg.RabbitMQ.URL, "amqps://")
+
+		if useTLS {
+			// Use TLS configuration with minimum TLS 1.2
+			tlsConfig := &tls.Config{
+				MinVersion: tls.VersionTLS12,
+			}
+			// Convert amqp:// to amqps:// if needed
+			url := cfg.RabbitMQ.URL
+			if strings.HasPrefix(url, "amqp://") {
+				url = strings.Replace(url, "amqp://", "amqps://", 1)
+			}
+			return amqp.DialTLS(url, tlsConfig)
+		}
+
 		return amqp.Dial(cfg.RabbitMQ.URL)
 	})
 

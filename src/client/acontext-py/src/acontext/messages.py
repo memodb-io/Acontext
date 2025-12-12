@@ -31,22 +31,22 @@ class AcontextMessage:
     Represents an Acontext-format message payload.
     """
 
-    role: Literal["user", "assistant", "system"]
+    role: Literal["user", "assistant"]
     parts: list[MessagePart]
     meta: Mapping[str, Any] | None = None
 
 
 def build_acontext_message(
     *,
-    role: Literal["user", "assistant", "system"],
+    role: Literal["user", "assistant"],
     parts: Sequence[MessagePart | str | Mapping[str, Any]],
     meta: Mapping[str, Any] | None = None,
 ) -> AcontextMessage:
     """
     Construct an Acontext-format message blob and associated multipart files.
     """
-    if role not in {"user", "assistant", "system"}:
-        raise ValueError("role must be one of {'user', 'assistant', 'system'}")
+    if role not in {"user", "assistant"}:
+        raise ValueError("role must be one of {'user', 'assistant'}")
 
     normalized_parts = [normalize_message_part(part) for part in parts]
 

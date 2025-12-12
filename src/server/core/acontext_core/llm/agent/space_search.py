@@ -1,5 +1,6 @@
 import asyncio
-from ...env import LOG, bound_logging_vars
+from ...env import LOG
+from ...telemetry.log import bound_logging_vars
 from ...infra.db import AsyncSession, DB_CLIENT
 from ..complete import llm_complete, response_to_sendable_message
 from ...util.generate_ids import track_process

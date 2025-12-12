@@ -3,7 +3,7 @@
       <img alt="Show Acontext header banner" src="../../assets/Acontext-header-banner.png">
   </a>
   <p>
-    <h3>扩展上下文，学习经验</h3>
+    <h3>存储上下文，学习技能</h3>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
@@ -34,14 +34,12 @@
 
 
 
-Acontext 是一个用于**云原生** AI Agent 应用程序的**上下文数据平台**。
+Acontext 是一个用于**云原生** AI Agent 应用程序的**上下文数据平台**。它可以：
 
-它可以：
-
-- **存储** 上下文和 Artifacts
+- **存储** 上下文和artifacts
 - **观察** Agent 任务和用户反馈。
-- 通过将经验（SOP）收集到长期记忆中，实现 Agent **自我学习**。
-- 提供**本地仪表板**来查看消息、任务、 Artifacts 和经验。
+- 通过从Agent完成的任务中提取技能，实现Agent **自我学习**。
+- 在一个**仪表板**中查看每个上下文。
 
 
 
@@ -58,20 +56,20 @@ Acontext 是一个用于**云原生** AI Agent 应用程序的**上下文数据�
 
 我们正在构建它，因为我们相信 Acontext 可以帮助您：
 
-- **构建更具可扩展性的 Agent 产品**
-- **提高 Agent 成功率并减少运行步骤**
+- **通过更好的上下文工程构建更具可扩展性的Agent产品**
+- **提高Agent成功率并减少运行步骤**
 
-这样您的 Agent 可以更加稳定，并为用户提供更大的价值。
+这样您的Agent可以更加稳定，并为用户提供更大的价值。
 
 
 
-# 🌲 核心概念
+# 💡 核心概念
 
-- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - 一个对话线程，支持多模态消息存储。 
+- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - 您可以在Acontext中存储上下文，就像数据库一样，但仅用于上下文。
   - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - 后台 TODO Agent，收集任务的状态、进度和偏好。
-- [**Disk**](https://docs.acontext.io/store/disk) - 用于 Agent Artifacts 的文件存储。
-- [**Space**](https://docs.acontext.io/learn/skill-space) - 一个类似 Notion 的 Agents `Space`，用于存储学习的技能。 
-  - [**Experience Agent**](https://docs.acontext.io/learn/advance/experience-agent) - 后台 Agents，用于提炼、保存和搜索技能。
+- [**Disk**](https://docs.acontext.io/store/disk) - 用于Agent Artifacts的文件存储。
+- [**Space**](https://docs.acontext.io/learn/skill-space) - 一个类似Notion的Agents `Space`，用于存储学习的技能。 
+  - [**Experience Agent**](https://docs.acontext.io/learn/advance/experience-agent) - 后台Agents，用于提炼、保存和搜索技能。
 
 ### 它们如何协同工作
 
@@ -85,19 +83,43 @@ Acontext 是一个用于**云原生** AI Agent 应用程序的**上下文数据�
                   │         └────────┬────────┘
                   │                  │
                   │         ┌────────▼────────┐
-                  │         │  Space (learn)  │ # or wait for user confirmation
+                  │         │   Learn Skills  │ # or wait for user confirmation
                   │         └────────┬────────┘
                   │                  │
                   └──────────────────┘
-                  技能指导 Agent
+                  技能指导Agent
 ```
 
-您的 Agent 技能看起来像：
+
+
+<details>
+<summary>📖 Task Structure</summary>
+
+```json
+{
+  "task_description": "Star https://github.com/memodb-io/Acontext",
+  "progresses": [
+    "I have navigated to Acontext repo",
+    "Tried to Star but a pop-up required me to login",
+    ...
+  ],
+  "user_preferences": [
+    "user wants to use outlook email to login"
+  ]
+}
+```
+</details>
+
+
+
+<details>
+<summary>📖 Skill Structure</summary>
+
 
 ```json
 {
     "use_when": "star a repo on github.com",
-    "preferences": "use personal account. star but not fork",
+    "preferences": "use user's outlook account",
     "tool_sops": [
         {"tool_name": "goto", "action": "goto github.com"},
         {"tool_name": "click", "action": "find login button if any. login first"},
@@ -106,25 +128,29 @@ Acontext 是一个用于**云原生** AI Agent 应用程序的**上下文数据�
 }
 ```
 
+</details>
 
 
-Agent 经验将存储在结构化的 `Space` 中，包含文件夹、页面和块。例如：
+
+<details>
+<summary>📖 Space Structure</summary>
 
 ```txt
 /
 └── github/ (folder)
     └── GTM (page)
-        ├── find_trending_repos (sop block)
-        └── find_contributor_emails (sop block)
+        ├── find_trending_repos (sop)
+        └── find_contributor_emails (sop)
     └── basic_ops (page)
-        ├── create_repo (sop block)
-        └── delete_repo (sop block)
+        ├── create_repo (sop)
+        └── delete_repo (sop)
     ...
 ```
+</details>
 
 
 
-# 🚀 如何开始？
+# 🚀 Start the Backend Locally
 
 我们有一个 `acontext-cli` 来帮助您快速进行概念验证。首先在终端中下载它：
 
@@ -163,7 +189,7 @@ acontext docker up
 
 
 
-# 🧐 如何使用？
+# 🧐 Use Acontext to build Agent
 
 使用 `acontext` 下载端到端脚本：
 
@@ -195,7 +221,7 @@ acontext create my-proj --template-path "typescript/openai-basic"
 
 
 
-## 逐步说明
+## SDK Walk-through
 
 <details>
 <summary>点击打开</summary>

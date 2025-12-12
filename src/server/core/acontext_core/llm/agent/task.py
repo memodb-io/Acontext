@@ -1,5 +1,6 @@
 from typing import List
-from ...env import LOG, bound_logging_vars
+from ...env import LOG
+from ...telemetry.log import bound_logging_vars
 from ...infra.db import AsyncSession, DB_CLIENT
 from ...schema.result import Result
 from ...schema.utils import asUUID

@@ -16,6 +16,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
 	"github.com/memodb-io/Acontext/internal/pkg/converter"
+	"github.com/memodb-io/Acontext/internal/pkg/editor"
 	"github.com/memodb-io/Acontext/internal/pkg/normalizer"
 	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"gorm.io/datatypes"
@@ -34,8 +35,9 @@ func NewSessionHandler(s service.SessionService, coreClient *httpclient.CoreClie
 }
 
 type CreateSessionReq struct {
-	SpaceID string                 `form:"space_id" json:"space_id" format:"uuid" example:"123e4567-e89b-12d3-a456-42661417"`
-	Configs map[string]interface{} `form:"configs" json:"configs"`
+	SpaceID             string                 `form:"space_id" json:"space_id" format:"uuid" example:"123e4567-e89b-12d3-a456-42661417"`
+	DisableTaskTracking *bool                  `form:"disable_task_tracking" json:"disable_task_tracking" example:"false"`
+	Configs             map[string]interface{} `form:"configs" json:"configs"`
 }
 
 type GetSessionsReq struct {
@@ -57,7 +59,7 @@ type GetSessionsReq struct {
 //	@Param			not_connected	query	boolean	false	"Filter sessions not connected to any space (default false)"	example(false)
 //	@Param			limit			query	integer	false	"Limit of sessions to return, default 20. Max 200."
 //	@Param			cursor			query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
-//	@Param			time_desc		query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example:"false"
+//	@Param			time_desc		query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example(false)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.ListSessionsOutput}
 //	@Router			/session [get]
@@ -128,8 +130,9 @@ func (h *SessionHandler) CreateSession(c *gin.Context) {
 	}
 
 	session := model.Session{
-		ProjectID: project.ID,
-		Configs:   datatypes.JSONMap(req.Configs),
+		ProjectID:           project.ID,
+		DisableTaskTracking: false, // Default value
+		Configs:             datatypes.JSONMap(req.Configs),
 	}
 	if len(req.SpaceID) != 0 {
 		spaceID, err := uuid.Parse(req.SpaceID)
@@ -138,6 +141,9 @@ func (h *SessionHandler) CreateSession(c *gin.Context) {
 			return
 		}
 		session.SpaceID = &spaceID
+	}
+	if req.DisableTaskTracking != nil {
+		session.DisableTaskTracking = *req.DisableTaskTracking
 	}
 	if err := h.svc.Create(c.Request.Context(), &session); err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
@@ -463,11 +469,12 @@ func (h *SessionHandler) SendMessage(c *gin.Context) {
 }
 
 type GetMessagesReq struct {
-	Limit              int    `form:"limit,default=20" json:"limit" binding:"required,min=1,max=200" example:"20"`
+	Limit              *int   `form:"limit" json:"limit" binding:"omitempty,min=0,max=200" example:"20"`
 	Cursor             string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
 	WithAssetPublicURL bool   `form:"with_asset_public_url,default=true" json:"with_asset_public_url" example:"true"`
 	Format             string `form:"format,default=openai" json:"format" binding:"omitempty,oneof=acontext openai anthropic" example:"openai" enums:"acontext,openai,anthropic"`
 	TimeDesc           bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
+	EditStrategies     string `form:"edit_strategies" json:"edit_strategies" example:"[{\"type\":\"remove_tool_result\",\"params\":{\"keep_recent_n_tool_results\":3}}]"`
 }
 
 // GetMessages godoc
@@ -478,11 +485,12 @@ type GetMessagesReq struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			session_id				path	string	true	"Session ID"	format(uuid)
-//	@Param			limit					query	integer	false	"Limit of messages to return, default 20. Max 200."
+//	@Param			limit					query	integer	false	"Limit of messages to return. Max 200. If limit is 0 or not provided, all messages will be returned. \n\nWARNING!\n Use `limit` only for read-only/display purposes (pagination, viewing). Do NOT use `limit` to truncate messages before sending to LLM as it may cause tool-call and tool-result unpairing issues. Instead, use the `token_limit` edit strategy in `edit_strategies` parameter to safely manage message context size."
 //	@Param			cursor					query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
-//	@Param			with_asset_public_url	query	string	false	"Whether to return asset public url, default is true"								example:"true"
+//	@Param			with_asset_public_url	query	string	false	"Whether to return asset public url, default is true"								example(true)
 //	@Param			format					query	string	false	"Format to convert messages to: acontext (original), openai (default), anthropic."	enums(acontext,openai,anthropic)
-//	@Param			time_desc				query	string	false	"Order by created_at descending if true, ascending if false (default false)"		example:"false"
+//	@Param			time_desc				query	string	false	"Order by created_at descending if true, ascending if false (default false)"		example(false)
+//	@Param			edit_strategies			query	string	false	"JSON array of edit strategies to apply before format conversion"					example([{"type":"remove_tool_result","params":{"keep_recent_n_tool_results":3}}])
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.GetMessagesOutput}
 //	@Router			/session/{session_id}/messages [get]
@@ -499,13 +507,30 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
 		return
 	}
+
+	// If limit is not provided, set it to 0 to fetch all messages
+	limit := 0
+	if req.Limit != nil {
+		limit = *req.Limit
+	}
+
+	// Parse edit strategies if provided
+	var editStrategies []editor.StrategyConfig
+	if req.EditStrategies != "" {
+		if err := sonic.Unmarshal([]byte(req.EditStrategies), &editStrategies); err != nil {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid edit_strategies JSON", err))
+			return
+		}
+	}
+
 	out, err := h.svc.GetMessages(c.Request.Context(), service.GetMessagesInput{
 		SessionID:          sessionID,
-		Limit:              req.Limit,
+		Limit:              limit,
 		Cursor:             req.Cursor,
 		WithAssetPublicURL: req.WithAssetPublicURL,
 		AssetExpire:        time.Hour * 24,
 		TimeDesc:           req.TimeDesc,
+		EditStrategies:     editStrategies,
 	})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.DBErr("", err))

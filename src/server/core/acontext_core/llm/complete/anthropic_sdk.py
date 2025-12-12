@@ -1,10 +1,9 @@
-from hmac import new
 import json
 from typing import Optional
 from .clients import get_anthropic_async_client_instance
-from anthropic.types import Message, ContentBlock
+from anthropic.types import Message
 from time import perf_counter
-from ...env import LOG, DEFAULT_CORE_CONFIG
+from ...env import LOG
 from ...schema.llm import LLMResponse
 
 

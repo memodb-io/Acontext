@@ -3,7 +3,7 @@
       <img alt="Show Acontext header banner" src="../../assets/Acontext-header-banner.png">
   </a>
   <p>
-    <h3>컨텍스트 확장, 경험 학습</h3>
+    <h3>컨텍스트 저장, 스킬 학습</h3>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
@@ -34,14 +34,12 @@
 
 
 
-Acontext는 **클라우드 네이티브** AI Agent 애플리케이션을 위한 **컨텍스트 데이터 플랫폼**입니다.
+Acontext는 **클라우드 네이티브** AI Agent 애플리케이션을 위한 **컨텍스트 데이터 플랫폼**입니다. 다음을 수행할 수 있습니다:
 
-다음과 같은 기능을 제공합니다:
-
-- **저장** 컨텍스트 및 Artifacts
+- **저장** 컨텍스트 및 artifacts
 - **관찰** Agent 작업 및 사용자 피드백.
-- 경험(SOP)을 장기 메모리에 수집하여 Agent **자기 학습**을 가능하게 합니다.
-- 메시지, 작업, Artifacts 및 경험을 볼 수 있는 **로컬 대시보드**를 제공합니다.
+- Agent의 완료된 작업에서 스킬을 추출하여 Agent **자기 학습**을 가능하게 합니다.
+- 모든 컨텍스트를 하나의 **대시보드**에서 확인합니다.
 
 
 
@@ -58,16 +56,16 @@ Acontext는 **클라우드 네이티브** AI Agent 애플리케이션을 위한 
 
 우리가 이를 구축하는 이유는 Acontext가 다음과 같은 도움을 줄 수 있다고 믿기 때문입니다:
 
-- **더 확장 가능한 Agent 제품 구축**
+- **더 나은 컨텍스트 엔지니어링으로 더 확장 가능한 Agent 제품 구축**
 - **Agent 성공률 향상 및 실행 단계 감소**
 
 이를 통해 Agent가 더 안정적이고 사용자에게 더 큰 가치를 제공할 수 있습니다.
 
 
 
-# 🌲 핵심 개념
+# 💡 핵심 개념
 
-- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - 멀티 모달 지원으로 메시지를 저장하는 대화 스레드. 
+- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - Acontext에 컨텍스트를 저장할 수 있습니다. 데이터베이스와 같지만 컨텍스트 전용으로 사용됩니다.
   - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - 작업의 상태, 진행 상황 및 선호도를 수집하는 백그라운드 TODO Agent.
 - [**Disk**](https://docs.acontext.io/store/disk) - Agent Artifacts용 파일 저장소.
 - [**Space**](https://docs.acontext.io/learn/skill-space) - 학습된 스킬이 저장되는 Notion과 유사한 Agents용 `Space`. 
@@ -85,19 +83,43 @@ Acontext는 **클라우드 네이티브** AI Agent 애플리케이션을 위한 
                   │         └────────┬────────┘
                   │                  │
                   │         ┌────────▼────────┐
-                  │         │  Space (learn)  │ # or wait for user confirmation
+                  │         │   Learn Skills  │ # or wait for user confirmation
                   │         └────────┬────────┘
                   │                  │
                   └──────────────────┘
                   스킬이 Agent를 안내
 ```
 
-Agent 스킬은 다음과 같습니다:
+
+
+<details>
+<summary>📖 Task Structure</summary>
+
+```json
+{
+  "task_description": "Star https://github.com/memodb-io/Acontext",
+  "progresses": [
+    "I have navigated to Acontext repo",
+    "Tried to Star but a pop-up required me to login",
+    ...
+  ],
+  "user_preferences": [
+    "user wants to use outlook email to login"
+  ]
+}
+```
+</details>
+
+
+
+<details>
+<summary>📖 Skill Structure</summary>
+
 
 ```json
 {
     "use_when": "star a repo on github.com",
-    "preferences": "use personal account. star but not fork",
+    "preferences": "use user's outlook account",
     "tool_sops": [
         {"tool_name": "goto", "action": "goto github.com"},
         {"tool_name": "click", "action": "find login button if any. login first"},
@@ -106,25 +128,29 @@ Agent 스킬은 다음과 같습니다:
 }
 ```
 
+</details>
 
 
-Agent 경험은 폴더, 페이지 및 블록이 있는 구조화된 `Space`에 저장됩니다. 예를 들어:
+
+<details>
+<summary>📖 Space Structure</summary>
 
 ```txt
 /
 └── github/ (folder)
     └── GTM (page)
-        ├── find_trending_repos (sop block)
-        └── find_contributor_emails (sop block)
+        ├── find_trending_repos (sop)
+        └── find_contributor_emails (sop)
     └── basic_ops (page)
-        ├── create_repo (sop block)
-        └── delete_repo (sop block)
+        ├── create_repo (sop)
+        └── delete_repo (sop)
     ...
 ```
+</details>
 
 
 
-# 🚀 시작하는 방법
+# 🚀 Start the Backend Locally
 
 빠른 개념 증명을 위해 `acontext-cli`가 있습니다. 먼저 터미널에서 다운로드하세요:
 
@@ -163,7 +189,7 @@ acontext docker up
 
 
 
-# 🧐 사용 방법
+# 🧐 Use Acontext to build Agent
 
 `acontext`로 엔드투엔드 스크립트 다운로드:
 
@@ -195,7 +221,7 @@ acontext create my-proj --template-path "typescript/openai-basic"
 
 
 
-## 단계별 설명
+## SDK Walk-through
 
 <details>
 <summary>클릭하여 열기</summary>

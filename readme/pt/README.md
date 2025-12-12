@@ -3,7 +3,7 @@
       <img alt="Show Acontext header banner" src="../../assets/Acontext-header-banner.png">
   </a>
   <p>
-    <h3>Dimensionar Contexto, Aprender Experiência</h3>
+    <h3>Armazenar Contextos, Aprender Habilidades</h3>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
@@ -34,14 +34,12 @@
 
 
 
-Acontext é uma **plataforma de dados de contexto** para aplicações de AI Agent **cloud-native**.
+Acontext é uma **plataforma de dados de contexto** para aplicações de AI Agent **cloud-native**. Pode:
 
-Pode:
-
-- **Armazena** contextos e Artifacts
-- **Observa** tarefas de Agents e feedback do usuário.
-- Habilita o **autoaprendizado** de Agents coletando experiências (SOPs) na memória de longo prazo.
-- Oferece um **Painel local** para visualizar mensagens, tarefas, Artifacts e experiências.
+- **Armazenar** contextos e artifacts
+- **Observar** tarefas de agentes e feedback do usuário.
+- Habilitar o **autoaprendizado** de agentes através da destilação de habilidades das tarefas concluídas do agente.
+- Visualizar cada contexto em um **Painel**.
 
 
 
@@ -58,20 +56,20 @@ Pode:
 
 Estamos construindo isso porque acreditamos que o Acontext pode ajudá-lo a:
 
-- **Construir um produto de Agent mais escalável**
-- **Melhorar sua taxa de sucesso do Agent e reduzir etapas de execução**
+- **Construir um produto de agente mais escalável com melhor engenharia de contexto**
+- **Melhorar sua taxa de sucesso do agente e reduzir etapas de execução**
 
-para que seu Agent possa ser mais estável e fornecer maior valor aos seus usuários.
+para que seu agente possa ser mais estável e fornecer maior valor aos seus usuários.
 
 
 
-# 🌲 Conceitos Centrais
+# 💡 Conceitos Centrais
 
-- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - Um thread de conversa que armazena mensagens com suporte multi-modal. 
-  - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - Agent TODO em segundo plano que coleta status, progresso e preferências da tarefa.
-- [**Disk**](https://docs.acontext.io/store/disk) - Armazenamento de arquivos para Agent Artifacts.
-- [**Space**](https://docs.acontext.io/learn/skill-space) - Um `Space` semelhante ao Notion para Agents, onde habilidades aprendidas são armazenadas. 
-  - [**Experience Agent**](https://docs.acontext.io/learn/advance/experience-agent) - Agents em segundo plano que destilam, salvam e pesquisam habilidades.
+- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - Você pode armazenar contexto no Acontext, como um banco de dados, mas usado apenas para contexto.
+  - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - Agente TODO em segundo plano que coleta status, progresso e preferências da tarefa.
+- [**Disk**](https://docs.acontext.io/store/disk) - Armazenamento de arquivos para artifacts de agentes.
+- [**Space**](https://docs.acontext.io/learn/skill-space) - Um `Space` semelhante ao Notion para agentes, onde habilidades aprendidas são armazenadas. 
+  - [**Experience Agent**](https://docs.acontext.io/learn/advance/experience-agent) - Agentes em segundo plano que destilam, salvam e pesquisam habilidades.
 
 ### Como Eles Trabalham Juntos
 
@@ -85,19 +83,43 @@ para que seu Agent possa ser mais estável e fornecer maior valor aos seus usuá
                   │         └────────┬────────┘
                   │                  │
                   │         ┌────────▼────────┐
-                  │         │  Space (learn)  │ # or wait for user confirmation
+                  │         │   Learn Skills  │ # or wait for user confirmation
                   │         └────────┬────────┘
                   │                  │
                   └──────────────────┘
-                  Habilidades guiam o Agent
+                  Habilidades guiam o agente
 ```
 
-Suas habilidades de Agent se parecem com:
+
+
+<details>
+<summary>📖 Task Structure</summary>
+
+```json
+{
+  "task_description": "Star https://github.com/memodb-io/Acontext",
+  "progresses": [
+    "I have navigated to Acontext repo",
+    "Tried to Star but a pop-up required me to login",
+    ...
+  ],
+  "user_preferences": [
+    "user wants to use outlook email to login"
+  ]
+}
+```
+</details>
+
+
+
+<details>
+<summary>📖 Skill Structure</summary>
+
 
 ```json
 {
     "use_when": "star a repo on github.com",
-    "preferences": "use personal account. star but not fork",
+    "preferences": "use user's outlook account",
     "tool_sops": [
         {"tool_name": "goto", "action": "goto github.com"},
         {"tool_name": "click", "action": "find login button if any. login first"},
@@ -106,25 +128,29 @@ Suas habilidades de Agent se parecem com:
 }
 ```
 
+</details>
 
 
-A experiência do Agent será armazenada em um `Space` estruturado, com pastas, páginas e blocos. Por exemplo:
+
+<details>
+<summary>📖 Space Structure</summary>
 
 ```txt
 /
 └── github/ (folder)
     └── GTM (page)
-        ├── find_trending_repos (sop block)
-        └── find_contributor_emails (sop block)
+        ├── find_trending_repos (sop)
+        └── find_contributor_emails (sop)
     └── basic_ops (page)
-        ├── create_repo (sop block)
-        └── delete_repo (sop block)
+        ├── create_repo (sop)
+        └── delete_repo (sop)
     ...
 ```
+</details>
 
 
 
-# 🚀 Como Começar?
+# 🚀 Start the Backend Locally
 
 Temos um `acontext-cli` para ajudá-lo a fazer uma prova de conceito rápida. Baixe-o primeiro no seu terminal:
 
@@ -163,7 +189,7 @@ Quando terminar, você pode acessar os seguintes endpoints:
 
 
 
-# 🧐 Como Usar?
+# 🧐 Use Acontext to build Agent
 
 Baixe scripts de ponta a ponta com `acontext`:
 
@@ -195,7 +221,7 @@ Confira nosso repositório de exemplos para mais modelos: [Acontext-Examples](ht
 
 
 
-## Explicação Passo a Passo
+## SDK Walk-through
 
 <details>
 <summary>Clique para Abrir</summary>

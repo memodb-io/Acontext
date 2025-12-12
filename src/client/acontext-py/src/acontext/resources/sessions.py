@@ -3,12 +3,13 @@
 import json
 from collections.abc import Mapping
 from dataclasses import asdict
-from typing import Any, BinaryIO, Literal
+from typing import Any, BinaryIO, Literal, Optional, List
 
 from .._utils import build_params
 from ..client_types import RequesterProtocol
 from ..messages import AcontextMessage
 from ..types.session import (
+    EditStrategy,
     GetMessagesOutput,
     GetTasksOutput,
     LearningStatus,
@@ -71,12 +72,14 @@ class SessionsAPI:
         self,
         *,
         space_id: str | None = None,
+        disable_task_tracking: bool | None = None,
         configs: Mapping[str, Any] | None = None,
     ) -> Session:
         """Create a new session.
 
         Args:
             space_id: Optional space ID to associate with the session. Defaults to None.
+            disable_task_tracking: Whether to disable task tracking for this session. Defaults to None (server default: False).
             configs: Optional session configuration dictionary. Defaults to None.
 
         Returns:
@@ -85,6 +88,8 @@ class SessionsAPI:
         payload: dict[str, Any] = {}
         if space_id:
             payload["space_id"] = space_id
+        if disable_task_tracking is not None:
+            payload["disable_task_tracking"] = disable_task_tracking
         if configs is not None:
             payload["configs"] = configs
         data = self._requester.request("POST", "/session", json_data=payload)
@@ -264,6 +269,7 @@ class SessionsAPI:
         with_asset_public_url: bool | None = None,
         format: Literal["acontext", "openai", "anthropic"] = "openai",
         time_desc: bool | None = None,
+        edit_strategies: Optional[List[EditStrategy]] = None,
     ) -> GetMessagesOutput:
         """Get messages for a session.
 
@@ -272,8 +278,14 @@ class SessionsAPI:
             limit: Maximum number of messages to return. Defaults to None.
             cursor: Cursor for pagination. Defaults to None.
             with_asset_public_url: Whether to include presigned URLs for assets. Defaults to None.
-            format: The format of the messages. Defaults to "acontext".
+            format: The format of the messages. Defaults to "openai".
             time_desc: Order by created_at descending if True, ascending if False. Defaults to None.
+            edit_strategies: Optional list of edit strategies to apply before format conversion.
+                Each strategy is a dict with 'type' and 'params' keys.
+                Examples:
+                    - Remove tool results: [{"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}]
+                    - Token limit: [{"type": "token_limit", "params": {"limit_tokens": 20000}}]
+                Defaults to None.
 
         Returns:
             GetMessagesOutput containing the list of messages and pagination information.
@@ -289,6 +301,8 @@ class SessionsAPI:
                 time_desc=time_desc,
             )
         )
+        if edit_strategies is not None:
+            params["edit_strategies"] = json.dumps(edit_strategies)
         data = self._requester.request(
             "GET", f"/session/{session_id}/messages", params=params or None
         )
@@ -332,7 +346,5 @@ class SessionsAPI:
         Returns:
             TokenCounts object containing total_tokens.
         """
-        data = self._requester.request(
-            "GET", f"/session/{session_id}/token_counts"
-        )
+        data = self._requester.request("GET", f"/session/{session_id}/token_counts")
         return TokenCounts.model_validate(data)

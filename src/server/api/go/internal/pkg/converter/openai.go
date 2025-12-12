@@ -31,9 +31,6 @@ func (c *OpenAIConverter) Convert(messages []model.Message, publicURLs map[strin
 			case "assistant":
 				assistantMsg := c.convertToAssistantMessage(msg)
 				result = append(result, assistantMsg)
-			case "system":
-				systemMsg := c.convertToSystemMessage(msg)
-				result = append(result, systemMsg)
 			default:
 				// Default to user message
 				userMsg := c.convertToUserMessage(msg, publicURLs)
@@ -193,33 +190,6 @@ func (c *OpenAIConverter) convertToAssistantMessage(msg model.Message) openai.Ch
 
 	return openai.ChatCompletionMessageParamUnion{
 		OfAssistant: &assistantParam,
-	}
-}
-
-func (c *OpenAIConverter) convertToSystemMessage(msg model.Message) openai.ChatCompletionMessageParamUnion {
-	// Extract text from parts
-	text := ""
-	for _, part := range msg.Parts {
-		if part.Type == "text" {
-			text += part.Text
-		}
-	}
-
-	systemParam := openai.ChatCompletionSystemMessageParam{
-		Content: openai.ChatCompletionSystemMessageParamContentUnion{
-			OfString: param.NewOpt(text),
-		},
-	}
-
-	// Add name field from message meta if present
-	if metaData := msg.Meta.Data(); len(metaData) > 0 {
-		if name, ok := metaData["name"].(string); ok && name != "" {
-			systemParam.Name = param.NewOpt(name)
-		}
-	}
-
-	return openai.ChatCompletionMessageParamUnion{
-		OfSystem: &systemParam,
 	}
 }
 

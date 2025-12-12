@@ -788,7 +788,7 @@
             "type" : "string"
           }
         }, {
-          "description" : "Limit of messages to return, default 20. Max 200.",
+          "description" : "Limit of messages to return. Max 200. If limit is 0 or not provided, all messages will be returned. \n\nWARNING!\n Use `limit` only for read-only/display purposes (pagination, viewing). Do NOT use `limit` to truncate messages before sending to LLM as it may cause tool-call and tool-result unpairing issues. Instead, use the `token_limit` edit strategy in `edit_strategies` parameter to safely manage message context size.",
           "in" : "query",
           "name" : "limit",
           "schema" : {
@@ -820,6 +820,13 @@
           "description" : "Order by created_at descending if true, ascending if false (default false)",
           "in" : "query",
           "name" : "time_desc",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "JSON array of edit strategies to apply before format conversion",
+          "in" : "query",
+          "name" : "edit_strategies",
           "schema" : {
             "type" : "string"
           }
@@ -1691,7 +1698,7 @@
       }
     },
     "/space/{space_id}/experience_confirmations/{experience_id}" : {
-      "patch" : {
+      "put" : {
         "description" : "Confirm an experience confirmation. If save is false, delete the row. If save is true, get the data first (TODO: process data), then delete the row.",
         "parameters" : [ {
           "description" : "Space ID",
@@ -1728,7 +1735,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/_space__space_id__experience_confirmations__experience_id__patch_200_response"
+                  "$ref" : "#/components/schemas/_space__space_id__experience_confirmations__experience_id__put_200_response"
                 }
               }
             },
@@ -1965,6 +1972,10 @@
           "configs" : {
             "additionalProperties" : true,
             "type" : "object"
+          },
+          "disable_task_tracking" : {
+            "example" : false,
+            "type" : "boolean"
           },
           "space_id" : {
             "example" : "123e4567-e89b-12d3-a456-000042661417",
@@ -2357,6 +2368,9 @@
           },
           "created_at" : {
             "type" : "string"
+          },
+          "disable_task_tracking" : {
+            "type" : "boolean"
           },
           "id" : {
             "type" : "string"
@@ -2840,7 +2854,7 @@
           "type" : "object"
         } ]
       },
-      "_space__space_id__experience_confirmations__experience_id__patch_200_response" : {
+      "_space__space_id__experience_confirmations__experience_id__put_200_response" : {
         "allOf" : [ {
           "$ref" : "#/components/schemas/serializer.Response"
         }, {

@@ -1,70 +1,54 @@
 ---
 title: "What is Acontext"
-description: "Acontext is a Context Data Platform for self-learning Agents"
 ---
 
-Acontext was born from a simple question:
+A great agent application should be able to:
+- serve millions of users, not just a local demo.
+- work for a long-period of time
+- observe agent behavior
+- learn from agent's own successes and failures.
 
-> “What if an agent could observe, remember, and learn from every interaction it has, just like a human learning skills from its own past?”
+Such an application is hard to build.
 
-Our mission is to give developers the missing foundation for self-evolving agents 
-— 
-a context data platform that stores, observes, and learns from the agent's interactions. 
+So we ask ourselves:
+> “What's the core of helping developers to build a great agent application?”
+
+That inspires us to create Acontext: **a context data platform for building cloud-native AI Agents**.
+
 
 ## Key Benefits
+<CardGroup>
 
-<CardGroup cols={2}>
-<Card title="Persistent Context" icon="brain">
+<Card title="Context Engineering" icon="gear" href="/store/editing">
+Short-term memory
+
+Do context engineering for you.
+Build a compact context for agents in one api call.
+</Card>
+
+<Card title="Persistent Context" icon="brain" href="/store/messages/multi-provider">
 Short-term memory
 
 Store conversations and artifacts with text, images, and files across sessions
 </Card>
 
-<Card title="Observability" icon="eye">
+<Card title="Observability" icon="eye" href="/observe/agent_tasks">
 Mid-term memory
 
 Monitor what your agent plans vs. what it actually executes
 </Card>
 
-<Card title="Automatic Learning" icon="graduation-cap">
+<Card title="Automatic Learning" icon="graduation-cap" href="/learn/skill-space">
 Long-term memory
 
 Agents learn skills from completed tasks without manual training
 </Card>
 
 
-<Card title="Dashboard" icon="chart-simple">
+<Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
 All-in-one view of context data
 
 View your agent's tasks, conversations, and learned skills in one place
 </Card>
-</CardGroup>
 
-## How It Works
-<Frame caption="Dataflow of Acontext">
-<img src="/images/acontext_data_flow.png" alt="Dataflow of Acontext" />
-</Frame>
-1. **Store Context**: Your agent's conversations are automatically saved with full context
-2. **Extract Tasks**: Acontext identifies when your agent makes plans and breaks down work
-3. **Learn Skills**: Successfully completed tasks become reusable knowledge
-4. **Apply Learning**: Future agents can search and use these learned skills
-
-<Note>
-Think of Acontext as giving your AI agent a library that remembers and learns, just like humans do.
-</Note>
-
-## What's Next?
-
-<CardGroup cols={3}>
-<Card title="Run Locally" icon="rocket" href="/local">
-Set up Acontext on your machine
-</Card>
-
-<Card title="Store Messages" icon="message" href="/store/messages/multi-provider">
-Save agent conversations with context
-</Card>
-
-<Card title="Enable Learning" icon="sparkles" href="/learn/skill-space">
-Let your agent learn from experience
-</Card>
 </CardGroup>

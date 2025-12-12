@@ -3,7 +3,7 @@
       <img alt="Show Acontext header banner" src="../../assets/Acontext-header-banner.png">
   </a>
   <p>
-    <h3>Kontext skalieren, Erfahrung lernen</h3>
+    <h3>Kontexte speichern, Fähigkeiten lernen</h3>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
@@ -34,14 +34,12 @@
 
 
 
-Acontext ist eine **Kontextdatenplattform** für **Cloud-native** AI Agent-Anwendungen.
+Acontext ist eine **Kontextdatenplattform** für **Cloud-native** AI Agent-Anwendungen. Sie kann:
 
-Sie kann:
-
-- **Speichert** Kontexte und Artifacts
-- **Beobachtet** Agent Tasks und Benutzerfeedback.
-- Ermöglicht **Selbstlernen** von Agents durch Sammeln von Erfahrungen (SOPs) im Langzeitgedächtnis.
-- Bietet ein **lokales Dashboard** zum Anzeigen von Nachrichten, Aufgaben, Artifacts und Erfahrungen.
+- **Speichern** von Kontexten und Artifacts
+- **Beobachten** von Agent-Aufgaben und Benutzerfeedback.
+- Ermöglicht **Selbstlernen** von Agents durch Destillieren von Fähigkeiten aus abgeschlossenen Agent-Aufgaben.
+- Alle Kontexte in einem **Dashboard** anzeigen.
 
 
 
@@ -58,16 +56,16 @@ Sie kann:
 
 Wir bauen es, weil wir glauben, dass Acontext Ihnen helfen kann:
 
-- **Ein skalierbareres Agent Product zu erstellen**
-- **Ihre Agent Success Rate zu verbessern und die Ausführungsschritte zu reduzieren**
+- **Ein skalierbareres Agent-Produkt mit besserer Kontexttechnik zu erstellen**
+- **Ihre Agent-Erfolgsrate zu verbessern und die Ausführungsschritte zu reduzieren**
 
 damit Ihr Agent stabiler sein und Ihren Benutzern einen größeren Wert bieten kann.
 
 
 
-# 🌲 Kernkonzepte
+# 💡 Kernkonzepte
 
-- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - Ein Konversations-Thread, der Nachrichten mit Multi-Modal-Unterstützung speichert. 
+- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - Sie können Kontext in Acontext speichern, genau wie eine Datenbank, aber nur für Kontext verwendet.
   - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - Hintergrund TODO Agent, der den Status, Fortschritt und Präferenzen der Aufgabe sammelt.
 - [**Disk**](https://docs.acontext.io/store/disk) - Dateispeicher für Agent Artifacts.
 - [**Space**](https://docs.acontext.io/learn/skill-space) - Ein Notion-ähnlicher `Space` für Agents, in dem gelernte Fähigkeiten gespeichert werden. 
@@ -85,19 +83,43 @@ damit Ihr Agent stabiler sein und Ihren Benutzern einen größeren Wert bieten k
                   │         └────────┬────────┘
                   │                  │
                   │         ┌────────▼────────┐
-                  │         │  Space (learn)  │ # or wait for user confirmation
+                  │         │   Learn Skills  │ # or wait for user confirmation
                   │         └────────┬────────┘
                   │                  │
                   └──────────────────┘
                   Fähigkeiten leiten den Agent
 ```
 
-Ihre Agent Skills sehen so aus:
+
+
+<details>
+<summary>📖 Task Structure</summary>
+
+```json
+{
+  "task_description": "Star https://github.com/memodb-io/Acontext",
+  "progresses": [
+    "I have navigated to Acontext repo",
+    "Tried to Star but a pop-up required me to login",
+    ...
+  ],
+  "user_preferences": [
+    "user wants to use outlook email to login"
+  ]
+}
+```
+</details>
+
+
+
+<details>
+<summary>📖 Skill Structure</summary>
+
 
 ```json
 {
     "use_when": "star a repo on github.com",
-    "preferences": "use personal account. star but not fork",
+    "preferences": "use user's outlook account",
     "tool_sops": [
         {"tool_name": "goto", "action": "goto github.com"},
         {"tool_name": "click", "action": "find login button if any. login first"},
@@ -106,25 +128,29 @@ Ihre Agent Skills sehen so aus:
 }
 ```
 
+</details>
 
 
-Agent Experiences werden in einem strukturierten `Space` gespeichert, mit Ordnern, Seiten und Blöcken. Zum Beispiel:
+
+<details>
+<summary>📖 Space Structure</summary>
 
 ```txt
 /
 └── github/ (folder)
     └── GTM (page)
-        ├── find_trending_repos (sop block)
-        └── find_contributor_emails (sop block)
+        ├── find_trending_repos (sop)
+        └── find_contributor_emails (sop)
     └── basic_ops (page)
-        ├── create_repo (sop block)
-        └── delete_repo (sop block)
+        ├── create_repo (sop)
+        └── delete_repo (sop)
     ...
 ```
+</details>
 
 
 
-# 🚀 Wie startet man?
+# 🚀 Start the Backend Locally
 
 Wir haben ein `acontext-cli`, um Ihnen bei einem schnellen Proof-of-Concept zu helfen. Laden Sie es zuerst in Ihrem Terminal herunter:
 
@@ -163,7 +189,7 @@ Sobald es fertig ist, können Sie auf die folgenden Endpunkte zugreifen:
 
 
 
-# 🧐 Wie verwendet man es?
+# 🧐 Use Acontext to build Agent
 
 Laden Sie End-to-End-Skripte mit `acontext` herunter:
 
@@ -195,7 +221,7 @@ Schauen Sie sich unser Beispiel-Repository für weitere Vorlagen an: [Acontext-E
 
 
 
-## Schritt-für-Schritt-Erklärung
+## SDK Walk-through
 
 <details>
 <summary>Zum Öffnen klicken</summary>

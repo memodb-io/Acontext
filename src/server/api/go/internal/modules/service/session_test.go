@@ -42,6 +42,11 @@ func (m *MockSessionRepo) Get(ctx context.Context, s *model.Session) (*model.Ses
 	return args.Get(0).(*model.Session), args.Error(1)
 }
 
+func (m *MockSessionRepo) GetDisableTaskTracking(ctx context.Context, sessionID uuid.UUID) (bool, error) {
+	args := m.Called(ctx, sessionID)
+	return args.Bool(0), args.Error(1)
+}
+
 func (m *MockSessionRepo) CreateMessageWithAssets(ctx context.Context, msg *model.Message) error {
 	args := m.Called(ctx, msg)
 	return args.Error(0)
@@ -769,6 +774,49 @@ func TestSessionService_GetMessages(t *testing.T) {
 			},
 			wantErr: true,
 			errMsg:  "base64", // The actual error message is about base64 decoding
+		},
+		{
+			name: "limit=0 retrieves all messages using ListAllMessagesBySession",
+			input: GetMessagesInput{
+				SessionID: sessionID,
+				Limit:     0,
+				TimeDesc:  false,
+			},
+			setup: func(repo *MockSessionRepo) {
+				msgs := []model.Message{
+					{ID: uuid.New(), SessionID: sessionID, Role: "user"},
+					{ID: uuid.New(), SessionID: sessionID, Role: "assistant"},
+				}
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return(msgs, nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "limit=-1 retrieves all messages using ListAllMessagesBySession",
+			input: GetMessagesInput{
+				SessionID: sessionID,
+				Limit:     -1,
+				TimeDesc:  false,
+			},
+			setup: func(repo *MockSessionRepo) {
+				msgs := []model.Message{
+					{ID: uuid.New(), SessionID: sessionID, Role: "user"},
+				}
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return(msgs, nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "ListAllMessagesBySession error handling",
+			input: GetMessagesInput{
+				SessionID: sessionID,
+				Limit:     0,
+				TimeDesc:  false,
+			},
+			setup: func(repo *MockSessionRepo) {
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return(nil, errors.New("database error"))
+			},
+			wantErr: true,
 		},
 	}
 

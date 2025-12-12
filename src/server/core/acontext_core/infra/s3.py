@@ -345,24 +345,39 @@ class S3Client:
         except Exception as e:
             _handle_unexpected_error(e, bucket_name, key)
 
-    async def health_check(self) -> bool:
+    async def health_check(self, max_retries: int = 5, retry_delay: float = 2.0) -> bool:
         """
-        Perform health check with bucket HEAD operation.
+        Perform health check with bucket HEAD operation with retry logic.
+
+        Args:
+            max_retries: Maximum number of retry attempts (default: 5)
+            retry_delay: Delay in seconds between retries (default: 2.0)
 
         Returns:
             bool: True if S3 is accessible, False otherwise
         """
-        try:
-            async with self.get_client() as client:
-                await client.head_bucket(Bucket=self.bucket)
-                logger.debug(f"S3 health check passed - bucket: {self.bucket}")
-                return True
+        for attempt in range(1, max_retries + 1):
+            try:
+                async with self.get_client() as client:
+                    await client.head_bucket(Bucket=self.bucket)
+                    logger.info(f"S3 health check passed - bucket: {self.bucket}")
+                    return True
 
-        except (ClientError, NoCredentialsError, Exception) as e:
-            logger.error(
-                f"S3 health check failed - bucket: {self.bucket}, error: {str(e)}"
-            )
-            return False
+            except (ClientError, NoCredentialsError, Exception) as e:
+                if attempt < max_retries:
+                    logger.warning(
+                        f"S3 health check failed (attempt {attempt}/{max_retries}) - "
+                        f"bucket: {self.bucket}, error: {str(e)}, retrying in {retry_delay}s..."
+                    )
+                    await asyncio.sleep(retry_delay)
+                else:
+                    logger.error(
+                        f"S3 health check failed after {max_retries} attempts - "
+                        f"bucket: {self.bucket}, error: {str(e)}"
+                    )
+                    return False
+        
+        return False
 
     def get_connection_status(self) -> Dict[str, Any]:
         """

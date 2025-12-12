@@ -3,12 +3,13 @@
 import json
 from collections.abc import Mapping
 from dataclasses import asdict
-from typing import Any, BinaryIO, Literal
+from typing import Any, BinaryIO, Literal, Optional, List
 
 from .._utils import build_params
 from ..client_types import AsyncRequesterProtocol
 from ..messages import AcontextMessage
 from ..types.session import (
+    EditStrategy,
     GetMessagesOutput,
     GetTasksOutput,
     LearningStatus,
@@ -264,6 +265,7 @@ class AsyncSessionsAPI:
         with_asset_public_url: bool | None = None,
         format: Literal["acontext", "openai", "anthropic"] = "openai",
         time_desc: bool | None = None,
+        edit_strategies: Optional[List[EditStrategy]] = None,
     ) -> GetMessagesOutput:
         """Get messages for a session.
 
@@ -272,8 +274,14 @@ class AsyncSessionsAPI:
             limit: Maximum number of messages to return. Defaults to None.
             cursor: Cursor for pagination. Defaults to None.
             with_asset_public_url: Whether to include presigned URLs for assets. Defaults to None.
-            format: The format of the messages. Defaults to "acontext".
+            format: The format of the messages. Defaults to "openai".
             time_desc: Order by created_at descending if True, ascending if False. Defaults to None.
+            edit_strategies: Optional list of edit strategies to apply before format conversion.
+                Each strategy is a dict with 'type' and 'params' keys.
+                Examples:
+                    - Remove tool results: [{"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}]
+                    - Token limit: [{"type": "token_limit", "params": {"limit_tokens": 20000}}]
+                Defaults to None.
 
         Returns:
             GetMessagesOutput containing the list of messages and pagination information.
@@ -289,6 +297,8 @@ class AsyncSessionsAPI:
                 time_desc=time_desc,
             )
         )
+        if edit_strategies is not None:
+            params["edit_strategies"] = json.dumps(edit_strategies)
         data = await self._requester.request(
             "GET", f"/session/{session_id}/messages", params=params or None
         )

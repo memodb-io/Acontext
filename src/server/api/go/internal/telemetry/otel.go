@@ -48,9 +48,15 @@ func SetupTracing(cfg *config.Config) (*sdktrace.TracerProvider, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	// Strip http:// or https:// prefix from endpoint if present
+	// otlptracegrpc.WithEndpoint expects host:port format, not a full URL
+	endpoint := cfg.Telemetry.OtlpEndpoint
+	endpoint = strings.TrimPrefix(endpoint, "http://")
+	endpoint = strings.TrimPrefix(endpoint, "https://")
+
 	exporter, err := otlptracegrpc.New(
 		ctx,
-		otlptracegrpc.WithEndpoint(cfg.Telemetry.OtlpEndpoint),
+		otlptracegrpc.WithEndpoint(endpoint),
 		otlptracegrpc.WithInsecure(), // Set to false for TLS in production
 	)
 	if err != nil {

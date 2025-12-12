@@ -32,13 +32,15 @@ type DBCfg struct {
 	MaxOpen     int
 	MaxIdle     int
 	AutoMigrate bool
+	EnableTLS   bool
 }
 
 type RedisCfg struct {
-	Addr     string
-	Password string
-	DB       int
-	PoolSize int
+	Addr      string
+	Password  string
+	DB        int
+	PoolSize  int
+	EnableTLS bool
 }
 
 type MQExchangeName struct {
@@ -52,6 +54,7 @@ type MQCfg struct {
 	URL          string
 	Queue        string
 	Prefetch     int
+	EnableTLS    bool
 	ExchangeName MQExchangeName
 	RoutingKey   MQRoutingKey
 }
@@ -91,14 +94,17 @@ type Config struct {
 }
 
 func setDefaults(v *viper.Viper) {
+	v.SetDefault("app.env", "debug")
 	v.SetDefault("app.port", 8029)
 	v.SetDefault("root.apiBearerToken", "your-root-api-bearer-token")
 	v.SetDefault("root.projectBearerTokenPrefix", "sk-ac-")
 	v.SetDefault("database.dsn", "host=127.0.0.1 user=acontext password=helloworld dbname=acontext port=15432 sslmode=disable TimeZone=UTC")
+	v.SetDefault("database.enableTLS", false)
 	v.SetDefault("redis.addr", "127.0.0.1:16379")
 	v.SetDefault("redis.password", "helloworld")
 	v.SetDefault("redis.db", 0)
 	v.SetDefault("redis.poolSize", 10)
+	v.SetDefault("redis.enableTLS", false)
 	v.SetDefault("s3.endpoint", "http://127.0.0.1:19000")
 	v.SetDefault("s3.internalEndpoint", "http://127.0.0.1:19000")
 	v.SetDefault("s3.region", "auto")
@@ -106,6 +112,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("s3.secretKey", "helloworld")
 	v.SetDefault("s3.bucket", "acontext-assets")
 	v.SetDefault("rabbitmq.url", "amqp://acontext:helloworld@127.0.0.1:15672/%2F")
+	v.SetDefault("rabbitmq.enableTLS", false)
 	v.SetDefault("rabbitmq.exchangeName.sessionMessage", "session.message")
 	v.SetDefault("rabbitmq.routingKey.sessionMessageInsert", "session.message.insert")
 	v.SetDefault("core.baseURL", "http://127.0.0.1:8019")

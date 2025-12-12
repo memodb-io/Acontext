@@ -44,7 +44,7 @@ type GetSpacesReq struct {
 //	@Produce		json
 //	@Param			limit		query	integer	false	"Limit of spaces to return, default 20. Max 200."
 //	@Param			cursor		query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
-//	@Param			time_desc	query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example:"false"
+//	@Param			time_desc	query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example(false)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.ListSpacesOutput}
 //	@Router			/space [get]
@@ -358,7 +358,7 @@ type ConfirmExperienceReq struct {
 //	@Param			request			body	ConfirmExperienceReq	true	"Confirmation request with save flag"
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=model.ExperienceConfirmation}
-//	@Router			/space/{space_id}/experience_confirmations/{experience_id} [patch]
+//	@Router			/space/{space_id}/experience_confirmations/{experience_id} [put]
 //	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Confirm experience and save data\nconfirmation = client.spaces.confirm_experience(\n    space_id='space-uuid',\n    experience_id='experience-uuid',\n    save=True\n)\nprint(f\"Saved confirmation: {confirmation.experience_data}\")\n\n# Confirm experience without saving (just delete)\nclient.spaces.confirm_experience(\n    space_id='space-uuid',\n    experience_id='experience-uuid',\n    save=False\n)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Confirm experience and save data\nconst confirmation = await client.spaces.confirmExperience('space-uuid', 'experience-uuid', {\n  save: true\n});\nconsole.log(`Saved confirmation: ${JSON.stringify(confirmation.experience_data)}`);\n\n// Confirm experience without saving (just delete)\nawait client.spaces.confirmExperience('space-uuid', 'experience-uuid', {\n  save: false\n});\n","label":"JavaScript"}]
 func (h *SpaceHandler) ConfirmExperience(c *gin.Context) {
 	spaceID, err := uuid.Parse(c.Param("space_id"))

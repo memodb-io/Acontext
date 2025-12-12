@@ -1,0 +1,214 @@
+---
+title: Context Editing
+description: "Acontext offers few context editing methods for your agent context management."
+---
+
+Context Editing is a crucial part of context engineering. If you have questions about what is context editing, please refer to the [Context Engineering](#context-engineering-and-editing) section.
+
+## Count the Session Current Tokens
+
+Before performing context editing, it's essential to know the current token count of your session. This helps you understand how much context is being consumed and when you need to apply editing strategies.
+
+The `get_token_counts()` method returns the total token count for all text and tool-call parts in a session, giving you visibility into your context window usage.
+
+<CodeGroup>
+```python Python
+from acontext import AcontextClient
+
+client = AcontextClient(
+    base_url="http://localhost:8029/api/v1",
+    api_key="sk-ac-your-root-api-bearer-token"
+)
+
+# Get token counts for a session
+token_counts = client.sessions.get_token_counts(session_id="session-uuid")
+
+print(f"Total tokens: {token_counts.total_tokens}")
+```
+
+```typescript TypeScript
+import { AcontextClient } from 'acontext';
+
+const client = new AcontextClient({
+  baseUrl: 'http://localhost:8029/api/v1',
+  apiKey: 'sk-ac-your-root-api-bearer-token'
+});
+
+// Get token counts for a session
+const tokenCounts = await client.sessions.getTokenCounts('session-uuid');
+
+console.log(`Total tokens: ${tokenCounts.total_tokens}`);
+```
+</CodeGroup>
+
+<Info>
+You can use the token count to determine if you need to edit the context.
+</Info>
+
+<Info>
+The token count of Acontext is relative and proportional to the length of your session. 
+You can use it to determine whether the current session is too long and needs to be edited. 
+
+Please do not use the token count to calculate the cost of LLM, as the actual token consumption of each LLM can vary subtly.
+</Info>
+
+## Context Editing On-the-fly
+Acontext supports to edit the session context when you obtain the current messages.
+
+The basic usage is to pass the `edit_strategies` to the `get_messages` method to get the edited session messages without modifying the original session storage:
+
+<CodeGroup>
+```python Python
+from acontext import AcontextClient
+
+client = AcontextClient(
+    base_url="http://localhost:8029/api/v1",
+    api_key="sk-ac-your-root-api-bearer-token"
+)
+
+edited_session = client.sessions.get_messages(
+  session_id="session-uuid"
+  edit_strategies=[
+    {"type": "STRATEGY_NAME1", "params": {...}},
+    {"type": "STRATEGY_NAME2", "params": {...}},
+    ...
+  ],
+)
+
+original_session = client.sessions.get_messages(
+  session_id="session-uuid"
+)
+```
+```typescript TypeScript
+import { AcontextClient } from 'acontext';
+
+const client = new AcontextClient({
+  baseUrl: 'http://localhost:8029/api/v1',
+  apiKey: 'sk-ac-your-root-api-bearer-token'
+});
+
+const editedSession = await client.sessions.getMessages('session-uuid', {
+  editStrategies:[
+    { type: 'STRATEGY_NAME1' as const, params: {...} },
+    { type: 'STRATEGY_NAME2' as const, params: {...} },
+    ...
+  ] 
+});
+
+const originalSession = await client.sessions.getMessages('session-uuid');
+```
+</CodeGroup>
+
+### Token Limit
+This strategy truncates messages based on token count, removing the oldest messages until the total token count is within the specified limit. 
+
+It's useful for managing context window limits and ensuring your session stays within model constraints.
+
+It will:
+- Removes messages from oldest to newest
+- Maintains tool-call/tool-result pairing (when removing a tool-call, its corresponding tool-result is also removed)
+
+<CodeGroup>
+```python Python
+# Limit session to 20,000 tokens
+edited_session = client.sessions.get_messages(
+  session_id="session-uuid",
+  edit_strategies=[
+    {
+      "type": "token_limit",
+      "params": {
+        "limit_tokens": 20000
+      }
+    }
+  ],
+)
+```
+```typescript TypeScript
+// Limit session to 20,000 tokens
+const editedSession = await client.sessions.getMessages('session-uuid', {
+  editStrategies: [
+    {
+      type: 'token_limit' as const,
+      params: {
+        limit_tokens: 20000
+      }
+    }
+  ],
+});
+```
+</CodeGroup>
+
+
+### Remove Tool Result
+This strategy will replace the oldest tool results' content with a placeholder text to reduce the session context, while keeping the most recent N tool results intact.
+
+**Parameters:**
+- `keep_recent_n_tool_results` (optional, default: 3): Number of most recent tool results to keep with original content
+- `tool_result_placeholder` (optional, default: "Done"): Custom text to replace old tool results with
+
+<CodeGroup>
+```python Python
+# With explicit parameters
+edited_session = client.sessions.get_messages(
+  session_id="session-uuid",
+  edit_strategies=[
+    {
+      "type": "remove_tool_result",
+      "params": {
+        "keep_recent_n_tool_results": 5,
+        "tool_result_placeholder": "Tool output removed"
+      }
+    }
+  ],
+)
+
+# Using defaults (keeps 3 most recent, replaces with "Done")
+edited_session = client.sessions.get_messages(
+  session_id="session-uuid",
+  edit_strategies=[
+    {"type": "remove_tool_result"}
+  ],
+)
+```
+```typescript TypeScript
+// With explicit parameters
+const editedSession = await client.sessions.getMessages('session-uuid', {
+  editStrategies: [
+    {
+      type: 'remove_tool_result' as const,
+      params: {
+        keep_recent_n_tool_results: 5,
+        tool_result_placeholder: 'Tool output removed'
+      }
+    }
+  ],
+});
+
+// Using defaults (keeps 3 most recent, replaces with "Done")
+const editedSession = await client.sessions.getMessages('session-uuid', {
+  editStrategies: [
+    { type: 'remove_tool_result' as const }
+  ],
+});
+```
+</CodeGroup>
+
+
+
+## Context Engineering and Editing
+
+Context Engineering is an emerging discipline focused on designing, managing, and optimizing the information provided to large language models (LLMs) and AI agents to enhance their performance, reliability, and consistency. 
+
+While prompt engineering concentrates on crafting specific inputs, context engineering encompasses the entire spectrum of contextual elements that influence an AI system's behavior and outputs.
+
+<Frame caption="https://blog.langchain.com/context-engineering-for-agents/">
+<img src="/images/context_editing.png" alt="Diagram illustrating the context editing process with information flow between user input, context management, and AI agent responses" />
+</Frame>
+
+**Context Editing** is the most important part of context engineering that keep your agent running smoothly.
+
+
+### Further Reading
+- [Context Editing by Anthropic](https://platform.claude.com/docs/en/build-with-claude/context-editing)
+- [Context Engineering Handbook](https://github.com/davidkimai/Context-Engineering)
+- [Context Engineering by Langgraph](https://blog.langchain.com/context-engineering-for-agents/)

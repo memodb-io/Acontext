@@ -51,7 +51,9 @@ func (s *artifactService) Create(ctx context.Context, in CreateArtifactInput) (*
 		return nil, fmt.Errorf("check artifact existence: %w", err)
 	}
 	if exists {
-		return nil, fmt.Errorf("artifact '%s' already exists in path '%s'", in.Filename, in.Path)
+		if err := s.r.DeleteByPath(ctx, in.ProjectID, in.DiskID, in.Path, in.Filename); err != nil {
+			return nil, fmt.Errorf("upsert existing artifact: %w", err)
+		}
 	}
 
 	asset, err := s.s3.UploadFormFile(ctx, "disks/"+in.ProjectID.String(), in.FileHeader)

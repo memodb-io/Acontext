@@ -3,7 +3,7 @@
       <img alt="Show Acontext header banner" src="./assets/Acontext-header-banner.png">
   </a>
   <p>
-    <h3>Scale Context, Learn Experience</h3>
+    <h3>Engineer Contexts, Learn Skills</h3>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
@@ -33,12 +33,15 @@
 
 
 
-Acontext is a **context data platform** for **cloud-native** AI Agent applications. It can:
 
-- **Store** contexts & artifacts
+
+Acontext is a **context data platform** for building **cloud-native** AI Agents. It can:
+
+- **Store** contexts & artifacts. 
+- Do **context engineering** for you.
 - **Observe** agent tasks and user feedback.
-- Enable agent **self-learning** by collecting experiences (SOPs) into long-term memory.
-- Offer a **Dashboard** to view messages, tasks, artifacts and experiences.
+- Enable agent **self-learning** by distilling skills from agent's completed tasks.
+- View everything in one **Dashboard**.
 
 
 
@@ -62,9 +65,9 @@ so that your agent can be more stable and provide greater value to your users.
 
 
 
-# 🌲 Core Concepts
+# 💡 Core Concepts
 
-- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - A conversation thread that stores messages with multi-modal support. 
+- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - You can store context in Acontext, just like a Database but only used for context.
   - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - Background TODO agent that collects task's status, progress and preferences.
 - [**Disk**](https://docs.acontext.io/store/disk) - File storage for agent artifacts.
 - [**Space**](https://docs.acontext.io/learn/skill-space) - A Notion-like `Space` for agents, where learned skills are stored. 
@@ -82,20 +85,17 @@ so that your agent can be more stable and provide greater value to your users.
                   │         └────────┬────────┘
                   │                  │
                   │         ┌────────▼────────┐
-                  │         │  Space (learn)  │ # or wait for user confirmation
+                  │         │   Learn Skills  │ # or wait for user confirmation
                   │         └────────┬────────┘
                   │                  │
                   └──────────────────┘
                   Skills guide the agent
 ```
 
-**Session**
 
-You can store context in Acontext, just like a Database but only used for context&artifact.
 
-**Tasks**
-
-For each session, Acontext will automatically track tasks, for example:
+<details>
+<summary>📖 Task Structure</summary>
 
 ```json
 {
@@ -110,10 +110,13 @@ For each session, Acontext will automatically track tasks, for example:
   ]
 }
 ```
+</details>
 
-**Space**
 
-The self-learned skill will look like this:
+
+<details>
+<summary>📖 Skill Structure</summary>
+
 
 ```json
 {
@@ -127,7 +130,12 @@ The self-learned skill will look like this:
 }
 ```
 
-Agent Skills will be stored in a structured `Space`, with folders, pages and blocks. For example:
+</details>
+
+
+
+<details>
+<summary>📖 Space Structure</summary>
 
 ```txt
 /
@@ -140,6 +148,66 @@ Agent Skills will be stored in a structured `Space`, with folders, pages and blo
         └── delete_repo (sop)
     ...
 ```
+</details>
+
+
+
+# 🏗️ Architecture
+<details>
+<summary>Click to open the architecture diagram, if you're interested.</summary>
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        PY["pip install acontext"]
+        TS["npm i @acontext/acontext"]
+    end
+    
+    subgraph "Acontext Backend"
+      subgraph " "
+          API["API<br/>localhost:8029"]
+          CORE["Core"]
+          API -->|FastAPI & MQ| CORE
+      end
+      
+      subgraph " "
+          Infrastructure["Infrastructures"]
+          PG["PostgreSQL"]
+          S3["S3"]
+          REDIS["Redis"]
+          MQ["RabbitMQ"]
+      end
+    end
+    
+    subgraph "Dashboard"
+        UI["Web Dashboard<br/>localhost:3000"]
+    end
+    
+    PY -->|RESTFUL API| API
+    TS -->|RESTFUL API| API
+    UI -->|RESTFUL API| API
+    API --> Infrastructure
+    CORE --> Infrastructure
+
+    Infrastructure --> PG
+    Infrastructure --> S3
+    Infrastructure --> REDIS
+    Infrastructure --> MQ
+    
+    
+    style PY fill:#3776ab,stroke:#fff,stroke-width:2px,color:#fff
+    style TS fill:#3178c6,stroke:#fff,stroke-width:2px,color:#fff
+    style API fill:#00add8,stroke:#fff,stroke-width:2px,color:#fff
+    style CORE fill:#ffd43b,stroke:#333,stroke-width:2px,color:#333
+    style UI fill:#000,stroke:#fff,stroke-width:2px,color:#fff
+    style PG fill:#336791,stroke:#fff,stroke-width:2px,color:#fff
+    style S3 fill:#ff9900,stroke:#fff,stroke-width:2px,color:#fff
+    style REDIS fill:#dc382d,stroke:#fff,stroke-width:2px,color:#fff
+    style MQ fill:#ff6600,stroke:#fff,stroke-width:2px,color:#fff
+```
+</details>
+
+
 
 
 
@@ -480,7 +548,7 @@ Acontext can gather a bunch of sessions and learn skills (SOPs) on how to call t
 
 ### Learn Skills to a `Space` [📖](https://docs.acontext.io/learn/skill-space)
 
-A `Space` can store skills, experiences, and memories in a Notion-like system. You first need to connect a session to `Space` to enable the learning process:
+A `Space` can store skills, and memories in a Notion-like system. You first need to connect a session to `Space` to enable the learning process:
 
 ```python
 # Step 1: Create a Space for skill learning

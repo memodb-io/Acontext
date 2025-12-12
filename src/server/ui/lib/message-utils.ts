@@ -10,8 +10,6 @@ export function getAllowedPartTypes(role: MessageRole): PartType[] {
       return ["text", "image", "audio", "video", "file", "tool-result", "data"];
     case "assistant":
       return ["text", "tool-call", "data"];
-    case "system":
-      return ["text"];
     default:
       return ["text"];
   }

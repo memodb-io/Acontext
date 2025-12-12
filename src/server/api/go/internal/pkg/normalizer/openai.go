@@ -28,13 +28,13 @@ func (n *OpenAINormalizer) NormalizeFromOpenAIMessage(messageJSON json.RawMessag
 	} else if message.OfAssistant != nil {
 		return normalizeOpenAIAssistantMessage(*message.OfAssistant)
 	} else if message.OfSystem != nil {
-		return normalizeOpenAISystemMessage(*message.OfSystem)
+		return "", nil, nil, fmt.Errorf("system messages are not supported. Use session-level or skill-level configuration for system prompts")
 	} else if message.OfTool != nil {
 		return normalizeOpenAIToolMessage(*message.OfTool)
 	} else if message.OfFunction != nil {
 		return normalizeOpenAIFunctionMessage(*message.OfFunction)
 	} else if message.OfDeveloper != nil {
-		return normalizeOpenAIDeveloperMessage(*message.OfDeveloper)
+		return "", nil, nil, fmt.Errorf("developer messages are not supported. Use session-level or skill-level configuration for system prompts")
 	}
 
 	return "", nil, nil, fmt.Errorf("unknown OpenAI message type")
@@ -133,72 +133,6 @@ func normalizeOpenAIAssistantMessage(msg openai.ChatCompletionAssistantMessagePa
 	}
 
 	return "assistant", parts, messageMeta, nil
-}
-
-func normalizeOpenAISystemMessage(msg openai.ChatCompletionSystemMessageParam) (string, []service.PartIn, map[string]interface{}, error) {
-	parts := []service.PartIn{}
-
-	// Handle content - can be string or array
-	if !param.IsOmitted(msg.Content.OfString) {
-		parts = append(parts, service.PartIn{
-			Type: "text",
-			Text: msg.Content.OfString.Value,
-		})
-	} else if len(msg.Content.OfArrayOfContentParts) > 0 {
-		for _, textPart := range msg.Content.OfArrayOfContentParts {
-			parts = append(parts, service.PartIn{
-				Type: "text",
-				Text: textPart.Text,
-			})
-		}
-	} else {
-		return "", nil, nil, fmt.Errorf("OpenAI system message must have content")
-	}
-
-	// Extract message-level metadata
-	messageMeta := map[string]interface{}{
-		"source_format": "openai",
-	}
-
-	// Extract name field if present
-	if !param.IsOmitted(msg.Name) {
-		messageMeta["name"] = msg.Name.Value
-	}
-
-	return "system", parts, messageMeta, nil
-}
-
-func normalizeOpenAIDeveloperMessage(msg openai.ChatCompletionDeveloperMessageParam) (string, []service.PartIn, map[string]interface{}, error) {
-	parts := []service.PartIn{}
-
-	// Developer messages are converted to system messages
-	if !param.IsOmitted(msg.Content.OfString) {
-		parts = append(parts, service.PartIn{
-			Type: "text",
-			Text: msg.Content.OfString.Value,
-		})
-	} else if len(msg.Content.OfArrayOfContentParts) > 0 {
-		for _, textPart := range msg.Content.OfArrayOfContentParts {
-			parts = append(parts, service.PartIn{
-				Type: "text",
-				Text: textPart.Text,
-			})
-		}
-	} else {
-		return "", nil, nil, fmt.Errorf("OpenAI developer message must have content")
-	}
-
-	// Extract message-level metadata
-	messageMeta := map[string]interface{}{
-		"source_format": "openai",
-	}
-
-	// Extract name field if present
-	if !param.IsOmitted(msg.Name) {
-		messageMeta["name"] = msg.Name.Value
-	}
-
-	return "system", parts, messageMeta, nil
 }
 
 func normalizeOpenAIToolMessage(msg openai.ChatCompletionToolMessageParam) (string, []service.PartIn, map[string]interface{}, error) {

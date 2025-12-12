@@ -16,6 +16,7 @@ import (
 	mq "github.com/memodb-io/Acontext/internal/infra/queue"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
+	"github.com/memodb-io/Acontext/internal/pkg/editor"
 	"github.com/memodb-io/Acontext/internal/pkg/paging"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -277,7 +278,13 @@ func (s *sessionService) SendMessage(ctx context.Context, in SendMessageInput) (
 		return nil, err
 	}
 
-	if s.publisher != nil {
+	// Check if task tracking is disabled for this session
+	disableTaskTracking, err := s.sessionRepo.GetDisableTaskTracking(ctx, in.SessionID)
+	if err != nil {
+		s.log.Error("failed to get disable_task_tracking for session", zap.Error(err))
+		// Continue without publishing, but don't fail the request
+	} else if s.publisher != nil && !disableTaskTracking {
+		// Only publish to MQ if task tracking is enabled
 		if err := s.publisher.PublishJSON(ctx, s.cfg.RabbitMQ.ExchangeName.SessionMessage, s.cfg.RabbitMQ.RoutingKey.SessionMessageInsert, SendMQPublishJSON{
 			ProjectID: in.ProjectID,
 			SessionID: in.SessionID,
@@ -291,12 +298,13 @@ func (s *sessionService) SendMessage(ctx context.Context, in SendMessageInput) (
 }
 
 type GetMessagesInput struct {
-	SessionID          uuid.UUID     `json:"session_id"`
-	Limit              int           `json:"limit"`
-	Cursor             string        `json:"cursor"`
-	WithAssetPublicURL bool          `json:"with_public_url"`
-	AssetExpire        time.Duration `json:"asset_expire"`
-	TimeDesc           bool          `json:"time_desc"`
+	SessionID          uuid.UUID               `json:"session_id"`
+	Limit              int                     `json:"limit"`
+	Cursor             string                  `json:"cursor"`
+	WithAssetPublicURL bool                    `json:"with_public_url"`
+	AssetExpire        time.Duration           `json:"asset_expire"`
+	TimeDesc           bool                    `json:"time_desc"`
+	EditStrategies     []editor.StrategyConfig `json:"edit_strategies,omitempty"`
 }
 
 type PublicURL struct {
@@ -312,23 +320,35 @@ type GetMessagesOutput struct {
 }
 
 func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (*GetMessagesOutput, error) {
-	// Parse cursor (createdAt, id); an empty cursor indicates starting from the latest
-	var afterT time.Time
-	var afterID uuid.UUID
+	var msgs []model.Message
 	var err error
-	if in.Cursor != "" {
-		afterT, afterID, err = paging.DecodeCursor(in.Cursor)
+
+	// Retrieve messages based on limit
+	if in.Limit <= 0 {
+		// If limit <= 0, retrieve all messages
+		msgs, err = s.sessionRepo.ListAllMessagesBySession(ctx, in.SessionID)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Parse cursor (createdAt, id); an empty cursor indicates starting from the latest
+		var afterT time.Time
+		var afterID uuid.UUID
+		if in.Cursor != "" {
+			afterT, afterID, err = paging.DecodeCursor(in.Cursor)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		// Query limit+1 is used to determine has_more
+		msgs, err = s.sessionRepo.ListBySessionWithCursor(ctx, in.SessionID, afterT, afterID, in.Limit+1, in.TimeDesc)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	// Query limit+1 is used to determine has_more
-	msgs, err := s.sessionRepo.ListBySessionWithCursor(ctx, in.SessionID, afterT, afterID, in.Limit+1, in.TimeDesc)
-	if err != nil {
-		return nil, err
-	}
-
+	// Load parts for each message
 	for i, m := range msgs {
 		meta := m.PartsAssetMeta.Data()
 		parts := s.loadPartsForMessage(ctx, meta)
@@ -347,17 +367,27 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 		return msgs[i].CreatedAt.Before(msgs[j].CreatedAt)
 	})
 
+	// Build output with pagination info
 	out := &GetMessagesOutput{
 		Items:   msgs,
 		HasMore: false,
 	}
-	if len(msgs) > in.Limit {
+	if in.Limit > 0 && len(msgs) > in.Limit {
 		out.HasMore = true
 		out.Items = msgs[:in.Limit]
 		last := out.Items[len(out.Items)-1]
 		out.NextCursor = paging.EncodeCursor(last.CreatedAt, last.ID)
 	}
 
+	// Apply edit strategies if provided (before format conversion)
+	if len(in.EditStrategies) > 0 {
+		out.Items, err = editor.ApplyStrategies(out.Items, in.EditStrategies)
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply edit strategies: %w", err)
+		}
+	}
+
+	// Generate presigned URLs for assets if requested
 	if in.WithAssetPublicURL && s.s3 != nil {
 		out.PublicURLs = make(map[string]PublicURL)
 		for _, m := range out.Items {

@@ -1,7 +1,9 @@
-# Use Python 3.11 slim image as base
+# Use Python slim image as base
 FROM python:3.12-slim-bookworm
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
+# Install wget for healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends wget && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
 WORKDIR /app

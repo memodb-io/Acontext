@@ -1,7 +1,8 @@
 from typing import final
 import uuid
 from functools import wraps
-from ..env import bound_logging_vars, LOG
+from ..env import LOG
+from ..telemetry.log import bound_logging_vars
 
 
 def generate_temp_id() -> str:

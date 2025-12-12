@@ -558,7 +558,6 @@ client = AcontextClient(
 result = client.sessions.get_messages(
     session_id="session_uuid",
     format="anthropic",  # or "openai"
-    limit=50
 )
 
 print(f"Retrieved {len(result.items)} messages")

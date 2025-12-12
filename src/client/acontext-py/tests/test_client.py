@@ -413,6 +413,56 @@ def test_sessions_get_messages_forwards_format(
 
 
 @patch("acontext.client.AcontextClient.request")
+def test_sessions_get_messages_with_edit_strategies(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = {"items": [], "has_more": False}
+
+    edit_strategies = [
+        {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}
+    ]
+    result = client.sessions.get_messages(
+        "session-id", format="openai", edit_strategies=edit_strategies
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/session/session-id/messages"
+    assert "edit_strategies" in kwargs["params"]
+    # Verify it's JSON encoded
+    import json
+
+    decoded_strategies = json.loads(kwargs["params"]["edit_strategies"])
+    assert decoded_strategies == edit_strategies
+    assert kwargs["params"]["format"] == "openai"
+    # Verify it returns a Pydantic model
+    assert hasattr(result, "items")
+    assert hasattr(result, "has_more")
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sessions_get_messages_without_edit_strategies(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = {"items": [], "has_more": False}
+
+    result = client.sessions.get_messages("session-id", format="openai")
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/session/session-id/messages"
+    # edit_strategies should not be in params when not provided
+    assert "edit_strategies" not in kwargs["params"]
+    # Verify it returns a Pydantic model
+    assert hasattr(result, "items")
+    assert hasattr(result, "has_more")
+
+
+@patch("acontext.client.AcontextClient.request")
 def test_sessions_get_tasks_without_filters(
     mock_request, client: AcontextClient
 ) -> None:
@@ -824,87 +874,6 @@ def test_spaces_experience_search_with_agentic_mode(
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_spaces_semantic_glob(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = [
-        {
-            "block_id": "block-1",
-            "title": "User Login System",
-            "type": "page",
-            "props": {"path": "/docs/auth/login"},
-            "distance": 0.15,
-        },
-        {
-            "block_id": "block-2",
-            "title": "OAuth Integration",
-            "type": "folder",
-            "props": {"path": "/docs/auth/oauth"},
-            "distance": 0.32,
-        },
-    ]
-
-    result = client.spaces.semantic_glob(
-        "space-id",
-        query="authentication pages",
-        limit=10,
-        threshold=1.0,
-    )
-
-    mock_request.assert_called_once()
-    args, kwargs = mock_request.call_args
-    method, path = args
-    assert method == "GET"
-    assert path == "/space/space-id/semantic_glob"
-    assert kwargs["params"] == {
-        "query": "authentication pages",
-        "limit": 10,
-        "threshold": 1.0,
-    }
-    # Verify response structure
-    assert isinstance(result, list)
-    assert len(result) == 2
-    assert result[0].title == "User Login System"
-    assert result[0].distance == 0.15
-    assert result[1].title == "OAuth Integration"
-
-
-@patch("acontext.client.AcontextClient.request")
-def test_spaces_semantic_grep(mock_request, client: AcontextClient) -> None:
-    mock_request.return_value = [
-        {
-            "block_id": "block-1",
-            "title": "Token Validation Function",
-            "type": "code_block",
-            "props": {"language": "javascript"},
-            "distance": 0.18,
-        },
-    ]
-
-    result = client.spaces.semantic_grep(
-        "space-id",
-        query="JWT token validation code",
-        limit=20,
-        threshold=0.7,
-    )
-
-    mock_request.assert_called_once()
-    args, kwargs = mock_request.call_args
-    method, path = args
-    assert method == "GET"
-    assert path == "/space/space-id/semantic_grep"
-    assert kwargs["params"] == {
-        "query": "JWT token validation code",
-        "limit": 20,
-        "threshold": 0.7,
-    }
-    # Verify response structure
-    assert isinstance(result, list)
-    assert len(result) == 1
-    assert result[0].title == "Token Validation Function"
-    assert result[0].type == "code_block"
-    assert result[0].distance == 0.18
-
-
-@patch("acontext.client.AcontextClient.request")
 def test_spaces_get_unconfirmed_experiences(
     mock_request, client: AcontextClient
 ) -> None:
@@ -997,7 +966,7 @@ def test_spaces_confirm_experience_with_save(
     mock_request.assert_called_once()
     args, kwargs = mock_request.call_args
     method, path = args
-    assert method == "PATCH"
+    assert method == "PUT"
     assert path == "/space/space-id/experience_confirmations/exp-1"
     assert kwargs["json_data"] == {"save": True}
     # Verify response structure
@@ -1019,7 +988,7 @@ def test_spaces_confirm_experience_without_save(
     mock_request.assert_called_once()
     args, kwargs = mock_request.call_args
     method, path = args
-    assert method == "PATCH"
+    assert method == "PUT"
     assert path == "/space/space-id/experience_confirmations/exp-1"
     assert kwargs["json_data"] == {"save": False}
     assert result is None

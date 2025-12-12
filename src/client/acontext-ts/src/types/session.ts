@@ -43,6 +43,7 @@ export type Message = z.infer<typeof MessageSchema>;
 export const SessionSchema = z.object({
   id: z.string(),
   project_id: z.string(),
+  disable_task_tracking: z.boolean(),
   space_id: z.string().nullable(),
   configs: z.record(z.string(), z.unknown()).nullable(),
   created_at: z.string(),
@@ -110,4 +111,76 @@ export const TokenCountsSchema = z.object({
 });
 
 export type TokenCounts = z.infer<typeof TokenCountsSchema>;
+
+/**
+ * Parameters for the remove_tool_result edit strategy.
+ */
+export const RemoveToolResultParamsSchema = z.object({
+  /**
+   * Number of most recent tool results to keep with original content.
+   * @default 3
+   */
+  keep_recent_n_tool_results: z.number().optional(),
+
+  /**
+   * Custom text to replace old tool results with.
+   * @default "Done"
+   */
+  tool_result_placeholder: z.string().optional(),
+});
+
+export type RemoveToolResultParams = z.infer<typeof RemoveToolResultParamsSchema>;
+
+/**
+ * Edit strategy to replace old tool results with placeholder text.
+ * 
+ * Example: { type: 'remove_tool_result', params: { keep_recent_n_tool_results: 5, tool_result_placeholder: 'Cleared' } }
+ */
+export const RemoveToolResultStrategySchema = z.object({
+  type: z.literal('remove_tool_result'),
+  params: RemoveToolResultParamsSchema,
+});
+
+export type RemoveToolResultStrategy = z.infer<typeof RemoveToolResultStrategySchema>;
+
+/**
+ * Parameters for the token_limit edit strategy.
+ */
+export const TokenLimitParamsSchema = z.object({
+  /**
+   * Maximum number of tokens to keep. Required parameter.
+   * Messages will be removed from oldest to newest until total tokens <= limit_tokens.
+   * Tool-call and tool-result pairs are always removed together.
+   */
+  limit_tokens: z.number(),
+});
+
+export type TokenLimitParams = z.infer<typeof TokenLimitParamsSchema>;
+
+/**
+ * Edit strategy to truncate messages based on token count.
+ * 
+ * Removes oldest messages until the total token count is within the specified limit.
+ * Maintains tool-call/tool-result pairing - when removing a message with tool-calls,
+ * the corresponding tool-result messages are also removed.
+ * 
+ * Example: { type: 'token_limit', params: { limit_tokens: 20000 } }
+ */
+export const TokenLimitStrategySchema = z.object({
+  type: z.literal('token_limit'),
+  params: TokenLimitParamsSchema,
+});
+
+export type TokenLimitStrategy = z.infer<typeof TokenLimitStrategySchema>;
+
+/**
+ * Union schema for all edit strategies.
+ * When adding new strategies, extend this union: z.union([RemoveToolResultStrategySchema, OtherStrategySchema, ...])
+ */
+export const EditStrategySchema = z.union([
+  RemoveToolResultStrategySchema,
+  TokenLimitStrategySchema,
+]);
+
+export type EditStrategy = z.infer<typeof EditStrategySchema>;
 

@@ -127,7 +127,7 @@ type DeleteArtifactReq struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			disk_id		path	string	true	"Disk ID"						Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
-//	@Param			file_path	query	string	true	"File path including filename"	example:"/documents/report.pdf"
+//	@Param			file_path	query	string	true	"File path including filename"	example(/documents/report.pdf)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{}
 //	@Router			/disk/{disk_id}/artifact [delete]
@@ -189,10 +189,10 @@ type GetArtifactResp struct {
 //	@Accept			json
 //	@Produce		json
 //	@Param			disk_id			path	string	true	"Disk ID"													Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
-//	@Param			file_path		query	string	true	"File path including filename"								example:"/documents/report.pdf"
-//	@Param			with_public_url	query	boolean	false	"Whether to return public URL, default is true"				example:"true"
-//	@Param			with_content	query	boolean	false	"Whether to return parsed file content, default is true"	example:"true"
-//	@Param			expire			query	int		false	"Expire time in seconds for presigned URL (default: 3600)"	example:"3600"
+//	@Param			file_path		query	string	true	"File path including filename"								example(/documents/report.pdf)
+//	@Param			with_public_url	query	boolean	false	"Whether to return public URL, default is true"				example(true)
+//	@Param			with_content	query	boolean	false	"Whether to return parsed file content, default is true"	example(true)
+//	@Param			expire			query	int		false	"Expire time in seconds for presigned URL (default: 3600)"	example(3600)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=handler.GetArtifactResp}
 //	@Router			/disk/{disk_id}/artifact [get]

@@ -857,7 +857,7 @@ async def test_async_spaces_confirm_experience_with_save(
     mock_request.assert_called_once()
     args, kwargs = mock_request.call_args
     method, path = args
-    assert method == "PATCH"
+    assert method == "PUT"
     assert path == "/space/space-id/experience_confirmations/exp-1"
     assert kwargs["json_data"] == {"save": True}
     # Verify response structure
@@ -882,7 +882,7 @@ async def test_async_spaces_confirm_experience_without_save(
     mock_request.assert_called_once()
     args, kwargs = mock_request.call_args
     method, path = args
-    assert method == "PATCH"
+    assert method == "PUT"
     assert path == "/space/space-id/experience_confirmations/exp-1"
     assert kwargs["json_data"] == {"save": False}
     assert result is None

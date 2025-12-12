@@ -48,7 +48,12 @@ jobs:
         run: |
           cp .env.example .env 
           cp core/config.yaml.example core/config.yaml 
-          docker compose up acontext-server-pg acontext-server-redis acontext-server-rabbitmq acontext-server-seaweedfs-setup acontext-server-seaweedfs -d --wait
+          if ! docker compose up -d --wait --quiet-pull 2>&1; then
+            echo "❌ Docker compose failed to start, showing logs:"
+            docker compose logs
+            exit 1
+          fi
+          echo "✅ All containers started successfully"
       
       - name: Test with pytest
         run: |

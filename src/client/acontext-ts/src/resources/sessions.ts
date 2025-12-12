@@ -7,6 +7,7 @@ import { AcontextMessage, AcontextMessageInput } from '../messages';
 import { FileUpload } from '../uploads';
 import { buildParams } from '../utils';
 import {
+  EditStrategy,
   GetMessagesOutput,
   GetMessagesOutputSchema,
   GetTasksOutput,
@@ -56,11 +57,15 @@ export class SessionsAPI {
 
   async create(options?: {
     spaceId?: string | null;
+    disableTaskTracking?: boolean | null;
     configs?: Record<string, unknown>;
   }): Promise<Session> {
     const payload: Record<string, unknown> = {};
     if (options?.spaceId) {
       payload.space_id = options.spaceId;
+    }
+    if (options?.disableTaskTracking !== undefined && options?.disableTaskTracking !== null) {
+      payload.disable_task_tracking = options.disableTaskTracking;
     }
     if (options?.configs !== undefined) {
       payload.configs = options.configs;
@@ -178,6 +183,22 @@ export class SessionsAPI {
     }
   }
 
+  /**
+   * Get messages for a session.
+   *
+   * @param sessionId - The UUID of the session.
+   * @param options - Options for retrieving messages.
+   * @param options.limit - Maximum number of messages to return.
+   * @param options.cursor - Cursor for pagination.
+   * @param options.withAssetPublicUrl - Whether to include presigned URLs for assets.
+   * @param options.format - The format of the messages ('acontext', 'openai', or 'anthropic').
+   * @param options.timeDesc - Order by created_at descending if true, ascending if false.
+   * @param options.editStrategies - Optional list of edit strategies to apply before format conversion.
+   *   Examples:
+   *   - Remove tool results: [{ type: 'remove_tool_result', params: { keep_recent_n_tool_results: 3 } }]
+   *   - Token limit: [{ type: 'token_limit', params: { limit_tokens: 20000 } }]
+   * @returns GetMessagesOutput containing the list of messages and pagination information.
+   */
   async getMessages(
     sessionId: string,
     options?: {
@@ -186,6 +207,7 @@ export class SessionsAPI {
       withAssetPublicUrl?: boolean | null;
       format?: 'acontext' | 'openai' | 'anthropic';
       timeDesc?: boolean | null;
+      editStrategies?: Array<EditStrategy> | null;
     }
   ): Promise<GetMessagesOutput> {
     const params: Record<string, string | number> = {};
@@ -201,6 +223,9 @@ export class SessionsAPI {
         time_desc: options?.timeDesc ?? true, // Default to true
       })
     );
+    if (options?.editStrategies !== undefined && options?.editStrategies !== null) {
+      params.edit_strategies = JSON.stringify(options.editStrategies);
+    }
     const data = await this.requester.request('GET', `/session/${sessionId}/messages`, {
       params: Object.keys(params).length > 0 ? params : undefined,
     });

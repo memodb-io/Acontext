@@ -43,16 +43,15 @@ func TestAcontextNormalizer_NormalizeFromAcontextMessage(t *testing.T) {
 			wantErr:     false,
 		},
 		{
-			name: "valid system message",
+			name: "invalid system message (not supported)",
 			input: `{
 				"role": "system",
 				"parts": [
 					{"type": "text", "text": "You are a helpful assistant."}
 				]
 			}`,
-			wantRole:    "system",
-			wantPartCnt: 1,
-			wantErr:     false,
+			wantErr:     true,
+			errContains: "invalid role",
 		},
 		{
 			name: "message with multiple parts",

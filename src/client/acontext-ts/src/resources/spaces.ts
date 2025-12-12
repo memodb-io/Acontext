@@ -11,8 +11,6 @@ import {
   ListExperienceConfirmationsOutputSchema,
   ListSpacesOutput,
   ListSpacesOutputSchema,
-  SearchResultBlockItem,
-  SearchResultBlockItemSchema,
   Space,
   SpaceSchema,
   SpaceSearchResult,
@@ -109,72 +107,6 @@ export class SpacesAPI {
   }
 
   /**
-   * Perform semantic glob (glob) search for page/folder titles.
-   * 
-   * Searches specifically for page/folder titles using semantic similarity,
-   * similar to a semantic version of the glob command.
-   * 
-   * @param spaceId - The UUID of the space
-   * @param options - Search options
-   * @returns List of SearchResultBlockItem objects matching the query
-   */
-  async semanticGlobal(
-    spaceId: string,
-    options: {
-      query: string;
-      limit?: number | null;
-      threshold?: number | null;
-    }
-  ): Promise<SearchResultBlockItem[]> {
-    const params = buildParams({
-      query: options.query,
-      limit: options.limit ?? null,
-      threshold: options.threshold ?? null,
-    });
-    const data = await this.requester.request(
-      'GET',
-      `/space/${spaceId}/semantic_glob`,
-      { params: Object.keys(params).length > 0 ? params : undefined }
-    );
-    return (data as unknown[]).map((item) =>
-      SearchResultBlockItemSchema.parse(item)
-    );
-  }
-
-  /**
-   * Perform semantic grep search for content blocks.
-   * 
-   * Searches through content blocks (actual text content) using semantic similarity,
-   * similar to a semantic version of the grep command.
-   * 
-   * @param spaceId - The UUID of the space
-   * @param options - Search options
-   * @returns List of SearchResultBlockItem objects matching the query
-   */
-  async semanticGrep(
-    spaceId: string,
-    options: {
-      query: string;
-      limit?: number | null;
-      threshold?: number | null;
-    }
-  ): Promise<SearchResultBlockItem[]> {
-    const params = buildParams({
-      query: options.query,
-      limit: options.limit ?? null,
-      threshold: options.threshold ?? null,
-    });
-    const data = await this.requester.request(
-      'GET',
-      `/space/${spaceId}/semantic_grep`,
-      { params: Object.keys(params).length > 0 ? params : undefined }
-    );
-    return (data as unknown[]).map((item) =>
-      SearchResultBlockItemSchema.parse(item)
-    );
-  }
-
-  /**
    * Get all unconfirmed experiences in a space with cursor-based pagination.
    * 
    * @param spaceId - The UUID of the space
@@ -222,7 +154,7 @@ export class SpacesAPI {
   ): Promise<ExperienceConfirmation | null> {
     const payload = { save: options.save };
     const data = await this.requester.request(
-      'PATCH',
+      'PUT',
       `/space/${spaceId}/experience_confirmations/${experienceId}`,
       { jsonData: payload }
     );

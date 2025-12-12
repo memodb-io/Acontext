@@ -1,10 +1,8 @@
 """
 Example usage of the Acontext space search APIs.
 
-This example demonstrates how to use the three semantic search endpoints:
+This example demonstrates how to use the experience search endpoint:
 1. experience_search - Advanced AI-powered search with optional agentic mode
-2. semantic_glob - Search for page/folder titles using semantic similarity
-3. semantic_grep - Search through content blocks using semantic similarity
 """
 
 from __future__ import annotations
@@ -66,57 +64,6 @@ def example_experience_search(client: AcontextClient, space_id: str) -> None:
         print(f"  Final answer: {result.final_answer}")
 
 
-def example_semantic_glob(client: AcontextClient, space_id: str) -> None:
-    """
-    Example: Semantic Glob Search
-
-    Search for page/folder titles using semantic similarity.
-    Like a semantic version of the 'glob' command.
-    """
-    print("\n=== Semantic Glob (Title Search) ===\n")
-
-    result = client.spaces.semantic_glob(
-        space_id,
-        query="authentication and authorization pages",
-        limit=10,
-        threshold=1.0,  # Only show results with distance < 1.0
-    )
-
-    print(f"Found {len(result)} matching titles:")
-    for block in result:
-        print(f"  - {block.title}")
-        print(
-            f"    ID: {block.block_id}, Type: {block.type}, Distance: {block.distance}"
-        )
-
-
-def example_semantic_grep(client: AcontextClient, space_id: str) -> None:
-    """
-    Example: Semantic Grep Search
-
-    Search through content blocks using semantic similarity.
-    Like a semantic version of the 'grep' command.
-    """
-    print("\n=== Semantic Grep (Content Search) ===\n")
-
-    result = client.spaces.semantic_grep(
-        space_id,
-        query="JWT token validation code examples",
-        limit=15,
-        threshold=0.7,
-    )
-
-    print(f"Found {len(result)} matching content blocks:")
-    for block in result[:5]:  # Show first 5
-        print(f"  - {block.title}")
-        print(f"    Type: {block.type}, Distance: {block.distance}")
-        # Show some properties if available
-        if block.props:
-            content = block.props.get("text") or block.props.get("content")
-            if content:
-                print(f"    Content preview: {str(content)[:80]}...")
-
-
 async def example_async_search() -> None:
     """
     Example: Using async client for search operations
@@ -135,32 +82,14 @@ async def example_async_search() -> None:
         space_id = spaces.items[0].id
         print(f"\n=== Async Search Example (Space: {space_id}) ===\n")
 
-        # Perform all three searches concurrently
-        import asyncio
-
-        exp_task = client.spaces.experience_search(
+        # Perform experience search
+        exp_result = await client.spaces.experience_search(
             space_id,
             query="API documentation",
             limit=5,
         )
-        glob_task = client.spaces.semantic_glob(
-            space_id,
-            query="configuration files",
-            limit=5,
-        )
-        grep_task = client.spaces.semantic_grep(
-            space_id,
-            query="error handling patterns",
-            limit=5,
-        )
-
-        exp_result, glob_result, grep_result = await asyncio.gather(
-            exp_task, glob_task, grep_task
-        )
 
         print(f"Experience search: {len(exp_result.cited_blocks)} blocks")
-        print(f"Semantic glob: {len(glob_result)} titles")
-        print(f"Semantic grep: {len(grep_result)} content blocks")
 
 
 def main() -> None:
@@ -181,8 +110,6 @@ def main() -> None:
 
             # Run synchronous examples
             example_experience_search(client, space_id)
-            example_semantic_glob(client, space_id)
-            example_semantic_grep(client, space_id)
 
     except APIError as exc:
         print(f"\n[API Error] {exc.status_code}: {exc.message}")

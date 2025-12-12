@@ -88,7 +88,7 @@ test: test-unit ## Run unit tests
 
 test-unit: ## Run unit tests
 	@echo "Running unit tests..."
-	cd $(GO_DIR) && go test -v -timeout $(TEST_TIMEOUT) ./internal/... ./cmd/...
+	cd $(GO_DIR) && go test -timeout $(TEST_TIMEOUT) ./internal/... ./cmd/...
 
 test-integration: ## Run integration tests (requires DB, Redis, S3)
 	@echo "Running integration tests..."

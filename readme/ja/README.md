@@ -3,7 +3,7 @@
       <img alt="Show Acontext header banner" src="../../assets/Acontext-header-banner.png">
   </a>
   <p>
-    <h3>コンテキストをスケール、経験を学習</h3>
+    <h3>コンテキストを保存、スキルを学習</h3>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
@@ -34,14 +34,12 @@
 
 
 
-Acontextは、**クラウドネイティブ** AI Agentアプリケーション向けの**コンテキストデータプラットフォーム**です。
+Acontextは、**クラウドネイティブ** AI Agentアプリケーション向けの**コンテキストデータプラットフォーム**です。以下のことができます：
 
-以下のことができます：
-
-- **保存** コンテキストと Artifacts
+- **保存** コンテキストとartifacts
 - **観察** Agentタスクとユーザーフィードバック。
-- 経験（SOP）を長期記憶に収集することで、Agentの**自己学習**を可能にします。
-- メッセージ、タスク、 Artifacts、経験を表示する**ローカルダッシュボード**を提供します。
+- Agentの完了したタスクからスキルを蒸留することで、Agentの**自己学習**を可能にします。
+- すべてのコンテキストを1つの**ダッシュボード**で表示。
 
 
 
@@ -58,16 +56,16 @@ Acontextは、**クラウドネイティブ** AI Agentアプリケーション�
 
 私たちがこれを構築している理由は、Acontextが以下を支援できると信じているからです：
 
-- **よりスケーラブルな Agent 製品を構築する**
-- **Agent の成功率を向上させ、実行ステップを削減する**
+- **より良いコンテキストエンジニアリングで、よりスケーラブルなAgent製品を構築する**
+- **Agentの成功率を向上させ、実行ステップを削減する**
 
-これにより、Agent がより安定し、ユーザーに大きな価値を提供できるようになります。
+これにより、Agentがより安定し、ユーザーに大きな価値を提供できるようになります。
 
 
 
-# 🌲 コアコンセプト
+# 💡 コアコンセプト
 
-- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - マルチモーダルサポートでメッセージを保存する会話スレッド。 
+- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - Acontextにコンテキストを保存できます。データベースのように、コンテキスト専用に使用されます。
   - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - タスクのステータス、進捗、好みを収集するバックグラウンドTODO Agent。
 - [**Disk**](https://docs.acontext.io/store/disk) - Agent Artifacts用のファイルストレージ。
 - [**Space**](https://docs.acontext.io/learn/skill-space) - 学習したスキルが保存される、Notionのような Agents 用の`Space`。 
@@ -85,19 +83,43 @@ Acontextは、**クラウドネイティブ** AI Agentアプリケーション�
                   │         └────────┬────────┘
                   │                  │
                   │         ┌────────▼────────┐
-                  │         │  Space (learn)  │ # or wait for user confirmation
+                  │         │   Learn Skills  │ # or wait for user confirmation
                   │         └────────┬────────┘
                   │                  │
                   └──────────────────┘
-                  スキルが Agent をガイド
+                  スキルがAgentをガイド
 ```
 
-Agent スキルは次のようになります：
+
+
+<details>
+<summary>📖 Task Structure</summary>
+
+```json
+{
+  "task_description": "Star https://github.com/memodb-io/Acontext",
+  "progresses": [
+    "I have navigated to Acontext repo",
+    "Tried to Star but a pop-up required me to login",
+    ...
+  ],
+  "user_preferences": [
+    "user wants to use outlook email to login"
+  ]
+}
+```
+</details>
+
+
+
+<details>
+<summary>📖 Skill Structure</summary>
+
 
 ```json
 {
     "use_when": "star a repo on github.com",
-    "preferences": "use personal account. star but not fork",
+    "preferences": "use user's outlook account",
     "tool_sops": [
         {"tool_name": "goto", "action": "goto github.com"},
         {"tool_name": "click", "action": "find login button if any. login first"},
@@ -106,25 +128,29 @@ Agent スキルは次のようになります：
 }
 ```
 
+</details>
 
 
-Agent の経験は、フォルダ、ページ、ブロックを含む構造化された`Space`に保存されます。例えば：
+
+<details>
+<summary>📖 Space Structure</summary>
 
 ```txt
 /
 └── github/ (folder)
     └── GTM (page)
-        ├── find_trending_repos (sop block)
-        └── find_contributor_emails (sop block)
+        ├── find_trending_repos (sop)
+        └── find_contributor_emails (sop)
     └── basic_ops (page)
-        ├── create_repo (sop block)
-        └── delete_repo (sop block)
+        ├── create_repo (sop)
+        └── delete_repo (sop)
     ...
 ```
+</details>
 
 
 
-# 🚀 始め方
+# 🚀 Start the Backend Locally
 
 概念実証を迅速に行うために、`acontext-cli`を用意しています。まず、ターミナルでダウンロードしてください：
 
@@ -163,7 +189,7 @@ acontext docker up
 
 
 
-# 🧐 使い方
+# 🧐 Use Acontext to build Agent
 
 `acontext`でエンドツーエンドスクリプトをダウンロード：
 
@@ -195,7 +221,7 @@ acontext create my-proj --template-path "typescript/openai-basic"
 
 
 
-## ステップバイステップの説明
+## SDK Walk-through
 
 <details>
 <summary>クリックして開く</summary>

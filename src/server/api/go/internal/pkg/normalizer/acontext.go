@@ -25,9 +25,9 @@ func (n *AcontextNormalizer) NormalizeFromAcontextMessage(messageJSON json.RawMe
 	}
 
 	// Validate role
-	validRoles := map[string]bool{"user": true, "assistant": true, "system": true}
+	validRoles := map[string]bool{"user": true, "assistant": true}
 	if !validRoles[msg.Role] {
-		return "", nil, nil, fmt.Errorf("invalid role: %s (must be one of: user, assistant, system)", msg.Role)
+		return "", nil, nil, fmt.Errorf("invalid role: %s (must be one of: user, assistant)", msg.Role)
 	}
 
 	// Validate each part

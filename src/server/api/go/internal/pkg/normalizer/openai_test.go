@@ -115,36 +115,33 @@ func TestOpenAINormalizer_NormalizeFromOpenAIMessage(t *testing.T) {
 			wantErr:     false,
 		},
 		{
-			name: "system message",
+			name: "system message (not supported)",
 			input: `{
 				"role": "system",
 				"content": "You are a helpful assistant."
 			}`,
-			wantRole:    "system",
-			wantPartCnt: 1,
-			wantErr:     false,
+			wantErr:     true,
+			errContains: "system messages are not supported",
 		},
 		{
-			name: "system message with array content",
+			name: "system message with array content (not supported)",
 			input: `{
 				"role": "system",
 				"content": [
 					{"type": "text", "text": "You are a helpful assistant."}
 				]
 			}`,
-			wantRole:    "system",
-			wantPartCnt: 1,
-			wantErr:     false,
+			wantErr:     true,
+			errContains: "system messages are not supported",
 		},
 		{
-			name: "developer message (converted to system)",
+			name: "developer message (not supported)",
 			input: `{
 				"role": "developer",
 				"content": "This is a developer instruction."
 			}`,
-			wantRole:    "system",
-			wantPartCnt: 1,
-			wantErr:     false,
+			wantErr:     true,
+			errContains: "developer messages are not supported",
 		},
 		{
 			name: "tool message",
@@ -195,12 +192,12 @@ func TestOpenAINormalizer_NormalizeFromOpenAIMessage(t *testing.T) {
 			errContains: "must have content",
 		},
 		{
-			name: "system message without content",
+			name: "system message without content (not supported)",
 			input: `{
 				"role": "system"
 			}`,
 			wantErr:     true,
-			errContains: "must have content",
+			errContains: "system messages are not supported",
 		},
 	}
 

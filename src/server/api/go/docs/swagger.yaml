@@ -45,6 +45,9 @@ definitions:
       configs:
         additionalProperties: true
         type: object
+      disable_task_tracking:
+        example: false
+        type: boolean
       space_id:
         example: 123e4567-e89b-12d3-a456-42661417
         format: uuid
@@ -307,6 +310,8 @@ definitions:
         type: object
       created_at:
         type: string
+      disable_task_tracking:
+        type: boolean
       id:
         type: string
       project_id:
@@ -607,6 +612,7 @@ paths:
         required: true
         type: string
       - description: File path including filename
+        example: /documents/report.pdf
         in: query
         name: file_path
         required: true
@@ -663,19 +669,23 @@ paths:
         required: true
         type: string
       - description: File path including filename
+        example: /documents/report.pdf
         in: query
         name: file_path
         required: true
         type: string
       - description: Whether to return public URL, default is true
+        example: true
         in: query
         name: with_public_url
         type: boolean
       - description: Whether to return parsed file content, default is true
+        example: true
         in: query
         name: with_content
         type: boolean
       - description: 'Expire time in seconds for presigned URL (default: 3600)'
+        example: 3600
         in: query
         name: expire
         type: integer
@@ -971,6 +981,7 @@ paths:
         type: string
       - description: Order by created_at descending if true, ascending if false (default
           false)
+        example: "false"
         in: query
         name: time_desc
         type: string
@@ -1393,7 +1404,12 @@ paths:
         name: session_id
         required: true
         type: string
-      - description: Limit of messages to return, default 20. Max 200.
+      - description: "Limit of messages to return. Max 200. If limit is 0 or not provided,
+          all messages will be returned. \n\nWARNING!\n Use `limit` only for read-only/display
+          purposes (pagination, viewing). Do NOT use `limit` to truncate messages
+          before sending to LLM as it may cause tool-call and tool-result unpairing
+          issues. Instead, use the `token_limit` edit strategy in `edit_strategies`
+          parameter to safely manage message context size."
         in: query
         name: limit
         type: integer
@@ -1403,6 +1419,7 @@ paths:
         name: cursor
         type: string
       - description: Whether to return asset public url, default is true
+        example: "true"
         in: query
         name: with_asset_public_url
         type: string
@@ -1417,8 +1434,14 @@ paths:
         type: string
       - description: Order by created_at descending if true, ascending if false (default
           false)
+        example: "false"
         in: query
         name: time_desc
+        type: string
+      - description: JSON array of edit strategies to apply before format conversion
+        example: '[{"type":"remove_tool_result","params":{"keep_recent_n_tool_results":3}}]'
+        in: query
+        name: edit_strategies
         type: string
       produces:
       - application/json
@@ -1729,6 +1752,7 @@ paths:
         type: string
       - description: Order by created_at descending if true, ascending if false (default
           false)
+        example: "false"
         in: query
         name: time_desc
         type: string
@@ -2520,7 +2544,7 @@ paths:
             });
           }
   /space/{space_id}/experience_confirmations/{experience_id}:
-    patch:
+    put:
       consumes:
       - application/json
       description: 'Confirm an experience confirmation. If save is false, delete the

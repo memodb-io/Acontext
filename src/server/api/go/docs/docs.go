@@ -219,6 +219,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "example": "/documents/report.pdf",
                         "description": "File path including filename",
                         "name": "file_path",
                         "in": "query",
@@ -226,18 +227,21 @@ const docTemplate = `{
                     },
                     {
                         "type": "boolean",
+                        "example": true,
                         "description": "Whether to return public URL, default is true",
                         "name": "with_public_url",
                         "in": "query"
                     },
                     {
                         "type": "boolean",
+                        "example": true,
                         "description": "Whether to return parsed file content, default is true",
                         "name": "with_content",
                         "in": "query"
                     },
                     {
                         "type": "integer",
+                        "example": 3600,
                         "description": "Expire time in seconds for presigned URL (default: 3600)",
                         "name": "expire",
                         "in": "query"
@@ -455,6 +459,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "example": "/documents/report.pdf",
                         "description": "File path including filename",
                         "name": "file_path",
                         "in": "query",
@@ -599,6 +604,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "example": "false",
                         "description": "Order by created_at descending if true, ascending if false (default false)",
                         "name": "time_desc",
                         "in": "query"
@@ -1080,7 +1086,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "integer",
-                        "description": "Limit of messages to return, default 20. Max 200.",
+                        "description": "Limit of messages to return. Max 200. If limit is 0 or not provided, all messages will be returned. \n\nWARNING!\n Use ` + "`" + `limit` + "`" + ` only for read-only/display purposes (pagination, viewing). Do NOT use ` + "`" + `limit` + "`" + ` to truncate messages before sending to LLM as it may cause tool-call and tool-result unpairing issues. Instead, use the ` + "`" + `token_limit` + "`" + ` edit strategy in ` + "`" + `edit_strategies` + "`" + ` parameter to safely manage message context size.",
                         "name": "limit",
                         "in": "query"
                     },
@@ -1092,6 +1098,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "example": "true",
                         "description": "Whether to return asset public url, default is true",
                         "name": "with_asset_public_url",
                         "in": "query"
@@ -1109,8 +1116,16 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "example": "false",
                         "description": "Order by created_at descending if true, ascending if false (default false)",
                         "name": "time_desc",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "example": "[{\"type\":\"remove_tool_result\",\"params\":{\"keep_recent_n_tool_results\":3}}]",
+                        "description": "JSON array of edit strategies to apply before format conversion",
+                        "name": "edit_strategies",
                         "in": "query"
                     }
                 ],
@@ -1406,6 +1421,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "example": "false",
                         "description": "Order by created_at descending if true, ascending if false (default false)",
                         "name": "time_desc",
                         "in": "query"
@@ -2241,7 +2257,7 @@ const docTemplate = `{
             }
         },
         "/space/{space_id}/experience_confirmations/{experience_id}": {
-            "patch": {
+            "put": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -2599,6 +2615,10 @@ const docTemplate = `{
                 "configs": {
                     "type": "object",
                     "additionalProperties": true
+                },
+                "disable_task_tracking": {
+                    "type": "boolean",
+                    "example": false
                 },
                 "space_id": {
                     "type": "string",
@@ -2997,6 +3017,9 @@ const docTemplate = `{
                 },
                 "created_at": {
                     "type": "string"
+                },
+                "disable_task_tracking": {
+                    "type": "boolean"
                 },
                 "id": {
                     "type": "string"

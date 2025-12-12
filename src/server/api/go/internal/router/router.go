@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
@@ -28,13 +30,28 @@ func zapLoggerMiddleware(log *zap.Logger) gin.HandlerFunc {
 		start := time.Now()
 		c.Next()
 		dur := time.Since(start)
-		log.Sugar().Infow("HTTP",
-			"method", c.Request.Method,
-			"path", c.Request.URL.Path,
-			"status", c.Writer.Status(),
-			"latency", dur.String(),
-			"clientIP", c.ClientIP(),
-		)
+
+		// Use debug level for all paths except /api/*
+		path := c.Request.URL.Path
+		isAPIPath := strings.HasPrefix(path, "/api/")
+
+		if isAPIPath {
+			log.Sugar().Infow("HTTP",
+				"method", c.Request.Method,
+				"path", path,
+				"status", c.Writer.Status(),
+				"latency", dur.String(),
+				"clientIP", c.ClientIP(),
+			)
+		} else {
+			log.Sugar().Debugw("HTTP",
+				"method", c.Request.Method,
+				"path", path,
+				"status", c.Writer.Status(),
+				"latency", dur.String(),
+				"clientIP", c.ClientIP(),
+			)
+		}
 	}
 }
 
@@ -70,6 +87,12 @@ func projectAuthMiddleware(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
 		if err != nil || !pass {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, serializer.AuthErr("Unauthorized"))
 			return
+		}
+
+		// Set project_id attribute on the current span for telemetry filtering
+		span := trace.SpanFromContext(c.Request.Context())
+		if span.SpanContext().IsValid() {
+			span.SetAttributes(attribute.String("project_id", project.ID.String()))
 		}
 
 		c.Set("project", &project)
@@ -136,7 +159,7 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			space.GET("/:space_id/experience_search", d.SpaceHandler.GetExperienceSearch)
 
 			space.GET("/:space_id/experience_confirmations", d.SpaceHandler.ListExperienceConfirmations)
-			space.PATCH("/:space_id/experience_confirmations/:experience_id", d.SpaceHandler.ConfirmExperience)
+			space.PUT("/:space_id/experience_confirmations/:experience_id", d.SpaceHandler.ConfirmExperience)
 
 			block := space.Group("/:space_id/block")
 			{

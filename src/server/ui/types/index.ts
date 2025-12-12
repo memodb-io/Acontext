@@ -141,7 +141,7 @@ export interface Block {
 }
 
 // Message related types
-export type MessageRole = "user" | "assistant" | "system";
+export type MessageRole = "user" | "assistant";
 
 export type PartType =
   | "text"
