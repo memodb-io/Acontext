@@ -16,16 +16,19 @@ database:
   maxOpen: 20
   maxIdle: 10
   autoMigrate: true
+  enableTLS: ${DATABASE_ENABLE_TLS}
 
 redis:
   addr: "${REDIS_HOST}:${REDIS_EXPORT_PORT}"
   password: "${REDIS_PASSWORD}"
   db: 0
   poolSize: 10
+  enableTLS: ${REDIS_ENABLE_TLS}
 
 rabbitmq:
   url: "amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@${RABBITMQ_HOST}:${RABBITMQ_EXPORT_PORT}/${RABBITMQ_VHOST_ENCODED}"
   prefetch: 10
+  enableTLS: ${RABBITMQ_ENABLE_TLS}
 
 s3:
   endpoint: "${S3_ENDPOINT}"
