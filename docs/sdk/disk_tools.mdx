@@ -1,0 +1,297 @@
+---
+title: "Filesystem Tools"
+description: "Enable LLMs to autonomously manage files on Acontext disks using function calling"
+---
+
+Acontext provides pre-built filesystem tools that allow LLMs to read, write, and manage files on disks through function calling. You can integrate these tools with OpenAI or Anthropic APIs to create agents that persist data autonomously.
+
+## Available Tools
+
+The SDK includes four disk operation tools:
+
+- **`write_file`** - Create or overwrite text files
+- **`read_file`** - Read file contents with optional line offset and limit
+- **`replace_string`** - Find and replace text in files  
+- **`list_artifacts`** - List files and directories in a path
+
+<Tip>
+These tools handle path normalization automatically and support nested directory structures like `/notes/`, `/documents/2024/`, etc.
+</Tip>
+
+## Building an Agent with Filesystem
+
+You can build an agentic loop where the LLM autonomously calls disk tools to complete file-related tasks. Here's a complete example:
+
+<CodeGroup>
+```python Python
+import json
+from acontext import AcontextClient
+from acontext.agent.disk import DISK_TOOLS
+from openai import OpenAI
+
+# Initialize clients
+acontext_client = AcontextClient(
+    api_key="sk-ac-your-root-api-bearer-token", base_url="http://localhost:8029/api/v1"
+)
+openai_client = OpenAI()
+
+# Create a disk and tool context
+disk = acontext_client.disks.create()
+ctx = DISK_TOOLS.format_context(acontext_client, disk.id)
+
+# Get tool schemas for OpenAI
+tools = DISK_TOOLS.to_openai_tool_schema()
+print(tools)
+# Simple agentic loop
+messages = [
+    {
+        "role": "user",
+        "content": "Create a todo.md file with 3 tasks. Then check the content in this file",
+    }
+]
+
+while True:
+    response = openai_client.chat.completions.create(
+        model="gpt-4.1",
+        messages=messages,
+        tools=tools,
+    )
+
+    message = response.choices[0].message
+    messages.append(message)
+
+    # Break if no tool calls
+    if not message.tool_calls:
+        print(f"🤖 Assistant: {message.content}")
+        break
+
+    # Execute each tool call
+    for tool_call in message.tool_calls:
+        print(f"⚙️ Called {tool_call.function.name}")
+        result = DISK_TOOLS.execute_tool(
+            ctx, tool_call.function.name, json.loads(tool_call.function.arguments)
+        )
+        print(f"🔍 Result: {result}")
+        messages.append(
+            {"role": "tool", "tool_call_id": tool_call.id, "content": result}
+        )
+
+```
+
+```typescript TypeScript
+import { AcontextClient, DISK_TOOLS } from '@acontext/acontext';
+import OpenAI from 'openai';
+
+// Initialize clients
+const acontextClient = new AcontextClient({
+  apiKey: 'sk-ac-your-token',
+  baseUrl: 'http://localhost:8029/api/v1'
+});
+const openaiClient = new OpenAI({ apiKey: 'sk-your-openai-key' });
+
+// Create a disk and tool context
+const disk = await acontextClient.disks.create();
+const ctx = DISK_TOOLS.formatContext(acontextClient, disk.id);
+
+// Get tool schemas for OpenAI
+const tools = DISK_TOOLS.toOpenAIToolSchema();
+console.log(tools);
+// Simple agentic loop
+const messages = [
+  {
+    role: 'user',
+    content: 'Create a todo.md file with 3 tasks. Then check the content in this file',
+  },
+];
+
+while (true) {
+  const response = await openaiClient.chat.completions.create({
+    model: 'gpt-4.1',
+    messages,
+    tools,
+  });
+  
+  const message = response.choices[0].message;
+  messages.push(message);
+  
+  // Break if no tool calls
+  if (!message.tool_calls) {
+    console.log(`🤖 Assistant: ${message.content}`);
+    break;
+  }
+  
+  // Execute each tool call
+  for (const toolCall of message.tool_calls) {
+    console.log(`⚙️ Called ${toolCall.function.name}`);
+    const result = await DISK_TOOLS.executeTool(
+      ctx,
+      toolCall.function.name,
+      JSON.parse(toolCall.function.arguments)
+    );
+    console.log(`🔍 Result: ${result}`);
+    messages.push({
+      role: 'tool',
+      tool_call_id: toolCall.id,
+      content: result,
+    });
+  }
+}
+```
+</CodeGroup>
+
+<Info>
+The agent will automatically call the appropriate tools (`write_file`, `read_file`, etc.) to complete your request, creating a fully autonomous file management system.
+</Info>
+
+## How It Works
+
+<Steps>
+<Step title="Initialize clients and create a disk">
+  Set up both the Acontext client and your LLM client (OpenAI or Anthropic). Create a disk to store files.
+
+  <CodeGroup>
+  ```python Python
+  from acontext import AcontextClient
+  from acontext.agent.disk import DISK_TOOLS
+
+  client = AcontextClient(
+      api_key="sk-ac-your-token",
+      base_url="http://localhost:8029/api/v1"
+  )
+  disk = client.disks.create()
+  ctx = DISK_TOOLS.format_context(client, disk.id)
+  ```
+
+  ```typescript TypeScript
+  import { AcontextClient, DISK_TOOLS } from '@acontext/acontext';
+
+  const client = new AcontextClient({
+    apiKey: 'sk-ac-your-token',
+    baseUrl: 'http://localhost:8029/api/v1'
+  });
+  const disk = await client.disks.create();
+  const ctx = DISK_TOOLS.formatContext(client, disk.id);
+  ```
+  </CodeGroup>
+</Step>
+
+<Step title="Get tool schemas for your LLM">
+  Convert the disk tools to the schema format your LLM provider expects.
+
+  <CodeGroup>
+  ```python Python
+  # For OpenAI
+  tools = DISK_TOOLS.to_openai_tool_schema()
+
+  # For Anthropic
+  tools = DISK_TOOLS.to_anthropic_tool_schema()
+  ```
+
+  ```typescript TypeScript
+  // For OpenAI
+  const tools = DISK_TOOLS.toOpenAIToolSchema();
+
+  // For Anthropic
+  const tools = DISK_TOOLS.toAnthropicToolSchema();
+  ```
+  </CodeGroup>
+</Step>
+
+<Step title="Implement the agentic loop">
+  Create a loop that sends messages to the LLM, executes tool calls, and feeds results back until the task is complete.
+
+  **Executing Tools After LLM Response:**
+
+  When the LLM responds with tool calls, iterate through each one and execute them using `DISK_TOOLS.execute_tool()` (Python) or `DISK_TOOLS.executeTool()` (TypeScript):
+
+  <CodeGroup>
+  ```python Python
+  # Execute each tool call from the LLM response
+  for tool_call in message.tool_calls:
+      result = DISK_TOOLS.execute_tool(
+          ctx,                                      # Tool context with disk ID
+          tool_call.function.name,                  # Tool name (e.g., "write_file")
+          json.loads(tool_call.function.arguments)  # Parse arguments
+      )
+      # Add tool result back to message history
+      messages.append({
+          "role": "tool",
+          "tool_call_id": tool_call.id,
+          "content": result
+      })
+  ```
+
+  ```typescript TypeScript
+  // Execute each tool call from the LLM response
+  for (const toolCall of message.tool_calls) {
+      const result = await DISK_TOOLS.executeTool(
+          ctx,                                      // Tool context with disk ID
+          toolCall.function.name,                   // Tool name (e.g., "write_file")
+          JSON.parse(toolCall.function.arguments)   // Parse arguments
+      );
+      // Add tool result back to message history
+      messages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: result,
+      });
+  }
+  ```
+  </CodeGroup>
+
+  <Check>
+  The loop continues until the LLM returns a message without tool calls, indicating the task is complete.
+  </Check>
+</Step>
+</Steps>
+
+## Tool Reference
+
+### write_file
+
+Create or overwrite a text file on the disk.
+
+**Parameters:**
+- `filename` (required) - Name of the file, e.g., `"report.md"`
+- `content` (required) - Text content to write to the file
+- `file_path` (optional) - Directory path, e.g., `"/notes/"` (defaults to `"/"`)
+
+**Returns:** Success message with file path
+
+### read_file
+
+Read the contents of a text file from the disk.
+
+**Parameters:**
+- `filename` (required) - Name of the file to read
+- `file_path` (optional) - Directory path where the file is located (defaults to `"/"`)
+- `line_offset` (optional) - Starting line number (defaults to `0`)
+- `line_limit` (optional) - Maximum number of lines to return (defaults to `100`)
+
+**Returns:** File content with line range information
+
+### replace_string
+
+Replace all occurrences of a string in a file.
+
+**Parameters:**
+- `filename` (required) - Name of the file to modify
+- `old_string` (required) - String to be replaced
+- `new_string` (required) - Replacement string
+- `file_path` (optional) - Directory path where the file is located (defaults to `"/"`)
+
+**Returns:** Number of replacements made
+
+### list_artifacts
+
+List all files and directories at a specified path.
+
+**Parameters:**
+- `file_path` (required) - Directory path to list, e.g., `"/notes/"` or `"/"`
+
+**Returns:** List of files and directories
+
+<Warning>
+All file operations are scoped to the specific disk. Ensure you create and configure the disk context correctly before executing tools.
+</Warning>
+
