@@ -42,10 +42,6 @@ Dashboard
 
 - [x] Add task viewer to show description, progress and preferences
 
-Core
-
-- [ ] Fix bugs for long-handing MQ disconnection.
-
 SDK: Design `agent` interface: `tool_pool`
 
 - [x] Offer tool_schema for openai/anthropic can directly operate artifacts
@@ -53,10 +49,6 @@ SDK: Design `agent` interface: `tool_pool`
 Chore
 
 - [x] Telemetry：log detailed callings and latency
-
-Integration
-
-- [ ] Smolagent for e2e benchmark
 
 ## v0.1
 
@@ -82,3 +74,11 @@ Sandbox
 Sercurity&Privacy
 
 - [ ] Use project api key to encrypt context data in S3
+
+Integration
+
+- [ ] Smolagent for e2e benchmark
+
+LLM Integrations
+
+- [ ] Add litellm as the proxy
