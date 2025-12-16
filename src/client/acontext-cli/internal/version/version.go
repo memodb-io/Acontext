@@ -5,14 +5,18 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 )
 
 const (
-	githubAPIURL = "https://api.github.com/repos/memodb-io/Acontext/releases"
-	timeout      = 10 * time.Second
+	defaultGithubAPIURL = "https://api.github.com/repos/memodb-io/Acontext/releases"
+	timeout             = 10 * time.Second
 )
+
+// githubAPIURL is a variable that can be overridden in tests
+var githubAPIURL = defaultGithubAPIURL
 
 // Release represents a GitHub release
 type Release struct {
@@ -30,7 +34,12 @@ func GetLatestVersion() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to fetch releases: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			// Log error but don't fail the function
+			_ = closeErr
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -55,28 +64,85 @@ func GetLatestVersion() (string, error) {
 		return "", fmt.Errorf("no CLI releases found")
 	}
 
-	// Sort versions (simple string sort works for semantic versions)
-	sort.Sort(sort.Reverse(sort.StringSlice(cliVersions)))
+	// Sort versions using semantic version comparison
+	sort.Slice(cliVersions, func(i, j int) bool {
+		return CompareVersions(cliVersions[i], cliVersions[j]) > 0
+	})
 
 	return cliVersions[0], nil
 }
 
-// CompareVersions compares two version strings
+// parseVersion parses a version string into major, minor, patch numbers
+// Returns (major, minor, patch, error)
+func parseVersion(version string) (int, int, int, error) {
+	// Remove 'v' prefix if present
+	version = strings.TrimPrefix(version, "v")
+
+	parts := strings.Split(version, ".")
+	if len(parts) != 3 {
+		return 0, 0, 0, fmt.Errorf("invalid version format: %s", version)
+	}
+
+	major, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid major version: %s", parts[0])
+	}
+
+	minor, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid minor version: %s", parts[1])
+	}
+
+	patch, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("invalid patch version: %s", parts[2])
+	}
+
+	return major, minor, patch, nil
+}
+
+// CompareVersions compares two version strings using semantic versioning
 // Returns:
 //   - -1 if current < latest
 //   - 0 if current == latest
 //   - 1 if current > latest
 func CompareVersions(current, latest string) int {
-	// Remove 'v' prefix if present
-	current = strings.TrimPrefix(current, "v")
-	latest = strings.TrimPrefix(latest, "v")
+	currentMajor, currentMinor, currentPatch, err1 := parseVersion(current)
+	latestMajor, latestMinor, latestPatch, err2 := parseVersion(latest)
 
-	// Simple string comparison works for semantic versions
-	if current < latest {
+	// If either version fails to parse, fall back to string comparison
+	if err1 != nil || err2 != nil {
+		current = strings.TrimPrefix(current, "v")
+		latest = strings.TrimPrefix(latest, "v")
+		if current < latest {
+			return -1
+		} else if current > latest {
+			return 1
+		}
+		return 0
+	}
+
+	// Compare major version
+	if currentMajor < latestMajor {
 		return -1
-	} else if current > latest {
+	} else if currentMajor > latestMajor {
 		return 1
 	}
+
+	// Compare minor version
+	if currentMinor < latestMinor {
+		return -1
+	} else if currentMinor > latestMinor {
+		return 1
+	}
+
+	// Compare patch version
+	if currentPatch < latestPatch {
+		return -1
+	} else if currentPatch > latestPatch {
+		return 1
+	}
+
 	return 0
 }
 
@@ -92,14 +158,10 @@ func IsUpdateAvailable(currentVersion string) (bool, string, error) {
 		return false, "", err
 	}
 
-	// Remove 'v' prefix from current version for comparison
-	current := strings.TrimPrefix(currentVersion, "v")
-	latest := strings.TrimPrefix(latestVersion, "v")
-
-	if current < latest {
+	// Compare versions using semantic versioning
+	if CompareVersions(currentVersion, latestVersion) < 0 {
 		return true, latestVersion, nil
 	}
 
 	return false, "", nil
 }
-
