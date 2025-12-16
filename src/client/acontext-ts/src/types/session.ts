@@ -52,12 +52,26 @@ export const SessionSchema = z.object({
 
 export type Session = z.infer<typeof SessionSchema>;
 
+/**
+ * TaskData represents the structured data stored in a task.
+ * This schema matches the TaskData model in acontext_core/schema/session/task.py
+ * and the Go API TaskData struct.
+ */
+export const TaskDataSchema = z.object({
+  task_description: z.string(),
+  progresses: z.array(z.string()).nullable().optional(),
+  user_preferences: z.array(z.string()).nullable().optional(),
+  sop_thinking: z.string().nullable().optional(),
+});
+
+export type TaskData = z.infer<typeof TaskDataSchema>;
+
 export const TaskSchema = z.object({
   id: z.string(),
   session_id: z.string(),
   project_id: z.string(),
   order: z.number(),
-  data: z.record(z.string(), z.unknown()),
+  data: TaskDataSchema,
   status: z.string(),
   is_planning: z.boolean(),
   space_digested: z.boolean(),
