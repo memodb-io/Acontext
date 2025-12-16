@@ -87,19 +87,19 @@ print(tasks_response)
 for task in tasks_response.items:
     print(f"\nTask #{task.order}:")
     print(f"  ID: {task.id}")
-    print(f"  Title: {task.data['task_description']}")
+    print(f"  Title: {task.data.task_description}")
     print(f"  Status: {task.status}")
 
     # Show progress updates if available
     if "progresses" in task.data:
-        print(f"  Progress updates: {len(task.data['progresses'])}")
-        for progress in task.data["progresses"]:
+        print(f"  Progress updates: {len(task.data.progresses)}")
+        for progress in task.data.progresses:
             print(f"    - {progress}")
 
     # Show user preferences if available
     if "user_preferences" in task.data:
         print("  User preferences:")
-        for pref in task.data["user_preferences"]:
+        for pref in task.data.user_preferences:
             print(f"    - {pref}")
 ```
 
@@ -211,7 +211,7 @@ The `progresses` array captures the agent's narrative updates as it works throug
 for task in tasks_response.items:
     if "progresses" in task.data:
         print(f"Task {task.order} progress:")
-        for progress in task.data["progresses"]:
+        for progress in task.data.progresses:
             print(f"  - {progress}")
 ```
 
@@ -224,7 +224,7 @@ The `user_preferences` array stores specific requirements or preferences the use
 for task in tasks_response.items:
     if "user_preferences" in task.data:
         print(f"Task {task.order} user preferences:")
-        for pref in task.data["user_preferences"]:
+        for pref in task.data.user_preferences:
             print(f"  - {pref}")
 ```
 
@@ -277,13 +277,13 @@ for task in response.items:
     elif task.status == "running":
         print(f"Agent stuck on: Task {task.order}")
         # Check last progress update
-        if "progresses" in task.data and task.data["progresses"]:
-            print(f"  Last progress: {task.data['progresses'][-1]}")
+        if "progresses" in task.data and task.data.progresses:
+            print(f"  Last progress: {task.data.progresses[-1]}")
     elif task.status == "failed":
         print(f"Agent failed at: Task {task.order}")
         # Check what was done before failure
         if "progresses" in task.data:
-            print(f"  Completed steps: {len(task.data['progresses'])}")
+            print(f"  Completed steps: {len(task.data.progresses)}")
 ```
 </Accordion>
 
@@ -316,13 +316,13 @@ for task in response.items:
     
     # Show progress summary
     if "progresses" in task.data:
-        print(f"  Progress entries: {len(task.data['progresses'])}")
-        if task.data["progresses"]:
-            print(f"  Latest: {task.data['progresses'][-1]}")
+        print(f"  Progress entries: {len(task.data.progresses)}")
+        if task.data.progresses:
+            print(f"  Latest: {task.data.progresses[-1]}")
     
     # Show user requirements
-    if "user_preferences" in task.data and task.data["user_preferences"]:
-        print(f"  User requirements: {', '.join(task.data['user_preferences'])}")
+    if "user_preferences" in task.data and task.data.user_preferences:
+        print(f"  User requirements: {', '.join(task.data.user_preferences)}")
 ```
 </Accordion>
 </AccordionGroup>

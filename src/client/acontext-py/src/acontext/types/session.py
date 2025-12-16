@@ -120,6 +120,25 @@ class Session(BaseModel):
     updated_at: str = Field(..., description="ISO 8601 formatted update timestamp")
 
 
+class TaskData(BaseModel):
+    """Task data model representing the structured data stored in a task.
+
+    This schema matches the TaskData model in acontext_core/schema/session/task.py
+    and the Go API TaskData struct.
+    """
+
+    task_description: str = Field(..., description="Description of the task")
+    progresses: list[str] | None = Field(
+        None, description="List of progress updates for the task"
+    )
+    user_preferences: list[str] | None = Field(
+        None, description="List of user preferences related to the task"
+    )
+    sop_thinking: str | None = Field(
+        None, description="Standard Operating Procedure thinking notes"
+    )
+
+
 class Task(BaseModel):
     """Task model representing a task in a session."""
 
@@ -127,7 +146,7 @@ class Task(BaseModel):
     session_id: str = Field(..., description="Session UUID")
     project_id: str = Field(..., description="Project UUID")
     order: int = Field(..., description="Task order")
-    data: dict[str, Any] = Field(..., description="Task data dictionary")
+    data: TaskData = Field(..., description="Structured task data")
     status: str = Field(
         ...,
         description="Task status: 'success', 'failed', 'running', or 'pending'",

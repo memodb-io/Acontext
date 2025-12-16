@@ -397,7 +397,7 @@ async function main(): Promise<void> {
 
   console.log('Extracted tasks:');
   for (const task of tasksResponse.items) {
-    console.log(`Task: ${task.data['task_description']}`);
+    console.log(`Task: ${task.data.task_description}`);
     console.log(`Status: ${task.status}`);
   }
 }
@@ -441,19 +441,19 @@ await acontextClient.sessions.flush(sessionId);
 const tasksResponse = await acontextClient.sessions.getTasks(sessionId);
 
 for (const task of tasksResponse.items) {
-  console.log(`Task: ${task.data['task_description']}`);
+  console.log(`Task: ${task.data.task_description}`);
   console.log(`Status: ${task.status}`);
 
   // Access progress updates if available
   if ('progresses' in task.data) {
-    for (const progress of task.data['progresses'] as any[]) {
+    for (const progress of task.data.progresses as any[]) {
       console.log(`  Progress: ${progress}`);
     }
   }
 
   // Access user preferences if available
   if ('user_preferences' in task.data) {
-    for (const pref of task.data['user_preferences'] as any[]) {
+    for (const pref of task.data.user_preferences as any[]) {
       console.log(`  Preference: ${pref}`);
     }
   }

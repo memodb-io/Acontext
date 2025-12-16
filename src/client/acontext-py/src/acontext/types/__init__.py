@@ -20,6 +20,7 @@ from .session import (
     PublicURL,
     Session,
     Task,
+    TaskData,
     TokenCounts,
 )
 from .block import Block
@@ -58,6 +59,7 @@ __all__ = [
     "PublicURL",
     "Session",
     "Task",
+    "TaskData",
     "TokenCounts",
     # Space types
     "ExperienceConfirmation",

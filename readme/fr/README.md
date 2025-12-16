@@ -492,19 +492,19 @@ print(tasks_response)
 for task in tasks_response.items:
     print(f"\nTask #{task.order}:")
     print(f"  ID: {task.id}")
-    print(f"  Title: {task.data['task_description']}")
+    print(f"  Title: {task.data.task_description}")
     print(f"  Status: {task.status}")
 
     # Show progress updates if available
     if "progresses" in task.data:
-        print(f"  Progress updates: {len(task.data['progresses'])}")
-        for progress in task.data["progresses"]:
+        print(f"  Progress updates: {len(task.data.progresses)}")
+        for progress in task.data.progresses:
             print(f"    - {progress}")
 
     # Show user preferences if available
     if "user_preferences" in task.data:
         print("  User preferences:")
-        for pref in task.data["user_preferences"]:
+        for pref in task.data.user_preferences:
             print(f"    - {pref}")
 
 ```
