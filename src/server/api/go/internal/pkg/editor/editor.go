@@ -24,6 +24,8 @@ func CreateStrategy(config StrategyConfig) (EditStrategy, error) {
 	switch config.Type {
 	case "remove_tool_result":
 		return createRemoveToolResultStrategy(config.Params)
+	case "remove_tool_call_params":
+		return createRemoveToolCallParamsStrategy(config.Params)
 	case "token_limit":
 		return createTokenLimitStrategy(config.Params)
 	default:
@@ -38,6 +40,8 @@ func getStrategyPriority(strategyType string) int {
 	switch strategyType {
 	case "remove_tool_result":
 		return 1 // Content reduction strategies go first
+	case "remove_tool_call_params":
+		return 2
 	case "token_limit":
 		return 100 // Token limit always goes last
 	default:

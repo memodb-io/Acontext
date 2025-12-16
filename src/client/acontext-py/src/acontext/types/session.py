@@ -30,6 +30,34 @@ class RemoveToolResultStrategy(TypedDict):
     params: RemoveToolResultParams
 
 
+class RemoveToolCallParamsParams(TypedDict, total=False):
+    """Parameters for the remove_tool_call_params edit strategy.
+
+    Attributes:
+        keep_recent_n_tool_calls: Number of most recent tool calls to keep with full parameters.
+            Defaults to 3 if not specified.
+    """
+
+    keep_recent_n_tool_calls: NotRequired[int]
+
+
+
+class RemoveToolCallParamsStrategy(TypedDict):
+    """Edit strategy to remove parameters from old tool-call parts.
+
+    Keeps the most recent N tool calls with full parameters, replacing older
+    tool call arguments with empty JSON "{}". The tool call ID and name remain
+    intact so tool-results can still reference them.
+
+    Example:
+        {"type": "remove_tool_call_params", "params": {"keep_recent_n_tool_calls": 5}}
+    """
+
+    type: Literal["remove_tool_call_params"]
+    params: RemoveToolCallParamsParams
+
+
+
 class TokenLimitParams(TypedDict):
     """Parameters for the token_limit edit strategy.
 
@@ -59,7 +87,7 @@ class TokenLimitStrategy(TypedDict):
 
 # Union type for all edit strategies
 # When adding new strategies, add them to this Union: EditStrategy = Union[RemoveToolResultStrategy, OtherStrategy, ...]
-EditStrategy = Union[RemoveToolResultStrategy, TokenLimitStrategy]
+EditStrategy = Union[RemoveToolResultStrategy, RemoveToolCallParamsStrategy, TokenLimitStrategy]
 
 
 class Asset(BaseModel):
