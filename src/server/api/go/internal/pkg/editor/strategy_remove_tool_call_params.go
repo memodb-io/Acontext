@@ -49,7 +49,7 @@ func (s *RemoveToolCallParamsStrategy) Apply(messages []model.Message) ([]model.
 	numToModify := totalToolCalls - s.KeepRecentN
 
 	// Remove arguments from the oldest tool-call parts
-	for i := 0; i < numToModify; i++ {
+	for i := range numToModify {
 		pos := toolCallPositions[i]
 		if messages[pos.messageIdx].Parts[pos.partIdx].Meta != nil {
 			messages[pos.messageIdx].Parts[pos.partIdx].Meta["arguments"] = "{}"
