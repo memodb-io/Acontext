@@ -521,15 +521,15 @@ for (const task of tasksResponse.items) {
   console.log(`Status: ${task.status}`);
 
   // Access progress updates if available
-  if ('progresses' in task.data) {
-    for (const progress of task.data.progresses as any[]) {
+  if (task.data.progresses) {
+    for (const progress of task.data.progresses) {
       console.log(`  Progress: ${progress}`);
     }
   }
 
   // Access user preferences if available
-  if ('user_preferences' in task.data) {
-    for (const pref of task.data.user_preferences as any[]) {
+  if (task.data.user_preferences) {
+    for (const pref of task.data.user_preferences) {
       console.log(`  Preference: ${pref}`);
     }
   }

@@ -91,13 +91,13 @@ for task in tasks_response.items:
     print(f"  Status: {task.status}")
 
     # Show progress updates if available
-    if "progresses" in task.data:
+    if task.data.progresses:
         print(f"  Progress updates: {len(task.data.progresses)}")
         for progress in task.data.progresses:
             print(f"    - {progress}")
 
     # Show user preferences if available
-    if "user_preferences" in task.data:
+    if task.data.user_preferences:
         print("  User preferences:")
         for pref in task.data.user_preferences:
             print(f"    - {pref}")
@@ -187,46 +187,103 @@ After running this code, you'll see the tasks that Acontext automatically extrac
 
 ## Understanding Task Data
 
-Each extracted task contains a `data` field with structured information captured from the conversation:
+Each extracted task contains a `data` field with structured information captured from the conversation. The `data` field is a `TaskData` object with the following schema:
 
-```python
-{
-    "progresses": [
+<CodeGroup>
+```python Python
+from acontext import TaskData
+
+# TaskData structure
+task_data = TaskData(
+    task_description="Search for the latest news about iPhone 15 pro max",
+    progresses=[
         "I searched for iPhone 15 Pro Max specifications and found the latest features",
         "I've initialized the Next.js project with the latest template"
     ],
-    "user_preferences": [
+    user_preferences=[
         "Focus on the camera capabilities and battery life",
         "Make sure the landing page is mobile-responsive"
     ]
-}
+)
 ```
+
+```typescript TypeScript
+import { TaskData } from '@acontext/acontext';
+
+// TaskData structure
+const taskData: TaskData = {
+    task_description: "Search for the latest news about iPhone 15 pro max",
+    progresses: [
+        "I searched for iPhone 15 Pro Max specifications and found the latest features",
+        "I've initialized the Next.js project with the latest template"
+    ],
+    user_preferences: [
+        "Focus on the camera capabilities and battery life",
+        "Make sure the landing page is mobile-responsive"
+    ]
+};
+```
+</CodeGroup>
+
+### TaskData Fields
+
+- **`task_description`** (string, required): A clear description of the task
+- **`progresses`** (array of strings, optional): Agent's narrative updates as it works through the task
+- **`user_preferences`** (array of strings, optional): Specific requirements or preferences mentioned by the user
 
 ### Progress Tracking
 
 The `progresses` array captures the agent's narrative updates as it works through tasks. Each entry describes what the agent accomplished, written in first-person perspective.
 
-```python
-# Access progress updates
+<CodeGroup>
+```python Python
+# Access progress updates using structured TaskData
 for task in tasks_response.items:
-    if "progresses" in task.data:
+    if task.data.progresses:
         print(f"Task {task.order} progress:")
         for progress in task.data.progresses:
             print(f"  - {progress}")
 ```
 
+```typescript TypeScript
+// Access progress updates using structured TaskData
+for (const task of tasksResponse.items) {
+    if (task.data.progresses) {
+        console.log(`Task ${task.order} progress:`);
+        task.data.progresses.forEach(progress => {
+            console.log(`  - ${progress}`);
+        });
+    }
+}
+```
+</CodeGroup>
+
 ### User Preferences
 
 The `user_preferences` array stores specific requirements or preferences the user mentioned for each task during the conversation.
 
-```python
-# Check user preferences for a task
+<CodeGroup>
+```python Python
+# Check user preferences for a task using structured TaskData
 for task in tasks_response.items:
-    if "user_preferences" in task.data:
+    if task.data.user_preferences:
         print(f"Task {task.order} user preferences:")
         for pref in task.data.user_preferences:
             print(f"  - {pref}")
 ```
+
+```typescript TypeScript
+// Check user preferences for a task using structured TaskData
+for (const task of tasksResponse.items) {
+    if (task.data.user_preferences) {
+        console.log(`Task ${task.order} user preferences:`);
+        task.data.user_preferences.forEach(pref => {
+            console.log(`  - ${pref}`);
+        });
+    }
+}
+```
+</CodeGroup>
 
 <Note>
 Progress and preferences are appended to tasks as the conversation continues. Early in a conversation, these arrays may be empty or contain only initial entries.
@@ -277,12 +334,12 @@ for task in response.items:
     elif task.status == "running":
         print(f"Agent stuck on: Task {task.order}")
         # Check last progress update
-        if "progresses" in task.data and task.data.progresses:
+        if task.data.progresses:
             print(f"  Last progress: {task.data.progresses[-1]}")
     elif task.status == "failed":
         print(f"Agent failed at: Task {task.order}")
         # Check what was done before failure
-        if "progresses" in task.data:
+        if task.data.progresses:
             print(f"  Completed steps: {len(task.data.progresses)}")
 ```
 </Accordion>
@@ -313,16 +370,17 @@ response = client.sessions.get_tasks(session_id, time_desc=True)
 print("=== Agent Activity Report ===")
 for task in response.items:
     print(f"\n{task.created_at} | Task {task.order} | {task.status}")
+    print(f"  Description: {task.data.task_description}")
     
     # Show progress summary
-    if "progresses" in task.data:
+    if task.data.progresses:
         print(f"  Progress entries: {len(task.data.progresses)}")
-        if task.data.progresses:
-            print(f"  Latest: {task.data.progresses[-1]}")
+        print(f"  Latest: {task.data.progresses[-1]}")
     
     # Show user requirements
-    if "user_preferences" in task.data and task.data.user_preferences:
+    if task.data.user_preferences:
         print(f"  User requirements: {', '.join(task.data.user_preferences)}")
+
 ```
 </Accordion>
 </AccordionGroup>
