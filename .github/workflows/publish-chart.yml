@@ -1,6 +1,9 @@
 name: Publish Helm Chart to GHCR
 
 on:
+  push:
+    tags:
+      - 'chart/v*'
   workflow_dispatch:
 
 env:
