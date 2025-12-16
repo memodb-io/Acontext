@@ -47,31 +47,34 @@ Acontext is a **context data platform** for building **cloud-native** AI Agents.
 
 <div align="center">
     <picture>
-      <img alt="Acontext Learning" src="./assets/acontext_dataflow.png" width="100%">
+      <img alt="Acontext Learning" src="./assets/acontext-components.jpg" width="100%">
     </picture>
-  <p>Store, Observe and Learn</p>
+  <p>Context Data Platform that Store, Observe and Learn</p>
 </div>
 
 
 
 
 
-We're building it because we believe Acontext can help you:
+
+
+Acontext can help you:
 
 - **Build a more scalable agent product with better context engineering**
-- **Improve your agent success rate and reduce running steps**
-
-so that your agent can be more stable and provide greater value to your users.
-
+- **Build a truly observable Agent product.**
+- **Automatically improve your agent success rate**
 
 
-# 💡 Core Concepts
 
-- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - You can store context in Acontext, just like a Database but only used for context.
-  - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - Background TODO agent that collects task's status, progress and preferences.
-- [**Disk**](https://docs.acontext.io/store/disk) - File storage for agent artifacts.
-- [**Space**](https://docs.acontext.io/learn/skill-space) - A Notion-like `Space` for agents, where learned skills are stored. 
-  - [**Experience Agent**](https://docs.acontext.io/learn/advance/experience-agent) - Background agents that distill, save and search skills.
+# 💡 Core Features
+
+- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - Multi-modal Message Storage
+  - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - Background TODO agent that collects task's status, progress and preferences
+  - [**Context Editing**](https://docs.acontext.io/store/editing) - Context Engineering in one call
+- [**Disk**](https://docs.acontext.io/store/disk) - Filesystem for artifacts
+- [**Space**](https://docs.acontext.io/learn/skill-space) - Notion for agents
+  - [**Experience Agent**](https://docs.acontext.io/learn/advance/experience-agent) - Background agents that distill, save and search skills
+- [**Dashboard**](https://docs.acontext.io/observe/dashboard) - View messages, artifacts, skills, success rates and everything
 
 ### How They Work Together
 
@@ -79,21 +82,76 @@ so that your agent can be more stable and provide greater value to your users.
 ┌──────┐    ┌────────────┐    ┌──────────────┐    ┌───────────────┐
 │ User │◄──►│ Your Agent │◄──►│   Session    │    │ Artifact Disk │
 └──────┘    └─────▲──────┘    └──────┬───────┘    └───────────────┘
-                  │                  │
+                  │                  │ # if enable
                   │         ┌────────▼────────┐
                   │         │ Observed Tasks  │
                   │         └────────┬────────┘
-                  │                  │
+                  │                  │ # if enable
                   │         ┌────────▼────────┐
-                  │         │   Learn Skills  │ # or wait for user confirmation
+                  │         │   Learn Skills  │
                   │         └────────┬────────┘
-                  │                  │
                   └──────────────────┘
-                  Skills guide the agent
+                      Search skills
 ```
 
 
 
+# 🏗️ Architecture
+
+<details>
+<summary>Click to open the architecture diagram, if you're interested.</summary>
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        PY["pip install acontext"]
+        TS["npm i @acontext/acontext"]
+    end
+    
+    subgraph "Acontext Backend"
+      subgraph " "
+          API["API<br/>localhost:8029"]
+          CORE["Core"]
+          API -->|FastAPI & MQ| CORE
+      end
+      
+      subgraph " "
+          Infrastructure["Infrastructures"]
+          PG["PostgreSQL"]
+          S3["S3"]
+          REDIS["Redis"]
+          MQ["RabbitMQ"]
+      end
+    end
+    
+    subgraph "Dashboard"
+        UI["Web Dashboard<br/>localhost:3000"]
+    end
+    
+    PY -->|RESTFUL API| API
+    TS -->|RESTFUL API| API
+    UI -->|RESTFUL API| API
+    API --> Infrastructure
+    CORE --> Infrastructure
+
+    Infrastructure --> PG
+    Infrastructure --> S3
+    Infrastructure --> REDIS
+    Infrastructure --> MQ
+    
+    
+    style PY fill:#3776ab,stroke:#fff,stroke-width:2px,color:#fff
+    style TS fill:#3178c6,stroke:#fff,stroke-width:2px,color:#fff
+    style API fill:#00add8,stroke:#fff,stroke-width:2px,color:#fff
+    style CORE fill:#ffd43b,stroke:#333,stroke-width:2px,color:#333
+    style UI fill:#000,stroke:#fff,stroke-width:2px,color:#fff
+    style PG fill:#336791,stroke:#fff,stroke-width:2px,color:#fff
+    style S3 fill:#ff9900,stroke:#fff,stroke-width:2px,color:#fff
+    style REDIS fill:#dc382d,stroke:#fff,stroke-width:2px,color:#fff
+    style MQ fill:#ff6600,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+## Data Structures
 <details>
 <summary>📖 Task Structure</summary>
 
@@ -150,61 +208,6 @@ so that your agent can be more stable and provide greater value to your users.
 ```
 </details>
 
-
-
-# 🏗️ Architecture
-<details>
-<summary>Click to open the architecture diagram, if you're interested.</summary>
-
-```mermaid
-graph TB
-    subgraph "Client Layer"
-        PY["pip install acontext"]
-        TS["npm i @acontext/acontext"]
-    end
-    
-    subgraph "Acontext Backend"
-      subgraph " "
-          API["API<br/>localhost:8029"]
-          CORE["Core"]
-          API -->|FastAPI & MQ| CORE
-      end
-      
-      subgraph " "
-          Infrastructure["Infrastructures"]
-          PG["PostgreSQL"]
-          S3["S3"]
-          REDIS["Redis"]
-          MQ["RabbitMQ"]
-      end
-    end
-    
-    subgraph "Dashboard"
-        UI["Web Dashboard<br/>localhost:3000"]
-    end
-    
-    PY -->|RESTFUL API| API
-    TS -->|RESTFUL API| API
-    UI -->|RESTFUL API| API
-    API --> Infrastructure
-    CORE --> Infrastructure
-
-    Infrastructure --> PG
-    Infrastructure --> S3
-    Infrastructure --> REDIS
-    Infrastructure --> MQ
-    
-    
-    style PY fill:#3776ab,stroke:#fff,stroke-width:2px,color:#fff
-    style TS fill:#3178c6,stroke:#fff,stroke-width:2px,color:#fff
-    style API fill:#00add8,stroke:#fff,stroke-width:2px,color:#fff
-    style CORE fill:#ffd43b,stroke:#333,stroke-width:2px,color:#333
-    style UI fill:#000,stroke:#fff,stroke-width:2px,color:#fff
-    style PG fill:#336791,stroke:#fff,stroke-width:2px,color:#fff
-    style S3 fill:#ff9900,stroke:#fff,stroke-width:2px,color:#fff
-    style REDIS fill:#dc382d,stroke:#fff,stroke-width:2px,color:#fff
-    style MQ fill:#ff6600,stroke:#fff,stroke-width:2px,color:#fff
-```
 </details>
 
 
@@ -243,8 +246,9 @@ Once it's done, you can access the following endpoints:
     <picture>
       <img alt="Dashboard" src="./docs/images/dashboard/BI.png" width="100%">
     </picture>
-  <p>Dashboard of Success Rate and other Metrics</p>
+  <p>Dashboard of Agent Success Rate and Other Metrics</p>
 </div>
+
 
 
 
@@ -487,24 +491,24 @@ print(tasks_response)
 for task in tasks_response.items:
     print(f"\nTask #{task.order}:")
     print(f"  ID: {task.id}")
-    print(f"  Title: {task.data['task_description']}")
+    print(f"  Title: {task.data.task_description}")
     print(f"  Status: {task.status}")
 
     # Show progress updates if available
-    if "progresses" in task.data:
-        print(f"  Progress updates: {len(task.data['progresses'])}")
-        for progress in task.data["progresses"]:
+    if task.data.progresses:
+        print(f"  Progress updates: {len(task.data.progresses)}")
+        for progress in task.data.progresses:
             print(f"    - {progress}")
 
     # Show user preferences if available
-    if "user_preferences" in task.data:
+    if task.data.user_preferences:
         print("  User preferences:")
-        for pref in task.data["user_preferences"]:
+        for pref in task.data.user_preferences:
             print(f"    - {pref}")
 
 ```
 > `flush` is a blocking call, it will wait for the task extraction to complete.
-> You don't need to call it in production, Acontext has a buffer mechanism to ensure the task extraction is completed right on time.
+> You don't need to call it in production, Acontext has a [buffer mechanism](https://docs.acontext.io/observe/buffer) to ensure the task extraction is completed right on time.
 
 </details>
 
@@ -547,6 +551,13 @@ You can view the session tasks' statuses in the Dashboard:
 Acontext can gather a bunch of sessions and learn skills (SOPs) on how to call tools for certain tasks.
 
 ### Learn Skills to a `Space` [📖](https://docs.acontext.io/learn/skill-space)
+
+<div align="center">
+    <picture>
+      <img alt="A Space Demo" src="./assets/acontext_dataflow.png" width="100%">
+    </picture>
+  <p>How self-learning works?</p>
+</div>
 
 A `Space` can store skills, and memories in a Notion-like system. You first need to connect a session to `Space` to enable the learning process:
 

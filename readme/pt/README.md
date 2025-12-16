@@ -3,7 +3,7 @@
       <img alt="Show Acontext header banner" src="../../assets/Acontext-header-banner.png">
   </a>
   <p>
-    <h3>Armazenar Contextos, Aprender Habilidades</h3>
+    <h3>Engenharia de Contextos, Aprender Habilidades</h3>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
@@ -34,42 +34,44 @@
 
 
 
-Acontext é uma **plataforma de dados de contexto** para aplicações de AI Agent **cloud-native**. Pode:
+Acontext é uma **plataforma de dados de contexto** para construir AI Agents **cloud-native**. Pode:
 
-- **Armazenar** contextos e artifacts
+- **Armazenar** contextos e artifacts. 
+- Fazer **engenharia de contexto** para você.
 - **Observar** tarefas de agentes e feedback do usuário.
 - Habilitar o **autoaprendizado** de agentes através da destilação de habilidades das tarefas concluídas do agente.
-- Visualizar cada contexto em um **Painel**.
+- Visualizar tudo em um **Painel**.
 
 
 
 <div align="center">
     <picture>
-      <img alt="Acontext Learning" src="../../assets/acontext_dataflow.png" width="100%">
+      <img alt="Acontext Learning" src="../../assets/acontext-components.jpg" width="100%">
     </picture>
-  <p>Armazenar, Observar e Aprender</p>
+  <p>Plataforma de Dados de Contexto que Armazena, Observa e Aprende</p>
 </div>
 
 
 
 
 
-Estamos construindo isso porque acreditamos que o Acontext pode ajudá-lo a:
+O Acontext pode ajudá-lo a:
 
 - **Construir um produto de agente mais escalável com melhor engenharia de contexto**
-- **Melhorar sua taxa de sucesso do agente e reduzir etapas de execução**
-
-para que seu agente possa ser mais estável e fornecer maior valor aos seus usuários.
-
+- **Construir um produto de Agent verdadeiramente observável.**
+- **Melhorar automaticamente sua taxa de sucesso do agente**
 
 
-# 💡 Conceitos Centrais
 
-- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - Você pode armazenar contexto no Acontext, como um banco de dados, mas usado apenas para contexto.
-  - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - Agente TODO em segundo plano que coleta status, progresso e preferências da tarefa.
-- [**Disk**](https://docs.acontext.io/store/disk) - Armazenamento de arquivos para artifacts de agentes.
-- [**Space**](https://docs.acontext.io/learn/skill-space) - Um `Space` semelhante ao Notion para agentes, onde habilidades aprendidas são armazenadas. 
-  - [**Experience Agent**](https://docs.acontext.io/learn/advance/experience-agent) - Agentes em segundo plano que destilam, salvam e pesquisam habilidades.
+# 💡 Principais Recursos
+
+- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - Armazenamento de Mensagens Multi-modal
+  - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - Agente TODO em segundo plano que coleta status, progresso e preferências da tarefa
+  - [**Context Editing**](https://docs.acontext.io/store/editing) - Engenharia de Contexto em uma chamada
+- [**Disk**](https://docs.acontext.io/store/disk) - Sistema de arquivos para artifacts
+- [**Space**](https://docs.acontext.io/learn/skill-space) - Notion para agentes
+  - [**Experience Agent**](https://docs.acontext.io/learn/advance/experience-agent) - Agentes em segundo plano que destilam, salvam e pesquisam habilidades
+- [**Dashboard**](https://docs.acontext.io/observe/dashboard) - Visualizar mensagens, artifacts, habilidades, taxas de sucesso e tudo
 
 ### Como Eles Trabalham Juntos
 
@@ -77,23 +79,83 @@ para que seu agente possa ser mais estável e fornecer maior valor aos seus usu�
 ┌──────┐    ┌────────────┐    ┌──────────────┐    ┌───────────────┐
 │ User │◄──►│ Your Agent │◄──►│   Session    │    │ Artifact Disk │
 └──────┘    └─────▲──────┘    └──────┬───────┘    └───────────────┘
-                  │                  │
+                  │                  │ # if enable
                   │         ┌────────▼────────┐
                   │         │ Observed Tasks  │
                   │         └────────┬────────┘
-                  │                  │
+                  │                  │ # if enable
                   │         ┌────────▼────────┐
-                  │         │   Learn Skills  │ # or wait for user confirmation
+                  │         │   Learn Skills  │
                   │         └────────┬────────┘
-                  │                  │
                   └──────────────────┘
-                  Habilidades guiam o agente
+                      Search skills
 ```
 
 
 
+
+</details>
+
+
+
+# 🏗️ Arquitetura
+
 <details>
-<summary>📖 Task Structure</summary>
+<summary>Clique para abrir o diagrama de arquitetura, se estiver interessado.</summary>
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        PY["pip install acontext"]
+        TS["npm i @acontext/acontext"]
+    end
+    
+    subgraph "Acontext Backend"
+      subgraph " "
+          API["API<br/>localhost:8029"]
+          CORE["Core"]
+          API -->|FastAPI & MQ| CORE
+      end
+      
+      subgraph " "
+          Infrastructure["Infrastructures"]
+          PG["PostgreSQL"]
+          S3["S3"]
+          REDIS["Redis"]
+          MQ["RabbitMQ"]
+      end
+    end
+    
+    subgraph "Dashboard"
+        UI["Web Dashboard<br/>localhost:3000"]
+    end
+    
+    PY -->|RESTFUL API| API
+    TS -->|RESTFUL API| API
+    UI -->|RESTFUL API| API
+    API --> Infrastructure
+    CORE --> Infrastructure
+
+    Infrastructure --> PG
+    Infrastructure --> S3
+    Infrastructure --> REDIS
+    Infrastructure --> MQ
+    
+    
+    style PY fill:#3776ab,stroke:#fff,stroke-width:2px,color:#fff
+    style TS fill:#3178c6,stroke:#fff,stroke-width:2px,color:#fff
+    style API fill:#00add8,stroke:#fff,stroke-width:2px,color:#fff
+    style CORE fill:#ffd43b,stroke:#333,stroke-width:2px,color:#333
+    style UI fill:#000,stroke:#fff,stroke-width:2px,color:#fff
+    style PG fill:#336791,stroke:#fff,stroke-width:2px,color:#fff
+    style S3 fill:#ff9900,stroke:#fff,stroke-width:2px,color:#fff
+    style REDIS fill:#dc382d,stroke:#fff,stroke-width:2px,color:#fff
+    style MQ fill:#ff6600,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+## Estruturas de Dados
+<details>
+<summary>📖 Estrutura de Tarefa</summary>
 
 ```json
 {
@@ -113,7 +175,7 @@ para que seu agente possa ser mais estável e fornecer maior valor aos seus usu�
 
 
 <details>
-<summary>📖 Skill Structure</summary>
+<summary>📖 Estrutura de Habilidade</summary>
 
 
 ```json
@@ -133,7 +195,7 @@ para que seu agente possa ser mais estável e fornecer maior valor aos seus usu�
 
 
 <details>
-<summary>📖 Space Structure</summary>
+<summary>📖 Estrutura de Space</summary>
 
 ```txt
 /
@@ -147,6 +209,10 @@ para que seu agente possa ser mais estável e fornecer maior valor aos seus usu�
     ...
 ```
 </details>
+
+</details>
+
+
 
 
 
@@ -426,19 +492,19 @@ print(tasks_response)
 for task in tasks_response.items:
     print(f"\nTask #{task.order}:")
     print(f"  ID: {task.id}")
-    print(f"  Title: {task.data['task_description']}")
+    print(f"  Title: {task.data.task_description}")
     print(f"  Status: {task.status}")
 
     # Show progress updates if available
-    if "progresses" in task.data:
-        print(f"  Progress updates: {len(task.data['progresses'])}")
-        for progress in task.data["progresses"]:
+    if task.data.progresses:
+        print(f"  Progress updates: {len(task.data.progresses)}")
+        for progress in task.data.progresses:
             print(f"    - {progress}")
 
     # Show user preferences if available
-    if "user_preferences" in task.data:
+    if task.data.user_preferences:
         print("  User preferences:")
-        for pref in task.data["user_preferences"]:
+        for pref in task.data.user_preferences:
             print(f"    - {pref}")
 
 ```
@@ -487,7 +553,14 @@ Acontext pode coletar várias sessões e aprender habilidades (SOPs) sobre como 
 
 ### Aprender Habilidades em um `Space` [📖](https://docs.acontext.io/learn/skill-space)
 
-Um `Space` pode armazenar habilidades, experiências e memórias em um sistema semelhante ao Notion. Você primeiro precisa conectar uma sessão ao `Space` para habilitar o processo de aprendizado:
+<div align="center">
+    <picture>
+      <img alt="A Space Demo" src="../../assets/acontext_dataflow.png" width="100%">
+    </picture>
+  <p>Como funciona o autoaprendizado?</p>
+</div>
+
+Um `Space` pode armazenar habilidades e memórias em um sistema semelhante ao Notion. Você primeiro precisa conectar uma sessão ao `Space` para habilitar o processo de aprendizado:
 
 ```python
 # Step 1: Create a Space for skill learning

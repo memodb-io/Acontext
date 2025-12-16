@@ -3,7 +3,7 @@
       <img alt="Show Acontext header banner" src="../../assets/Acontext-header-banner.png">
   </a>
   <p>
-    <h3>存储上下文，学习技能</h3>
+    <h3>工程化上下文，学习技能</h3>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
@@ -34,42 +34,44 @@
 
 
 
-Acontext 是一个用于**云原生** AI Agent 应用程序的**上下文数据平台**。它可以：
+Acontext 是用于构建**云原生** AI Agents 的**上下文数据平台**。它可以：
 
-- **存储** 上下文和artifacts
+- **存储** 上下文和artifacts。 
+- 为您进行**上下文工程**。
 - **观察** Agent 任务和用户反馈。
 - 通过从Agent完成的任务中提取技能，实现Agent **自我学习**。
-- 在一个**仪表板**中查看每个上下文。
+- 在一个**仪表板**中查看一切。
 
 
 
 <div align="center">
     <picture>
-      <img alt="Acontext Learning" src="../../assets/acontext_dataflow.png" width="100%">
+      <img alt="Acontext Learning" src="../../assets/acontext-components.jpg" width="100%">
     </picture>
-  <p>存储、观察和学习</p>
+  <p>存储、观察和学习的上下文数据平台</p>
 </div>
 
 
 
 
 
-我们正在构建它，因为我们相信 Acontext 可以帮助您：
+Acontext 可以帮助您：
 
 - **通过更好的上下文工程构建更具可扩展性的Agent产品**
-- **提高Agent成功率并减少运行步骤**
-
-这样您的Agent可以更加稳定，并为用户提供更大的价值。
-
+- **构建真正可观察的Agent产品。**
+- **自动提高您的Agent成功率**
 
 
-# 💡 核心概念
 
-- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - 您可以在Acontext中存储上下文，就像数据库一样，但仅用于上下文。
-  - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - 后台 TODO Agent，收集任务的状态、进度和偏好。
-- [**Disk**](https://docs.acontext.io/store/disk) - 用于Agent Artifacts的文件存储。
-- [**Space**](https://docs.acontext.io/learn/skill-space) - 一个类似Notion的Agents `Space`，用于存储学习的技能。 
-  - [**Experience Agent**](https://docs.acontext.io/learn/advance/experience-agent) - 后台Agents，用于提炼、保存和搜索技能。
+# 💡 核心功能
+
+- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - 多模态消息存储
+  - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - 后台 TODO Agent，收集任务的状态、进度和偏好
+  - [**Context Editing**](https://docs.acontext.io/store/editing) - 一次调用完成上下文工程
+- [**Disk**](https://docs.acontext.io/store/disk) - Artifacts的文件系统
+- [**Space**](https://docs.acontext.io/learn/skill-space) - 为Agents设计的Notion
+  - [**Experience Agent**](https://docs.acontext.io/learn/advance/experience-agent) - 后台Agents，用于提炼、保存和搜索技能
+- [**Dashboard**](https://docs.acontext.io/observe/dashboard) - 查看消息、artifacts、技能、成功率和一切
 
 ### 它们如何协同工作
 
@@ -77,23 +79,83 @@ Acontext 是一个用于**云原生** AI Agent 应用程序的**上下文数据�
 ┌──────┐    ┌────────────┐    ┌──────────────┐    ┌───────────────┐
 │ User │◄──►│ Your Agent │◄──►│   Session    │    │ Artifact Disk │
 └──────┘    └─────▲──────┘    └──────┬───────┘    └───────────────┘
-                  │                  │
+                  │                  │ # if enable
                   │         ┌────────▼────────┐
                   │         │ Observed Tasks  │
                   │         └────────┬────────┘
-                  │                  │
+                  │                  │ # if enable
                   │         ┌────────▼────────┐
-                  │         │   Learn Skills  │ # or wait for user confirmation
+                  │         │   Learn Skills  │
                   │         └────────┬────────┘
-                  │                  │
                   └──────────────────┘
-                  技能指导Agent
+                      Search skills
 ```
 
 
 
+
+</details>
+
+
+
+# 🏗️ 架构
+
 <details>
-<summary>📖 Task Structure</summary>
+<summary>如果您感兴趣，请点击打开架构图。</summary>
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        PY["pip install acontext"]
+        TS["npm i @acontext/acontext"]
+    end
+    
+    subgraph "Acontext Backend"
+      subgraph " "
+          API["API<br/>localhost:8029"]
+          CORE["Core"]
+          API -->|FastAPI & MQ| CORE
+      end
+      
+      subgraph " "
+          Infrastructure["Infrastructures"]
+          PG["PostgreSQL"]
+          S3["S3"]
+          REDIS["Redis"]
+          MQ["RabbitMQ"]
+      end
+    end
+    
+    subgraph "Dashboard"
+        UI["Web Dashboard<br/>localhost:3000"]
+    end
+    
+    PY -->|RESTFUL API| API
+    TS -->|RESTFUL API| API
+    UI -->|RESTFUL API| API
+    API --> Infrastructure
+    CORE --> Infrastructure
+
+    Infrastructure --> PG
+    Infrastructure --> S3
+    Infrastructure --> REDIS
+    Infrastructure --> MQ
+    
+    
+    style PY fill:#3776ab,stroke:#fff,stroke-width:2px,color:#fff
+    style TS fill:#3178c6,stroke:#fff,stroke-width:2px,color:#fff
+    style API fill:#00add8,stroke:#fff,stroke-width:2px,color:#fff
+    style CORE fill:#ffd43b,stroke:#333,stroke-width:2px,color:#333
+    style UI fill:#000,stroke:#fff,stroke-width:2px,color:#fff
+    style PG fill:#336791,stroke:#fff,stroke-width:2px,color:#fff
+    style S3 fill:#ff9900,stroke:#fff,stroke-width:2px,color:#fff
+    style REDIS fill:#dc382d,stroke:#fff,stroke-width:2px,color:#fff
+    style MQ fill:#ff6600,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+## 数据结构
+<details>
+<summary>📖 任务结构</summary>
 
 ```json
 {
@@ -113,7 +175,7 @@ Acontext 是一个用于**云原生** AI Agent 应用程序的**上下文数据�
 
 
 <details>
-<summary>📖 Skill Structure</summary>
+<summary>📖 技能结构</summary>
 
 
 ```json
@@ -133,7 +195,7 @@ Acontext 是一个用于**云原生** AI Agent 应用程序的**上下文数据�
 
 
 <details>
-<summary>📖 Space Structure</summary>
+<summary>📖 Space结构</summary>
 
 ```txt
 /
@@ -147,6 +209,10 @@ Acontext 是一个用于**云原生** AI Agent 应用程序的**上下文数据�
     ...
 ```
 </details>
+
+</details>
+
+
 
 
 
@@ -426,24 +492,24 @@ print(tasks_response)
 for task in tasks_response.items:
     print(f"\nTask #{task.order}:")
     print(f"  ID: {task.id}")
-    print(f"  Title: {task.data['task_description']}")
+    print(f"  Title: {task.data.task_description}")
     print(f"  Status: {task.status}")
 
     # Show progress updates if available
-    if "progresses" in task.data:
-        print(f"  Progress updates: {len(task.data['progresses'])}")
-        for progress in task.data["progresses"]:
+    if task.data.progresses:
+        print(f"  Progress updates: {len(task.data.progresses)}")
+        for progress in task.data.progresses:
             print(f"    - {progress}")
 
     # Show user preferences if available
-    if "user_preferences" in task.data:
+    if task.data.user_preferences:
         print("  User preferences:")
-        for pref in task.data["user_preferences"]:
+        for pref in task.data.user_preferences:
             print(f"    - {pref}")
 
 ```
 > `flush` 是一个阻塞调用，它将等待任务提取完成。
-> 您不需要在生产环境中调用它，Acontext 有一个缓冲机制来确保任务提取在正确的时间完成。
+> 您不需要在生产环境中调用它，Acontext 有一个[缓冲机制](https://docs.acontext.io/observe/buffer)来确保任务提取在正确的时间完成。
 
 </details>
 
@@ -487,7 +553,14 @@ Acontext 可以收集大量会话，并学习如何为某些任务调用工具�
 
 ### 将技能学习到 `Space` [📖](https://docs.acontext.io/learn/skill-space)
 
-`Space` 可以在类似 Notion 的系统中存储技能、经验和记忆。您首先需要将会话连接到 `Space` 以启用学习过程：
+<div align="center">
+    <picture>
+      <img alt="A Space Demo" src="../../assets/acontext_dataflow.png" width="100%">
+    </picture>
+  <p>自我学习如何工作？</p>
+</div>
+
+`Space` 可以在类似 Notion 的系统中存储技能和记忆。您首先需要将会话连接到 `Space` 以启用学习过程：
 
 ```python
 # Step 1: Create a Space for skill learning

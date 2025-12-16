@@ -3,7 +3,7 @@
       <img alt="Show Acontext header banner" src="../../assets/Acontext-header-banner.png">
   </a>
   <p>
-    <h3>Хранить Контексты, Изучать Навыки</h3>
+    <h3>Инжиниринг Контекстов, Изучение Навыков</h3>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
@@ -34,42 +34,44 @@
 
 
 
-Acontext — это **платформа данных контекста** для **cloud-native** приложений AI Agent. Она может:
+Acontext — это **платформа данных контекста** для построения **cloud-native** AI Agents. Она может:
 
-- **Хранить** контексты и artifacts
+- **Хранить** контексты и artifacts. 
+- Выполнять **контекстный инжиниринг** для вас.
 - **Наблюдать** за задачами агентов и обратной связью пользователей.
 - Обеспечивать **самообучение** агентов путем извлечения навыков из завершенных задач агента.
-- Просматривать каждый контекст в одной **Панели управления**.
+- Просматривать всё в одной **Панели управления**.
 
 
 
 <div align="center">
     <picture>
-      <img alt="Acontext Learning" src="../../assets/acontext_dataflow.png" width="100%">
+      <img alt="Acontext Learning" src="../../assets/acontext-components.jpg" width="100%">
     </picture>
-  <p>Хранить, Наблюдать и Учиться</p>
+  <p>Платформа Данных Контекста, которая Хранит, Наблюдает и Учится</p>
 </div>
 
 
 
 
 
-Мы создаем это, потому что верим, что Acontext может помочь вам:
+Acontext может помочь вам:
 
 - **Создать более масштабируемый продукт агента с лучшей инженерией контекста**
-- **Улучшить успешность вашего агента и сократить шаги выполнения**
-
-чтобы ваш агент мог быть более стабильным и предоставлять большую ценность вашим пользователям.
-
+- **Создать действительно наблюдаемый продукт Agent.**
+- **Автоматически улучшить успешность вашего агента**
 
 
-# 💡 Основные Концепции
 
-- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - Вы можете хранить контекст в Acontext, как базу данных, но используемую только для контекста.
-  - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - Фоновый TODO Agent, который собирает статус, прогресс и предпочтения задачи.
-- [**Disk**](https://docs.acontext.io/store/disk) - Файловое хранилище для Agent Artifacts.
-- [**Space**](https://docs.acontext.io/learn/skill-space) - Похожее на Notion `Space` для Agents, где хранятся изученные навыки. 
-  - [**Experience Agent**](https://docs.acontext.io/learn/advance/experience-agent) - Фоновые Agents, которые извлекают, сохраняют и ищут навыки.
+# 💡 Основные Функции
+
+- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - Мультимодальное хранилище сообщений
+  - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - Фоновый TODO Agent, который собирает статус, прогресс и предпочтения задачи
+  - [**Context Editing**](https://docs.acontext.io/store/editing) - Контекстный инжиниринг в один вызов
+- [**Disk**](https://docs.acontext.io/store/disk) - Файловая система для artifacts
+- [**Space**](https://docs.acontext.io/learn/skill-space) - Notion для Agents
+  - [**Experience Agent**](https://docs.acontext.io/learn/advance/experience-agent) - Фоновые Agents, которые извлекают, сохраняют и ищут навыки
+- [**Dashboard**](https://docs.acontext.io/observe/dashboard) - Просмотр сообщений, artifacts, навыков, показателей успешности и всего
 
 ### Как Они Работают Вместе
 
@@ -77,23 +79,83 @@ Acontext — это **платформа данных контекста** дл�
 ┌──────┐    ┌────────────┐    ┌──────────────┐    ┌───────────────┐
 │ User │◄──►│ Your Agent │◄──►│   Session    │    │ Artifact Disk │
 └──────┘    └─────▲──────┘    └──────┬───────┘    └───────────────┘
-                  │                  │
+                  │                  │ # if enable
                   │         ┌────────▼────────┐
                   │         │ Observed Tasks  │
                   │         └────────┬────────┘
-                  │                  │
+                  │                  │ # if enable
                   │         ┌────────▼────────┐
-                  │         │   Learn Skills  │ # or wait for user confirmation
+                  │         │   Learn Skills  │
                   │         └────────┬────────┘
-                  │                  │
                   └──────────────────┘
-                  Навыки направляют агента
+                      Search skills
 ```
 
 
 
+
+</details>
+
+
+
+# 🏗️ Архитектура
+
 <details>
-<summary>📖 Task Structure</summary>
+<summary>Нажмите, чтобы открыть диаграмму архитектуры, если вам интересно.</summary>
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        PY["pip install acontext"]
+        TS["npm i @acontext/acontext"]
+    end
+    
+    subgraph "Acontext Backend"
+      subgraph " "
+          API["API<br/>localhost:8029"]
+          CORE["Core"]
+          API -->|FastAPI & MQ| CORE
+      end
+      
+      subgraph " "
+          Infrastructure["Infrastructures"]
+          PG["PostgreSQL"]
+          S3["S3"]
+          REDIS["Redis"]
+          MQ["RabbitMQ"]
+      end
+    end
+    
+    subgraph "Dashboard"
+        UI["Web Dashboard<br/>localhost:3000"]
+    end
+    
+    PY -->|RESTFUL API| API
+    TS -->|RESTFUL API| API
+    UI -->|RESTFUL API| API
+    API --> Infrastructure
+    CORE --> Infrastructure
+
+    Infrastructure --> PG
+    Infrastructure --> S3
+    Infrastructure --> REDIS
+    Infrastructure --> MQ
+    
+    
+    style PY fill:#3776ab,stroke:#fff,stroke-width:2px,color:#fff
+    style TS fill:#3178c6,stroke:#fff,stroke-width:2px,color:#fff
+    style API fill:#00add8,stroke:#fff,stroke-width:2px,color:#fff
+    style CORE fill:#ffd43b,stroke:#333,stroke-width:2px,color:#333
+    style UI fill:#000,stroke:#fff,stroke-width:2px,color:#fff
+    style PG fill:#336791,stroke:#fff,stroke-width:2px,color:#fff
+    style S3 fill:#ff9900,stroke:#fff,stroke-width:2px,color:#fff
+    style REDIS fill:#dc382d,stroke:#fff,stroke-width:2px,color:#fff
+    style MQ fill:#ff6600,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+## Структуры Данных
+<details>
+<summary>📖 Структура Задачи</summary>
 
 ```json
 {
@@ -113,7 +175,7 @@ Acontext — это **платформа данных контекста** дл�
 
 
 <details>
-<summary>📖 Skill Structure</summary>
+<summary>📖 Структура Навыка</summary>
 
 
 ```json
@@ -133,7 +195,7 @@ Acontext — это **платформа данных контекста** дл�
 
 
 <details>
-<summary>📖 Space Structure</summary>
+<summary>📖 Структура Space</summary>
 
 ```txt
 /
@@ -147,6 +209,10 @@ Acontext — это **платформа данных контекста** дл�
     ...
 ```
 </details>
+
+</details>
+
+
 
 
 
@@ -426,19 +492,19 @@ print(tasks_response)
 for task in tasks_response.items:
     print(f"\nTask #{task.order}:")
     print(f"  ID: {task.id}")
-    print(f"  Title: {task.data['task_description']}")
+    print(f"  Title: {task.data.task_description}")
     print(f"  Status: {task.status}")
 
     # Show progress updates if available
-    if "progresses" in task.data:
-        print(f"  Progress updates: {len(task.data['progresses'])}")
-        for progress in task.data["progresses"]:
+    if task.data.progresses:
+        print(f"  Progress updates: {len(task.data.progresses)}")
+        for progress in task.data.progresses:
             print(f"    - {progress}")
 
     # Show user preferences if available
-    if "user_preferences" in task.data:
+    if task.data.user_preferences:
         print("  User preferences:")
-        for pref in task.data["user_preferences"]:
+        for pref in task.data.user_preferences:
             print(f"    - {pref}")
 
 ```
@@ -487,7 +553,14 @@ Acontext может собрать множество сессий и изучи
 
 ### Изучение Навыков в `Space` [📖](https://docs.acontext.io/learn/skill-space)
 
-`Space` может хранить навыки, опыт и воспоминания в системе, похожей на Notion. Сначала вам нужно подключить сессию к `Space`, чтобы включить процесс обучения:
+<div align="center">
+    <picture>
+      <img alt="A Space Demo" src="../../assets/acontext_dataflow.png" width="100%">
+    </picture>
+  <p>Как работает самообучение?</p>
+</div>
+
+`Space` может хранить навыки и воспоминания в системе, похожей на Notion. Сначала вам нужно подключить сессию к `Space`, чтобы включить процесс обучения:
 
 ```python
 # Step 1: Create a Space for skill learning

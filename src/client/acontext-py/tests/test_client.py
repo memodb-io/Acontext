@@ -499,6 +499,53 @@ def test_sessions_get_tasks_with_filters(mock_request, client: AcontextClient) -
 
 
 @patch("acontext.client.AcontextClient.request")
+def test_sessions_get_tasks_with_task_data(
+    mock_request, client: AcontextClient
+) -> None:
+    """Test that get_tasks properly deserializes TaskData with structured fields."""
+    mock_request.return_value = {
+        "items": [
+            {
+                "id": "123e4567-e89b-12d3-a456-426614174000",
+                "session_id": "123e4567-e89b-12d3-a456-426614174001",
+                "project_id": "123e4567-e89b-12d3-a456-426614174002",
+                "order": 1,
+                "data": {
+                    "task_description": "Implement user authentication",
+                    "progresses": ["Created login form", "Added JWT validation"],
+                    "user_preferences": ["Use OAuth2", "Enable 2FA"],
+                    "sop_thinking": "Follow security best practices",
+                },
+                "status": "running",
+                "is_planning": False,
+                "space_digested": True,
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            }
+        ],
+        "has_more": False,
+    }
+
+    result = client.sessions.get_tasks("session-id")
+
+    mock_request.assert_called_once()
+    # Verify the result structure
+    assert len(result.items) == 1
+    task = result.items[0]
+
+    # Verify Task fields
+    assert task.id == "123e4567-e89b-12d3-a456-426614174000"
+    assert task.status == "running"
+    assert task.order == 1
+
+    # Verify TaskData is properly typed and accessible
+    assert task.data.task_description == "Implement user authentication"
+    assert task.data.progresses == ["Created login form", "Added JWT validation"]
+    assert task.data.user_preferences == ["Use OAuth2", "Enable 2FA"]
+    assert task.data.sop_thinking == "Follow security best practices"
+
+
+@patch("acontext.client.AcontextClient.request")
 def test_sessions_get_learning_status(mock_request, client: AcontextClient) -> None:
     mock_request.return_value = {
         "space_digested_count": 5,

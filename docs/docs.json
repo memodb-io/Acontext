@@ -43,6 +43,13 @@
             ]
           },
           {
+            "group": "Agentic SDK",
+            "icon": "wand-magic-sparkles",
+            "pages": [
+              "sdk/disk_tools"
+            ]
+          },
+          {
             "group": "Observability",
             "icon": "radar",
             "pages": [

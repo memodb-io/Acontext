@@ -19,6 +19,7 @@ from .resources import (
     SessionsAPI,
     SpacesAPI,
 )
+from .types import Task, TaskData
 
 __all__ = [
     "AcontextClient",
@@ -36,6 +37,8 @@ __all__ = [
     "AsyncBlocksAPI",
     "AsyncSessionsAPI",
     "AsyncSpacesAPI",
+    "Task",
+    "TaskData",
     "__version__",
 ]
 

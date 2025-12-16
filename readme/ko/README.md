@@ -3,7 +3,7 @@
       <img alt="Show Acontext header banner" src="../../assets/Acontext-header-banner.png">
   </a>
   <p>
-    <h3>컨텍스트 저장, 스킬 학습</h3>
+    <h3>컨텍스트 엔지니어링, 스킬 학습</h3>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
@@ -34,42 +34,44 @@
 
 
 
-Acontext는 **클라우드 네이티브** AI Agent 애플리케이션을 위한 **컨텍스트 데이터 플랫폼**입니다. 다음을 수행할 수 있습니다:
+Acontext는 **클라우드 네이티브** AI Agents를 구축하기 위한 **컨텍스트 데이터 플랫폼**입니다. 다음을 수행할 수 있습니다:
 
-- **저장** 컨텍스트 및 artifacts
+- **저장** 컨텍스트 및 artifacts. 
+- 귀하를 위한 **컨텍스트 엔지니어링** 수행.
 - **관찰** Agent 작업 및 사용자 피드백.
 - Agent의 완료된 작업에서 스킬을 추출하여 Agent **자기 학습**을 가능하게 합니다.
-- 모든 컨텍스트를 하나의 **대시보드**에서 확인합니다.
+- 하나의 **대시보드**에서 모든 것을 확인합니다.
 
 
 
 <div align="center">
     <picture>
-      <img alt="Acontext Learning" src="../../assets/acontext_dataflow.png" width="100%">
+      <img alt="Acontext Learning" src="../../assets/acontext-components.jpg" width="100%">
     </picture>
-  <p>저장, 관찰 및 학습</p>
+  <p>저장, 관찰 및 학습하는 컨텍스트 데이터 플랫폼</p>
 </div>
 
 
 
 
 
-우리가 이를 구축하는 이유는 Acontext가 다음과 같은 도움을 줄 수 있다고 믿기 때문입니다:
+Acontext는 다음을 도울 수 있습니다:
 
 - **더 나은 컨텍스트 엔지니어링으로 더 확장 가능한 Agent 제품 구축**
-- **Agent 성공률 향상 및 실행 단계 감소**
-
-이를 통해 Agent가 더 안정적이고 사용자에게 더 큰 가치를 제공할 수 있습니다.
-
+- **진정으로 관찰 가능한 Agent 제품 구축.**
+- **Agent 성공률을 자동으로 향상**
 
 
-# 💡 핵심 개념
 
-- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - Acontext에 컨텍스트를 저장할 수 있습니다. 데이터베이스와 같지만 컨텍스트 전용으로 사용됩니다.
-  - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - 작업의 상태, 진행 상황 및 선호도를 수집하는 백그라운드 TODO Agent.
-- [**Disk**](https://docs.acontext.io/store/disk) - Agent Artifacts용 파일 저장소.
-- [**Space**](https://docs.acontext.io/learn/skill-space) - 학습된 스킬이 저장되는 Notion과 유사한 Agents용 `Space`. 
-  - [**Experience Agent**](https://docs.acontext.io/learn/advance/experience-agent) - 스킬을 추출, 저장 및 검색하는 백그라운드 Agents.
+# 💡 주요 기능
+
+- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - 멀티 모달 메시지 저장소
+  - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - 작업의 상태, 진행 상황 및 선호도를 수집하는 백그라운드 TODO Agent
+  - [**Context Editing**](https://docs.acontext.io/store/editing) - 한 번의 호출로 컨텍스트 엔지니어링
+- [**Disk**](https://docs.acontext.io/store/disk) - Artifacts용 파일 시스템
+- [**Space**](https://docs.acontext.io/learn/skill-space) - Agents를 위한 Notion
+  - [**Experience Agent**](https://docs.acontext.io/learn/advance/experience-agent) - 스킬을 추출, 저장 및 검색하는 백그라운드 Agents
+- [**Dashboard**](https://docs.acontext.io/observe/dashboard) - 메시지, artifacts, 스킬, 성공률 및 모든 것을 표시
 
 ### 함께 작동하는 방식
 
@@ -77,23 +79,83 @@ Acontext는 **클라우드 네이티브** AI Agent 애플리케이션을 위한 
 ┌──────┐    ┌────────────┐    ┌──────────────┐    ┌───────────────┐
 │ User │◄──►│ Your Agent │◄──►│   Session    │    │ Artifact Disk │
 └──────┘    └─────▲──────┘    └──────┬───────┘    └───────────────┘
-                  │                  │
+                  │                  │ # if enable
                   │         ┌────────▼────────┐
                   │         │ Observed Tasks  │
                   │         └────────┬────────┘
-                  │                  │
+                  │                  │ # if enable
                   │         ┌────────▼────────┐
-                  │         │   Learn Skills  │ # or wait for user confirmation
+                  │         │   Learn Skills  │
                   │         └────────┬────────┘
-                  │                  │
                   └──────────────────┘
-                  스킬이 Agent를 안내
+                      Search skills
 ```
 
 
 
+
+</details>
+
+
+
+# 🏗️ 아키텍처
+
 <details>
-<summary>📖 Task Structure</summary>
+<summary>관심이 있으시면 아키텍처 다이어그램을 열어보세요.</summary>
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        PY["pip install acontext"]
+        TS["npm i @acontext/acontext"]
+    end
+    
+    subgraph "Acontext Backend"
+      subgraph " "
+          API["API<br/>localhost:8029"]
+          CORE["Core"]
+          API -->|FastAPI & MQ| CORE
+      end
+      
+      subgraph " "
+          Infrastructure["Infrastructures"]
+          PG["PostgreSQL"]
+          S3["S3"]
+          REDIS["Redis"]
+          MQ["RabbitMQ"]
+      end
+    end
+    
+    subgraph "Dashboard"
+        UI["Web Dashboard<br/>localhost:3000"]
+    end
+    
+    PY -->|RESTFUL API| API
+    TS -->|RESTFUL API| API
+    UI -->|RESTFUL API| API
+    API --> Infrastructure
+    CORE --> Infrastructure
+
+    Infrastructure --> PG
+    Infrastructure --> S3
+    Infrastructure --> REDIS
+    Infrastructure --> MQ
+    
+    
+    style PY fill:#3776ab,stroke:#fff,stroke-width:2px,color:#fff
+    style TS fill:#3178c6,stroke:#fff,stroke-width:2px,color:#fff
+    style API fill:#00add8,stroke:#fff,stroke-width:2px,color:#fff
+    style CORE fill:#ffd43b,stroke:#333,stroke-width:2px,color:#333
+    style UI fill:#000,stroke:#fff,stroke-width:2px,color:#fff
+    style PG fill:#336791,stroke:#fff,stroke-width:2px,color:#fff
+    style S3 fill:#ff9900,stroke:#fff,stroke-width:2px,color:#fff
+    style REDIS fill:#dc382d,stroke:#fff,stroke-width:2px,color:#fff
+    style MQ fill:#ff6600,stroke:#fff,stroke-width:2px,color:#fff
+```
+
+## 데이터 구조
+<details>
+<summary>📖 작업 구조</summary>
 
 ```json
 {
@@ -113,7 +175,7 @@ Acontext는 **클라우드 네이티브** AI Agent 애플리케이션을 위한 
 
 
 <details>
-<summary>📖 Skill Structure</summary>
+<summary>📖 스킬 구조</summary>
 
 
 ```json
@@ -133,7 +195,7 @@ Acontext는 **클라우드 네이티브** AI Agent 애플리케이션을 위한 
 
 
 <details>
-<summary>📖 Space Structure</summary>
+<summary>📖 Space 구조</summary>
 
 ```txt
 /
@@ -147,6 +209,10 @@ Acontext는 **클라우드 네이티브** AI Agent 애플리케이션을 위한 
     ...
 ```
 </details>
+
+</details>
+
+
 
 
 
@@ -426,19 +492,19 @@ print(tasks_response)
 for task in tasks_response.items:
     print(f"\nTask #{task.order}:")
     print(f"  ID: {task.id}")
-    print(f"  Title: {task.data['task_description']}")
+    print(f"  Title: {task.data.task_description}")
     print(f"  Status: {task.status}")
 
     # Show progress updates if available
-    if "progresses" in task.data:
-        print(f"  Progress updates: {len(task.data['progresses'])}")
-        for progress in task.data["progresses"]:
+    if task.data.progresses:
+        print(f"  Progress updates: {len(task.data.progresses)}")
+        for progress in task.data.progresses:
             print(f"    - {progress}")
 
     # Show user preferences if available
-    if "user_preferences" in task.data:
+    if task.data.user_preferences:
         print("  User preferences:")
-        for pref in task.data["user_preferences"]:
+        for pref in task.data.user_preferences:
             print(f"    - {pref}")
 
 ```
@@ -487,7 +553,14 @@ Acontext는 많은 세션을 수집하고 특정 작업에 대해 도구를 호�
 
 ### `Space`에 스킬 학습 [📖](https://docs.acontext.io/learn/skill-space)
 
-`Space`는 Notion과 유사한 시스템에서 스킬, 경험 및 기억을 저장할 수 있습니다. 학습 프로세스를 활성화하려면 먼저 세션을 `Space`에 연결해야 합니다:
+<div align="center">
+    <picture>
+      <img alt="A Space Demo" src="../../assets/acontext_dataflow.png" width="100%">
+    </picture>
+  <p>자기 학습은 어떻게 작동하나요?</p>
+</div>
+
+`Space`는 Notion과 유사한 시스템에서 스킬과 기억을 저장할 수 있습니다. 학습 프로세스를 활성화하려면 먼저 세션을 `Space`에 연결해야 합니다:
 
 ```python
 # Step 1: Create a Space for skill learning

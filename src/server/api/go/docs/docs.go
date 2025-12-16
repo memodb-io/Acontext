@@ -3062,7 +3062,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "data": {
-                    "type": "object"
+                    "$ref": "#/definitions/model.TaskData"
                 },
                 "id": {
                     "type": "string"
@@ -3087,6 +3087,29 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                }
+            }
+        },
+        "model.TaskData": {
+            "type": "object",
+            "properties": {
+                "progresses": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "sop_thinking": {
+                    "type": "string"
+                },
+                "task_description": {
+                    "type": "string"
+                },
+                "user_preferences": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

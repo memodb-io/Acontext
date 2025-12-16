@@ -6,9 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/memodb-io/Acontext/internal/config"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -16,7 +14,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
-	"go.opentelemetry.io/otel/trace"
 )
 
 var (
@@ -104,35 +101,4 @@ func Shutdown(ctx context.Context) error {
 		return tracerProvider.Shutdown(ctx)
 	}
 	return nil
-}
-
-// GinMiddleware returns Gin middleware for OpenTelemetry instrumentation
-// Only traces requests that match /api/ paths
-func GinMiddleware(serviceName string) gin.HandlerFunc {
-	otelMiddleware := otelgin.Middleware(serviceName)
-
-	return func(c *gin.Context) {
-		// Only instrument requests that start with /api/
-		path := c.Request.URL.Path
-		if strings.HasPrefix(path, "/api/") {
-			otelMiddleware(c)
-		} else {
-			// Skip OpenTelemetry instrumentation for non-API paths
-			c.Next()
-		}
-	}
-}
-
-// TraceIDMiddleware returns a Gin middleware that adds trace ID to response headers
-func TraceIDMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// Get current span from context
-		span := trace.SpanFromContext(c.Request.Context())
-		if span.SpanContext().IsValid() {
-			// Add trace ID to response header
-			traceID := span.SpanContext().TraceID().String()
-			c.Header("X-Trace-Id", traceID)
-		}
-		c.Next()
-	}
 }

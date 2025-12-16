@@ -223,7 +223,8 @@ class TestUpdateTask:
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
-                secret_key_hmac="test_key_hmac_update_order", secret_key_hash_phc="test_key_hash_update_order"
+                secret_key_hmac="test_key_hmac_update_order",
+                secret_key_hash_phc="test_key_hash_update_order",
             )
             session.add(project)
             await session.flush()

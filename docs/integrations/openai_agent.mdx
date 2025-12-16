@@ -277,7 +277,7 @@ async def session_1(session_id: str):
 
     print("Extracted tasks:")
     for task in tasks_response.items:
-        print(f"Task: {task.data['task_description']}")
+        print(f"Task: {task.data.task_description}")
         print(f"Status: {task.status}")
 
 async def main():
@@ -324,17 +324,17 @@ acontext_client.sessions.flush(session_id)
 tasks_response = acontext_client.sessions.get_tasks(session_id)
 
 for task in tasks_response.items:
-    print(f"Task: {task.data['task_description']}")
+    print(f"Task: {task.data.task_description}")
     print(f"Status: {task.status}")
     
     # Access progress updates if available
-    if "progresses" in task.data:
-        for progress in task.data["progresses"]:
+    if task.data.progresses:
+        for progress in task.data.progresses:
             print(f"  Progress: {progress}")
     
     # Access user preferences if available
-    if "user_preferences" in task.data:
-        for pref in task.data["user_preferences"]:
+    if task.data.user_preferences:
+        for pref in task.data.user_preferences:
             print(f"  Preference: {pref}")
 ```
 

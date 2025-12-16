@@ -52,12 +52,26 @@ export const SessionSchema = z.object({
 
 export type Session = z.infer<typeof SessionSchema>;
 
+/**
+ * TaskData represents the structured data stored in a task.
+ * This schema matches the TaskData model in acontext_core/schema/session/task.py
+ * and the Go API TaskData struct.
+ */
+export const TaskDataSchema = z.object({
+  task_description: z.string(),
+  progresses: z.array(z.string()).nullable().optional(),
+  user_preferences: z.array(z.string()).nullable().optional(),
+  sop_thinking: z.string().nullable().optional(),
+});
+
+export type TaskData = z.infer<typeof TaskDataSchema>;
+
 export const TaskSchema = z.object({
   id: z.string(),
   session_id: z.string(),
   project_id: z.string(),
   order: z.number(),
-  data: z.record(z.string(), z.unknown()),
+  data: TaskDataSchema,
   status: z.string(),
   is_planning: z.boolean(),
   space_digested: z.boolean(),
@@ -132,6 +146,33 @@ export const RemoveToolResultParamsSchema = z.object({
 export type RemoveToolResultParams = z.infer<typeof RemoveToolResultParamsSchema>;
 
 /**
+ * Parameters for the remove_tool_call_params edit strategy.
+ */
+export const RemoveToolCallParamsParamsSchema = z.object({
+  /**
+   * Number of most recent tool calls to keep with full parameters.
+   * @default 3
+   */
+  keep_recent_n_tool_calls: z.number().optional(),
+});
+export type RemoveToolCallParamsParams = z.infer<typeof RemoveToolCallParamsParamsSchema>;
+
+/**
+ * Edit strategy to remove parameters from old tool-call parts.
+ * 
+ * Keeps the most recent N tool calls with full parameters, replacing older
+ * tool call arguments with empty JSON "{}". The tool call ID and name remain
+ * intact so tool-results can still reference them.
+ * 
+ * Example: { type: 'remove_tool_call_params', params: { keep_recent_n_tool_calls: 5 } }
+ */
+export const RemoveToolCallParamsStrategySchema = z.object({
+  type: z.literal('remove_tool_call_params'),
+  params: RemoveToolCallParamsParamsSchema,
+});
+export type RemoveToolCallParamsStrategy = z.infer<typeof RemoveToolCallParamsStrategySchema>;
+
+/**
  * Edit strategy to replace old tool results with placeholder text.
  * 
  * Example: { type: 'remove_tool_result', params: { keep_recent_n_tool_results: 5, tool_result_placeholder: 'Cleared' } }
@@ -179,6 +220,7 @@ export type TokenLimitStrategy = z.infer<typeof TokenLimitStrategySchema>;
  */
 export const EditStrategySchema = z.union([
   RemoveToolResultStrategySchema,
+  RemoveToolCallParamsStrategySchema,
   TokenLimitStrategySchema,
 ]);
 

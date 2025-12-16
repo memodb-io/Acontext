@@ -7,34 +7,23 @@ type: Feature
 assignees: ''
 ---
 
-## Is your feature request related to a problem?
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
-
-## Describe the solution you'd like
+## Feature Description
 A clear and concise description of what you want to happen.
-
-## Describe alternatives you've considered
-A clear and concise description of any alternative solutions or features you've considered.
-
-## Use Case
-Describe a specific use case or scenario where this feature would be helpful.
 
 ## Proposed API/Interface
 If applicable, describe how you envision the API or interface would look:
 
 ```python
-# Python example
+# Python SDK
 # Your proposed API here
 ```
 
-or
-
 ```typescript
-// TypeScript example
+// TypeScript SDK
 // Your proposed API here
 ```
 
-## Component/Area
+## Impact Component/Area
 Which part of Acontext would this feature affect?
 - [ ] Client SDK (Python)
 - [ ] Client SDK (TypeScript)
