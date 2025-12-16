@@ -215,6 +215,10 @@ class GetMessagesOutput(BaseModel):
         ...,
         description="List of messages in the requested format (Message, OpenAI format, or Anthropic format)",
     )
+    ids: list[str] = Field(
+	...,
+	description="List of message UUIDs corresponding to each item in the same order",
+    )
     next_cursor: str | None = Field(None, description="Cursor for pagination")
     has_more: bool = Field(..., description="Whether there are more items")
     public_urls: dict[str, PublicURL] | None = Field(

@@ -71,8 +71,15 @@ func GetConvertedMessagesOutput(
 		return nil, err
 	}
 
+	// Extracting message IDs
+	messageIDs := make([]string, len(messages))
+	for i := range len(messages) {
+		messageIDs[i] = messages[i].ID.String()
+	}
+
 	result := map[string]interface{}{
 		"items":    convertedData,
+		"ids":      messageIDs,
 		"has_more": hasMore,
 	}
 
