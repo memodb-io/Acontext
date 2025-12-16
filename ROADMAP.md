@@ -55,7 +55,7 @@ Chore
 Disk - more agentic interface
 
 - [ ] Disk: file/dir sharing UI Component.
-- [ ] Disk:  support get artifact with line number and offset
+- [ ] Disk: support get artifact with line number and offset
 
 Space
 
@@ -65,6 +65,27 @@ Session - Context Engineering
 
 - [ ] Message version control
 - [ ] Session - Context Offloading based on Disks
+- [ ] Session Message labeling (e.g., like, dislike, feedback)
+
+Session - Metadata
+
+- [ ] Session metadata: add metadata field (JSONB) to session table for user binding information (e.g., user_id)
+  - [ ] Database: add metadata column with GIN index for query/filter support
+  - [ ] API: support metadata in session creation and query/filter by metadata
+  - [ ] SDK: support metadata parameter in session creation (convenience methods can be added later based on needs)
+
+Observability
+
+- [ ] User telemetry observation, service chain observation
+- [ ] Improve internal service observation content
+
+Dashboard
+
+- [ ] Observability dashboard: display user telemetry metrics and service chain traces
+- [ ] Internal service observation UI: visualize service health, latency, and error rates
+- [ ] Session Message labeling UI: interface for like/dislike/feedback actions
+- [ ] Disk operation observability: track file/dir sharing and artifact access metrics
+- [ ] Sandbox resource monitoring UI: display sandbox usage and performance metrics
 
 Sandbox
 
