@@ -379,7 +379,7 @@ async def test_async_send_message_rejects_file_field_for_non_acontext_format(
 async def test_async_sessions_get_messages_forwards_format(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
-    mock_request.return_value = {"items": [], "has_more": False}
+    mock_request.return_value = {"items": [], "ids": [], "has_more": False}
 
     result = await async_client.sessions.get_messages(
         "session-id", format="acontext", time_desc=True
@@ -401,7 +401,7 @@ async def test_async_sessions_get_messages_forwards_format(
 async def test_async_sessions_get_tasks_without_filters(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
-    mock_request.return_value = {"items": [], "has_more": False}
+    mock_request.return_value = {"items": [], "ids": [], "has_more": False}
 
     result = await async_client.sessions.get_tasks("session-id")
 
@@ -421,7 +421,7 @@ async def test_async_sessions_get_tasks_without_filters(
 async def test_async_sessions_get_tasks_with_filters(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
-    mock_request.return_value = {"items": [], "has_more": False}
+    mock_request.return_value = {"items": [], "ids": [], "has_more": False}
 
     result = await async_client.sessions.get_tasks(
         "session-id", limit=10, cursor="cursor"
