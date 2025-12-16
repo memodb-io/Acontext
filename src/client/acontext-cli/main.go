@@ -10,6 +10,7 @@ import (
 	"github.com/memodb-io/Acontext/acontext-cli/cmd"
 	"github.com/memodb-io/Acontext/acontext-cli/internal/logo"
 	"github.com/memodb-io/Acontext/acontext-cli/internal/telemetry"
+	"github.com/memodb-io/Acontext/acontext-cli/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +18,12 @@ type contextKey string
 
 const startTimeKey contextKey = "start_time"
 
-var version = "dev"
+var cliVersion = "dev"
+
+// GetVersion returns the current CLI version
+func GetVersion() string {
+	return cliVersion
+}
 
 func main() {
 	// Print logo on first run
@@ -39,7 +45,7 @@ func main() {
 // trackCommandAndWait tracks a command execution asynchronously and waits for completion
 func trackCommandAndWait(cmd *cobra.Command, err error, success bool) {
 	// Skip telemetry for dev version
-	if version == "dev" {
+	if cliVersion == "dev" {
 		return
 	}
 
@@ -63,7 +69,7 @@ func trackCommandAndWait(cmd *cobra.Command, err error, success bool) {
 		success,
 		err,
 		duration,
-		version,
+		cliVersion,
 	)
 
 	// Wait for telemetry to complete (with timeout to avoid hanging forever)
@@ -112,15 +118,22 @@ It helps you:
 
 Get started by running: acontext create
 `,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+	PersistentPreRun: func(c *cobra.Command, args []string) {
 		// Store start time for telemetry
-		ctx := context.WithValue(cmd.Context(), startTimeKey, time.Now())
-		cmd.SetContext(ctx)
+		ctx := context.WithValue(c.Context(), startTimeKey, time.Now())
+		c.SetContext(ctx)
+		// Store version in context for upgrade command
+		cmd.SetVersion(c, cliVersion)
 	},
-	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+	PersistentPostRunE: func(c *cobra.Command, args []string) error {
 		// Track successful command execution
 		// This is called after the command's Run/RunE completes successfully
-		trackCommandAndWait(cmd, nil, true)
+		trackCommandAndWait(c, nil, true)
+
+		// Check for updates (skip for version and upgrade commands, and dev version)
+		if c.Use != "version" && c.Use != "upgrade" && cliVersion != "dev" {
+			checkUpdateAsync(c)
+		}
 		return nil
 	},
 	Run: func(cmd *cobra.Command, args []string) {
@@ -132,6 +145,7 @@ Get started by running: acontext create
 		fmt.Println("  acontext create     Create a new project")
 		fmt.Println("  acontext docker     Manage Docker services (up/down/status/logs/env)")
 		fmt.Println("  acontext version    Show version information")
+		fmt.Println("  acontext upgrade    Upgrade to the latest version")
 		fmt.Println("  acontext help       Show help information")
 		fmt.Println()
 		fmt.Println("Get started: acontext create")
@@ -142,12 +156,47 @@ func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(cmd.CreateCmd)
 	rootCmd.AddCommand(cmd.DockerCmd)
+	rootCmd.AddCommand(cmd.UpgradeCmd)
 }
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show version information",
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("Acontext CLI version %s\n", version)
+		fmt.Printf("Acontext CLI version %s\n", cliVersion)
+		// Check for updates when version command is run
+		if cliVersion != "dev" {
+			checkUpdateSync()
+		}
 	},
+}
+
+// checkUpdateAsync checks for updates asynchronously and prints a message if available
+func checkUpdateAsync(cmd *cobra.Command) {
+	go func() {
+		hasUpdate, latestVersion, err := version.IsUpdateAvailable(cliVersion)
+		if err != nil {
+			// Silently fail - don't annoy users with network errors
+			return
+		}
+		if hasUpdate {
+			fmt.Println()
+			fmt.Printf("💡 A new version is available: %s (current: %s)\n", latestVersion, cliVersion)
+			fmt.Println("   Run 'acontext upgrade' to update")
+			fmt.Println()
+		}
+	}()
+}
+
+// checkUpdateSync checks for updates synchronously and prints a message if available
+func checkUpdateSync() {
+	hasUpdate, latestVersion, err := version.IsUpdateAvailable(cliVersion)
+	if err != nil {
+		// Silently fail for version command
+		return
+	}
+	if hasUpdate {
+		fmt.Printf("💡 A new version is available: %s\n", latestVersion)
+		fmt.Println("   Run 'acontext upgrade' to update")
+	}
 }

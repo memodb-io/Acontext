@@ -8,6 +8,7 @@ A lightweight command-line tool for quickly creating Acontext projects with temp
 - 🌐 **Multi-Language**: Support for Python and TypeScript
 - 🐳 **Docker Ready**: One-command Docker Compose deployment
 - 🔧 **Auto Git**: Automatic Git repository initialization
+- 🔄 **Auto Update**: Automatic version checking and one-command upgrade
 - 🎯 **Simple**: Minimal configuration, maximum productivity
 
 ## Installation
@@ -66,19 +67,18 @@ acontext docker down
 ### Version Management
 
 ```bash
-# Check version
+# Check version (automatically checks for updates)
 acontext version
 
-# Check for updates
-acontext version check
-
-# Auto-update
-acontext version check --upgrade
+# Upgrade to the latest version
+acontext upgrade
 ```
+
+The CLI automatically checks for updates after each command execution. If a new version is available, you'll see a notification prompting you to run `acontext upgrade`.
 
 ## Development Status
 
-**🎯 Current Progress**: Production Ready (~92% complete)  
+**🎯 Current Progress**: Production Ready (~95% complete)  
 **✅ Completed**: 
 - ✅ Interactive project creation
 - ✅ Multi-language template support (Python/TypeScript)
@@ -86,6 +86,7 @@ acontext version check --upgrade
 - ✅ Git repository initialization
 - ✅ Docker Compose integration
 - ✅ One-command deployment
+- ✅ Version checking and auto-update
 - ✅ CI/CD with GitHub Actions
 - ✅ Automated releases with GoReleaser
 - ✅ Comprehensive unit tests
