@@ -46,6 +46,13 @@ async def push_sop_complete_to_buffer(body: SOPComplete) -> bool:
         return False
 
 
+async def push_sop_buffer(body: SOPComplete) -> bool:
+    """
+    Backwards/ergonomic alias: push SOPComplete payload into the per-space buffer.
+    """
+    return await push_sop_complete_to_buffer(body)
+
+
 _POP_BATCH_LUA = """
 local key = KEYS[1]
 local count = tonumber(ARGV[1])
