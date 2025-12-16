@@ -192,9 +192,11 @@ func TestGetLatestVersion(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tt.statusCode)
 				if tt.responseBody != "" {
-					w.Write([]byte(tt.responseBody))
+					_, err := w.Write([]byte(tt.responseBody))
+					require.NoError(t, err)
 				} else {
-					json.NewEncoder(w).Encode(tt.releases)
+					err := json.NewEncoder(w).Encode(tt.releases)
+					require.NoError(t, err)
 				}
 			}))
 			defer server.Close()
@@ -323,7 +325,8 @@ func TestIsUpdateAvailable(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tt.statusCode)
 				if tt.statusCode == http.StatusOK {
-					json.NewEncoder(w).Encode(tt.releases)
+					err := json.NewEncoder(w).Encode(tt.releases)
+					require.NoError(t, err)
 				}
 			}))
 			defer server.Close()
@@ -363,7 +366,8 @@ func TestGetLatestVersion_Sorting(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(releases)
+		err := json.NewEncoder(w).Encode(releases)
+		require.NoError(t, err)
 	}))
 	defer server.Close()
 
@@ -389,7 +393,8 @@ func TestGetLatestVersion_Sorting_GreaterThan9(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(releases)
+		err := json.NewEncoder(w).Encode(releases)
+		require.NoError(t, err)
 	}))
 	defer server.Close()
 
