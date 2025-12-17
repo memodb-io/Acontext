@@ -91,6 +91,9 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
     try:
         popped_entries: list[str] = []
         current_entry_json = body.model_dump_json()
+        batch_log_prefix = (
+            f"SOP_BATCH space={body.space_id} project={body.project_id}"
+        )
 
         try:
             await SSB.remove_sop_buffer_entry(
@@ -136,13 +139,11 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
                 continue
             parsed_items.append((entry_json, item))
 
-        if not parsed_items:
-            LOG.info(
-                f"SOPComplete batch empty after parsing/filtering "
-                f"(space={body.space_id}, popped={len(popped_entries) + 1}, skip={sum(skip_reasons.values())}, "
-                f"skip_reasons={skip_reasons})"
-            )
-            return
+        LOG.info(
+            f"{batch_log_prefix} drained popped={len(popped_entries) + 1} "
+            f"parsed={len(parsed_items)} skip={sum(skip_reasons.values())} "
+            f"skip_reasons={skip_reasons}"
+        )
 
         seen_task_ids: set = set()
         unique_items: list[tuple[str, SOPComplete]] = []
@@ -188,6 +189,11 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
                         if item.task_id == body.task_id:
                             current_is_processable = True
         except Exception as e:
+            LOG.warning(
+                f"{batch_log_prefix} retryable_failure=db_exception "
+                f"retryable_items={len(unique_items)} "
+                f"skip={sum(skip_reasons.values())} skip_reasons={skip_reasons}: {e}"
+            )
             restored = await SSB.push_sop_buffer_entries_json(
                 body.project_id,
                 body.space_id,
@@ -233,9 +239,8 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
             except Exception:
                 pass
             LOG.info(
-                f"SOPComplete batch empty after filtering "
-                f"(space={body.space_id}, popped={len(popped_entries) + 1}, skip={sum(skip_reasons.values())}, "
-                f"skip_reasons={skip_reasons})"
+                f"{batch_log_prefix} empty_after_filtering popped={len(popped_entries) + 1} "
+                f"processable=0 skip={sum(skip_reasons.values())} skip_reasons={skip_reasons}"
             )
             return
 
@@ -243,6 +248,11 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
         try:
             task_ids = [item.task_id for _entry_json, item in processable_items]
             sop_datas = [item.sop_data for _entry_json, item in processable_items]
+            LOG.info(
+                f"{batch_log_prefix} processing size={len(processable_items)} "
+                f"popped={len(popped_entries) + 1} skip={sum(skip_reasons.values())} "
+                f"skip_reasons={skip_reasons}"
+            )
             r = await SSC.process_sop_complete_batch(
                 project_config,
                 body.project_id,
@@ -251,6 +261,11 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
                 sop_datas,
             )
         except Exception as e:
+            LOG.warning(
+                f"{batch_log_prefix} retryable_failure=agent_exception "
+                f"retryable_items={len(processable_items)} "
+                f"skip={sum(skip_reasons.values())} skip_reasons={skip_reasons}: {e}"
+            )
             if not current_is_processable:
                 try:
                     await SSB.remove_sop_buffer_entry(
@@ -296,6 +311,11 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
             return
 
         if not r.ok():
+            LOG.warning(
+                f"{batch_log_prefix} retryable_failure=agent_result "
+                f"retryable_items={len(processable_items)} "
+                f"skip={sum(skip_reasons.values())} skip_reasons={skip_reasons}"
+            )
             if not current_is_processable:
                 try:
                     await SSB.remove_sop_buffer_entry(
@@ -347,12 +367,13 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
         except Exception:
             pass
         LOG.info(
-            f"SOPComplete batch processed successfully "
-            f"(space={body.space_id}, success={len(processable_items)}, popped={len(popped_entries) + 1}, "
-            f"skip={sum(skip_reasons.values())}, skip_reasons={skip_reasons})"
+            f"{batch_log_prefix} done success={len(processable_items)} "
+            f"popped={len(popped_entries) + 1} skip={sum(skip_reasons.values())} "
+            f"skip_reasons={skip_reasons}"
         )
 
     except Exception as e:
+        LOG.warning(f"{batch_log_prefix} retryable_failure=unknown_exception: {e}")
         restore_entries = [body.model_dump_json(), *popped_entries]
         restored = await SSB.push_sop_buffer_entries_json(
             body.project_id,
