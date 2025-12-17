@@ -93,6 +93,28 @@ async def pop_sop_buffer_batch(
     return list(items)
 
 
+async def remove_sop_buffer_entry(
+    project_id: asUUID, space_id: asUUID, entry_json: str, count: int = 0
+) -> bool:
+    """
+    Remove matching entry JSON string(s) from the per-space buffer list.
+
+    Args:
+        count: Redis LREM count semantics. Use 0 to remove all occurrences.
+    """
+    if not entry_json:
+        return True
+
+    buffer_key = space_sop_buffer_key(project_id, space_id)
+    try:
+        async with REDIS_CLIENT.get_client_context() as client:
+            await client.lrem(buffer_key, count, entry_json)
+        return True
+    except Exception as e:
+        LOG.error(f"Failed to remove SOP buffer entry from {buffer_key}: {e}")
+        return False
+
+
 def parse_sop_buffer_entry(entry_json: str) -> SOPComplete | None:
     """
     Parse a Redis buffer entry into SOPComplete.
