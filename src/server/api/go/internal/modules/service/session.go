@@ -29,7 +29,7 @@ type SessionService interface {
 	UpdateByID(ctx context.Context, ss *model.Session) error
 	GetByID(ctx context.Context, ss *model.Session) (*model.Session, error)
 	List(ctx context.Context, in ListSessionsInput) (*ListSessionsOutput, error)
-	SendMessage(ctx context.Context, in SendMessageInput) (*model.Message, error)
+	StoreMessage(ctx context.Context, in StoreMessageInput) (*model.Message, error)
 	GetMessages(ctx context.Context, in GetMessagesInput) (*GetMessagesOutput, error)
 	GetAllMessages(ctx context.Context, sessionID uuid.UUID) ([]model.Message, error)
 }
@@ -137,7 +137,7 @@ func (s *sessionService) List(ctx context.Context, in ListSessionsInput) (*ListS
 	return out, nil
 }
 
-type SendMessageInput struct {
+type StoreMessageInput struct {
 	ProjectID   uuid.UUID
 	SessionID   uuid.UUID
 	Role        string
@@ -146,7 +146,7 @@ type SendMessageInput struct {
 	Files       map[string]*multipart.FileHeader
 }
 
-type SendMQPublishJSON struct {
+type StoreMQPublishJSON struct {
 	ProjectID uuid.UUID `json:"project_id"`
 	SessionID uuid.UUID `json:"session_id"`
 	MessageID uuid.UUID `json:"message_id"`
@@ -206,7 +206,7 @@ func (p *PartIn) Validate() error {
 	return nil
 }
 
-func (s *sessionService) SendMessage(ctx context.Context, in SendMessageInput) (*model.Message, error) {
+func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput) (*model.Message, error) {
 	parts := make([]model.Part, 0, len(in.Parts))
 
 	for idx, p := range in.Parts {
@@ -285,7 +285,7 @@ func (s *sessionService) SendMessage(ctx context.Context, in SendMessageInput) (
 		// Continue without publishing, but don't fail the request
 	} else if s.publisher != nil && !disableTaskTracking {
 		// Only publish to MQ if task tracking is enabled
-		if err := s.publisher.PublishJSON(ctx, s.cfg.RabbitMQ.ExchangeName.SessionMessage, s.cfg.RabbitMQ.RoutingKey.SessionMessageInsert, SendMQPublishJSON{
+		if err := s.publisher.PublishJSON(ctx, s.cfg.RabbitMQ.ExchangeName.SessionMessage, s.cfg.RabbitMQ.RoutingKey.SessionMessageInsert, StoreMQPublishJSON{
 			ProjectID: in.ProjectID,
 			SessionID: in.SessionID,
 			MessageID: msg.ID,

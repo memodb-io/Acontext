@@ -129,7 +129,7 @@ export interface MessagePartIn {
   meta?: Record<string, unknown>;
 }
 
-export const sendMessage = async (
+export const storeMessage = async (
   session_id: string,
   role: MessageRole,
   parts: MessagePartIn[],

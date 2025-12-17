@@ -10,7 +10,7 @@ This approach significantly reduces processing time and costs for repetitive tas
 
 Acontext will automatically store the prompt cache flag in the message metadata.
 ```python Python
-client.sessions.send_message(
+client.sessions.store_message(
     session_id="session-uuid",
     blob={
         "role": "user",

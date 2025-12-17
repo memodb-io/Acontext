@@ -64,7 +64,7 @@ cd go && go mod tidy && go run ./cmd/server
 - `POST /api/v1/project` - Create project (root auth)
 - `POST /api/v1/space` - Create space (project auth)
 - `POST /api/v1/session` - Create session (project auth)
-- `POST /api/v1/session/{id}/messages` - Send message (project auth)
+- `POST /api/v1/session/{id}/messages` - Store message (project auth)
 
 ## Deploy
 

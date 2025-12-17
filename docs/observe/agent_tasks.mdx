@@ -36,7 +36,7 @@ await client.sessions.flush(session.id);
 </CodeGroup>
 ## Quick Start: Test Task Extraction
 
-This example demonstrates how to verify that Acontext correctly extracts tasks from your agent's messages. You'll send a conversation where the agent outlines a plan, then retrieve the extracted tasks to confirm they were detected.
+This example demonstrates how to verify that Acontext correctly extracts tasks from your agent's messages. You'll store a conversation where the agent outlines a plan, then retrieve the extracted tasks to confirm they were detected.
 
 <CodeGroup>
 ```python Python
@@ -71,9 +71,9 @@ messages = [
     }
 ]
 
-# Send messages in a loop
+# Store messages in a loop
 for msg in messages:
-    client.sessions.send_message(
+    client.sessions.store_message(
         session_id=session.id,
         blob=msg,
         format="openai"
@@ -140,9 +140,9 @@ async function demonstrateTasks() {
         }
     ];
 
-    // Send messages in a loop
+    // Store messages in a loop
     for (const msg of messages) {
-        await client.sessions.sendMessage(session.id, {
+        await client.sessions.storeMessage(session.id, {
             blob: msg,
             format: 'openai'
         });
@@ -389,7 +389,7 @@ for task in response.items:
 
 <CardGroup cols={2}>
 <Card title="Poll for extraction" icon="clock">
-After sending messages, poll the tasks endpoint in a loop until tasks are extracted rather than using fixed delays.
+After storing messages, poll the tasks endpoint in a loop until tasks are extracted rather than using fixed delays.
 </Card>
 
 <Card title="Test extraction patterns" icon="flask">

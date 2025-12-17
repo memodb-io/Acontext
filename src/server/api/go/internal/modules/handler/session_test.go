@@ -51,7 +51,7 @@ func (m *MockSessionService) GetByID(ctx context.Context, s *model.Session) (*mo
 	return args.Get(0).(*model.Session), args.Error(1)
 }
 
-func (m *MockSessionService) SendMessage(ctx context.Context, in service.SendMessageInput) (*model.Message, error) {
+func (m *MockSessionService) StoreMessage(ctx context.Context, in service.StoreMessageInput) (*model.Message, error) {
 	args := m.Called(ctx, in)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -575,7 +575,7 @@ func TestSessionHandler_ConnectToSpace(t *testing.T) {
 	}
 }
 
-func TestSessionHandler_SendMessage(t *testing.T) {
+func TestSessionHandler_StoreMessage(t *testing.T) {
 	projectID := uuid.New()
 	sessionID := uuid.New()
 
@@ -608,7 +608,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -639,7 +639,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "assistant",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "assistant"
 				})).Return(expectedMessage, nil)
 			},
@@ -669,7 +669,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -693,7 +693,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -727,7 +727,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -758,7 +758,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "assistant",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "assistant"
 				})).Return(expectedMessage, nil)
 			},
@@ -797,7 +797,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "assistant",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "assistant"
 				})).Return(expectedMessage, nil)
 			},
@@ -829,7 +829,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "assistant",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "assistant"
 				})).Return(expectedMessage, nil)
 			},
@@ -862,7 +862,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -895,7 +895,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -920,7 +920,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "assistant",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "assistant"
 				})).Return(expectedMessage, nil)
 			},
@@ -954,7 +954,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -987,7 +987,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -1021,7 +1021,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -1055,7 +1055,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -1078,7 +1078,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user", // function messages convert to user role
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -1110,7 +1110,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "assistant",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "assistant"
 				})).Return(expectedMessage, nil)
 			},
@@ -1133,7 +1133,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user", // tool role converts to user
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -1175,7 +1175,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -1209,7 +1209,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -1244,7 +1244,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -1279,7 +1279,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -1310,7 +1310,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "assistant",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "assistant"
 				})).Return(expectedMessage, nil)
 			},
@@ -1353,7 +1353,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "assistant",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "assistant"
 				})).Return(expectedMessage, nil)
 			},
@@ -1381,7 +1381,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -1414,7 +1414,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -1463,7 +1463,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					// Verify cache_control is extracted
 					if len(in.Parts) >= 2 {
 						secondPart := in.Parts[1]
@@ -1510,7 +1510,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					// Verify image with cache_control
 					if len(in.Parts) >= 2 {
 						imagePart := in.Parts[1]
@@ -1557,7 +1557,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "assistant",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					// Verify tool-call (unified from tool_use) with cache_control
 					if len(in.Parts) >= 2 {
 						toolPart := in.Parts[1]
@@ -1598,7 +1598,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					// Verify tool_result with cache_control
 					if len(in.Parts) > 0 {
 						toolResultPart := in.Parts[0]
@@ -1645,7 +1645,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					// Verify document with cache_control
 					if len(in.Parts) >= 2 {
 						docPart := in.Parts[1]
@@ -1702,7 +1702,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					// Verify multiple cache breakpoints (max 4 according to docs)
 					if len(in.Parts) == 4 {
 						cacheCount := 0
@@ -1758,7 +1758,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					// Verify selective caching: first part no cache, others with cache
 					if len(in.Parts) == 3 {
 						noCacheFirst := in.Parts[0].Meta == nil || in.Parts[0].Meta["cache_control"] == nil
@@ -1788,7 +1788,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -1840,7 +1840,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 				},
 			},
 			setup: func(svc *MockSessionService) {
-				svc.On("SendMessage", mock.Anything, mock.Anything).Return(nil, errors.New("send failed"))
+				svc.On("StoreMessage", mock.Anything, mock.Anything).Return(nil, errors.New("store failed"))
 			},
 			expectedStatus: http.StatusBadRequest,
 		},
@@ -1856,7 +1856,7 @@ func TestSessionHandler_SendMessage(t *testing.T) {
 			router.POST("/session/:session_id/messages", func(c *gin.Context) {
 				project := &model.Project{ID: projectID}
 				c.Set("project", project)
-				handler.SendMessage(c)
+				handler.StoreMessage(c)
 			})
 
 			body, _ := sonic.Marshal(tt.requestBody)
@@ -2256,7 +2256,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 	}
 }
 
-func TestSessionHandler_SendMessage_Multipart(t *testing.T) {
+func TestSessionHandler_StoreMessage_Multipart(t *testing.T) {
 	projectID := uuid.New()
 	sessionID := uuid.New()
 
@@ -2299,7 +2299,7 @@ func TestSessionHandler_SendMessage_Multipart(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user" && len(in.Parts) > 0
 				})).Return(expectedMessage, nil)
 			},
@@ -2337,7 +2337,7 @@ func TestSessionHandler_SendMessage_Multipart(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
 				})).Return(expectedMessage, nil)
 			},
@@ -2379,7 +2379,7 @@ func TestSessionHandler_SendMessage_Multipart(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user" && len(in.Parts) > 0
 				})).Return(expectedMessage, nil)
 			},
@@ -2418,7 +2418,7 @@ func TestSessionHandler_SendMessage_Multipart(t *testing.T) {
 					SessionID: sessionID,
 					Role:      "user",
 				}
-				svc.On("SendMessage", mock.Anything, mock.MatchedBy(func(in service.SendMessageInput) bool {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user" && len(in.Parts) > 0
 				})).Return(expectedMessage, nil)
 			},
@@ -2436,7 +2436,7 @@ func TestSessionHandler_SendMessage_Multipart(t *testing.T) {
 			router.POST("/session/:session_id/messages", func(c *gin.Context) {
 				project := &model.Project{ID: projectID}
 				c.Set("project", project)
-				handler.SendMessage(c)
+				handler.StoreMessage(c)
 			})
 
 			// Create multipart form data
@@ -2469,7 +2469,7 @@ func TestSessionHandler_SendMessage_Multipart(t *testing.T) {
 	}
 }
 
-func TestSessionHandler_SendMessage_InvalidJSON(t *testing.T) {
+func TestSessionHandler_StoreMessage_InvalidJSON(t *testing.T) {
 	projectID := uuid.New()
 	sessionID := uuid.New()
 
@@ -2482,10 +2482,10 @@ func TestSessionHandler_SendMessage_InvalidJSON(t *testing.T) {
 		router.POST("/session/:session_id/messages", func(c *gin.Context) {
 			project := &model.Project{ID: projectID}
 			c.Set("project", project)
-			handler.SendMessage(c)
+			handler.StoreMessage(c)
 		})
 
-		// Send invalid JSON directly
+		// Post invalid JSON directly
 		req := httptest.NewRequest("POST", "/session/"+sessionID.String()+"/messages", bytes.NewBufferString("invalid json"))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
@@ -2526,8 +2526,8 @@ func TestOpenAI_ToolCalls_FieldPreservation(t *testing.T) {
 		},
 	}
 
-	// Mock SendMessage
-	mockService.On("SendMessage", mock.Anything, mock.Anything).Return(expectedMessage, nil)
+	// Mock StoreMessage
+	mockService.On("StoreMessage", mock.Anything, mock.Anything).Return(expectedMessage, nil)
 
 	// Mock GetMessages
 	mockService.On("GetMessages", mock.Anything, mock.Anything).Return(&service.GetMessagesOutput{
@@ -2541,12 +2541,12 @@ func TestOpenAI_ToolCalls_FieldPreservation(t *testing.T) {
 	router.POST("/session/:session_id/messages", func(c *gin.Context) {
 		project := &model.Project{ID: projectID}
 		c.Set("project", project)
-		handler.SendMessage(c)
+		handler.StoreMessage(c)
 	})
 	router.GET("/session/:session_id/messages", handler.GetMessages)
 
-	// Step 1: Send OpenAI format message with name and tool_calls
-	sendBody := map[string]interface{}{
+	// Step 1: Store OpenAI format message with name and tool_calls
+	storeBody := map[string]interface{}{
 		"format": "openai",
 		"blob": map[string]interface{}{
 			"role": "assistant",
@@ -2564,12 +2564,12 @@ func TestOpenAI_ToolCalls_FieldPreservation(t *testing.T) {
 		},
 	}
 
-	sendBodyBytes, _ := sonic.Marshal(sendBody)
-	req := httptest.NewRequest("POST", "/session/"+sessionID.String()+"/messages", bytes.NewBuffer(sendBodyBytes))
+	storeBodyBytes, _ := sonic.Marshal(storeBody)
+	req := httptest.NewRequest("POST", "/session/"+sessionID.String()+"/messages", bytes.NewBuffer(storeBodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
-	require.Equal(t, http.StatusCreated, w.Code, "Send message should succeed")
+	require.Equal(t, http.StatusCreated, w.Code, "Store message should succeed")
 
 	// Step 2: Get messages in OpenAI format
 	getURL := "/session/" + sessionID.String() + "/messages?limit=20&format=openai"
@@ -2684,7 +2684,7 @@ func TestOpenAIToAnthropic_FieldMapping(t *testing.T) {
 		},
 	}
 
-	mockService.On("SendMessage", mock.Anything, mock.Anything).Return(expectedMessage, nil)
+	mockService.On("StoreMessage", mock.Anything, mock.Anything).Return(expectedMessage, nil)
 	mockService.On("GetMessages", mock.Anything, mock.Anything).Return(&service.GetMessagesOutput{
 		Items:   []model.Message{*expectedMessage},
 		HasMore: false,
@@ -2696,12 +2696,12 @@ func TestOpenAIToAnthropic_FieldMapping(t *testing.T) {
 	router.POST("/session/:session_id/messages", func(c *gin.Context) {
 		project := &model.Project{ID: projectID}
 		c.Set("project", project)
-		handler.SendMessage(c)
+		handler.StoreMessage(c)
 	})
 	router.GET("/session/:session_id/messages", handler.GetMessages)
 
-	// Step 1: Send OpenAI format message
-	sendBody := map[string]interface{}{
+	// Step 1: Store OpenAI format message
+	storeBody := map[string]interface{}{
 		"format": "openai",
 		"blob": map[string]interface{}{
 			"role":    "assistant",
@@ -2719,8 +2719,8 @@ func TestOpenAIToAnthropic_FieldMapping(t *testing.T) {
 		},
 	}
 
-	sendBodyBytes, _ := sonic.Marshal(sendBody)
-	req := httptest.NewRequest("POST", "/session/"+sessionID.String()+"/messages", bytes.NewBuffer(sendBodyBytes))
+	storeBodyBytes, _ := sonic.Marshal(storeBody)
+	req := httptest.NewRequest("POST", "/session/"+sessionID.String()+"/messages", bytes.NewBuffer(storeBodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -2808,7 +2808,7 @@ func TestAnthropicToOpenAI_FieldMapping(t *testing.T) {
 		},
 	}
 
-	mockService.On("SendMessage", mock.Anything, mock.Anything).Return(expectedMessage, nil)
+	mockService.On("StoreMessage", mock.Anything, mock.Anything).Return(expectedMessage, nil)
 	mockService.On("GetMessages", mock.Anything, mock.Anything).Return(&service.GetMessagesOutput{
 		Items:   []model.Message{*expectedMessage},
 		HasMore: false,
@@ -2820,12 +2820,12 @@ func TestAnthropicToOpenAI_FieldMapping(t *testing.T) {
 	router.POST("/session/:session_id/messages", func(c *gin.Context) {
 		project := &model.Project{ID: projectID}
 		c.Set("project", project)
-		handler.SendMessage(c)
+		handler.StoreMessage(c)
 	})
 	router.GET("/session/:session_id/messages", handler.GetMessages)
 
-	// Step 1: Send Anthropic format message
-	sendBody := map[string]interface{}{
+	// Step 1: Store Anthropic format message
+	storeBody := map[string]interface{}{
 		"format": "anthropic",
 		"blob": map[string]interface{}{
 			"role": "assistant",
@@ -2844,8 +2844,8 @@ func TestAnthropicToOpenAI_FieldMapping(t *testing.T) {
 		},
 	}
 
-	sendBodyBytes, _ := sonic.Marshal(sendBody)
-	req := httptest.NewRequest("POST", "/session/"+sessionID.String()+"/messages", bytes.NewBuffer(sendBodyBytes))
+	storeBodyBytes, _ := sonic.Marshal(storeBody)
+	req := httptest.NewRequest("POST", "/session/"+sessionID.String()+"/messages", bytes.NewBuffer(storeBodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -2914,7 +2914,7 @@ func TestToolResult_OpenAIToAnthropic(t *testing.T) {
 		},
 	}
 
-	mockService.On("SendMessage", mock.Anything, mock.Anything).Return(expectedMessage, nil)
+	mockService.On("StoreMessage", mock.Anything, mock.Anything).Return(expectedMessage, nil)
 	mockService.On("GetMessages", mock.Anything, mock.Anything).Return(&service.GetMessagesOutput{
 		Items:   []model.Message{*expectedMessage},
 		HasMore: false,
@@ -2926,12 +2926,12 @@ func TestToolResult_OpenAIToAnthropic(t *testing.T) {
 	router.POST("/session/:session_id/messages", func(c *gin.Context) {
 		project := &model.Project{ID: projectID}
 		c.Set("project", project)
-		handler.SendMessage(c)
+		handler.StoreMessage(c)
 	})
 	router.GET("/session/:session_id/messages", handler.GetMessages)
 
-	// Step 1: Send OpenAI tool message
-	sendBody := map[string]interface{}{
+	// Step 1: Store OpenAI tool message
+	storeBody := map[string]interface{}{
 		"format": "openai",
 		"blob": map[string]interface{}{
 			"role":         "tool",
@@ -2940,8 +2940,8 @@ func TestToolResult_OpenAIToAnthropic(t *testing.T) {
 		},
 	}
 
-	sendBodyBytes, _ := sonic.Marshal(sendBody)
-	req := httptest.NewRequest("POST", "/session/"+sessionID.String()+"/messages", bytes.NewBuffer(sendBodyBytes))
+	storeBodyBytes, _ := sonic.Marshal(storeBody)
+	req := httptest.NewRequest("POST", "/session/"+sessionID.String()+"/messages", bytes.NewBuffer(storeBodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -3027,7 +3027,7 @@ func TestToolResult_AnthropicToOpenAI(t *testing.T) {
 		},
 	}
 
-	mockService.On("SendMessage", mock.Anything, mock.Anything).Return(expectedMessage, nil)
+	mockService.On("StoreMessage", mock.Anything, mock.Anything).Return(expectedMessage, nil)
 	mockService.On("GetMessages", mock.Anything, mock.Anything).Return(&service.GetMessagesOutput{
 		Items:   []model.Message{*expectedMessage},
 		HasMore: false,
@@ -3039,12 +3039,12 @@ func TestToolResult_AnthropicToOpenAI(t *testing.T) {
 	router.POST("/session/:session_id/messages", func(c *gin.Context) {
 		project := &model.Project{ID: projectID}
 		c.Set("project", project)
-		handler.SendMessage(c)
+		handler.StoreMessage(c)
 	})
 	router.GET("/session/:session_id/messages", handler.GetMessages)
 
-	// Step 1: Send Anthropic tool_result
-	sendBody := map[string]interface{}{
+	// Step 1: Store Anthropic tool_result
+	storeBody := map[string]interface{}{
 		"format": "anthropic",
 		"blob": map[string]interface{}{
 			"role": "user",
@@ -3058,8 +3058,8 @@ func TestToolResult_AnthropicToOpenAI(t *testing.T) {
 		},
 	}
 
-	sendBodyBytes, _ := sonic.Marshal(sendBody)
-	req := httptest.NewRequest("POST", "/session/"+sessionID.String()+"/messages", bytes.NewBuffer(sendBodyBytes))
+	storeBodyBytes, _ := sonic.Marshal(storeBody)
+	req := httptest.NewRequest("POST", "/session/"+sessionID.String()+"/messages", bytes.NewBuffer(storeBodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -3125,7 +3125,7 @@ func TestAnthropic_CacheControl_Preservation(t *testing.T) {
 		},
 	}
 
-	mockService.On("SendMessage", mock.Anything, mock.Anything).Return(expectedMessage, nil)
+	mockService.On("StoreMessage", mock.Anything, mock.Anything).Return(expectedMessage, nil)
 	mockService.On("GetMessages", mock.Anything, mock.Anything).Return(&service.GetMessagesOutput{
 		Items:   []model.Message{*expectedMessage},
 		HasMore: false,
@@ -3137,12 +3137,12 @@ func TestAnthropic_CacheControl_Preservation(t *testing.T) {
 	router.POST("/session/:session_id/messages", func(c *gin.Context) {
 		project := &model.Project{ID: projectID}
 		c.Set("project", project)
-		handler.SendMessage(c)
+		handler.StoreMessage(c)
 	})
 	router.GET("/session/:session_id/messages", handler.GetMessages)
 
-	// Step 1: Send Anthropic message with cache_control
-	sendBody := map[string]interface{}{
+	// Step 1: Store Anthropic message with cache_control
+	storeBody := map[string]interface{}{
 		"format": "anthropic",
 		"blob": map[string]interface{}{
 			"role": "user",
@@ -3162,8 +3162,8 @@ func TestAnthropic_CacheControl_Preservation(t *testing.T) {
 		},
 	}
 
-	sendBodyBytes, _ := sonic.Marshal(sendBody)
-	req := httptest.NewRequest("POST", "/session/"+sessionID.String()+"/messages", bytes.NewBuffer(sendBodyBytes))
+	storeBodyBytes, _ := sonic.Marshal(storeBody)
+	req := httptest.NewRequest("POST", "/session/"+sessionID.String()+"/messages", bytes.NewBuffer(storeBodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -3251,7 +3251,7 @@ func TestMultipleToolCalls_Conversion(t *testing.T) {
 		},
 	}
 
-	mockService.On("SendMessage", mock.Anything, mock.Anything).Return(expectedMessage, nil)
+	mockService.On("StoreMessage", mock.Anything, mock.Anything).Return(expectedMessage, nil)
 	mockService.On("GetMessages", mock.Anything, mock.Anything).Return(&service.GetMessagesOutput{
 		Items:   []model.Message{*expectedMessage},
 		HasMore: false,
@@ -3263,12 +3263,12 @@ func TestMultipleToolCalls_Conversion(t *testing.T) {
 	router.POST("/session/:session_id/messages", func(c *gin.Context) {
 		project := &model.Project{ID: projectID}
 		c.Set("project", project)
-		handler.SendMessage(c)
+		handler.StoreMessage(c)
 	})
 	router.GET("/session/:session_id/messages", handler.GetMessages)
 
-	// Step 1: Send OpenAI message with multiple tool_calls
-	sendBody := map[string]interface{}{
+	// Step 1: Store OpenAI message with multiple tool_calls
+	storeBody := map[string]interface{}{
 		"format": "openai",
 		"blob": map[string]interface{}{
 			"role":    "assistant",
@@ -3294,8 +3294,8 @@ func TestMultipleToolCalls_Conversion(t *testing.T) {
 		},
 	}
 
-	sendBodyBytes, _ := sonic.Marshal(sendBody)
-	req := httptest.NewRequest("POST", "/session/"+sessionID.String()+"/messages", bytes.NewBuffer(sendBodyBytes))
+	storeBodyBytes, _ := sonic.Marshal(storeBody)
+	req := httptest.NewRequest("POST", "/session/"+sessionID.String()+"/messages", bytes.NewBuffer(storeBodyBytes))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)

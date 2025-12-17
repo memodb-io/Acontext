@@ -85,7 +85,7 @@ def test_ping_returns_pong(mock_request, client: AcontextClient) -> None:
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_send_message_with_files_uses_multipart_payload(
+def test_store_message_with_files_uses_multipart_payload(
     mock_request, client: AcontextClient
 ) -> None:
     mock_request.return_value = {
@@ -110,7 +110,7 @@ def test_send_message_with_files_uses_multipart_payload(
         filename="image.png", content=dummy_stream, content_type="image/png"
     )
 
-    client.sessions.send_message(
+    client.sessions.store_message(
         "session-id",
         blob=blob,
         format="acontext",
@@ -144,7 +144,7 @@ def test_send_message_with_files_uses_multipart_payload(
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_send_message_allows_nullable_blob_for_other_formats(
+def test_store_message_allows_nullable_blob_for_other_formats(
     mock_request, client: AcontextClient
 ) -> None:
     mock_request.return_value = {
@@ -158,7 +158,7 @@ def test_send_message_allows_nullable_blob_for_other_formats(
         "updated_at": "2024-01-01T00:00:00Z",
     }
 
-    client.sessions.send_message("session-id", format="openai", blob=None)  # type: ignore[arg-type]
+    client.sessions.store_message("session-id", format="openai", blob=None)  # type: ignore[arg-type]
 
     mock_request.assert_called_once()
     _, kwargs = mock_request.call_args
@@ -166,23 +166,23 @@ def test_send_message_allows_nullable_blob_for_other_formats(
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_send_message_requires_format_when_cannot_infer(
+def test_store_message_requires_format_when_cannot_infer(
     mock_request, client: AcontextClient
 ) -> None:
     # Type checker will catch this, but at runtime we need format
     with pytest.raises((TypeError, ValueError)):
-        client.sessions.send_message(
+        client.sessions.store_message(
             "session-id",
             blob={"message": "hi"},  # type: ignore[arg-type]
         )
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_send_message_rejects_unknown_format(
+def test_store_message_rejects_unknown_format(
     mock_request, client: AcontextClient
 ) -> None:
     with pytest.raises(ValueError, match="format must be one of"):
-        client.sessions.send_message(
+        client.sessions.store_message(
             "session-id",
             blob={"role": "user", "content": "hi"},  # type: ignore[arg-type]
             format="legacy",  # type: ignore[arg-type]
@@ -190,7 +190,7 @@ def test_send_message_rejects_unknown_format(
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_send_message_explicit_format_still_supported(
+def test_store_message_explicit_format_still_supported(
     mock_request, client: AcontextClient
 ) -> None:
     mock_request.return_value = {
@@ -204,7 +204,7 @@ def test_send_message_explicit_format_still_supported(
         "updated_at": "2024-01-01T00:00:00Z",
     }
 
-    client.sessions.send_message(
+    client.sessions.store_message(
         "session-id",
         blob={"role": "user", "content": "hi"},  # type: ignore[arg-type]
         format="openai",
@@ -241,7 +241,7 @@ class _FakeAnthropicMessage:
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_send_message_handles_openai_model_dump(
+def test_store_message_handles_openai_model_dump(
     mock_request, client: AcontextClient
 ) -> None:
     mock_request.return_value = {
@@ -256,7 +256,7 @@ def test_send_message_handles_openai_model_dump(
     }
 
     message = _FakeOpenAIMessage(role="user")
-    client.sessions.send_message(
+    client.sessions.store_message(
         "session-id",
         blob=message,  # type: ignore[arg-type]
         format="openai",
@@ -269,7 +269,7 @@ def test_send_message_handles_openai_model_dump(
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_send_message_handles_anthropic_model_dump(
+def test_store_message_handles_anthropic_model_dump(
     mock_request, client: AcontextClient
 ) -> None:
     mock_request.return_value = {
@@ -284,7 +284,7 @@ def test_send_message_handles_anthropic_model_dump(
     }
 
     message = _FakeAnthropicMessage(role="user")
-    client.sessions.send_message(
+    client.sessions.store_message(
         "session-id",
         blob=message,  # type: ignore[arg-type]
         format="anthropic",
@@ -297,7 +297,7 @@ def test_send_message_handles_anthropic_model_dump(
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_send_message_accepts_acontext_message(
+def test_store_message_accepts_acontext_message(
     mock_request, client: AcontextClient
 ) -> None:
     mock_request.return_value = {
@@ -312,7 +312,7 @@ def test_send_message_accepts_acontext_message(
     }
 
     blob = build_acontext_message(role="assistant", parts=["hi"])
-    client.sessions.send_message("session-id", blob=blob, format="acontext")
+    client.sessions.store_message("session-id", blob=blob, format="acontext")
 
     mock_request.assert_called_once()
     _, kwargs = mock_request.call_args
@@ -320,7 +320,7 @@ def test_send_message_accepts_acontext_message(
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_send_message_requires_file_field_when_file_provided(
+def test_store_message_requires_file_field_when_file_provided(
     mock_request, client: AcontextClient
 ) -> None:
     blob = build_acontext_message(role="user", parts=["hello"])
@@ -336,7 +336,7 @@ def test_send_message_requires_file_field_when_file_provided(
     with pytest.raises(
         ValueError, match="file_field is required when file is provided"
     ):
-        client.sessions.send_message(
+        client.sessions.store_message(
             "session-id",
             blob=blob,
             format="acontext",
@@ -347,7 +347,7 @@ def test_send_message_requires_file_field_when_file_provided(
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_send_message_rejects_file_for_non_acontext_format(
+def test_store_message_rejects_file_for_non_acontext_format(
     mock_request, client: AcontextClient
 ) -> None:
     class _DummyStream:
@@ -362,7 +362,7 @@ def test_send_message_rejects_file_for_non_acontext_format(
         ValueError,
         match="file and file_field parameters are only supported when format is 'acontext'",
     ):
-        client.sessions.send_message(
+        client.sessions.store_message(
             "session-id",
             blob={"role": "user", "content": "hi"},  # type: ignore[arg-type]
             format="openai",
@@ -374,14 +374,14 @@ def test_send_message_rejects_file_for_non_acontext_format(
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_send_message_rejects_file_field_for_non_acontext_format(
+def test_store_message_rejects_file_field_for_non_acontext_format(
     mock_request, client: AcontextClient
 ) -> None:
     with pytest.raises(
         ValueError,
         match="file and file_field parameters are only supported when format is 'acontext'",
     ):
-        client.sessions.send_message(
+        client.sessions.store_message(
             "session-id",
             blob={"role": "user", "content": "hi"},  # type: ignore[arg-type]
             format="openai",

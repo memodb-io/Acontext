@@ -75,7 +75,7 @@ async def test_async_ping_returns_pong(
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
 @pytest.mark.asyncio
-async def test_async_send_message_with_files_uses_multipart_payload(
+async def test_async_store_message_with_files_uses_multipart_payload(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
     mock_request.return_value = {
@@ -100,7 +100,7 @@ async def test_async_send_message_with_files_uses_multipart_payload(
         filename="image.png", content=dummy_stream, content_type="image/png"
     )
 
-    await async_client.sessions.send_message(
+    await async_client.sessions.store_message(
         "session-id",
         blob=blob,
         format="acontext",
@@ -135,7 +135,7 @@ async def test_async_send_message_with_files_uses_multipart_payload(
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
 @pytest.mark.asyncio
-async def test_async_send_message_allows_nullable_blob_for_other_formats(
+async def test_async_store_message_allows_nullable_blob_for_other_formats(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
     mock_request.return_value = {
@@ -149,7 +149,7 @@ async def test_async_send_message_allows_nullable_blob_for_other_formats(
         "updated_at": "2024-01-01T00:00:00Z",
     }
 
-    await async_client.sessions.send_message("session-id", format="openai", blob=None)  # type: ignore[arg-type]
+    await async_client.sessions.store_message("session-id", format="openai", blob=None)  # type: ignore[arg-type]
 
     mock_request.assert_called_once()
     _, kwargs = mock_request.call_args
@@ -157,11 +157,11 @@ async def test_async_send_message_allows_nullable_blob_for_other_formats(
 
 
 @pytest.mark.asyncio
-async def test_async_send_message_rejects_unknown_format(
+async def test_async_store_message_rejects_unknown_format(
     async_client: AcontextAsyncClient,
 ) -> None:
     with pytest.raises(ValueError, match="format must be one of"):
-        await async_client.sessions.send_message(
+        await async_client.sessions.store_message(
             "session-id",
             blob={"role": "user", "content": "hi"},  # type: ignore[arg-type]
             format="legacy",  # type: ignore[arg-type]
@@ -170,7 +170,7 @@ async def test_async_send_message_rejects_unknown_format(
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
 @pytest.mark.asyncio
-async def test_async_send_message_explicit_format_still_supported(
+async def test_async_store_message_explicit_format_still_supported(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
     mock_request.return_value = {
@@ -184,7 +184,7 @@ async def test_async_send_message_explicit_format_still_supported(
         "updated_at": "2024-01-01T00:00:00Z",
     }
 
-    await async_client.sessions.send_message(
+    await async_client.sessions.store_message(
         "session-id",
         blob={"role": "user", "content": "hi"},  # type: ignore[arg-type]
         format="openai",
@@ -222,7 +222,7 @@ class _FakeAnthropicMessage:
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
 @pytest.mark.asyncio
-async def test_async_send_message_handles_openai_model_dump(
+async def test_async_store_message_handles_openai_model_dump(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
     mock_request.return_value = {
@@ -237,7 +237,7 @@ async def test_async_send_message_handles_openai_model_dump(
     }
 
     message = _FakeOpenAIMessage(role="user")
-    await async_client.sessions.send_message(
+    await async_client.sessions.store_message(
         "session-id",
         blob=message,  # type: ignore[arg-type]
         format="openai",
@@ -251,7 +251,7 @@ async def test_async_send_message_handles_openai_model_dump(
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
 @pytest.mark.asyncio
-async def test_async_send_message_handles_anthropic_model_dump(
+async def test_async_store_message_handles_anthropic_model_dump(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
     mock_request.return_value = {
@@ -266,7 +266,7 @@ async def test_async_send_message_handles_anthropic_model_dump(
     }
 
     message = _FakeAnthropicMessage(role="user")
-    await async_client.sessions.send_message(
+    await async_client.sessions.store_message(
         "session-id",
         blob=message,  # type: ignore[arg-type]
         format="anthropic",
@@ -280,7 +280,7 @@ async def test_async_send_message_handles_anthropic_model_dump(
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
 @pytest.mark.asyncio
-async def test_async_send_message_accepts_acontext_message(
+async def test_async_store_message_accepts_acontext_message(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
     mock_request.return_value = {
@@ -295,7 +295,7 @@ async def test_async_send_message_accepts_acontext_message(
     }
 
     blob = build_acontext_message(role="assistant", parts=["hi"])
-    await async_client.sessions.send_message("session-id", blob=blob, format="acontext")
+    await async_client.sessions.store_message("session-id", blob=blob, format="acontext")
 
     mock_request.assert_called_once()
     _, kwargs = mock_request.call_args
@@ -303,7 +303,7 @@ async def test_async_send_message_accepts_acontext_message(
 
 
 @pytest.mark.asyncio
-async def test_async_send_message_requires_file_field_when_file_provided(
+async def test_async_store_message_requires_file_field_when_file_provided(
     async_client: AcontextAsyncClient,
 ) -> None:
     blob = build_acontext_message(role="user", parts=["hello"])
@@ -319,7 +319,7 @@ async def test_async_send_message_requires_file_field_when_file_provided(
     with pytest.raises(
         ValueError, match="file_field is required when file is provided"
     ):
-        await async_client.sessions.send_message(
+        await async_client.sessions.store_message(
             "session-id",
             blob=blob,
             format="acontext",
@@ -329,7 +329,7 @@ async def test_async_send_message_requires_file_field_when_file_provided(
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
 @pytest.mark.asyncio
-async def test_async_send_message_rejects_file_for_non_acontext_format(
+async def test_async_store_message_rejects_file_for_non_acontext_format(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
     class _DummyStream:
@@ -344,7 +344,7 @@ async def test_async_send_message_rejects_file_for_non_acontext_format(
         ValueError,
         match="file and file_field parameters are only supported when format is 'acontext'",
     ):
-        await async_client.sessions.send_message(
+        await async_client.sessions.store_message(
             "session-id",
             blob={"role": "user", "content": "hi"},  # type: ignore[arg-type]
             format="openai",
@@ -357,14 +357,14 @@ async def test_async_send_message_rejects_file_for_non_acontext_format(
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
 @pytest.mark.asyncio
-async def test_async_send_message_rejects_file_field_for_non_acontext_format(
+async def test_async_store_message_rejects_file_field_for_non_acontext_format(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
     with pytest.raises(
         ValueError,
         match="file and file_field parameters are only supported when format is 'acontext'",
     ):
-        await async_client.sessions.send_message(
+        await async_client.sessions.store_message(
             "session-id",
             blob={"role": "user", "content": "hi"},  # type: ignore[arg-type]
             format="openai",

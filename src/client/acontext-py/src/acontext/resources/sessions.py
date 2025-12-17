@@ -171,7 +171,7 @@ class SessionsAPI:
         )
         return GetTasksOutput.model_validate(data)
 
-    def send_message(
+    def store_message(
         self,
         session_id: str,
         *,
@@ -185,7 +185,7 @@ class SessionsAPI:
             | None
         ) = None,
     ) -> Message:
-        """Send a message to a session.
+        """Store a message to a session.
 
         Args:
             session_id: The UUID of the session.

@@ -100,12 +100,12 @@ const acontextClient = new AcontextClient({
 
 ## How It Works
 
-The OpenAI TypeScript SDK integration works by sending conversation messages to Acontext in OpenAI message format. Since both use the same format, no conversion is needed.
+The OpenAI TypeScript SDK integration works by storing conversation messages to Acontext in OpenAI message format. Since both use the same format, no conversion is needed.
 
 ### Message Flow
 
 1. **Create session**: Initialize a new Acontext session for your agent
-2. **Send messages**: Append each message (user, assistant, and tool) to Acontext as the conversation progresses
+2. **Store messages**: Append each message (user, assistant, and tool) to Acontext as the conversation progresses
 3. **Handle tool calls**: Manually execute tools when OpenAI requests them
 4. **Extract tasks**: After the conversation, flush the session and retrieve extracted tasks
 5. **Resume sessions**: Load previous conversation history to continue where you left off
@@ -136,7 +136,7 @@ const session = await acontextClient.sessions.create({ spaceId: space.id });
 let conversation: any[] = [];
 const userMsg = { role: 'user', content: 'Hello!' };
 conversation.push(userMsg);
-await acontextClient.sessions.sendMessage(session.id, userMsg, {
+await acontextClient.sessions.storeMessage(session.id, userMsg, {
   format: 'openai',
 });
 
@@ -146,13 +146,13 @@ const response = await openaiClient.chat.completions.create({
   messages: conversation,
 });
 
-// Send assistant response to Acontext
+// Store assistant response to Acontext
 const assistantMsg = {
   role: response.choices[0].message.role,
   content: response.choices[0].message.content,
 };
 conversation.push(assistantMsg);
-await acontextClient.sessions.sendMessage(session.id, assistantMsg, {
+await acontextClient.sessions.storeMessage(session.id, assistantMsg, {
   format: 'openai',
 });
 ```
@@ -197,7 +197,7 @@ async function runAgent(
   client: OpenAI,
   conversation: any[]
 ): Promise<[string, any[]]> {
-  const messagesToSend: any[] = [
+  const messagesToStore: any[] = [
     ...conversation,
   ];
 
@@ -212,7 +212,7 @@ async function runAgent(
     // Call OpenAI API
     const response = await client.chat.completions.create({
       model: 'gpt-4o-mini',
-      messages: messagesToSend,
+      messages: messagesToStore,
       tools: tools,
       tool_choice: 'auto',
     });
@@ -250,7 +250,7 @@ async function runAgent(
       });
     }
 
-    messagesToSend.push(messageDict);
+    messagesToStore.push(messageDict);
     newMessages.push(messageDict);
 
     // If there are no tool calls, we're done
@@ -272,7 +272,7 @@ async function runAgent(
         tool_call_id: toolCallInfo.id,
         content: functionResult,
       };
-      messagesToSend.push(toolMessage);
+      messagesToStore.push(toolMessage);
       newMessages.push(toolMessage);
     }
   }
@@ -281,9 +281,9 @@ async function runAgent(
 }
 ```
 
-### Send Messages to Acontext
+### Store Messages to Acontext
 
-Send all messages (including tool calls and tool responses) to Acontext:
+Store all messages (including tool calls and tool responses) to Acontext:
 
 ```typescript
 async function appendMessage(
@@ -292,7 +292,7 @@ async function appendMessage(
   sessionId: string
 ): Promise<any[]> {
   conversation.push(message);
-  await acontextClient.sessions.sendMessage(sessionId, message, {
+  await acontextClient.sessions.storeMessage(sessionId, message, {
     format: 'openai',
   });
   return conversation;
@@ -363,7 +363,7 @@ async function appendMessage(
   sessionId: string
 ): Promise<any[]> {
   conversation.push(message);
-  await acontextClient.sessions.sendMessage(sessionId, message, {
+  await acontextClient.sessions.storeMessage(sessionId, message, {
     format: 'openai',
   });
   return conversation;
@@ -386,7 +386,7 @@ async function main(): Promise<void> {
     conversation
   );
 
-  // Send all messages to Acontext
+  // Store all messages to Acontext
   for (const msg of newMessages) {
     conversation = await appendMessage(msg, conversation, session.id);
   }
@@ -465,7 +465,7 @@ for (const task of tasksResponse.items) {
 Acontext automatically tracks all tool calls and their results when messages are sent:
 
 ```typescript
-// Tool calls are automatically tracked when you send messages
+// Tool calls are automatically tracked when you store messages
 const messageWithToolCall = {
   role: 'assistant',
   content: null,
@@ -480,7 +480,7 @@ const messageWithToolCall = {
     },
   ],
 };
-await acontextClient.sessions.sendMessage(sessionId, messageWithToolCall, {
+await acontextClient.sessions.storeMessage(sessionId, messageWithToolCall, {
   format: 'openai',
 });
 
@@ -490,7 +490,7 @@ const toolResult = {
   tool_call_id: 'call_123',
   content: 'The weather in Helsinki is sunny',
 };
-await acontextClient.sessions.sendMessage(sessionId, toolResult, {
+await acontextClient.sessions.storeMessage(sessionId, toolResult, {
   format: 'openai',
 });
 ```
@@ -498,7 +498,7 @@ await acontextClient.sessions.sendMessage(sessionId, toolResult, {
 ## Best Practices
 
 <Tip>
-**Message format**: Always specify `format: 'openai'` when sending messages to Acontext to ensure proper message format handling.
+**Message format**: Always specify `format: 'openai'` when storing messages to Acontext to ensure proper message format handling.
 </Tip>
 
 <Tip>

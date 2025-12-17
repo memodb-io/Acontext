@@ -120,20 +120,20 @@ def exercise_sessions(client: AcontextClient, space_id: str) -> dict[str, Any]:
     client.sessions.connect_to_space(session_id, space_id=space_id)
     summary["tasks"] = client.sessions.get_tasks(session_id)
 
-    # send message in acontext format
+    # store message in acontext format
     acontext_blob = build_acontext_message(
         role="user",
         parts=["Hello from the SDK e2e test!"],
     )
-    client.sessions.send_message(session_id, blob=acontext_blob, format="acontext")
+    client.sessions.store_message(session_id, blob=acontext_blob, format="acontext")
 
-    # send message in acontext format with file upload
+    # store message in acontext format with file upload
     file_field = "retro_notes"
     file_blob = build_acontext_message(
         role="user",
         parts=[{"type": "file", "file_field": file_field}],
     )
-    client.sessions.send_message(
+    client.sessions.store_message(
         session_id,
         blob=file_blob,
         format="acontext",
@@ -141,7 +141,7 @@ def exercise_sessions(client: AcontextClient, space_id: str) -> dict[str, Any]:
         file=build_file_upload(),
     )
 
-    # send tool-call message
+    # store tool-call message
     tool_blob = build_acontext_message(
         role="assistant",
         parts=[
@@ -156,11 +156,11 @@ def exercise_sessions(client: AcontextClient, space_id: str) -> dict[str, Any]:
             },
         ],
     )
-    client.sessions.send_message(session_id, blob=tool_blob, format="acontext")
+    client.sessions.store_message(session_id, blob=tool_blob, format="acontext")
 
-    # send OpenAI compatible messages
+    # store OpenAI compatible messages
     openai_user = {"role": "user", "content": "Hello from OpenAI format"}
-    client.sessions.send_message(session_id, blob=openai_user, format="openai")  # type: ignore[arg-type]
+    client.sessions.store_message(session_id, blob=openai_user, format="openai")  # type: ignore[arg-type]
 
     openai_assistant = {
         "role": "assistant",
@@ -176,11 +176,11 @@ def exercise_sessions(client: AcontextClient, space_id: str) -> dict[str, Any]:
             }
         ],
     }
-    client.sessions.send_message(session_id, blob=openai_assistant, format="openai")  # type: ignore[arg-type]
+    client.sessions.store_message(session_id, blob=openai_assistant, format="openai")  # type: ignore[arg-type]
 
-    # send Anthropic compatible messages
+    # store Anthropic compatible messages
     anthropic_user = {"role": "user", "content": "Hello from Anthropic format"}
-    client.sessions.send_message(session_id, blob=anthropic_user, format="anthropic")  # type: ignore[arg-type]
+    client.sessions.store_message(session_id, blob=anthropic_user, format="anthropic")  # type: ignore[arg-type]
 
     anthropic_assistant = {
         "role": "assistant",
@@ -197,7 +197,7 @@ def exercise_sessions(client: AcontextClient, space_id: str) -> dict[str, Any]:
             },
         ],
     }
-    client.sessions.send_message(session_id, blob=anthropic_assistant, format="anthropic")  # type: ignore[arg-type]
+    client.sessions.store_message(session_id, blob=anthropic_assistant, format="anthropic")  # type: ignore[arg-type]
 
     summary["messages"] = client.sessions.get_messages(
         session_id,

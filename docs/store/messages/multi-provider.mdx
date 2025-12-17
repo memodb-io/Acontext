@@ -12,14 +12,14 @@ Before storing messages, you need:
 - An Acontext API key (default is `sk-ac-your-root-api-bearer-token`)
 
 <Note>
-Messages are stored within sessions. Create a session first, then send messages to it.
+Messages are stored within sessions. Create a session first, then store messages to it.
 </Note>
 
-## Sending messages
+## Storing messages
 
 ### Create a session first
 
-Before sending messages, create a session to store them:
+Before storing messages, create a session:
 
 <CodeGroup>
 ```python Python
@@ -49,9 +49,9 @@ console.log(`Session created: ${session.id}`);
 ```
 </CodeGroup>
 
-### Send a single message
+### Store a single message
 
-Send messages in OpenAI or Anthropic format:
+Store messages in OpenAI or Anthropic format:
 
 <Tabs>
 <Tab title="OpenAI Format">
@@ -65,8 +65,8 @@ client = AcontextClient(
 )
 session = client.sessions.create()
 
-# Send a message in OpenAI format
-message = client.sessions.send_message(
+# Store a message in OpenAI format
+message = client.sessions.store_message(
     session_id=session.id,
     blob={
         "role": "user",
@@ -75,7 +75,7 @@ message = client.sessions.send_message(
     format="openai"
 )
 
-print(f"Message sent: {message.id}")
+print(f"Message stored: {message.id}")
 ```
 
 ```typescript TypeScript
@@ -87,8 +87,8 @@ const client = new AcontextClient({
 });
 const session = await client.sessions.create();
 
-// Send a message in OpenAI format
-const message = await client.sessions.sendMessage(session.id, {
+// Store a message in OpenAI format
+const message = await client.sessions.storeMessage(session.id, {
   blob: {
     role: 'user',
     content: 'What is the capital of France?'
@@ -96,7 +96,7 @@ const message = await client.sessions.sendMessage(session.id, {
   format: 'openai'
 });
 
-console.log(`Message sent: ${message.id}`);
+console.log(`Message stored: ${message.id}`);
 ```
 </CodeGroup>
 </Tab>
@@ -112,8 +112,8 @@ client = AcontextClient(
 )
 session = client.sessions.create()
 
-# Send a message in Anthropic format
-message = client.sessions.send_message(
+# Store a message in Anthropic format
+message = client.sessions.store_message(
     session_id=session.id,
     blob={
         "role": "user",
@@ -124,7 +124,7 @@ message = client.sessions.send_message(
     format="anthropic"
 )
 
-print(f"Message sent: {message.id}")
+print(f"Message stored: {message.id}")
 ```
 
 ```typescript TypeScript
@@ -136,8 +136,8 @@ const client = new AcontextClient({
 });
 const session = await client.sessions.create();
 
-// Send a message in Anthropic format
-const message = await client.sessions.sendMessage(session.id, {
+// Store a message in Anthropic format
+const message = await client.sessions.storeMessage(session.id, {
   blob: {
     role: 'user',
     content: [
@@ -147,15 +147,15 @@ const message = await client.sessions.sendMessage(session.id, {
   format: 'anthropic'
 });
 
-console.log(`Message sent: ${message.id}`);
+console.log(`Message stored: ${message.id}`);
 ```
 </CodeGroup>
 </Tab>
 </Tabs>
 
-### Send multiple messages
+### Store multiple messages
 
-You can send multiple messages sequentially to build a conversation:
+You can store multiple messages sequentially to build a conversation:
 
 <CodeGroup>
 ```python Python
@@ -167,23 +167,23 @@ client = AcontextClient(
 )
 session = client.sessions.create()
 
-# Send multiple messages to build a conversation
-messages_to_send = [
+# Store multiple messages to build a conversation
+messages_to_store = [
     {"role": "user", "content": "Hello! Can you help me with Python?"},
     {"role": "assistant", "content": "Of course! I'd be happy to help with Python. What would you like to know?"},
     {"role": "user", "content": "How do I read a JSON file?"},
     {"role": "assistant", "content": "You can use the json module: import json; with open('file.json') as f: data = json.load(f)"}
 ]
 
-for msg in messages_to_send:
-    message = client.sessions.send_message(
+for msg in messages_to_store:
+    message = client.sessions.store_message(
         session_id=session.id,
         blob=msg,
         format="openai"
     )
-    print(f"Sent message: {message.id}")
+    print(f"Stored message: {message.id}")
 
-print(f"Total messages sent: {len(messages_to_send)}")
+print(f"Total messages stored: {len(messages_to_store)}")
 ```
 
 ```typescript TypeScript
@@ -195,23 +195,23 @@ const client = new AcontextClient({
 });
 const session = await client.sessions.create();
 
-// Send multiple messages to build a conversation
-const messagesToSend = [
+// Store multiple messages to build a conversation
+const messagesToStore = [
   { role: 'user', content: 'Hello! Can you help me with Python?' },
   { role: 'assistant', content: 'Of course! I'd be happy to help with Python. What would you like to know?' },
   { role: 'user', content: 'How do I read a JSON file?' },
   { role: 'assistant', content: 'You can use the json module: import json; with open("file.json") as f: data = json.load(f)' }
 ];
 
-for (const msg of messagesToSend) {
-  const message = await client.sessions.sendMessage(session.id, {
+for (const msg of messagesToStore) {
+  const message = await client.sessions.storeMessage(session.id, {
     blob: msg,
     format: 'openai'
   });
-  console.log(`Sent message: ${message.id}`);
+  console.log(`Stored message: ${message.id}`);
 }
 
-console.log(`Total messages sent: ${messagesToSend.length}`);
+console.log(`Total messages stored: ${messagesToStore.length}`);
 ```
 </CodeGroup>
 
@@ -280,7 +280,7 @@ Compatible with Anthropic's Messages API format. Use for Claude models.
 </CardGroup>
 
 <Tip>
-You can send messages in one format and retrieve them in another. Acontext automatically handles format conversion.
+You can store messages in one format and retrieve them in another. Acontext automatically handles format conversion.
 </Tip>
 
 ## Complete workflow example
@@ -301,7 +301,7 @@ try:
     # 1. Create a session
     session = client.sessions.create()
     
-    # 2. Send multiple messages
+    # 2. Store multiple messages
     conversation = [
         {"role": "user", "content": "I'm having trouble logging in"},
         {"role": "assistant", "content": "I can help with that. What error are you seeing?"},
@@ -310,7 +310,7 @@ try:
     ]
     
     for msg in conversation:
-        client.sessions.send_message(
+        client.sessions.store_message(
             session_id=session.id,
             blob=msg,
             format="openai"
@@ -346,7 +346,7 @@ async function storeAndRetrieveConversation() {
     // 1. Create a session
     const session = await client.sessions.create();
     
-    // 2. Send multiple messages
+    // 2. Store multiple messages
     const conversation = [
       { role: 'user', content: 'I\'m having trouble logging in' },
       { role: 'assistant', content: 'I can help with that. What error are you seeing?' },
@@ -355,7 +355,7 @@ async function storeAndRetrieveConversation() {
     ];
     
     for (const msg of conversation) {
-      await client.sessions.sendMessage(session.id, {
+      await client.sessions.storeMessage(session.id, {
         blob: msg,
         format: 'openai'
       });

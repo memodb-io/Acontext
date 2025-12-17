@@ -74,7 +74,7 @@ export async function POST(
     return createApiError("session_id is required");
   }
 
-  const sendMessage = new Promise<null>(async (resolve, reject) => {
+  const storeMessage = new Promise<null>(async (resolve, reject) => {
     try {
       const contentType = request.headers.get("content-type") || "";
 
@@ -141,13 +141,13 @@ export async function POST(
       }
       resolve(null);
     } catch (error) {
-      console.error("Send message error:", error);
+      console.error("Store message error:", error);
       reject(new Error("Internal Server Error"));
     }
   });
 
   try {
-    await sendMessage;
+    await storeMessage;
     return createApiResponse(null);
   } catch (error) {
     console.error(error);

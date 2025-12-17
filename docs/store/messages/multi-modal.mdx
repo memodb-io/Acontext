@@ -3,7 +3,7 @@ title: Multi-modal Messages
 description: "Store and retrieve messages with images, audio, and documents in OpenAI and Anthropic formats"
 ---
 
-Acontext supports multi-modal messages that include text, images, audio, and PDF documents. You can send and retrieve these messages in both OpenAI and Anthropic formats, with automatic format conversion between providers.
+Acontext supports multi-modal messages that include text, images, audio, and PDF documents. You can store and retrieve these messages in both OpenAI and Anthropic formats, with automatic format conversion between providers.
 
 ## Prerequisites
 
@@ -33,7 +33,7 @@ PDF documents for analysis and summarization
 </Card>
 </CardGroup>
 
-## Sending images
+## Storing images
 
 ### Images with OpenAI format
 
@@ -52,8 +52,8 @@ client = AcontextClient(
 client.ping()
 session = client.sessions.create()
 
-# Send a message with an image URL
-message = client.sessions.send_message(
+# Store a message with an image URL
+message = client.sessions.store_message(
     session_id=session.id,
     blob={
         "role": "user",
@@ -86,8 +86,8 @@ const client = new AcontextClient({
 });
 const session = await client.sessions.create();
 
-// Send a message with an image URL
-const message = await client.sessions.sendMessage(session.id, {
+// Store a message with an image URL
+const message = await client.sessions.storeMessage(session.id, {
   role: 'user',
   content: [
     {
@@ -125,8 +125,8 @@ session = client.sessions.create()
 with open("image.png", "rb") as image_file:
     image_data = base64.b64encode(image_file.read()).decode("utf-8")
 
-# Send message with base64 image (data URL format)
-message = client.sessions.send_message(
+# Store message with base64 image (data URL format)
+message = client.sessions.store_message(
     session_id=session.id,
     blob={
         "role": "user",
@@ -164,8 +164,8 @@ const session = await client.sessions.create();
 const imageBuffer = fs.readFileSync('image.png');
 const imageData = imageBuffer.toString('base64');
 
-// Send message with base64 image (data URL format)
-const message = await client.sessions.sendMessage(session.id, {
+// Store message with base64 image (data URL format)
+const message = await client.sessions.storeMessage(session.id, {
   role: 'user',
   content: [
     {
@@ -215,8 +215,8 @@ session = client.sessions.create()
 with open("image.png", "rb") as image_file:
     image_data = base64.b64encode(image_file.read()).decode("utf-8")
 
-# Send message with base64 image
-message = client.sessions.send_message(
+# Store message with base64 image
+message = client.sessions.store_message(
     session_id=session.id,
     blob={
         "role": "user",
@@ -255,8 +255,8 @@ const session = await client.sessions.create();
 const imageBuffer = fs.readFileSync('image.png');
 const imageData = imageBuffer.toString('base64');
 
-// Send message with base64 image
-const message = await client.sessions.sendMessage(session.id, {
+// Store message with base64 image
+const message = await client.sessions.storeMessage(session.id, {
   role: 'user',
   content: [
     {
@@ -282,7 +282,7 @@ console.log(`Message with image sent: ${message.id}`);
 Anthropic format requires images to be base64-encoded. The base64 data is stored within the message parts and returned as base64 when you retrieve the message.
 </Note>
 
-## Sending audio
+## Storing audio
 
 Audio content can be included in messages for speech-to-text or audio analysis use cases:
 
@@ -301,8 +301,8 @@ session = client.sessions.create()
 with open("audio.wav", "rb") as audio_file:
     audio_data = base64.b64encode(audio_file.read()).decode("utf-8")
 
-# Send message with audio (OpenAI format)
-message = client.sessions.send_message(
+# Store message with audio (OpenAI format)
+message = client.sessions.store_message(
     session_id=session.id,
     blob={
         "role": "user",
@@ -340,8 +340,8 @@ const session = await client.sessions.create();
 const audioBuffer = fs.readFileSync('audio.wav');
 const audioData = audioBuffer.toString('base64');
 
-// Send message with audio (OpenAI format)
-const message = await client.sessions.sendMessage(session.id, {
+// Store message with audio (OpenAI format)
+const message = await client.sessions.storeMessage(session.id, {
   role: 'user',
   content: [
     {
@@ -362,13 +362,13 @@ console.log(`Message with audio sent: ${message.id}`);
 ```
 </CodeGroup>
 
-## Sending Files
+## Storing Files
 
-You can send files for analysis and understanding using base64-encoded content. Different formats handle files differently:
+You can store files for analysis and understanding using base64-encoded content. Different formats handle files differently:
 
 <Tabs>
 <Tab title="Anthropic Format">
-Anthropic supports sending files using the `document` content type with base64-encoded data:
+Anthropic supports storing files using the `document` content type with base64-encoded data:
 
 <CodeGroup>
 ```python Python
@@ -385,8 +385,8 @@ session = client.sessions.create()
 with open("report.pdf", "rb") as pdf_file:
     pdf_data = base64.b64encode(pdf_file.read()).decode("utf-8")
 
-# Send message with PDF document (Anthropic format)
-message = client.sessions.send_message(
+# Store message with PDF document (Anthropic format)
+message = client.sessions.store_message(
     session_id=session.id,
     blob={
         "role": "user",
@@ -425,8 +425,8 @@ const session = await client.sessions.create();
 const pdfBuffer = fs.readFileSync('report.pdf');
 const pdfData = pdfBuffer.toString('base64');
 
-// Send message with PDF document (Anthropic format)
-const message = await client.sessions.sendMessage(session.id, {
+// Store message with PDF document (Anthropic format)
+const message = await client.sessions.storeMessage(session.id, {
   role: 'user',
   content: [
     {
@@ -467,8 +467,8 @@ session = client.sessions.create()
 with open("document.pdf", "rb") as pdf_file:
     pdf_data = base64.b64encode(pdf_file.read()).decode("utf-8")
 
-# Send message with PDF file (OpenAI format)
-message = client.sessions.send_message(
+# Store message with PDF file (OpenAI format)
+message = client.sessions.store_message(
     session_id=session.id,
     blob={
         "role": "user",
@@ -506,8 +506,8 @@ const session = await client.sessions.create();
 const pdfBuffer = fs.readFileSync('document.pdf');
 const pdfData = pdfBuffer.toString('base64');
 
-// Send message with PDF file (OpenAI format)
-const message = await client.sessions.sendMessage(session.id, {
+// Store message with PDF file (OpenAI format)
+const message = await client.sessions.storeMessage(session.id, {
   role: 'user',
   content: [
     {
@@ -531,7 +531,7 @@ console.log(`Message with PDF sent: ${message.id}`);
 </Tabs>
 
 <Note>
-When you send a PDF with base64 data, the base64 content is stored within the message parts JSON in S3. When you retrieve the message, the PDF is returned as base64 data again—not as a presigned URL. This keeps the PDF data inline with the message content.
+When you store a PDF with base64 data, the base64 content is stored within the message parts JSON in S3. When you retrieve the message, the PDF is returned as base64 data again—not as a presigned URL. This keeps the PDF data inline with the message content.
 </Note>
 
 ### Supported document formats
@@ -629,8 +629,8 @@ client = AcontextClient(
 )
 session = client.sessions.create()
 
-# Send in OpenAI format
-client.sessions.send_message(
+# Store in OpenAI format
+client.sessions.store_message(
     session_id=session.id,
     blob={
         "role": "user",
@@ -670,8 +670,8 @@ const client = new AcontextClient({
 });
 const session = await client.sessions.create();
 
-// Send in OpenAI format
-await client.sessions.sendMessage(session.id, {
+// Store in OpenAI format
+await client.sessions.storeMessage(session.id, {
   role: 'user',
   content: [
     { type: 'text', text: 'Analyze this image' },
@@ -717,8 +717,8 @@ session = client.sessions.create()
 with open("chart.png", "rb") as f:
     image_data = base64.b64encode(f.read()).decode("utf-8")
 
-# Send in Anthropic format
-client.sessions.send_message(
+# Store in Anthropic format
+client.sessions.store_message(
     session_id=session.id,
     blob={
         "role": "user",
@@ -765,8 +765,8 @@ const session = await client.sessions.create();
 const imageBuffer = fs.readFileSync('chart.png');
 const imageData = imageBuffer.toString('base64');
 
-// Send in Anthropic format
-await client.sessions.sendMessage(session.id, {
+// Store in Anthropic format
+await client.sessions.storeMessage(session.id, {
   role: 'user',
   content: [
     { type: 'text', text: 'Explain this chart' },
@@ -835,7 +835,7 @@ Format conversion is bidirectional and lossless for common content types. Use th
 
 ## Complete workflow example
 
-Here's a complete example that demonstrates sending and retrieving multi-modal messages:
+Here's a complete example that demonstrates storing and retrieving multi-modal messages:
 
 <CodeGroup>
 ```python Python
@@ -852,11 +852,11 @@ try:
     session = client.sessions.create()
     print(f"Session created: {session.id}")
     
-    # Send text + image message
+    # Store text + image message
     with open("screenshot.png", "rb") as f:
         image_data = base64.b64encode(f.read()).decode("utf-8")
     
-    message = client.sessions.send_message(
+    message = client.sessions.store_message(
         session_id=session.id,
         blob={
             "role": "user",
@@ -912,11 +912,11 @@ async function processMultiModalMessage() {
     const session = await client.sessions.create();
     console.log(`Session created: ${session.id}`);
     
-    // Send text + image message
+    // Store text + image message
     const imageBuffer = fs.readFileSync('screenshot.png');
     const imageData = imageBuffer.toString('base64');
     
-    const message = await client.sessions.sendMessage(session.id, {
+    const message = await client.sessions.storeMessage(session.id, {
       role: 'user',
       content: [
         {

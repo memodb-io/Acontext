@@ -183,9 +183,9 @@ messages = [
     }
 ]
 
-# Send messages to the session
+# Store messages to the session
 for msg in messages:
-    client.sessions.send_message(
+    client.sessions.store_message(
         session_id=session.id,
         blob=msg,
         format="acontext"
@@ -356,9 +356,9 @@ async function demonstrateSkillLearning() {
         }
     ];
 
-    // Send messages to the session
+    // Store messages to the session
     for (const msg of messages) {
-        await client.sessions.sendMessage(session.id, msg, {
+        await client.sessions.storeMessage(session.id, msg, {
             format: 'acontext'
         });
     }

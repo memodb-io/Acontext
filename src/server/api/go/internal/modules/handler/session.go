@@ -299,14 +299,14 @@ func (h *SessionHandler) ConnectToSpace(c *gin.Context) {
 	c.JSON(http.StatusOK, serializer.Response{})
 }
 
-type SendMessageReq struct {
+type StoreMessageReq struct {
 	Blob   interface{} `form:"blob" json:"blob" binding:"required"`
 	Format string      `form:"format" json:"format" binding:"omitempty,oneof=acontext openai anthropic" example:"openai" enums:"acontext,openai,anthropic"`
 }
 
-// SendMessage godoc
+// StoreMessage godoc
 //
-//	@Summary		Send message to session
+//	@Summary		Store message to session
 //	@Description	Supports JSON and multipart/form-data. In multipart mode: the payload is a JSON string placed in a form field. The format parameter indicates the format of the input message (default: openai, same as GET). The blob field should be a complete message object: for openai, use OpenAI ChatCompletionMessageParam format (with role and content); for anthropic, use Anthropic MessageParam format (with role and content); for acontext (internal), use {role, parts} format.
 //	@Tags			session
 //	@Accept			json
@@ -315,17 +315,17 @@ type SendMessageReq struct {
 //	@Param			session_id	path		string					true	"Session ID"	Format(uuid)
 //
 //	// Content-Type: application/json
-//	@Param			payload		body		handler.SendMessageReq	true	"SendMessage payload (Content-Type: application/json)"
+//	@Param			payload		body		handler.StoreMessageReq	true	"StoreMessage payload (Content-Type: application/json)"
 //
 //	// Content-Type: multipart/form-data
-//	@Param			payload		formData	string					false	"SendMessage payload (Content-Type: multipart/form-data)"
+//	@Param			payload		formData	string					false	"StoreMessage payload (Content-Type: multipart/form-data)"
 //	@Param			file		formData	file					false	"When uploading files, the field name must correspond to parts[*].file_field."
 //	@Security		BearerAuth
 //	@Success		201	{object}	serializer.Response{data=model.Message}
 //	@Router			/session/{session_id}/messages [post]
-//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\nfrom acontext.messages import build_acontext_message\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Send a message in Acontext format\nmessage = build_acontext_message(role='user', parts=['Hello!'])\nclient.sessions.send_message(\n    session_id='session-uuid',\n    blob=message,\n    format='acontext'\n)\n\n# Send a message in OpenAI format\nopenai_message = {'role': 'user', 'content': 'Hello from OpenAI format!'}\nclient.sessions.send_message(\n    session_id='session-uuid',\n    blob=openai_message,\n    format='openai'\n)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient, MessagePart } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Send a message in Acontext format\nawait client.sessions.sendMessage(\n  'session-uuid',\n  {\n    role: 'user',\n    parts: [MessagePart.textPart('Hello!')]\n  },\n  { format: 'acontext' }\n);\n\n// Send a message in OpenAI format\nawait client.sessions.sendMessage(\n  'session-uuid',\n  {\n    role: 'user',\n    content: 'Hello from OpenAI format!'\n  },\n  { format: 'openai' }\n);\n","label":"JavaScript"}]
-func (h *SessionHandler) SendMessage(c *gin.Context) {
-	req := SendMessageReq{}
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\nfrom acontext.messages import build_acontext_message\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Store a message in Acontext format\nmessage = build_acontext_message(role='user', parts=['Hello!'])\nclient.sessions.store_message(\n    session_id='session-uuid',\n    blob=message,\n    format='acontext'\n)\n\n# Store a message in OpenAI format\nopenai_message = {'role': 'user', 'content': 'Hello from OpenAI format!'}\nclient.sessions.store_message(\n    session_id='session-uuid',\n    blob=openai_message,\n    format='openai'\n)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient, MessagePart } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Store a message in Acontext format\nawait client.sessions.storeMessage(\n  'session-uuid',\n  {\n    role: 'user',\n    parts: [MessagePart.textPart('Hello!')]\n  },\n  { format: 'acontext' }\n);\n\n// Store a message in OpenAI format\nawait client.sessions.storeMessage(\n  'session-uuid',\n  {\n    role: 'user',\n    content: 'Hello from OpenAI format!'\n  },\n  { format: 'openai' }\n);\n","label":"JavaScript"}]
+func (h *SessionHandler) StoreMessage(c *gin.Context) {
+	req := StoreMessageReq{}
 
 	ct := c.ContentType()
 	if strings.HasPrefix(ct, "multipart/form-data") {
@@ -452,7 +452,7 @@ func (h *SessionHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
-	out, err := h.svc.SendMessage(c.Request.Context(), service.SendMessageInput{
+	out, err := h.svc.StoreMessage(c.Request.Context(), service.StoreMessageInput{
 		ProjectID:   project.ID,
 		SessionID:   sessionID,
 		Role:        normalizedRole,

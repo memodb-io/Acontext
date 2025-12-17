@@ -224,11 +224,14 @@ graph TB
 curl -fsSL https://install.acontext.io | sh
 ```
 
-컴퓨터에서 Acontext 백엔드를 시작하려면 [docker](https://www.docker.com/get-started/)가 설치되어 있고 OpenAI API 키가 있어야 합니다:
+컴퓨터에서 Acontext 백엔드를 시작하려면 [docker-compose](https://docs.docker.com/compose/install/)가 설치되어 있고 [OpenAI API Key](https://platform.openai.com/settings/organization/api-keys)가 있어야 합니다:
 
 ```bash
 mkdir acontext_server && cd acontext_server
-acontext docker up
+
+# 1. 이 명령은 대화형 프롬프트를 시작합니다
+# 2. openai api key 입력이 필요합니다
+acontext docker up 
 ```
 
 > [📖 로컬 설정](https://docs.acontext.io/local#start-acontext-server-locally) Acontext는 최소한 OpenAI API 키가 필요합니다. LLM 모델로 `gpt-5.1` 또는 `gpt-4.1`을 권장합니다
@@ -326,9 +329,9 @@ client.ping()
 
 Acontext는 Agent 세션 및 Artifacts를 관리할 수 있습니다.
 
-### 메시지 저장 [📖](https://docs.acontext.io/api-reference/session/send-message-to-session)
+### 메시지 저장 [📖](https://docs.acontext.io/api-reference/session/store-message-to-session)
 
-Acontext는 메시지 데이터에 대한 영구 저장소를 제공합니다. `session.send_message`를 호출하면 Acontext는 메시지를 영구 저장하고 이 세션 모니터링을 시작합니다:
+Acontext는 메시지 데이터에 대한 영구 저장소를 제공합니다. `session.store_message`를 호출하면 Acontext는 메시지를 영구 저장하고 이 세션 모니터링을 시작합니다:
 
 <details>
 <summary>코드 스니펫</summary>
@@ -346,7 +349,7 @@ messages = [
 
 # Save messages
 for msg in messages:
-    client.sessions.send_message(session_id=session.id, blob=msg, format="openai")
+    client.sessions.store_message(session_id=session.id, blob=msg, format="openai")
 ```
 
 > [📖](https://docs.acontext.io/store/messages/multi-modal) 멀티 모달 메시지 저장 및 anthropic SDK도 지원합니다.
@@ -368,7 +371,7 @@ new_msg = r.items
 new_msg.append({"role": "user", "content": "How are you doing?"})
 r = openai_client.chat.completions.create(model="gpt-4.1", messages=new_msg)
 print(r.choices[0].message.content)
-client.sessions.send_message(session_id=session.id, blob=r.choices[0].message)
+client.sessions.store_message(session_id=session.id, blob=r.choices[0].message)
 ```
 
 </details>
@@ -479,9 +482,9 @@ messages = [
     },
 ]
 
-# Send messages in a loop
+# Store messages in a loop
 for msg in messages:
-    client.sessions.send_message(session_id=session.id, blob=msg, format="openai")
+    client.sessions.store_message(session_id=session.id, blob=msg, format="openai")
 
 # Wait for task extraction to complete
 client.sessions.flush(session.id)

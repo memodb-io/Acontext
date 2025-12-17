@@ -325,9 +325,9 @@ client.ping()
 
 Acontext can manage agent sessions and artifacts.
 
-### Save Messages [📖](https://docs.acontext.io/api-reference/session/send-message-to-session)
+### Save Messages [📖](https://docs.acontext.io/api-reference/session/store-message-to-session)
 
-Acontext offers persistent storage for message data. When you call `session.send_message`, Acontext will persist the message and start to monitor this session:
+Acontext offers persistent storage for message data. When you call `session.store_message`, Acontext will persist the message and start to monitor this session:
 
 <details>
 <summary>Code Snippet</summary>
@@ -345,7 +345,7 @@ messages = [
 
 # Save messages
 for msg in messages:
-    client.sessions.send_message(session_id=session.id, blob=msg, format="openai")
+    client.sessions.store_message(session_id=session.id, blob=msg, format="openai")
 ```
 
 > [📖](https://docs.acontext.io/store/messages/multi-modal) We also support multi-modal message storage and anthropic SDK.
@@ -367,7 +367,7 @@ new_msg = r.items
 new_msg.append({"role": "user", "content": "How are you doing?"})
 r = openai_client.chat.completions.create(model="gpt-4.1", messages=new_msg)
 print(r.choices[0].message.content)
-client.sessions.send_message(session_id=session.id, blob=r.choices[0].message)
+client.sessions.store_message(session_id=session.id, blob=r.choices[0].message)
 ```
 
 </details>
@@ -478,9 +478,9 @@ messages = [
     },
 ]
 
-# Send messages in a loop
+# Store messages in a loop
 for msg in messages:
-    client.sessions.send_message(session_id=session.id, blob=msg, format="openai")
+    client.sessions.store_message(session_id=session.id, blob=msg, format="openai")
 
 # Wait for task extraction to complete
 client.sessions.flush(session.id)
