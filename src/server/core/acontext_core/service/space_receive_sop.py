@@ -4,7 +4,7 @@ from ..env import LOG, DEFAULT_CORE_CONFIG
 from ..infra.db import DB_CLIENT
 from ..infra.async_mq import (
     register_consumer,
-    publish_mq,
+    MQ_CLIENT,
     Message,
     ConsumerConfigData,
     SpecialHandler,
@@ -58,22 +58,34 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
         LOG.error(
             f"Failed to acquire SOP space lock due to Redis error (space={body.space_id}, task={body.task_id}): {e}"
         )
-        await MQ_CLIENT.publish(
-            exchange_name=EX.space_task,
-            routing_key=RK.space_task_sop_complete_retry,
-            body=body.model_dump_json(),
-        )
+        try:
+            await MQ_CLIENT.publish(
+                exchange_name=EX.space_task,
+                routing_key=RK.space_task_sop_complete_retry,
+                body=body.model_dump_json(),
+            )
+        except Exception as publish_e:
+            LOG.error(
+                f"Failed to publish SOPComplete retry after lock acquisition error "
+                f"(space={body.space_id}, task={body.task_id}): {publish_e}"
+            )
         return
     if not _l:
         LOG.debug(
             f"Current Space {body.space_id} is locked. "
             f"wait {DEFAULT_CORE_CONFIG.space_task_sop_lock_wait_seconds} seconds for next resend. "
         )
-        await publish_mq(
-            exchange_name=EX.space_task,
-            routing_key=RK.space_task_sop_complete_retry,
-            body=body.model_dump_json(),
-        )
+        try:
+            await MQ_CLIENT.publish(
+                exchange_name=EX.space_task,
+                routing_key=RK.space_task_sop_complete_retry,
+                body=body.model_dump_json(),
+            )
+        except Exception as publish_e:
+            LOG.error(
+                f"Failed to publish SOPComplete retry while space locked "
+                f"(space={body.space_id}, task={body.task_id}): {publish_e}"
+            )
         return
     LOG.info(f"Lock Space {body.space_id} for SOP complete task")
     try:
@@ -182,18 +194,30 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
                 [entry_json for entry_json, _item in unique_items],
             )
             if restored:
-                await MQ_CLIENT.publish(
-                    exchange_name=EX.space_task,
-                    routing_key=RK.space_task_sop_complete_retry,
-                    body=body.model_dump_json(),
-                )
-            else:
-                for _entry_json, item in unique_items:
+                try:
                     await MQ_CLIENT.publish(
                         exchange_name=EX.space_task,
                         routing_key=RK.space_task_sop_complete_retry,
-                        body=item.model_dump_json(),
+                        body=body.model_dump_json(),
                     )
+                except Exception as publish_e:
+                    LOG.error(
+                        f"Failed to publish SOPComplete retry after DB failure "
+                        f"(space={body.space_id}, task={body.task_id}): {publish_e}"
+                    )
+            else:
+                for _entry_json, item in unique_items:
+                    try:
+                        await MQ_CLIENT.publish(
+                            exchange_name=EX.space_task,
+                            routing_key=RK.space_task_sop_complete_retry,
+                            body=item.model_dump_json(),
+                        )
+                    except Exception as publish_e:
+                        LOG.error(
+                            f"Failed to publish SOPComplete retry after DB failure "
+                            f"(space={body.space_id}, task={item.task_id}): {publish_e}"
+                        )
             LOG.warning(
                 f"SOPComplete batch DB failure, scheduled retry "
                 f"(space={body.space_id}, retryable_failure={len(unique_items)}, popped={len(popped_entries) + 1}, "
@@ -240,18 +264,30 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
                 [entry_json for entry_json, _item in processable_items],
             )
             if restored:
-                await MQ_CLIENT.publish(
-                    exchange_name=EX.space_task,
-                    routing_key=RK.space_task_sop_complete_retry,
-                    body=retry_trigger_item.model_dump_json(),
-                )
-            else:
-                for _entry_json, item in processable_items:
+                try:
                     await MQ_CLIENT.publish(
                         exchange_name=EX.space_task,
                         routing_key=RK.space_task_sop_complete_retry,
-                        body=item.model_dump_json(),
+                        body=retry_trigger_item.model_dump_json(),
                     )
+                except Exception as publish_e:
+                    LOG.error(
+                        f"Failed to publish SOPComplete retry after processing exception "
+                        f"(space={body.space_id}, task={retry_trigger_item.task_id}): {publish_e}"
+                    )
+            else:
+                for _entry_json, item in processable_items:
+                    try:
+                        await MQ_CLIENT.publish(
+                            exchange_name=EX.space_task,
+                            routing_key=RK.space_task_sop_complete_retry,
+                            body=item.model_dump_json(),
+                        )
+                    except Exception as publish_e:
+                        LOG.error(
+                            f"Failed to publish SOPComplete retry after processing exception "
+                            f"(space={body.space_id}, task={item.task_id}): {publish_e}"
+                        )
             LOG.warning(
                 f"SOPComplete batch processing exception, scheduled retry "
                 f"(space={body.space_id}, retryable_failure={len(processable_items)}, popped={len(popped_entries) + 1}, "
@@ -273,18 +309,30 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
                 [entry_json for entry_json, _item in processable_items],
             )
             if restored:
-                await MQ_CLIENT.publish(
-                    exchange_name=EX.space_task,
-                    routing_key=RK.space_task_sop_complete_retry,
-                    body=retry_trigger_item.model_dump_json(),
-                )
-            else:
-                for _entry_json, item in processable_items:
+                try:
                     await MQ_CLIENT.publish(
                         exchange_name=EX.space_task,
                         routing_key=RK.space_task_sop_complete_retry,
-                        body=item.model_dump_json(),
+                        body=retry_trigger_item.model_dump_json(),
                     )
+                except Exception as publish_e:
+                    LOG.error(
+                        f"Failed to publish SOPComplete retry after batch failure "
+                        f"(space={body.space_id}, task={retry_trigger_item.task_id}): {publish_e}"
+                    )
+            else:
+                for _entry_json, item in processable_items:
+                    try:
+                        await MQ_CLIENT.publish(
+                            exchange_name=EX.space_task,
+                            routing_key=RK.space_task_sop_complete_retry,
+                            body=item.model_dump_json(),
+                        )
+                    except Exception as publish_e:
+                        LOG.error(
+                            f"Failed to publish SOPComplete retry after batch failure "
+                            f"(space={body.space_id}, task={item.task_id}): {publish_e}"
+                        )
             LOG.warning(
                 f"SOPComplete batch retryable failure, scheduled retry "
                 f"(space={body.space_id}, retryable_failure={len(processable_items)}, popped={len(popped_entries) + 1}, "
@@ -305,16 +353,40 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
         )
 
     except Exception as e:
-        await SSB.push_sop_buffer_entries_json(
+        restore_entries = [body.model_dump_json(), *popped_entries]
+        restored = await SSB.push_sop_buffer_entries_json(
             body.project_id,
             body.space_id,
-            [body.model_dump_json(), *popped_entries],
+            restore_entries,
         )
-        await MQ_CLIENT.publish(
-            exchange_name=EX.space_task,
-            routing_key=RK.space_task_sop_complete_retry,
-            body=body.model_dump_json(),
-        )
+        if restored:
+            try:
+                await MQ_CLIENT.publish(
+                    exchange_name=EX.space_task,
+                    routing_key=RK.space_task_sop_complete_retry,
+                    body=body.model_dump_json(),
+                )
+            except Exception as publish_e:
+                LOG.error(
+                    f"Failed to publish SOPComplete retry after unexpected error "
+                    f"(space={body.space_id}, task={body.task_id}): {publish_e}"
+                )
+        else:
+            for entry_json in restore_entries:
+                item = SSB.parse_sop_buffer_entry(entry_json)
+                if item is None:
+                    continue
+                try:
+                    await MQ_CLIENT.publish(
+                        exchange_name=EX.space_task,
+                        routing_key=RK.space_task_sop_complete_retry,
+                        body=item.model_dump_json(),
+                    )
+                except Exception as publish_e:
+                    LOG.error(
+                        f"Failed to publish SOPComplete retry after unexpected error "
+                        f"(space={body.space_id}, task={item.task_id}): {publish_e}"
+                    )
         LOG.error(
             f"Error in space_sop_complete_task, scheduled retry (space={body.space_id}, task={body.task_id}): {e}"
         )
