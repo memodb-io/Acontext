@@ -17,16 +17,17 @@ import (
 )
 
 type RouterDeps struct {
-	Config          *config.Config
-	DB              *gorm.DB
-	Log             *zap.Logger
-	SpaceHandler    *handler.SpaceHandler
-	BlockHandler    *handler.BlockHandler
-	SessionHandler  *handler.SessionHandler
-	DiskHandler     *handler.DiskHandler
-	ArtifactHandler *handler.ArtifactHandler
-	TaskHandler     *handler.TaskHandler
-	ToolHandler     *handler.ToolHandler
+	Config                  *config.Config
+	DB                      *gorm.DB
+	Log                     *zap.Logger
+	SpaceHandler            *handler.SpaceHandler
+	BlockHandler            *handler.BlockHandler
+	SessionHandler          *handler.SessionHandler
+	DiskHandler             *handler.DiskHandler
+	ArtifactHandler         *handler.ArtifactHandler
+	TaskHandler             *handler.TaskHandler
+	ToolHandler             *handler.ToolHandler
+	MessageObservingHandler *handler.MessageObservingHandler
 }
 
 func NewRouter(d RouterDeps) *gin.Engine {
@@ -109,6 +110,8 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			session.GET("/:session_id/get_learning_status", d.SessionHandler.GetLearningStatus)
 
 			session.GET("/:session_id/token_counts", d.SessionHandler.GetTokenCounts)
+
+			session.GET("/:session_id/observing-status", d.MessageObservingHandler.GetSessionObservingStatus)
 
 			task := session.Group("/:session_id/task")
 			{

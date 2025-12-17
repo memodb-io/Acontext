@@ -170,6 +170,10 @@ func BuildContainer() *do.Injector {
 		return repo.NewTaskRepo(do.MustInvoke[*gorm.DB](i)), nil
 	})
 
+	do.Provide(inj, func(i *do.Injector) (repo.MessageObservingRepo, error) {
+		return repo.NewMessageObservingRepo(do.MustInvoke[*gorm.DB](i)), nil
+	})
+
 	// Service
 	do.Provide(inj, func(i *do.Injector) (service.SpaceService, error) {
 		return service.NewSpaceService(
@@ -208,6 +212,11 @@ func BuildContainer() *do.Injector {
 			do.MustInvoke[*zap.Logger](i),
 		), nil
 	})
+	do.Provide(inj, func(i *do.Injector) (service.MessageObservingService, error) {
+		return service.NewMessageObservingService(
+			do.MustInvoke[repo.MessageObservingRepo](i),
+		), nil
+	})
 
 	// Handler
 	do.Provide(inj, func(i *do.Injector) (*handler.SpaceHandler, error) {
@@ -239,6 +248,11 @@ func BuildContainer() *do.Injector {
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.ToolHandler, error) {
 		return handler.NewToolHandler(do.MustInvoke[*httpclient.CoreClient](i)), nil
+	})
+	do.Provide(inj, func(i *do.Injector) (*handler.MessageObservingHandler, error) {
+		return handler.NewMessageObservingHandler(
+			do.MustInvoke[service.MessageObservingService](i),
+		), nil
 	})
 
 	return inj

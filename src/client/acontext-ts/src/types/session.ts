@@ -126,6 +126,15 @@ export const TokenCountsSchema = z.object({
 
 export type TokenCounts = z.infer<typeof TokenCountsSchema>;
 
+export const MessageObservingStatusSchema = z.object({
+  observed: z.number(),
+  in_process: z.number(),
+  pending: z.number(),
+  updated_at: z.string(),
+});
+
+export type MessageObservingStatus = z.infer<typeof MessageObservingStatusSchema>;
+
 /**
  * Parameters for the remove_tool_result edit strategy.
  */

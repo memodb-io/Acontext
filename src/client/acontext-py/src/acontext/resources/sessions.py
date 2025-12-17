@@ -15,6 +15,7 @@ from ..types.session import (
     LearningStatus,
     ListSessionsOutput,
     Message,
+    MessageObservingStatus,
     Session,
     TokenCounts,
 )
@@ -348,3 +349,20 @@ class SessionsAPI:
         """
         data = self._requester.request("GET", f"/session/{session_id}/token_counts")
         return TokenCounts.model_validate(data)
+    def messages_observing_status(self, session_id: str) -> MessageObservingStatus:
+        """Get message observing status counts for a session.
+        
+        Returns the count of messages by their observing status:
+        observed, in_process, and pending.
+        
+        Args:
+            session_id: The UUID of the session.
+        
+        Returns:
+            MessageObservingStatus object containing observed, in_process, 
+            pending counts and updated_at timestamp.
+        """
+        data = self._requester.request(
+            "GET", f"/session/{session_id}/observing-status"
+        )
+        return MessageObservingStatus.model_validate(data)
