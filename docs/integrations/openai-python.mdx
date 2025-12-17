@@ -94,12 +94,12 @@ acontext_client = AcontextClient(
 
 ## How It Works
 
-The OpenAI Python SDK integration works by sending conversation messages to Acontext in OpenAI message format. Since both use the same format, no conversion is needed.
+The OpenAI Python SDK integration works by storing conversation messages to Acontext in OpenAI message format. Since both use the same format, no conversion is needed.
 
 ### Message Flow
 
 1. **Create session**: Initialize a new Acontext session for your agent
-2. **Send messages**: Append each message (user, assistant, and tool) to Acontext as the conversation progresses
+2. **Store messages**: Append each message (user, assistant, and tool) to Acontext as the conversation progresses
 3. **Handle tool calls**: Manually execute tools when OpenAI requests them
 4. **Extract tasks**: After the conversation, flush the session and retrieve extracted tasks
 5. **Resume sessions**: Load previous conversation history to continue where you left off
@@ -127,7 +127,7 @@ session = acontext_client.sessions.create(space_id=space.id)
 conversation = []
 user_msg = {"role": "user", "content": "Hello!"}
 conversation.append(user_msg)
-acontext_client.sessions.send_message(session_id=session.id, blob=user_msg)
+acontext_client.sessions.store_message(session_id=session.id, blob=user_msg)
 
 # Call OpenAI API
 response = openai_client.chat.completions.create(
@@ -135,13 +135,13 @@ response = openai_client.chat.completions.create(
     messages=conversation,
 )
 
-# Send assistant response to Acontext
+# Store assistant response to Acontext
 assistant_msg = {
     "role": response.choices[0].message.role,
     "content": response.choices[0].message.content
 }
 conversation.append(assistant_msg)
-acontext_client.sessions.send_message(session_id=session.id, blob=assistant_msg)
+acontext_client.sessions.store_message(session_id=session.id, blob=assistant_msg)
 ```
 
 ## Tool Calling
@@ -182,7 +182,7 @@ Handle tool calls in a loop until the agent provides a final response:
 ```python
 def run_agent(client: OpenAI, conversation: list[dict]) -> tuple[str, list[dict]]:
     """Run the agent with tool calling support."""
-    messages_to_send = list(conversation)
+    messages_to_store = list(conversation)
     
     new_messages = []
     max_iterations = 10
@@ -194,7 +194,7 @@ def run_agent(client: OpenAI, conversation: list[dict]) -> tuple[str, list[dict]
         # Call OpenAI API
         response = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=messages_to_send,
+            messages=messages_to_store,
             tools=tools,
             tool_choice="auto",
         )
@@ -215,7 +215,7 @@ def run_agent(client: OpenAI, conversation: list[dict]) -> tuple[str, list[dict]
                 }
                 for tc in message.tool_calls
             ]
-            messages_to_send.append(message_dict)
+            messages_to_store.append(message_dict)
             new_messages.append(message_dict)
             
             # Execute tools
@@ -230,7 +230,7 @@ def run_agent(client: OpenAI, conversation: list[dict]) -> tuple[str, list[dict]
                     "tool_call_id": tool_call.id,
                     "content": function_result,
                 }
-                messages_to_send.append(tool_message)
+                messages_to_store.append(tool_message)
                 new_messages.append(tool_message)
         else:
             # No more tool calls, we're done
@@ -239,15 +239,15 @@ def run_agent(client: OpenAI, conversation: list[dict]) -> tuple[str, list[dict]
     return message.content, new_messages
 ```
 
-### Send Messages to Acontext
+### Store Messages to Acontext
 
-Send all messages (including tool calls and tool responses) to Acontext:
+Store all messages (including tool calls and tool responses) to Acontext:
 
 ```python
 def append_message(message: dict, conversation: list[dict], session_id: str):
-    """Append a message to conversation and send to Acontext."""
+    """Append a message to conversation and store to Acontext."""
     conversation.append(message)
-    acontext_client.sessions.send_message(session_id=session_id, blob=message)
+    acontext_client.sessions.store_message(session_id=session_id, blob=message)
     return conversation
 
 # After running agent
@@ -305,7 +305,7 @@ def execute_tool(tool_name: str, tool_args: dict) -> str:
 
 def append_message(message: dict, conversation: list[dict], session_id: str):
     conversation.append(message)
-    acontext_client.sessions.send_message(session_id=session_id, blob=message)
+    acontext_client.sessions.store_message(session_id=session_id, blob=message)
     return conversation
 
 async def main():
@@ -322,7 +322,7 @@ async def main():
     # Run agent with tool calling
     response_content, new_messages = run_agent(openai_client, conversation)
     
-    # Send all messages to Acontext
+    # Store all messages to Acontext
     for msg in new_messages:
         conversation = append_message(msg, conversation, session.id)
     
@@ -389,7 +389,7 @@ for task in tasks_response.items:
 Acontext automatically tracks all tool calls and their results when messages are sent:
 
 ```python
-# Tool calls are automatically tracked when you send messages
+# Tool calls are automatically tracked when you store messages
 message_with_tool_call = {
     "role": "assistant",
     "content": None,
@@ -404,7 +404,7 @@ message_with_tool_call = {
         }
     ]
 }
-acontext_client.sessions.send_message(session_id=session_id, blob=message_with_tool_call)
+acontext_client.sessions.store_message(session_id=session_id, blob=message_with_tool_call)
 
 # Tool results are also tracked
 tool_result = {
@@ -412,13 +412,13 @@ tool_result = {
     "tool_call_id": "call_123",
     "content": "The weather in Helsinki is sunny"
 }
-acontext_client.sessions.send_message(session_id=session_id, blob=tool_result)
+acontext_client.sessions.store_message(session_id=session_id, blob=tool_result)
 ```
 
 ## Best Practices
 
 <Tip>
-**Message format**: OpenAI message format is compatible with Acontext, so you can send messages directly without conversion. This includes user, assistant, and tool messages. System prompts should be handled through session-level or skill-level configuration rather than as messages.
+**Message format**: OpenAI message format is compatible with Acontext, so you can store messages directly without conversion. This includes user, assistant, and tool messages. System prompts should be handled through session-level or skill-level configuration rather than as messages.
 </Tip>
 
 <Tip>

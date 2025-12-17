@@ -100,8 +100,8 @@ session = client.sessions.create(
     configs={"mode": "chat"}
 )
 
-# Send a message (OpenAI format)
-response = client.sessions.send_message(
+# Store a message (OpenAI format)
+response = client.sessions.store_message(
     session_id=session.id,
     blob={'role': 'user', 'content': 'How do I reset my password?'},
     format='openai'
@@ -133,8 +133,8 @@ const session = await client.sessions.create({
   configs: { mode: 'chat' }
 });
 
-// Send a message (OpenAI format)
-const response = await client.sessions.sendMessage(
+// Store a message (OpenAI format)
+const response = await client.sessions.storeMessage(
   session.id,
   { role: 'user', content: 'How do I reset my password?' },
   { format: 'openai' }
@@ -204,7 +204,7 @@ Acontext supports multiple message formats for maximum compatibility:
 - **Anthropic** - Compatible with Anthropic Messages format
 - **Acontext** - Native format with extended capabilities
 
-You can convert between formats when retrieving or sending messages using the `format` parameter.
+You can convert between formats when retrieving or storing messages using the `format` parameter.
 
 ## Join the Community
 

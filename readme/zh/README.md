@@ -224,11 +224,14 @@ graph TB
 curl -fsSL https://install.acontext.io | sh
 ```
 
-您应该安装 [docker](https://www.docker.com/get-started/) 并拥有 OpenAI API 密钥，以便在计算机上启动 Acontext 后端：
+您应该安装 [docker-compose](https://docs.docker.com/compose/install/) 并拥有 [OpenAI API Key](https://platform.openai.com/settings/organization/api-keys)，以便在计算机上启动 Acontext 后端：
 
 ```bash
 mkdir acontext_server && cd acontext_server
-acontext docker up
+
+# 1. 此命令将启动一个交互式提示
+# 2. 它需要您输入 openai api key
+acontext docker up 
 ```
 
 > [📖 本地设置](https://docs.acontext.io/local#start-acontext-server-locally) Acontext 至少需要一个 OpenAI API 密钥。我们推荐使用 `gpt-5.1` 或 `gpt-4.1` 作为 LLM 模型
@@ -326,9 +329,9 @@ client.ping()
 
 Acontext 可以管理 Agent 会话和 Artifacts。
 
-### 保存消息 [📖](https://docs.acontext.io/api-reference/session/send-message-to-session)
+### 保存消息 [📖](https://docs.acontext.io/api-reference/session/store-message-to-session)
 
-Acontext 为消息数据提供持久化存储。当您调用 `session.send_message` 时，Acontext 将持久化消息并开始监控此会话：
+Acontext 为消息数据提供持久化存储。当您调用 `session.store_message` 时，Acontext 将持久化消息并开始监控此会话：
 
 <details>
 <summary>代码片段</summary>
@@ -346,7 +349,7 @@ messages = [
 
 # Save messages
 for msg in messages:
-    client.sessions.send_message(session_id=session.id, blob=msg, format="openai")
+    client.sessions.store_message(session_id=session.id, blob=msg, format="openai")
 ```
 
 > [📖](https://docs.acontext.io/store/messages/multi-modal) 我们还支持多模态消息存储和 anthropic SDK。
@@ -368,7 +371,7 @@ new_msg = r.items
 new_msg.append({"role": "user", "content": "How are you doing?"})
 r = openai_client.chat.completions.create(model="gpt-4.1", messages=new_msg)
 print(r.choices[0].message.content)
-client.sessions.send_message(session_id=session.id, blob=r.choices[0].message)
+client.sessions.store_message(session_id=session.id, blob=r.choices[0].message)
 ```
 
 </details>
@@ -479,9 +482,9 @@ messages = [
     },
 ]
 
-# Send messages in a loop
+# Store messages in a loop
 for msg in messages:
-    client.sessions.send_message(session_id=session.id, blob=msg, format="openai")
+    client.sessions.store_message(session_id=session.id, blob=msg, format="openai")
 
 # Wait for task extraction to complete
 client.sessions.flush(session.id)

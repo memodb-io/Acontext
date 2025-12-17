@@ -128,7 +128,7 @@ export class SessionsAPI {
     return GetTasksOutputSchema.parse(data);
   }
 
-  async sendMessage(
+  async storeMessage(
     sessionId: string,
     blob: MessageBlob,
     options?: {

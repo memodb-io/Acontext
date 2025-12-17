@@ -1179,7 +1179,7 @@ const docTemplate = `{
                 "tags": [
                     "session"
                 ],
-                "summary": "Send message to session",
+                "summary": "Store message to session",
                 "parameters": [
                     {
                         "type": "string",
@@ -1190,17 +1190,17 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "SendMessage payload (Content-Type: application/json)",
+                        "description": "StoreMessage payload (Content-Type: application/json)",
                         "name": "payload",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/handler.SendMessageReq"
+                            "$ref": "#/definitions/handler.StoreMessageReq"
                         }
                     },
                     {
                         "type": "string",
-                        "description": "SendMessage payload (Content-Type: multipart/form-data)",
+                        "description": "StoreMessage payload (Content-Type: multipart/form-data)",
                         "name": "payload",
                         "in": "formData"
                     },
@@ -1235,12 +1235,12 @@ const docTemplate = `{
                     {
                         "label": "Python",
                         "lang": "python",
-                        "source": "from acontext import AcontextClient\nfrom acontext.messages import build_acontext_message\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Send a message in Acontext format\nmessage = build_acontext_message(role='user', parts=['Hello!'])\nclient.sessions.send_message(\n    session_id='session-uuid',\n    blob=message,\n    format='acontext'\n)\n\n# Send a message in OpenAI format\nopenai_message = {'role': 'user', 'content': 'Hello from OpenAI format!'}\nclient.sessions.send_message(\n    session_id='session-uuid',\n    blob=openai_message,\n    format='openai'\n)\n"
+                        "source": "from acontext import AcontextClient\nfrom acontext.messages import build_acontext_message\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Store a message in Acontext format\nmessage = build_acontext_message(role='user', parts=['Hello!'])\nclient.sessions.store_message(\n    session_id='session-uuid',\n    blob=message,\n    format='acontext'\n)\n\n# Store a message in OpenAI format\nopenai_message = {'role': 'user', 'content': 'Hello from OpenAI format!'}\nclient.sessions.store_message(\n    session_id='session-uuid',\n    blob=openai_message,\n    format='openai'\n)\n"
                     },
                     {
                         "label": "JavaScript",
                         "lang": "javascript",
-                        "source": "import { AcontextClient, MessagePart } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Send a message in Acontext format\nawait client.sessions.sendMessage(\n  'session-uuid',\n  {\n    role: 'user',\n    parts: [MessagePart.textPart('Hello!')]\n  },\n  { format: 'acontext' }\n);\n\n// Send a message in OpenAI format\nawait client.sessions.sendMessage(\n  'session-uuid',\n  {\n    role: 'user',\n    content: 'Hello from OpenAI format!'\n  },\n  { format: 'openai' }\n);\n"
+                        "source": "import { AcontextClient, MessagePart } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Store a message in Acontext format\nawait client.sessions.storeMessage(\n  'session-uuid',\n  {\n    role: 'user',\n    parts: [MessagePart.textPart('Hello!')]\n  },\n  { format: 'acontext' }\n);\n\n// Store a message in OpenAI format\nawait client.sessions.storeMessage(\n  'session-uuid',\n  {\n    role: 'user',\n    content: 'Hello from OpenAI format!'\n  },\n  { format: 'openai' }\n);\n"
                     }
                 ]
             }
@@ -2693,7 +2693,7 @@ const docTemplate = `{
                 }
             }
         },
-        "handler.SendMessageReq": {
+        "handler.StoreMessageReq": {
             "type": "object",
             "required": [
                 "blob"

@@ -10,20 +10,20 @@ Acontext will start to process the messages once the buffer is full (*i.e.* unpr
 
 So if your `PROJECT_SESSION_MESSAGE_BUFFER_MAX_TURNS` is 3:
 ```python example
-# this sending won't be processed immediately
-client.sessions.send_message(
+# this storing won't be processed immediately
+client.sessions.store_message(
     session_id="session-uuid",
     blob=message1
 )
 
-# this sending won't be processed immediately
-client.sessions.send_message(
+# this storing won't be processed immediately
+client.sessions.store_message(
     session_id="session-uuid",
     blob=message2
 )
 
 # will trigger the processing immediately
-client.sessions.send_message(
+client.sessions.store_message(
     session_id="session-uuid",
     blob=message3
 )
@@ -34,8 +34,8 @@ Acontext will start to process the messages once the buffer is IDLE for a while 
 
 So if your `PROJECT_SESSION_MESSAGE_BUFFER_TTL_SECONDS` is 3:
 ```python example
-# this sending won't be processed immediately
-client.sessions.send_message(
+# this storing won't be processed immediately
+client.sessions.store_message(
     session_id="session-uuid",
     blob=message1
 )

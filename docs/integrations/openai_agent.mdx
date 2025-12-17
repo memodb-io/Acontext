@@ -109,7 +109,7 @@ The OpenAI Agents SDK uses the Responses API format internally, while Acontext u
 
 1. **Create session**: Initialize a new Acontext session for your agent
 2. **Run agent**: Use `Runner.run()` to execute the agent with automatic tool handling
-3. **Convert and store**: Convert Responses API format to Chat Completions format and send to Acontext
+3. **Convert and store**: Convert Responses API format to Chat Completions format and store to Acontext
 4. **Extract tasks**: After the conversation, flush the session and retrieve extracted tasks
 5. **Resume sessions**: Load previous conversation history, convert back to Responses API format, and continue
 
@@ -158,10 +158,10 @@ session = acontext_client.sessions.create(space_id=space.id)
 # Run agent
 result = await Runner.run(agent, "What's the weather in Helsinki?")
 
-# Convert to Chat Completions format and send to Acontext
+# Convert to Chat Completions format and store to Acontext
 messages = Converter.items_to_messages(result.to_input_list())
 for msg in messages:
-    acontext_client.sessions.send_message(
+    acontext_client.sessions.store_message(
         session_id=session.id,
         blob=msg,
         format="openai"
@@ -262,10 +262,10 @@ async def session_1(session_id: str):
     new_input = result.to_input_list() + [user_msg_2]
     result = await Runner.run(agent, new_input)
 
-    # Convert to Chat Completions format and send to Acontext
+    # Convert to Chat Completions format and store to Acontext
     messages = Converter.items_to_messages(result.to_input_list())
     for msg in messages:
-        acontext_client.sessions.send_message(
+        acontext_client.sessions.store_message(
             session_id=session_id,
             blob=msg,
             format="openai"
@@ -374,9 +374,9 @@ result = await Runner.run(agent, "Hello!")
 # Convert to Chat Completions format
 messages = Converter.items_to_messages(result.to_input_list())
 
-# Send to Acontext
+# Store to Acontext
 for msg in messages:
-    acontext_client.sessions.send_message(
+    acontext_client.sessions.store_message(
         session_id=session_id,
         blob=msg,
         format="openai"
@@ -413,7 +413,7 @@ The `message_to_input_items()` helper function handles conversion of:
 ## Best Practices
 
 <Tip>
-**Batch message sending**: Convert the entire conversation at once using `Converter.items_to_messages(result.to_input_list())` rather than converting individual messages.
+**Batch message storing**: Convert the entire conversation at once using `Converter.items_to_messages(result.to_input_list())` rather than converting individual messages.
 </Tip>
 
 <Tip>
@@ -425,7 +425,7 @@ The `message_to_input_items()` helper function handles conversion of:
 </Tip>
 
 <Tip>
-**Format specification**: Always specify `format="openai"` when sending messages to Acontext to ensure proper format handling.
+**Format specification**: Always specify `format="openai"` when storing messages to Acontext to ensure proper format handling.
 </Tip>
 
 <Tip>

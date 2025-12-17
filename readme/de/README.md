@@ -224,11 +224,14 @@ Wir haben ein `acontext-cli`, um Ihnen bei einem schnellen Proof-of-Concept zu h
 curl -fsSL https://install.acontext.io | sh
 ```
 
-Sie sollten [docker](https://www.docker.com/get-started/) installiert haben und einen OpenAI API-Schlüssel besitzen, um ein Acontext-Backend auf Ihrem Computer zu starten:
+Sie sollten [docker-compose](https://docs.docker.com/compose/install/) installiert haben und einen [OpenAI API Key](https://platform.openai.com/settings/organization/api-keys) besitzen, um ein Acontext-Backend auf Ihrem Computer zu starten:
 
 ```bash
 mkdir acontext_server && cd acontext_server
-acontext docker up
+
+# 1. Dieser Befehl startet eine interaktive Eingabeaufforderung
+# 2. Er erfordert die Eingabe Ihres openai api key
+acontext docker up 
 ```
 
 > [📖 lokale Einrichtung](https://docs.acontext.io/local#start-acontext-server-locally) Acontext benötigt mindestens einen OpenAI API-Schlüssel. Wir empfehlen `gpt-5.1` oder `gpt-4.1` als LLM-Modell
@@ -326,9 +329,9 @@ client.ping()
 
 Acontext kann Agent Sessions und Artifacts verwalten.
 
-### Nachrichten speichern [📖](https://docs.acontext.io/api-reference/session/send-message-to-session)
+### Nachrichten speichern [📖](https://docs.acontext.io/api-reference/session/store-message-to-session)
 
-Acontext bietet persistente Speicherung für Nachrichtendaten. Wenn Sie `session.send_message` aufrufen, speichert Acontext die Nachricht und beginnt, diese Sitzung zu überwachen:
+Acontext bietet persistente Speicherung für Nachrichtendaten. Wenn Sie `session.store_message` aufrufen, speichert Acontext die Nachricht und beginnt, diese Sitzung zu überwachen:
 
 <details>
 <summary>Code-Snippet</summary>
@@ -346,7 +349,7 @@ messages = [
 
 # Save messages
 for msg in messages:
-    client.sessions.send_message(session_id=session.id, blob=msg, format="openai")
+    client.sessions.store_message(session_id=session.id, blob=msg, format="openai")
 ```
 
 > [📖](https://docs.acontext.io/store/messages/multi-modal) Wir unterstützen auch Multi-Modal-Nachrichtenspeicherung und anthropic SDK.
@@ -368,7 +371,7 @@ new_msg = r.items
 new_msg.append({"role": "user", "content": "How are you doing?"})
 r = openai_client.chat.completions.create(model="gpt-4.1", messages=new_msg)
 print(r.choices[0].message.content)
-client.sessions.send_message(session_id=session.id, blob=r.choices[0].message)
+client.sessions.store_message(session_id=session.id, blob=r.choices[0].message)
 ```
 
 </details>
@@ -479,9 +482,9 @@ messages = [
     },
 ]
 
-# Send messages in a loop
+# Store messages in a loop
 for msg in messages:
-    client.sessions.send_message(session_id=session.id, blob=msg, format="openai")
+    client.sessions.store_message(session_id=session.id, blob=msg, format="openai")
 
 # Wait for task extraction to complete
 client.sessions.flush(session.id)

@@ -96,7 +96,7 @@ definitions:
     required:
     - rename
     type: object
-  handler.SendMessageReq:
+  handler.StoreMessageReq:
     properties:
       blob: {}
       format:
@@ -1526,13 +1526,13 @@ paths:
         name: session_id
         required: true
         type: string
-      - description: 'SendMessage payload (Content-Type: application/json)'
+      - description: 'StoreMessage payload (Content-Type: application/json)'
         in: body
         name: payload
         required: true
         schema:
-          $ref: '#/definitions/handler.SendMessageReq'
-      - description: 'SendMessage payload (Content-Type: multipart/form-data)'
+          $ref: '#/definitions/handler.StoreMessageReq'
+      - description: 'StoreMessage payload (Content-Type: multipart/form-data)'
         in: formData
         name: payload
         type: string
@@ -1554,7 +1554,7 @@ paths:
               type: object
       security:
       - BearerAuth: []
-      summary: Send message to session
+      summary: Store message to session
       tags:
       - session
       x-code-samples:
@@ -1566,17 +1566,17 @@ paths:
 
           client = AcontextClient(api_key='sk_project_token')
 
-          # Send a message in Acontext format
+          # Store a message in Acontext format
           message = build_acontext_message(role='user', parts=['Hello!'])
-          client.sessions.send_message(
+          client.sessions.store_message(
               session_id='session-uuid',
               blob=message,
               format='acontext'
           )
 
-          # Send a message in OpenAI format
+          # Store a message in OpenAI format
           openai_message = {'role': 'user', 'content': 'Hello from OpenAI format!'}
-          client.sessions.send_message(
+          client.sessions.store_message(
               session_id='session-uuid',
               blob=openai_message,
               format='openai'
@@ -1588,8 +1588,8 @@ paths:
 
           const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Send a message in Acontext format
-          await client.sessions.sendMessage(
+          // Store a message in Acontext format
+          await client.sessions.storeMessage(
             'session-uuid',
             {
               role: 'user',
@@ -1598,8 +1598,8 @@ paths:
             { format: 'acontext' }
           );
 
-          // Send a message in OpenAI format
-          await client.sessions.sendMessage(
+          // Store a message in OpenAI format
+          await client.sessions.storeMessage(
             'session-uuid',
             {
               role: 'user',

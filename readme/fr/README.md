@@ -224,11 +224,14 @@ Nous avons un `acontext-cli` pour vous aider à faire une preuve de concept rapi
 curl -fsSL https://install.acontext.io | sh
 ```
 
-Vous devriez avoir [docker](https://www.docker.com/get-started/) installé et une Clé API OpenAI pour démarrer un backend Acontext sur votre ordinateur :
+Vous devriez avoir [docker-compose](https://docs.docker.com/compose/install/) installé et une [OpenAI API Key](https://platform.openai.com/settings/organization/api-keys) pour démarrer un backend Acontext sur votre ordinateur :
 
 ```bash
 mkdir acontext_server && cd acontext_server
-acontext docker up
+
+# 1. cette commande démarrera une invite interactive
+# 2. Elle nécessite que vous saisissiez votre openai api key
+acontext docker up 
 ```
 
 > [📖 configuration locale](https://docs.acontext.io/local#start-acontext-server-locally) Acontext nécessite au moins une Clé API OpenAI. Nous recommandons `gpt-5.1` ou `gpt-4.1` comme modèle LLM
@@ -326,9 +329,9 @@ client.ping()
 
 Acontext peut gérer les sessions d'agents et les artefacts.
 
-### Enregistrer les Messages [📖](https://docs.acontext.io/api-reference/session/send-message-to-session)
+### Enregistrer les Messages [📖](https://docs.acontext.io/api-reference/session/store-message-to-session)
 
-Acontext offre un stockage persistant pour les données de messages. Lorsque vous appelez `session.send_message`, Acontext persistera le message et commencera à surveiller cette session :
+Acontext offre un stockage persistant pour les données de messages. Lorsque vous appelez `session.store_message`, Acontext persistera le message et commencera à surveiller cette session :
 
 <details>
 <summary>Extrait de Code</summary>
@@ -346,7 +349,7 @@ messages = [
 
 # Save messages
 for msg in messages:
-    client.sessions.send_message(session_id=session.id, blob=msg, format="openai")
+    client.sessions.store_message(session_id=session.id, blob=msg, format="openai")
 ```
 
 > [📖](https://docs.acontext.io/store/messages/multi-modal) Nous prenons également en charge le stockage de messages multi-modaux et le SDK anthropic.
@@ -368,7 +371,7 @@ new_msg = r.items
 new_msg.append({"role": "user", "content": "How are you doing?"})
 r = openai_client.chat.completions.create(model="gpt-4.1", messages=new_msg)
 print(r.choices[0].message.content)
-client.sessions.send_message(session_id=session.id, blob=r.choices[0].message)
+client.sessions.store_message(session_id=session.id, blob=r.choices[0].message)
 ```
 
 </details>
@@ -479,9 +482,9 @@ messages = [
     },
 ]
 
-# Send messages in a loop
+# Store messages in a loop
 for msg in messages:
-    client.sessions.send_message(session_id=session.id, blob=msg, format="openai")
+    client.sessions.store_message(session_id=session.id, blob=msg, format="openai")
 
 # Wait for task extraction to complete
 client.sessions.flush(session.id)

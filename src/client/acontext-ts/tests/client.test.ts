@@ -146,11 +146,11 @@ describe('AcontextClient Integration Tests', () => {
       createdSessionId = session.id;
     });
 
-    test('should send a message', async () => {
+    test('should store a message', async () => {
       if (!createdSessionId) {
         throw new Error('Session not created');
       }
-      const message = await client.sessions.sendMessage(
+      const message = await client.sessions.storeMessage(
         createdSessionId,
         {
           role: 'user',
@@ -206,7 +206,7 @@ describe('AcontextClient Integration Tests', () => {
       expect(messages.has_more).toBeDefined();
     });
 
-    test('should send message with file upload', async () => {
+    test('should store message with file upload', async () => {
       if (!createdSessionId) {
         throw new Error('Session not created');
       }
@@ -215,7 +215,7 @@ describe('AcontextClient Integration Tests', () => {
         role: 'user',
         parts: [MessagePart.fileFieldPart(fileField)],
       });
-      const message = await client.sessions.sendMessage(createdSessionId, blob, {
+      const message = await client.sessions.storeMessage(createdSessionId, blob, {
         format: 'acontext',
         fileField: fileField,
         file: new FileUpload({
@@ -274,18 +274,18 @@ describe('AcontextClient Integration Tests', () => {
       expect(session.configs).toMatchObject({ mode: 'test-updated' });
     });
 
-    test('should send messages in OpenAI format', async () => {
+    test('should store messages in OpenAI format', async () => {
       if (!createdSessionId) {
         throw new Error('Session not created');
       }
 
-      // Send user message in OpenAI format
+      // Store user message in OpenAI format
       const userMessage = {
         role: 'user',
         content: 'Hello, how are you?',
       };
 
-      const sentUserMessage = await client.sessions.sendMessage(
+      const sentUserMessage = await client.sessions.storeMessage(
         createdSessionId,
         userMessage,
         { format: 'openai' }
@@ -295,13 +295,13 @@ describe('AcontextClient Integration Tests', () => {
       expect(sentUserMessage.session_id).toBe(createdSessionId);
       expect(sentUserMessage.role).toBe('user');
 
-      // Send assistant message in OpenAI format
+      // Store assistant message in OpenAI format
       const assistantMessage = {
         role: 'assistant',
         content: 'I am doing well, thank you for asking!',
       };
 
-      const sentAssistantMessage = await client.sessions.sendMessage(
+      const sentAssistantMessage = await client.sessions.storeMessage(
         createdSessionId,
         assistantMessage,
         { format: 'openai' }
@@ -312,18 +312,18 @@ describe('AcontextClient Integration Tests', () => {
       expect(sentAssistantMessage.role).toBe('assistant');
     });
 
-    test('should send Anthropic response format messages', async () => {
+    test('should store Anthropic response format messages', async () => {
       if (!createdSessionId) {
         throw new Error('Session not created');
       }
 
-      // Send user message
+      // Store user message
       const userMessage = {
         role: 'user',
         content: 'Hello, how are you?',
       };
 
-      const sentUserMessage = await client.sessions.sendMessage(
+      const sentUserMessage = await client.sessions.storeMessage(
         createdSessionId,
         userMessage,
         { format: 'openai' }
@@ -351,8 +351,8 @@ describe('AcontextClient Integration Tests', () => {
         },
       };
 
-      // Send Anthropic response as a message
-      const sentAnthropicMessage = await client.sessions.sendMessage(
+      // Store Anthropic response as a message
+      const sentAnthropicMessage = await client.sessions.storeMessage(
         createdSessionId,
         anthropicResponse,
         { format: 'openai' }
@@ -363,18 +363,18 @@ describe('AcontextClient Integration Tests', () => {
       expect(sentAnthropicMessage.role).toBe('assistant');
     });
 
-    test('should send OpenAI chat completion response format messages', async () => {
+    test('should store OpenAI chat completion response format messages', async () => {
       if (!createdSessionId) {
         throw new Error('Session not created');
       }
 
-      // Send user message
+      // Store user message
       const userMessage = {
         role: 'user',
         content: 'Hello, how are you?',
       };
 
-      const sentUserMessage = await client.sessions.sendMessage(
+      const sentUserMessage = await client.sessions.storeMessage(
         createdSessionId,
         userMessage,
         { format: 'openai' }
@@ -389,8 +389,8 @@ describe('AcontextClient Integration Tests', () => {
         refusal: null,
       };
 
-      // Send OpenAI response message
-      const sentOpenAIMessage = await client.sessions.sendMessage(
+      // Store OpenAI response message
+      const sentOpenAIMessage = await client.sessions.storeMessage(
         createdSessionId,
         openaiResponseMessage,
         { format: 'openai' }

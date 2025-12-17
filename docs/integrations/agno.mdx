@@ -92,12 +92,12 @@ acontext_client = AcontextClient(
 
 ## How It Works
 
-The Agno integration works by sending conversation messages to Acontext in OpenAI message format. Agno's message format is compatible with Acontext, so no conversion is needed.
+The Agno integration works by storing conversation messages to Acontext in OpenAI message format. Agno's message format is compatible with Acontext, so no conversion is needed.
 
 ### Message Flow
 
 1. **Create session**: Initialize a new Acontext session for your agent
-2. **Send messages**: Append each message (user and assistant) to Acontext as the conversation progresses
+2. **Store messages**: Append each message (user and assistant) to Acontext as the conversation progresses
 3. **Extract tasks**: After the conversation, flush the session and retrieve extracted tasks
 4. **Resume sessions**: Load previous conversation history to continue where you left off
 
@@ -127,19 +127,19 @@ agent = Agent(
 space = acontext_client.spaces.create()
 session = acontext_client.sessions.create(space_id=space.id)
 
-# Build conversation and send to Acontext
+# Build conversation and store to Acontext
 conversation = []
 user_msg = {"role": "user", "content": "Hello!"}
 conversation.append(user_msg)
-acontext_client.sessions.send_message(session_id=session.id, blob=user_msg)
+acontext_client.sessions.store_message(session_id=session.id, blob=user_msg)
 
 # Run agent
 response = agent.run(conversation)
 
-# Send assistant response to Acontext
+# Store assistant response to Acontext
 assistant_msg = {"role": "assistant", "content": response.content}
 conversation.append(assistant_msg)
-acontext_client.sessions.send_message(session_id=session.id, blob=assistant_msg)
+acontext_client.sessions.store_message(session_id=session.id, blob=assistant_msg)
 ```
 
 ## Complete Example
@@ -173,7 +173,7 @@ def create_agno_agent() -> Agent:
 
 def append_message(message: dict, conversation: list[dict], session_id: str):
     conversation.append(message)
-    acontext_client.sessions.send_message(session_id=session_id, blob=message)
+    acontext_client.sessions.store_message(session_id=session_id, blob=message)
     return conversation
 
 async def main():
@@ -279,8 +279,8 @@ message = {
     "content": "Your message here"
 }
 
-# Send directly to Acontext - no conversion needed
-acontext_client.sessions.send_message(session_id=session_id, blob=message)
+# Store directly to Acontext - no conversion needed
+acontext_client.sessions.store_message(session_id=session_id, blob=message)
 ```
 
 <Info>
@@ -290,7 +290,7 @@ Agno's `RunOutput.messages` can be converted to dictionaries using `[m.to_dict()
 ## Best Practices
 
 <Tip>
-**Batch message sending**: For better performance, you can batch multiple messages before sending them to Acontext, but ensure you send them in chronological order.
+**Batch message storing**: For better performance, you can batch multiple messages before storing them to Acontext, but ensure you store them in chronological order.
 </Tip>
 
 <Tip>

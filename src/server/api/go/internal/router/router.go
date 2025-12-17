@@ -102,7 +102,7 @@ func NewRouter(d RouterDeps) *gin.Engine {
 
 			session.POST("/:session_id/connect_to_space", d.SessionHandler.ConnectToSpace)
 
-			session.POST("/:session_id/messages", d.SessionHandler.SendMessage)
+			session.POST("/:session_id/messages", d.SessionHandler.StoreMessage)
 			session.GET("/:session_id/messages", d.SessionHandler.GetMessages)
 
 			session.POST("/:session_id/flush", d.SessionHandler.SessionFlush)

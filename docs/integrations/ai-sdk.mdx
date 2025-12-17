@@ -103,14 +103,14 @@ const acontextClient = new AcontextClient({
 
 ## How It Works
 
-The Vercel AI SDK integration works by sending conversation messages to Acontext in OpenAI message format. The SDK uses `generateText` for text generation and requires manual tool execution.
+The Vercel AI SDK integration works by storing conversation messages to Acontext in OpenAI message format. The SDK uses `generateText` for text generation and requires manual tool execution.
 
 ### Message Flow
 
 1. **Create session**: Initialize a new Acontext session for your agent
 2. **Generate text**: Use `generateText` with tools to get model responses
 3. **Handle tool calls**: Manually execute tools when the model requests them
-4. **Send messages**: Append each message (user, assistant, and tool) to Acontext
+4. **Store messages**: Append each message (user, assistant, and tool) to Acontext
 5. **Extract tasks**: After the conversation, flush the session and retrieve extracted tasks
 6. **Resume sessions**: Load previous conversation history to continue where you left off
 
@@ -154,7 +154,7 @@ const session = await acontextClient.sessions.create({ spaceId: space.id });
 let conversation: any[] = [];
 const userMsg = { role: 'user', content: 'Hello!' };
 conversation.push(userMsg);
-await acontextClient.sessions.sendMessage(session.id, userMsg, {
+await acontextClient.sessions.storeMessage(session.id, userMsg, {
   format: 'openai',
 });
 
@@ -164,13 +164,13 @@ const result = await generateText({
   messages: conversation,
 });
 
-// Send assistant response to Acontext
+// Store assistant response to Acontext
 const assistantMsg = {
   role: 'assistant',
   content: result.text,
 };
 conversation.push(assistantMsg);
-await acontextClient.sessions.sendMessage(session.id, assistantMsg, {
+await acontextClient.sessions.storeMessage(session.id, assistantMsg, {
   format: 'openai',
 });
 ```
@@ -227,7 +227,7 @@ async function runAgent(conversation: any[]): Promise<[string, any[]]> {
     iteration += 1;
 
     // Filter messages for Vercel AI SDK (only user and assistant)
-    const messagesToSend = conversation
+    const messagesToStore = conversation
       .filter((msg: any) => {
         const role = msg.role;
         return (role === 'user' || role === 'assistant') && !msg._internal;
@@ -249,7 +249,7 @@ async function runAgent(conversation: any[]): Promise<[string, any[]]> {
     const result = await generateText({
       model,
       system: 'You are a helpful assistant',
-      messages: messagesToSend,
+      messages: messagesToStore,
       tools,
     });
 
@@ -348,9 +348,9 @@ async function runAgent(conversation: any[]): Promise<[string, any[]]> {
 }
 ```
 
-### Send Messages to Acontext
+### Store Messages to Acontext
 
-Send all messages (excluding internal ones) to Acontext:
+Store all messages (excluding internal ones) to Acontext:
 
 ```typescript
 async function appendMessage(
@@ -365,7 +365,7 @@ async function appendMessage(
   }
 
   conversation.push(message);
-  await acontextClient.sessions.sendMessage(sessionId, message, {
+  await acontextClient.sessions.storeMessage(sessionId, message, {
     format: 'openai',
   });
   return conversation;
@@ -443,7 +443,7 @@ async function appendMessage(
     return conversation;
   }
   conversation.push(message);
-  await acontextClient.sessions.sendMessage(sessionId, message, {
+  await acontextClient.sessions.storeMessage(sessionId, message, {
     format: 'openai',
   });
   return conversation;
@@ -463,7 +463,7 @@ async function main(): Promise<void> {
   // Run agent with tool calling
   const [responseContent, newMessages] = await runAgent(conversation);
 
-  // Send all messages to Acontext
+  // Store all messages to Acontext
   for (const msg of newMessages) {
     conversation = await appendMessage(msg, conversation, session.id);
   }
@@ -542,7 +542,7 @@ Vercel AI SDK has specific requirements for message formats:
 
 ```typescript
 // Filter messages for Vercel AI SDK
-const messagesToSend = conversation
+const messagesToStore = conversation
   .filter((msg: any) => {
     // Only user and assistant roles, exclude internal messages
     const role = msg.role;
@@ -582,7 +582,7 @@ const messagesToSend = conversation
 </Tip>
 
 <Tip>
-**Format specification**: Always specify `format: 'openai'` when sending messages to Acontext to ensure proper format handling.
+**Format specification**: Always specify `format: 'openai'` when storing messages to Acontext to ensure proper format handling.
 </Tip>
 
 <Tip>
@@ -608,7 +608,7 @@ Vercel AI SDK v5 only accepts 'user' and 'assistant' roles in messages. Tool res
 </Accordion>
 
 <Accordion title="Content Type Requirements">
-Message content must be a string, not an array. Array content needs to be converted to a string before sending to the SDK.
+Message content must be a string, not an array. Array content needs to be converted to a string before passing to the SDK.
 </Accordion>
 </AccordionGroup>
 

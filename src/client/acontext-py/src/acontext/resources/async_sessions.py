@@ -167,7 +167,7 @@ class AsyncSessionsAPI:
         )
         return GetTasksOutput.model_validate(data)
 
-    async def send_message(
+    async def store_message(
         self,
         session_id: str,
         *,
@@ -181,7 +181,7 @@ class AsyncSessionsAPI:
             | None
         ) = None,
     ) -> Message:
-        """Send a message to a session.
+        """Store a message to a session.
 
         Args:
             session_id: The UUID of the session.

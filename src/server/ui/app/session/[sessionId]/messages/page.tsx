@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Plus, RefreshCw, Upload, X, ArrowLeft, FileText, Image as ImageIcon, Video, Music, File, Code, CheckCircle2, ExternalLink } from "lucide-react";
 import Image from "next/image";
-import { getMessages, sendMessage, getSessionConfigs } from "@/api/models/space";
+import { getMessages, storeMessage, getSessionConfigs } from "@/api/models/space";
 import {
   Message,
   MessageRole,
@@ -207,7 +207,7 @@ export default function MessagesPage() {
   const [newMessageRole, setNewMessageRole] = useState<MessageRole>("user");
   const [newMessageText, setNewMessageText] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [isStoringMessage, setIsStoringMessage] = useState(false);
 
   // Tool call/result specific states
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
@@ -390,13 +390,13 @@ export default function MessagesPage() {
     setToolResults((prev) => prev.filter((tr) => tr.id !== id));
   };
 
-  const handleSendMessage = async () => {
+  const handleStoreMessage = async () => {
     if (!hasMessageContent(newMessageText, uploadedFiles, toolCalls, toolResults)) {
       return;
     }
 
     try {
-      setIsSendingMessage(true);
+      setIsStoringMessage(true);
 
       // Build parts array
       const parts = buildMessageParts(
@@ -409,8 +409,8 @@ export default function MessagesPage() {
       // Build files object
       const files = buildFilesObject(uploadedFiles);
 
-      // Send message
-      const res = await sendMessage(
+      // Store message
+      const res = await storeMessage(
         sessionId,
         newMessageRole,
         parts,
@@ -425,9 +425,9 @@ export default function MessagesPage() {
       await loadAllMessages();
       setCreateDialogOpen(false);
     } catch (error) {
-      console.error("Failed to send message:", error);
+      console.error("Failed to store message:", error);
     } finally {
-      setIsSendingMessage(false);
+      setIsStoringMessage(false);
     }
   };
 
@@ -692,7 +692,7 @@ export default function MessagesPage() {
                     onClick={() =>
                       document.getElementById("file-upload")?.click()
                     }
-                    disabled={isSendingMessage}
+                    disabled={isStoringMessage}
                   >
                     <Upload className="h-4 w-4" />
                     {t("selectFiles")}
@@ -726,7 +726,7 @@ export default function MessagesPage() {
                               onValueChange={(value) =>
                                 handleFileTypeChange(fileItem.id, value as PartType)
                               }
-                              disabled={isSendingMessage}
+                              disabled={isStoringMessage}
                             >
                               <SelectTrigger className="w-full h-8 text-xs">
                                 <SelectValue />
@@ -759,7 +759,7 @@ export default function MessagesPage() {
                             size="icon"
                             className="h-6 w-6 shrink-0"
                             onClick={() => handleRemoveFile(fileItem.id)}
-                            disabled={isSendingMessage}
+                            disabled={isStoringMessage}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -780,7 +780,7 @@ export default function MessagesPage() {
                     variant="outline"
                     size="sm"
                     onClick={handleAddToolCall}
-                    disabled={isSendingMessage}
+                    disabled={isStoringMessage}
                   >
                     <Plus className="h-4 w-4" />
                     Add Tool Call
@@ -803,7 +803,7 @@ export default function MessagesPage() {
                             size="icon"
                             className="h-6 w-6"
                             onClick={() => handleRemoveToolCall(tc.id)}
-                            disabled={isSendingMessage}
+                            disabled={isStoringMessage}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -820,7 +820,7 @@ export default function MessagesPage() {
                             )
                           }
                           className="w-full px-2 py-1 text-sm border rounded"
-                          disabled={isSendingMessage}
+                          disabled={isStoringMessage}
                         />
                         <input
                           type="text"
@@ -834,7 +834,7 @@ export default function MessagesPage() {
                             )
                           }
                           className="w-full px-2 py-1 text-sm border rounded"
-                          disabled={isSendingMessage}
+                          disabled={isStoringMessage}
                         />
                         <div className="border rounded overflow-hidden">
                           <ReactCodeMirror
@@ -845,7 +845,7 @@ export default function MessagesPage() {
                             onChange={(value) =>
                               handleUpdateToolCall(tc.id, "parameters", value)
                             }
-                            editable={!isSendingMessage}
+                            editable={!isStoringMessage}
                             basicSetup={{
                               lineNumbers: true,
                               foldGutter: false,
@@ -869,7 +869,7 @@ export default function MessagesPage() {
                     variant="outline"
                     size="sm"
                     onClick={handleAddToolResult}
-                    disabled={isSendingMessage}
+                    disabled={isStoringMessage}
                   >
                     <Plus className="h-4 w-4" />
                     Add Tool Result
@@ -892,7 +892,7 @@ export default function MessagesPage() {
                             size="icon"
                             className="h-6 w-6"
                             onClick={() => handleRemoveToolResult(tr.id)}
-                            disabled={isSendingMessage}
+                            disabled={isStoringMessage}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -909,7 +909,7 @@ export default function MessagesPage() {
                             )
                           }
                           className="w-full px-2 py-1 text-sm border rounded"
-                          disabled={isSendingMessage}
+                          disabled={isStoringMessage}
                         />
                         <div className="border rounded overflow-hidden">
                           <ReactCodeMirror
@@ -920,7 +920,7 @@ export default function MessagesPage() {
                             onChange={(value) =>
                               handleUpdateToolResult(tr.id, "result", value)
                             }
-                            editable={!isSendingMessage}
+                            editable={!isStoringMessage}
                             basicSetup={{
                               lineNumbers: true,
                               foldGutter: false,
@@ -938,14 +938,14 @@ export default function MessagesPage() {
             <Button
               variant="outline"
               onClick={() => setCreateDialogOpen(false)}
-              disabled={isSendingMessage}
+              disabled={isStoringMessage}
             >
               {t("cancel")}
             </Button>
             <Button
-              onClick={handleSendMessage}
+              onClick={handleStoreMessage}
               disabled={
-                isSendingMessage ||
+                isStoringMessage ||
                 !hasMessageContent(
                   newMessageText,
                   uploadedFiles,
@@ -954,13 +954,13 @@ export default function MessagesPage() {
                 )
               }
             >
-              {isSendingMessage ? (
+              {isStoringMessage ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  {t("sending")}
+                  {t("storing")}
                 </>
               ) : (
-                t("send")
+                t("store")
               )}
             </Button>
           </DialogFooter>
