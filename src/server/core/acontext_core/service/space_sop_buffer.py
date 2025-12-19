@@ -1,3 +1,25 @@
+"""
+Redis-backed per-space SOPComplete buffer.
+
+Purpose
+-------
+SOP completion events may arrive in bursts. To batch them into fewer construct-agent
+calls, we buffer SOPComplete payloads in Redis using a per-space key.
+
+Design
+------
+- Data structure: Redis LIST (append with RPUSH, drain with an atomic LRANGE+LTRIM Lua).
+- Keying: one list per `(project_id, space_id)` so different spaces do not contend.
+- TTL: refreshed on each push so idle buffers eventually disappear.
+
+Operational notes
+----------------
+- Entries are stored as JSON strings using `SOPComplete.model_dump_json()`.
+- Removal uses exact string match (Redis LREM). This is simple but depends on stable
+  JSON serialization; callers should treat it as best-effort housekeeping rather than
+  a strict correctness guarantee.
+"""
+
 from ..env import DEFAULT_CORE_CONFIG, LOG
 from ..infra.redis import REDIS_CLIENT
 from ..schema.mq.sop import SOPComplete

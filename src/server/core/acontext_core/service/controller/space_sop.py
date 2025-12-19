@@ -1,3 +1,13 @@
+"""
+Controller layer for SOP -> Space digestion.
+
+This module provides a thin abstraction between MQ/service layers and the LLM agent
+implementation (`llm/agent/space_construct.py`). It primarily exists to:
+- keep the service layer free of agent-specific details
+- provide a stable API that can evolve (e.g., batching support) without changing
+  every caller
+"""
+
 from ...schema.block.sop_block import SOPData
 from ...schema.utils import asUUID
 from ...schema.result import Result
@@ -15,14 +25,11 @@ async def process_sop_complete_batch(
     task_ids: list[asUUID],
     sop_datas: list[SOPData],
 ) -> Result[None]:
-    """
-    Process SOP completions and trigger construct agent.
-    """
+    """Process multiple SOP completions by calling the Space construct agent once."""
     disabled = await get_metrics(project_id, ExcessMetricTags.new_skill_learned)
     if disabled:
         LOG.warning(f"Project {project_id} has disabled new skill learned, skip")
         return Result.resolve(None)
-
     construct_result = await SC.space_construct_agent_curd(
         project_id,
         space_id,
@@ -48,7 +55,9 @@ async def process_sop_complete(
     sop_data: SOPData,
 ) -> Result[None]:
     """
-    Process SOP completion and trigger construct agent
+    Backwards-compatible single-item wrapper.
+
+    Keeping this wrapper avoids forcing existing codepaths to know about batching.
     """
     LOG.info(f"Processing SOP completion for task {task_id}")
     return await process_sop_complete_batch(
