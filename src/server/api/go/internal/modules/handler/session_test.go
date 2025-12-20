@@ -3584,9 +3584,17 @@ func TestSessionHandler_GetSessionObservingStatus_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	mockService.AssertExpectations(t)
-	assert.Contains(t, w.Body.String(), `"observed":10`)
-	assert.Contains(t, w.Body.String(), `"in_process":5`)
-	assert.Contains(t, w.Body.String(), `"pending":3`)
+
+	// Verify response format: serializer.Response{Data: status}
+	var response map[string]interface{}
+	err := sonic.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	data, ok := response["data"].(map[string]interface{})
+	require.True(t, ok, "Should have data field")
+	assert.Equal(t, float64(10), data["observed"])
+	assert.Equal(t, float64(5), data["in_process"])
+	assert.Equal(t, float64(3), data["pending"])
 }
 
 func TestSessionHandler_GetSessionObservingStatus_EmptySessionID(t *testing.T) {
@@ -3606,7 +3614,36 @@ func TestSessionHandler_GetSessionObservingStatus_EmptySessionID(t *testing.T) {
 	handler.GetSessionObservingStatus(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
-	assert.Contains(t, w.Body.String(), "session_id is required")
+	// Now uses uuid.Parse which will return invalid UUID format error
+	var response map[string]interface{}
+	err := sonic.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.NotEmpty(t, response["error"])
+	mockService.AssertNotCalled(t, "GetSessionObservingStatus")
+}
+
+func TestSessionHandler_GetSessionObservingStatus_InvalidSessionID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockService := new(MockSessionService)
+	handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{
+		{Key: "session_id", Value: "invalid-uuid"},
+	}
+	req, _ := http.NewRequest("GET", "/session/invalid-uuid/observing_status", nil)
+	c.Request = req
+
+	handler.GetSessionObservingStatus(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	// uuid.Parse will return invalid UUID format error
+	var response map[string]interface{}
+	err := sonic.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.NotEmpty(t, response["error"])
 	mockService.AssertNotCalled(t, "GetSessionObservingStatus")
 }
 
@@ -3633,6 +3670,11 @@ func TestSessionHandler_GetSessionObservingStatus_ServiceError(t *testing.T) {
 	handler.GetSessionObservingStatus(c)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
-	assert.Contains(t, w.Body.String(), "database connection failed")
+	// Verify response format: serializer.DBErr returns Response with error field
+	var response map[string]interface{}
+	err := sonic.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.NotEmpty(t, response["error"])
+	assert.Contains(t, response["error"].(string), "database connection failed")
 	mockService.AssertExpectations(t)
 }
