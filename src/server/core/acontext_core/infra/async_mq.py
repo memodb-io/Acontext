@@ -274,15 +274,13 @@ class AsyncSingleThreadMQConsumer:
         self.connection_config = connection_config
         self.connection: Optional[AbstractConnection] = None
         self.consumers: Dict[str, ConsumerConfig] = {}
-        self._connect_lock = asyncio.Lock()
         self._publish_channle: Optional[AbstractChannel] = None
-        self._publish_lock = asyncio.Lock()
         self._consumer_loop_tasks: List[asyncio.Task] = []
         self._shutdown_event = asyncio.Event()
         self._processing_tasks: Set[asyncio.Task] = set()
         self.__running = False
+        self._connection_lock = asyncio.Lock()  # Lock for connection operations
         self._stop_lock = asyncio.Lock()
-        self._exchange_declarations: Dict[str, tuple[ExchangeType, bool, bool]] = {}
 
     @property
     def running(self) -> bool:
@@ -290,9 +288,15 @@ class AsyncSingleThreadMQConsumer:
 
     async def connect(self) -> None:
         """Establish connection to MQ"""
-        async with self._connect_lock:
+        # Quick check without lock - if connection looks healthy, skip
+        if self.connection and not self.connection.is_closed:
+            return
+
+        async with self._connection_lock:
+            # Double-check after acquiring lock
             if self.connection and not self.connection.is_closed:
                 return
+            
             try:
                 self.connection = await connect_robust(
                     self.connection_config.url,
@@ -302,7 +306,7 @@ class AsyncSingleThreadMQConsumer:
                     heartbeat=self.connection_config.heartbeat,
                     blocked_connection_timeout=self.connection_config.blocked_connection_timeout,
                 )
-                self._publish_channle = None
+                self._publish_channle = await self.connection.channel()
                 LOG.info(
                     f"Connected to MQ (connection: {self.connection_config.connection_name})"
                 )
@@ -325,20 +329,6 @@ class AsyncSingleThreadMQConsumer:
         if self.running:
             raise RuntimeError(
                 "Cannot register consumers while the consumer is running"
-            )
-
-        existing_decl = self._exchange_declarations.get(consumer_config.exchange_name)
-        new_decl = (
-            consumer_config.exchange_type,
-            consumer_config.durable,
-            consumer_config.auto_delete,
-        )
-        if existing_decl is None:
-            self._exchange_declarations[consumer_config.exchange_name] = new_decl
-        elif existing_decl != new_decl:
-            raise ValueError(
-                "Exchange declaration mismatch for "
-                f"{consumer_config.exchange_name}: existing={existing_decl} new={new_decl}"
             )
 
         self.consumers[consumer_config.queue_name] = consumer_config
@@ -470,20 +460,13 @@ class AsyncSingleThreadMQConsumer:
             if span:
                 span.end()
 
-    def cleanup_message_task(self, consumer_name: str, task: asyncio.Task) -> None:
+    def cleanup_message_task(self, task: asyncio.Task) -> None:
         try:
             task.result()
         except asyncio.CancelledError:
             pass
-        except ChannelInvalidStateError as e:
-            LOG.warning(
-                f"{consumer_name}: Message channel invalid: {e}. {traceback.format_exc()}"
-            )
         except Exception as e:
-            LOG.error(
-                f"{consumer_name}: Message task unknown error: {e!r}",
-                extra={"traceback": traceback.format_exc()},
-            )
+            LOG.error(f"Message task unknown error: {e}")
         finally:
             self._processing_tasks.discard(task)
             LOG.debug(f"#Current Processing Tasks: {len(self._processing_tasks)}")
@@ -521,7 +504,6 @@ class AsyncSingleThreadMQConsumer:
 
         while not self._shutdown_event.is_set():
             consumer_channel: AbstractChannel | None = None
-            in_flight_tasks: set[asyncio.Task] = set()
             try:
                 # Ensure connection is alive
                 if not self.connection or self.connection.is_closed:
@@ -552,17 +534,25 @@ class AsyncSingleThreadMQConsumer:
                             break
 
                         # Process message in background task for concurrency
-                        task = asyncio.create_task(
-                            self._process_message_with_tracing(config, message)
-                        )
-                        in_flight_tasks.add(task)
+                        async def process_with_tracing():
+                            # Extract trace context from message headers if available
+                            extracted_context = _extract_trace_context_from_headers(message)
+                            
+                            # Create span for message consumption if OpenTelemetry is enabled
+                            consume_span, consume_context = _create_consume_span(
+                                config, message, extracted_context
+                            )
+                            
+                            try:
+                                # Pass consume_context to process_message so it can create child spans
+                                return await self._process_message(config, message, consume_context)
+                            finally:
+                                if consume_span:
+                                    consume_span.end()
+                        
+                        task = asyncio.create_task(process_with_tracing())
                         self._processing_tasks.add(task)
-
-                        def _on_task_done(t: asyncio.Task):
-                            in_flight_tasks.discard(t)
-                            self.cleanup_message_task(config.queue_name, t)
-
-                        task.add_done_callback(_on_task_done)
+                        task.add_done_callback(self.cleanup_message_task)
 
                 # If we exit the loop normally (shutdown), break the reconnect loop
                 if self._shutdown_event.is_set():
@@ -588,10 +578,6 @@ class AsyncSingleThreadMQConsumer:
                 await asyncio.sleep(_delay_seconds)
 
             finally:
-                if in_flight_tasks:
-                    await asyncio.gather(
-                        *list(in_flight_tasks), return_exceptions=True
-                    )
                 if consumer_channel and not consumer_channel.is_closed:
                     try:
                         await consumer_channel.close()
@@ -659,7 +645,7 @@ class AsyncSingleThreadMQConsumer:
 
     async def _force_reconnect(self) -> None:
         """Force a full reconnection, safely closing old connection if possible"""
-        async with self._connect_lock:
+        async with self._connection_lock:
             LOG.warning("Forcing full MQ reconnection...")
 
             # Try to close the old connection gracefully
@@ -686,9 +672,7 @@ class AsyncSingleThreadMQConsumer:
                     heartbeat=self.connection_config.heartbeat,
                     blocked_connection_timeout=self.connection_config.blocked_connection_timeout,
                 )
-                # Publish channel is recreated lazily; this avoids holding onto a stale channel
-                # after reconnects and aligns with the "dead channel inclusion" fix.
-                self._publish_channle = None
+                self._publish_channle = await self.connection.channel()
                 LOG.info("MQ reconnection successful")
             except Exception as e:
                 LOG.error(f"Failed to reconnect to MQ: {str(e)}")
@@ -704,24 +688,19 @@ class AsyncSingleThreadMQConsumer:
             return
 
         # Connection is open, check the channel
-        async with self._publish_lock:
-            if self._publish_channle is None or self._publish_channle.is_closed:
-                LOG.debug("Creating new publish channel...")
-                try:
-                    self._publish_channle = await self.connection.channel(
-                        publisher_confirms=True
-                    )
-                except RuntimeError as e:
-                    # Connection may report is_closed=False but actually be closed
-                    # This is a known issue with aio_pika/aiormq
-                    if "closed" in str(e).lower():
-                        LOG.warning(f"Connection appears open but is actually closed: {e}")
-                        # Force full reconnection with proper cleanup
-                        await self._force_reconnect()
-                        # Channel will be created lazily on next publish attempt.
-                        self._publish_channle = None
-                    else:
-                        raise
+        if self._publish_channle is None or self._publish_channle.is_closed:
+            LOG.debug("Creating new publish channel...")
+            try:
+                self._publish_channle = await self.connection.channel()
+            except RuntimeError as e:
+                # Connection may report is_closed=False but actually be closed
+                # This is a known issue with aio_pika/aiormq
+                if "closed" in str(e).lower():
+                    LOG.warning(f"Connection appears open but is actually closed: {e}")
+                    # Force full reconnection with proper cleanup
+                    await self._force_reconnect()
+                else:
+                    raise
 
     async def publish(self, exchange_name: str, routing_key: str, body: str) -> None:
         """Publish a message to an exchange without declaring it"""
@@ -740,45 +719,29 @@ class AsyncSingleThreadMQConsumer:
             for attempt in range(max_retries):
                 try:
                     await self._ensure_publish_channel()
+                    
+                    if self._publish_channle is None:
+                        raise RuntimeError("No active MQ Publish Channel after reconnection")
+                    
+                    # Create the message with trace context in headers
+                    message = Message(
+                        body.encode("utf-8"),
+                        content_type="application/json",
+                        delivery_mode=2,  # Make message persistent
+                        headers=headers if headers else None,
+                    )
 
-                    async with self._publish_lock:
-                        if (
-                            self._publish_channle is None
-                            or self._publish_channle.is_closed
-                        ):
-                            raise RuntimeError(
-                                "No active MQ Publish Channel after reconnection"
-                            )
-
-                        # Create the message with trace context in headers
-                        message = Message(
-                            body.encode("utf-8"),
-                            content_type="application/json",
-                            delivery_mode=2,  # Make message persistent
-                            headers=headers if headers else None,
-                        )
-
-                        exchange_type, durable, auto_delete = self._exchange_declarations.get(
-                            exchange_name,
-                            (ExchangeType.DIRECT, True, False),
-                        )
-                        exchange = await self._publish_channle.declare_exchange(
-                            exchange_name,
-                            exchange_type,
-                            durable=durable,
-                            auto_delete=auto_delete,
-                            passive=False,
-                        )
-                        await exchange.publish(message, routing_key=routing_key)
+                    exchange = await self._publish_channle.get_exchange(exchange_name)
+                    await exchange.publish(message, routing_key=routing_key)
 
                     LOG.debug(
                         f"Published message to exchange: {exchange_name}, routing_key: {routing_key}"
                     )
-
+                    
                     if span:
                         _set_span_status(span, StatusCode.OK)
                     return  # Success, exit the retry loop
-
+                    
                 except Exception as e:
                     last_exception = e
                     # Check if it's a connection-related error that we should retry
@@ -793,8 +756,7 @@ class AsyncSingleThreadMQConsumer:
                             f"retrying in {wait_time}s: {str(e)}"
                         )
                         # Reset channel to force reconnection on next attempt
-                        async with self._publish_lock:
-                            self._publish_channle = None
+                        self._publish_channle = None
                         await asyncio.sleep(wait_time)
                     else:
                         # Either not a connection error or we've exhausted retries
