@@ -60,6 +60,9 @@ core:
     timeoutSeconds: 3
     failureThreshold: 3
   
+  # Deployment annotations
+  annotations: {}
+  
   # Pod annotations and labels
   podAnnotations: {}
   podLabels: {}
@@ -125,6 +128,9 @@ api:
     periodSeconds: 5
     timeoutSeconds: 3
     failureThreshold: 3
+  
+  # Deployment annotations
+  annotations: {}
   
   # Pod annotations and labels
   podAnnotations: {}

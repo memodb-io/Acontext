@@ -253,3 +253,19 @@ class TokenCounts(BaseModel):
         ...,
         description="Total token count for all text and tool-call parts in a session",
     )
+
+class MessageObservingStatus(BaseModel):
+    """Response model for message observing status."""
+    
+    observed: int = Field(
+        ..., description="Number of messages with observed status"
+    )
+    in_process: int = Field(
+        ..., description="Number of messages with in_process status"
+    )
+    pending: int = Field(
+        ..., description="Number of messages with pending status"
+    )
+    updated_at: str = Field(
+        ..., description="Timestamp when the status was retrieved"
+    )

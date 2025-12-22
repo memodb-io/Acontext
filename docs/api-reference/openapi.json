@@ -913,6 +913,47 @@
         "x-codegen-request-body-name" : "payload"
       }
     },
+    "/session/{session_id}/observing_status" : {
+      "get" : {
+        "description" : "Returns the count of observed, in_process, and pending messages",
+        "parameters" : [ {
+          "description" : "Session ID",
+          "in" : "path",
+          "name" : "session_id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_session__session_id__observing_status_get_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Get message observing status for a session",
+        "tags" : [ "session" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get message observing status\nresult = client.sessions.messages_observing_status(session_id='session-uuid')\nprint(f\"Observed: {result.observed}, In Process: {result.in_process}, Pending: {result.pending}\")\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get message observing status\nconst result = await client.sessions.messagesObservingStatus('session-uuid');\nconsole.log(`Observed: ${result.observed}, In Process: ${result.in_process}, Pending: ${result.pending}`);\n"
+        } ]
+      }
+    },
     "/session/{session_id}/task" : {
       "get" : {
         "description" : "Get tasks from session with cursor-based pagination",
@@ -2360,6 +2401,23 @@
         },
         "type" : "object"
       },
+      "model.MessageObservingStatus" : {
+        "properties" : {
+          "in_process" : {
+            "type" : "integer"
+          },
+          "observed" : {
+            "type" : "integer"
+          },
+          "pending" : {
+            "type" : "integer"
+          },
+          "updated_at" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "model.Session" : {
         "properties" : {
           "configs" : {
@@ -2772,6 +2830,18 @@
           "properties" : {
             "data" : {
               "$ref" : "#/components/schemas/model.Message"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_session__session_id__observing_status_get_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/model.MessageObservingStatus"
             }
           },
           "type" : "object"

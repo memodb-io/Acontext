@@ -673,3 +673,31 @@ func (h *SessionHandler) GetTokenCounts(c *gin.Context) {
 		TotalTokens: totalTokens,
 	}})
 }
+
+// GetSessionObservingStatus godoc
+//
+//	@Summary		Get message observing status for a session
+//	@Description	Returns the count of observed, in_process, and pending messages
+//	@Tags			session
+//	@Accept			json
+//	@Produce		json
+//	@Param			session_id	path	string	true	"Session ID"	format(uuid)
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response{data=model.MessageObservingStatus}
+//	@Router			/session/{session_id}/observing_status [get]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get message observing status\nresult = client.sessions.messages_observing_status(session_id='session-uuid')\nprint(f\"Observed: {result.observed}, In Process: {result.in_process}, Pending: {result.pending}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get message observing status\nconst result = await client.sessions.messagesObservingStatus('session-uuid');\nconsole.log(`Observed: ${result.observed}, In Process: ${result.in_process}, Pending: ${result.pending}`);\n","label":"JavaScript"}]
+func (h *SessionHandler) GetSessionObservingStatus(c *gin.Context) {
+	sessionID, err := uuid.Parse(c.Param("session_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	status, err := h.svc.GetSessionObservingStatus(c.Request.Context(), sessionID.String())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{Data: status})
+}

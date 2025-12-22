@@ -1245,6 +1245,68 @@ const docTemplate = `{
                 ]
             }
         },
+        "/session/{session_id}/observing_status": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the count of observed, in_process, and pending messages",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "session"
+                ],
+                "summary": "Get message observing status for a session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Session ID",
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.MessageObservingStatus"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get message observing status\nresult = client.sessions.messages_observing_status(session_id='session-uuid')\nprint(f\"Observed: {result.observed}, In Process: {result.in_process}, Pending: {result.pending}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get message observing status\nconst result = await client.sessions.messagesObservingStatus('session-uuid');\nconsole.log(` + "`" + `Observed: ${result.observed}, In Process: ${result.in_process}, Pending: ${result.pending}` + "`" + `);\n"
+                    }
+                ]
+            }
+        },
         "/session/{session_id}/task": {
             "get": {
                 "security": [
@@ -3003,6 +3065,23 @@ const docTemplate = `{
                 },
                 "task_id": {
                     "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.MessageObservingStatus": {
+            "type": "object",
+            "properties": {
+                "in_process": {
+                    "type": "integer"
+                },
+                "observed": {
+                    "type": "integer"
+                },
+                "pending": {
+                    "type": "integer"
                 },
                 "updated_at": {
                     "type": "string"

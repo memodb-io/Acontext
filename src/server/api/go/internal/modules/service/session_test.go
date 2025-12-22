@@ -76,6 +76,14 @@ func (m *MockSessionRepo) ListAllMessagesBySession(ctx context.Context, sessionI
 	return args.Get(0).([]model.Message), args.Error(1)
 }
 
+func (m *MockSessionRepo) GetObservingStatus(ctx context.Context, sessionID string) (*model.MessageObservingStatus, error) {
+	args := m.Called(ctx, sessionID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.MessageObservingStatus), args.Error(1)
+}
+
 // MockAssetReferenceRepo is a mock implementation of AssetReferenceRepo
 type MockAssetReferenceRepo struct {
 	mock.Mock

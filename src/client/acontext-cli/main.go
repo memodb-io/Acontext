@@ -26,8 +26,24 @@ func GetVersion() string {
 }
 
 func main() {
-	// Print logo on first run
-	if len(os.Args) > 1 && os.Args[1] != "--help" && os.Args[1] != "-h" {
+	// Print logo on first run (skip for help commands)
+	shouldSkipLogo := false
+	if len(os.Args) > 1 {
+		firstArg := os.Args[1]
+		// Skip logo for help flags
+		if firstArg == "--help" || firstArg == "-h" {
+			shouldSkipLogo = true
+		}
+		// Skip logo for "--" followed by "help" (e.g., "acontext -- help")
+		if firstArg == "--" && len(os.Args) > 2 && os.Args[2] == "help" {
+			shouldSkipLogo = true
+		}
+		// Skip logo for "help" command
+		if firstArg == "help" {
+			shouldSkipLogo = true
+		}
+	}
+	if !shouldSkipLogo {
 		fmt.Println(logo.Logo)
 	}
 
@@ -132,7 +148,7 @@ Get started by running: acontext create
 
 		// Check for updates (skip for version and upgrade commands, and dev version)
 		if c.Use != "version" && c.Use != "upgrade" && cliVersion != "dev" {
-			checkUpdateAsync(c)
+			checkUpdateAsync()
 		}
 		return nil
 	},
@@ -172,7 +188,7 @@ var versionCmd = &cobra.Command{
 }
 
 // checkUpdateAsync checks for updates asynchronously and prints a message if available
-func checkUpdateAsync(cmd *cobra.Command) {
+func checkUpdateAsync() {
 	go func() {
 		hasUpdate, latestVersion, err := version.IsUpdateAvailable(cliVersion)
 		if err != nil {

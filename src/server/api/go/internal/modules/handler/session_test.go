@@ -83,6 +83,14 @@ func (m *MockSessionService) GetAllMessages(ctx context.Context, sessionID uuid.
 	return args.Get(0).([]model.Message), args.Error(1)
 }
 
+func (m *MockSessionService) GetSessionObservingStatus(ctx context.Context, sessionID string) (*model.MessageObservingStatus, error) {
+	args := m.Called(ctx, sessionID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.MessageObservingStatus), args.Error(1)
+}
+
 func setupSessionRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	return gin.New()
@@ -3546,4 +3554,127 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSessionHandler_GetSessionObservingStatus_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockService := new(MockSessionService)
+	handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+
+	sessionID := "550e8400-e29b-41d4-a716-446655440000"
+	expectedStatus := &model.MessageObservingStatus{
+		Observed:  10,
+		InProcess: 5,
+		Pending:   3,
+	}
+
+	mockService.On("GetSessionObservingStatus", mock.Anything, sessionID).
+		Return(expectedStatus, nil)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{
+		{Key: "session_id", Value: sessionID},
+	}
+	req, _ := http.NewRequest("GET", "/session/"+sessionID+"/observing_status", nil)
+	c.Request = req
+
+	handler.GetSessionObservingStatus(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	mockService.AssertExpectations(t)
+
+	// Verify response format: serializer.Response{Data: status}
+	var response map[string]interface{}
+	err := sonic.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	data, ok := response["data"].(map[string]interface{})
+	require.True(t, ok, "Should have data field")
+	assert.Equal(t, float64(10), data["observed"])
+	assert.Equal(t, float64(5), data["in_process"])
+	assert.Equal(t, float64(3), data["pending"])
+}
+
+func TestSessionHandler_GetSessionObservingStatus_EmptySessionID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockService := new(MockSessionService)
+	handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{
+		{Key: "session_id", Value: ""},
+	}
+	req, _ := http.NewRequest("GET", "/session//observing_status", nil)
+	c.Request = req
+
+	handler.GetSessionObservingStatus(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	// Now uses uuid.Parse which will return invalid UUID format error
+	var response map[string]interface{}
+	err := sonic.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.NotEmpty(t, response["error"])
+	mockService.AssertNotCalled(t, "GetSessionObservingStatus")
+}
+
+func TestSessionHandler_GetSessionObservingStatus_InvalidSessionID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockService := new(MockSessionService)
+	handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{
+		{Key: "session_id", Value: "invalid-uuid"},
+	}
+	req, _ := http.NewRequest("GET", "/session/invalid-uuid/observing_status", nil)
+	c.Request = req
+
+	handler.GetSessionObservingStatus(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	// uuid.Parse will return invalid UUID format error
+	var response map[string]interface{}
+	err := sonic.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.NotEmpty(t, response["error"])
+	mockService.AssertNotCalled(t, "GetSessionObservingStatus")
+}
+
+func TestSessionHandler_GetSessionObservingStatus_ServiceError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	mockService := new(MockSessionService)
+	handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+
+	sessionID := "550e8400-e29b-41d4-a716-446655440000"
+	expectedError := errors.New("database connection failed")
+
+	mockService.On("GetSessionObservingStatus", mock.Anything, sessionID).
+		Return(nil, expectedError)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{
+		{Key: "session_id", Value: sessionID},
+	}
+	req, _ := http.NewRequest("GET", "/session/"+sessionID+"/observing_status", nil)
+	c.Request = req
+
+	handler.GetSessionObservingStatus(c)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	// Verify response format: serializer.DBErr returns Response with error field
+	var response map[string]interface{}
+	err := sonic.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.NotEmpty(t, response["error"])
+	assert.Contains(t, response["error"].(string), "database connection failed")
+	mockService.AssertExpectations(t)
 }

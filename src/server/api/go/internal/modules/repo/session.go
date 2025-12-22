@@ -22,6 +22,7 @@ type SessionRepo interface {
 	CreateMessageWithAssets(ctx context.Context, msg *model.Message) error
 	ListBySessionWithCursor(ctx context.Context, sessionID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Message, error)
 	ListAllMessagesBySession(ctx context.Context, sessionID uuid.UUID) ([]model.Message, error)
+	GetObservingStatus(ctx context.Context, sessionID string) (*model.MessageObservingStatus, error)
 }
 
 type sessionRepo struct {
@@ -204,4 +205,57 @@ func (r *sessionRepo) ListAllMessagesBySession(ctx context.Context, sessionID uu
 	var messages []model.Message
 	err := r.db.WithContext(ctx).Where("session_id = ?", sessionID).Find(&messages).Error
 	return messages, err
+}
+
+// GetObservingStatus returns the count of messages by status for a session
+// Maps session_task_process_status values to observing status
+func (r *sessionRepo) GetObservingStatus(
+	ctx context.Context,
+	sessionID string,
+) (*model.MessageObservingStatus, error) {
+
+	if sessionID == "" {
+		return nil, fmt.Errorf("session ID cannot be empty")
+	}
+
+	sessionUUID, err := uuid.Parse(sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid session ID format: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	var result struct {
+		Observed  int64
+		InProcess int64
+		Pending   int64
+	}
+
+	err = r.db.WithContext(ctx).
+		Model(&model.Message{}).
+		Select(`
+			COALESCE(SUM(CASE WHEN session_task_process_status = 'success' THEN 1 ELSE 0 END), 0) as observed,
+			COALESCE(SUM(CASE WHEN session_task_process_status = 'running' THEN 1 ELSE 0 END), 0) as in_process,
+			COALESCE(SUM(CASE WHEN session_task_process_status = 'pending' THEN 1 ELSE 0 END), 0) as pending
+		`).
+		Where("session_id = ?", sessionUUID).
+		Scan(&result).Error
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to get observing status: %w", err)
+	}
+
+	status := &model.MessageObservingStatus{
+		Observed:  int(result.Observed),
+		InProcess: int(result.InProcess),
+		Pending:   int(result.Pending),
+		UpdatedAt: time.Now(),
+	}
+
+	if status.Observed < 0 || status.InProcess < 0 || status.Pending < 0 {
+		return nil, fmt.Errorf("invalid status counts: negative values not allowed")
+	}
+
+	return status, nil
 }

@@ -17,6 +17,8 @@ import {
   ListSessionsOutput,
   ListSessionsOutputSchema,
   Message,
+  MessageObservingStatus,
+  MessageObservingStatusSchema, 
   MessageSchema,
   Session,
   SessionSchema,
@@ -263,6 +265,21 @@ export class SessionsAPI {
   async getTokenCounts(sessionId: string): Promise<TokenCounts> {
     const data = await this.requester.request('GET', `/session/${sessionId}/token_counts`);
     return TokenCountsSchema.parse(data);
+  }
+
+  /**
+   * Get message observing status counts for a session.
+   *
+   * Returns the count of messages by their observing status:
+   * observed, in_process, and pending.
+   *
+   * @param sessionId - The UUID of the session.
+   * @returns MessageObservingStatus object containing observed, in_process, 
+   *          pending counts and updated_at timestamp.
+   */
+  async messagesObservingStatus(sessionId: string): Promise<MessageObservingStatus> {
+    const data = await this.requester.request('GET', `/session/${sessionId}/observing_status`);
+    return MessageObservingStatusSchema.parse(data);
   }
 }
 

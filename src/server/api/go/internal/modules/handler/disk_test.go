@@ -211,13 +211,13 @@ func TestDiskHandler_DeleteDisk(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		diskID     string
+		diskID         string
 		setup          func(*MockDiskService)
 		expectedStatus int
 		expectedError  string
 	}{
 		{
-			name:       "successful deletion",
+			name:   "successful deletion",
 			diskID: diskID.String(),
 			setup: func(svc *MockDiskService) {
 				svc.On("Delete", mock.Anything, projectID, diskID).Return(nil)
@@ -226,13 +226,13 @@ func TestDiskHandler_DeleteDisk(t *testing.T) {
 		},
 		{
 			name:           "invalid disk ID",
-			diskID:     "invalid-uuid",
+			diskID:         "invalid-uuid",
 			setup:          func(svc *MockDiskService) {},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "invalid UUID",
 		},
 		{
-			name:       "service error",
+			name:   "service error",
 			diskID: diskID.String(),
 			setup: func(svc *MockDiskService) {
 				svc.On("Delete", mock.Anything, projectID, diskID).Return(errors.New("service error"))

@@ -8,8 +8,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  CHART_NAME: aconext
-  CHART_PATH: charts/aconext
+  CHART_NAME: acontext
+  CHART_PATH: charts/acontext
   HELM_VERSION: v4.0.1
 
 jobs:
@@ -38,7 +38,7 @@ jobs:
         run: |
           helm dependency update ${{ env.CHART_PATH }}
 
-      - name: Publish new helm chart for aconext
+      - name: Publish new helm chart for acontext
         run: |
           echo ${{ secrets.GITHUB_TOKEN }} | helm registry login ghcr.io --username ${{ github.actor }} --password-stdin
 

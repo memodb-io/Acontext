@@ -110,6 +110,8 @@ func NewRouter(d RouterDeps) *gin.Engine {
 
 			session.GET("/:session_id/token_counts", d.SessionHandler.GetTokenCounts)
 
+			session.GET("/:session_id/observing_status", d.SessionHandler.GetSessionObservingStatus)
+
 			task := session.Group("/:session_id/task")
 			{
 				task.GET("", d.TaskHandler.GetTasks)

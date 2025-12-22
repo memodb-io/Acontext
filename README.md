@@ -3,7 +3,7 @@
       <img alt="Show Acontext header banner" src="./assets/Acontext-header-banner.png">
   </a>
   <p>
-    <h3>Engineer Contexts, Learn Skills</h3>
+    <h4>Context Data Platform for Building Cloud-native AI Agents</h4>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
@@ -30,18 +30,11 @@
   <br/>
 </div>
 
+Acontext can help you:
 
-
-
-
-
-Acontext is a **context data platform** for building **cloud-native** AI Agents. It can:
-
-- **Store** contexts & artifacts. 
-- Do **context engineering** for you.
-- **Observe** agent tasks and user feedback.
-- Enable agent **self-learning** by distilling skills from agent's completed tasks.
-- View everything in one **Dashboard**.
+- **Build a scalable agent with better context engineering**
+- **Observe your agent success rate**
+- **Improve your agent with self-learning for each user**
 
 
 
@@ -53,53 +46,25 @@ Acontext is a **context data platform** for building **cloud-native** AI Agents.
 </div>
 
 
-
-
-
-
-
-Acontext can help you:
-
-- **Build a more scalable agent product with better context engineering**
-- **Build a truly observable Agent product.**
-- **Automatically improve your agent success rate**
-
-
-
 # 💡 Core Features
 
-- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - Multi-modal Message Storage
-  - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - Background TODO agent that collects task's status, progress and preferences
-  - [**Context Editing**](https://docs.acontext.io/store/editing) - Context Engineering in one call
-- [**Disk**](https://docs.acontext.io/store/disk) - Filesystem for artifacts
-- [**Space**](https://docs.acontext.io/learn/skill-space) - Notion for agents
-  - [**Experience Agent**](https://docs.acontext.io/learn/advance/experience-agent) - Background agents that distill, save and search skills
-- [**Dashboard**](https://docs.acontext.io/observe/dashboard) - View messages, artifacts, skills, success rates and everything
-
-### How They Work Together
-
-```txt
-┌──────┐    ┌────────────┐    ┌──────────────┐    ┌───────────────┐
-│ User │◄──►│ Your Agent │◄──►│   Session    │    │ Artifact Disk │
-└──────┘    └─────▲──────┘    └──────┬───────┘    └───────────────┘
-                  │                  │ # if enable
-                  │         ┌────────▼────────┐
-                  │         │ Observed Tasks  │
-                  │         └────────┬────────┘
-                  │                  │ # if enable
-                  │         ┌────────▼────────┐
-                  │         │   Learn Skills  │
-                  │         └────────┬────────┘
-                  └──────────────────┘
-                      Search skills
-```
+- **Store contexts & artifacts** 
+  - [Session](https://docs.acontext.io/store/messages/multi-provider): Multi-modal Message Storage
+  - [Disk](https://docs.acontext.io/store/disk): Filesystem for artifacts
+- **Do context engineering for you**
+  - [Context Editing](https://docs.acontext.io/store/editing) - Context Engineering in one call
+- **Observe agent tasks and user feedback**
+  - [Task Agent](https://docs.acontext.io/observe/agent_tasks) - Background agent that collects task's status, progress and preferences
+- **Enable agent self-learning**
+  - [Experience Agent](https://docs.acontext.io/learn/advance/experience-agent) - Background agents that distill, save and search skills for each user.
+- **View everything in one [dashboard](https://docs.acontext.io/observe/dashboard)**
 
 
 
-# 🏗️ Architecture
+# 🏗️ How it works?
 
 <details>
-<summary>Click to open the architecture diagram, if you're interested.</summary>
+<summary>click to open</summary>
 
 ```mermaid
 graph TB
@@ -151,7 +116,28 @@ graph TB
     style MQ fill:#ff6600,stroke:#fff,stroke-width:2px,color:#fff
 ```
 
+## How They Work Together
+
+```txt
+┌──────┐    ┌────────────┐    ┌──────────────┐    ┌───────────────┐
+│ User │◄──►│ Your Agent │◄──►│   Session    │    │ Artifact Disk │
+└──────┘    └─────▲──────┘    └──────┬───────┘    └───────────────┘
+                  │                  │ # if enable
+                  │         ┌────────▼────────┐
+                  │         │ Observed Tasks  │
+                  │         └────────┬────────┘
+                  │                  │ # if enable
+                  │         ┌────────▼────────┐
+                  │         │   Learn Skills  │
+                  │         └────────┬────────┘
+                  └──────────────────┘
+                      Search skills
+```
+
+
+
 ## Data Structures
+
 <details>
 <summary>📖 Task Structure</summary>
 
@@ -229,7 +215,7 @@ mkdir acontext_server && cd acontext_server
 acontext docker up
 ```
 
-> [📖 local setup](https://docs.acontext.io/local#start-acontext-server-locally) Acontext requires at least an OpenAI API key. We recommend `gpt-5.1` or `gpt-4.1` as the LLM model
+> [📖 local setup](https://docs.acontext.io/local#start-acontext-server-locally) We recommend `gpt-4.1` as the LLM model
 
 `acontext docker up` will create/use  `.env` and `config.yaml` for Acontext, and create a `db` folder to persist data.
 
@@ -289,7 +275,7 @@ Check our example repo for more templates: [Acontext-Examples](https://github.co
 ## Step-by-step Quickstart
 
 <details>
-<summary>Click to Open</summary>
+<summary>click to open</summary>
 
 
 We're maintaining Python [![pypi](https://img.shields.io/pypi/v/acontext.svg)](https://pypi.org/project/acontext/) and Typescript [![npm](https://img.shields.io/npm/v/@acontext/acontext.svg?logo=npm&logoColor=fff&style=flat&labelColor=2C2C2C&color=28CF8D)](https://www.npmjs.com/package/@acontext/acontext) SDKs. The snippets below are using Python.

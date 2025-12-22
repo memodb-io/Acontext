@@ -3,6 +3,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ include "aconext.core.name" . }}
+  {{- with .Values.core.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   labels:
     {{- include "aconext.labels" . | nindent 4 }}
     app.kubernetes.io/component: core

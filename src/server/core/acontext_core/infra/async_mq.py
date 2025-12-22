@@ -1,4 +1,5 @@
-# FIXME: mq may be closed after a long time idle, around 2 hours!
+# NOTE: MQ connection may be closed after long idle time or during startup instability.
+# The publish() method includes retry logic to handle reconnection automatically.
 import os
 import asyncio
 import json
@@ -280,6 +281,7 @@ class AsyncSingleThreadMQConsumer:
         self._shutdown_event = asyncio.Event()
         self._processing_tasks: Set[asyncio.Task] = set()
         self.__running = False
+        self._connection_lock = asyncio.Lock()  # Lock for connection operations
 
     @property
     def running(self) -> bool:
@@ -287,25 +289,31 @@ class AsyncSingleThreadMQConsumer:
 
     async def connect(self) -> None:
         """Establish connection to MQ"""
+        # Quick check without lock - if connection looks healthy, skip
         if self.connection and not self.connection.is_closed:
             return
 
-        try:
-            self.connection = await connect_robust(
-                self.connection_config.url,
-                client_properties={
-                    "connection_name": self.connection_config.connection_name
-                },
-                heartbeat=self.connection_config.heartbeat,
-                blocked_connection_timeout=self.connection_config.blocked_connection_timeout,
-            )
-            self._publish_channle = await self.connection.channel()
-            LOG.info(
-                f"Connected to MQ (connection: {self.connection_config.connection_name})"
-            )
-        except Exception as e:
-            LOG.error(f"Failed to connect to MQ: {str(e)}")
-            raise e
+        async with self._connection_lock:
+            # Double-check after acquiring lock
+            if self.connection and not self.connection.is_closed:
+                return
+            
+            try:
+                self.connection = await connect_robust(
+                    self.connection_config.url,
+                    client_properties={
+                        "connection_name": self.connection_config.connection_name
+                    },
+                    heartbeat=self.connection_config.heartbeat,
+                    blocked_connection_timeout=self.connection_config.blocked_connection_timeout,
+                )
+                self._publish_channle = await self.connection.channel()
+                LOG.info(
+                    f"Connected to MQ (connection: {self.connection_config.connection_name})"
+                )
+            except Exception as e:
+                LOG.error(f"Failed to connect to MQ: {str(e)}")
+                raise e
 
     async def disconnect(self) -> None:
         """Close connection to MQ"""
@@ -611,6 +619,65 @@ class AsyncSingleThreadMQConsumer:
 
         return queue
 
+    async def _force_reconnect(self) -> None:
+        """Force a full reconnection, safely closing old connection if possible"""
+        async with self._connection_lock:
+            LOG.warning("Forcing full MQ reconnection...")
+            
+            # Try to close the old connection gracefully
+            old_connection = self.connection
+            self._publish_channle = None
+            self.connection = None
+            
+            if old_connection:
+                try:
+                    if not old_connection.is_closed:
+                        await old_connection.close()
+                except Exception as e:
+                    # Ignore errors when closing a broken connection
+                    LOG.debug(f"Error closing old connection (ignored): {e}")
+            
+            # Now reconnect - connect() will acquire the lock again, but that's okay
+            # since we're releasing it here. Actually, let's just do the connection inline.
+            try:
+                self.connection = await connect_robust(
+                    self.connection_config.url,
+                    client_properties={
+                        "connection_name": self.connection_config.connection_name
+                    },
+                    heartbeat=self.connection_config.heartbeat,
+                    blocked_connection_timeout=self.connection_config.blocked_connection_timeout,
+                )
+                self._publish_channle = await self.connection.channel()
+                LOG.info("MQ reconnection successful")
+            except Exception as e:
+                LOG.error(f"Failed to reconnect to MQ: {str(e)}")
+                raise
+
+    async def _ensure_publish_channel(self) -> None:
+        """Ensure we have a valid publish channel, reconnecting if necessary"""
+        # First ensure we have a connection
+        if self.connection is None or self.connection.is_closed:
+            LOG.warning("Connection is closed, reconnecting...")
+            self._publish_channle = None
+            await self.connect()
+            return
+        
+        # Connection is open, check the channel
+        if self._publish_channle is None or self._publish_channle.is_closed:
+            LOG.debug("Creating new publish channel...")
+            try:
+                self._publish_channle = await self.connection.channel()
+            except RuntimeError as e:
+                # Connection may report is_closed=False but actually be closed
+                # This is a known issue with aio_pika/aiormq
+                if "closed" in str(e).lower():
+                    LOG.warning(f"Connection appears open but is actually closed: {e}")
+                    # Force full reconnection with proper cleanup
+                    await self._force_reconnect()
+                else:
+                    raise
+
     async def publish(self, exchange_name: str, routing_key: str, body: str) -> None:
         """Publish a message to an exchange without declaring it"""
         assert len(exchange_name) and len(routing_key)
@@ -618,37 +685,67 @@ class AsyncSingleThreadMQConsumer:
         # Create span for message publishing and inject trace context into headers
         span, headers = _create_publish_span_and_headers(exchange_name, routing_key, body)
         
+        max_retries = 3
+        retry_delay = 1.0
+        last_exception = None
+        
         try:
-            await self.connect()
+            for attempt in range(max_retries):
+                try:
+                    await self._ensure_publish_channel()
+                    
+                    if self._publish_channle is None:
+                        raise RuntimeError("No active MQ Publish Channel after reconnection")
+                    
+                    # Create the message with trace context in headers
+                    message = Message(
+                        body.encode("utf-8"),
+                        content_type="application/json",
+                        delivery_mode=2,  # Make message persistent
+                        headers=headers if headers else None,
+                    )
 
-            if self._publish_channle is None:
-                raise RuntimeError("No active MQ Publish Channel")
+                    exchange = await self._publish_channle.get_exchange(exchange_name)
+                    await exchange.publish(message, routing_key=routing_key)
 
-            if self._publish_channle.is_closed:
-                self._publish_channle = await self.connection.channel()
+                    LOG.debug(
+                        f"Published message to exchange: {exchange_name}, routing_key: {routing_key}"
+                    )
+                    
+                    if span:
+                        _set_span_status(span, StatusCode.OK)
+                    return  # Success, exit the retry loop
+                    
+                except Exception as e:
+                    last_exception = e
+                    # Check if it's a connection-related error that we should retry
+                    is_connection_error = (
+                        "closed" in str(e).lower() or 
+                        isinstance(e, (ConnectionError, RuntimeError))
+                    )
+                    
+                    if is_connection_error and attempt < max_retries - 1:
+                        wait_time = retry_delay * (attempt + 1)
+                        LOG.warning(
+                            f"Publish failed (attempt {attempt + 1}/{max_retries}), "
+                            f"retrying in {wait_time}s: {str(e)}"
+                        )
+                        # Reset channel to force reconnection on next attempt
+                        self._publish_channle = None
+                        await asyncio.sleep(wait_time)
+                    else:
+                        # Either not a connection error or we've exhausted retries
+                        if span:
+                            _record_span_exception(span, e)
+                            _set_span_status(span, StatusCode.ERROR, str(e))
+                        raise
             
-            # Create the message with trace context in headers
-            message = Message(
-                body.encode("utf-8"),
-                content_type="application/json",
-                delivery_mode=2,  # Make message persistent
-                headers=headers if headers else None,
-            )
-
-            exchange = await self._publish_channle.get_exchange(exchange_name)
-            await exchange.publish(message, routing_key=routing_key)
-
-            LOG.debug(
-                f"Published message to exchange: {exchange_name}, routing_key: {routing_key}"
-            )
-            
-            if span:
-                _set_span_status(span, StatusCode.OK)
-        except Exception as e:
-            if span:
-                _record_span_exception(span, e)
-                _set_span_status(span, StatusCode.ERROR, str(e))
-            raise
+            # If we get here, we've exhausted all retries (shouldn't happen due to raise above)
+            if last_exception:
+                if span:
+                    _record_span_exception(span, last_exception)
+                    _set_span_status(span, StatusCode.ERROR, str(last_exception))
+                raise last_exception
         finally:
             if span:
                 span.end()

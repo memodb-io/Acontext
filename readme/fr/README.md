@@ -3,7 +3,7 @@
       <img alt="Show Acontext header banner" src="../../assets/Acontext-header-banner.png">
   </a>
   <p>
-    <h3>Ingénierie de Contextes, Apprentissage de Compétences</h3>
+    <h4>Context Data Platform for Building Cloud-native AI Agents</h4>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
@@ -32,15 +32,11 @@
 
 
 
+Acontext peut vous aider à :
 
-
-Acontext est une **plateforme de données contextuelles** pour construire des Agents IA **cloud-native**. Elle peut :
-
-- **Stocker** les contextes et artefacts. 
-- Faire de l'**ingénierie de contexte** pour vous.
-- **Observer** les tâches des agents et les retours des utilisateurs.
-- Permettre l'**auto-apprentissage** des agents en distillant des compétences à partir des tâches complétées des agents.
-- Tout visualiser dans un **Tableau de bord**.
+- **Construire un agent évolutif avec une meilleure ingénierie contextuelle**
+- **Observer le taux de réussite de votre agent**
+- **Améliorer votre agent avec l'auto-apprentissage pour chaque utilisateur**
 
 
 
@@ -53,52 +49,22 @@ Acontext est une **plateforme de données contextuelles** pour construire des Ag
 
 
 
-
-
-Acontext peut vous aider à :
-
-- **Construire un produit d'agent plus évolutif avec une meilleure ingénierie contextuelle**
-- **Construire un produit Agent véritablement observable.**
-- **Améliorer automatiquement votre taux de réussite des agents**
-
-
-
 # 💡 Fonctionnalités Principales
 
-- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - Stockage de Messages Multi-modal
-  - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - Agent TODO en arrière-plan qui collecte le statut, la progression et les préférences de la tâche
-  - [**Context Editing**](https://docs.acontext.io/store/editing) - Ingénierie de Contexte en un appel
-- [**Disk**](https://docs.acontext.io/store/disk) - Système de fichiers pour les artefacts
-- [**Space**](https://docs.acontext.io/learn/skill-space) - Notion pour les agents
-  - [**Experience Agent**](https://docs.acontext.io/learn/advance/experience-agent) - Agents en arrière-plan qui distillent, sauvegardent et recherchent des compétences
-- [**Dashboard**](https://docs.acontext.io/observe/dashboard) - Voir les messages, artefacts, compétences, taux de réussite et tout
-
-### Comment Ils Fonctionnent Ensemble
-
-```txt
-┌──────┐    ┌────────────┐    ┌──────────────┐    ┌───────────────┐
-│ User │◄──►│ Your Agent │◄──►│   Session    │    │ Artifact Disk │
-└──────┘    └─────▲──────┘    └──────┬───────┘    └───────────────┘
-                  │                  │ # if enable
-                  │         ┌────────▼────────┐
-                  │         │ Observed Tasks  │
-                  │         └────────┬────────┘
-                  │                  │ # if enable
-                  │         ┌────────▼────────┐
-                  │         │   Learn Skills  │
-                  │         └────────┬────────┘
-                  └──────────────────┘
-                      Search skills
-```
+- **Stocker les contextes et artefacts** 
+  - [Session](https://docs.acontext.io/store/messages/multi-provider): Stockage de Messages Multi-modal
+  - [Disk](https://docs.acontext.io/store/disk): Système de fichiers pour les artefacts
+- **Faire de l'ingénierie de contexte pour vous**
+  - [Context Editing](https://docs.acontext.io/store/editing) - Ingénierie de Contexte en un appel
+- **Observer les tâches des agents et les retours des utilisateurs**
+  - [Task Agent](https://docs.acontext.io/observe/agent_tasks) - Agent en arrière-plan qui collecte le statut, la progression et les préférences de la tâche
+- **Permettre l'auto-apprentissage des agents**
+  - [Experience Agent](https://docs.acontext.io/learn/advance/experience-agent) - Agents en arrière-plan qui distillent, sauvegardent et recherchent des compétences pour chaque utilisateur.
+- **Voir tout dans un [tableau de bord](https://docs.acontext.io/observe/dashboard)**
 
 
 
-
-</details>
-
-
-
-# 🏗️ Architecture
+# 🏗️ Comment ça fonctionne ?
 
 <details>
 <summary>Cliquez pour ouvrir le diagramme d'architecture, si vous êtes intéressé.</summary>
@@ -152,6 +118,26 @@ graph TB
     style REDIS fill:#dc382d,stroke:#fff,stroke-width:2px,color:#fff
     style MQ fill:#ff6600,stroke:#fff,stroke-width:2px,color:#fff
 ```
+
+## Comment Ils Fonctionnent Ensemble
+
+```txt
+┌──────┐    ┌────────────┐    ┌──────────────┐    ┌───────────────┐
+│ User │◄──►│ Your Agent │◄──►│   Session    │    │ Artifact Disk │
+└──────┘    └─────▲──────┘    └──────┬───────┘    └───────────────┘
+                  │                  │ # if enable
+                  │         ┌────────▼────────┐
+                  │         │ Observed Tasks  │
+                  │         └────────┬────────┘
+                  │                  │ # if enable
+                  │         ┌────────▼────────┐
+                  │         │   Learn Skills  │
+                  │         └────────┬────────┘
+                  └──────────────────┘
+                      Search skills
+```
+
+
 
 ## Structures de Données
 <details>
@@ -290,7 +276,7 @@ Consultez notre dépôt d'exemples pour plus de modèles : [Acontext-Examples](h
 
 
 
-## SDK Walk-through
+## Step-by-step Quickstart
 
 <details>
 <summary>Cliquez pour Ouvrir</summary>

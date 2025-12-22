@@ -304,6 +304,17 @@ definitions:
       updated_at:
         type: string
     type: object
+  model.MessageObservingStatus:
+    properties:
+      in_process:
+        type: integer
+      observed:
+        type: integer
+      pending:
+        type: integer
+      updated_at:
+        type: string
+    type: object
   model.Session:
     properties:
       configs:
@@ -1607,6 +1618,56 @@ paths:
             },
             { format: 'openai' }
           );
+  /session/{session_id}/observing_status:
+    get:
+      consumes:
+      - application/json
+      description: Returns the count of observed, in_process, and pending messages
+      parameters:
+      - description: Session ID
+        format: uuid
+        in: path
+        name: session_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.MessageObservingStatus'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get message observing status for a session
+      tags:
+      - session
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Get message observing status
+          result = client.sessions.messages_observing_status(session_id='session-uuid')
+          print(f"Observed: {result.observed}, In Process: {result.in_process}, Pending: {result.pending}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Get message observing status
+          const result = await client.sessions.messagesObservingStatus('session-uuid');
+          console.log(`Observed: ${result.observed}, In Process: ${result.in_process}, Pending: ${result.pending}`);
   /session/{session_id}/task:
     get:
       consumes:

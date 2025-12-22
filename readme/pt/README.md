@@ -3,7 +3,7 @@
       <img alt="Show Acontext header banner" src="../../assets/Acontext-header-banner.png">
   </a>
   <p>
-    <h3>Engenharia de Contextos, Aprender Habilidades</h3>
+    <h4>Context Data Platform for Building Cloud-native AI Agents</h4>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
@@ -31,16 +31,11 @@
 </div>
 
 
+Acontext pode ajudá-lo a:
 
-
-
-Acontext é uma **plataforma de dados de contexto** para construir AI Agents **cloud-native**. Pode:
-
-- **Armazenar** contextos e artifacts. 
-- Fazer **engenharia de contexto** para você.
-- **Observar** tarefas de agentes e feedback do usuário.
-- Habilitar o **autoaprendizado** de agentes através da destilação de habilidades das tarefas concluídas do agente.
-- Visualizar tudo em um **Painel**.
+- **Construir um agente escalável com melhor engenharia de contexto**
+- **Observar a taxa de sucesso do seu agente**
+- **Melhorar seu agente com autoaprendizado para cada usuário**
 
 
 
@@ -53,52 +48,22 @@ Acontext é uma **plataforma de dados de contexto** para construir AI Agents **c
 
 
 
-
-
-O Acontext pode ajudá-lo a:
-
-- **Construir um produto de agente mais escalável com melhor engenharia de contexto**
-- **Construir um produto de Agent verdadeiramente observável.**
-- **Melhorar automaticamente sua taxa de sucesso do agente**
-
-
-
 # 💡 Principais Recursos
 
-- [**Session**](https://docs.acontext.io/store/messages/multi-provider) - Armazenamento de Mensagens Multi-modal
-  - [**Task Agent**](https://docs.acontext.io/observe/agent_tasks) - Agente TODO em segundo plano que coleta status, progresso e preferências da tarefa
-  - [**Context Editing**](https://docs.acontext.io/store/editing) - Engenharia de Contexto em uma chamada
-- [**Disk**](https://docs.acontext.io/store/disk) - Sistema de arquivos para artifacts
-- [**Space**](https://docs.acontext.io/learn/skill-space) - Notion para agentes
-  - [**Experience Agent**](https://docs.acontext.io/learn/advance/experience-agent) - Agentes em segundo plano que destilam, salvam e pesquisam habilidades
-- [**Dashboard**](https://docs.acontext.io/observe/dashboard) - Visualizar mensagens, artifacts, habilidades, taxas de sucesso e tudo
-
-### Como Eles Trabalham Juntos
-
-```txt
-┌──────┐    ┌────────────┐    ┌──────────────┐    ┌───────────────┐
-│ User │◄──►│ Your Agent │◄──►│   Session    │    │ Artifact Disk │
-└──────┘    └─────▲──────┘    └──────┬───────┘    └───────────────┘
-                  │                  │ # if enable
-                  │         ┌────────▼────────┐
-                  │         │ Observed Tasks  │
-                  │         └────────┬────────┘
-                  │                  │ # if enable
-                  │         ┌────────▼────────┐
-                  │         │   Learn Skills  │
-                  │         └────────┬────────┘
-                  └──────────────────┘
-                      Search skills
-```
+- **Armazenar contextos & artifacts** 
+  - [Session](https://docs.acontext.io/store/messages/multi-provider): Armazenamento de Mensagens Multi-modal
+  - [Disk](https://docs.acontext.io/store/disk): Sistema de arquivos para artifacts
+- **Fazer engenharia de contexto para você**
+  - [Context Editing](https://docs.acontext.io/store/editing) - Engenharia de Contexto em uma chamada
+- **Observar tarefas de agentes e feedback do usuário**
+  - [Task Agent](https://docs.acontext.io/observe/agent_tasks) - Agente em segundo plano que coleta status, progresso e preferências da tarefa
+- **Habilitar autoaprendizado de agentes**
+  - [Experience Agent](https://docs.acontext.io/learn/advance/experience-agent) - Agentes em segundo plano que destilam, salvam e pesquisam habilidades para cada usuário.
+- **Visualizar tudo em um [dashboard](https://docs.acontext.io/observe/dashboard)**
 
 
 
-
-</details>
-
-
-
-# 🏗️ Arquitetura
+# 🏗️ Como funciona?
 
 <details>
 <summary>Clique para abrir o diagrama de arquitetura, se estiver interessado.</summary>
@@ -152,6 +117,26 @@ graph TB
     style REDIS fill:#dc382d,stroke:#fff,stroke-width:2px,color:#fff
     style MQ fill:#ff6600,stroke:#fff,stroke-width:2px,color:#fff
 ```
+
+## Como Eles Trabalham Juntos
+
+```txt
+┌──────┐    ┌────────────┐    ┌──────────────┐    ┌───────────────┐
+│ User │◄──►│ Your Agent │◄──►│   Session    │    │ Artifact Disk │
+└──────┘    └─────▲──────┘    └──────┬───────┘    └───────────────┘
+                  │                  │ # if enable
+                  │         ┌────────▼────────┐
+                  │         │ Observed Tasks  │
+                  │         └────────┬────────┘
+                  │                  │ # if enable
+                  │         ┌────────▼────────┐
+                  │         │   Learn Skills  │
+                  │         └────────┬────────┘
+                  └──────────────────┘
+                      Search skills
+```
+
+
 
 ## Estruturas de Dados
 <details>
@@ -224,14 +209,11 @@ Temos um `acontext-cli` para ajudá-lo a fazer uma prova de conceito rápida. Ba
 curl -fsSL https://install.acontext.io | sh
 ```
 
-Você deve ter [docker-compose](https://docs.docker.com/compose/install/) instalado e uma [OpenAI API Key](https://platform.openai.com/settings/organization/api-keys) para iniciar um backend Acontext no seu computador:
+Você deve ter [docker](https://www.docker.com/get-started/) instalado e uma OpenAI API Key para iniciar um backend Acontext no seu computador:
 
 ```bash
 mkdir acontext_server && cd acontext_server
-
-# 1. este comando iniciará um prompt interativo
-# 2. Requer que você insira sua openai api key
-acontext docker up 
+acontext docker up
 ```
 
 > [📖 configuração local](https://docs.acontext.io/local#start-acontext-server-locally) Acontext requer pelo menos uma Chave API OpenAI. Recomendamos `gpt-5.1` ou `gpt-4.1` como modelo LLM
@@ -290,7 +272,7 @@ Confira nosso repositório de exemplos para mais modelos: [Acontext-Examples](ht
 
 
 
-## SDK Walk-through
+## Step-by-step Quickstart
 
 <details>
 <summary>Clique para Abrir</summary>

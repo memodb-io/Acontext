@@ -32,6 +32,7 @@ type SessionService interface {
 	StoreMessage(ctx context.Context, in StoreMessageInput) (*model.Message, error)
 	GetMessages(ctx context.Context, in GetMessagesInput) (*GetMessagesOutput, error)
 	GetAllMessages(ctx context.Context, sessionID uuid.UUID) ([]model.Message, error)
+	GetSessionObservingStatus(ctx context.Context, sessionID string) (*model.MessageObservingStatus, error)
 }
 
 type sessionService struct {
@@ -520,4 +521,30 @@ func (s *sessionService) GetAllMessages(ctx context.Context, sessionID uuid.UUID
 	})
 
 	return msgs, nil
+}
+
+// GetSessionObservingStatus retrieves observing status for a specific session
+func (s *sessionService) GetSessionObservingStatus(
+	ctx context.Context,
+	sessionID string,
+) (*model.MessageObservingStatus, error) {
+
+	if sessionID == "" {
+		return nil, fmt.Errorf("session ID is required")
+	}
+
+	if ctx == nil {
+		return nil, fmt.Errorf("context cannot be nil")
+	}
+
+	status, err := s.sessionRepo.GetObservingStatus(ctx, sessionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get session observing status: %w", err)
+	}
+
+	if status == nil {
+		return nil, fmt.Errorf("repository returned nil status")
+	}
+
+	return status, nil
 }

@@ -240,6 +240,5 @@ func BuildContainer() *do.Injector {
 	do.Provide(inj, func(i *do.Injector) (*handler.ToolHandler, error) {
 		return handler.NewToolHandler(do.MustInvoke[*httpclient.CoreClient](i)), nil
 	})
-
 	return inj
 }

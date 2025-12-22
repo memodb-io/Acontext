@@ -31,3 +31,11 @@ type Session struct {
 }
 
 func (Session) TableName() string { return "sessions" }
+
+// MessageObservingStatus represents the count of messages by their observing status
+type MessageObservingStatus struct {
+	Observed  int       `json:"observed"`
+	InProcess int       `json:"in_process"`
+	Pending   int       `json:"pending"`
+	UpdatedAt time.Time `json:"updated_at"`
+}

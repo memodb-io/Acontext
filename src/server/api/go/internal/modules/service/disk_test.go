@@ -242,13 +242,13 @@ func TestDiskService_Delete(t *testing.T) {
 
 	tests := []struct {
 		name        string
-		diskID  uuid.UUID
+		diskID      uuid.UUID
 		setup       func(*MockDiskRepo)
 		expectError bool
 		errorMsg    string
 	}{
 		{
-			name:       "successful deletion",
+			name:   "successful deletion",
 			diskID: diskID,
 			setup: func(repo *MockDiskRepo) {
 				repo.On("Delete", mock.Anything, projectID, diskID).Return(nil)
@@ -256,7 +256,7 @@ func TestDiskService_Delete(t *testing.T) {
 			expectError: false,
 		},
 		{
-			name:       "empty disk ID",
+			name:   "empty disk ID",
 			diskID: uuid.UUID{},
 			setup: func(repo *MockDiskRepo) {
 				// No mock setup needed as the service should return error before calling repo
@@ -265,7 +265,7 @@ func TestDiskService_Delete(t *testing.T) {
 			errorMsg:    "disk id is empty",
 		},
 		{
-			name:       "repo error",
+			name:   "repo error",
 			diskID: diskID,
 			setup: func(repo *MockDiskRepo) {
 				repo.On("Delete", mock.Anything, projectID, diskID).Return(errors.New("delete error"))
