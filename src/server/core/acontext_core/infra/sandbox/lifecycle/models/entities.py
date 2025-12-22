@@ -23,7 +23,7 @@ class SandboxInfo(BaseModel):
     backend: SandboxBackend = SandboxBackend.DOCKER
     status: SandboxStatus
     session_api_key: Optional[str] = None
-    exposed_urls: Optional[List[ExposedUrl]] = None  # URLs exposed from the container for runtimes
+    exposed_urls: Optional[List[ExposedUrl]] = None
     created_at: datetime = datetime.now()
 
 

@@ -5,9 +5,7 @@ class SandboxBackend(str, Enum):
     """Backend implementation type."""
 
     DOCKER = "docker"
-    CLOUDFLARE = "cloudflare"
-    K8S = 'k8s'
-    FIRECRACKER = 'firecracker'
+    K8S = "k8s"
 
 
 class SandboxStatus(Enum):
@@ -18,5 +16,3 @@ class SandboxStatus(Enum):
     PAUSED = "PAUSED"
     ERROR = "ERROR"
     MISSING = "MISSING"
-
-

@@ -35,7 +35,7 @@ definitions:
       title:
         type: string
       type:
-        example: text
+        example: page
         type: string
     required:
     - type
@@ -1971,9 +1971,8 @@ paths:
       consumes:
       - application/json
       description: List blocks in a space. Use type query parameter to filter by block
-        type (page, folder, text, sop, etc.). Use parent_id query parameter to filter
-        by parent. If both type and parent_id are empty, returns top-level pages and
-        folders.
+        type (page, folder, sop). Use parent_id query parameter to filter by parent.
+        If both type and parent_id are empty, returns top-level pages and folders.
       parameters:
       - description: Space ID
         format: uuid
@@ -1985,7 +1984,6 @@ paths:
         enum:
         - page
         - folder
-        - text
         - sop
         in: query
         name: type
@@ -2048,9 +2046,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: 'Create a new block (supports all types: page, folder, text, sop,
-        etc.). For page and folder types, parent_id is optional. For other types,
-        parent_id is required.'
+      description: 'Create a new block (supports types: page, folder, sop). For page
+        and folder types, parent_id is optional. For sop type, parent_id is required.'
       parameters:
       - description: Space ID
         format: uuid
@@ -2089,20 +2086,20 @@ paths:
 
           client = AcontextClient(api_key='sk_project_token')
 
-          # Create a page
-          page = client.blocks.create(
+          # Create a folder
+          folder = client.blocks.create(
               space_id='space-uuid',
-              block_type='page',
-              title='My Page'
+              block_type='folder',
+              title='My Folder'
           )
 
-          # Create a text block under the page
-          text_block = client.blocks.create(
+          # Create a page under the folder
+          page = client.blocks.create(
               space_id='space-uuid',
-              parent_id=page['id'],
-              block_type='text',
-              title='Content',
-              props={"text": "Block content here"}
+              parent_id=folder['id'],
+              block_type='page',
+              title='My Page',
+              props={"description": "Page content here"}
           )
       - label: JavaScript
         lang: javascript
@@ -2111,25 +2108,25 @@ paths:
 
           const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
-          // Create a page
-          const page = await client.blocks.create('space-uuid', {
-            blockType: 'page',
-            title: 'My Page'
+          // Create a folder
+          const folder = await client.blocks.create('space-uuid', {
+            blockType: 'folder',
+            title: 'My Folder'
           });
 
-          // Create a text block under the page
-          const textBlock = await client.blocks.create('space-uuid', {
-            parentId: page.id,
-            blockType: 'text',
-            title: 'Content',
-            props: { text: 'Block content here' }
+          // Create a page under the folder
+          const page = await client.blocks.create('space-uuid', {
+            parentId: folder.id,
+            blockType: 'page',
+            title: 'My Page',
+            props: { description: 'Page content here' }
           });
   /space/{space_id}/block/{block_id}:
     delete:
       consumes:
       - application/json
-      description: 'Delete a block by its ID (works for all block types: page, folder,
-        text, sop, etc.)'
+      description: 'Delete a block by its ID (works for block types: page, folder,
+        sop)'
       parameters:
       - description: Space ID
         format: uuid
@@ -2178,9 +2175,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: Move block by updating its parent_id. Works for all block types
-        (page, folder, text, sop, etc.). For page and folder types, parent_id can
-        be null (root level).
+      description: 'Move block by updating its parent_id. Works for block types: page,
+        folder, sop. For page and folder types, parent_id can be null (root level).'
       parameters:
       - description: Space ID
         format: uuid
@@ -2241,8 +2237,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: 'Get a block''s properties by its ID (works for all block types:
-        page, folder, text, sop, etc.)'
+      description: 'Get a block''s properties by its ID (works for block types: page,
+        folder, sop)'
       parameters:
       - description: Space ID
         format: uuid
@@ -2300,8 +2296,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: 'Update a block''s title and properties by its ID (works for all
-        block types: page, folder, text, sop, etc.)'
+      description: 'Update a block''s title and properties by its ID (works for block
+        types: page, folder, sop)'
       parameters:
       - description: Space ID
         format: uuid
@@ -2364,8 +2360,8 @@ paths:
     put:
       consumes:
       - application/json
-      description: 'Update block sort value (works for all block types: page, folder,
-        text, sop, etc.)'
+      description: 'Update block sort value (works for block types: page, folder,
+        sop)'
       parameters:
       - description: Space ID
         format: uuid

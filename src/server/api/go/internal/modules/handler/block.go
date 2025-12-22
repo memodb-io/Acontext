@@ -28,7 +28,7 @@ func NewBlockHandler(s service.BlockService, coreClient *httpclient.CoreClient) 
 
 type CreateBlockReq struct {
 	ParentID *uuid.UUID     `from:"parent_id" json:"parent_id"`
-	Type     string         `from:"type" json:"type" binding:"required" example:"text"`
+	Type     string         `from:"type" json:"type" binding:"required" example:"page"`
 	Title    string         `from:"title" json:"title"`
 	Props    map[string]any `from:"props" json:"props"`
 }
@@ -36,7 +36,7 @@ type CreateBlockReq struct {
 // CreateBlock godoc
 //
 //	@Summary		Create block
-//	@Description	Create a new block (supports all types: page, folder, text, sop, etc.). For page and folder types, parent_id is optional. For other types, parent_id is required.
+//	@Description	Create a new block (supports types: page, folder, sop). For page and folder types, parent_id is optional. For sop type, parent_id is required.
 //	@Tags			block
 //	@Accept			json
 //	@Produce		json
@@ -45,7 +45,7 @@ type CreateBlockReq struct {
 //	@Security		BearerAuth
 //	@Success		201	{object}	serializer.Response{data=httpclient.InsertBlockResponse}
 //	@Router			/space/{space_id}/block [post]
-//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a page\npage = client.blocks.create(\n    space_id='space-uuid',\n    block_type='page',\n    title='My Page'\n)\n\n# Create a text block under the page\ntext_block = client.blocks.create(\n    space_id='space-uuid',\n    parent_id=page['id'],\n    block_type='text',\n    title='Content',\n    props={\"text\": \"Block content here\"}\n)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a page\nconst page = await client.blocks.create('space-uuid', {\n  blockType: 'page',\n  title: 'My Page'\n});\n\n// Create a text block under the page\nconst textBlock = await client.blocks.create('space-uuid', {\n  parentId: page.id,\n  blockType: 'text',\n  title: 'Content',\n  props: { text: 'Block content here' }\n});\n","label":"JavaScript"}]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a folder\nfolder = client.blocks.create(\n    space_id='space-uuid',\n    block_type='folder',\n    title='My Folder'\n)\n\n# Create a page under the folder\npage = client.blocks.create(\n    space_id='space-uuid',\n    parent_id=folder['id'],\n    block_type='page',\n    title='My Page',\n    props={\"description\": \"Page content here\"}\n)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a folder\nconst folder = await client.blocks.create('space-uuid', {\n  blockType: 'folder',\n  title: 'My Folder'\n});\n\n// Create a page under the folder\nconst page = await client.blocks.create('space-uuid', {\n  parentId: folder.id,\n  blockType: 'page',\n  title: 'My Page',\n  props: { description: 'Page content here' }\n});\n","label":"JavaScript"}]
 func (h *BlockHandler) CreateBlock(c *gin.Context) {
 	// Get project from context
 	project, ok := c.MustGet("project").(*model.Project)
@@ -133,7 +133,7 @@ func (h *BlockHandler) CreateBlock(c *gin.Context) {
 // DeleteBlock godoc
 //
 //	@Summary		Delete block
-//	@Description	Delete a block by its ID (works for all block types: page, folder, text, sop, etc.)
+//	@Description	Delete a block by its ID (works for block types: page, folder, sop)
 //	@Tags			block
 //	@Accept			json
 //	@Produce		json
@@ -167,7 +167,7 @@ func (h *BlockHandler) DeleteBlock(c *gin.Context) {
 // GetBlockProperties godoc
 //
 //	@Summary		Get block properties
-//	@Description	Get a block's properties by its ID (works for all block types: page, folder, text, sop, etc.)
+//	@Description	Get a block's properties by its ID (works for block types: page, folder, sop)
 //	@Tags			block
 //	@Accept			json
 //	@Produce		json
@@ -201,7 +201,7 @@ type UpdateBlockPropertiesReq struct {
 // UpdateBlockProperties godoc
 //
 //	@Summary		Update block properties
-//	@Description	Update a block's title and properties by its ID (works for all block types: page, folder, text, sop, etc.)
+//	@Description	Update a block's title and properties by its ID (works for block types: page, folder, sop)
 //	@Tags			block
 //	@Accept			json
 //	@Produce		json
@@ -251,12 +251,12 @@ type ListBlocksReq struct {
 // ListBlocks godoc
 //
 //	@Summary		List blocks
-//	@Description	List blocks in a space. Use type query parameter to filter by block type (page, folder, text, sop, etc.). Use parent_id query parameter to filter by parent. If both type and parent_id are empty, returns top-level pages and folders.
+//	@Description	List blocks in a space. Use type query parameter to filter by block type (page, folder, sop). Use parent_id query parameter to filter by parent. If both type and parent_id are empty, returns top-level pages and folders.
 //	@Tags			block
 //	@Accept			json
 //	@Produce		json
 //	@Param			space_id	path	string	true	"Space ID"		Format(uuid)
-//	@Param			type		query	string	false	"Block type"	Enums(page, folder, text, sop)
+//	@Param			type		query	string	false	"Block type"	Enums(page, folder, sop)
 //	@Param			parent_id	query	string	false	"Parent ID"		Format(uuid)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=[]model.Block}
@@ -304,7 +304,7 @@ type MoveBlockReq struct {
 // MoveBlock godoc
 //
 //	@Summary		Move block
-//	@Description	Move block by updating its parent_id. Works for all block types (page, folder, text, sop, etc.). For page and folder types, parent_id can be null (root level).
+//	@Description	Move block by updating its parent_id. Works for block types: page, folder, sop. For page and folder types, parent_id can be null (root level).
 //	@Tags			block
 //	@Accept			json
 //	@Produce		json
@@ -350,7 +350,7 @@ type UpdateBlockSortReq struct {
 // UpdateBlockSort godoc
 //
 //	@Summary		Update block sort
-//	@Description	Update block sort value (works for all block types: page, folder, text, sop, etc.)
+//	@Description	Update block sort value (works for block types: page, folder, sop)
 //	@Tags			block
 //	@Accept			json
 //	@Produce		json

@@ -1642,7 +1642,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "List blocks in a space. Use type query parameter to filter by block type (page, folder, text, sop, etc.). Use parent_id query parameter to filter by parent. If both type and parent_id are empty, returns top-level pages and folders.",
+                "description": "List blocks in a space. Use type query parameter to filter by block type (page, folder, sop). Use parent_id query parameter to filter by parent. If both type and parent_id are empty, returns top-level pages and folders.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1666,7 +1666,6 @@ const docTemplate = `{
                         "enum": [
                             "page",
                             "folder",
-                            "text",
                             "sop"
                         ],
                         "type": "string",
@@ -1724,7 +1723,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a new block (supports all types: page, folder, text, sop, etc.). For page and folder types, parent_id is optional. For other types, parent_id is required.",
+                "description": "Create a new block (supports types: page, folder, sop). For page and folder types, parent_id is optional. For sop type, parent_id is required.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1778,12 +1777,12 @@ const docTemplate = `{
                     {
                         "label": "Python",
                         "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a page\npage = client.blocks.create(\n    space_id='space-uuid',\n    block_type='page',\n    title='My Page'\n)\n\n# Create a text block under the page\ntext_block = client.blocks.create(\n    space_id='space-uuid',\n    parent_id=page['id'],\n    block_type='text',\n    title='Content',\n    props={\"text\": \"Block content here\"}\n)\n"
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a folder\nfolder = client.blocks.create(\n    space_id='space-uuid',\n    block_type='folder',\n    title='My Folder'\n)\n\n# Create a page under the folder\npage = client.blocks.create(\n    space_id='space-uuid',\n    parent_id=folder['id'],\n    block_type='page',\n    title='My Page',\n    props={\"description\": \"Page content here\"}\n)\n"
                     },
                     {
                         "label": "JavaScript",
                         "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a page\nconst page = await client.blocks.create('space-uuid', {\n  blockType: 'page',\n  title: 'My Page'\n});\n\n// Create a text block under the page\nconst textBlock = await client.blocks.create('space-uuid', {\n  parentId: page.id,\n  blockType: 'text',\n  title: 'Content',\n  props: { text: 'Block content here' }\n});\n"
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a folder\nconst folder = await client.blocks.create('space-uuid', {\n  blockType: 'folder',\n  title: 'My Folder'\n});\n\n// Create a page under the folder\nconst page = await client.blocks.create('space-uuid', {\n  parentId: folder.id,\n  blockType: 'page',\n  title: 'My Page',\n  props: { description: 'Page content here' }\n});\n"
                     }
                 ]
             }
@@ -1795,7 +1794,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Delete a block by its ID (works for all block types: page, folder, text, sop, etc.)",
+                "description": "Delete a block by its ID (works for block types: page, folder, sop)",
                 "consumes": [
                     "application/json"
                 ],
@@ -1853,7 +1852,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Move block by updating its parent_id. Works for all block types (page, folder, text, sop, etc.). For page and folder types, parent_id can be null (root level).",
+                "description": "Move block by updating its parent_id. Works for block types: page, folder, sop. For page and folder types, parent_id can be null (root level).",
                 "consumes": [
                     "application/json"
                 ],
@@ -1920,7 +1919,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a block's properties by its ID (works for all block types: page, folder, text, sop, etc.)",
+                "description": "Get a block's properties by its ID (works for block types: page, folder, sop)",
                 "consumes": [
                     "application/json"
                 ],
@@ -1988,7 +1987,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update a block's title and properties by its ID (works for all block types: page, folder, text, sop, etc.)",
+                "description": "Update a block's title and properties by its ID (works for block types: page, folder, sop)",
                 "consumes": [
                     "application/json"
                 ],
@@ -2055,7 +2054,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update block sort value (works for all block types: page, folder, text, sop, etc.)",
+                "description": "Update block sort value (works for block types: page, folder, sop)",
                 "consumes": [
                     "application/json"
                 ],
@@ -2667,7 +2666,7 @@ const docTemplate = `{
                 },
                 "type": {
                     "type": "string",
-                    "example": "text"
+                    "example": "page"
                 }
             }
         },
