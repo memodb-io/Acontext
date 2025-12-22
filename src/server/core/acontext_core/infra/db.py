@@ -195,6 +195,8 @@ class DatabaseClient:
         ensure tests are isolated even when they share a persistent database.
         """
         if self._table_created:
+            if os.getenv("PYTEST_CURRENT_TEST"):
+                await self.truncate_tables()
             return
         async with self.get_session_context() as db_session:
             await db_session.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
