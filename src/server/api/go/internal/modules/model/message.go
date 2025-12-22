@@ -14,6 +14,7 @@ const (
 	FormatAcontext  MessageFormat = "acontext"
 	FormatOpenAI    MessageFormat = "openai"
 	FormatAnthropic MessageFormat = "anthropic"
+	FormatGenAI     MessageFormat = "genai"
 )
 
 type Message struct {

@@ -78,6 +78,7 @@ func TestConvertMessages_AllFormats(t *testing.T) {
 		model.FormatAcontext,
 		model.FormatOpenAI,
 		model.FormatAnthropic,
+		model.FormatGenAI,
 	}
 
 	for _, format := range formats {
@@ -117,6 +118,12 @@ func TestValidateFormat(t *testing.T) {
 			name:    "valid anthropic",
 			format:  "anthropic",
 			want:    model.FormatAnthropic,
+			wantErr: false,
+		},
+		{
+			name:    "valid genai",
+			format:  "genai",
+			want:    model.FormatGenAI,
 			wantErr: false,
 		},
 		{
