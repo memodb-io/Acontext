@@ -8,6 +8,7 @@ export interface BaseContext {}
 export interface BaseConverter {
   toOpenAIToolSchema(): Record<string, unknown>;
   toAnthropicToolSchema(): Record<string, unknown>;
+  toGeminiToolSchema(): Record<string, unknown>;
 }
 
 export interface BaseTool extends BaseConverter {
@@ -45,6 +46,18 @@ export abstract class AbstractBaseTool implements BaseTool {
       name: this.name,
       description: this.description,
       input_schema: {
+        type: 'object',
+        properties: this.arguments,
+        required: this.requiredArguments,
+      },
+    };
+  }
+
+  toGeminiToolSchema(): Record<string, unknown> {
+    return {
+      name: this.name,
+      description: this.description,
+      parameters: {
         type: 'object',
         properties: this.arguments,
         required: this.requiredArguments,
@@ -93,6 +106,10 @@ export abstract class BaseToolPool {
 
   toAnthropicToolSchema(): Record<string, unknown>[] {
     return Array.from(this.tools.values()).map((tool) => tool.toAnthropicToolSchema());
+  }
+
+  toGeminiToolSchema(): Record<string, unknown>[] {
+    return Array.from(this.tools.values()).map((tool) => tool.toGeminiToolSchema());
   }
 
   abstract formatContext(...args: unknown[]): BaseContext;

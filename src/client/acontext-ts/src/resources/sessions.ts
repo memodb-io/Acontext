@@ -134,14 +134,14 @@ export class SessionsAPI {
     sessionId: string,
     blob: MessageBlob,
     options?: {
-      format?: 'acontext' | 'openai' | 'anthropic';
+      format?: 'acontext' | 'openai' | 'anthropic' | 'genai';
       fileField?: string | null;
       file?: FileUpload | null;
     }
   ): Promise<Message> {
     const format = options?.format ?? 'openai';
-    if (!['acontext', 'openai', 'anthropic'].includes(format)) {
-      throw new Error("format must be one of {'acontext', 'openai', 'anthropic'}");
+    if (!['acontext', 'openai', 'anthropic', 'genai'].includes(format)) {
+      throw new Error("format must be one of {'acontext', 'openai', 'anthropic', 'genai'}");
     }
 
     if (options?.file && !options?.fileField) {
@@ -193,7 +193,7 @@ export class SessionsAPI {
    * @param options.limit - Maximum number of messages to return.
    * @param options.cursor - Cursor for pagination.
    * @param options.withAssetPublicUrl - Whether to include presigned URLs for assets.
-   * @param options.format - The format of the messages ('acontext', 'openai', or 'anthropic').
+   * @param options.format - The format of the messages ('acontext', 'openai', 'anthropic', or 'genai').
    * @param options.timeDesc - Order by created_at descending if true, ascending if false.
    * @param options.editStrategies - Optional list of edit strategies to apply before format conversion.
    *   Examples:
@@ -207,7 +207,7 @@ export class SessionsAPI {
       limit?: number | null;
       cursor?: string | null;
       withAssetPublicUrl?: boolean | null;
-      format?: 'acontext' | 'openai' | 'anthropic';
+      format?: 'acontext' | 'openai' | 'anthropic' | 'genai';
       timeDesc?: boolean | null;
       editStrategies?: Array<EditStrategy> | null;
     }
