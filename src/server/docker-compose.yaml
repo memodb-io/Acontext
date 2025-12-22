@@ -231,6 +231,7 @@ services:
       S3_BUCKET: ${S3_BUCKET:-acontext-assets}
       CORE_BASE_URL: http://acontext-server-core:8000
       OTEL_EXPORTER_OTLP_ENDPOINT: acontext-server-jaeger:4317
+      ARTIFACT_MAX_UPLOAD_SIZE_BYTES: ${ARTIFACT_MAX_UPLOAD_SIZE_BYTES:-16777216}
     ports:
       - "${API_EXPORT_PORT:-8029}:8029"
     healthcheck:
