@@ -250,7 +250,7 @@
         } ]
       },
       "post" : {
-        "description" : "Upload a file and create or update an artifact record under a disk",
+        "description" : "Upload a file and create or update an artifact record under a disk. File size must not exceed the configured maximum upload size limit (default: 16MB).",
         "parameters" : [ {
           "description" : "Disk ID",
           "in" : "path",
@@ -281,6 +281,16 @@
               }
             },
             "description" : "Created"
+          },
+          "413" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/serializer.Response"
+                }
+              }
+            },
+            "description" : "File size exceeds maximum allowed size"
           }
         },
         "security" : [ {
@@ -2713,7 +2723,7 @@
             "type" : "string"
           },
           "file" : {
-            "description" : "File to upload",
+            "description" : "File to upload (size must not exceed configured limit)",
             "format" : "binary",
             "type" : "string"
           },

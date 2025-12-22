@@ -81,6 +81,10 @@ type TelemetryCfg struct {
 	SampleRatio  float64 // Sampling ratio, range 0.0-1.0, default 1.0 (100%)
 }
 
+type ArtifactCfg struct {
+	MaxUploadSizeBytes int64 // Maximum file upload size in bytes
+}
+
 type Config struct {
 	App       AppCfg
 	Root      RootCfg
@@ -91,6 +95,7 @@ type Config struct {
 	S3        S3Cfg
 	Core      CoreCfg
 	Telemetry TelemetryCfg
+	Artifact  ArtifactCfg
 }
 
 func setDefaults(v *viper.Viper) {
@@ -118,7 +123,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("core.baseURL", "http://127.0.0.1:8019")
 	v.SetDefault("telemetry.otlpEndpoint", "http://127.0.0.1:4317")
 	v.SetDefault("telemetry.enabled", true)
-	v.SetDefault("telemetry.sampleRatio", 1.0) // Default 100% sampling
+	v.SetDefault("telemetry.sampleRatio", 1.0)            // Default 100% sampling
+	v.SetDefault("artifact.maxUploadSizeBytes", 16777216) // Default 16MB (16 * 1024 * 1024 bytes)
 }
 
 func Load() (*Config, error) {

@@ -356,7 +356,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Upload a file and create or update an artifact record under a disk",
+                "description": "Upload a file and create or update an artifact record under a disk. File size must not exceed the configured maximum upload size limit (default: 16MB).",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -385,7 +385,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "file",
-                        "description": "File to upload",
+                        "description": "File to upload (size must not exceed configured limit)",
                         "name": "file",
                         "in": "formData",
                         "required": true
@@ -414,6 +414,12 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "413": {
+                        "description": "File size exceeds maximum allowed size",
+                        "schema": {
+                            "$ref": "#/definitions/serializer.Response"
                         }
                     }
                 },

@@ -48,3 +48,6 @@ telemetry:
   otlpEndpoint: "${OTEL_EXPORTER_OTLP_ENDPOINT}"
   enabled: true
   sampleRatio: 1.0  # Sampling ratio, 0.0-1.0, default 1.0 (100%)
+
+artifact:
+  maxUploadSizeBytes: ${ARTIFACT_MAX_UPLOAD_SIZE_BYTES:-16777216}  # Default 16MB (16 * 1024 * 1024 bytes)

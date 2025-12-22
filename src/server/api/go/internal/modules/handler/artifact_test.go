@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
@@ -95,6 +96,20 @@ func (m *MockArtifactService) GetFileContent(ctx context.Context, artifact *mode
 	return args.Get(0).(*fileparser.FileContent), args.Error(1)
 }
 
+// createTestConfig creates a test config with default artifact settings
+func createTestConfig(maxUploadSizeBytes int64) *config.Config {
+	return &config.Config{
+		Artifact: config.ArtifactCfg{
+			MaxUploadSizeBytes: maxUploadSizeBytes,
+		},
+	}
+}
+
+// createDefaultTestConfig creates a test config with default 16MB limit
+func createDefaultTestConfig() *config.Config {
+	return createTestConfig(16777216) // 16MB
+}
+
 func TestArtifactHandler_UpsertArtifact(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -105,16 +120,18 @@ func TestArtifactHandler_UpsertArtifact(t *testing.T) {
 		meta           string
 		fileContent    string
 		fileName       string
+		maxUploadSize  int64
 		mockSetup      func(*MockArtifactService, string, uuid.UUID)
 		expectedStatus int
 	}{
 		{
-			name:        "successful file upsert",
-			diskID:      uuid.New().String(),
-			filePath:    "/test/test.txt",
-			meta:        `{"description": "test file"}`,
-			fileContent: "test content",
-			fileName:    "test.txt",
+			name:          "successful file upsert",
+			diskID:        uuid.New().String(),
+			filePath:      "/test/test.txt",
+			meta:          `{"description": "test file"}`,
+			fileContent:   "test content",
+			fileName:      "test.txt",
+			maxUploadSize: 16777216, // 16MB default
 			mockSetup: func(m *MockArtifactService, diskIDStr string, projectID uuid.UUID) {
 				diskID := uuid.MustParse(diskIDStr)
 				expectedFile := &model.Artifact{
@@ -146,6 +163,57 @@ func TestArtifactHandler_UpsertArtifact(t *testing.T) {
 			},
 			expectedStatus: http.StatusCreated,
 		},
+		{
+			name:          "file size exceeds limit",
+			diskID:        uuid.New().String(),
+			filePath:      "/test/large.txt",
+			meta:          "",
+			fileContent:   "", // Will be set in test to avoid large string allocation
+			fileName:      "large.txt",
+			maxUploadSize: 5242880, // 5MB limit
+			mockSetup: func(m *MockArtifactService, diskIDStr string, projectID uuid.UUID) {
+				// No mock setup needed, should fail before service call
+			},
+			expectedStatus: http.StatusRequestEntityTooLarge,
+		},
+		{
+			name:          "file size at limit boundary",
+			diskID:        uuid.New().String(),
+			filePath:      "/test/boundary.txt",
+			meta:          "",
+			fileContent:   "", // Will be set in test to avoid large string allocation
+			fileName:      "boundary.txt",
+			maxUploadSize: 16777216, // 16MB limit
+			mockSetup: func(m *MockArtifactService, diskIDStr string, projectID uuid.UUID) {
+				diskID := uuid.MustParse(diskIDStr)
+				expectedFile := &model.Artifact{
+					ID:       uuid.New(),
+					DiskID:   diskID,
+					Path:     "/test/",
+					Filename: "boundary.txt",
+					Meta: map[string]interface{}{
+						model.ArtifactInfoKey: map[string]interface{}{
+							"path":     "/test/",
+							"filename": "boundary.txt",
+							"mime":     "text/plain",
+							"size":     16777216,
+						},
+					},
+					AssetMeta: datatypes.NewJSONType(model.Asset{
+						Bucket: "test-bucket",
+						S3Key:  "test-key",
+						ETag:   "test-etag",
+						SHA256: "test-sha256",
+						MIME:   "text/plain",
+						SizeB:  16777216,
+					}),
+				}
+				m.On("Create", mock.Anything, mock.MatchedBy(func(in service.CreateArtifactInput) bool {
+					return in.ProjectID == projectID && in.DiskID == diskID && in.Path == "/test/" && in.Filename == "boundary.txt" && in.FileHeader != nil
+				})).Return(expectedFile, nil)
+			},
+			expectedStatus: http.StatusCreated,
+		},
 	}
 
 	for _, tt := range tests {
@@ -154,7 +222,8 @@ func TestArtifactHandler_UpsertArtifact(t *testing.T) {
 			projectID := uuid.New()
 			tt.mockSetup(mockService, tt.diskID, projectID)
 
-			handler := NewArtifactHandler(mockService)
+			testConfig := createTestConfig(tt.maxUploadSize)
+			handler := NewArtifactHandler(mockService, testConfig)
 
 			// Create multipart form data
 			body := &bytes.Buffer{}
@@ -163,7 +232,17 @@ func TestArtifactHandler_UpsertArtifact(t *testing.T) {
 			// Add file
 			fileWriter, err := writer.CreateFormFile("file", tt.fileName)
 			assert.NoError(t, err)
-			_, err = fileWriter.Write([]byte(tt.fileContent))
+
+			// Handle large file content for size limit tests
+			var fileData []byte
+			if tt.name == "file size exceeds limit" {
+				fileData = make([]byte, 6*1024*1024) // 6MB file (exceeds 5MB limit in test)
+			} else if tt.name == "file size at limit boundary" {
+				fileData = make([]byte, 16777216) // Exactly 16MB
+			} else {
+				fileData = []byte(tt.fileContent)
+			}
+			_, err = fileWriter.Write(fileData)
 			assert.NoError(t, err)
 
 			// Add form fields
@@ -238,7 +317,8 @@ func TestArtifactHandler_DeleteArtifact(t *testing.T) {
 			projectID := uuid.New()
 			tt.mockSetup(mockService, tt.diskID, tt.filePath, projectID)
 
-			handler := NewArtifactHandler(mockService)
+			testConfig := createDefaultTestConfig() // Default 16MB
+			handler := NewArtifactHandler(mockService, testConfig)
 
 			// Create request with query parameters
 			req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/disk/%s/artifact?file_path=%s", tt.diskID, tt.filePath), nil)
@@ -363,7 +443,8 @@ func TestArtifactHandler_UpdateArtifact(t *testing.T) {
 			mockService := new(MockArtifactService)
 			tt.mockSetup(mockService, tt.diskID)
 
-			handler := NewArtifactHandler(mockService)
+			testConfig := createDefaultTestConfig() // Default 16MB
+			handler := NewArtifactHandler(mockService, testConfig)
 
 			// Create JSON request body
 			requestBody := map[string]string{
@@ -509,7 +590,8 @@ func TestArtifactHandler_GetArtifact(t *testing.T) {
 			mockService := new(MockArtifactService)
 			tt.mockSetup(mockService, tt.diskID, tt.filePath)
 
-			handler := NewArtifactHandler(mockService)
+			testConfig := createDefaultTestConfig() // Default 16MB
+			handler := NewArtifactHandler(mockService, testConfig)
 
 			// Create request with query parameters
 			url := fmt.Sprintf("/disk/%s/artifact?file_path=%s", tt.diskID, tt.filePath)
