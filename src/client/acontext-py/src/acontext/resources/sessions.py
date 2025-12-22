@@ -177,7 +177,7 @@ class SessionsAPI:
         session_id: str,
         *,
         blob: MessageBlob,
-        format: Literal["acontext", "openai", "anthropic"] = "openai",
+        format: Literal["acontext", "openai", "anthropic", "genai"] = "openai",
         file_field: str | None = None,
         file: (
             FileUpload
@@ -190,7 +190,7 @@ class SessionsAPI:
 
         Args:
             session_id: The UUID of the session.
-            blob: The message blob in Acontext, OpenAI, or Anthropic format.
+            blob: The message blob in Acontext, OpenAI, Anthropic, or GenAI format.
             format: The format of the message blob. Defaults to "openai".
             file_field: The field name for file upload. Only used when format is "acontext".
                 Required if file is provided. Defaults to None.
@@ -203,9 +203,9 @@ class SessionsAPI:
             ValueError: If format is invalid, file/file_field provided for non-acontext format,
                 or file is provided without file_field for acontext format.
         """
-        if format not in {"acontext", "openai", "anthropic"}:
+        if format not in {"acontext", "openai", "anthropic", "genai"}:
             raise ValueError(
-                "format must be one of {'acontext', 'openai', 'anthropic'}"
+                "format must be one of {'acontext', 'openai', 'anthropic', 'genai'}"
             )
 
         # File upload is only supported for acontext format
@@ -268,7 +268,7 @@ class SessionsAPI:
         limit: int | None = None,
         cursor: str | None = None,
         with_asset_public_url: bool | None = None,
-        format: Literal["acontext", "openai", "anthropic"] = "openai",
+        format: Literal["acontext", "openai", "anthropic", "genai"] = "openai",
         time_desc: bool | None = None,
         edit_strategies: Optional[List[EditStrategy]] = None,
     ) -> GetMessagesOutput:
@@ -279,7 +279,7 @@ class SessionsAPI:
             limit: Maximum number of messages to return. Defaults to None.
             cursor: Cursor for pagination. Defaults to None.
             with_asset_public_url: Whether to include presigned URLs for assets. Defaults to None.
-            format: The format of the messages. Defaults to "openai".
+            format: The format of the messages. Defaults to "openai". Supports "acontext", "openai", "anthropic", or "genai".
             time_desc: Order by created_at descending if True, ascending if False. Defaults to None.
             edit_strategies: Optional list of edit strategies to apply before format conversion.
                 Each strategy is a dict with 'type' and 'params' keys.
