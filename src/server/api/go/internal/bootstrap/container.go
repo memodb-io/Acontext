@@ -232,7 +232,10 @@ func BuildContainer() *do.Injector {
 		return handler.NewDiskHandler(do.MustInvoke[service.DiskService](i)), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.ArtifactHandler, error) {
-		return handler.NewArtifactHandler(do.MustInvoke[service.ArtifactService](i)), nil
+		return handler.NewArtifactHandler(
+			do.MustInvoke[service.ArtifactService](i),
+			do.MustInvoke[*config.Config](i),
+		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.TaskHandler, error) {
 		return handler.NewTaskHandler(do.MustInvoke[service.TaskService](i)), nil

@@ -9,6 +9,7 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
@@ -17,11 +18,12 @@ import (
 )
 
 type ArtifactHandler struct {
-	svc service.ArtifactService
+	svc    service.ArtifactService
+	config *config.Config
 }
 
-func NewArtifactHandler(s service.ArtifactService) *ArtifactHandler {
-	return &ArtifactHandler{svc: s}
+func NewArtifactHandler(s service.ArtifactService, cfg *config.Config) *ArtifactHandler {
+	return &ArtifactHandler{svc: s, config: cfg}
 }
 
 type CreateArtifactReq struct {
@@ -32,16 +34,17 @@ type CreateArtifactReq struct {
 // UpsertArtifact godoc
 //
 //	@Summary		Upsert artifact
-//	@Description	Upload a file and create or update an artifact record under a disk
+//	@Description	Upload a file and create or update an artifact record under a disk. File size must not exceed the configured maximum upload size limit (default: 16MB).
 //	@Tags			artifact
 //	@Accept			multipart/form-data
 //	@Produce		json
 //	@Param			disk_id		path		string	true	"Disk ID"	Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
 //	@Param			file_path	formData	string	false	"File path in the disk storage (optional, defaults to '/')"
-//	@Param			file		formData	file	true	"File to upload"
+//	@Param			file		formData	file	true	"File to upload (size must not exceed configured limit)"
 //	@Param			meta		formData	string	false	"Custom metadata as JSON string (optional, system metadata will be stored under '__artifact_info__' key)"
 //	@Security		BearerAuth
 //	@Success		201	{object}	serializer.Response{data=model.Artifact}
+//	@Failure		413	{object}	serializer.Response	"File size exceeds maximum allowed size"
 //	@Router			/disk/{disk_id}/artifact [post]
 //	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Upload a file to disk\nwith open('report.pdf', 'rb') as f:\n    artifact = client.disks.upload_artifact(\n        disk_id='disk-uuid',\n        file=f,\n        file_path='/documents/',\n        meta={'category': 'reports', 'year': 2024}\n    )\nprint(f\"Uploaded artifact: {artifact.id}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\nimport fs from 'fs';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Upload a file to disk\nconst fileBuffer = fs.readFileSync('report.pdf');\nconst artifact = await client.disks.uploadArtifact('disk-uuid', {\n  file: fileBuffer,\n  filePath: '/documents/',\n  meta: { category: 'reports', year: 2024 }\n});\nconsole.log(`Uploaded artifact: ${artifact.id}`);\n","label":"JavaScript"}]
 func (h *ArtifactHandler) UpsertArtifact(c *gin.Context) {
@@ -66,6 +69,14 @@ func (h *ArtifactHandler) UpsertArtifact(c *gin.Context) {
 	file, err := c.FormFile("file")
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("file is required", err))
+		return
+	}
+
+	// Validate file size
+	maxSize := h.config.Artifact.MaxUploadSizeBytes
+	if file.Size > maxSize {
+		maxSizeMB := float64(maxSize) / (1024 * 1024)
+		c.JSON(http.StatusRequestEntityTooLarge, serializer.ParamErr("", fmt.Errorf("file size exceeds maximum allowed size of %.2fMB", maxSizeMB)))
 		return
 	}
 

@@ -777,7 +777,9 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Upload a file and create or update an artifact record under a disk
+      description: 'Upload a file and create or update an artifact record under a
+        disk. File size must not exceed the configured maximum upload size limit (default:
+        16MB).'
       parameters:
       - description: Disk ID
         example: 123e4567-e89b-12d3-a456-426614174000
@@ -790,7 +792,7 @@ paths:
         in: formData
         name: file_path
         type: string
-      - description: File to upload
+      - description: File to upload (size must not exceed configured limit)
         in: formData
         name: file
         required: true
@@ -812,6 +814,10 @@ paths:
                 data:
                   $ref: '#/definitions/model.Artifact'
               type: object
+        "413":
+          description: File size exceeds maximum allowed size
+          schema:
+            $ref: '#/definitions/serializer.Response'
       security:
       - BearerAuth: []
       summary: Upsert artifact
