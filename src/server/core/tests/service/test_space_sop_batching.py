@@ -39,16 +39,26 @@ async def test_space_sop_complete_batches_buffered_items(monkeypatch):
         session.add(project)
         await session.flush()
 
-        space = Space(project_id=project.id, name="test-space")
+        space = Space(project_id=project.id, configs={"name": "test-space"})
         session.add(space)
         await session.flush()
 
-        s = Session(project_id=project.id, space_id=space.id, title="test-session")
+        s = Session(project_id=project.id, space_id=space.id)
         session.add(s)
         await session.flush()
 
-        t1 = Task(project_id=project.id, session_id=s.id, user_input="t1")
-        t2 = Task(project_id=project.id, session_id=s.id, user_input="t2")
+        t1 = Task(
+            project_id=project.id,
+            session_id=s.id,
+            order=1,
+            data={"task_description": "t1"},
+        )
+        t2 = Task(
+            project_id=project.id,
+            session_id=s.id,
+            order=2,
+            data={"task_description": "t2"},
+        )
         session.add_all([t1, t2])
         await session.flush()
 

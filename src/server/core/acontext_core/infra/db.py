@@ -189,7 +189,11 @@ class DatabaseClient:
             return False
 
     async def create_tables(self) -> None:
-        """Create all tables defined in the ORM models."""
+        """Create all tables defined in the ORM models.
+
+        Note: When running under pytest, this also truncates all ORM tables to
+        ensure tests are isolated even when they share a persistent database.
+        """
         if self._table_created:
             return
         async with self.get_session_context() as db_session:
@@ -198,7 +202,35 @@ class DatabaseClient:
         async with self.engine.begin() as conn:
             await conn.run_sync(ORM_BASE.metadata.create_all)
 
+        if os.getenv("PYTEST_CURRENT_TEST"):
+            await self.truncate_tables()
+
         self._table_created = True
+
+    async def truncate_tables(self) -> None:
+        """Truncate all ORM tables (postgres only).
+
+        This is primarily intended for test isolation when using a shared
+        database instance.
+        """
+        table_names: list[str] = []
+        for table in reversed(ORM_BASE.metadata.sorted_tables):
+            if table.schema:
+                table_names.append(f'"{table.schema}"."{table.name}"')
+            else:
+                table_names.append(f'"{table.name}"')
+
+        if not table_names:
+            return
+
+        async with self.engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "TRUNCATE TABLE "
+                    + ", ".join(table_names)
+                    + " RESTART IDENTITY CASCADE;"
+                )
+            )
 
     async def drop_tables(self) -> None:
         """Drop all tables defined in the ORM models."""
