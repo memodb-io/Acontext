@@ -8,7 +8,6 @@ __all__ = [
     "SandboxBackend",
     "SandboxStatus",
     "SandboxSpecInfoBase",
-    "ExposedUrl",
     "SandboxInfo",
     "SandboxPage",
     "SandboxService",

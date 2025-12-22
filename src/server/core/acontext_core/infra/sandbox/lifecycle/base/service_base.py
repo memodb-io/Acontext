@@ -1,6 +1,5 @@
-import asyncio
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import  Optional
 from ..models.entities import SandboxInfo, SandboxPage
 
 
@@ -18,22 +17,6 @@ class SandboxService(ABC):
     async def get_sandbox(self, sandbox_id: str) -> Optional[SandboxInfo]:
         """Get a single sandbox, or return None if it does not exist."""
         raise NotImplementedError
-
-    @abstractmethod
-    async def get_sandbox_by_session_api_key(
-        self, session_api_key: str
-    ) -> Optional[SandboxInfo]:
-        """Lookup sandbox by session API key used for authentication."""
-        raise NotImplementedError
-
-    async def batch_get_sandboxes(
-        self, sandbox_ids: List[str]
-    ) -> List[Optional[SandboxInfo]]:
-        """Batch get sandboxes; entries are None for missing sandboxes."""
-        results = await asyncio.gather(
-            *[self.get_sandbox(sandbox_id) for sandbox_id in sandbox_ids]
-        )
-        return results
 
     @abstractmethod
     async def start_sandbox(self, sandbox_spec_id: Optional[str] = None) -> SandboxInfo:

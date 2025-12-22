@@ -6,7 +6,7 @@ from typing import Optional
 
 from ...base import SandboxService, SandboxSpecService
 from ...enums import SandboxBackend, SandboxStatus
-from ...models import ExposedUrl, SandboxInfo, SandboxPage
+from ...models import SandboxInfo, SandboxPage
 from .models import DockerRunOptions
 from .spec import DockerSandboxSpecInfo
 
@@ -154,13 +154,6 @@ class DockerSandboxService(SandboxService):
             status=status,
             created_at=created_at,
         )
-
-    async def get_sandbox_by_session_api_key(
-        self, session_api_key: str
-    ) -> Optional[SandboxInfo]:
-        """Docker backend does not support reverse lookup by session_api_key."""
-        _ = session_api_key
-        return None
 
     # -------------------------- lifecycle APIs -------------------------- #
 
