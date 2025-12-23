@@ -9,6 +9,9 @@ class BaseConverter:
     def to_anthropic_tool_schema(self) -> dict:
         raise NotImplementedError
 
+    def to_gemini_tool_schema(self) -> dict:
+        raise NotImplementedError
+
 
 class BaseTool(BaseConverter):
     @property
@@ -55,6 +58,17 @@ class BaseTool(BaseConverter):
             },
         }
 
+    def to_gemini_tool_schema(self) -> dict:
+        return {
+            "name": self.name,
+            "description": self.description,
+            "parameters": {
+                "type": "object",
+                "properties": self.arguments,
+                "required": self.required_arguments,
+            },
+        }
+
 
 class BaseToolPool(BaseConverter):
     def __init__(self):
@@ -84,6 +98,9 @@ class BaseToolPool(BaseConverter):
 
     def to_anthropic_tool_schema(self) -> list[dict]:
         return [tool.to_anthropic_tool_schema() for tool in self.tools.values()]
+
+    def to_gemini_tool_schema(self) -> list[dict]:
+        return [tool.to_gemini_tool_schema() for tool in self.tools.values()]
 
     def format_context(self, *args, **kwargs) -> BaseContext:
         raise NotImplementedError
