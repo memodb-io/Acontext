@@ -10,31 +10,31 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/service"
 )
 
-// GenAINormalizer normalizes Google GenAI format to internal format using official SDK types
-type GenAINormalizer struct{}
+// GeminiNormalizer normalizes Google Gemini format to internal format using official SDK types
+type GeminiNormalizer struct{}
 
-// NormalizeFromGenAIMessage converts Google GenAI Content to internal format
+// NormalizeFromGeminiMessage converts Google Gemini Content to internal format
 // Returns: role, parts, messageMeta, error
-func (n *GenAINormalizer) NormalizeFromGenAIMessage(messageJSON json.RawMessage) (string, []service.PartIn, map[string]interface{}, error) {
-	// Parse using official Google GenAI SDK types
+func (n *GeminiNormalizer) NormalizeFromGeminiMessage(messageJSON json.RawMessage) (string, []service.PartIn, map[string]interface{}, error) {
+	// Parse using official Google Gemini SDK types
 	var content genai.Content
 	if err := json.Unmarshal(messageJSON, &content); err != nil {
-		return "", nil, nil, fmt.Errorf("failed to unmarshal GenAI message: %w", err)
+		return "", nil, nil, fmt.Errorf("failed to unmarshal Gemini message: %w", err)
 	}
 
 	// Convert role: "user" or "model" -> "user" or "assistant"
-	role := normalizeGenAIRole(content.Role)
+	role := normalizeGeminiRole(content.Role)
 	if role == "" {
-		return "", nil, nil, fmt.Errorf("invalid GenAI role: %s (only 'user' and 'model' are supported)", content.Role)
+		return "", nil, nil, fmt.Errorf("invalid Gemini role: %s (only 'user' and 'model' are supported)", content.Role)
 	}
 
 	// Convert parts
-	// IMPORTANT: GenAI FunctionCall.ID and FunctionResponse.ID are required for proper matching.
+	// IMPORTANT: Gemini FunctionCall.ID and FunctionResponse.ID are required for proper matching.
 	// Since FunctionCall and FunctionResponse are in different messages (different roles),
-	// we cannot match them without IDs. The user must provide matching IDs in GenAI format.
+	// we cannot match them without IDs. The user must provide matching IDs in Gemini format.
 	parts := []service.PartIn{}
 	for _, part := range content.Parts {
-		partIn, err := normalizeGenAIPart(part)
+		partIn, err := normalizeGeminiPart(part)
 		if err != nil {
 			return "", nil, nil, err
 		}
@@ -43,14 +43,14 @@ func (n *GenAINormalizer) NormalizeFromGenAIMessage(messageJSON json.RawMessage)
 
 	// Extract message-level metadata
 	messageMeta := map[string]interface{}{
-		"source_format": "genai",
+		"source_format": "gemini",
 	}
 
 	return role, parts, messageMeta, nil
 }
 
-func normalizeGenAIRole(role string) string {
-	// GenAI roles: "user", "model" -> internal: "user", "assistant"
+func normalizeGeminiRole(role string) string {
+	// Gemini roles: "user", "model" -> internal: "user", "assistant"
 	switch role {
 	case "user":
 		return "user"
@@ -61,7 +61,7 @@ func normalizeGenAIRole(role string) string {
 	}
 }
 
-func normalizeGenAIPart(part *genai.Part) (service.PartIn, error) {
+func normalizeGeminiPart(part *genai.Part) (service.PartIn, error) {
 	if part == nil {
 		return service.PartIn{}, fmt.Errorf("nil part")
 	}
@@ -132,7 +132,7 @@ func normalizeGenAIPart(part *genai.Part) (service.PartIn, error) {
 		// IMPORTANT: We cannot use function name to match because:
 		// 1. FunctionCall and FunctionResponse are in different messages (different roles)
 		// 2. Multiple FunctionCalls with the same name would cause ambiguity
-		// 3. The user must provide matching IDs in GenAI format for proper matching
+		// 3. The user must provide matching IDs in Gemini format for proper matching
 		if part.FunctionResponse.ID == "" {
 			return service.PartIn{}, fmt.Errorf("FunctionResponse.ID is required but missing (function: %s)", part.FunctionResponse.Name)
 		}
@@ -149,5 +149,5 @@ func normalizeGenAIPart(part *genai.Part) (service.PartIn, error) {
 		}, nil
 	}
 
-	return service.PartIn{}, fmt.Errorf("unsupported GenAI part type")
+	return service.PartIn{}, fmt.Errorf("unsupported Gemini part type")
 }

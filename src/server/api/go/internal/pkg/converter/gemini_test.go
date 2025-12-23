@@ -9,25 +9,25 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGenAIConverter_Convert_TextMessage(t *testing.T) {
-	converter := &GenAIConverter{}
+func TestGeminiConverter_Convert_TextMessage(t *testing.T) {
+	converter := &GeminiConverter{}
 
 	messages := []model.Message{
 		createTestMessage("user", []model.Part{
-			{Type: "text", Text: "Hello from GenAI!"},
+			{Type: "text", Text: "Hello from Gemini!"},
 		}, nil),
 	}
 
 	result, err := converter.Convert(messages, nil)
 	require.NoError(t, err)
 
-	// GenAI converter returns []*genai.Content
+	// Gemini converter returns []*genai.Content
 	// For testing, we just verify it doesn't error
 	assert.NotNil(t, result)
 }
 
-func TestGenAIConverter_Convert_AssistantMessage(t *testing.T) {
-	converter := &GenAIConverter{}
+func TestGeminiConverter_Convert_AssistantMessage(t *testing.T) {
+	converter := &GeminiConverter{}
 
 	messages := []model.Message{
 		createTestMessage("assistant", []model.Part{
@@ -40,8 +40,8 @@ func TestGenAIConverter_Convert_AssistantMessage(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
-func TestGenAIConverter_Convert_ToolCall(t *testing.T) {
-	converter := &GenAIConverter{}
+func TestGeminiConverter_Convert_ToolCall(t *testing.T) {
+	converter := &GeminiConverter{}
 
 	// UNIFIED FORMAT: now uses unified field names
 	messages := []model.Message{
@@ -63,8 +63,8 @@ func TestGenAIConverter_Convert_ToolCall(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
-func TestGenAIConverter_Convert_ToolResult(t *testing.T) {
-	converter := &GenAIConverter{}
+func TestGeminiConverter_Convert_ToolResult(t *testing.T) {
+	converter := &GeminiConverter{}
 
 	messages := []model.Message{
 		createTestMessage("user", []model.Part{
@@ -83,8 +83,8 @@ func TestGenAIConverter_Convert_ToolResult(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
-func TestGenAIConverter_Convert_Image(t *testing.T) {
-	converter := &GenAIConverter{}
+func TestGeminiConverter_Convert_Image(t *testing.T) {
+	converter := &GeminiConverter{}
 
 	messages := []model.Message{
 		createTestMessage("user", []model.Part{
@@ -109,8 +109,8 @@ func TestGenAIConverter_Convert_Image(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
-func TestGenAIConverter_Convert_MultipleParts(t *testing.T) {
-	converter := &GenAIConverter{}
+func TestGeminiConverter_Convert_MultipleParts(t *testing.T) {
+	converter := &GeminiConverter{}
 
 	messages := []model.Message{
 		createTestMessage("user", []model.Part{
@@ -136,8 +136,8 @@ func TestGenAIConverter_Convert_MultipleParts(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
-func TestGenAIConverter_Convert_InvalidRole(t *testing.T) {
-	converter := &GenAIConverter{}
+func TestGeminiConverter_Convert_InvalidRole(t *testing.T) {
+	converter := &GeminiConverter{}
 
 	messages := []model.Message{
 		createTestMessage("system", []model.Part{

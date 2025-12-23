@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGenAINormalizer_NormalizeFromGenAIMessage(t *testing.T) {
-	normalizer := &GenAINormalizer{}
+func TestGeminiNormalizer_NormalizeFromGeminiMessage(t *testing.T) {
+	normalizer := &GeminiNormalizer{}
 
 	tests := []struct {
 		name        string
@@ -116,7 +116,7 @@ func TestGenAINormalizer_NormalizeFromGenAIMessage(t *testing.T) {
 				]
 			}`,
 			wantErr:     true,
-			errContains: "invalid GenAI role",
+			errContains: "invalid Gemini role",
 		},
 		{
 			name: "empty parts",
@@ -132,7 +132,7 @@ func TestGenAINormalizer_NormalizeFromGenAIMessage(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			role, parts, messageMeta, err := normalizer.NormalizeFromGenAIMessage(json.RawMessage(tt.input))
+			role, parts, messageMeta, err := normalizer.NormalizeFromGeminiMessage(json.RawMessage(tt.input))
 
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -145,14 +145,14 @@ func TestGenAINormalizer_NormalizeFromGenAIMessage(t *testing.T) {
 				assert.Len(t, parts, tt.wantPartCnt)
 				// Verify message metadata
 				assert.NotNil(t, messageMeta)
-				assert.Equal(t, "genai", messageMeta["source_format"])
+				assert.Equal(t, "gemini", messageMeta["source_format"])
 			}
 		})
 	}
 }
 
-func TestGenAINormalizer_FunctionCall(t *testing.T) {
-	normalizer := &GenAINormalizer{}
+func TestGeminiNormalizer_FunctionCall(t *testing.T) {
+	normalizer := &GeminiNormalizer{}
 
 	input := `{
 		"role": "model",
@@ -167,7 +167,7 @@ func TestGenAINormalizer_FunctionCall(t *testing.T) {
 		]
 	}`
 
-	role, parts, messageMeta, err := normalizer.NormalizeFromGenAIMessage(json.RawMessage(input))
+	role, parts, messageMeta, err := normalizer.NormalizeFromGeminiMessage(json.RawMessage(input))
 
 	assert.NoError(t, err)
 	assert.Equal(t, "assistant", role)
@@ -178,11 +178,11 @@ func TestGenAINormalizer_FunctionCall(t *testing.T) {
 	assert.Equal(t, "call_123", parts[0].Meta["id"])
 	assert.Equal(t, "function", parts[0].Meta["type"])
 	assert.NotNil(t, messageMeta)
-	assert.Equal(t, "genai", messageMeta["source_format"])
+	assert.Equal(t, "gemini", messageMeta["source_format"])
 }
 
-func TestGenAINormalizer_FunctionResponse(t *testing.T) {
-	normalizer := &GenAINormalizer{}
+func TestGeminiNormalizer_FunctionResponse(t *testing.T) {
+	normalizer := &GeminiNormalizer{}
 
 	input := `{
 		"role": "user",
@@ -197,7 +197,7 @@ func TestGenAINormalizer_FunctionResponse(t *testing.T) {
 		]
 	}`
 
-	role, parts, messageMeta, err := normalizer.NormalizeFromGenAIMessage(json.RawMessage(input))
+	role, parts, messageMeta, err := normalizer.NormalizeFromGeminiMessage(json.RawMessage(input))
 
 	assert.NoError(t, err)
 	assert.Equal(t, "user", role)
@@ -208,11 +208,11 @@ func TestGenAINormalizer_FunctionResponse(t *testing.T) {
 	assert.Equal(t, "get_weather", parts[0].Meta["name"])
 	assert.Equal(t, "call_123", parts[0].Meta["tool_call_id"])
 	assert.NotNil(t, messageMeta)
-	assert.Equal(t, "genai", messageMeta["source_format"])
+	assert.Equal(t, "gemini", messageMeta["source_format"])
 }
 
-func TestGenAINormalizer_MultipleParts(t *testing.T) {
-	normalizer := &GenAINormalizer{}
+func TestGeminiNormalizer_MultipleParts(t *testing.T) {
+	normalizer := &GeminiNormalizer{}
 
 	input := `{
 		"role": "user",
@@ -228,7 +228,7 @@ func TestGenAINormalizer_MultipleParts(t *testing.T) {
 		]
 	}`
 
-	role, parts, messageMeta, err := normalizer.NormalizeFromGenAIMessage(json.RawMessage(input))
+	role, parts, messageMeta, err := normalizer.NormalizeFromGeminiMessage(json.RawMessage(input))
 
 	assert.NoError(t, err)
 	assert.Equal(t, "user", role)
@@ -239,13 +239,13 @@ func TestGenAINormalizer_MultipleParts(t *testing.T) {
 	assert.Equal(t, "Second part", parts[1].Text)
 	assert.Equal(t, "image", parts[2].Type)
 	assert.NotNil(t, messageMeta)
-	assert.Equal(t, "genai", messageMeta["source_format"])
+	assert.Equal(t, "gemini", messageMeta["source_format"])
 }
 
-// TestGenAINormalizer_FunctionCallAndResponseMatching tests that FunctionCall and FunctionResponse
+// TestGeminiNormalizer_FunctionCallAndResponseMatching tests that FunctionCall and FunctionResponse
 // require matching IDs (they are in different messages with different roles)
-func TestGenAINormalizer_FunctionCallAndResponseMatching(t *testing.T) {
-	normalizer := &GenAINormalizer{}
+func TestGeminiNormalizer_FunctionCallAndResponseMatching(t *testing.T) {
+	normalizer := &GeminiNormalizer{}
 
 	// Test case: FunctionCall with ID, FunctionResponse with matching ID
 	// They can be matched because they have matching IDs.
@@ -263,7 +263,7 @@ func TestGenAINormalizer_FunctionCallAndResponseMatching(t *testing.T) {
 		]
 	}`
 
-	role, parts, messageMeta, err := normalizer.NormalizeFromGenAIMessage(json.RawMessage(input))
+	role, parts, messageMeta, err := normalizer.NormalizeFromGeminiMessage(json.RawMessage(input))
 
 	assert.NoError(t, err)
 	assert.Equal(t, "assistant", role)
@@ -276,12 +276,12 @@ func TestGenAINormalizer_FunctionCallAndResponseMatching(t *testing.T) {
 	assert.Equal(t, "call_123", parts[0].Meta["id"])
 
 	assert.NotNil(t, messageMeta)
-	assert.Equal(t, "genai", messageMeta["source_format"])
+	assert.Equal(t, "gemini", messageMeta["source_format"])
 }
 
-// TestGenAINormalizer_FunctionCallWithoutID tests that FunctionCall without ID returns an error
-func TestGenAINormalizer_FunctionCallWithoutID(t *testing.T) {
-	normalizer := &GenAINormalizer{}
+// TestGeminiNormalizer_FunctionCallWithoutID tests that FunctionCall without ID returns an error
+func TestGeminiNormalizer_FunctionCallWithoutID(t *testing.T) {
+	normalizer := &GeminiNormalizer{}
 
 	input := `{
 		"role": "model",
@@ -295,7 +295,7 @@ func TestGenAINormalizer_FunctionCallWithoutID(t *testing.T) {
 		]
 	}`
 
-	role, parts, messageMeta, err := normalizer.NormalizeFromGenAIMessage(json.RawMessage(input))
+	role, parts, messageMeta, err := normalizer.NormalizeFromGeminiMessage(json.RawMessage(input))
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "FunctionCall.ID is required but missing")
@@ -304,9 +304,9 @@ func TestGenAINormalizer_FunctionCallWithoutID(t *testing.T) {
 	assert.Nil(t, messageMeta)
 }
 
-// TestGenAINormalizer_FunctionResponseWithoutID tests that FunctionResponse without ID returns an error
-func TestGenAINormalizer_FunctionResponseWithoutID(t *testing.T) {
-	normalizer := &GenAINormalizer{}
+// TestGeminiNormalizer_FunctionResponseWithoutID tests that FunctionResponse without ID returns an error
+func TestGeminiNormalizer_FunctionResponseWithoutID(t *testing.T) {
+	normalizer := &GeminiNormalizer{}
 
 	// FunctionResponse without ID cannot match FunctionCall because they are in different messages.
 	// The user must provide matching IDs for proper matching.
@@ -322,7 +322,7 @@ func TestGenAINormalizer_FunctionResponseWithoutID(t *testing.T) {
 		]
 	}`
 
-	role, parts, messageMeta, err := normalizer.NormalizeFromGenAIMessage(json.RawMessage(input))
+	role, parts, messageMeta, err := normalizer.NormalizeFromGeminiMessage(json.RawMessage(input))
 
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "FunctionResponse.ID is required but missing")

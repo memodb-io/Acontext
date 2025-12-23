@@ -13,12 +13,12 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/service"
 )
 
-// GenAIConverter converts messages to Google GenAI-compatible format using official SDK types
-type GenAIConverter struct{}
+// GeminiConverter converts messages to Google Gemini-compatible format using official SDK types
+type GeminiConverter struct{}
 
-func (c *GenAIConverter) Convert(messages []model.Message, publicURLs map[string]service.PublicURL) (interface{}, error) {
+func (c *GeminiConverter) Convert(messages []model.Message, publicURLs map[string]service.PublicURL) (interface{}, error) {
 	// First pass: collect tool-call IDs and their function names
-	// This mapping is needed because GenAI FunctionResponse requires function name,
+	// This mapping is needed because Gemini FunctionResponse requires function name,
 	// but tool-result parts may only have tool_call_id
 	toolCallIDToName := make(map[string]string)
 	for _, msg := range messages {
@@ -38,22 +38,22 @@ func (c *GenAIConverter) Convert(messages []model.Message, publicURLs map[string
 	// Second pass: convert messages using the mapping
 	result := make([]*genai.Content, 0, len(messages))
 	for _, msg := range messages {
-		genaiContent := c.convertMessage(msg, publicURLs, toolCallIDToName)
-		if genaiContent != nil {
-			result = append(result, genaiContent)
+		geminiContent := c.convertMessage(msg, publicURLs, toolCallIDToName)
+		if geminiContent != nil {
+			result = append(result, geminiContent)
 		}
 	}
 
 	return result, nil
 }
 
-func (c *GenAIConverter) convertMessage(msg model.Message, publicURLs map[string]service.PublicURL, toolCallIDToName map[string]string) *genai.Content {
+func (c *GeminiConverter) convertMessage(msg model.Message, publicURLs map[string]service.PublicURL, toolCallIDToName map[string]string) *genai.Content {
 	role := c.convertRole(msg.Role)
 	if role == "" {
 		return nil
 	}
 
-	// Convert parts to GenAI parts
+	// Convert parts to Gemini parts
 	parts := c.convertParts(msg.Parts, publicURLs, toolCallIDToName)
 	if len(parts) == 0 {
 		return nil
@@ -65,8 +65,8 @@ func (c *GenAIConverter) convertMessage(msg model.Message, publicURLs map[string
 	}
 }
 
-func (c *GenAIConverter) convertRole(role string) string {
-	// GenAI roles: "user", "model"
+func (c *GeminiConverter) convertRole(role string) string {
+	// Gemini roles: "user", "model"
 	switch role {
 	case "user":
 		return "user"
@@ -77,14 +77,14 @@ func (c *GenAIConverter) convertRole(role string) string {
 	}
 }
 
-func (c *GenAIConverter) convertParts(parts []model.Part, publicURLs map[string]service.PublicURL, toolCallIDToName map[string]string) []*genai.Part {
-	genaiParts := make([]*genai.Part, 0, len(parts))
+func (c *GeminiConverter) convertParts(parts []model.Part, publicURLs map[string]service.PublicURL, toolCallIDToName map[string]string) []*genai.Part {
+	geminiParts := make([]*genai.Part, 0, len(parts))
 
 	for _, part := range parts {
 		switch part.Type {
 		case "text":
 			if part.Text != "" {
-				genaiParts = append(genaiParts, &genai.Part{
+				geminiParts = append(geminiParts, &genai.Part{
 					Text: part.Text,
 				})
 			}
@@ -92,26 +92,26 @@ func (c *GenAIConverter) convertParts(parts []model.Part, publicURLs map[string]
 		case "image":
 			imagePart := c.convertImagePart(part, publicURLs)
 			if imagePart != nil {
-				genaiParts = append(genaiParts, imagePart)
+				geminiParts = append(geminiParts, imagePart)
 			}
 
 		case "tool-call":
-			// UNIFIED FORMAT: Convert tool-call to GenAI FunctionCall
+			// UNIFIED FORMAT: Convert tool-call to Gemini FunctionCall
 			if part.Meta != nil {
 				functionCall := c.convertToolCallPart(part)
 				if functionCall != nil {
-					genaiParts = append(genaiParts, &genai.Part{
+					geminiParts = append(geminiParts, &genai.Part{
 						FunctionCall: functionCall,
 					})
 				}
 			}
 
 		case "tool-result":
-			// UNIFIED FORMAT: Convert tool-result to GenAI FunctionResponse
+			// UNIFIED FORMAT: Convert tool-result to Gemini FunctionResponse
 			if part.Meta != nil {
 				functionResponse := c.convertToolResultPart(part, toolCallIDToName)
 				if functionResponse != nil {
-					genaiParts = append(genaiParts, &genai.Part{
+					geminiParts = append(geminiParts, &genai.Part{
 						FunctionResponse: functionResponse,
 					})
 				}
@@ -119,10 +119,10 @@ func (c *GenAIConverter) convertParts(parts []model.Part, publicURLs map[string]
 		}
 	}
 
-	return genaiParts
+	return geminiParts
 }
 
-func (c *GenAIConverter) convertImagePart(part model.Part, publicURLs map[string]service.PublicURL) *genai.Part {
+func (c *GeminiConverter) convertImagePart(part model.Part, publicURLs map[string]service.PublicURL) *genai.Part {
 	// Try to get image URL from asset
 	imageURL := c.getAssetURL(part.Asset, publicURLs)
 	if imageURL == "" && part.Meta != nil {
@@ -181,7 +181,7 @@ func (c *GenAIConverter) convertImagePart(part model.Part, publicURLs map[string
 	}
 }
 
-func (c *GenAIConverter) convertToolCallPart(part model.Part) *genai.FunctionCall {
+func (c *GeminiConverter) convertToolCallPart(part model.Part) *genai.FunctionCall {
 	if part.Meta == nil {
 		return nil
 	}
@@ -210,7 +210,7 @@ func (c *GenAIConverter) convertToolCallPart(part model.Part) *genai.FunctionCal
 		Args: args,
 	}
 
-	// Set ID if present (GenAI FunctionCall.ID is optional)
+	// Set ID if present (Gemini FunctionCall.ID is optional)
 	if id, ok := part.Meta["id"].(string); ok && id != "" {
 		functionCall.ID = id
 	}
@@ -218,7 +218,7 @@ func (c *GenAIConverter) convertToolCallPart(part model.Part) *genai.FunctionCal
 	return functionCall
 }
 
-func (c *GenAIConverter) convertToolResultPart(part model.Part, toolCallIDToName map[string]string) *genai.FunctionResponse {
+func (c *GeminiConverter) convertToolResultPart(part model.Part, toolCallIDToName map[string]string) *genai.FunctionResponse {
 	if part.Meta == nil {
 		return nil
 	}
@@ -239,7 +239,7 @@ func (c *GenAIConverter) convertToolResultPart(part model.Part, toolCallIDToName
 	}
 
 	// Parse response (can be string or object)
-	// GenAI FunctionResponse.Response is map[string]any
+	// Gemini FunctionResponse.Response is map[string]any
 	var response map[string]interface{}
 	if part.Text != "" {
 		// Try to parse as JSON
@@ -258,7 +258,7 @@ func (c *GenAIConverter) convertToolResultPart(part model.Part, toolCallIDToName
 		Response: response,
 	}
 
-	// Set ID if present (GenAI FunctionResponse.ID is optional)
+	// Set ID if present (Gemini FunctionResponse.ID is optional)
 	// This ID should match the FunctionCall.ID to link the response to the call
 	if toolCallID, ok := part.Meta["tool_call_id"].(string); ok && toolCallID != "" {
 		functionResponse.ID = toolCallID
@@ -267,7 +267,7 @@ func (c *GenAIConverter) convertToolResultPart(part model.Part, toolCallIDToName
 	return functionResponse
 }
 
-func (c *GenAIConverter) downloadImageAsBase64(imageURL string) (string, string, error) {
+func (c *GeminiConverter) downloadImageAsBase64(imageURL string) (string, string, error) {
 	resp, err := http.Get(imageURL)
 	if err != nil {
 		return "", "", err
@@ -295,7 +295,7 @@ func (c *GenAIConverter) downloadImageAsBase64(imageURL string) (string, string,
 	return base64Data, mimeType, nil
 }
 
-func (c *GenAIConverter) getAssetURL(asset *model.Asset, publicURLs map[string]service.PublicURL) string {
+func (c *GeminiConverter) getAssetURL(asset *model.Asset, publicURLs map[string]service.PublicURL) string {
 	if asset == nil {
 		return ""
 	}

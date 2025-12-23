@@ -36,8 +36,8 @@ func ConvertMessages(input ConvertMessagesInput) (interface{}, error) {
 		converter = &OpenAIConverter{}
 	case model.FormatAnthropic:
 		converter = &AnthropicConverter{}
-	case model.FormatGenAI:
-		converter = &GenAIConverter{}
+	case model.FormatGemini:
+		converter = &GeminiConverter{}
 	default:
 		return nil, fmt.Errorf("unsupported format: %s", format)
 	}
@@ -49,10 +49,10 @@ func ConvertMessages(input ConvertMessagesInput) (interface{}, error) {
 func ValidateFormat(format string) (model.MessageFormat, error) {
 	mf := model.MessageFormat(format)
 	switch mf {
-	case model.FormatAcontext, model.FormatOpenAI, model.FormatAnthropic, model.FormatGenAI:
+	case model.FormatAcontext, model.FormatOpenAI, model.FormatAnthropic, model.FormatGemini:
 		return mf, nil
 	default:
-		return "", fmt.Errorf("invalid format: %s, supported formats: acontext, openai, anthropic, genai", format)
+		return "", fmt.Errorf("invalid format: %s, supported formats: acontext, openai, anthropic, gemini", format)
 	}
 }
 
