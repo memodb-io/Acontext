@@ -104,7 +104,7 @@ definitions:
         - acontext
         - openai
         - anthropic
-        - genai
+        - gemini
         example: openai
         type: string
     required:
@@ -1429,7 +1429,7 @@ paths:
       consumes:
       - application/json
       description: Get messages from session. Default format is openai. Can convert
-        to acontext (original), anthropic, or genai format.
+        to acontext (original), anthropic, or gemini format.
       parameters:
       - description: Session ID
         format: uuid
@@ -1457,12 +1457,12 @@ paths:
         name: with_asset_public_url
         type: string
       - description: 'Format to convert messages to: acontext (original), openai (default),
-          anthropic, genai.'
+          anthropic, gemini.'
         enum:
         - acontext
         - openai
         - anthropic
-        - genai
+        - gemini
         in: query
         name: format
         type: string

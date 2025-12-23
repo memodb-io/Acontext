@@ -1070,7 +1070,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get messages from session. Default format is openai. Can convert to acontext (original), anthropic, or genai format.",
+                "description": "Get messages from session. Default format is openai. Can convert to acontext (original), anthropic, or gemini format.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1114,10 +1114,10 @@ const docTemplate = `{
                             "acontext",
                             "openai",
                             "anthropic",
-                            "genai"
+                            "gemini"
                         ],
                         "type": "string",
-                        "description": "Format to convert messages to: acontext (original), openai (default), anthropic, genai.",
+                        "description": "Format to convert messages to: acontext (original), openai (default), anthropic, gemini.",
                         "name": "format",
                         "in": "query"
                     },
@@ -2774,7 +2774,7 @@ const docTemplate = `{
                         "acontext",
                         "openai",
                         "anthropic",
-                        "genai"
+                        "gemini"
                     ],
                     "example": "openai"
                 }

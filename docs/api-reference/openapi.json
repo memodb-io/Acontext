@@ -787,7 +787,7 @@
     },
     "/session/{session_id}/messages" : {
       "get" : {
-        "description" : "Get messages from session. Default format is openai. Can convert to acontext (original), anthropic, or genai format.",
+        "description" : "Get messages from session. Default format is openai. Can convert to acontext (original), anthropic, or gemini format.",
         "parameters" : [ {
           "description" : "Session ID",
           "in" : "path",
@@ -819,11 +819,11 @@
             "type" : "string"
           }
         }, {
-          "description" : "Format to convert messages to: acontext (original), openai (default), anthropic, genai.",
+          "description" : "Format to convert messages to: acontext (original), openai (default), anthropic, gemini.",
           "in" : "query",
           "name" : "format",
           "schema" : {
-            "enum" : [ "acontext", "openai", "anthropic", "genai" ],
+            "enum" : [ "acontext", "openai", "anthropic", "gemini" ],
             "type" : "string"
           }
         }, {
@@ -2106,7 +2106,7 @@
             "type" : "object"
           },
           "format" : {
-            "enum" : [ "acontext", "openai", "anthropic", "genai" ],
+            "enum" : [ "acontext", "openai", "anthropic", "gemini" ],
             "example" : "openai",
             "type" : "string"
           }
