@@ -1,3 +1,13 @@
+"""
+Controller layer for SOP -> Space digestion.
+
+This module provides a thin abstraction between MQ/service layers and the LLM agent
+implementation (`llm/agent/space_construct.py`). It primarily exists to:
+- keep the service layer free of agent-specific details
+- provide a stable API that can evolve (e.g., batching support) without changing
+  every caller
+"""
+
 from ...schema.block.sop_block import SOPData
 from ...schema.utils import asUUID
 from ...llm.agent import space_construct as SC
@@ -5,23 +15,19 @@ from ...env import LOG
 from ...schema.config import ProjectConfig
 
 
-async def process_sop_complete(
+async def process_sop_complete_batch(
     project_config: ProjectConfig,
     project_id: asUUID,
     space_id: asUUID,
-    task_id: asUUID,
-    sop_data: SOPData,
+    task_ids: list[asUUID],
+    sop_datas: list[SOPData],
 ):
-    """
-    Process SOP completion and trigger construct agent
-    """
-    LOG.info(f"Processing SOP completion for task {task_id}")
-    # Call construct agent
+    """Process multiple SOP completions by calling the Space construct agent once."""
     construct_result = await SC.space_construct_agent_curd(
         project_id,
         space_id,
-        [task_id],
-        [sop_data],
+        task_ids,
+        sop_datas,
         max_iterations=project_config.default_space_construct_agent_max_iterations,
     )
 
@@ -32,3 +38,25 @@ async def process_sop_complete(
         LOG.error(f"Construct agent failed: {construct_result}")
 
     return construct_result
+
+
+async def process_sop_complete(
+    project_config: ProjectConfig,
+    project_id: asUUID,
+    space_id: asUUID,
+    task_id: asUUID,
+    sop_data: SOPData,
+):
+    """
+    Backwards-compatible single-item wrapper.
+
+    Keeping this wrapper avoids forcing existing codepaths to know about batching.
+    """
+    LOG.info(f"Processing SOP completion for task {task_id}")
+    return await process_sop_complete_batch(
+        project_config,
+        project_id,
+        space_id,
+        [task_id],
+        [sop_data],
+    )

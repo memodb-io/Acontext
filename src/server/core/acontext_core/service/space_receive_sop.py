@@ -1,3 +1,14 @@
+"""
+MQ consumer entrypoint for "SOP complete" events.
+
+This module intentionally stays thin:
+- MQ wiring (consumer registration)
+- dependency wiring (injecting module globals into the processor)
+
+All batching logic lives in `space_sop_batch_processor.py` to keep this file readable
+and to make the batching behavior testable in isolation.
+"""
+
 from ..env import LOG, DEFAULT_CORE_CONFIG
 from ..infra.db import DB_CLIENT
 from ..infra.async_mq import (
@@ -14,6 +25,12 @@ from .data import task as TD
 from .data import session as SD
 from .controller import space_sop as SSC
 from .utils import check_redis_lock_or_set, release_redis_lock
+from . import space_sop_buffer as SSB
+from .space_sop_batch_processor import (
+    SOPBatchDependencies,
+    SOPBatchProcessor,
+    SOPBatchSettings,
+)
 
 register_consumer(
     MQ_CLIENT,
@@ -38,57 +55,28 @@ register_consumer(
 )
 async def space_sop_complete_task(body: SOPComplete, message: Message):
     """
-    MQ Consumer for SOP completion - Process SOP data with construct agent
+    MQ Consumer for SOP completion - batch SOP data and trigger construct agent.
+
+    The heavy lifting is delegated to `SOPBatchProcessor` to keep this handler easy
+    to read and safe to modify.
     """
-    if body.task_id is None:
-        LOG.error("Task ID is required for SOP complete")
-        return
-    _lock_key = f"{RK.space_task_sop_complete}.{body.space_id}"
-    _l = await check_redis_lock_or_set(body.project_id, _lock_key)
-    if not _l:
-        LOG.debug(
-            f"Current Space {body.space_id} is locked. "
-            f"wait {DEFAULT_CORE_CONFIG.space_task_sop_lock_wait_seconds} seconds for next resend. "
-        )
-        await MQ_CLIENT.publish(
-            exchange_name=EX.space_task,
-            routing_key=RK.space_task_sop_complete_retry,
-            body=body.model_dump_json(),
-        )
-        return
-    LOG.info(f"Lock Space {body.space_id} for SOP complete task")
-    try:
-        async with DB_CLIENT.get_session_context() as db_session:
-            # First get the task to find its session_id
-            r = await TD.fetch_task(db_session, body.task_id)
-            if not r.ok():
-                LOG.error(f"Task not found: {body.task_id}")
-                return
-            task_data, _ = r.unpack()
-
-            # Verify session exists and has space
-            r = await SD.fetch_session(db_session, task_data.session_id)
-            if not r.ok():
-                LOG.error(f"Session not found for task {body.task_id}")
-                return
-            session_data, _ = r.unpack()
-            if session_data.space_id is None:
-                LOG.info(f"Session {task_data.session_id} has no linked space")
-                return
-
-            # Get project config
-            r = await PD.get_project_config(db_session, body.project_id)
-            project_config, eil = r.unpack()
-            if eil:
-                LOG.error(f"Project config not found for project {body.project_id}")
-                return
-
-        # Call controller to process SOP completion
-        await SSC.process_sop_complete(
-            project_config, body.project_id, body.space_id, body.task_id, body.sop_data
-        )
-
-    except Exception as e:
-        LOG.error(f"Error in space_sop_complete_task: {e}")
-    finally:
-        await release_redis_lock(body.project_id, _lock_key)
+    settings = SOPBatchSettings(
+        lock_wait_seconds=DEFAULT_CORE_CONFIG.space_task_sop_lock_wait_seconds,
+        batch_wait_seconds=DEFAULT_CORE_CONFIG.space_task_sop_batch_wait_seconds,
+        batch_max_size=DEFAULT_CORE_CONFIG.space_task_sop_batch_max_size,
+    )
+    deps = SOPBatchDependencies(
+        mq_client=MQ_CLIENT,
+        exchange_name=EX.space_task,
+        retry_routing_key=RK.space_task_sop_complete_retry,
+        lock_acquire=check_redis_lock_or_set,
+        lock_release=release_redis_lock,
+        lock_key_prefix=RK.space_task_sop_complete,
+        buffer=SSB,
+        db_client=DB_CLIENT,
+        project_data=PD,
+        task_data=TD,
+        session_data=SD,
+        controller=SSC,
+    )
+    await SOPBatchProcessor(settings, deps).process(body)

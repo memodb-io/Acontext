@@ -9,7 +9,7 @@ from ....schema.llm import ToolSchema
 from ....schema.result import Result
 from ....schema.block.sop_block import SubmitSOPData, SOPData
 from ....schema.mq.sop import SOPComplete
-from ....env import LOG
+from ....env import LOG, DEFAULT_CORE_CONFIG
 from .ctx import SOPCtx
 
 
@@ -34,9 +34,11 @@ async def submit_sop_handler(ctx: SOPCtx, llm_arguments: dict) -> Result[str]:
     except ValidationError as e:
         return Result.reject(f"Invalid SOP data: {str(e)}")
     if not len(sop_data.tool_sops) and not len(sop_data.preferences.strip()):
-        LOG.info("Agent submitted an empty SOP, drop")
-        await set_space_digests(ctx)
-        return Result.resolve("SOP submitted")
+        if DEFAULT_CORE_CONFIG.space_task_sop_drop_empty_sop:
+            LOG.info("Agent submitted an empty SOP, drop")
+            await set_space_digests(ctx)
+            return Result.resolve("SOP submitted")
+        LOG.info("Agent submitted an empty SOP, allow (space_task_sop_drop_empty_sop=false)")
     if is_easy_task:
         # easy task should not have any tool_sops
         sop_data.tool_sops = []
