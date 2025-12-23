@@ -244,7 +244,7 @@ func (s *testArtifactService) UpdateArtifactMetaByPath(ctx context.Context, disk
 	}
 
 	// Validate that user meta doesn't contain system reserved keys
-	reservedKeys := model.GetReservedKeys()
+	reservedKeys := model.Artifact{}.GetReservedKeys()
 	for _, reservedKey := range reservedKeys {
 		if _, exists := userMeta[reservedKey]; exists {
 			return nil, errors.New("reserved key '" + reservedKey + "' is not allowed in user meta")

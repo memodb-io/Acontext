@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -9,7 +10,9 @@ import (
 	"github.com/memodb-io/Acontext/internal/infra/blob"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"go.uber.org/zap"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type SessionRepo interface {
@@ -23,6 +26,7 @@ type SessionRepo interface {
 	ListBySessionWithCursor(ctx context.Context, sessionID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Message, error)
 	ListAllMessagesBySession(ctx context.Context, sessionID uuid.UUID) ([]model.Message, error)
 	GetObservingStatus(ctx context.Context, sessionID string) (*model.MessageObservingStatus, error)
+	PopGeminiCallIDAndName(ctx context.Context, sessionID uuid.UUID) (string, string, error)
 }
 
 type sessionRepo struct {
@@ -258,4 +262,125 @@ func (r *sessionRepo) GetObservingStatus(
 	}
 
 	return status, nil
+}
+
+// PopGeminiCallIDAndName pops the first call {id, name} pair from the earliest message in the session that has call info.
+// Uses row-level locking to ensure thread safety. Returns the popped ID, name, or an error if none available.
+// This method is used to match FunctionResponse with FunctionCall by name first, then handle ID validation/assignment.
+func (r *sessionRepo) PopGeminiCallIDAndName(ctx context.Context, sessionID uuid.UUID) (string, string, error) {
+	var poppedID string
+	var poppedName string
+
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Find the earliest message with call IDs, using row-level locking
+		var msg model.Message
+		keyPath := fmt.Sprintf("meta->>'%s'", model.GeminiCallInfoKey)
+		arrayPath := fmt.Sprintf("meta->'%s'", model.GeminiCallInfoKey)
+
+		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("session_id = ?", sessionID).
+			Where(keyPath + " IS NOT NULL").
+			Where(fmt.Sprintf("jsonb_array_length(%s) > 0", arrayPath)).
+			Order("created_at ASC, id ASC").
+			Limit(1).
+			First(&msg).Error
+
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return fmt.Errorf("no available Gemini call info in session")
+			}
+			return fmt.Errorf("failed to query message with call info: %w", err)
+		}
+
+		// Get current meta
+		meta := msg.Meta.Data()
+		if meta == nil {
+			return fmt.Errorf("message meta is nil")
+		}
+
+		// Get the call info array (contains {id, name} objects)
+		callsRaw, exists := meta[model.GeminiCallInfoKey]
+		if !exists {
+			return fmt.Errorf("call info key not found in message meta")
+		}
+
+		// Convert to []interface{} (array of {id, name} objects)
+		callsInterface, ok := callsRaw.([]interface{})
+		if !ok {
+			// Try to unmarshal if it's a JSON string
+			var calls []map[string]interface{}
+			if callsBytes, err := json.Marshal(callsRaw); err == nil {
+				if err := json.Unmarshal(callsBytes, &calls); err == nil {
+					if len(calls) == 0 {
+						return fmt.Errorf("call info array is empty")
+					}
+					// Pop first call
+					firstCall := calls[0]
+					if id, ok := firstCall["id"].(string); ok {
+						poppedID = id
+					} else {
+						return fmt.Errorf("call ID is not a string")
+					}
+					if name, ok := firstCall["name"].(string); ok {
+						poppedName = name
+					} else {
+						return fmt.Errorf("call name is not a string")
+					}
+					calls = calls[1:]
+
+					// Update or delete the key
+					if len(calls) == 0 {
+						delete(meta, model.GeminiCallInfoKey)
+					} else {
+						meta[model.GeminiCallInfoKey] = calls
+					}
+
+					// Update the message
+					return tx.Model(&msg).Update("meta", datatypes.NewJSONType(meta)).Error
+				}
+			}
+			return fmt.Errorf("invalid call info format in message meta")
+		}
+
+		if len(callsInterface) == 0 {
+			return fmt.Errorf("call info array is empty")
+		}
+
+		// Pop the first call object
+		firstCallRaw, ok := callsInterface[0].(map[string]interface{})
+		if !ok {
+			return fmt.Errorf("call info is not an object")
+		}
+
+		// Extract ID and name
+		if id, ok := firstCallRaw["id"].(string); ok {
+			poppedID = id
+		} else {
+			return fmt.Errorf("call ID is not a string")
+		}
+		if name, ok := firstCallRaw["name"].(string); ok {
+			poppedName = name
+		} else {
+			return fmt.Errorf("call name is not a string")
+		}
+
+		// Remove first element
+		remainingCalls := callsInterface[1:]
+
+		// Update or delete the key
+		if len(remainingCalls) == 0 {
+			delete(meta, model.GeminiCallInfoKey)
+		} else {
+			meta[model.GeminiCallInfoKey] = remainingCalls
+		}
+
+		// Update the message
+		return tx.Model(&msg).Update("meta", datatypes.NewJSONType(meta)).Error
+	})
+
+	if err != nil {
+		return "", "", err
+	}
+
+	return poppedID, poppedName, nil
 }

@@ -243,6 +243,60 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 		parts = append(parts, part)
 	}
 
+	// Resolve FunctionResponse IDs for tool-result parts
+	// This must happen before uploading parts to S3
+	// Strategy:
+	// 1. Pop stored calls in order (each contains {id, name})
+	// 2. Validate function name match - name must match, otherwise return error
+	// 3. If response has ID: validate it matches the popped call ID
+	// 4. If response has no ID: copy the popped call ID to response
+	// This ensures correct matching even if IDs are missing or order is disrupted
+	for i := range parts {
+		if parts[i].Type == "tool-result" {
+			if parts[i].Meta == nil {
+				parts[i].Meta = make(map[string]interface{})
+			}
+			
+			// Get function name from response
+			responseName, hasName := parts[i].Meta["name"]
+			if !hasName {
+				return nil, fmt.Errorf("tool-result part[%d] missing function name", i)
+			}
+			responseNameStr, ok := responseName.(string)
+			if !ok || responseNameStr == "" {
+				return nil, fmt.Errorf("tool-result part[%d] has invalid function name", i)
+			}
+			
+			// Pop the next stored call (id, name) pair
+			poppedID, poppedName, err := s.sessionRepo.PopGeminiCallIDAndName(ctx, in.SessionID)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve FunctionResponse for part[%d]: %w", i, err)
+			}
+			
+			// First validate name match - name must match
+			if poppedName != responseNameStr {
+				return nil, fmt.Errorf("function name mismatch for part[%d]: response name '%s' does not match call name '%s'", i, responseNameStr, poppedName)
+			}
+			
+			// Now handle ID: if response has ID, validate it matches; if not, copy from call
+			responseID, hasID := parts[i].Meta["tool_call_id"]
+			if hasID {
+				// ID exists: validate it matches the popped call ID
+				responseIDStr, ok := responseID.(string)
+				if !ok || responseIDStr == "" {
+					return nil, fmt.Errorf("tool-result part[%d] has invalid tool_call_id", i)
+				}
+				if responseIDStr != poppedID {
+					return nil, fmt.Errorf("function ID mismatch for part[%d]: response ID '%s' does not match call ID '%s'", i, responseIDStr, poppedID)
+				}
+				// ID matches, no need to update
+			} else {
+				// ID missing: copy from popped call
+				parts[i].Meta["tool_call_id"] = poppedID
+			}
+		}
+	}
+
 	// upload parts to S3 as JSON file
 	asset, err := s.s3.UploadJSON(ctx, "parts/"+in.ProjectID.String(), parts)
 	if err != nil {

@@ -101,7 +101,7 @@ func (h *ArtifactHandler) UpsertArtifact(c *gin.Context) {
 		}
 
 		// Validate that user meta doesn't contain system reserved keys
-		reservedKeys := model.GetReservedKeys()
+		reservedKeys := model.Artifact{}.GetReservedKeys()
 		for _, reservedKey := range reservedKeys {
 			if _, exists := userMeta[reservedKey]; exists {
 				c.JSON(http.StatusBadRequest, serializer.ParamErr("", fmt.Errorf("reserved key '%s' is not allowed in user meta", reservedKey)))
@@ -314,7 +314,7 @@ func (h *ArtifactHandler) UpdateArtifact(c *gin.Context) {
 	}
 
 	// Validate that user meta doesn't contain system reserved keys
-	reservedKeys := model.GetReservedKeys()
+	reservedKeys := model.Artifact{}.GetReservedKeys()
 	for _, reservedKey := range reservedKeys {
 		if _, exists := userMeta[reservedKey]; exists {
 			c.JSON(http.StatusBadRequest, serializer.ParamErr("", fmt.Errorf("reserved key '%s' is not allowed in user meta", reservedKey)))

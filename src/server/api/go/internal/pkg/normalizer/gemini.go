@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/google/uuid"
 	"google.golang.org/genai"
 
+	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/service"
 )
 
@@ -31,19 +33,31 @@ func (n *GeminiNormalizer) NormalizeFromGeminiMessage(messageJSON json.RawMessag
 	// Convert parts
 	// IMPORTANT: Gemini FunctionCall.ID and FunctionResponse.ID are required for proper matching.
 	// Since FunctionCall and FunctionResponse are in different messages (different roles),
-	// we cannot match them without IDs. The user must provide matching IDs in Gemini format.
+	// we cannot match them without IDs. If IDs are missing, we generate them and store in meta.
+	// We store both ID and name to enable name-based matching and validation.
 	parts := []service.PartIn{}
+	generatedCalls := []map[string]interface{}{} // Collect {id, name} pairs for FunctionCalls
+
 	for _, part := range content.Parts {
-		partIn, err := normalizeGeminiPart(part)
+		partIn, generatedCall, err := normalizeGeminiPart(part)
 		if err != nil {
 			return "", nil, nil, err
 		}
 		parts = append(parts, partIn)
+		// Collect generated call info (id and name)
+		if generatedCall != nil {
+			generatedCalls = append(generatedCalls, generatedCall)
+		}
 	}
 
 	// Extract message-level metadata
 	messageMeta := map[string]interface{}{
 		"source_format": "gemini",
+	}
+
+	// Add generated call info (id and name pairs) to message meta if any were generated
+	if len(generatedCalls) > 0 {
+		messageMeta[model.GeminiCallInfoKey] = generatedCalls
 	}
 
 	return role, parts, messageMeta, nil
@@ -61,9 +75,10 @@ func normalizeGeminiRole(role string) string {
 	}
 }
 
-func normalizeGeminiPart(part *genai.Part) (service.PartIn, error) {
+func normalizeGeminiPart(part *genai.Part) (service.PartIn, map[string]interface{}, error) {
+	// Returns: PartIn, generatedCall (if FunctionCall ID was generated, contains {id, name}), error
 	if part == nil {
-		return service.PartIn{}, fmt.Errorf("nil part")
+		return service.PartIn{}, nil, fmt.Errorf("nil part")
 	}
 
 	// Handle text part
@@ -71,7 +86,7 @@ func normalizeGeminiPart(part *genai.Part) (service.PartIn, error) {
 		return service.PartIn{
 			Type: "text",
 			Text: part.Text,
-		}, nil
+		}, nil, nil
 	}
 
 	// Handle image part (InlineData)
@@ -86,7 +101,7 @@ func normalizeGeminiPart(part *genai.Part) (service.PartIn, error) {
 		return service.PartIn{
 			Type: "image",
 			Meta: meta,
-		}, nil
+		}, nil, nil
 	}
 
 	// Handle function call part
@@ -94,17 +109,28 @@ func normalizeGeminiPart(part *genai.Part) (service.PartIn, error) {
 		// Convert args to JSON string
 		argsBytes, err := json.Marshal(part.FunctionCall.Args)
 		if err != nil {
-			return service.PartIn{}, fmt.Errorf("failed to marshal function call args: %w", err)
+			return service.PartIn{}, nil, fmt.Errorf("failed to marshal function call args: %w", err)
 		}
 
 		// UNIFIED FORMAT: tool-call with unified field names
-		// Require ID for proper matching with FunctionResponse
-		if part.FunctionCall.ID == "" {
-			return service.PartIn{}, fmt.Errorf("FunctionCall.ID is required but missing (function: %s)", part.FunctionCall.Name)
+		// Generate ID if missing for proper matching with FunctionResponse
+		callID := part.FunctionCall.ID
+		var generatedCall map[string]interface{}
+		if callID == "" {
+			// Generate short random ID in format: call_xxx
+			// Use first 8 characters of UUID (without hyphens) for brevity
+			uuidStr := uuid.New().String()
+			shortID := uuidStr[:8] // Take first 8 hex characters
+			callID = "call_" + shortID
+			// Store both ID and name for name-based matching
+			generatedCall = map[string]interface{}{
+				"id":   callID,
+				"name": part.FunctionCall.Name,
+			}
 		}
 
 		meta := map[string]interface{}{
-			"id":        part.FunctionCall.ID,
+			"id":        callID,
 			"name":      part.FunctionCall.Name,
 			"arguments": string(argsBytes),
 			"type":      "function",
@@ -113,7 +139,7 @@ func normalizeGeminiPart(part *genai.Part) (service.PartIn, error) {
 		return service.PartIn{
 			Type: "tool-call",
 			Meta: meta,
-		}, nil
+		}, generatedCall, nil
 	}
 
 	// Handle function response part
@@ -128,26 +154,27 @@ func normalizeGeminiPart(part *genai.Part) (service.PartIn, error) {
 		}
 
 		// UNIFIED FORMAT: tool-result with unified field names
-		// Require ID for proper matching with FunctionCall
+		// If ID is missing, it will be resolved by the service layer before storing
 		// IMPORTANT: We cannot use function name to match because:
 		// 1. FunctionCall and FunctionResponse are in different messages (different roles)
 		// 2. Multiple FunctionCalls with the same name would cause ambiguity
-		// 3. The user must provide matching IDs in Gemini format for proper matching
-		if part.FunctionResponse.ID == "" {
-			return service.PartIn{}, fmt.Errorf("FunctionResponse.ID is required but missing (function: %s)", part.FunctionResponse.Name)
+		// 3. If ID is missing, the service layer will resolve it from stored call IDs
+		meta := map[string]interface{}{
+			"name": part.FunctionResponse.Name,
 		}
 
-		meta := map[string]interface{}{
-			"name":         part.FunctionResponse.Name,
-			"tool_call_id": part.FunctionResponse.ID,
+		// Only set tool_call_id if ID is provided
+		// If missing, service layer will resolve it before storing
+		if part.FunctionResponse.ID != "" {
+			meta["tool_call_id"] = part.FunctionResponse.ID
 		}
 
 		return service.PartIn{
 			Type: "tool-result",
 			Text: responseText,
 			Meta: meta,
-		}, nil
+		}, nil, nil
 	}
 
-	return service.PartIn{}, fmt.Errorf("unsupported Gemini part type")
+	return service.PartIn{}, nil, fmt.Errorf("unsupported Gemini part type")
 }

@@ -14,11 +14,6 @@ const (
 	ArtifactInfoKey = "__artifact_info__"
 )
 
-// GetReservedKeys returns a list of all reserved metadata keys
-func GetReservedKeys() []string {
-	return []string{ArtifactInfoKey}
-}
-
 type Disk struct {
 	ID        uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
 	ProjectID uuid.UUID `gorm:"type:uuid;not null;index" json:"project_id"`
@@ -48,3 +43,8 @@ type Artifact struct {
 }
 
 func (Artifact) TableName() string { return "artifacts" }
+
+// GetReservedKeys returns a list of reserved metadata keys for Artifact
+func (Artifact) GetReservedKeys() []string {
+	return []string{ArtifactInfoKey}
+}
