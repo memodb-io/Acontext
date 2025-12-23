@@ -752,6 +752,7 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 				SessionID:   sessionID,
 				Role:        "user",
 				Parts:       []PartIn{{Type: "tool-result", Meta: map[string]interface{}{"name": "get_weather"}}},
+				Format:      model.FormatGemini,
 				MessageMeta: map[string]interface{}{"source_format": "gemini"},
 			},
 			setup: func(repo *MockSessionRepo, assetRepo *MockAssetReferenceRepo) {
@@ -776,6 +777,7 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 				SessionID:   sessionID,
 				Role:        "user",
 				Parts:       []PartIn{{Type: "tool-result", Meta: map[string]interface{}{"name": "get_weather"}}},
+				Format:      model.FormatGemini,
 				MessageMeta: map[string]interface{}{"source_format": "gemini"},
 			},
 			setup: func(repo *MockSessionRepo, assetRepo *MockAssetReferenceRepo) {
@@ -792,6 +794,7 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 				SessionID:   sessionID,
 				Role:        "user",
 				Parts:       []PartIn{{Type: "tool-result", Meta: map[string]interface{}{"name": "get_weather", "tool_call_id": "call_abc123"}}},
+				Format:      model.FormatGemini,
 				MessageMeta: map[string]interface{}{"source_format": "gemini"},
 			},
 			setup: func(repo *MockSessionRepo, assetRepo *MockAssetReferenceRepo) {
@@ -810,6 +813,7 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 				SessionID:   sessionID,
 				Role:        "user",
 				Parts:       []PartIn{{Type: "tool-result", Meta: map[string]interface{}{"name": "get_weather", "tool_call_id": "call_wrong"}}},
+				Format:      model.FormatGemini,
 				MessageMeta: map[string]interface{}{"source_format": "gemini"},
 			},
 			setup: func(repo *MockSessionRepo, assetRepo *MockAssetReferenceRepo) {
@@ -826,6 +830,7 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 				SessionID:   sessionID,
 				Role:        "user",
 				Parts:       []PartIn{{Type: "tool-result", Meta: map[string]interface{}{"name": "get_weather", "tool_call_id": "call_abc123"}}},
+				Format:      model.FormatGemini,
 				MessageMeta: map[string]interface{}{"source_format": "gemini"},
 			},
 			setup: func(repo *MockSessionRepo, assetRepo *MockAssetReferenceRepo) {
@@ -842,6 +847,7 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 				SessionID:   sessionID,
 				Role:        "user",
 				Parts:       []PartIn{{Type: "tool-result", Meta: map[string]interface{}{}}},
+				Format:      model.FormatGemini,
 				MessageMeta: map[string]interface{}{"source_format": "gemini"},
 			},
 			setup: func(repo *MockSessionRepo, assetRepo *MockAssetReferenceRepo) {
@@ -857,6 +863,7 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 				SessionID:   sessionID,
 				Role:        "user",
 				Parts:       []PartIn{{Type: "tool-result", Meta: map[string]interface{}{"name": ""}}},
+				Format:      model.FormatGemini,
 				MessageMeta: map[string]interface{}{"source_format": "gemini"},
 			},
 			setup: func(repo *MockSessionRepo, assetRepo *MockAssetReferenceRepo) {
@@ -872,6 +879,7 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 				SessionID:   sessionID,
 				Role:        "user",
 				Parts:       []PartIn{{Type: "tool-result", Meta: map[string]interface{}{"name": "get_weather"}}},
+				Format:      model.FormatGemini,
 				MessageMeta: map[string]interface{}{"source_format": "gemini"},
 			},
 			setup: func(repo *MockSessionRepo, assetRepo *MockAssetReferenceRepo) {
@@ -891,6 +899,7 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 					{Type: "tool-result", Meta: map[string]interface{}{"name": "get_weather"}},
 					{Type: "tool-result", Meta: map[string]interface{}{"name": "calculate"}},
 				},
+				Format:      model.FormatGemini,
 				MessageMeta: map[string]interface{}{"source_format": "gemini"},
 			},
 			setup: func(repo *MockSessionRepo, assetRepo *MockAssetReferenceRepo) {
@@ -914,6 +923,7 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 					{Type: "tool-result", Meta: map[string]interface{}{"name": "get_weather"}},
 					{Type: "tool-result", Meta: map[string]interface{}{"name": "calculate"}},
 				},
+				Format:      model.FormatGemini,
 				MessageMeta: map[string]interface{}{"source_format": "gemini"},
 			},
 			setup: func(repo *MockSessionRepo, assetRepo *MockAssetReferenceRepo) {
@@ -932,6 +942,7 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 				SessionID:   sessionID,
 				Role:        "user",
 				Parts:       []PartIn{{Type: "tool-result", Meta: map[string]interface{}{"name": 123}}},
+				Format:      model.FormatGemini,
 				MessageMeta: map[string]interface{}{"source_format": "gemini"},
 			},
 			setup: func(repo *MockSessionRepo, assetRepo *MockAssetReferenceRepo) {
@@ -947,6 +958,7 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 				SessionID:   sessionID,
 				Role:        "user",
 				Parts:       []PartIn{{Type: "tool-result", Meta: map[string]interface{}{"name": "get_weather", "tool_call_id": 123}}},
+				Format:      model.FormatGemini,
 				MessageMeta: map[string]interface{}{"source_format": "gemini"},
 			},
 			setup: func(repo *MockSessionRepo, assetRepo *MockAssetReferenceRepo) {

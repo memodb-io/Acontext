@@ -115,18 +115,19 @@ func normalizeGeminiPart(part *genai.Part) (service.PartIn, map[string]interface
 		// UNIFIED FORMAT: tool-call with unified field names
 		// Generate ID if missing for proper matching with FunctionResponse
 		callID := part.FunctionCall.ID
-		var generatedCall map[string]interface{}
 		if callID == "" {
 			// Generate short random ID in format: call_xxx
 			// Use first 8 characters of UUID (without hyphens) for brevity
 			uuidStr := uuid.New().String()
 			shortID := uuidStr[:8] // Take first 8 hex characters
 			callID = "call_" + shortID
-			// Store both ID and name for name-based matching
-			generatedCall = map[string]interface{}{
-				"id":   callID,
-				"name": part.FunctionCall.Name,
-			}
+		}
+
+		// Store both ID and name for name-based matching (regardless of whether ID was generated or provided)
+		// This ensures all FunctionCalls are tracked for validation against FunctionResponses
+		generatedCall := map[string]interface{}{
+			"id":   callID,
+			"name": part.FunctionCall.Name,
 		}
 
 		meta := map[string]interface{}{

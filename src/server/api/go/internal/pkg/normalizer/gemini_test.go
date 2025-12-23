@@ -490,7 +490,7 @@ func TestGeminiNormalizer_MixedFunctionCalls(t *testing.T) {
 	assert.True(t, len(id1) > 5)
 	assert.Equal(t, "call_", id1[:5])
 
-	// Only the generated one should be in messageMeta
+	// Both calls should be in messageMeta (all FunctionCalls are tracked, not just generated ones)
 	callInfo, exists := messageMeta["__gemini_call_info__"]
 	assert.True(t, exists)
 
@@ -507,10 +507,26 @@ func TestGeminiNormalizer_MixedFunctionCalls(t *testing.T) {
 		t.Fatalf("unexpected type: %T", callInfo)
 	}
 
-	// Only one entry (the generated one)
-	assert.Len(t, callInfoArray, 1)
-	callObj, ok := callInfoArray[0].(map[string]interface{})
-	assert.True(t, ok)
-	assert.Equal(t, id1, callObj["id"])
-	assert.Equal(t, "generated_func", callObj["name"])
+	// Both entries should be present (provided and generated)
+	assert.Len(t, callInfoArray, 2)
+
+	// Find entries by name to verify both are present
+	foundProvided := false
+	foundGenerated := false
+	for _, item := range callInfoArray {
+		callObj, ok := item.(map[string]interface{})
+		assert.True(t, ok)
+		name, ok := callObj["name"].(string)
+		assert.True(t, ok)
+		switch name {
+		case "provided_func":
+			assert.Equal(t, "call_provided", callObj["id"])
+			foundProvided = true
+		case "generated_func":
+			assert.Equal(t, id1, callObj["id"])
+			foundGenerated = true
+		}
+	}
+	assert.True(t, foundProvided, "provided_func should be in call info")
+	assert.True(t, foundGenerated, "generated_func should be in call info")
 }

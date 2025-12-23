@@ -473,6 +473,7 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 		SessionID:   sessionID,
 		Role:        normalizedRole,
 		Parts:       normalizedParts,
+		Format:      format,
 		MessageMeta: normalizedMeta,
 		Files:       fileMap,
 	})
