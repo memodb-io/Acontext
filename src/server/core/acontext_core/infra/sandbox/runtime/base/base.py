@@ -103,15 +103,19 @@ class SandboxRuntime(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def read_file(self, remote_path: str) -> str:
+    async def read_file(
+        self, remote_path: str, offset: Optional[int] = None, limit: Optional[int] = None
+    ) -> str:
         """
         Read a file from the sandbox and return its content as a string.
 
         Args:
             remote_path: Path to the file inside the sandbox
+            offset: Line number to start reading from (1-based). If None, reads from start
+            limit: Number of lines to read. If None, reads to end of file
 
         Returns:
-            File contents as a string
+            File contents as a string (with line numbers if offset/limit are specified)
 
         Raises:
             FileNotFoundError: If file doesn't exist in sandbox
