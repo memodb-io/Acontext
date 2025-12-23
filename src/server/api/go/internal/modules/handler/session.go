@@ -503,10 +503,10 @@ type GetMessagesReq struct {
 //	@Param			session_id				path	string	true	"Session ID"	format(uuid)
 //	@Param			limit					query	integer	false	"Limit of messages to return. Max 200. If limit is 0 or not provided, all messages will be returned. \n\nWARNING!\n Use `limit` only for read-only/display purposes (pagination, viewing). Do NOT use `limit` to truncate messages before sending to LLM as it may cause tool-call and tool-result unpairing issues. Instead, use the `token_limit` edit strategy in `edit_strategies` parameter to safely manage message context size."
 //	@Param			cursor					query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
-//	@Param			with_asset_public_url	query	string	false	"Whether to return asset public url, default is true"								example(true)
+//	@Param			with_asset_public_url	query	string	false	"Whether to return asset public url, default is true"										example(true)
 //	@Param			format					query	string	false	"Format to convert messages to: acontext (original), openai (default), anthropic, genai."	enums(acontext,openai,anthropic,genai)
-//	@Param			time_desc				query	string	false	"Order by created_at descending if true, ascending if false (default false)"		example(false)
-//	@Param			edit_strategies			query	string	false	"JSON array of edit strategies to apply before format conversion"					example([{"type":"remove_tool_result","params":{"keep_recent_n_tool_results":3}}])
+//	@Param			time_desc				query	string	false	"Order by created_at descending if true, ascending if false (default false)"				example(false)
+//	@Param			edit_strategies			query	string	false	"JSON array of edit strategies to apply before format conversion"							example([{"type":"remove_tool_result","params":{"keep_recent_n_tool_results":3}}])
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.GetMessagesOutput}
 //	@Router			/session/{session_id}/messages [get]
