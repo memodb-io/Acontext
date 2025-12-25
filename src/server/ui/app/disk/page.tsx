@@ -45,7 +45,7 @@ import {
   uploadArtifact,
   deleteArtifact,
   updateArtifactMeta,
-} from "@/api/models/disk";
+} from "@/app/disk/actions";
 import { Disk, ListArtifactsResp, Artifact as FileInfo } from "@/types";
 import ReactCodeMirror from "@uiw/react-codemirror";
 import { okaidia } from "@uiw/codemirror-theme-okaidia";

@@ -46,9 +46,11 @@ import {
   deleteSession,
   getSessionConfigs,
   updateSessionConfigs,
-  getSpaces,
   connectSessionToSpace,
-} from "@/api/models/space";
+} from "@/app/session/actions";
+import {
+  getSpaces,
+} from "@/app/space/actions";
 import { Session, Space } from "@/types";
 import ReactCodeMirror from "@uiw/react-codemirror";
 import { okaidia } from "@uiw/codemirror-theme-okaidia";

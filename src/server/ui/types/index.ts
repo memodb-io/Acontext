@@ -173,3 +173,63 @@ export interface ToolResult {
   tool_call_id: string; // Reference to tool call (maps to part.meta.tool_call_id)
   result: string; // Tool result content (stored in part.text or part.meta.result)
 }
+
+// Message part input type for creating messages
+export interface MessagePartIn {
+  type: PartType;
+  text?: string;
+  file_field?: string;
+  meta?: Record<string, unknown>;
+}
+
+// Jaeger API types
+export interface JaegerTrace {
+  traceID: string;
+  spans: JaegerSpan[];
+  processes: Record<string, JaegerProcess>;
+  warnings?: string[] | null;
+}
+
+export interface JaegerSpan {
+  traceID: string;
+  spanID: string;
+  flags: number;
+  operationName: string;
+  references: JaegerReference[];
+  startTime: number;
+  duration: number;
+  tags: JaegerTag[];
+  logs: JaegerLog[];
+  processID: string;
+  warnings?: string[] | null;
+}
+
+export interface JaegerReference {
+  refType: string;
+  traceID: string;
+  spanID: string;
+}
+
+export interface JaegerTag {
+  key: string;
+  value: string | number | boolean;
+  type?: string;
+}
+
+export interface JaegerLog {
+  timestamp: number;
+  fields: JaegerTag[];
+}
+
+export interface JaegerProcess {
+  serviceName: string;
+  tags: JaegerTag[];
+}
+
+export interface JaegerTracesResponse {
+  data: JaegerTrace[];
+  total: number;
+  limit: number;
+  offset: number;
+  errors?: unknown[] | null;
+}

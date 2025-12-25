@@ -68,7 +68,7 @@ import {
   moveBlock,
   getSpaceConfigs,
   updateBlockProperties,
-} from "@/api/models/space";
+} from "@/app/space/actions";
 import { Block } from "@/types";
 
 interface TreeNode {

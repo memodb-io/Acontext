@@ -39,7 +39,7 @@ import {
   deleteSpace,
   getSpaceConfigs,
   updateSpaceConfigs,
-} from "@/api/models/space";
+} from "@/app/space/actions";
 import { Space } from "@/types";
 import ReactCodeMirror from "@uiw/react-codemirror";
 import { okaidia } from "@uiw/codemirror-theme-okaidia";

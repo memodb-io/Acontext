@@ -29,7 +29,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { Loader2, RefreshCw, ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
-import { getTasks, getSessionConfigs } from "@/api/models/space";
+import { getTasks, getSessionConfigs } from "@/app/session/actions";
 import { Task } from "@/types";
 import ReactCodeMirror from "@uiw/react-codemirror";
 import { okaidia } from "@uiw/codemirror-theme-okaidia";

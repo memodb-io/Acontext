@@ -13,7 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { RefreshCw, ChevronDown, ChevronRight, ExternalLink } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import type { JaegerTrace, JaegerSpan } from "@/app/api/jaeger/traces/route";
+import type { JaegerTrace, JaegerSpan } from "@/types";
+import { getJaegerTraces, getJaegerUrlAction } from "@/app/traces/actions";
 import { formatDuration, formatTimestamp } from "./utils";
 
 interface TraceListItem {
@@ -56,17 +57,16 @@ export default function TracesPage() {
     setError(null);
 
     try {
-      const params = new URLSearchParams({
-        limit: "50",
-        service: "acontext-api",
-      });
+      let startTime: number | undefined;
+      let endTime: number | undefined;
+      let lookbackValue: string | undefined;
 
       // If appending (loading more), use explicit start/end for pagination
       if (append) {
         const currentTraces = tracesRef.current;
         if (currentTraces.length === 0) {
           // No existing traces, fall back to lookback
-          params.append("lookback", lookback);
+          lookbackValue = lookback;
         } else {
           // Find the earliest trace (lowest startTime)
           const earliestTrace = currentTraces.reduce((earliest, current) =>
@@ -74,11 +74,10 @@ export default function TracesPage() {
           );
 
           // Use the earliest trace's startTime as the new end (in microseconds)
-          const end = earliestTrace.startTime * 1000;
+          endTime = earliestTrace.startTime * 1000;
 
           // Calculate start time based on lookback from the end
           const lookbackMatch = lookback.match(/^(\d+)([hdms])$/);
-          let start = end;
           if (lookbackMatch) {
             const value = parseInt(lookbackMatch[1], 10);
             const unit = lookbackMatch[2];
@@ -87,21 +86,23 @@ export default function TracesPage() {
               unit === "m" ? 60000 :
               unit === "h" ? 3600000 :
               86400000; // days
-            start = end - (value * multiplier * 1000); // Convert to microseconds
+            startTime = endTime - (value * multiplier * 1000); // Convert to microseconds
           } else {
-            start = end - (3600 * 1000 * 1000); // Default to 1 hour
+            startTime = endTime - (3600 * 1000 * 1000); // Default to 1 hour
           }
-
-          params.append("start", start.toString());
-          params.append("end", end.toString());
         }
       } else {
         // Initial load or refresh - use lookback
-        params.append("lookback", lookback);
+        lookbackValue = lookback;
       }
 
-      const response = await fetch(`/api/jaeger/traces?${params.toString()}`);
-      const result = await response.json();
+      const result = await getJaegerTraces(
+        "acontext-api",
+        50,
+        lookbackValue,
+        startTime,
+        endTime
+      );
 
       if (result.code === 0) {
         const traceList: TraceListItem[] = (result.data?.traces || []).map(
@@ -138,7 +139,7 @@ export default function TracesPage() {
 
         // Check if there are more traces to load
         // If we got exactly the limit, there might be more
-        const limit = parseInt(params.get("limit") || "50", 10);
+        const limit = 50;
         setHasMore(traceList.length === limit);
       } else {
         setError(result.message || "Failed to load traces");
@@ -201,8 +202,7 @@ export default function TracesPage() {
   const [jaegerUiUrl, setJaegerUiUrl] = useState<string>("http://localhost:16686");
 
   useEffect(() => {
-    fetch("/api/jaeger/url")
-      .then((res) => res.json())
+    getJaegerUrlAction()
       .then((data) => {
         if (data.code === 0 && data.data?.url) {
           setJaegerUiUrl(data.data.url);

@@ -1,5 +1,11 @@
-import { MessageRole, PartType, ToolCall, ToolResult, UploadedFile } from "@/types";
-import { MessagePartIn } from "@/api/models/space";
+import {
+  MessageRole,
+  PartType,
+  ToolCall,
+  ToolResult,
+  UploadedFile,
+  MessagePartIn,
+} from "@/types";
 
 /**
  * Get allowed part types based on message role
@@ -53,8 +59,8 @@ export function buildMessageParts(
       parts.push({
         type: "tool-call",
         meta: {
-          id: tc.call_id,        // Unified: tool call ID
-          name: tc.name,          // Unified: tool name
+          id: tc.call_id, // Unified: tool call ID
+          name: tc.name, // Unified: tool name
           arguments: tc.parameters, // Unified: JSON string format
         },
       });
@@ -67,7 +73,7 @@ export function buildMessageParts(
   toolResults.forEach((tr) => {
     parts.push({
       type: "tool-result",
-      text: tr.result,           // Store result in text field
+      text: tr.result, // Store result in text field
       meta: {
         tool_call_id: tr.tool_call_id, // Unified: reference to tool call
       },
@@ -80,7 +86,9 @@ export function buildMessageParts(
 /**
  * Build files object from uploaded files
  */
-export function buildFilesObject(uploadedFiles: UploadedFile[]): Record<string, File> {
+export function buildFilesObject(
+  uploadedFiles: UploadedFile[]
+): Record<string, File> {
   const files: Record<string, File> = {};
   uploadedFiles.forEach((fileItem) => {
     files[fileItem.id] = fileItem.file;
@@ -115,4 +123,3 @@ export function filterFilesByRole(
   const allowedTypes = getAllowedPartTypes(role);
   return files.filter((f) => allowedTypes.includes(f.type));
 }
-

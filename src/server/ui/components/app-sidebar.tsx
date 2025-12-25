@@ -35,8 +35,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   useEffect(() => {
     const checkJaeger = async () => {
       try {
-        const response = await fetch("/api/jaeger/check");
-        const result = await response.json();
+        const { checkJaegerAvailability } = await import("@/app/traces/actions");
+        const result = await checkJaegerAvailability();
         if (result.code === 0) {
           setIsJaegerAvailable(result.data?.available || false);
         }

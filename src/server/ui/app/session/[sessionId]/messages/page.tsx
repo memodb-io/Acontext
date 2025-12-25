@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Plus, RefreshCw, Upload, X, ArrowLeft, FileText, Image as ImageIcon, Video, Music, File, Code, CheckCircle2, ExternalLink } from "lucide-react";
 import Image from "next/image";
-import { getMessages, storeMessage, getSessionConfigs } from "@/api/models/space";
+import { getMessages, storeMessage, getSessionConfigs } from "@/app/session/actions";
 import {
   Message,
   MessageRole,
