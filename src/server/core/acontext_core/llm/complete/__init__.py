@@ -1,7 +1,6 @@
 from typing import Callable, Awaitable, Mapping, Optional
 from .openai_sdk import openai_complete
 from .anthropic_sdk import anthropic_complete
-from .schema_utils import flatten_tool_schemas
 from ...schema.llm import LLMResponse
 from ...schema.result import Result
 from ...env import LOG, DEFAULT_CORE_CONFIG
@@ -32,10 +31,6 @@ async def llm_complete(
     use_model = model or DEFAULT_CORE_CONFIG.llm_simple_model
     use_complete_func = FACTORIES[DEFAULT_CORE_CONFIG.llm_sdk]
 
-    # Flatten tool schemas to ensure compatibility with all LLM providers
-    # (e.g., Gemini doesn't support $ref/$defs in JSON Schema)
-    flattened_tools = flatten_tool_schemas(tools) if tools else None
-
     try:
         response = await use_complete_func(
             prompt,
@@ -45,7 +40,7 @@ async def llm_complete(
             json_mode=json_mode,
             max_tokens=max_tokens,
             prompt_kwargs=prompt_kwargs,
-            tools=flattened_tools,
+            tools=tools,
             **kwargs,
         )
     except Exception as e:
