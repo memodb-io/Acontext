@@ -21,7 +21,13 @@ import { NavMain } from "@/components/nav-main";
 
 import Image from "next/image";
 import Link from "next/link";
-import { Folder, Database, MessageSquare, LayoutDashboard, Activity } from "lucide-react";
+import {
+  Folder,
+  Database,
+  MessageSquare,
+  LayoutDashboard,
+  Activity,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Separator } from "@/components/ui/separator";
 
@@ -35,7 +41,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   useEffect(() => {
     const checkJaeger = async () => {
       try {
-        const { checkJaegerAvailability } = await import("@/app/traces/actions");
+        const { checkJaegerAvailability } = await import(
+          "@/app/traces/actions"
+        );
         const result = await checkJaegerAvailability();
         if (result.code === 0) {
           setIsJaegerAvailable(result.data?.available || false);
@@ -119,9 +127,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 ) : (
                   <Image
                     className="rounded"
-                    src={`${
-                      process.env.NEXT_PUBLIC_BASE_PATH || ""
-                    }/ico_black.svg`}
+                    src="/ico_black.svg"
                     alt="Acontext logo"
                     width={32}
                     height={32}
