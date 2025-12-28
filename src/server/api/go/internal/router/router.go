@@ -17,16 +17,17 @@ import (
 )
 
 type RouterDeps struct {
-	Config          *config.Config
-	DB              *gorm.DB
-	Log             *zap.Logger
-	SpaceHandler    *handler.SpaceHandler
-	BlockHandler    *handler.BlockHandler
-	SessionHandler  *handler.SessionHandler
-	DiskHandler     *handler.DiskHandler
-	ArtifactHandler *handler.ArtifactHandler
-	TaskHandler     *handler.TaskHandler
-	ToolHandler     *handler.ToolHandler
+	Config             *config.Config
+	DB                 *gorm.DB
+	Log                *zap.Logger
+	SpaceHandler       *handler.SpaceHandler
+	BlockHandler       *handler.BlockHandler
+	SessionHandler     *handler.SessionHandler
+	DiskHandler        *handler.DiskHandler
+	ArtifactHandler    *handler.ArtifactHandler
+	TaskHandler        *handler.TaskHandler
+	ToolHandler        *handler.ToolHandler
+	AgentSkillsHandler *handler.AgentSkillsHandler
 }
 
 func NewRouter(d RouterDeps) *gin.Engine {
@@ -138,6 +139,17 @@ func NewRouter(d RouterDeps) *gin.Engine {
 		{
 			tool.PUT("/name", d.ToolHandler.RenameToolName)
 			tool.GET("/name", d.ToolHandler.GetToolName)
+		}
+
+		agentSkills := v1.Group("/agent_skills")
+		{
+			agentSkills.GET("", d.AgentSkillsHandler.ListAgentSkills)
+			agentSkills.POST("", d.AgentSkillsHandler.CreateAgentSkills)
+			agentSkills.GET("/by_name", d.AgentSkillsHandler.GetAgentSkillsByName)
+			agentSkills.GET("/:id", d.AgentSkillsHandler.GetAgentSkills)
+			agentSkills.PUT("/:id", d.AgentSkillsHandler.UpdateAgentSkills)
+			agentSkills.DELETE("/:id", d.AgentSkillsHandler.DeleteAgentSkills)
+			agentSkills.GET("/:id/file", d.AgentSkillsHandler.GetAgentSkillsFileURL)
 		}
 	}
 	return r

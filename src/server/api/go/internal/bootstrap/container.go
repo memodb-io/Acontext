@@ -169,6 +169,12 @@ func BuildContainer() *do.Injector {
 	do.Provide(inj, func(i *do.Injector) (repo.TaskRepo, error) {
 		return repo.NewTaskRepo(do.MustInvoke[*gorm.DB](i)), nil
 	})
+	do.Provide(inj, func(i *do.Injector) (repo.AgentSkillsRepo, error) {
+		return repo.NewAgentSkillsRepo(
+			do.MustInvoke[*gorm.DB](i),
+			do.MustInvoke[*blob.S3Deps](i),
+		), nil
+	})
 
 	// Service
 	do.Provide(inj, func(i *do.Injector) (service.SpaceService, error) {
@@ -208,6 +214,12 @@ func BuildContainer() *do.Injector {
 			do.MustInvoke[*zap.Logger](i),
 		), nil
 	})
+	do.Provide(inj, func(i *do.Injector) (service.AgentSkillsService, error) {
+		return service.NewAgentSkillsService(
+			do.MustInvoke[repo.AgentSkillsRepo](i),
+			do.MustInvoke[*blob.S3Deps](i),
+		), nil
+	})
 
 	// Handler
 	do.Provide(inj, func(i *do.Injector) (*handler.SpaceHandler, error) {
@@ -242,6 +254,9 @@ func BuildContainer() *do.Injector {
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.ToolHandler, error) {
 		return handler.NewToolHandler(do.MustInvoke[*httpclient.CoreClient](i)), nil
+	})
+	do.Provide(inj, func(i *do.Injector) (*handler.AgentSkillsHandler, error) {
+		return handler.NewAgentSkillsHandler(do.MustInvoke[service.AgentSkillsService](i)), nil
 	})
 	return inj
 }

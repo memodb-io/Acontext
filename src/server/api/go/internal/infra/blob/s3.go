@@ -322,6 +322,46 @@ func (u *S3Deps) UploadJSON(ctx context.Context, keyPrefix string, data interfac
 	)
 }
 
+// UploadFileDirect uploads a file directly to S3 at the specified key (no deduplication)
+// This is used when you need to preserve the exact file structure
+func (u *S3Deps) UploadFileDirect(ctx context.Context, key string, content []byte, contentType string) (*model.Asset, error) {
+	if key == "" {
+		return nil, errors.New("key is empty")
+	}
+
+	// Calculate SHA256
+	h := sha256.New()
+	h.Write(content)
+	sumHex := hex.EncodeToString(h.Sum(nil))
+
+	input := &s3.PutObjectInput{
+		Bucket:      aws.String(u.Bucket),
+		Key:         aws.String(key),
+		Body:        bytes.NewReader(content),
+		ContentType: aws.String(contentType),
+		Metadata: map[string]string{
+			"sha256": sumHex,
+		},
+	}
+	if u.SSE != nil {
+		input.ServerSideEncryption = *u.SSE
+	}
+
+	out, err := u.Uploader.Upload(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+
+	return &model.Asset{
+		Bucket: u.Bucket,
+		S3Key:  key,
+		ETag:   cleanETag(*out.ETag),
+		SHA256: sumHex,
+		MIME:   contentType,
+		SizeB:  int64(len(content)),
+	}, nil
+}
+
 // DownloadJSON downloads JSON data from S3 and unmarshals it into the provided interface
 func (u *S3Deps) DownloadJSON(ctx context.Context, key string, target interface{}) error {
 	result, err := u.Client.GetObject(ctx, &s3.GetObjectInput{

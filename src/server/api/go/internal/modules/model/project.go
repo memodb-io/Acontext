@@ -30,6 +30,9 @@ type Project struct {
 
 	// Project <-> Metric
 	Metrics []Metric `gorm:"constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
+
+	// Project <-> AgentSkills
+	AgentSkills []AgentSkills `gorm:"constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
 }
 
 func (Project) TableName() string { return "projects" }
