@@ -273,3 +273,21 @@ services:
       - "${UI_EXPORT_PORT:-3000}:3000"
     depends_on:
       - acontext-server-api
+
+  # --- Dify Sandbox ---
+  dify-sandbox:
+    image: langgenius/dify-sandbox:latest
+    container_name: dify-sandbox
+    restart: unless-stopped
+    environment:
+      ENABLE_NETWORK: ${DIFY_SANDBOX_ENABLE_NETWORK:-true}
+      ENABLE_PRELOAD: ${DIFY_SANDBOX_ENABLE_PRELOAD:-true}
+      API_KEY: ${DIFY_SANDBOX_API_KEY:-your-api-key}
+    ports:
+      - "${DIFY_SANDBOX_EXPORT_PORT:-8194}:8194"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8194/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
