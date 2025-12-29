@@ -23,24 +23,20 @@ func NewAgentSkillsHandler(s service.AgentSkillsService) *AgentSkillsHandler {
 }
 
 type CreateAgentSkillsReq struct {
-	Name        string `form:"name" json:"name" binding:"required" example:"my-agent-skills"`
-	Description string `form:"description" json:"description" example:"Agent skills for GitHub operations"`
-	Meta        string `form:"meta" json:"meta" example:"{\"version\":\"1.0\"}"`
+	Meta string `form:"meta" json:"meta" example:"{\"version\":\"1.0\"}"`
 }
 
 // CreateAgentSkills godoc
 //
 //	@Summary		Create agent skills
-//	@Description	Upload a zip file containing agent skills and extract it to S3
+//	@Description	Upload a zip file containing agent skills and extract it to S3. The zip file must contain a SKILL.md file (case-insensitive) with YAML format containing 'name' and 'description' fields. The name and description will be extracted from SKILL.md.
 //	@Tags			agent_skills
 //	@Accept			multipart/form-data
 //	@Produce		json
-//	@Param			name		formData	string	true	"Name of the agent skills (unique within project)"
-//	@Param			description	formData	string	false	"Description of the agent skills"
-//	@Param			file		formData	file	true	"ZIP file containing agent skills"
-//	@Param			meta		formData	string	false	"Additional metadata (JSON string)"
+//	@Param			file	formData	file	true	"ZIP file containing agent skills. Must contain SKILL.md (case-insensitive) with YAML format: name and description fields."
+//	@Param			meta	formData	string	false	"Additional metadata (JSON string)"
 //	@Security		BearerAuth
-//	@Success		201	{object}	serializer.Response{data=model.AgentSkills}
+//	@Success		201	{object}	serializer.Response{data=model.AgentSkills}	"Returns agent_skills with name and description extracted from SKILL.md"
 //	@Router			/agent_skills [post]
 func (h *AgentSkillsHandler) CreateAgentSkills(c *gin.Context) {
 	project, ok := c.MustGet("project").(*model.Project)
@@ -78,14 +74,18 @@ func (h *AgentSkillsHandler) CreateAgentSkills(c *gin.Context) {
 	}
 
 	agentSkills, err := h.svc.Create(c.Request.Context(), service.CreateAgentSkillsInput{
-		ProjectID:   project.ID,
-		Name:        req.Name,
-		Description: req.Description,
-		ZipFile:     fileHeader,
-		Meta:        meta,
+		ProjectID: project.ID,
+		ZipFile:   fileHeader,
+		Meta:      meta,
 	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		// Check if error is a validation error (SKILL.md related)
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "SKILL.md") || strings.Contains(errMsg, "name is required") || strings.Contains(errMsg, "description is required") {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		} else {
+			c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		}
 		return
 	}
 

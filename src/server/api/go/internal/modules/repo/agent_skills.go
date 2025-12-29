@@ -65,33 +65,40 @@ func (r *agentSkillsRepo) Update(ctx context.Context, as *model.AgentSkills) err
 }
 
 func (r *agentSkillsRepo) Delete(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error {
-	// Use transaction to ensure atomicity
+	// First, query the record to get S3 keys (outside transaction)
+	var as model.AgentSkills
+	if err := r.db.WithContext(ctx).Where("id = ? AND project_id = ?", id, projectID).First(&as).Error; err != nil {
+		return err
+	}
+
+	// Collect all file S3 keys for batch deletion
+	baseAsset := as.AssetMeta.Data()
+	fileIndex := as.FileIndex.Data()
+	s3Keys := make([]string, 0, len(fileIndex))
+	for _, path := range fileIndex {
+		fullS3Key := baseAsset.S3Key + "/" + path
+		s3Keys = append(s3Keys, fullS3Key)
+	}
+
+	// Delete all files from S3 first
+	// If S3 deletion fails, we don't delete the database record, so it can be retried
+	if len(s3Keys) > 0 {
+		if err := r.s3.DeleteObjects(ctx, s3Keys); err != nil {
+			return fmt.Errorf("delete files from S3: %w", err)
+		}
+	}
+
+	// After S3 deletion succeeds, delete the database record in a transaction
+	// This ensures atomicity for the database operation
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Verify agent_skills exists and belongs to project
-		var as model.AgentSkills
+		// Verify agent_skills still exists and belongs to project
 		if err := tx.Where("id = ? AND project_id = ?", id, projectID).First(&as).Error; err != nil {
 			return err
-		}
-
-		// Collect all file S3 keys for batch deletion
-		baseAsset := as.AssetMeta.Data()
-		fileIndex := as.FileIndex.Data()
-		s3Keys := make([]string, 0, len(fileIndex))
-		for _, path := range fileIndex {
-			fullS3Key := baseAsset.S3Key + "/" + path
-			s3Keys = append(s3Keys, fullS3Key)
 		}
 
 		// Delete the agent_skills record
 		if err := tx.Delete(&as).Error; err != nil {
 			return fmt.Errorf("delete agent_skills: %w", err)
-		}
-
-		// Delete all files from S3
-		if len(s3Keys) > 0 {
-			if err := r.s3.DeleteObjects(ctx, s3Keys); err != nil {
-				return fmt.Errorf("delete files from S3: %w", err)
-			}
 		}
 
 		return nil

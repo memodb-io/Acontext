@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"errors"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -97,6 +100,226 @@ func createTestAgentSkills() *model.AgentSkills {
 		Meta:        map[string]interface{}{"version": "1.0"},
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
+	}
+}
+
+// createTestZipFile creates a zip file in memory with the given files
+func createTestZipFile(files map[string]string) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	writer := zip.NewWriter(buf)
+
+	for path, content := range files {
+		f, err := writer.Create(path)
+		if err != nil {
+			return nil, err
+		}
+		_, err = f.Write([]byte(content))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	err := writer.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+func TestAgentSkillsHandler_CreateAgentSkills(t *testing.T) {
+	projectID := uuid.New()
+	agentSkillsID := uuid.New()
+
+	// Create a valid zip with SKILL.md
+	validZipContent, _ := createTestZipFile(map[string]string{
+		"SKILL.md": `name: test-skills
+description: Test description`,
+		"file1.json": `{"key": "value"}`,
+		"file2.md":   "# Test",
+	})
+
+	// Create zip without SKILL.md
+	zipWithoutSkill, _ := createTestZipFile(map[string]string{
+		"file1.json": `{"key": "value"}`,
+	})
+
+	// Create zip with invalid YAML in SKILL.md
+	zipWithInvalidYAML, _ := createTestZipFile(map[string]string{
+		"SKILL.md": `invalid: yaml: content: [`,
+		"file1.json": `{"key": "value"}`,
+	})
+
+	// Create zip with SKILL.md missing name
+	zipWithoutName, _ := createTestZipFile(map[string]string{
+		"SKILL.md": `description: Test description`,
+		"file1.json": `{"key": "value"}`,
+	})
+
+	// Create zip with SKILL.md missing description
+	zipWithoutDescription, _ := createTestZipFile(map[string]string{
+		"SKILL.md": `name: test-skills`,
+		"file1.json": `{"key": "value"}`,
+	})
+
+	expectedAgentSkills := &model.AgentSkills{
+		ID:          agentSkillsID,
+		ProjectID:   projectID,
+		Name:        "test-skills",
+		Description: "Test description",
+		FileIndex:   datatypes.NewJSONType([]string{"SKILL.md", "file1.json", "file2.md"}),
+		Meta:        map[string]interface{}{"version": "1.0"},
+	}
+
+	tests := []struct {
+		name           string
+		zipContent     []byte
+		meta           string
+		setup          func(*MockAgentSkillsService)
+		expectedStatus int
+		expectedError  string
+	}{
+		{
+			name:       "successful creation",
+			zipContent: validZipContent,
+			meta:       `{"version": "1.0"}`,
+			setup: func(svc *MockAgentSkillsService) {
+				svc.On("Create", mock.Anything, mock.MatchedBy(func(in service.CreateAgentSkillsInput) bool {
+					return in.ProjectID == projectID && in.Meta["version"] == "1.0"
+				})).Return(expectedAgentSkills, nil)
+			},
+			expectedStatus: http.StatusCreated,
+		},
+		{
+			name:           "missing file",
+			zipContent:     nil,
+			setup:          func(svc *MockAgentSkillsService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "file is required",
+		},
+		{
+			name:           "file is not zip (wrong extension)",
+			zipContent:     []byte("not a zip file"),
+			setup:          func(svc *MockAgentSkillsService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "file must be a zip archive",
+		},
+		{
+			name:       "SKILL.md not found",
+			zipContent: zipWithoutSkill,
+			setup: func(svc *MockAgentSkillsService) {
+				svc.On("Create", mock.Anything, mock.Anything).Return(nil, errors.New("SKILL.md file is required in the zip package (case-insensitive)"))
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "SKILL.md",
+		},
+		{
+			name:       "invalid YAML in SKILL.md",
+			zipContent: zipWithInvalidYAML,
+			setup: func(svc *MockAgentSkillsService) {
+				svc.On("Create", mock.Anything, mock.Anything).Return(nil, errors.New("parse SKILL.md YAML"))
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "SKILL.md",
+		},
+		{
+			name:       "SKILL.md missing name",
+			zipContent: zipWithoutName,
+			setup: func(svc *MockAgentSkillsService) {
+				svc.On("Create", mock.Anything, mock.Anything).Return(nil, errors.New("name is required in SKILL.md"))
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "name is required",
+		},
+		{
+			name:       "SKILL.md missing description",
+			zipContent: zipWithoutDescription,
+			setup: func(svc *MockAgentSkillsService) {
+				svc.On("Create", mock.Anything, mock.Anything).Return(nil, errors.New("description is required in SKILL.md"))
+			},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "description is required",
+		},
+		{
+			name:       "invalid meta JSON",
+			zipContent: validZipContent,
+			meta:       `invalid json`,
+			setup:      func(svc *MockAgentSkillsService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "Syntax error", // sonic JSON parse error
+		},
+		{
+			name:       "service error",
+			zipContent: validZipContent,
+			setup: func(svc *MockAgentSkillsService) {
+				svc.On("Create", mock.Anything, mock.Anything).Return(nil, errors.New("service error"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := &MockAgentSkillsService{}
+			tt.setup(mockService)
+			handler := NewAgentSkillsHandler(mockService)
+
+			router := setupAgentSkillsRouter()
+			router.POST("/agent_skills", func(c *gin.Context) {
+				c.Set("project", &model.Project{ID: projectID})
+				handler.CreateAgentSkills(c)
+			})
+
+			// Create multipart form data
+			body := &bytes.Buffer{}
+			writer := multipart.NewWriter(body)
+
+			// Add file if provided
+			if tt.zipContent != nil {
+				fileName := "skills.zip"
+				// For "file is not zip" test, use wrong extension
+				if tt.name == "file is not zip (wrong extension)" {
+					fileName = "skills.txt"
+				}
+				fileWriter, err := writer.CreateFormFile("file", fileName)
+				assert.NoError(t, err)
+				_, err = fileWriter.Write(tt.zipContent)
+				assert.NoError(t, err)
+			}
+
+			// Add meta if provided
+			if tt.meta != "" {
+				writer.WriteField("meta", tt.meta)
+			}
+
+			writer.Close()
+
+			req := httptest.NewRequest("POST", "/agent_skills", body)
+			req.Header.Set("Content-Type", writer.FormDataContentType())
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+
+			if tt.expectedError != "" {
+				var response map[string]interface{}
+				err := sonic.Unmarshal(w.Body.Bytes(), &response)
+				assert.NoError(t, err)
+				if response["message"] != nil {
+					assert.Contains(t, response["message"].(string), tt.expectedError)
+				} else if response["error"] != nil {
+					assert.Contains(t, response["error"].(string), tt.expectedError)
+				}
+			} else if tt.expectedStatus == http.StatusCreated {
+				var response map[string]interface{}
+				err := sonic.Unmarshal(w.Body.Bytes(), &response)
+				assert.NoError(t, err)
+				assert.NotNil(t, response["data"])
+			}
+
+			mockService.AssertExpectations(t)
+		})
 	}
 }
 

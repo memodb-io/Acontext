@@ -17,6 +17,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/pkg/paging"
+	"gopkg.in/yaml.v3"
 	"gorm.io/datatypes"
 )
 
@@ -43,25 +44,18 @@ func NewAgentSkillsService(r repo.AgentSkillsRepo, s3 *blob.S3Deps) AgentSkillsS
 }
 
 type CreateAgentSkillsInput struct {
-	ProjectID   uuid.UUID
-	Name        string
-	Description string
-	ZipFile     *multipart.FileHeader
-	Meta        map[string]interface{}
+	ProjectID uuid.UUID
+	ZipFile   *multipart.FileHeader
+	Meta      map[string]interface{}
+}
+
+// SkillMetadata represents the YAML structure in SKILL.md
+type SkillMetadata struct {
+	Name        string `yaml:"name"`
+	Description string `yaml:"description"`
 }
 
 func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInput) (*model.AgentSkills, error) {
-	// Validate name is not empty
-	if in.Name == "" {
-		return nil, errors.New("name is required")
-	}
-
-	// Check if name already exists in project
-	existing, err := s.r.GetByName(ctx, in.ProjectID, in.Name)
-	if err == nil && existing != nil {
-		return nil, fmt.Errorf("agent_skills with name '%s' already exists in project", in.Name)
-	}
-
 	// Open zip file
 	zipFile, err := in.ZipFile.Open()
 	if err != nil {
@@ -84,23 +78,68 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 		return nil, fmt.Errorf("open zip archive: %w", err)
 	}
 
-	// Create agent_skills record first to get ID
-	agentSkills := &model.AgentSkills{
-		ProjectID:   in.ProjectID,
-		Name:        in.Name,
-		Description: in.Description,
-		Meta:        in.Meta,
-		FileIndex:   datatypes.NewJSONType([]string{}),
+	// Parse SKILL.md to extract name and description (required)
+	var skillName string
+	var skillDescription string
+	var skillMetadataFound bool
+	for _, file := range zipReader.File {
+		// Skip directories
+		if file.FileInfo().IsDir() {
+			continue
+		}
+		// Check if file is SKILL.md (case-insensitive)
+		fileName := filepath.Base(file.Name)
+		if strings.EqualFold(fileName, "SKILL.md") {
+			fileReader, err := file.Open()
+			if err != nil {
+				return nil, fmt.Errorf("open SKILL.md: %w", err)
+			}
+			fileContent, err := io.ReadAll(fileReader)
+			fileReader.Close()
+			if err != nil {
+				return nil, fmt.Errorf("read SKILL.md: %w", err)
+			}
+			// Parse YAML
+			var metadata SkillMetadata
+			if err := yaml.Unmarshal(fileContent, &metadata); err != nil {
+				return nil, fmt.Errorf("parse SKILL.md YAML: %w", err)
+			}
+			skillName = metadata.Name
+			skillDescription = metadata.Description
+			skillMetadataFound = true
+			break
+		}
 	}
 
-	if err := s.r.Create(ctx, agentSkills); err != nil {
-		return nil, fmt.Errorf("create agent_skills record: %w", err)
+	// SKILL.md is required
+	if !skillMetadataFound {
+		return nil, errors.New("SKILL.md file is required in the zip package (case-insensitive)")
 	}
 
-	// Base S3 key prefix for extracted files
-	baseS3Key := fmt.Sprintf("agent_skills/%s/%s/extracted", in.ProjectID.String(), agentSkills.ID.String())
+	// Validate name and description are not empty
+	if skillName == "" {
+		return nil, errors.New("name is required in SKILL.md")
+	}
+	if skillDescription == "" {
+		return nil, errors.New("description is required in SKILL.md")
+	}
 
-	// Process zip files
+	// Check if name already exists in project, if so, delete the existing one (override)
+	existing, err := s.r.GetByName(ctx, in.ProjectID, skillName)
+	if err == nil && existing != nil {
+		// Delete existing agent_skills (this will also delete S3 files)
+		if err := s.Delete(ctx, in.ProjectID, existing.ID); err != nil {
+			return nil, fmt.Errorf("delete existing agent_skills: %w", err)
+		}
+	}
+
+	// Generate temporary UUID for S3 key (will be used as DB ID later)
+	tempID := uuid.New()
+
+	// Base S3 key prefix for extracted files (using temp ID)
+	baseS3Key := fmt.Sprintf("agent_skills/%s/%s/extracted", in.ProjectID.String(), tempID.String())
+
+	// Process zip files and upload to S3 first
 	fileIndex := make([]string, 0)
 	var baseBucket string
 
@@ -163,11 +202,21 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 		SizeB:  0,  // No size for directory
 	}
 
-	// Update agent_skills with AssetMeta and FileIndex
-	agentSkills.AssetMeta = datatypes.NewJSONType(*baseAsset)
-	agentSkills.FileIndex = datatypes.NewJSONType(fileIndex)
-	if err := s.r.Update(ctx, agentSkills); err != nil {
-		return nil, fmt.Errorf("update agent_skills with AssetMeta and FileIndex: %w", err)
+	// After S3 upload succeeds, create database record with the same UUID
+	agentSkills := &model.AgentSkills{
+		ID:          tempID, // Use the same UUID as S3 key
+		ProjectID:   in.ProjectID,
+		Name:        skillName,
+		Description: skillDescription,
+		Meta:        in.Meta,
+		AssetMeta:   datatypes.NewJSONType(*baseAsset),
+		FileIndex:   datatypes.NewJSONType(fileIndex),
+	}
+
+	if err := s.r.Create(ctx, agentSkills); err != nil {
+		// If DB creation fails, S3 files are already uploaded
+		// They can be cleaned up later or retried
+		return nil, fmt.Errorf("create agent_skills record: %w", err)
 	}
 
 	return agentSkills, nil
