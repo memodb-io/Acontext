@@ -99,7 +99,7 @@ func (h *AgentSkillsHandler) CreateAgentSkills(c *gin.Context) {
 //	@Tags			agent_skills
 //	@Accept			json
 //	@Produce		json
-//	@Param			id	path		string	true	"Agent skills UUID"
+//	@Param			id	path	string	true	"Agent skills UUID"
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=model.AgentSkills}
 //	@Router			/agent_skills/{id} [get]
@@ -132,7 +132,7 @@ func (h *AgentSkillsHandler) GetAgentSkills(c *gin.Context) {
 //	@Tags			agent_skills
 //	@Accept			json
 //	@Produce		json
-//	@Param			name	query		string	true	"Agent skills name"
+//	@Param			name	query	string	true	"Agent skills name"
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=model.AgentSkills}
 //	@Router			/agent_skills/by_name [get]
@@ -171,8 +171,8 @@ type UpdateAgentSkillsReq struct {
 //	@Tags			agent_skills
 //	@Accept			json
 //	@Produce		json
-//	@Param			id	path		string					true	"Agent skills UUID"
-//	@Param			body	body		UpdateAgentSkillsReq	true	"Update request"
+//	@Param			id		path	string					true	"Agent skills UUID"
+//	@Param			body	body	UpdateAgentSkillsReq	true	"Update request"
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=model.AgentSkills}
 //	@Router			/agent_skills/{id} [put]
@@ -217,7 +217,7 @@ func (h *AgentSkillsHandler) UpdateAgentSkills(c *gin.Context) {
 //	@Tags			agent_skills
 //	@Accept			json
 //	@Produce		json
-//	@Param			id	path		string	true	"Agent skills UUID"
+//	@Param			id	path	string	true	"Agent skills UUID"
 //	@Security		BearerAuth
 //	@Success		204	""
 //	@Router			/agent_skills/{id} [delete]
@@ -295,9 +295,9 @@ func (h *AgentSkillsHandler) ListAgentSkills(c *gin.Context) {
 //	@Tags			agent_skills
 //	@Accept			json
 //	@Produce		json
-//	@Param			id			path		string	true	"Agent skills UUID"
-//	@Param			file_path	query		string	true	"File path within the zip (e.g., 'github/GTM/find_trending_repos.json')"
-//	@Param			expire		query		int		false	"URL expiration in seconds (default 900)"
+//	@Param			id			path	string	true	"Agent skills UUID"
+//	@Param			file_path	query	string	true	"File path within the zip (e.g., 'github/GTM/find_trending_repos.json')"
+//	@Param			expire		query	int		false	"URL expiration in seconds (default 900)"
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=map[string]string}
 //	@Router			/agent_skills/{id}/file [get]

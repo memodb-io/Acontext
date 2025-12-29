@@ -55,6 +55,46 @@ type SkillMetadata struct {
 	Description string `yaml:"description"`
 }
 
+// extractYAMLFrontMatter extracts YAML front matter from a markdown file.
+// It looks for content between the first two "---" markers.
+// If no front matter is found, it returns the entire content (for backward compatibility with pure YAML files).
+func extractYAMLFrontMatter(content []byte) string {
+	contentStr := string(content)
+	lines := strings.Split(contentStr, "\n")
+
+	// Find first ---
+	firstDashIndex := -1
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "---" {
+			firstDashIndex = i
+			break
+		}
+	}
+
+	// If no first --- found, return entire content (pure YAML file)
+	if firstDashIndex == -1 {
+		return contentStr
+	}
+
+	// Find second ---
+	secondDashIndex := -1
+	for i := firstDashIndex + 1; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == "---" {
+			secondDashIndex = i
+			break
+		}
+	}
+
+	// If no second --- found, return entire content (for backward compatibility)
+	if secondDashIndex == -1 {
+		return contentStr
+	}
+
+	// Extract content between the two --- markers
+	yamlLines := lines[firstDashIndex+1 : secondDashIndex]
+	return strings.Join(yamlLines, "\n")
+}
+
 func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInput) (*model.AgentSkills, error) {
 	// Open zip file
 	zipFile, err := in.ZipFile.Open()
@@ -99,9 +139,14 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 			if err != nil {
 				return nil, fmt.Errorf("read SKILL.md: %w", err)
 			}
+			// Extract YAML front matter (content between --- markers)
+			yamlContent := extractYAMLFrontMatter(fileContent)
+			if yamlContent == "" {
+				return nil, errors.New("SKILL.md must contain YAML front matter (between --- markers)")
+			}
 			// Parse YAML
 			var metadata SkillMetadata
-			if err := yaml.Unmarshal(fileContent, &metadata); err != nil {
+			if err := yaml.Unmarshal([]byte(yamlContent), &metadata); err != nil {
 				return nil, fmt.Errorf("parse SKILL.md YAML: %w", err)
 			}
 			skillName = metadata.Name

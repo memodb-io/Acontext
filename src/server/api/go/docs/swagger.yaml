@@ -125,6 +125,18 @@ definitions:
     - new_name
     - old_name
     type: object
+  handler.UpdateAgentSkillsReq:
+    properties:
+      description:
+        example: Updated description
+        type: string
+      meta:
+        additionalProperties: true
+        type: object
+      name:
+        example: updated-name
+        type: string
+    type: object
   handler.UpdateArtifactReq:
     properties:
       file_path:
@@ -215,6 +227,33 @@ definitions:
         type: string
       sop_count:
         type: integer
+    type: object
+  model.AgentSkills:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      file_index:
+        description: |-
+          FileIndex contains relative paths of files from the skillName root directory
+          Example: ["pdf/SKILL.md", "pdf/scripts/extract_text.json"]
+          These paths are relative to baseS3Key (which includes skillName)
+          Full S3 key = baseS3Key + "/" + fileIndex[i]
+        items:
+          type: string
+        type: array
+      id:
+        type: string
+      meta:
+        type: object
+      name:
+        description: Name is unique within a project
+        type: string
+      project_id:
+        type: string
+      updated_at:
+        type: string
     type: object
   model.Artifact:
     properties:
@@ -420,6 +459,17 @@ definitions:
       next_cursor:
         type: string
     type: object
+  service.ListAgentSkillsOutput:
+    properties:
+      has_more:
+        type: boolean
+      items:
+        items:
+          $ref: '#/definitions/model.AgentSkills'
+        type: array
+      next_cursor:
+        type: string
+    type: object
   service.ListDisksOutput:
     properties:
       has_more:
@@ -477,6 +527,225 @@ info:
   title: Acontext API
   version: "1.0"
 paths:
+  /agent_skills:
+    get:
+      consumes:
+      - application/json
+      description: List all agent skills under a project
+      parameters:
+      - description: Limit of agent skills to return, default 20. Max 200.
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor for pagination
+        in: query
+        name: cursor
+        type: string
+      - description: Order by created_at descending if true
+        in: query
+        name: time_desc
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.ListAgentSkillsOutput'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List agent skills
+      tags:
+      - agent_skills
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a zip file containing agent skills and extract it to S3.
+        The zip file must contain a SKILL.md file (case-insensitive) with YAML format
+        containing 'name' and 'description' fields. The name and description will
+        be extracted from SKILL.md.
+      parameters:
+      - description: 'ZIP file containing agent skills. Must contain SKILL.md (case-insensitive)
+          with YAML format: name and description fields.'
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: Additional metadata (JSON string)
+        in: formData
+        name: meta
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Returns agent_skills with name and description extracted from
+            SKILL.md
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.AgentSkills'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Create agent skills
+      tags:
+      - agent_skills
+  /agent_skills/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete agent skills and all extracted files from S3
+      parameters:
+      - description: Agent skills UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: ""
+      security:
+      - BearerAuth: []
+      summary: Delete agent skills
+      tags:
+      - agent_skills
+    get:
+      consumes:
+      - application/json
+      description: Get agent skills by its UUID
+      parameters:
+      - description: Agent skills UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.AgentSkills'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get agent skills by ID
+      tags:
+      - agent_skills
+    put:
+      consumes:
+      - application/json
+      description: Update agent skills metadata (name, description, meta)
+      parameters:
+      - description: Agent skills UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UpdateAgentSkillsReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.AgentSkills'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Update agent skills
+      tags:
+      - agent_skills
+  /agent_skills/{id}/file:
+    get:
+      consumes:
+      - application/json
+      description: Get a presigned URL to download a specific file from agent skills
+      parameters:
+      - description: Agent skills UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: File path within the zip (e.g., 'github/GTM/find_trending_repos.json')
+        in: query
+        name: file_path
+        required: true
+        type: string
+      - description: URL expiration in seconds (default 900)
+        in: query
+        name: expire
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  additionalProperties:
+                    type: string
+                  type: object
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get presigned URL for a file
+      tags:
+      - agent_skills
+  /agent_skills/by_name:
+    get:
+      consumes:
+      - application/json
+      description: Get agent skills by its name (unique within project)
+      parameters:
+      - description: Agent skills name
+        in: query
+        name: name
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.AgentSkills'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get agent skills by name
+      tags:
+      - agent_skills
   /disk:
     get:
       consumes:
