@@ -3,6 +3,18 @@ from typing import Literal, Optional, Any
 from copy import deepcopy
 
 
+def _resolve_refs(obj, defs: dict):
+    """Recursively resolve $ref references using the provided definitions."""
+    if isinstance(obj, dict):
+        if "$ref" in obj:
+            ref_name = obj["$ref"].split("/")[-1]
+            return _resolve_refs(defs.get(ref_name, {}), defs)
+        return {k: _resolve_refs(v, defs) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_resolve_refs(item, defs) for item in obj]
+    return obj
+
+
 def _flatten_json_schema(schema: dict) -> dict:
     """
     Recursively expand all $ref references in a JSON Schema.
@@ -13,18 +25,7 @@ def _flatten_json_schema(schema: dict) -> dict:
     """
     schema = deepcopy(schema)
     defs = schema.pop("$defs", {})
-
-    def resolve_refs(obj):
-        if isinstance(obj, dict):
-            if "$ref" in obj:
-                ref_name = obj["$ref"].split("/")[-1]
-                return resolve_refs(deepcopy(defs.get(ref_name, {})))
-            return {k: resolve_refs(v) for k, v in obj.items()}
-        elif isinstance(obj, list):
-            return [resolve_refs(item) for item in obj]
-        return obj
-
-    return resolve_refs(schema)
+    return _resolve_refs(schema, defs)
 
 
 class FunctionSchema(BaseModel):

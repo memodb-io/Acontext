@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Callable, Any, Awaitable
+from typing import Callable, Awaitable
 from ...schema.llm import ToolSchema
 from ...schema.result import Result
 
