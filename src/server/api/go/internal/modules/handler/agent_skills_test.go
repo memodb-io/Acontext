@@ -146,20 +146,43 @@ description: Test description`,
 
 	// Create zip with invalid YAML in SKILL.md
 	zipWithInvalidYAML, _ := createTestZipFile(map[string]string{
-		"SKILL.md": `invalid: yaml: content: [`,
+		"SKILL.md":   `invalid: yaml: content: [`,
 		"file1.json": `{"key": "value"}`,
 	})
 
 	// Create zip with SKILL.md missing name
 	zipWithoutName, _ := createTestZipFile(map[string]string{
-		"SKILL.md": `description: Test description`,
+		"SKILL.md":   `description: Test description`,
 		"file1.json": `{"key": "value"}`,
 	})
 
 	// Create zip with SKILL.md missing description
 	zipWithoutDescription, _ := createTestZipFile(map[string]string{
-		"SKILL.md": `name: test-skills`,
+		"SKILL.md":   `name: test-skills`,
 		"file1.json": `{"key": "value"}`,
+	})
+
+	// Create zip with outer directory (random-name/) - tests root prefix stripping logic
+	// The outer directory name doesn't matter, skillName from SKILL.md will be used
+	zipWithOuterDir, _ := createTestZipFile(map[string]string{
+		"random-name/SKILL.md": `name: pdf
+description: PDF processing skills`,
+		"random-name/forms.md":          "# Forms",
+		"random-name/scripts/tool.json": `{"tool": "extract"}`,
+	})
+
+	// Create zip with case-insensitive SKILL.md (skill.md)
+	zipWithLowercaseSkill, _ := createTestZipFile(map[string]string{
+		"skill.md": `name: lowercase-test
+description: Test with lowercase skill.md`,
+		"file1.json": `{"key": "value"}`,
+	})
+
+	// Create zip with SKILL.md in subdirectory
+	zipWithSkillInSubdir, _ := createTestZipFile(map[string]string{
+		"subdir/SKILL.md": `name: subdir-test
+description: Test with SKILL.md in subdirectory`,
+		"subdir/file1.json": `{"key": "value"}`,
 	})
 
 	expectedAgentSkills := &model.AgentSkills{
@@ -169,6 +192,17 @@ description: Test description`,
 		Description: "Test description",
 		FileIndex:   datatypes.NewJSONType([]string{"SKILL.md", "file1.json", "file2.md"}),
 		Meta:        map[string]interface{}{"version": "1.0"},
+	}
+
+	expectedAgentSkillsWithOuterDir := &model.AgentSkills{
+		ID:          agentSkillsID,
+		ProjectID:   projectID,
+		Name:        "pdf", // skillName from SKILL.md, not from zip directory name
+		Description: "PDF processing skills",
+		// FileIndex should strip the outer "random-name/" prefix (regardless of its name)
+		// skillName "pdf" will be used as S3 root directory
+		FileIndex: datatypes.NewJSONType([]string{"SKILL.md", "forms.md", "scripts/tool.json"}),
+		Meta:      map[string]interface{}{"version": "1.0"},
 	}
 
 	tests := []struct {
@@ -241,10 +275,10 @@ description: Test description`,
 			expectedError:  "description is required",
 		},
 		{
-			name:       "invalid meta JSON",
-			zipContent: validZipContent,
-			meta:       `invalid json`,
-			setup:      func(svc *MockAgentSkillsService) {},
+			name:           "invalid meta JSON",
+			zipContent:     validZipContent,
+			meta:           `invalid json`,
+			setup:          func(svc *MockAgentSkillsService) {},
 			expectedStatus: http.StatusBadRequest,
 			expectedError:  "Syntax error", // sonic JSON parse error
 		},
@@ -255,6 +289,52 @@ description: Test description`,
 				svc.On("Create", mock.Anything, mock.Anything).Return(nil, errors.New("service error"))
 			},
 			expectedStatus: http.StatusInternalServerError,
+		},
+		{
+			name:       "zip with outer directory - root prefix stripped",
+			zipContent: zipWithOuterDir,
+			meta:       `{"version": "1.0"}`,
+			setup: func(svc *MockAgentSkillsService) {
+				// Verify that FileIndex has stripped the "random-name/" prefix
+				svc.On("Create", mock.Anything, mock.MatchedBy(func(in service.CreateAgentSkillsInput) bool {
+					return in.ProjectID == projectID && in.Meta["version"] == "1.0"
+				})).Return(expectedAgentSkillsWithOuterDir, nil)
+			},
+			expectedStatus: http.StatusCreated,
+		},
+		{
+			name:       "SKILL.md case-insensitive (skill.md)",
+			zipContent: zipWithLowercaseSkill,
+			meta:       `{"version": "1.0"}`,
+			setup: func(svc *MockAgentSkillsService) {
+				svc.On("Create", mock.Anything, mock.MatchedBy(func(in service.CreateAgentSkillsInput) bool {
+					return in.ProjectID == projectID
+				})).Return(&model.AgentSkills{
+					ID:          agentSkillsID,
+					ProjectID:   projectID,
+					Name:        "lowercase-test",
+					Description: "Test with lowercase skill.md",
+					FileIndex:   datatypes.NewJSONType([]string{"skill.md", "file1.json"}),
+				}, nil)
+			},
+			expectedStatus: http.StatusCreated,
+		},
+		{
+			name:       "SKILL.md in subdirectory",
+			zipContent: zipWithSkillInSubdir,
+			meta:       `{"version": "1.0"}`,
+			setup: func(svc *MockAgentSkillsService) {
+				svc.On("Create", mock.Anything, mock.MatchedBy(func(in service.CreateAgentSkillsInput) bool {
+					return in.ProjectID == projectID
+				})).Return(&model.AgentSkills{
+					ID:          agentSkillsID,
+					ProjectID:   projectID,
+					Name:        "subdir-test",
+					Description: "Test with SKILL.md in subdirectory",
+					FileIndex:   datatypes.NewJSONType([]string{"subdir/SKILL.md", "subdir/file1.json"}),
+				}, nil)
+			},
+			expectedStatus: http.StatusCreated,
 		},
 	}
 

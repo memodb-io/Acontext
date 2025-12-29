@@ -136,8 +136,58 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 	// Generate temporary UUID for S3 key (will be used as DB ID later)
 	tempID := uuid.New()
 
-	// Base S3 key prefix for extracted files (using temp ID)
-	baseS3Key := fmt.Sprintf("agent_skills/%s/%s/extracted", in.ProjectID.String(), tempID.String())
+	// Sanitize skillName for S3 key (replace spaces and special chars with hyphens)
+	sanitizedName := strings.ReplaceAll(skillName, " ", "-")
+	sanitizedName = strings.ReplaceAll(sanitizedName, "/", "-")
+	sanitizedName = strings.ReplaceAll(sanitizedName, "\\", "-")
+	// Remove any other potentially problematic characters for S3 keys
+	sanitizedName = strings.ReplaceAll(sanitizedName, ":", "-")
+	sanitizedName = strings.ReplaceAll(sanitizedName, "*", "-")
+	sanitizedName = strings.ReplaceAll(sanitizedName, "?", "-")
+	sanitizedName = strings.ReplaceAll(sanitizedName, "\"", "-")
+	sanitizedName = strings.ReplaceAll(sanitizedName, "<", "-")
+	sanitizedName = strings.ReplaceAll(sanitizedName, ">", "-")
+	sanitizedName = strings.ReplaceAll(sanitizedName, "|", "-")
+
+	// Base S3 key prefix: agent_skills/{project_id}/{agent_skills_id}/{skillName}
+	// skillName is included in the path, so FileIndex doesn't need to repeat it
+	baseS3Key := fmt.Sprintf("agent_skills/%s/%s/%s", in.ProjectID.String(), tempID.String(), sanitizedName)
+
+	// Detect the root directory prefix in zip package (regardless of its name)
+	// The outer directory name doesn't matter - skillName from SKILL.md will be used as S3 root
+	// Example: zip has "random-name/SKILL.md", skillName is "pdf"
+	// -> S3 path: agent_skills/{project_id}/{id}/pdf/SKILL.md
+	// -> FileIndex stores "SKILL.md" (not "random-name/SKILL.md")
+	var rootPrefix string
+	var fileNames []string
+	for _, file := range zipReader.File {
+		if file.FileInfo().IsDir() {
+			continue
+		}
+		fileNames = append(fileNames, file.Name)
+	}
+
+	// Find common root prefix (the outermost directory, name doesn't matter)
+	if len(fileNames) > 0 {
+		// Get the first file's directory as candidate
+		firstDir := filepath.Dir(fileNames[0])
+		if firstDir != "." && firstDir != "" {
+			// Check if all files are under this directory
+			allUnderSameRoot := true
+			for _, fileName := range fileNames {
+				fileDir := filepath.Dir(fileName)
+				if !strings.HasPrefix(fileDir+"/", firstDir+"/") && fileDir != firstDir {
+					allUnderSameRoot = false
+					break
+				}
+			}
+			// Strip the outer directory prefix regardless of its name
+			// skillName will be used as the root directory in S3
+			if allUnderSameRoot {
+				rootPrefix = firstDir + "/"
+			}
+		}
+	}
 
 	// Process zip files and upload to S3 first
 	fileIndex := make([]string, 0)
@@ -174,8 +224,15 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 			}
 		}
 
-		// Upload to S3 with exact path structure
-		fullS3Key := fmt.Sprintf("%s/%s", baseS3Key, file.Name)
+		// Upload to S3: baseS3Key/{relativePath}
+		// Strip the zip package's outer directory and use skillName as root
+		// Example: zip has "random-name/SKILL.md", skillName is "pdf"
+		// S3 path: agent_skills/{project_id}/{id}/pdf/SKILL.md
+		relativePath := file.Name
+		if rootPrefix != "" && strings.HasPrefix(file.Name, rootPrefix) {
+			relativePath = strings.TrimPrefix(file.Name, rootPrefix)
+		}
+		fullS3Key := fmt.Sprintf("%s/%s", baseS3Key, relativePath)
 		asset, err := s.s3.UploadFileDirect(ctx, fullS3Key, fileContent, contentType)
 		if err != nil {
 			return nil, fmt.Errorf("upload file to S3: %w", err)
@@ -186,13 +243,14 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 			baseBucket = asset.Bucket
 		}
 
-		// Add to file index (relative path)
-		fileIndex = append(fileIndex, file.Name)
+		// Add to file index: relative path from skillName root
+		// Example: if zip has "random-name/SKILL.md", FileIndex stores "SKILL.md"
+		fileIndex = append(fileIndex, relativePath)
 	}
 
-	// Create base AssetMeta pointing to the extracted/ directory
+	// Create base AssetMeta pointing to the base directory
 	// Note: We create a placeholder Asset for the base directory
-	// The S3Key points to the extracted/ directory, but we don't actually upload a file there
+	// The S3Key points to the base directory, but we don't actually upload a file there
 	baseAsset := &model.Asset{
 		Bucket: baseBucket,
 		S3Key:  baseS3Key,
