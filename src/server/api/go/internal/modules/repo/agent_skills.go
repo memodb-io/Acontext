@@ -65,27 +65,21 @@ func (r *agentSkillsRepo) Update(ctx context.Context, as *model.AgentSkills) err
 }
 
 func (r *agentSkillsRepo) Delete(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error {
-	// First, query the record to get S3 keys (outside transaction)
+	// First, query the record to verify it exists (outside transaction)
 	var as model.AgentSkills
 	if err := r.db.WithContext(ctx).Where("id = ? AND project_id = ?", id, projectID).First(&as).Error; err != nil {
 		return err
 	}
 
-	// Collect all file S3 keys for batch deletion
-	baseAsset := as.AssetMeta.Data()
-	fileIndex := as.FileIndex.Data()
-	s3Keys := make([]string, 0, len(fileIndex))
-	for _, path := range fileIndex {
-		fullS3Key := baseAsset.S3Key + "/" + path
-		s3Keys = append(s3Keys, fullS3Key)
-	}
+	// Recursively delete all objects under the id directory: agent_skills/{project_id}/{id}/
+	// This ensures we delete everything associated with this agent_skills record,
+	// regardless of FileIndex completeness or path structure changes
+	baseS3KeyPrefix := fmt.Sprintf("agent_skills/%s/%s", projectID.String(), id.String())
 
-	// Delete all files from S3 first
+	// Delete all files from S3 first (recursive delete)
 	// If S3 deletion fails, we don't delete the database record, so it can be retried
-	if len(s3Keys) > 0 {
-		if err := r.s3.DeleteObjects(ctx, s3Keys); err != nil {
-			return fmt.Errorf("delete files from S3: %w", err)
-		}
+	if err := r.s3.DeleteObjectsByPrefix(ctx, baseS3KeyPrefix); err != nil {
+		return fmt.Errorf("delete files from S3: %w", err)
 	}
 
 	// After S3 deletion succeeds, delete the database record in a transaction

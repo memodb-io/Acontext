@@ -3349,9 +3349,6 @@ const docTemplate = `{
                     "description": "Name is unique within a project",
                     "type": "string"
                 },
-                "project_id": {
-                    "type": "string"
-                },
                 "updated_at": {
                     "type": "string"
                 }

@@ -209,27 +209,45 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 		if file.FileInfo().IsDir() {
 			continue
 		}
+		// Skip macOS-specific files when detecting root prefix
+		// __MACOSX is parallel to the main structure, not nested inside
+		if strings.Contains(file.Name, "__MACOSX/") ||
+			strings.Contains(file.Name, "__MACOSX\\") ||
+			strings.HasPrefix(filepath.Base(file.Name), "._") ||
+			filepath.Base(file.Name) == ".DS_Store" {
+			continue
+		}
 		fileNames = append(fileNames, file.Name)
 	}
 
-	// Find common root prefix (the outermost directory, name doesn't matter)
+	// Find common root prefix (the outermost directory only, name doesn't matter)
+	// We always strip the outermost directory and use skillName as S3 root
+	// Example: zip has "random-name/SKILL.md", skillName is "pdf"
+	// -> Strip "random-name/", use skillName "pdf" in baseS3Key
+	// -> Final S3 path: agent_skills/{project_id}/{id}/pdf/SKILL.md
+	// Example: zip has "pdf/subdir/file.txt", skillName is "pdf"
+	// -> Strip "pdf/", use skillName "pdf" in baseS3Key
+	// -> Final S3 path: agent_skills/{project_id}/{id}/pdf/subdir/file.txt
 	if len(fileNames) > 0 {
-		// Get the first file's directory as candidate
-		firstDir := filepath.Dir(fileNames[0])
-		if firstDir != "." && firstDir != "" {
-			// Check if all files are under this directory
+		// Extract the outermost directory (first path segment) from the first file
+		// Split by "/" and take the first non-empty segment
+		firstFile := fileNames[0]
+		parts := strings.Split(firstFile, "/")
+		if len(parts) > 1 && parts[0] != "" {
+			outermostDir := parts[0]
+			// Check if all files are under this outermost directory
 			allUnderSameRoot := true
 			for _, fileName := range fileNames {
-				fileDir := filepath.Dir(fileName)
-				if !strings.HasPrefix(fileDir+"/", firstDir+"/") && fileDir != firstDir {
+				fileParts := strings.Split(fileName, "/")
+				if len(fileParts) == 0 || fileParts[0] != outermostDir {
 					allUnderSameRoot = false
 					break
 				}
 			}
-			// Strip the outer directory prefix regardless of its name
+			// Strip the outermost directory prefix regardless of its name
 			// skillName will be used as the root directory in S3
 			if allUnderSameRoot {
-				rootPrefix = firstDir + "/"
+				rootPrefix = outermostDir + "/"
 			}
 		}
 	}
@@ -241,6 +259,18 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 	for _, file := range zipReader.File {
 		// Skip directories
 		if file.FileInfo().IsDir() {
+			continue
+		}
+
+		// Skip macOS-specific files and directories
+		// __MACOSX contains macOS metadata (resource forks, extended attributes)
+		// ._* files are resource fork files
+		// .DS_Store is macOS Finder metadata
+		// These are parallel to the main structure, not nested inside
+		if strings.Contains(file.Name, "__MACOSX/") ||
+			strings.Contains(file.Name, "__MACOSX\\") ||
+			strings.HasPrefix(filepath.Base(file.Name), "._") ||
+			filepath.Base(file.Name) == ".DS_Store" {
 			continue
 		}
 

@@ -472,3 +472,54 @@ func (u *S3Deps) DeleteObjects(ctx context.Context, keys []string) error {
 
 	return nil
 }
+
+// DeleteObjectsByPrefix recursively deletes all objects with the given prefix
+// This is equivalent to deleting an entire "directory" in S3
+func (u *S3Deps) DeleteObjectsByPrefix(ctx context.Context, prefix string) error {
+	if prefix == "" {
+		return errors.New("prefix is empty")
+	}
+
+	// Ensure prefix ends with "/" to list all objects under this directory
+	prefixWithSlash := prefix
+	if !strings.HasSuffix(prefix, "/") {
+		prefixWithSlash = prefix + "/"
+	}
+
+	// List all objects with pagination support
+	var allKeys []string
+	listInput := &s3.ListObjectsV2Input{
+		Bucket: &u.Bucket,
+		Prefix: &prefixWithSlash,
+	}
+
+	var continuationToken *string
+	for {
+		listInput.ContinuationToken = continuationToken
+		result, err := u.Client.ListObjectsV2(ctx, listInput)
+		if err != nil {
+			return fmt.Errorf("list objects from S3: %w", err)
+		}
+
+		if result.Contents != nil {
+			for _, obj := range result.Contents {
+				if obj.Key != nil {
+					allKeys = append(allKeys, *obj.Key)
+				}
+			}
+		}
+
+		// Check if there are more pages
+		if !aws.ToBool(result.IsTruncated) {
+			break
+		}
+		continuationToken = result.NextContinuationToken
+	}
+
+	// Delete all found objects in batches
+	if len(allKeys) > 0 {
+		return u.DeleteObjects(ctx, allKeys)
+	}
+
+	return nil
+}
