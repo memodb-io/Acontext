@@ -565,12 +565,12 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Upload a zip file containing agent skills and extract it to S3.
+      description: Upload a zip file containing agent skill and extract it to S3.
         The zip file must contain a SKILL.md file (case-insensitive) with YAML format
         containing 'name' and 'description' fields. The name and description will
         be extracted from SKILL.md.
       parameters:
-      - description: 'ZIP file containing agent skills. Must contain SKILL.md (case-insensitive)
+      - description: 'ZIP file containing agent skill. Must contain SKILL.md (case-insensitive)
           with YAML format: name and description fields.'
         in: formData
         name: file
@@ -584,7 +584,7 @@ paths:
       - application/json
       responses:
         "201":
-          description: Returns agent_skills with name and description extracted from
+          description: Returns agent skill with name and description extracted from
             SKILL.md
           schema:
             allOf:
@@ -595,16 +595,16 @@ paths:
               type: object
       security:
       - BearerAuth: []
-      summary: Create agent skills
+      summary: Create agent skill
       tags:
       - agent_skills
   /agent_skills/{id}:
     delete:
       consumes:
       - application/json
-      description: Delete agent skills and all extracted files from S3
+      description: Delete agent skill and all extracted files from S3
       parameters:
-      - description: Agent skills UUID
+      - description: Agent skill UUID
         in: path
         name: id
         required: true
@@ -616,15 +616,15 @@ paths:
           description: ""
       security:
       - BearerAuth: []
-      summary: Delete agent skills
+      summary: Delete agent skill
       tags:
       - agent_skills
     get:
       consumes:
       - application/json
-      description: Get agent skills by its UUID
+      description: Get agent skill by its UUID
       parameters:
-      - description: Agent skills UUID
+      - description: Agent skill UUID
         in: path
         name: id
         required: true
@@ -643,15 +643,15 @@ paths:
               type: object
       security:
       - BearerAuth: []
-      summary: Get agent skills by ID
+      summary: Get agent skill by ID
       tags:
       - agent_skills
     put:
       consumes:
       - application/json
-      description: Update agent skills metadata (name, description, meta)
+      description: Update agent skill metadata (name, description, meta)
       parameters:
-      - description: Agent skills UUID
+      - description: Agent skill UUID
         in: path
         name: id
         required: true
@@ -676,16 +676,16 @@ paths:
               type: object
       security:
       - BearerAuth: []
-      summary: Update agent skills
+      summary: Update agent skill
       tags:
       - agent_skills
   /agent_skills/{id}/file:
     get:
       consumes:
       - application/json
-      description: Get a presigned URL to download a specific file from agent skills
+      description: Get a presigned URL to download a specific file from agent skill
       parameters:
-      - description: Agent skills UUID
+      - description: Agent skill UUID
         in: path
         name: id
         required: true
@@ -722,9 +722,9 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get agent skills by its name (unique within project)
+      description: Get agent skill by its name (unique within project)
       parameters:
-      - description: Agent skills name
+      - description: Agent skill name
         in: query
         name: name
         required: true
@@ -743,7 +743,7 @@ paths:
               type: object
       security:
       - BearerAuth: []
-      summary: Get agent skills by name
+      summary: Get agent skill by name
       tags:
       - agent_skills
   /disk:

@@ -144,12 +144,12 @@ func NewRouter(d RouterDeps) *gin.Engine {
 		agentSkills := v1.Group("/agent_skills")
 		{
 			agentSkills.GET("", d.AgentSkillsHandler.ListAgentSkills)
-			agentSkills.POST("", d.AgentSkillsHandler.CreateAgentSkills)
-			agentSkills.GET("/by_name", d.AgentSkillsHandler.GetAgentSkillsByName)
-			agentSkills.GET("/:id", d.AgentSkillsHandler.GetAgentSkills)
-			agentSkills.PUT("/:id", d.AgentSkillsHandler.UpdateAgentSkills)
-			agentSkills.DELETE("/:id", d.AgentSkillsHandler.DeleteAgentSkills)
-			agentSkills.GET("/:id/file", d.AgentSkillsHandler.GetAgentSkillsFileURL)
+			agentSkills.POST("", d.AgentSkillsHandler.CreateAgentSkill)
+			agentSkills.GET("/by_name", d.AgentSkillsHandler.GetAgentSkillByName)
+			agentSkills.GET("/:id", d.AgentSkillsHandler.GetAgentSkill)
+			agentSkills.PUT("/:id", d.AgentSkillsHandler.UpdateAgentSkill)
+			agentSkills.DELETE("/:id", d.AgentSkillsHandler.DeleteAgentSkill)
+			agentSkills.GET("/:id/file", d.AgentSkillsHandler.GetAgentSkillFileURL)
 		}
 	}
 	return r

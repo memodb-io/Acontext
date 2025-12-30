@@ -80,7 +80,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Upload a zip file containing agent skills and extract it to S3. The zip file must contain a SKILL.md file (case-insensitive) with YAML format containing 'name' and 'description' fields. The name and description will be extracted from SKILL.md.",
+                "description": "Upload a zip file containing agent skill and extract it to S3. The zip file must contain a SKILL.md file (case-insensitive) with YAML format containing 'name' and 'description' fields. The name and description will be extracted from SKILL.md.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -90,11 +90,11 @@ const docTemplate = `{
                 "tags": [
                     "agent_skills"
                 ],
-                "summary": "Create agent skills",
+                "summary": "Create agent skill",
                 "parameters": [
                     {
                         "type": "file",
-                        "description": "ZIP file containing agent skills. Must contain SKILL.md (case-insensitive) with YAML format: name and description fields.",
+                        "description": "ZIP file containing agent skill. Must contain SKILL.md (case-insensitive) with YAML format: name and description fields.",
                         "name": "file",
                         "in": "formData",
                         "required": true
@@ -108,7 +108,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "201": {
-                        "description": "Returns agent_skills with name and description extracted from SKILL.md",
+                        "description": "Returns agent skill with name and description extracted from SKILL.md",
                         "schema": {
                             "allOf": [
                                 {
@@ -135,7 +135,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get agent skills by its name (unique within project)",
+                "description": "Get agent skill by its name (unique within project)",
                 "consumes": [
                     "application/json"
                 ],
@@ -145,11 +145,11 @@ const docTemplate = `{
                 "tags": [
                     "agent_skills"
                 ],
-                "summary": "Get agent skills by name",
+                "summary": "Get agent skill by name",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Agent skills name",
+                        "description": "Agent skill name",
                         "name": "name",
                         "in": "query",
                         "required": true
@@ -184,7 +184,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get agent skills by its UUID",
+                "description": "Get agent skill by its UUID",
                 "consumes": [
                     "application/json"
                 ],
@@ -194,11 +194,11 @@ const docTemplate = `{
                 "tags": [
                     "agent_skills"
                 ],
-                "summary": "Get agent skills by ID",
+                "summary": "Get agent skill by ID",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Agent skills UUID",
+                        "description": "Agent skill UUID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -231,7 +231,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update agent skills metadata (name, description, meta)",
+                "description": "Update agent skill metadata (name, description, meta)",
                 "consumes": [
                     "application/json"
                 ],
@@ -241,11 +241,11 @@ const docTemplate = `{
                 "tags": [
                     "agent_skills"
                 ],
-                "summary": "Update agent skills",
+                "summary": "Update agent skill",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Agent skills UUID",
+                        "description": "Agent skill UUID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -287,7 +287,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Delete agent skills and all extracted files from S3",
+                "description": "Delete agent skill and all extracted files from S3",
                 "consumes": [
                     "application/json"
                 ],
@@ -297,11 +297,11 @@ const docTemplate = `{
                 "tags": [
                     "agent_skills"
                 ],
-                "summary": "Delete agent skills",
+                "summary": "Delete agent skill",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Agent skills UUID",
+                        "description": "Agent skill UUID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -321,7 +321,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a presigned URL to download a specific file from agent skills",
+                "description": "Get a presigned URL to download a specific file from agent skill",
                 "consumes": [
                     "application/json"
                 ],
@@ -335,7 +335,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Agent skills UUID",
+                        "description": "Agent skill UUID",
                         "name": "id",
                         "in": "path",
                         "required": true

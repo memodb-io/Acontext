@@ -9,7 +9,7 @@ import (
 
 type AgentSkills struct {
 	ID        uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	ProjectID uuid.UUID `gorm:"type:uuid;not null;index;uniqueIndex:idx_project_name,priority:1" json:"project_id"`
+	ProjectID uuid.UUID `gorm:"type:uuid;not null;index;uniqueIndex:idx_project_name,priority:1" json:"-"`
 
 	// Name is unique within a project
 	Name        string `gorm:"type:text;not null;uniqueIndex:idx_project_name,priority:2" json:"name"`

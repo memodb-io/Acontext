@@ -28,17 +28,17 @@ type CreateAgentSkillsReq struct {
 
 // CreateAgentSkills godoc
 //
-//	@Summary		Create agent skills
-//	@Description	Upload a zip file containing agent skills and extract it to S3. The zip file must contain a SKILL.md file (case-insensitive) with YAML format containing 'name' and 'description' fields. The name and description will be extracted from SKILL.md.
+//	@Summary		Create agent skill
+//	@Description	Upload a zip file containing agent skill and extract it to S3. The zip file must contain a SKILL.md file (case-insensitive) with YAML format containing 'name' and 'description' fields. The name and description will be extracted from SKILL.md.
 //	@Tags			agent_skills
 //	@Accept			multipart/form-data
 //	@Produce		json
-//	@Param			file	formData	file	true	"ZIP file containing agent skills. Must contain SKILL.md (case-insensitive) with YAML format: name and description fields."
+//	@Param			file	formData	file	true	"ZIP file containing agent skill. Must contain SKILL.md (case-insensitive) with YAML format: name and description fields."
 //	@Param			meta	formData	string	false	"Additional metadata (JSON string)"
 //	@Security		BearerAuth
-//	@Success		201	{object}	serializer.Response{data=model.AgentSkills}	"Returns agent_skills with name and description extracted from SKILL.md"
+//	@Success		201	{object}	serializer.Response{data=model.AgentSkills}	"Returns agent skill with name and description extracted from SKILL.md"
 //	@Router			/agent_skills [post]
-func (h *AgentSkillsHandler) CreateAgentSkills(c *gin.Context) {
+func (h *AgentSkillsHandler) CreateAgentSkill(c *gin.Context) {
 	project, ok := c.MustGet("project").(*model.Project)
 	if !ok {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
@@ -94,16 +94,16 @@ func (h *AgentSkillsHandler) CreateAgentSkills(c *gin.Context) {
 
 // GetAgentSkills godoc
 //
-//	@Summary		Get agent skills by ID
-//	@Description	Get agent skills by its UUID
+//	@Summary		Get agent skill by ID
+//	@Description	Get agent skill by its UUID
 //	@Tags			agent_skills
 //	@Accept			json
 //	@Produce		json
-//	@Param			id	path	string	true	"Agent skills UUID"
+//	@Param			id	path	string	true	"Agent skill UUID"
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=model.AgentSkills}
 //	@Router			/agent_skills/{id} [get]
-func (h *AgentSkillsHandler) GetAgentSkills(c *gin.Context) {
+func (h *AgentSkillsHandler) GetAgentSkill(c *gin.Context) {
 	project, ok := c.MustGet("project").(*model.Project)
 	if !ok {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
@@ -127,16 +127,16 @@ func (h *AgentSkillsHandler) GetAgentSkills(c *gin.Context) {
 
 // GetAgentSkillsByName godoc
 //
-//	@Summary		Get agent skills by name
-//	@Description	Get agent skills by its name (unique within project)
+//	@Summary		Get agent skill by name
+//	@Description	Get agent skill by its name (unique within project)
 //	@Tags			agent_skills
 //	@Accept			json
 //	@Produce		json
-//	@Param			name	query	string	true	"Agent skills name"
+//	@Param			name	query	string	true	"Agent skill name"
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=model.AgentSkills}
 //	@Router			/agent_skills/by_name [get]
-func (h *AgentSkillsHandler) GetAgentSkillsByName(c *gin.Context) {
+func (h *AgentSkillsHandler) GetAgentSkillByName(c *gin.Context) {
 	project, ok := c.MustGet("project").(*model.Project)
 	if !ok {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
@@ -166,17 +166,17 @@ type UpdateAgentSkillsReq struct {
 
 // UpdateAgentSkills godoc
 //
-//	@Summary		Update agent skills
-//	@Description	Update agent skills metadata (name, description, meta)
+//	@Summary		Update agent skill
+//	@Description	Update agent skill metadata (name, description, meta)
 //	@Tags			agent_skills
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path	string					true	"Agent skills UUID"
+//	@Param			id		path	string					true	"Agent skill UUID"
 //	@Param			body	body	UpdateAgentSkillsReq	true	"Update request"
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=model.AgentSkills}
 //	@Router			/agent_skills/{id} [put]
-func (h *AgentSkillsHandler) UpdateAgentSkills(c *gin.Context) {
+func (h *AgentSkillsHandler) UpdateAgentSkill(c *gin.Context) {
 	project, ok := c.MustGet("project").(*model.Project)
 	if !ok {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
@@ -212,16 +212,16 @@ func (h *AgentSkillsHandler) UpdateAgentSkills(c *gin.Context) {
 
 // DeleteAgentSkills godoc
 //
-//	@Summary		Delete agent skills
-//	@Description	Delete agent skills and all extracted files from S3
+//	@Summary		Delete agent skill
+//	@Description	Delete agent skill and all extracted files from S3
 //	@Tags			agent_skills
 //	@Accept			json
 //	@Produce		json
-//	@Param			id	path	string	true	"Agent skills UUID"
+//	@Param			id	path	string	true	"Agent skill UUID"
 //	@Security		BearerAuth
 //	@Success		204	""
 //	@Router			/agent_skills/{id} [delete]
-func (h *AgentSkillsHandler) DeleteAgentSkills(c *gin.Context) {
+func (h *AgentSkillsHandler) DeleteAgentSkill(c *gin.Context) {
 	project, ok := c.MustGet("project").(*model.Project)
 	if !ok {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
@@ -291,17 +291,17 @@ func (h *AgentSkillsHandler) ListAgentSkills(c *gin.Context) {
 // GetAgentSkillsFileURL godoc
 //
 //	@Summary		Get presigned URL for a file
-//	@Description	Get a presigned URL to download a specific file from agent skills
+//	@Description	Get a presigned URL to download a specific file from agent skill
 //	@Tags			agent_skills
 //	@Accept			json
 //	@Produce		json
-//	@Param			id			path	string	true	"Agent skills UUID"
+//	@Param			id			path	string	true	"Agent skill UUID"
 //	@Param			file_path	query	string	true	"File path within the zip (e.g., 'github/GTM/find_trending_repos.json')"
 //	@Param			expire		query	int		false	"URL expiration in seconds (default 900)"
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=map[string]string}
 //	@Router			/agent_skills/{id}/file [get]
-func (h *AgentSkillsHandler) GetAgentSkillsFileURL(c *gin.Context) {
+func (h *AgentSkillsHandler) GetAgentSkillFileURL(c *gin.Context) {
 	project, ok := c.MustGet("project").(*model.Project)
 	if !ok {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))

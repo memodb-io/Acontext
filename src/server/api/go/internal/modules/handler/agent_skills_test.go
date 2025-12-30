@@ -127,7 +127,7 @@ func createTestZipFile(files map[string]string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func TestAgentSkillsHandler_CreateAgentSkills(t *testing.T) {
+func TestAgentSkillsHandler_CreateAgentSkill(t *testing.T) {
 	projectID := uuid.New()
 	agentSkillsID := uuid.New()
 
@@ -347,7 +347,7 @@ description: Test with SKILL.md in subdirectory`,
 			router := setupAgentSkillsRouter()
 			router.POST("/agent_skills", func(c *gin.Context) {
 				c.Set("project", &model.Project{ID: projectID})
-				handler.CreateAgentSkills(c)
+				handler.CreateAgentSkill(c)
 			})
 
 			// Create multipart form data
@@ -403,7 +403,7 @@ description: Test with SKILL.md in subdirectory`,
 	}
 }
 
-func TestAgentSkillsHandler_GetAgentSkills(t *testing.T) {
+func TestAgentSkillsHandler_GetAgentSkill(t *testing.T) {
 	projectID := uuid.New()
 	agentSkills := createTestAgentSkills()
 	agentSkills.ProjectID = projectID
@@ -449,7 +449,7 @@ func TestAgentSkillsHandler_GetAgentSkills(t *testing.T) {
 			router := setupAgentSkillsRouter()
 			router.GET("/agent_skills/:id", func(c *gin.Context) {
 				c.Set("project", &model.Project{ID: projectID})
-				handler.GetAgentSkills(c)
+				handler.GetAgentSkill(c)
 			})
 
 			req := httptest.NewRequest("GET", "/agent_skills/"+tt.id, nil)
@@ -478,7 +478,7 @@ func TestAgentSkillsHandler_GetAgentSkills(t *testing.T) {
 	}
 }
 
-func TestAgentSkillsHandler_GetAgentSkillsByName(t *testing.T) {
+func TestAgentSkillsHandler_GetAgentSkillByName(t *testing.T) {
 	projectID := uuid.New()
 	agentSkills := createTestAgentSkills()
 	agentSkills.ProjectID = projectID
@@ -524,7 +524,7 @@ func TestAgentSkillsHandler_GetAgentSkillsByName(t *testing.T) {
 			router := setupAgentSkillsRouter()
 			router.GET("/agent_skills/by_name", func(c *gin.Context) {
 				c.Set("project", &model.Project{ID: projectID})
-				handler.GetAgentSkillsByName(c)
+				handler.GetAgentSkillByName(c)
 			})
 
 			url := "/agent_skills/by_name"
@@ -557,7 +557,7 @@ func TestAgentSkillsHandler_GetAgentSkillsByName(t *testing.T) {
 	}
 }
 
-func TestAgentSkillsHandler_DeleteAgentSkills(t *testing.T) {
+func TestAgentSkillsHandler_DeleteAgentSkill(t *testing.T) {
 	projectID := uuid.New()
 	agentSkillsID := uuid.New()
 
@@ -602,7 +602,7 @@ func TestAgentSkillsHandler_DeleteAgentSkills(t *testing.T) {
 			router := setupAgentSkillsRouter()
 			router.DELETE("/agent_skills/:id", func(c *gin.Context) {
 				c.Set("project", &model.Project{ID: projectID})
-				handler.DeleteAgentSkills(c)
+				handler.DeleteAgentSkill(c)
 			})
 
 			req := httptest.NewRequest("DELETE", "/agent_skills/"+tt.id, nil)
@@ -706,7 +706,7 @@ func TestAgentSkillsHandler_ListAgentSkills(t *testing.T) {
 	}
 }
 
-func TestAgentSkillsHandler_GetAgentSkillsFileURL(t *testing.T) {
+func TestAgentSkillsHandler_GetAgentSkillFileURL(t *testing.T) {
 	projectID := uuid.New()
 	agentSkills := createTestAgentSkills()
 	agentSkills.ProjectID = projectID
@@ -766,7 +766,7 @@ func TestAgentSkillsHandler_GetAgentSkillsFileURL(t *testing.T) {
 			router := setupAgentSkillsRouter()
 			router.GET("/agent_skills/:id/file", func(c *gin.Context) {
 				c.Set("project", &model.Project{ID: projectID})
-				handler.GetAgentSkillsFileURL(c)
+				handler.GetAgentSkillFileURL(c)
 			})
 
 			url := "/agent_skills/" + tt.id + "/file"
