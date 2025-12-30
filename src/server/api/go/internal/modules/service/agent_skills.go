@@ -17,6 +17,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/pkg/paging"
+	"github.com/memodb-io/Acontext/internal/pkg/utils/fileparser"
 	"github.com/memodb-io/Acontext/internal/pkg/utils/mime"
 	"gopkg.in/yaml.v3"
 	"gorm.io/datatypes"
@@ -30,6 +31,7 @@ type AgentSkillsService interface {
 	Delete(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error
 	List(ctx context.Context, in ListAgentSkillsInput) (*ListAgentSkillsOutput, error)
 	GetPresignedURL(ctx context.Context, agentSkills *model.AgentSkills, filePath string, expire time.Duration) (string, error)
+	GetFile(ctx context.Context, projectID uuid.UUID, skillName string, filePath string, expire time.Duration) (*GetFileOutput, error)
 }
 
 type agentSkillsService struct {
@@ -469,4 +471,69 @@ func (s *agentSkillsService) GetPresignedURL(ctx context.Context, agentSkills *m
 	// Get full S3 key by combining base AssetMeta S3Key with relative path
 	fullS3Key := agentSkills.GetFileS3Key(filePath)
 	return s.s3.PresignGet(ctx, fullS3Key, expire)
+}
+
+type GetFileOutput struct {
+	Path    string                  `json:"path"`
+	MIME    string                  `json:"mime"`
+	Content *fileparser.FileContent `json:"content,omitempty"` // Present if file is text-based and parseable
+	URL     *string                 `json:"url,omitempty"`     // Present if file is not text-based or not parseable
+}
+
+func (s *agentSkillsService) GetFile(ctx context.Context, projectID uuid.UUID, skillName string, filePath string, expire time.Duration) (*GetFileOutput, error) {
+	// Get agent skills by name
+	agentSkills, err := s.r.GetByName(ctx, projectID, skillName)
+	if err != nil {
+		return nil, fmt.Errorf("get agent_skills by name: %w", err)
+	}
+
+	// Find file in file index
+	fileIndex := agentSkills.FileIndex.Data()
+	var fileInfo *model.FileInfo
+	for i := range fileIndex {
+		if fileIndex[i].Path == filePath {
+			fileInfo = &fileIndex[i]
+			break
+		}
+	}
+	if fileInfo == nil {
+		return nil, fmt.Errorf("file path '%s' not found in agent_skills", filePath)
+	}
+
+	// Get full S3 key
+	fullS3Key := agentSkills.GetFileS3Key(filePath)
+
+	// Check if file type is parseable
+	parser := fileparser.NewFileParser()
+	filename := filepath.Base(filePath)
+	canParse := parser.CanParseFile(filename, fileInfo.MIME)
+
+	output := &GetFileOutput{
+		Path: fileInfo.Path,
+		MIME: fileInfo.MIME,
+	}
+
+	if canParse {
+		// Download and parse file content
+		content, err := s.s3.DownloadFile(ctx, fullS3Key)
+		if err != nil {
+			return nil, fmt.Errorf("failed to download file content: %w", err)
+		}
+
+		fileContent, err := parser.ParseFile(filename, fileInfo.MIME, content)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse file content: %w", err)
+		}
+
+		output.Content = fileContent
+	} else {
+		// Generate presigned URL for non-text files
+		url, err := s.s3.PresignGet(ctx, fullS3Key, expire)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate presigned URL: %w", err)
+		}
+		output.URL = &url
+	}
+
+	return output, nil
 }

@@ -341,3 +341,55 @@ func (h *AgentSkillsHandler) GetAgentSkillFileURL(c *gin.Context) {
 
 	c.JSON(http.StatusOK, serializer.Response{Data: map[string]string{"url": url}})
 }
+
+// GetAgentSkillFile godoc
+//
+//	@Summary		Get file from agent skill
+//	@Description	Get file content or download URL from agent skill by skill name and file path. If the file is a text-based file (parseable), returns parsed content. Otherwise, returns a presigned download URL.
+//	@Tags			agent_skills
+//	@Accept			json
+//	@Produce		json
+//	@Param			name		path	string	true	"Agent skill name"
+//	@Param			file_path	query	string	true	"Relative file path from skill root"	example(SKILL.md)
+//	@Param			expire		query	int		false	"Expire time in seconds for presigned URL (default: 900)"	example(900)
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response{data=service.GetFileOutput}
+//	@Router			/agent_skills/by_name/{name}/file [get]
+func (h *AgentSkillsHandler) GetAgentSkillFile(c *gin.Context) {
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	skillName := c.Param("name")
+	if skillName == "" {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("name is required")))
+		return
+	}
+
+	filePath := c.Query("file_path")
+	if filePath == "" {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("file_path is required")))
+		return
+	}
+
+	expire := time.Duration(900) * time.Second // default 15 minutes
+	if expireStr := c.Query("expire"); expireStr != "" {
+		if expireInt, err := time.ParseDuration(expireStr + "s"); err == nil {
+			expire = expireInt
+		}
+	}
+
+	output, err := h.svc.GetFile(c.Request.Context(), project.ID, skillName, filePath, expire)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, serializer.DBErr("", err))
+		} else {
+			c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		}
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{Data: output})
+}

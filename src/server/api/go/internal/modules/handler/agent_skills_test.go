@@ -76,6 +76,14 @@ func (m *MockAgentSkillsService) GetPresignedURL(ctx context.Context, agentSkill
 	return args.String(0), args.Error(1)
 }
 
+func (m *MockAgentSkillsService) GetFile(ctx context.Context, projectID uuid.UUID, skillName string, filePath string, expire time.Duration) (*service.GetFileOutput, error) {
+	args := m.Called(ctx, projectID, skillName, filePath, expire)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.GetFileOutput), args.Error(1)
+}
+
 func setupAgentSkillsRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	return gin.New()
