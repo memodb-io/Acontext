@@ -17,6 +17,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/pkg/paging"
+	"github.com/memodb-io/Acontext/internal/pkg/utils/mime"
 	"gopkg.in/yaml.v3"
 	"gorm.io/datatypes"
 )
@@ -253,7 +254,7 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 	}
 
 	// Process zip files and upload to S3 first
-	fileIndex := make([]string, 0)
+	fileIndex := make([]model.FileInfo, 0)
 	var baseBucket string
 
 	for _, file := range zipReader.File {
@@ -286,18 +287,8 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 			return nil, fmt.Errorf("read file in zip: %w", err)
 		}
 
-		// Determine content type
-		contentType := "application/octet-stream"
-		if ext := filepath.Ext(file.Name); ext != "" {
-			switch strings.ToLower(ext) {
-			case ".json":
-				contentType = "application/json"
-			case ".txt":
-				contentType = "text/plain"
-			case ".md":
-				contentType = "text/markdown"
-			}
-		}
+		// Detect MIME type from file content, with extension-based refinement for text files
+		contentType := mime.DetectMimeType(fileContent, file.Name)
 
 		// Upload to S3: baseS3Key/{relativePath}
 		// Strip the zip package's outer directory and use skillName as root
@@ -318,9 +309,12 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 			baseBucket = asset.Bucket
 		}
 
-		// Add to file index: relative path from skillName root
-		// Example: if zip has "random-name/SKILL.md", FileIndex stores "SKILL.md"
-		fileIndex = append(fileIndex, relativePath)
+		// Add to file index: relative path and MIME type from skillName root
+		// Example: if zip has "random-name/SKILL.md", FileIndex stores {"path": "SKILL.md", "mime": "text/markdown"}
+		fileIndex = append(fileIndex, model.FileInfo{
+			Path: relativePath,
+			MIME: contentType,
+		})
 	}
 
 	// Create base AssetMeta pointing to the base directory
@@ -462,8 +456,8 @@ func (s *agentSkillsService) GetPresignedURL(ctx context.Context, agentSkills *m
 	// Find file in file index
 	fileIndex := agentSkills.FileIndex.Data()
 	var found bool
-	for _, path := range fileIndex {
-		if path == filePath {
+	for _, fileInfo := range fileIndex {
+		if fileInfo.Path == filePath {
 			found = true
 			break
 		}

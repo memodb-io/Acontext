@@ -20,11 +20,11 @@ type AgentSkills struct {
 	// skillName is included in S3 path, so FileIndex doesn't need to repeat it
 	AssetMeta datatypes.JSONType[Asset] `gorm:"type:jsonb;not null" swaggertype:"-" json:"-"`
 
-	// FileIndex contains relative paths of files from the skillName root directory
-	// Example: ["pdf/SKILL.md", "pdf/scripts/extract_text.json"]
+	// FileIndex contains file information (path and MIME type) from the skillName root directory
+	// Example: [{"path": "SKILL.md", "mime": "text/markdown"}, {"path": "scripts/extract_text.json", "mime": "application/json"}]
 	// These paths are relative to baseS3Key (which includes skillName)
-	// Full S3 key = baseS3Key + "/" + fileIndex[i]
-	FileIndex datatypes.JSONType[[]string] `gorm:"type:jsonb" swaggertype:"array,string" json:"file_index"`
+	// Full S3 key = baseS3Key + "/" + fileIndex[i].Path
+	FileIndex datatypes.JSONType[[]FileInfo] `gorm:"type:jsonb" swaggertype:"array,object" json:"file_index"`
 
 	Meta datatypes.JSONMap `gorm:"type:jsonb" swaggertype:"object" json:"meta"`
 
@@ -36,6 +36,12 @@ type AgentSkills struct {
 }
 
 func (AgentSkills) TableName() string { return "agent_skills" }
+
+// FileInfo represents a file in the agent skill package
+type FileInfo struct {
+	Path string `json:"path"` // Relative path from skillName root
+	MIME string `json:"mime"` // MIME type of the file
+}
 
 // GetFileS3Key returns the full S3 key for a file given its relative path
 func (as *AgentSkills) GetFileS3Key(relativePath string) string {

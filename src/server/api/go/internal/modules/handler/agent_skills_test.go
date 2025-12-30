@@ -96,7 +96,7 @@ func createTestAgentSkills() *model.AgentSkills {
 		Name:        "test-skills",
 		Description: "Test description",
 		AssetMeta:   datatypes.NewJSONType(*baseAsset),
-		FileIndex:   datatypes.NewJSONType([]string{"file1.json", "file2.md"}),
+		FileIndex:   datatypes.NewJSONType([]model.FileInfo{{Path: "file1.json", MIME: "application/json"}, {Path: "file2.md", MIME: "text/markdown"}}),
 		Meta:        map[string]interface{}{"version": "1.0"},
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
@@ -190,7 +190,7 @@ description: Test with SKILL.md in subdirectory`,
 		ProjectID:   projectID,
 		Name:        "test-skills",
 		Description: "Test description",
-		FileIndex:   datatypes.NewJSONType([]string{"SKILL.md", "file1.json", "file2.md"}),
+		FileIndex:   datatypes.NewJSONType([]model.FileInfo{{Path: "SKILL.md", MIME: "text/markdown"}, {Path: "file1.json", MIME: "application/json"}, {Path: "file2.md", MIME: "text/markdown"}}),
 		Meta:        map[string]interface{}{"version": "1.0"},
 	}
 
@@ -201,7 +201,7 @@ description: Test with SKILL.md in subdirectory`,
 		Description: "PDF processing skills",
 		// FileIndex should strip the outer "random-name/" prefix (regardless of its name)
 		// skillName "pdf" will be used as S3 root directory
-		FileIndex: datatypes.NewJSONType([]string{"SKILL.md", "forms.md", "scripts/tool.json"}),
+		FileIndex: datatypes.NewJSONType([]model.FileInfo{{Path: "SKILL.md", MIME: "text/markdown"}, {Path: "forms.md", MIME: "text/markdown"}, {Path: "scripts/tool.json", MIME: "application/json"}}),
 		Meta:      map[string]interface{}{"version": "1.0"},
 	}
 
@@ -314,7 +314,7 @@ description: Test with SKILL.md in subdirectory`,
 					ProjectID:   projectID,
 					Name:        "lowercase-test",
 					Description: "Test with lowercase skill.md",
-					FileIndex:   datatypes.NewJSONType([]string{"skill.md", "file1.json"}),
+					FileIndex:   datatypes.NewJSONType([]model.FileInfo{{Path: "skill.md", MIME: "text/markdown"}, {Path: "file1.json", MIME: "application/json"}}),
 				}, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -331,7 +331,7 @@ description: Test with SKILL.md in subdirectory`,
 					ProjectID:   projectID,
 					Name:        "subdir-test",
 					Description: "Test with SKILL.md in subdirectory",
-					FileIndex:   datatypes.NewJSONType([]string{"subdir/SKILL.md", "subdir/file1.json"}),
+					FileIndex:   datatypes.NewJSONType([]model.FileInfo{{Path: "subdir/SKILL.md", MIME: "text/markdown"}, {Path: "subdir/file1.json", MIME: "application/json"}}),
 				}, nil)
 			},
 			expectedStatus: http.StatusCreated,
