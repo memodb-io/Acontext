@@ -350,7 +350,7 @@ func (h *AgentSkillsHandler) GetAgentSkillFileURL(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			name		path	string	true	"Agent skill name"
-//	@Param			file_path	query	string	true	"Relative file path from skill root"	example(SKILL.md)
+//	@Param			file_path	query	string	true	"Relative file path from skill root"						example(SKILL.md)
 //	@Param			expire		query	int		false	"Expire time in seconds for presigned URL (default: 900)"	example(900)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.GetFileOutput}

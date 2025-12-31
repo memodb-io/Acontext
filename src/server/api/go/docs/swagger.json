@@ -174,6 +174,70 @@
                 }
             }
         },
+        "/agent_skills/by_name/{name}/file": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get file content or download URL from agent skill by skill name and file path. If the file is a text-based file (parseable), returns parsed content. Otherwise, returns a presigned download URL.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent_skills"
+                ],
+                "summary": "Get file from agent skill",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent skill name",
+                        "name": "name",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "example": "SKILL.md",
+                        "description": "Relative file path from skill root",
+                        "name": "file_path",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "example": 900,
+                        "description": "Expire time in seconds for presigned URL (default: 900)",
+                        "name": "expire",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.GetFileOutput"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        },
         "/agent_skills/{id}": {
             "get": {
                 "security": [
@@ -3330,10 +3394,10 @@
                     "type": "string"
                 },
                 "file_index": {
-                    "description": "FileIndex contains relative paths of files from the skillName root directory\nExample: [\"pdf/SKILL.md\", \"pdf/scripts/extract_text.json\"]\nThese paths are relative to baseS3Key (which includes skillName)\nFull S3 key = baseS3Key + \"/\" + fileIndex[i]",
+                    "description": "FileIndex contains file information (path and MIME type) from the skillName root directory\nExample: [{\"path\": \"SKILL.md\", \"mime\": \"text/markdown\"}, {\"path\": \"scripts/extract_text.json\", \"mime\": \"application/json\"}]\nThese paths are relative to baseS3Key (which includes skillName)\nFull S3 key = baseS3Key + \"/\" + fileIndex[i].Path",
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "type": "object"
                     }
                 },
                 "id": {
@@ -3618,6 +3682,29 @@
                     "type": "string"
                 },
                 "msg": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.GetFileOutput": {
+            "type": "object",
+            "properties": {
+                "content": {
+                    "description": "Present if file is text-based and parseable",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/fileparser.FileContent"
+                        }
+                    ]
+                },
+                "mime": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "url": {
+                    "description": "Present if file is not text-based or not parseable",
                     "type": "string"
                 }
             }

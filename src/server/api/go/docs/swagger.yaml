@@ -236,12 +236,12 @@ definitions:
         type: string
       file_index:
         description: |-
-          FileIndex contains relative paths of files from the skillName root directory
-          Example: ["pdf/SKILL.md", "pdf/scripts/extract_text.json"]
+          FileIndex contains file information (path and MIME type) from the skillName root directory
+          Example: [{"path": "SKILL.md", "mime": "text/markdown"}, {"path": "scripts/extract_text.json", "mime": "application/json"}]
           These paths are relative to baseS3Key (which includes skillName)
-          Full S3 key = baseS3Key + "/" + fileIndex[i]
+          Full S3 key = baseS3Key + "/" + fileIndex[i].Path
         items:
-          type: string
+          type: object
         type: array
       id:
         type: string
@@ -428,6 +428,20 @@ definitions:
       error:
         type: string
       msg:
+        type: string
+    type: object
+  service.GetFileOutput:
+    properties:
+      content:
+        allOf:
+        - $ref: '#/definitions/fileparser.FileContent'
+        description: Present if file is text-based and parseable
+      mime:
+        type: string
+      path:
+        type: string
+      url:
+        description: Present if file is not text-based or not parseable
         type: string
     type: object
   service.GetMessagesOutput:
@@ -742,6 +756,47 @@ paths:
       security:
       - BearerAuth: []
       summary: Get agent skill by name
+      tags:
+      - agent_skills
+  /agent_skills/by_name/{name}/file:
+    get:
+      consumes:
+      - application/json
+      description: Get file content or download URL from agent skill by skill name
+        and file path. If the file is a text-based file (parseable), returns parsed
+        content. Otherwise, returns a presigned download URL.
+      parameters:
+      - description: Agent skill name
+        in: path
+        name: name
+        required: true
+        type: string
+      - description: Relative file path from skill root
+        example: SKILL.md
+        in: query
+        name: file_path
+        required: true
+        type: string
+      - description: 'Expire time in seconds for presigned URL (default: 900)'
+        example: 900
+        in: query
+        name: expire
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.GetFileOutput'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get file from agent skill
       tags:
       - agent_skills
   /disk:
