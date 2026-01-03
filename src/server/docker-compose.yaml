@@ -5,6 +5,8 @@ services:
     image: pgvector/pgvector:pg16
     container_name: acontext-server-pg
     restart: unless-stopped
+    networks:
+      - acontext-default
     environment:
       POSTGRES_USER: ${DATABASE_USER:-acontext}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD:-helloworld}
@@ -29,6 +31,8 @@ services:
     image: redis:7.4
     container_name: acontext-server-redis
     restart: unless-stopped
+    networks:
+      - acontext-default
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-helloworld}"]
     ports:
       - "${REDIS_EXPORT_PORT:-16379}:6379"
@@ -46,6 +50,8 @@ services:
     image: rabbitmq:4-management
     container_name: acontext-server-rabbitmq
     restart: unless-stopped
+    networks:
+      - acontext-default
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-acontext}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-helloworld}
@@ -68,6 +74,8 @@ services:
     container_name: acontext-server-seaweedfs
     restart: unless-stopped
     user: root # https://github.com/seaweedfs/seaweedfs/pull/7399
+    networks:
+      - acontext-default
 
     environment:
       # S3 credentials
@@ -105,6 +113,8 @@ services:
     image: amazon/aws-cli:2.32.6
     container_name: acontext-server-seaweedfs-setup
     restart: "no"
+    networks:
+      - acontext-default
 
     depends_on:
       acontext-server-seaweedfs:
@@ -128,6 +138,8 @@ services:
     container_name: acontext-server-jaeger
     restart: unless-stopped
     user: root # Run as root to ensure write permissions to mounted volume
+    networks:
+      - acontext-default
     environment:
       COLLECTOR_OTLP_ENABLED: "true"
       # Use Badger as storage backend (local file storage, suitable for development)
@@ -157,6 +169,8 @@ services:
       dockerfile: Dockerfile
     container_name: acontext-server-core
     restart: unless-stopped
+    networks:
+      - acontext-default
     environment:
       LLM_API_KEY: ${LLM_API_KEY}
       LLM_BASE_URL: ${LLM_BASE_URL}
@@ -205,6 +219,9 @@ services:
       dockerfile: Dockerfile
     container_name: acontext-server-api
     restart: unless-stopped
+    networks:
+      - proxy
+      - acontext-default
     environment:
       APP_ENV: ${APP_ENV:-release}
       API_EXPORT_PORT: ${API_EXPORT_PORT:-8029}
@@ -249,6 +266,11 @@ services:
         condition: service_healthy
       acontext-server-seaweedfs-setup:
         condition: service_completed_successfully
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`api.acontext.localhost`)"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.services.api.loadbalancer.server.port=8029"
 
   acontext-server-ui:
     build:
@@ -260,6 +282,9 @@ services:
         NEXT_PUBLIC_BASE_PATH: ""
     container_name: acontext-server-ui
     restart: unless-stopped
+    networks:
+      - proxy
+      - acontext-default
     environment:
       NODE_ENV: production
       NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
@@ -271,5 +296,45 @@ services:
       JAEGER_URL: ${JAEGER_URL:-http://localhost:16686}
     ports:
       - "${UI_EXPORT_PORT:-3000}:3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ui.rule=Host(`dash.acontext.localhost`)"
+      - "traefik.http.routers.ui.entrypoints=web"
+      - "traefik.http.services.ui.loadbalancer.server.port=3000"
     depends_on:
       - acontext-server-api
+
+  traefik:
+    image: traefik:v3.6
+    container_name: traefik
+    restart: unless-stopped
+    networks:
+      - proxy
+      - acontext-default
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - "--api.insecure=true"
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=proxy"
+      - "--entrypoints.web.address=:80"
+      - "--log.level=INFO"
+      - "--accesslog=true"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.entrypoints=web"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.acontext.localhost`)"
+      - "traefik.http.routers.dashboard.service=api@internal"
+
+networks:
+  proxy:
+    name: proxy
+  acontext-default:
+    name: acontext-default
