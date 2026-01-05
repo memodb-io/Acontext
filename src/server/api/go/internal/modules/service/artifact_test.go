@@ -64,6 +64,22 @@ func (m *MockArtifactRepo) ExistsByPathAndFilename(ctx context.Context, diskID u
 	return args.Bool(0), args.Error(1)
 }
 
+func (m *MockArtifactRepo) GrepArtifacts(ctx context.Context, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	args := m.Called(ctx, diskID, pattern, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*model.Artifact), args.Error(1)
+}
+
+func (m *MockArtifactRepo) GlobArtifacts(ctx context.Context, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	args := m.Called(ctx, diskID, pattern, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*model.Artifact), args.Error(1)
+}
+
 // MockArtifactS3Deps is a mock implementation of blob.S3Deps for file service
 type MockArtifactS3Deps struct {
 	mock.Mock
@@ -285,6 +301,16 @@ func (s *testArtifactService) GetFileContent(ctx context.Context, artifact *mode
 		Type: "text",
 		Raw:  "test content",
 	}, nil
+}
+
+func (s *testArtifactService) GrepArtifacts(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	// Test implementation - return empty list for now
+	return []*model.Artifact{}, nil
+}
+
+func (s *testArtifactService) GlobArtifacts(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	// Test implementation - return empty list for now
+	return []*model.Artifact{}, nil
 }
 
 // Test cases for Create method
