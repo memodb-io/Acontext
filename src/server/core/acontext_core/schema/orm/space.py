@@ -1,4 +1,3 @@
-import uuid
 from dataclasses import dataclass, field
 from sqlalchemy import ForeignKey, Index, Column
 from sqlalchemy.orm import relationship

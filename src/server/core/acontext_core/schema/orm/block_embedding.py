@@ -1,11 +1,11 @@
 import numpy as np
 from dataclasses import dataclass, field
-from sqlalchemy import String, ForeignKey, Index, Column, Integer, text
+from sqlalchemy import String, ForeignKey, Index, Column, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from pgvector.sqlalchemy import Vector
-from typing import TYPE_CHECKING, Optional, List, Type
+from typing import TYPE_CHECKING, Optional, Type
 
 from ...env import DEFAULT_CORE_CONFIG, LOG
 from .base import ORM_BASE, CommonMixin
