@@ -96,6 +96,22 @@ func (m *MockArtifactService) GetFileContent(ctx context.Context, artifact *mode
 	return args.Get(0).(*fileparser.FileContent), args.Error(1)
 }
 
+func (m *MockArtifactService) GrepArtifacts(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	args := m.Called(ctx, projectID, diskID, pattern, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*model.Artifact), args.Error(1)
+}
+
+func (m *MockArtifactService) GlobArtifacts(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	args := m.Called(ctx, projectID, diskID, pattern, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*model.Artifact), args.Error(1)
+}
+
 // createTestConfig creates a test config with default artifact settings
 func createTestConfig(maxUploadSizeBytes int64) *config.Config {
 	return &config.Config{
