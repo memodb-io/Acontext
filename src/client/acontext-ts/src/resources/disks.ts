@@ -173,7 +173,7 @@ export class DiskArtifactsAPI {
     const data = await this.requester.request('GET', `/disk/${diskId}/artifact/grep`, {
       params,
     });
-    return data;
+    return data as any[];
   }
 
   async globArtifacts(
@@ -190,6 +190,6 @@ export class DiskArtifactsAPI {
     const data = await this.requester.request('GET', `/disk/${diskId}/artifact/glob`, {
       params,
     });
-    return data;
+    return data as any[];
   }
 }
