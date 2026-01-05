@@ -41,5 +41,5 @@ class SandboxLog(CommonMixin):
     # Relationships
     project: "Project" = field(
         init=False,
-        metadata={"db": relationship("Project", back_populates="tool_references")},
+        metadata={"db": relationship("Project", back_populates="sandbox_logs")},
     )
