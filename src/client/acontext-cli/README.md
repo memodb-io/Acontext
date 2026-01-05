@@ -13,11 +13,28 @@ A lightweight command-line tool for quickly creating Acontext projects with temp
 
 ## Installation
 
+### User Installation (No sudo required - Recommended)
+
+By default, the CLI installs to `~/.acontext/bin` and automatically updates your shell profile (`.bashrc`, `.zshrc`, etc.):
+
 ```bash
 # Install script (Linux, macOS, WSL)
 curl -fsSL https://install.acontext.io | sh
+```
 
-# Or with Homebrew (macOS)
+After installation, restart your shell or run `source ~/.bashrc` (or `~/.zshrc` for zsh).
+
+### System-wide Installation (Requires sudo)
+
+For system-wide installation to `/usr/local/bin`:
+
+```bash
+curl -fsSL https://install.acontext.io | sh -s -- --system
+```
+
+### Homebrew (macOS)
+
+```bash
 brew install acontext/tap/acontext-cli
 ```
 
