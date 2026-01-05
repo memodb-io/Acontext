@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"time"
 
@@ -24,6 +25,8 @@ type ArtifactService interface {
 	UpdateArtifactMetaByPath(ctx context.Context, diskID uuid.UUID, path string, filename string, userMeta map[string]interface{}) (*model.Artifact, error)
 	ListByPath(ctx context.Context, diskID uuid.UUID, path string) ([]*model.Artifact, error)
 	GetAllPaths(ctx context.Context, diskID uuid.UUID) ([]string, error)
+	GrepArtifacts(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error)
+	GlobArtifacts(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error)
 }
 
 type artifactService struct {
@@ -60,6 +63,26 @@ func (s *artifactService) Create(ctx context.Context, in CreateArtifactInput) (*
 	if err != nil {
 		return nil, fmt.Errorf("upload file to S3: %w", err)
 	}
+
+	// Extract and store text content for text-searchable files
+	// This enables grep search functionality
+	parser := fileparser.NewFileParser()
+	var textContent string
+	if parser.CanParseFile(in.FileHeader.Filename, asset.MIME) {
+		// Read file content to extract text
+		file, err := in.FileHeader.Open()
+		if err == nil {
+			content, readErr := io.ReadAll(file)
+			file.Close()
+			if readErr == nil {
+				fileContent, parseErr := parser.ParseFile(in.FileHeader.Filename, asset.MIME, content)
+				if parseErr == nil && fileContent != nil {
+					textContent = fileContent.Raw
+				}
+			}
+		}
+	}
+	asset.Content = textContent
 
 	// Build artifact metadata
 	meta := map[string]interface{}{
@@ -191,4 +214,30 @@ func (s *artifactService) ListByPath(ctx context.Context, diskID uuid.UUID, path
 
 func (s *artifactService) GetAllPaths(ctx context.Context, diskID uuid.UUID) ([]string, error) {
 	return s.r.GetAllPaths(ctx, diskID)
+}
+
+func (s *artifactService) GrepArtifacts(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	// Set default limit if not provided
+	if limit <= 0 {
+		limit = 100
+	}
+	// Cap at 1000 results
+	if limit > 1000 {
+		limit = 1000
+	}
+
+	return s.r.GrepArtifacts(ctx, diskID, pattern, limit)
+}
+
+func (s *artifactService) GlobArtifacts(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	// Set default limit if not provided
+	if limit <= 0 {
+		limit = 100
+	}
+	// Cap at 1000 results
+	if limit > 1000 {
+		limit = 1000
+	}
+
+	return s.r.GlobArtifacts(ctx, diskID, pattern, limit)
 }

@@ -158,5 +158,38 @@ export class DiskArtifactsAPI {
     });
     return ListArtifactsRespSchema.parse(data);
   }
-}
 
+  async grepArtifacts(
+    diskId: string,
+    options: {
+      query: string;
+      limit?: number;
+    }
+  ): Promise<any[]> {
+    const params = buildParams({
+      query: options.query,
+      limit: options.limit ?? 100,
+    });
+    const data = await this.requester.request('GET', `/disk/${diskId}/artifact/grep`, {
+      params,
+    });
+    return data;
+  }
+
+  async globArtifacts(
+    diskId: string,
+    options: {
+      query: string;
+      limit?: number;
+    }
+  ): Promise<any[]> {
+    const params = buildParams({
+      query: options.query,
+      limit: options.limit ?? 100,
+    });
+    const data = await this.requester.request('GET', `/disk/${diskId}/artifact/glob`, {
+      params,
+    });
+    return data;
+  }
+}

@@ -272,6 +272,110 @@ class ListTool(BaseTool):
 {ls_sect}"""
 
 
+class GrepArtifactsTool(BaseTool):
+    """Tool for searching artifact content using regex patterns."""
+
+    @property
+    def name(self) -> str:
+        return "grep_artifacts"
+
+    @property
+    def description(self) -> str:
+        return "Search for text patterns within file contents using regex. Only searches text-based files (code, markdown, json, csv, etc.). Use this to find specific code patterns, TODO comments, function definitions, or any text content."
+
+    @property
+    def arguments(self) -> dict:
+        return {
+            "query": {
+                "type": "string",
+                "description": "Regex pattern to search for (e.g., 'TODO.*', 'function.*calculate', 'import.*pandas')",
+            },
+            "limit": {
+                "type": "integer",
+                "description": "Maximum number of results to return (default 100)",
+            },
+        }
+
+    @property
+    def required_arguments(self) -> list[str]:
+        return ["query"]
+
+    def execute(self, ctx: DiskContext, llm_arguments: dict) -> str:
+        """Search artifact content using regex pattern."""
+        query = llm_arguments.get("query")
+        limit = llm_arguments.get("limit", 100)
+
+        if not query:
+            raise ValueError("query is required")
+
+        results = ctx.client.disks.artifacts.grep_artifacts(
+            ctx.disk_id,
+            query=query,
+            limit=limit,
+        )
+
+        if not results:
+            return f"No matches found for pattern '{query}'"
+
+        matches = []
+        for artifact in results:
+            matches.append(f"{artifact['path']}{artifact['filename']}")
+
+        return f"Found {len(matches)} file(s) matching '{query}':\n" + "\n".join(matches)
+
+
+class GlobArtifactsTool(BaseTool):
+    """Tool for finding files by path pattern using glob syntax."""
+
+    @property
+    def name(self) -> str:
+        return "glob_artifacts"
+
+    @property
+    def description(self) -> str:
+        return "Find files by path pattern using glob syntax. Use * for any characters, ? for single character, ** for recursive directories. Perfect for finding files by extension or location."
+
+    @property
+    def arguments(self) -> dict:
+        return {
+            "query": {
+                "type": "string",
+                "description": "Glob pattern (e.g., '**/*.py' for all Python files, '*.txt' for text files in root, '/docs/**/*.md' for markdown in docs)",
+            },
+            "limit": {
+                "type": "integer",
+                "description": "Maximum number of results to return (default 100)",
+            },
+        }
+
+    @property
+    def required_arguments(self) -> list[str]:
+        return ["query"]
+
+    def execute(self, ctx: DiskContext, llm_arguments: dict) -> str:
+        """Search artifact paths using glob pattern."""
+        query = llm_arguments.get("query")
+        limit = llm_arguments.get("limit", 100)
+
+        if not query:
+            raise ValueError("query is required")
+
+        results = ctx.client.disks.artifacts.glob_artifacts(
+            ctx.disk_id,
+            query=query,
+            limit=limit,
+        )
+
+        if not results:
+            return f"No files found matching pattern '{query}'"
+
+        matches = []
+        for artifact in results:
+            matches.append(f"{artifact['path']}{artifact['filename']}")
+
+        return f"Found {len(matches)} file(s) matching '{query}':\n" + "\n".join(matches)
+
+
 class DiskToolPool(BaseToolPool):
     """Tool pool for disk operations on Acontext disks."""
 
@@ -284,6 +388,8 @@ DISK_TOOLS.add_tool(WriteFileTool())
 DISK_TOOLS.add_tool(ReadFileTool())
 DISK_TOOLS.add_tool(ReplaceStringTool())
 DISK_TOOLS.add_tool(ListTool())
+DISK_TOOLS.add_tool(GrepArtifactsTool())
+DISK_TOOLS.add_tool(GlobArtifactsTool())
 
 
 if __name__ == "__main__":
