@@ -97,9 +97,16 @@ class CoreConfig(BaseModel):
     otel_service_version: str = "0.0.1"
 
     # sandbox
-    sandbox_type: Literal["disabled", "e2b"] = "disabled"
+    sandbox_type: Literal["disabled", "e2b", "novita"] = "disabled"
     e2b_domain_base_url: Optional[str] = None
     e2b_api_key: Optional[str] = None
+    novita_domain_base_url: Optional[str] = None
+    novita_api_key: Optional[str] = None
+    sandbox_default_cpu_count: float = 1
+    sandbox_default_memory_mb: int = 512
+    sandbox_default_disk_gb: int = 10
+    sandbox_default_keepalive_seconds: int = 60 * 60
+    sandbox_default_template: Optional[str] = None
 
 
 def filter_value_from_env(CLS: Type[BaseModel]) -> dict[str, Any]:
@@ -148,3 +155,14 @@ def post_validate_core_config_sanity(config: CoreConfig) -> None:
         assert (
             config.e2b_api_key is not None
         ), "e2b_api_key is required when sandbox_type is e2b"
+        assert (
+            config.sandbox_default_template is not None
+        ), "e2b_default_template is required when sandbox_type is e2b"
+
+    if config.sandbox_type == "novita":
+        assert (
+            config.novita_api_key is not None
+        ), "novita_api_key is required when sandbox_type is novita"
+        assert (
+            config.sandbox_default_template is not None
+        ), "sandbox_default_template is required when sandbox_type is novita"
