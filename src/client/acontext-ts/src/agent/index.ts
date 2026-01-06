@@ -4,4 +4,5 @@
 
 export * from './base';
 export * from './disk';
+export * from './skill';
 
