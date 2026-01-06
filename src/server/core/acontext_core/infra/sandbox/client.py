@@ -17,6 +17,10 @@ class SandboxClient:
         self.__sanbox_backend: SandboxBackend | None = None
 
     async def init(self):
+        if self.enabled:
+            LOG.info("Sandbox is already initialized")
+            return
+
         st = DEFAULT_CORE_CONFIG.sandbox_type
         if st not in SANDBOX_FACTORIES:
             raise ValueError(
@@ -37,8 +41,7 @@ class SandboxClient:
     def enabled(self) -> bool:
         return self.__enabled
 
-    @property
-    def backend(self) -> SandboxBackend:
+    def use_backend(self) -> SandboxBackend:
         if self.__sanbox_backend is None:
             raise ValueError("No Sandboxbackend is enabled")
         return self.__sanbox_backend
