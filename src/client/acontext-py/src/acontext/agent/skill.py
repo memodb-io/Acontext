@@ -305,7 +305,7 @@ class DeleteSkillTool(BaseTool):
 
 
 class GetSkillFileTool(BaseTool):
-    """Tool for getting a presigned URL to download a file from a skill."""
+    """Tool for getting a file from a skill, optionally returning content or URL."""
 
     @property
     def name(self) -> str:
@@ -314,9 +314,10 @@ class GetSkillFileTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Get a presigned URL to download a specific file from a skill. "
+            "Get a file from a skill by ID or name. "
             "The file_path should be a relative path within the skill (e.g., 'scripts/extract_text.json'). "
-            "Returns a URL that can be used to download the file."
+            "Can return the file content directly or a presigned URL for downloading. "
+            "Supports text files, JSON, CSV, and code files."
         )
 
     @property
@@ -324,11 +325,23 @@ class GetSkillFileTool(BaseTool):
         return {
             "skill_id": {
                 "type": "string",
-                "description": "The UUID of the skill.",
+                "description": "The UUID of the skill. Either skill_id or skill_name must be provided.",
+            },
+            "skill_name": {
+                "type": "string",
+                "description": "The name of the skill. Either skill_id or skill_name must be provided.",
             },
             "file_path": {
                 "type": "string",
                 "description": "Relative path to the file within the skill (e.g., 'scripts/extract_text.json').",
+            },
+            "with_content": {
+                "type": "boolean",
+                "description": "Whether to return file content. Defaults to true for text-based files.",
+            },
+            "with_public_url": {
+                "type": "boolean",
+                "description": "Whether to return a presigned URL. Defaults to false.",
             },
             "expire": {
                 "type": "integer",
@@ -338,29 +351,50 @@ class GetSkillFileTool(BaseTool):
 
     @property
     def required_arguments(self) -> list[str]:
-        return ["skill_id", "file_path"]
+        return ["file_path"]
 
     def execute(self, ctx: SkillContext, llm_arguments: dict) -> str:
-        """Get a skill file URL."""
+        """Get a skill file."""
         skill_id = llm_arguments.get("skill_id")
+        skill_name = llm_arguments.get("skill_name")
         file_path = llm_arguments.get("file_path")
+        with_content = llm_arguments.get("with_content", True)  # Default to True for LLM usage
+        with_public_url = llm_arguments.get("with_public_url", False)
         expire = llm_arguments.get("expire")
 
-        if not skill_id:
-            raise ValueError("skill_id is required")
         if not file_path:
             raise ValueError("file_path is required")
+        if not skill_id and not skill_name:
+            raise ValueError("Either skill_id or skill_name must be provided")
 
-        result = ctx.client.skills.get_file_url(
-            skill_id, file_path=file_path, expire=expire
+        result = ctx.client.skills.get_file(
+            skill_id=skill_id,
+            skill_name=skill_name,
+            file_path=file_path,
+            with_content=with_content,
+            with_public_url=with_public_url,
+            expire=expire,
         )
 
-        expire_seconds = expire if expire is not None else 900
-        return (
-            f"File URL for '{file_path}' in skill '{skill_id}':\n"
-            f"{result.url}\n"
-            f"(URL expires in {expire_seconds} seconds)"
-        )
+        output_parts = [f"File '{file_path}' from skill '{skill_name or skill_id}':"]
+
+        if result.content:
+            output_parts.append(f"\nContent (type: {result.content.type}):")
+            # Show content preview (first 500 chars for long files)
+            content_preview = result.content.raw
+            if len(content_preview) > 500:
+                content_preview = content_preview[:500] + "\n... (truncated)"
+            output_parts.append(content_preview)
+
+        if result.url:
+            expire_seconds = expire if expire is not None else 900
+            output_parts.append(f"\nDownload URL (expires in {expire_seconds} seconds):")
+            output_parts.append(result.url)
+
+        if not result.content and not result.url:
+            return f"File '{file_path}' retrieved but no content or URL returned."
+
+        return "\n".join(output_parts)
 
 
 class SkillToolPool(BaseToolPool):

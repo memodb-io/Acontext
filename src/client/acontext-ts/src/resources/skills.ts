@@ -6,8 +6,8 @@ import { RequesterProtocol } from '../client-types';
 import { FileUpload, normalizeFileUpload } from '../uploads';
 import { buildParams } from '../utils';
 import {
-  GetSkillFileURLResp,
-  GetSkillFileURLRespSchema,
+  GetSkillFileResp,
+  GetSkillFileRespSchema,
   ListSkillsOutput,
   ListSkillsOutputSchema,
   Skill,
@@ -96,23 +96,39 @@ export class SkillsAPI {
     await this.requester.request('DELETE', `/agent_skills/${skillId}`);
   }
 
-  async getFileURL(
-    skillId: string,
-    options: {
-      filePath: string;
-      expire?: number | null;
+  async getFile(options: {
+    skillId?: string | null;
+    skillName?: string | null;
+    filePath: string;
+    withPublicUrl?: boolean | null;
+    withContent?: boolean | null;
+    expire?: number | null;
+  }): Promise<GetSkillFileResp> {
+    if (!options.skillId && !options.skillName) {
+      throw new Error('Either skillId or skillName must be provided');
     }
-  ): Promise<GetSkillFileURLResp> {
-    const params: Record<string, string | number> = {
+
+    // Use by_name endpoint if skillName is provided
+    const endpoint = options.skillName
+      ? `/agent_skills/by_name/${options.skillName}/file`
+      : `/agent_skills/${options.skillId}/file`;
+
+    const params: Record<string, string | number | boolean> = {
       file_path: options.filePath,
     };
+    if (options.withPublicUrl !== undefined && options.withPublicUrl !== null) {
+      params.with_public_url = options.withPublicUrl;
+    }
+    if (options.withContent !== undefined && options.withContent !== null) {
+      params.with_content = options.withContent;
+    }
     if (options.expire !== undefined && options.expire !== null) {
       params.expire = options.expire;
     }
-    const data = await this.requester.request('GET', `/agent_skills/${skillId}/file`, {
+    const data = await this.requester.request('GET', endpoint, {
       params,
     });
-    return GetSkillFileURLRespSchema.parse(data);
+    return GetSkillFileRespSchema.parse(data);
   }
 }
 

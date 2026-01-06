@@ -8,7 +8,7 @@ from typing import Any, BinaryIO
 from .._utils import build_params
 from ..client_types import RequesterProtocol
 from ..types.skill import (
-    GetSkillFileURLResp,
+    GetSkillFileResp,
     ListSkillsOutput,
     Skill,
 )
@@ -140,28 +140,45 @@ class SkillsAPI:
         """
         self._requester.request("DELETE", f"/agent_skills/{skill_id}")
 
-    def get_file_url(
+    def get_file(
         self,
-        skill_id: str,
+        skill_id: str | None = None,
+        skill_name: str | None = None,
         *,
         file_path: str,
+        with_public_url: bool | None = None,
+        with_content: bool | None = None,
         expire: int | None = None,
-    ) -> GetSkillFileURLResp:
-        """Get a presigned URL to download a specific file from a skill.
+    ) -> GetSkillFileResp:
+        """Get a file from a skill by ID or name.
 
         Args:
-            skill_id: The UUID of the skill.
+            skill_id: The UUID of the skill. Either skill_id or skill_name must be provided.
+            skill_name: The name of the skill. Either skill_id or skill_name must be provided.
             file_path: Relative path to the file within the skill (e.g., 'scripts/extract_text.json').
+            with_public_url: Whether to include a presigned public URL. Defaults to None.
+            with_content: Whether to include file content. Defaults to None.
             expire: URL expiration time in seconds. Defaults to 900 (15 minutes).
 
         Returns:
-            GetSkillFileURLResp containing the presigned URL.
+            GetSkillFileResp containing the file URL and/or content.
         """
+        if not skill_id and not skill_name:
+            raise ValueError("Either skill_id or skill_name must be provided")
+
+        # Use by_name endpoint if skill_name is provided
+        if skill_name:
+            endpoint = f"/agent_skills/by_name/{skill_name}/file"
+        else:
+            endpoint = f"/agent_skills/{skill_id}/file"
+
         params = {"file_path": file_path}
+        if with_public_url is not None:
+            params["with_public_url"] = with_public_url
+        if with_content is not None:
+            params["with_content"] = with_content
         if expire is not None:
             params["expire"] = expire
-        data = self._requester.request(
-            "GET", f"/agent_skills/{skill_id}/file", params=params
-        )
-        return GetSkillFileURLResp.model_validate(data)
+        data = self._requester.request("GET", endpoint, params=params)
+        return GetSkillFileResp.model_validate(data)
 

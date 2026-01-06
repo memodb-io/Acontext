@@ -30,8 +30,16 @@ class ListSkillsOutput(BaseModel):
     has_more: bool = Field(..., description="Whether there are more items")
 
 
-class GetSkillFileURLResp(BaseModel):
-    """Response model for getting a skill file URL."""
+class FileContent(BaseModel):
+    """Parsed file content model."""
 
-    url: str = Field(..., description="Presigned URL for downloading the file")
+    type: str = Field(..., description="File content type: 'text', 'json', 'csv', or 'code'")
+    raw: str = Field(..., description="Raw text content of the file")
+
+
+class GetSkillFileResp(BaseModel):
+    """Response model for getting a skill file."""
+
+    url: str | None = Field(None, description="Presigned URL for downloading the file")
+    content: FileContent | None = Field(None, description="Parsed file content if available")
 

@@ -25,9 +25,17 @@ export const ListSkillsOutputSchema = z.object({
 
 export type ListSkillsOutput = z.infer<typeof ListSkillsOutputSchema>;
 
-export const GetSkillFileURLRespSchema = z.object({
-  url: z.string(),
+export const FileContentSchema = z.object({
+  type: z.string(),
+  raw: z.string(),
 });
 
-export type GetSkillFileURLResp = z.infer<typeof GetSkillFileURLRespSchema>;
+export type FileContent = z.infer<typeof FileContentSchema>;
+
+export const GetSkillFileRespSchema = z.object({
+  url: z.string().nullable().optional(),
+  content: FileContentSchema.nullable().optional(),
+});
+
+export type GetSkillFileResp = z.infer<typeof GetSkillFileRespSchema>;
 

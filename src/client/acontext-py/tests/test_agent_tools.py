@@ -9,7 +9,7 @@ from acontext.agent.disk import DISK_TOOLS, DiskContext
 from acontext.agent.skill import SKILL_TOOLS, SkillContext
 from acontext.client import AcontextClient
 from acontext.types.disk import Artifact, GetArtifactResp
-from acontext.types.skill import GetSkillFileURLResp, Skill
+from acontext.types.skill import GetSkillFileResp, Skill
 from acontext.uploads import FileUpload
 
 
@@ -414,16 +414,23 @@ class TestSkillTools:
         self, mock_request: MagicMock, skill_ctx: SkillContext
     ) -> None:
         """Test get_skill_file tool execution."""
-        mock_request.return_value = {"url": "https://s3.example.com/presigned-url"}
+        mock_request.return_value = {
+            "url": "https://s3.example.com/presigned-url",
+            "content": {"type": "text", "raw": "print('Hello, World!')"},
+        }
 
         result = SKILL_TOOLS.execute_tool(
             skill_ctx,
             "get_skill_file",
-            {"skill_id": "skill-1", "file_path": "scripts/main.py", "expire": 1800},
+            {
+                "skill_id": "skill-1",
+                "file_path": "scripts/main.py",
+                "with_content": True,
+            },
         )
 
-        assert "https://s3.example.com/presigned-url" in result
-        assert "1800" in result
+        assert "scripts/main.py" in result
+        assert "Hello, World!" in result
         mock_request.assert_called_once()
 
     def test_get_skill_tool_validation(self, skill_ctx: SkillContext) -> None:

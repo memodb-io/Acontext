@@ -274,52 +274,96 @@ export class DeleteSkillTool extends AbstractBaseTool {
 export class GetSkillFileTool extends AbstractBaseTool {
   readonly name = 'get_skill_file';
   readonly description =
-    'Get a presigned URL to download a specific file from a skill. ' +
+    'Get a file from a skill by ID or name. ' +
     "The file_path should be a relative path within the skill (e.g., 'scripts/extract_text.json'). " +
-    'Returns a URL that can be used to download the file.';
+    'Can return the file content directly or a presigned URL for downloading. ' +
+    'Supports text files, JSON, CSV, and code files.';
   readonly arguments = {
     skill_id: {
       type: 'string',
-      description: 'The UUID of the skill.',
+      description:
+        'The UUID of the skill. Either skill_id or skill_name must be provided.',
+    },
+    skill_name: {
+      type: 'string',
+      description:
+        'The name of the skill. Either skill_id or skill_name must be provided.',
     },
     file_path: {
       type: 'string',
       description:
         "Relative path to the file within the skill (e.g., 'scripts/extract_text.json').",
     },
+    with_content: {
+      type: 'boolean',
+      description:
+        'Whether to return file content. Defaults to true for text-based files.',
+    },
+    with_public_url: {
+      type: 'boolean',
+      description: 'Whether to return a presigned URL. Defaults to false.',
+    },
     expire: {
       type: 'number',
       description: 'URL expiration time in seconds. Defaults to 900 (15 minutes).',
     },
   };
-  readonly requiredArguments = ['skill_id', 'file_path'];
+  readonly requiredArguments = ['file_path'];
 
   async execute(
     ctx: SkillContext,
     llmArguments: Record<string, unknown>
   ): Promise<string> {
-    const skillId = llmArguments.skill_id as string;
+    const skillId = llmArguments.skill_id as string | undefined;
+    const skillName = llmArguments.skill_name as string | undefined;
     const filePath = llmArguments.file_path as string;
+    const withContent = (llmArguments.with_content as boolean) ?? true; // Default to true for LLM usage
+    const withPublicUrl = (llmArguments.with_public_url as boolean) ?? false;
     const expire = llmArguments.expire as number | undefined;
 
-    if (!skillId) {
-      throw new Error('skill_id is required');
-    }
     if (!filePath) {
       throw new Error('file_path is required');
     }
+    if (!skillId && !skillName) {
+      throw new Error('Either skill_id or skill_name must be provided');
+    }
 
-    const result = await ctx.client.skills.getFileURL(skillId, {
+    const result = await ctx.client.skills.getFile({
+      skillId: skillId || null,
+      skillName: skillName || null,
       filePath,
+      withContent,
+      withPublicUrl,
       expire: expire || null,
     });
 
-    const expireSeconds = expire || 900;
-    return (
-      `File URL for '${filePath}' in skill '${skillId}':\n` +
-      `${result.url}\n` +
-      `(URL expires in ${expireSeconds} seconds)`
-    );
+    const outputParts: string[] = [
+      `File '${filePath}' from skill '${skillName || skillId}':`,
+    ];
+
+    if (result.content) {
+      outputParts.push(`\nContent (type: ${result.content.type}):`);
+      // Show content preview (first 500 chars for long files)
+      let contentPreview = result.content.raw;
+      if (contentPreview.length > 500) {
+        contentPreview = contentPreview.substring(0, 500) + '\n... (truncated)';
+      }
+      outputParts.push(contentPreview);
+    }
+
+    if (result.url) {
+      const expireSeconds = expire || 900;
+      outputParts.push(
+        `\nDownload URL (expires in ${expireSeconds} seconds):`
+      );
+      outputParts.push(result.url);
+    }
+
+    if (!result.content && !result.url) {
+      return `File '${filePath}' retrieved but no content or URL returned.`;
+    }
+
+    return outputParts.join('\n');
   }
 }
 

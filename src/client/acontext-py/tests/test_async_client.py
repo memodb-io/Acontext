@@ -937,13 +937,19 @@ async def test_async_skills_delete_hits_skills_endpoint(
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
 @pytest.mark.asyncio
-async def test_async_skills_get_file_url_hits_file_endpoint(
+async def test_async_skills_get_file_hits_file_endpoint(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
-    mock_request.return_value = {"url": "https://s3.example.com/presigned-url"}
+    mock_request.return_value = {
+        "url": "https://s3.example.com/presigned-url",
+        "content": {"type": "text", "raw": "file content"},
+    }
 
-    result = await async_client.skills.get_file_url(
-        "skill-1", file_path="scripts/main.py", expire=1800
+    result = await async_client.skills.get_file(
+        skill_id="skill-1",
+        file_path="scripts/main.py",
+        with_content=True,
+        expire=1800,
     )
 
     mock_request.assert_called_once()
@@ -951,8 +957,38 @@ async def test_async_skills_get_file_url_hits_file_endpoint(
     method, path = args
     assert method == "GET"
     assert path == "/agent_skills/skill-1/file"
-    assert kwargs["params"] == {"file_path": "scripts/main.py", "expire": 1800}
+    assert kwargs["params"]["file_path"] == "scripts/main.py"
+    assert kwargs["params"]["with_content"] == "true"
+    assert kwargs["params"]["expire"] == 1800
     assert result.url == "https://s3.example.com/presigned-url"
+    assert result.content is not None
+    assert result.content.raw == "file content"
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_skills_get_file_by_name_hits_by_name_endpoint(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    mock_request.return_value = {
+        "url": "https://s3.example.com/presigned-url",
+        "content": {"type": "text", "raw": "file content"},
+    }
+
+    result = await async_client.skills.get_file(
+        skill_name="test-skill",
+        file_path="scripts/main.py",
+        with_content=True,
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/agent_skills/by_name/test-skill/file"
+    assert kwargs["params"]["file_path"] == "scripts/main.py"
+    assert result.url == "https://s3.example.com/presigned-url"
+    assert result.content is not None
 
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
