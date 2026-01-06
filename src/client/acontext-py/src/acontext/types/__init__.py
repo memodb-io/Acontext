@@ -38,6 +38,11 @@ from .tool import (
     ToolReferenceData,
     ToolRenameItem,
 )
+from .skill import (
+    GetSkillFileURLResp,
+    ListSkillsOutput,
+    Skill,
+)
 
 __all__ = [
     # Disk types
@@ -75,4 +80,8 @@ __all__ = [
     "InsertBlockResponse",
     "ToolReferenceData",
     "ToolRenameItem",
+    # Skill types
+    "Skill",
+    "ListSkillsOutput",
+    "GetSkillFileURLResp",
 ]

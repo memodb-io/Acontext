@@ -860,6 +860,188 @@ def test_disk_artifacts_get_translates_query_params(
 
 
 @patch("acontext.client.AcontextClient.request")
+def test_skills_list_hits_skills_endpoint(mock_request, client: AcontextClient) -> None:
+    mock_request.return_value = {
+        "items": [
+            {
+                "id": "skill-1",
+                "project_id": "project-id",
+                "name": "test-skill",
+                "description": "Test skill",
+                "file_index": ["SKILL.md", "scripts/main.py"],
+                "meta": {},
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            }
+        ],
+        "next_cursor": None,
+        "has_more": False,
+    }
+
+    result = client.skills.list(limit=20, time_desc=False)
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/agent_skills"
+    assert kwargs["params"] == {"limit": 20, "time_desc": "false"}
+    assert len(result.items) == 1
+    assert result.items[0].id == "skill-1"
+    assert result.items[0].name == "test-skill"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_skills_create_uses_multipart_payload(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = {
+        "id": "skill-1",
+        "project_id": "project-id",
+        "name": "test-skill",
+        "description": "Test skill",
+        "file_index": ["SKILL.md"],
+        "meta": {"version": "1.0"},
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
+
+    client.skills.create(
+        file=FileUpload(
+            filename="skill.zip", content=b"zip content", content_type="application/zip"
+        ),
+        meta={"version": "1.0"},
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "POST"
+    assert path == "/agent_skills"
+    assert "files" in kwargs
+    assert "data" in kwargs
+    meta = json.loads(kwargs["data"]["meta"])
+    assert meta["version"] == "1.0"
+    filename, stream, content_type = kwargs["files"]["file"]
+    assert filename == "skill.zip"
+    assert content_type == "application/zip"
+    assert stream.read() == b"zip content"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_skills_get_by_id_hits_skills_endpoint(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = {
+        "id": "skill-1",
+        "project_id": "project-id",
+        "name": "test-skill",
+        "description": "Test skill",
+        "file_index": ["SKILL.md"],
+        "meta": {},
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
+
+    result = client.skills.get("skill-1")
+
+    mock_request.assert_called_once()
+    args, _ = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/agent_skills/skill-1"
+    assert result.id == "skill-1"
+    assert result.name == "test-skill"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_skills_get_by_name_hits_by_name_endpoint(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = {
+        "id": "skill-1",
+        "project_id": "project-id",
+        "name": "test-skill",
+        "description": "Test skill",
+        "file_index": ["SKILL.md"],
+        "meta": {},
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
+
+    result = client.skills.get_by_name("test-skill")
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/agent_skills/by_name"
+    assert kwargs["params"] == {"name": "test-skill"}
+    assert result.id == "skill-1"
+    assert result.name == "test-skill"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_skills_update_hits_skills_endpoint(mock_request, client: AcontextClient) -> None:
+    mock_request.return_value = {
+        "id": "skill-1",
+        "project_id": "project-id",
+        "name": "updated-skill",
+        "description": "Updated description",
+        "file_index": ["SKILL.md"],
+        "meta": {"version": "2.0"},
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-02T00:00:00Z",
+    }
+
+    result = client.skills.update(
+        "skill-1", name="updated-skill", description="Updated description", meta={"version": "2.0"}
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "PUT"
+    assert path == "/agent_skills/skill-1"
+    assert kwargs["json_data"]["name"] == "updated-skill"
+    assert kwargs["json_data"]["description"] == "Updated description"
+    assert kwargs["json_data"]["meta"]["version"] == "2.0"
+    assert result.name == "updated-skill"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_skills_delete_hits_skills_endpoint(mock_request, client: AcontextClient) -> None:
+    mock_request.return_value = None
+
+    client.skills.delete("skill-1")
+
+    mock_request.assert_called_once()
+    args, _ = mock_request.call_args
+    method, path = args
+    assert method == "DELETE"
+    assert path == "/agent_skills/skill-1"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_skills_get_file_url_hits_file_endpoint(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = {"url": "https://s3.example.com/presigned-url"}
+
+    result = client.skills.get_file_url(
+        "skill-1", file_path="scripts/main.py", expire=1800
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/agent_skills/skill-1/file"
+    assert kwargs["params"] == {"file_path": "scripts/main.py", "expire": 1800}
+    assert result.url == "https://s3.example.com/presigned-url"
+
+
+@patch("acontext.client.AcontextClient.request")
 def test_spaces_experience_search_with_fast_mode(
     mock_request, client: AcontextClient
 ) -> None:
