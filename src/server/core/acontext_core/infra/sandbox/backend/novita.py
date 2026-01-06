@@ -1,7 +1,12 @@
+"""
+Novita's sandbox sdk looks just like E2B, except the Sandbox.connect will reset the timeout
+"""
+
 from novita_sandbox.code_interpreter import Sandbox
 from novita_sandbox.code_interpreter import SandboxState as E2B_SandboxState
 
 from .base import SandboxBackend
+from ....env import DEFAULT_CORE_CONFIG
 from ....schema.sandbox import (
     SandboxCreateConfig,
     SandboxUpdateConfig,
@@ -98,6 +103,7 @@ class NovitaSandboxBackend(SandboxBackend):
                 sandbox_id=sandbox_id_str,
                 api_key=self.__api_key,
                 domain=self.__domain_base_url,
+                timeout=DEFAULT_CORE_CONFIG.sandbox_default_keepalive_seconds,
             )
 
             # Get sandbox info using the SDK method
@@ -128,6 +134,7 @@ class NovitaSandboxBackend(SandboxBackend):
             sandbox_id=str(sandbox_id),
             api_key=self.__api_key,
             domain=self.__domain_base_url,
+            timeout=DEFAULT_CORE_CONFIG.sandbox_default_keepalive_seconds,
         )
         sandbox.set_timeout(update_config.keepalive_longer_by_seconds)
         info = sandbox.get_info()
@@ -152,6 +159,7 @@ class NovitaSandboxBackend(SandboxBackend):
             sandbox_id=str(sandbox_id),
             api_key=self.__api_key,
             domain=self.__domain_base_url,
+            timeout=DEFAULT_CORE_CONFIG.sandbox_default_keepalive_seconds,
         )
         result = sandbox.commands.run(cmd=command)
 
@@ -170,7 +178,9 @@ if __name__ == "__main__":
         api_key=DEFAULT_CORE_CONFIG.novita_api_key,
         default_template=DEFAULT_CORE_CONFIG.sandbox_default_template,
     )
-    create_config = SandboxCreateConfig(keepalive_seconds=60 * 60)
+    create_config = SandboxCreateConfig(
+        keepalive_seconds=DEFAULT_CORE_CONFIG.sandbox_default_keepalive_seconds
+    )
     r = backend.start_sandbox(create_config)
     sid = r.sandbox_id
     print(r)
@@ -178,9 +188,9 @@ if __name__ == "__main__":
         r = backend.exec_command(r.sandbox_id, "echo 'Hello, World!'")
 
         r = backend.update_sandbox(
-            sid, SandboxUpdateConfig(keepalive_longer_by_seconds=60 * 60 * 12)
+            sid, SandboxUpdateConfig(keepalive_longer_by_seconds=60 * 60)
         )
-
+        print(r)
         r = backend.get_sandbox(sid)
         print(r)
     except Exception as e:

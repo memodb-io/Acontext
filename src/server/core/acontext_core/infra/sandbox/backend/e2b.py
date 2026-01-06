@@ -1,4 +1,3 @@
-from e2b.sandbox.mcp import E2b
 from e2b_code_interpreter import Sandbox
 from e2b_code_interpreter import SandboxState as E2B_SandboxState
 
@@ -28,7 +27,7 @@ class E2BSandboxBackend(SandboxBackend):
     """
 
     def __init__(
-        self, domain_base_url: str | None, api_key: str, default_template: str
+        self, api_key: str, default_template: str, domain_base_url: str | None = None
     ):
         """Initialize the E2B sandbox backend.
 
@@ -168,10 +167,12 @@ if __name__ == "__main__":
     from rich import print
 
     backend = E2BSandboxBackend(
-        api_key=DEFAULT_CORE_CONFIG.novita_api_key,
+        api_key=DEFAULT_CORE_CONFIG.e2b_api_key,
         default_template=DEFAULT_CORE_CONFIG.sandbox_default_template,
     )
-    create_config = SandboxCreateConfig(keepalive_seconds=60 * 60)
+    create_config = SandboxCreateConfig(
+        keepalive_seconds=DEFAULT_CORE_CONFIG.sandbox_default_keepalive_seconds
+    )
     r = backend.start_sandbox(create_config)
     sid = r.sandbox_id
     print(r)
@@ -179,9 +180,9 @@ if __name__ == "__main__":
         r = backend.exec_command(r.sandbox_id, "echo 'Hello, World!'")
 
         r = backend.update_sandbox(
-            sid, SandboxUpdateConfig(keepalive_longer_by_seconds=60 * 60 * 12)
+            sid, SandboxUpdateConfig(keepalive_longer_by_seconds=60 * 60)
         )
-
+        print(r)
         r = backend.get_sandbox(sid)
         print(r)
     except Exception as e:

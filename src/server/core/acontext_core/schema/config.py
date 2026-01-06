@@ -105,7 +105,7 @@ class CoreConfig(BaseModel):
     sandbox_default_cpu_count: float = 1
     sandbox_default_memory_mb: int = 512
     sandbox_default_disk_gb: int = 10
-    sandbox_default_keepalive_seconds: int = 60 * 60
+    sandbox_default_keepalive_seconds: int = 60 * 30
     sandbox_default_template: Optional[str] = None
 
 

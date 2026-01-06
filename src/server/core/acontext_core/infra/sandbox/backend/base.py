@@ -26,3 +26,13 @@ class SandboxBackend(ABC):
 
     @abstractmethod
     def exec_command(self, sandbox_id: str, command: str) -> SandboxCommandOutput: ...
+
+    # @abstractmethod
+    # def download_path(
+    #     self, sandbox_id: str, from_sandbox_path: str, download_to_s3_path: str
+    # ) -> bool: ...
+
+    # @abstractmethod
+    # def upload_path(
+    #     self, sandbox_id: str, from_s3_path: str, upload_to_sandbox_path: str
+    # ) -> bool: ...
