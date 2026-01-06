@@ -4,7 +4,7 @@ Novita's sandbox sdk looks just like E2B, except the Sandbox.connect will reset 
 
 from novita_sandbox.code_interpreter import Sandbox
 from novita_sandbox.code_interpreter import SandboxState as E2B_SandboxState
-
+from typing import Type
 from .base import SandboxBackend
 from ....env import DEFAULT_CORE_CONFIG
 from ....schema.sandbox import (
@@ -31,6 +31,8 @@ class NovitaSandboxBackend(SandboxBackend):
     providing secure isolated environments for code execution.
     """
 
+    type: str = "novita"
+
     def __init__(
         self, api_key: str, default_template: str, domain_base_url: str | None = None
     ):
@@ -43,6 +45,13 @@ class NovitaSandboxBackend(SandboxBackend):
         self.__domain_base_url = domain_base_url
         self.__default_template = default_template
         self.__api_key = api_key
+
+    @classmethod
+    def from_default(cls: Type["NovitaSandboxBackend"]) -> "NovitaSandboxBackend":
+        return cls(
+            api_key=DEFAULT_CORE_CONFIG.novita_api_key,
+            default_template=DEFAULT_CORE_CONFIG.sandbox_default_template,
+        )
 
     def start_sandbox(self, create_config: SandboxCreateConfig) -> SandboxRuntimeInfo:
         """Create and start a new E2B sandbox.
@@ -174,10 +183,7 @@ if __name__ == "__main__":
     from ....env import DEFAULT_CORE_CONFIG
     from rich import print
 
-    backend = NovitaSandboxBackend(
-        api_key=DEFAULT_CORE_CONFIG.novita_api_key,
-        default_template=DEFAULT_CORE_CONFIG.sandbox_default_template,
-    )
+    backend = NovitaSandboxBackend.from_default()
     create_config = SandboxCreateConfig(
         keepalive_seconds=DEFAULT_CORE_CONFIG.sandbox_default_keepalive_seconds
     )

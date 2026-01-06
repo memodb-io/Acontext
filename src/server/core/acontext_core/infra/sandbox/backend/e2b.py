@@ -1,3 +1,4 @@
+from typing import Type
 from e2b_code_interpreter import Sandbox
 from e2b_code_interpreter import SandboxState as E2B_SandboxState
 
@@ -26,6 +27,8 @@ class E2BSandboxBackend(SandboxBackend):
     providing secure isolated environments for code execution.
     """
 
+    type: str = "e2b"
+
     def __init__(
         self, api_key: str, default_template: str, domain_base_url: str | None = None
     ):
@@ -38,6 +41,14 @@ class E2BSandboxBackend(SandboxBackend):
         self.__domain_base_url = domain_base_url
         self.__default_template = default_template
         self.__api_key = api_key
+
+    @classmethod
+    def from_default(cls: Type["E2BSandboxBackend"]) -> "E2BSandboxBackend":
+        return cls(
+            api_key=DEFAULT_CORE_CONFIG.e2b_api_key,
+            default_template=DEFAULT_CORE_CONFIG.sandbox_default_template,
+            domain_base_url=DEFAULT_CORE_CONFIG.e2b_domain_base_url,
+        )
 
     def start_sandbox(self, create_config: SandboxCreateConfig) -> SandboxRuntimeInfo:
         """Create and start a new E2B sandbox.

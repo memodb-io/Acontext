@@ -53,12 +53,33 @@ def __get_json_logger():
     return logger
 
 
+class ColoredFormatter(logging.Formatter):
+    """Custom formatter that applies different colors based on log level."""
+
+    LEVEL_COLORS = {
+        logging.DEBUG: TerminalColorMarks.CYAN,
+        logging.INFO: TerminalColorMarks.BLUE,
+        logging.WARNING: TerminalColorMarks.YELLOW,
+        logging.ERROR: TerminalColorMarks.RED,
+        logging.CRITICAL: TerminalColorMarks.RED,
+    }
+
+    def format(self, record):
+        color = self.LEVEL_COLORS.get(record.levelno, TerminalColorMarks.BLUE)
+        levelname = f"{color}{record.levelname}{TerminalColorMarks.END}"
+
+        original_levelname = record.levelname
+        record.levelname = levelname
+        formatted = super().format(record)
+        record.levelname = original_levelname
+
+        return formatted
+
+
 def __get_text_logger():
     logger = logging.getLogger("acontext-core")
 
-    formatter = logging.Formatter(
-        f"{TerminalColorMarks.BOLD}{TerminalColorMarks.BLUE}>{TerminalColorMarks.END} %(asctime)s - %(levelname)s - %(message)s"
-    )
+    formatter = ColoredFormatter("%(levelname)s - %(asctime)s - %(message)s")
     handler = logging.StreamHandler()
     handler.setFormatter(formatter)
     logger.addHandler(handler)

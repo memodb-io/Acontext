@@ -97,11 +97,10 @@ class CoreConfig(BaseModel):
     otel_service_version: str = "0.0.1"
 
     # sandbox
-    sandbox_type: Literal["disabled", "e2b", "novita"] = "disabled"
+    sandbox_type: Literal["disabled", "novita", "e2b"] = "disabled"
+    novita_api_key: Optional[str] = None
     e2b_domain_base_url: Optional[str] = None
     e2b_api_key: Optional[str] = None
-    novita_domain_base_url: Optional[str] = None
-    novita_api_key: Optional[str] = None
     sandbox_default_cpu_count: float = 1
     sandbox_default_memory_mb: int = 512
     sandbox_default_disk_gb: int = 10

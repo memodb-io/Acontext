@@ -1,4 +1,5 @@
 from abc import abstractmethod, ABC
+from typing import Type
 from ....schema.sandbox import (
     SandboxCreateConfig,
     SandboxUpdateConfig,
@@ -8,6 +9,12 @@ from ....schema.sandbox import (
 
 
 class SandboxBackend(ABC):
+    type: str
+
+    @classmethod
+    @abstractmethod
+    def from_default(cls: Type["SandboxBackend"]) -> "SandboxBackend": ...
+
     @abstractmethod
     def start_sandbox(
         self, create_config: SandboxCreateConfig
