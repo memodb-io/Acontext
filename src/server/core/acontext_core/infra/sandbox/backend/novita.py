@@ -2,7 +2,7 @@
 Novita's sandbox sdk looks just like E2B, except the Sandbox.connect will reset the timeout
 """
 
-from novita_sandbox.code_interpreter import Sandbox
+from novita_sandbox.code_interpreter import AsyncSandbox
 from novita_sandbox.code_interpreter import SandboxState as E2B_SandboxState
 from typing import Type
 from .base import SandboxBackend
@@ -25,9 +25,9 @@ def _convert_e2b_state(state: E2B_SandboxState) -> SandboxStatus:
 
 
 class NovitaSandboxBackend(SandboxBackend):
-    """E2B Sandbox Backend using e2b_code_interpreter SDK.
+    """Novita Sandbox Backend using novita_sandbox SDK.
 
-    This backend manages cloud sandboxes through E2B's infrastructure,
+    This backend manages cloud sandboxes through Novita's infrastructure,
     providing secure isolated environments for code execution.
     """
 
@@ -36,11 +36,11 @@ class NovitaSandboxBackend(SandboxBackend):
     def __init__(
         self, api_key: str, default_template: str, domain_base_url: str | None = None
     ):
-        """Initialize the E2B sandbox backend.
+        """Initialize the Novita sandbox backend.
 
         Args:
-            domain_base_url: The E2B domain base URL (for BYOC or custom domains). None for default E2B cloud.
-            api_key: The E2B API key for authentication.
+            domain_base_url: The Novita domain base URL (for custom domains). None for default Novita cloud.
+            api_key: The Novita API key for authentication.
         """
         self.__domain_base_url = domain_base_url
         self.__default_template = default_template
@@ -53,8 +53,10 @@ class NovitaSandboxBackend(SandboxBackend):
             default_template=DEFAULT_CORE_CONFIG.sandbox_default_template,
         )
 
-    def start_sandbox(self, create_config: SandboxCreateConfig) -> SandboxRuntimeInfo:
-        """Create and start a new E2B sandbox.
+    async def start_sandbox(
+        self, create_config: SandboxCreateConfig
+    ) -> SandboxRuntimeInfo:
+        """Create and start a new Novita sandbox.
 
         Args:
             create_config: Configuration for the sandbox including timeout, CPU, memory, etc.
@@ -63,15 +65,14 @@ class NovitaSandboxBackend(SandboxBackend):
             Runtime information about the created sandbox.
         """
         template = create_config.template or self.__default_template
-        sandbox = Sandbox.create(
+        sandbox = await AsyncSandbox.create(
             template=template,
             api_key=self.__api_key,
             domain=self.__domain_base_url,
             timeout=create_config.keepalive_seconds,
             metadata=create_config.additional_configs,
         )
-        info = sandbox.get_info()
-        info.state
+        info = await sandbox.get_info()
         return SandboxRuntimeInfo(
             sandbox_id=info.sandbox_id,
             sandbox_status=_convert_e2b_state(info.state),
@@ -79,20 +80,20 @@ class NovitaSandboxBackend(SandboxBackend):
             sandbox_expires_at=info.end_at,
         )
 
-    def kill_sandbox(self, sandbox_id: str) -> bool:
+    async def kill_sandbox(self, sandbox_id: str) -> bool:
         """Kill a running sandbox.
 
         Args:
             sandbox_id: The ID of the sandbox to kill.
         """
-        r = Sandbox.kill(
+        r = await AsyncSandbox.kill(
             sandbox_id=str(sandbox_id),
             api_key=self.__api_key,
             domain=self.__domain_base_url,
         )
         return r
 
-    def get_sandbox(self, sandbox_id: str) -> SandboxRuntimeInfo:
+    async def get_sandbox(self, sandbox_id: str) -> SandboxRuntimeInfo:
         """Get runtime information about a sandbox.
 
         Args:
@@ -108,7 +109,7 @@ class NovitaSandboxBackend(SandboxBackend):
 
         try:
             # Connect to the sandbox to verify it exists and is running
-            sandbox = Sandbox.connect(
+            sandbox = await AsyncSandbox.connect(
                 sandbox_id=sandbox_id_str,
                 api_key=self.__api_key,
                 domain=self.__domain_base_url,
@@ -116,7 +117,7 @@ class NovitaSandboxBackend(SandboxBackend):
             )
 
             # Get sandbox info using the SDK method
-            info = sandbox.get_info()
+            info = await sandbox.get_info()
 
             return SandboxRuntimeInfo(
                 sandbox_id=info.sandbox_id,
@@ -127,7 +128,7 @@ class NovitaSandboxBackend(SandboxBackend):
         except Exception as e:
             raise ValueError(f"Sandbox with ID {sandbox_id_str} not found: {e}")
 
-    def update_sandbox(
+    async def update_sandbox(
         self, sandbox_id: str, update_config: SandboxUpdateConfig
     ) -> SandboxRuntimeInfo:
         """Update sandbox configuration, such as extending the timeout.
@@ -139,14 +140,14 @@ class NovitaSandboxBackend(SandboxBackend):
         Returns:
             Runtime information about the updated sandbox.
         """
-        sandbox = Sandbox.connect(
+        sandbox = await AsyncSandbox.connect(
             sandbox_id=str(sandbox_id),
             api_key=self.__api_key,
             domain=self.__domain_base_url,
             timeout=DEFAULT_CORE_CONFIG.sandbox_default_keepalive_seconds,
         )
-        sandbox.set_timeout(update_config.keepalive_longer_by_seconds)
-        info = sandbox.get_info()
+        await sandbox.set_timeout(update_config.keepalive_longer_by_seconds)
+        info = await sandbox.get_info()
         return SandboxRuntimeInfo(
             sandbox_id=info.sandbox_id,
             sandbox_status=_convert_e2b_state(info.state),
@@ -154,7 +155,7 @@ class NovitaSandboxBackend(SandboxBackend):
             sandbox_expires_at=info.end_at,
         )
 
-    def exec_command(self, sandbox_id: str, command: str) -> SandboxCommandOutput:
+    async def exec_command(self, sandbox_id: str, command: str) -> SandboxCommandOutput:
         """Execute a shell command in the sandbox.
 
         Args:
@@ -164,43 +165,16 @@ class NovitaSandboxBackend(SandboxBackend):
         Returns:
             The command output including stdout, stderr, and exit code.
         """
-        sandbox = Sandbox.connect(
+        sandbox = await AsyncSandbox.connect(
             sandbox_id=str(sandbox_id),
             api_key=self.__api_key,
             domain=self.__domain_base_url,
             timeout=DEFAULT_CORE_CONFIG.sandbox_default_keepalive_seconds,
         )
-        result = sandbox.commands.run(cmd=command)
+        result = await sandbox.commands.run(cmd=command)
 
         return SandboxCommandOutput(
             stdout=result.stdout,
             stderr=result.stderr,
             exit_code=result.exit_code,
         )
-
-
-if __name__ == "__main__":
-    from ....env import DEFAULT_CORE_CONFIG
-    from rich import print
-
-    backend = NovitaSandboxBackend.from_default()
-    create_config = SandboxCreateConfig(
-        keepalive_seconds=DEFAULT_CORE_CONFIG.sandbox_default_keepalive_seconds
-    )
-    r = backend.start_sandbox(create_config)
-    sid = r.sandbox_id
-    print(r)
-    try:
-        r = backend.exec_command(r.sandbox_id, "echo 'Hello, World!'")
-
-        r = backend.update_sandbox(
-            sid, SandboxUpdateConfig(keepalive_longer_by_seconds=60 * 60)
-        )
-        print(r)
-        r = backend.get_sandbox(sid)
-        print(r)
-    except Exception as e:
-        print(e)
-    finally:
-        r = backend.kill_sandbox(sid)
-        print(f"Delete {sid}", r)

@@ -1,5 +1,5 @@
 from typing import Type
-from e2b_code_interpreter import Sandbox
+from e2b_code_interpreter import AsyncSandbox
 from e2b_code_interpreter import SandboxState as E2B_SandboxState
 
 from .base import SandboxBackend
@@ -10,6 +10,7 @@ from ....schema.sandbox import (
     SandboxCommandOutput,
     SandboxStatus,
 )
+from ....env import DEFAULT_CORE_CONFIG
 
 
 def _convert_e2b_state(state: E2B_SandboxState) -> SandboxStatus:
@@ -50,7 +51,9 @@ class E2BSandboxBackend(SandboxBackend):
             domain_base_url=DEFAULT_CORE_CONFIG.e2b_domain_base_url,
         )
 
-    def start_sandbox(self, create_config: SandboxCreateConfig) -> SandboxRuntimeInfo:
+    async def start_sandbox(
+        self, create_config: SandboxCreateConfig
+    ) -> SandboxRuntimeInfo:
         """Create and start a new E2B sandbox.
 
         Args:
@@ -60,15 +63,14 @@ class E2BSandboxBackend(SandboxBackend):
             Runtime information about the created sandbox.
         """
         template = create_config.template or self.__default_template
-        sandbox = Sandbox.create(
+        sandbox = await AsyncSandbox.create(
             template=template,
             api_key=self.__api_key,
             domain=self.__domain_base_url,
             timeout=create_config.keepalive_seconds,
             metadata=create_config.additional_configs,
         )
-        info = sandbox.get_info()
-        info.state
+        info = await sandbox.get_info()
         return SandboxRuntimeInfo(
             sandbox_id=info.sandbox_id,
             sandbox_status=_convert_e2b_state(info.state),
@@ -76,20 +78,20 @@ class E2BSandboxBackend(SandboxBackend):
             sandbox_expires_at=info.end_at,
         )
 
-    def kill_sandbox(self, sandbox_id: str) -> bool:
+    async def kill_sandbox(self, sandbox_id: str) -> bool:
         """Kill a running sandbox.
 
         Args:
             sandbox_id: The ID of the sandbox to kill.
         """
-        r = Sandbox.kill(
+        r = await AsyncSandbox.kill(
             sandbox_id=str(sandbox_id),
             api_key=self.__api_key,
             domain=self.__domain_base_url,
         )
         return r
 
-    def get_sandbox(self, sandbox_id: str) -> SandboxRuntimeInfo:
+    async def get_sandbox(self, sandbox_id: str) -> SandboxRuntimeInfo:
         """Get runtime information about a sandbox.
 
         Args:
@@ -105,14 +107,14 @@ class E2BSandboxBackend(SandboxBackend):
 
         try:
             # Connect to the sandbox to verify it exists and is running
-            sandbox = Sandbox.connect(
+            sandbox = await AsyncSandbox.connect(
                 sandbox_id=sandbox_id_str,
                 api_key=self.__api_key,
                 domain=self.__domain_base_url,
             )
 
             # Get sandbox info using the SDK method
-            info = sandbox.get_info()
+            info = await sandbox.get_info()
 
             return SandboxRuntimeInfo(
                 sandbox_id=info.sandbox_id,
@@ -123,7 +125,7 @@ class E2BSandboxBackend(SandboxBackend):
         except Exception as e:
             raise ValueError(f"Sandbox with ID {sandbox_id_str} not found: {e}")
 
-    def update_sandbox(
+    async def update_sandbox(
         self, sandbox_id: str, update_config: SandboxUpdateConfig
     ) -> SandboxRuntimeInfo:
         """Update sandbox configuration, such as extending the timeout.
@@ -135,13 +137,13 @@ class E2BSandboxBackend(SandboxBackend):
         Returns:
             Runtime information about the updated sandbox.
         """
-        sandbox = Sandbox.connect(
+        sandbox = await AsyncSandbox.connect(
             sandbox_id=str(sandbox_id),
             api_key=self.__api_key,
             domain=self.__domain_base_url,
         )
-        sandbox.set_timeout(update_config.keepalive_longer_by_seconds)
-        info = sandbox.get_info()
+        await sandbox.set_timeout(update_config.keepalive_longer_by_seconds)
+        info = await sandbox.get_info()
         return SandboxRuntimeInfo(
             sandbox_id=info.sandbox_id,
             sandbox_status=_convert_e2b_state(info.state),
@@ -149,7 +151,7 @@ class E2BSandboxBackend(SandboxBackend):
             sandbox_expires_at=info.end_at,
         )
 
-    def exec_command(self, sandbox_id: str, command: str) -> SandboxCommandOutput:
+    async def exec_command(self, sandbox_id: str, command: str) -> SandboxCommandOutput:
         """Execute a shell command in the sandbox.
 
         Args:
@@ -159,45 +161,15 @@ class E2BSandboxBackend(SandboxBackend):
         Returns:
             The command output including stdout, stderr, and exit code.
         """
-        sandbox = Sandbox.connect(
+        sandbox = await AsyncSandbox.connect(
             sandbox_id=str(sandbox_id),
             api_key=self.__api_key,
             domain=self.__domain_base_url,
         )
-        result = sandbox.commands.run(cmd=command)
+        result = await sandbox.commands.run(cmd=command)
 
         return SandboxCommandOutput(
             stdout=result.stdout,
             stderr=result.stderr,
             exit_code=result.exit_code,
         )
-
-
-if __name__ == "__main__":
-    from ....env import DEFAULT_CORE_CONFIG
-    from rich import print
-
-    backend = E2BSandboxBackend(
-        api_key=DEFAULT_CORE_CONFIG.e2b_api_key,
-        default_template=DEFAULT_CORE_CONFIG.sandbox_default_template,
-    )
-    create_config = SandboxCreateConfig(
-        keepalive_seconds=DEFAULT_CORE_CONFIG.sandbox_default_keepalive_seconds
-    )
-    r = backend.start_sandbox(create_config)
-    sid = r.sandbox_id
-    print(r)
-    try:
-        r = backend.exec_command(r.sandbox_id, "echo 'Hello, World!'")
-
-        r = backend.update_sandbox(
-            sid, SandboxUpdateConfig(keepalive_longer_by_seconds=60 * 60)
-        )
-        print(r)
-        r = backend.get_sandbox(sid)
-        print(r)
-    except Exception as e:
-        print(e)
-    finally:
-        r = backend.kill_sandbox(sid)
-        print(f"Delete {sid}", r)
