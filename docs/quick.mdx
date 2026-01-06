@@ -1,13 +1,11 @@
 ---
-title: SDK Installation
-description: "Install the Acontext SDK for Python or TypeScript to start building with Acontext"
+title: Quickstart
+description: "Install Acontext SDK and run a demo script"
 ---
 
-## Overview
+## Install SDK
 
 Acontext provides official SDKs for Python and TypeScript/JavaScript, making it easy to integrate Acontext into your applications. The SDKs handle authentication, request formatting, and provide type-safe interfaces to all Acontext features.
-
-## Installation
 
 <Tabs>
 <Tab title="Python">
@@ -77,20 +75,38 @@ After installation, verify your setup with a quick connection test:
 <Tab title="Python">
 
 ```python
+import os
 from acontext import AcontextClient
 
-# Initialize the client
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 
-# Test the connection
-try:
-    client.ping()
-    print("✓ Connected to Acontext successfully!")
-except Exception as e:
-    print(f"✗ Connection failed: {e}")
+print(client.ping())
+
+session = client.sessions.create()
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "assistant",
+        "content": """Here is my plan:
+1. Use Next.js for the frontend
+2. Use Supabase for the database
+3. deploy to Cloudflare Pages
+""",
+    },
+)
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "user",
+        "content": "Confirm, go ahead. Use tailwind for frontend styling.",
+    },
+)
+
+
+messages = client.sessions.get_messages(session_id=session.id)
+print(messages.items)
 ```
 
 </Tab>
@@ -98,21 +114,37 @@ except Exception as e:
 <Tab title="TypeScript">
 
 ```typescript
-import { AcontextClient } from '@acontext/acontext';
 
-// Initialize the client
+import { AcontextClient } from "@acontext/acontext";
+
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 
-// Test the connection
-try {
-  await client.ping();
-  console.log('✓ Connected to Acontext successfully!');
-} catch (error) {
-  console.error('✗ Connection failed:', error);
+async function main() {
+    console.log(await client.ping());
+
+    const session = await client.sessions.create();
+    await client.sessions.storeMessage(session.id, {
+        role: "assistant",
+        content: `Here is my plan:
+1. Use Next.js for the frontend
+2. Use Supabase for the database
+3. deploy to Cloudflare Pages
+`,
+    });
+    await client.sessions.storeMessage(session.id, {
+        role: "user",
+        content: "Confirm, go ahead. Use tailwind for frontend styling.",
+    });
+
+    const messages = await client.sessions.getMessages(session.id);
+    console.log(messages.items);
 }
+
+main();
+
+
 ```
 
 </Tab>
@@ -121,57 +153,6 @@ try {
 <Check>
 If you see the success message, you're ready to start using Acontext!
 </Check>
-
-## Async Support
-
-<Tabs>
-<Tab title="Python">
-
-The Python SDK provides both synchronous and asynchronous clients:
-
-```python
-from acontext import AsyncAcontextClient
-
-async def main():
-    client = AsyncAcontextClient(
-        api_key="sk-ac-your-root-api-bearer-token",
-        base_url="http://localhost:8029/api/v1"
-    )
-    
-    session = await client.sessions.create()
-    print(f"Session created: {session.id}")
-    
-    await client.close()
-
-# Run with asyncio
-import asyncio
-asyncio.run(main())
-```
-
-<Tip>
-Use `AsyncAcontextClient` for better performance in async applications and when handling multiple concurrent operations.
-</Tip>
-
-</Tab>
-
-<Tab title="TypeScript">
-
-The TypeScript SDK is fully async by default:
-
-```typescript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
-});
-
-// All methods return Promises
-await client.sessions.create();
-```
-
-</Tab>
-</Tabs>
 
 ## Troubleshooting
 
@@ -206,12 +187,13 @@ await client.sessions.create();
 
 <CardGroup cols={2}>
 
-<Card title="Store Messages" icon="message" href="/store/messages/multi-provider">
-Learn how to store and retrieve messages from multiple LLM providers
-</Card>
-
 <Card title="Session Management" icon="folder" href="/store/messages/multi-provider">
 Create and manage sessions for organizing your conversations
+</Card>
+
+<Card title="Context Engineering" icon="gear" href="/store/editing">
+Do context engineering for you.
+Build a compact context for agents in one api call.
 </Card>
 
 <Card title="Disk Storage" icon="database" href="/store/disk">
