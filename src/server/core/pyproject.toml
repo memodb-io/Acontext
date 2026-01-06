@@ -27,6 +27,7 @@ dependencies = [
     "opentelemetry-instrumentation-dbapi>=0.54.0",
     "opentelemetry-instrumentation-sqlalchemy>=0.54.0",
     "opentelemetry-instrumentation-redis>=0.54.0",
+    "e2b-code-interpreter>=2.4.1",
 ]
 
 [dependency-groups]

@@ -96,12 +96,17 @@ class CoreConfig(BaseModel):
     otel_service_name: str = "acontext-core"
     otel_service_version: str = "0.0.1"
 
+    # sandbox
+    sandbox_type: Literal["disabled", "e2b"] = "disabled"
+    e2b_domain_base_url: Optional[str] = None
+    e2b_api_key: Optional[str] = None
+
 
 def filter_value_from_env(CLS: Type[BaseModel]) -> dict[str, Any]:
     config_keys = CLS.model_fields.keys()
     env_already_keys = {}
     for key in config_keys:
-        value = os.getenv(key.upper(), None)
+        value = os.getenv(key, os.getenv(key.upper(), None))
         if value is None:
             continue
         env_already_keys[key] = value
@@ -137,6 +142,9 @@ def filter_value_from_json(
     return json_already_keys
 
 
-def post_validate_core_config_sanity(config: CoreConfig):
-    # TODO: add cross-params validation
-    pass
+def post_validate_core_config_sanity(config: CoreConfig) -> None:
+    """Raises an assertion error if the config is invalid."""
+    if config.sandbox_type == "e2b":
+        assert (
+            config.e2b_api_key is not None
+        ), "e2b_api_key is required when sandbox_type is e2b"

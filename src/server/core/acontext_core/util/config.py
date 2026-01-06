@@ -4,6 +4,7 @@ from ..schema.config import (
     filter_value_from_yaml,
     CoreConfig,
     ProjectConfig,
+    post_validate_core_config_sanity,
 )
 
 
@@ -21,7 +22,10 @@ def get_local_core_config() -> CoreConfig:
     _YAML_VARS = filter_value_from_yaml(CONFIG_YAML_STRING, CoreConfig)
 
     VARS = {**_ENV_VARS, **_YAML_VARS}
-    return CoreConfig(**VARS)
+    core_config = CoreConfig(**VARS)
+
+    post_validate_core_config_sanity(core_config)
+    return core_config
 
 
 def get_local_project_config() -> ProjectConfig:
