@@ -287,6 +287,51 @@ export class ListSkillsCatalogTool extends AbstractBaseTool {
   }
 }
 
+export class GetSkillMDTool extends AbstractBaseTool {
+  readonly name = 'get_skill_md';
+  readonly description =
+    'Get the SKILL.md file content from a skill by name. ' +
+    'Returns the YAML front matter and markdown content of SKILL.md.';
+
+  readonly arguments = {
+    skill_name: {
+      type: 'string',
+      description: 'The name of the skill.',
+    },
+  };
+  readonly requiredArguments = ['skill_name'];
+
+  async execute(
+    ctx: SkillContext,
+    llmArguments: Record<string, unknown>
+  ): Promise<string> {
+    const skillName = llmArguments.skill_name as string | undefined;
+
+    if (!skillName) {
+      throw new Error('skill_name is required');
+    }
+
+    const result = await ctx.client.skills.getFileByName({
+      skillName,
+      filePath: 'SKILL.md',
+    });
+
+    const outputParts: string[] = [`SKILL.md from skill '${skillName}':`];
+
+    if (result.content) {
+      outputParts.push(`\nContent (type: ${result.content.type}):`);
+      outputParts.push(result.content.raw);
+    } else if (result.url) {
+      outputParts.push(`\nDownload URL:`);
+      outputParts.push(result.url);
+    } else {
+      return `SKILL.md file not found in skill '${skillName}'.`;
+    }
+
+    return outputParts.join('\n');
+  }
+}
+
 export class GetSkillFileTool extends AbstractBaseTool {
   readonly name = 'get_skill_file';
   readonly description =
@@ -379,4 +424,5 @@ SKILL_TOOLS.addTool(new ListSkillsCatalogTool());
 SKILL_TOOLS.addTool(new UpdateSkillTool());
 SKILL_TOOLS.addTool(new DeleteSkillTool());
 SKILL_TOOLS.addTool(new GetSkillFileTool());
+SKILL_TOOLS.addTool(new GetSkillMDTool());
 

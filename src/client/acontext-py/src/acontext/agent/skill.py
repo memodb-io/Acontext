@@ -332,6 +332,59 @@ class ListSkillsCatalogTool(BaseTool):
         return json.dumps(catalog, ensure_ascii=False, indent=2)
 
 
+class GetSkillMDTool(BaseTool):
+    """Tool for getting SKILL.md file content from a skill."""
+
+    @property
+    def name(self) -> str:
+        return "get_skill_md"
+
+    @property
+    def description(self) -> str:
+        return (
+            "Get the SKILL.md file content from a skill by name. "
+            "Returns the YAML front matter and markdown content of SKILL.md."
+        )
+
+    @property
+    def arguments(self) -> dict:
+        return {
+            "skill_name": {
+                "type": "string",
+                "description": "The name of the skill.",
+            },
+        }
+
+    @property
+    def required_arguments(self) -> list[str]:
+        return ["skill_name"]
+
+    def execute(self, ctx: SkillContext, llm_arguments: dict) -> str:
+        """Get SKILL.md file from a skill."""
+        skill_name = llm_arguments.get("skill_name")
+
+        if not skill_name:
+            raise ValueError("skill_name is required")
+
+        result = ctx.client.skills.get_file_by_name(
+            skill_name=skill_name,
+            file_path="SKILL.md",
+        )
+
+        output_parts = [f"SKILL.md from skill '{skill_name}':"]
+
+        if result.content:
+            output_parts.append(f"\nContent (type: {result.content.type}):")
+            output_parts.append(result.content.raw)
+        elif result.url:
+            output_parts.append(f"\nDownload URL:")
+            output_parts.append(result.url)
+        else:
+            return f"SKILL.md file not found in skill '{skill_name}'."
+
+        return "\n".join(output_parts)
+
+
 class GetSkillFileTool(BaseTool):
     """Tool for getting a file from a skill, optionally returning content or URL."""
 
@@ -422,4 +475,5 @@ SKILL_TOOLS.add_tool(ListSkillsCatalogTool())
 SKILL_TOOLS.add_tool(UpdateSkillTool())
 SKILL_TOOLS.add_tool(DeleteSkillTool())
 SKILL_TOOLS.add_tool(GetSkillFileTool())
+SKILL_TOOLS.add_tool(GetSkillMDTool())
 
