@@ -384,12 +384,7 @@ export class GetSkillFileTool extends AbstractBaseTool {
 
     if (result.content) {
       outputParts.push(`\nContent (type: ${result.content.type}):`);
-      // Show content preview (first 500 chars for long files)
-      let contentPreview = result.content.raw;
-      if (contentPreview.length > 500) {
-        contentPreview = contentPreview.substring(0, 500) + '\n... (truncated)';
-      }
-      outputParts.push(contentPreview);
+      outputParts.push(result.content.raw);
     }
 
     if (result.url) {

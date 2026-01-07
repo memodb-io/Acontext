@@ -443,11 +443,7 @@ class GetSkillFileTool(BaseTool):
 
         if result.content:
             output_parts.append(f"\nContent (type: {result.content.type}):")
-            # Show content preview (first 500 chars for long files)
-            content_preview = result.content.raw
-            if len(content_preview) > 500:
-                content_preview = content_preview[:500] + "\n... (truncated)"
-            output_parts.append(content_preview)
+            output_parts.append(result.content.raw)
 
         if result.url:
             expire_seconds = expire if expire is not None else 900
