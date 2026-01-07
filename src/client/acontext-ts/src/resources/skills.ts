@@ -81,30 +81,6 @@ export class SkillsAPI {
     return SkillSchema.parse(data);
   }
 
-  async update(
-    skillId: string,
-    options: {
-      name?: string | null;
-      description?: string | null;
-      meta?: Record<string, unknown> | null;
-    }
-  ): Promise<Skill> {
-    const payload: Record<string, unknown> = {};
-    if (options.name !== undefined && options.name !== null) {
-      payload.name = options.name;
-    }
-    if (options.description !== undefined && options.description !== null) {
-      payload.description = options.description;
-    }
-    if (options.meta !== undefined && options.meta !== null) {
-      payload.meta = options.meta;
-    }
-    const data = await this.requester.request('PUT', `/agent_skills/${skillId}`, {
-      jsonData: payload,
-    });
-    return SkillSchema.parse(data);
-  }
-
   async delete(skillId: string): Promise<void> {
     await this.requester.request('DELETE', `/agent_skills/${skillId}`);
   }

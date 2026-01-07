@@ -115,37 +115,6 @@ class SkillsAPI:
         data = self._requester.request("GET", "/agent_skills/by_name", params=params)
         return Skill.model_validate(data)
 
-    def update(
-        self,
-        skill_id: str,
-        *,
-        name: str | None = None,
-        description: str | None = None,
-        meta: Mapping[str, Any] | None = None,
-    ) -> Skill:
-        """Update a skill's metadata.
-
-        Args:
-            skill_id: The UUID of the skill.
-            name: Optional new name for the skill.
-            description: Optional new description for the skill.
-            meta: Optional custom metadata as JSON-serializable dict.
-
-        Returns:
-            Skill containing the updated skill information.
-        """
-        payload: dict[str, Any] = {}
-        if name is not None:
-            payload["name"] = name
-        if description is not None:
-            payload["description"] = description
-        if meta is not None:
-            payload["meta"] = meta
-        data = self._requester.request(
-            "PUT", f"/agent_skills/{skill_id}", json_data=payload
-        )
-        return Skill.model_validate(data)
-
     def delete(self, skill_id: str) -> None:
         """Delete a skill by its ID.
 

@@ -863,37 +863,6 @@ async def test_async_skills_get_by_name_hits_by_name_endpoint(
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
 @pytest.mark.asyncio
-async def test_async_skills_update_hits_skills_endpoint(
-    mock_request, async_client: AcontextAsyncClient
-) -> None:
-    mock_request.return_value = {
-        "id": "skill-1",
-        "project_id": "project-id",
-        "name": "updated-skill",
-        "description": "Updated description",
-        "file_index": ["SKILL.md"],
-        "meta": {"version": "2.0"},
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-02T00:00:00Z",
-    }
-
-    result = await async_client.skills.update(
-        "skill-1", name="updated-skill", description="Updated description", meta={"version": "2.0"}
-    )
-
-    mock_request.assert_called_once()
-    args, kwargs = mock_request.call_args
-    method, path = args
-    assert method == "PUT"
-    assert path == "/agent_skills/skill-1"
-    assert kwargs["json_data"]["name"] == "updated-skill"
-    assert kwargs["json_data"]["description"] == "Updated description"
-    assert kwargs["json_data"]["meta"]["version"] == "2.0"
-    assert result.name == "updated-skill"
-
-
-@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
-@pytest.mark.asyncio
 async def test_async_skills_delete_hits_skills_endpoint(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
