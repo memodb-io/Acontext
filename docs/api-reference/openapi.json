@@ -115,6 +115,52 @@
         "tags" : [ "agent_skills" ]
       }
     },
+    "/agent_skills/by_name/{name}/file" : {
+      "get" : {
+        "description" : "Get file content or download URL from agent skill by skill name and file path. If the file is a text-based file (parseable), returns parsed content. Otherwise, returns a presigned download URL.",
+        "parameters" : [ {
+          "description" : "Agent skill name",
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Relative file path from skill root",
+          "in" : "query",
+          "name" : "file_path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Expire time in seconds for presigned URL (default: 900)",
+          "in" : "query",
+          "name" : "expire",
+          "schema" : {
+            "type" : "integer"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_agent_skills_by_name__name__file_get_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Get file from agent skill",
+        "tags" : [ "agent_skills" ]
+      }
+    },
     "/agent_skills/{id}" : {
       "delete" : {
         "description" : "Delete agent skill and all extracted files from S3",
@@ -2542,9 +2588,10 @@
             "type" : "string"
           },
           "file_index" : {
-            "description" : "FileIndex contains relative paths of files from the skillName root directory\nExample: [\"pdf/SKILL.md\", \"pdf/scripts/extract_text.json\"]\nThese paths are relative to baseS3Key (which includes skillName)\nFull S3 key = baseS3Key + \"/\" + fileIndex[i]",
+            "description" : "FileIndex contains file information (path and MIME type) from the skillName root directory\nExample: [{\"path\": \"SKILL.md\", \"mime\": \"text/markdown\"}, {\"path\": \"scripts/extract_text.json\", \"mime\": \"application/json\"}]\nThese paths are relative to baseS3Key (which includes skillName)\nFull S3 key = baseS3Key + \"/\" + fileIndex[i].Path",
             "items" : {
-              "type" : "string"
+              "properties" : { },
+              "type" : "object"
             },
             "type" : "array"
           },
@@ -2843,6 +2890,28 @@
         },
         "type" : "object"
       },
+      "service.GetFileOutput" : {
+        "properties" : {
+          "content" : {
+            "allOf" : [ {
+              "$ref" : "#/components/schemas/fileparser.FileContent"
+            } ],
+            "description" : "Present if file is text-based and parseable",
+            "type" : "object"
+          },
+          "mime" : {
+            "type" : "string"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "url" : {
+            "description" : "Present if file is not text-based or not parseable",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "service.GetMessagesOutput" : {
         "properties" : {
           "has_more" : {
@@ -3014,6 +3083,18 @@
           "properties" : {
             "data" : {
               "$ref" : "#/components/schemas/model.AgentSkills"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_agent_skills_by_name__name__file_get_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/service.GetFileOutput"
             }
           },
           "type" : "object"

@@ -1,5 +1,4 @@
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
 from acontext_core.schema.orm import Block, Project, Space
 from acontext_core.schema.orm.block import (
     BLOCK_TYPE_FOLDER,
@@ -7,7 +6,6 @@ from acontext_core.schema.orm.block import (
     BLOCK_TYPE_TEXT,
     BLOCK_TYPE_SOP,
     BLOCK_TYPE_REFERENCE,
-    CONTENT_BLOCK,
 )
 from acontext_core.infra.db import DatabaseClient
 from acontext_core.service.data.block import create_new_path_block

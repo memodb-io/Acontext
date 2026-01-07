@@ -120,7 +120,7 @@ export default function SessionsPage() {
       let hasMore = true;
 
       while (hasMore) {
-        const res = await getSessions(spaceId, notConnected, 50, cursor, false);
+        const res = await getSessions(spaceId, notConnected, 50, cursor, true);
         if (res.code !== 0) {
           console.error(res.message);
           break;
@@ -145,7 +145,7 @@ export default function SessionsPage() {
       let hasMore = true;
 
       while (hasMore) {
-        const res = await getSpaces(50, cursor, false);
+        const res = await getSpaces(50, cursor, true);
         if (res.code !== 0) {
           console.error(res.message);
           break;

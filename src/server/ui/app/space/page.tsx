@@ -86,7 +86,7 @@ export default function SpacesPage() {
       let hasMore = true;
 
       while (hasMore) {
-        const res = await getSpaces(50, cursor, false);
+        const res = await getSpaces(50, cursor, true);
         if (res.code !== 0) {
           console.error(res.message);
           break;

@@ -11,12 +11,18 @@ So if your `PROJECT_SESSION_MESSAGE_BUFFER_MAX_TURNS` is 3:
 
 <CodeGroup>
 ```python Python
+import os
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
+
+# If you're using self-hosted Acontext:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
 
 # this storing won't be processed immediately
 client.sessions.store_message(
@@ -41,11 +47,10 @@ client.sessions.store_message(
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 
 // this storing won't be processed immediately
@@ -79,8 +84,7 @@ from acontext import AcontextClient
 import time
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 
 # this storing won't be processed immediately
@@ -95,11 +99,10 @@ time.sleep(3)
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 
 // this storing won't be processed immediately
@@ -122,19 +125,17 @@ You can force the buffer processing by calling the `flush` method:
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 
 client.sessions.flush(session_id="session-uuid")
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 
 await client.sessions.flush('session-uuid');
@@ -150,8 +151,7 @@ You can check the observing status of messages in your session to understand how
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 
 # Get message observing status for a session
@@ -164,11 +164,10 @@ print(f"Last Updated: {status.updated_at}")
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 
 // Get message observing status for a session

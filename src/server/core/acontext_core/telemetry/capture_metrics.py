@@ -4,11 +4,16 @@ import hashlib
 from sqlalchemy import select, update, func, text
 
 from ..schema.utils import asUUID
-from ..infra.db import DB_CLIENT
+from ..infra.db import DatabaseClient, DB_CLIENT
 from ..schema.orm import Metric
 
 
-async def capture_increment(project_id: asUUID, tag: str, increment: int = 1) -> None:
+async def capture_increment(
+    project_id: asUUID,
+    tag: str,
+    increment: int = 1,
+    db_client: DatabaseClient = DB_CLIENT,
+) -> None:
     """
     Fetch the latest metric row for the given project and tag.
     - If no row exists for today, create a new one.
@@ -17,7 +22,7 @@ async def capture_increment(project_id: asUUID, tag: str, increment: int = 1) ->
     Uses PostgreSQL advisory locks to prevent race conditions when multiple
     concurrent calls try to create the same row.
     """
-    async with DB_CLIENT.get_session_context() as session:
+    async with db_client.get_session_context() as session:
         # Always compare dates in a consistent timezone (UTC)
         today_utc = datetime.now(timezone.utc).date()
 

@@ -13,12 +13,18 @@ The `get_token_counts()` method returns the total token count for all text and t
 
 <CodeGroup>
 ```python Python
+import os
 from acontext import AcontextClient
 
 client = AcontextClient(
-    base_url="http://localhost:8029/api/v1",
-    api_key="sk-ac-your-root-api-bearer-token"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
+
+# If you're using self-hosted Acontext:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
 
 # Get token counts for a session
 token_counts = client.sessions.get_token_counts(session_id="session-uuid")
@@ -27,12 +33,17 @@ print(f"Total tokens: {token_counts.total_tokens}")
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-  baseUrl: 'http://localhost:8029/api/v1',
-  apiKey: 'sk-ac-your-root-api-bearer-token'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
+
+// If you're using self-hosted Acontext:
+// const client = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
 
 // Get token counts for a session
 const tokenCounts = await client.sessions.getTokenCounts('session-uuid');
@@ -62,8 +73,7 @@ The basic usage is to pass the `edit_strategies` to the `get_messages` method to
 from acontext import AcontextClient
 
 client = AcontextClient(
-    base_url="http://localhost:8029/api/v1",
-    api_key="sk-ac-your-root-api-bearer-token"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 
 edited_session = client.sessions.get_messages(
@@ -80,11 +90,10 @@ original_session = client.sessions.get_messages(
 )
 ```
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-  baseUrl: 'http://localhost:8029/api/v1',
-  apiKey: 'sk-ac-your-root-api-bearer-token'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 
 const editedSession = await client.sessions.getMessages('session-uuid', {

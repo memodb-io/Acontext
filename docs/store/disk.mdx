@@ -13,7 +13,7 @@ You can organize files using a filesystem-like structure with paths, store custo
 <Card title="Agentic Disk SDK" icon="box" href="/sdk/disk_tools">
 Bring filesystem to your Agent with one-line code.
 </Card>
-If you like to know the details of Disk APis, please read the following documentation.
+If you like to know the details of Disk APIs, please read the following documentation.
 
 ## What you'll build
 
@@ -37,22 +37,34 @@ First, create a client instance with your API key and base URL.
 
 <CodeGroup>
 ```python Python
+import os
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
+
+# If you're using self-hosted Acontext:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
+
 client.ping()
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-    apiKey: "sk-ac-your-root-api-bearer-token",
-    baseUrl: "http://localhost:8029/api/v1"
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
+
+// If you're using self-hosted Acontext:
+// const client = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
 ```
 </CodeGroup>
 
@@ -121,7 +133,7 @@ print(f"Path: {artifact.path}")
 ```
 
 ```typescript TypeScript
-import { FileUpload } from 'acontext';
+import { FileUpload } from '@acontext/acontext';
 
 // Create a file upload
 const file = new FileUpload({
@@ -348,8 +360,7 @@ from acontext import AcontextClient, FileUpload
 def main():
     # Initialize client
     client = AcontextClient(
-        api_key="sk-ac-your-root-api-bearer-token",
-        base_url="http://localhost:8029/api/v1"
+        api_key=os.getenv("ACONTEXT_API_KEY"),
     )
     
     try:
@@ -404,13 +415,12 @@ if __name__ == "__main__":
 ```
 
 ```typescript TypeScript
-import { AcontextClient, FileUpload } from 'acontext';
+import { AcontextClient, FileUpload } from '@acontext/acontext';
 
 async function main() {
     // Initialize client
     const client = new AcontextClient({
-        apiKey: "sk-ac-your-root-api-bearer-token",
-        baseUrl: "http://localhost:8029/api/v1"
+        apiKey: process.env.ACONTEXT_API_KEY,
     });
     
     try {
@@ -562,8 +572,7 @@ from acontext import AsyncAcontextClient, FileUpload
 
 async def main():
     async with AsyncAcontextClient(
-        api_key="sk-ac-your-root-api-bearer-token",
-        base_url="http://localhost:8029/api/v1"
+        api_key=os.getenv("ACONTEXT_API_KEY"),
     ) as client:
         # All methods are async
         disk = await client.disks.create()

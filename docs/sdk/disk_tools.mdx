@@ -7,12 +7,13 @@ Acontext provides pre-built filesystem tools that allow LLMs to read, write, and
 
 ## Available Tools
 
-The SDK includes four disk operation tools:
+The SDK includes five disk operation tools:
 
 - **`write_file`** - Create or overwrite text files
 - **`read_file`** - Read file contents with optional line offset and limit
 - **`replace_string`** - Find and replace text in files  
 - **`list_artifacts`** - List files and directories in a path
+- **`download_file`** - Get a public URL to download a file
 
 <Tip>
 These tools handle path normalization automatically and support nested directory structures like `/notes/`, `/documents/2024/`, etc.
@@ -31,8 +32,14 @@ from openai import OpenAI
 
 # Initialize clients
 acontext_client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token", base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
+
+# If you're using self-hosted Acontext:
+# acontext_client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
 openai_client = OpenAI()
 
 # Create a disk and tool context
@@ -46,7 +53,7 @@ print(tools)
 messages = [
     {
         "role": "user",
-        "content": "Create a todo.md file with 3 tasks. Then check the content in this file",
+        "content": "Create a todo.md file with 3 tasks. Then give me the public download URL",
     }
 ]
 
@@ -84,9 +91,14 @@ import OpenAI from 'openai';
 
 // Initialize clients
 const acontextClient = new AcontextClient({
-  apiKey: 'sk-ac-your-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
+
+// If you're using self-hosted Acontext:
+// const acontextClient = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
 const openaiClient = new OpenAI({ apiKey: 'sk-your-openai-key' });
 
 // Create a disk and tool context
@@ -155,8 +167,7 @@ The agent will automatically call the appropriate tools (`write_file`, `read_fil
   from acontext.agent.disk import DISK_TOOLS
 
   client = AcontextClient(
-      api_key="sk-ac-your-token",
-      base_url="http://localhost:8029/api/v1"
+      api_key=os.getenv("ACONTEXT_API_KEY"),
   )
   disk = client.disks.create()
   ctx = DISK_TOOLS.format_context(client, disk.id)
@@ -166,8 +177,7 @@ The agent will automatically call the appropriate tools (`write_file`, `read_fil
   import { AcontextClient, DISK_TOOLS } from '@acontext/acontext';
 
   const client = new AcontextClient({
-    apiKey: 'sk-ac-your-token',
-    baseUrl: 'http://localhost:8029/api/v1'
+      apiKey: process.env.ACONTEXT_API_KEY,
   });
   const disk = await client.disks.create();
   const ctx = DISK_TOOLS.formatContext(client, disk.id);
@@ -290,6 +300,17 @@ List all files and directories at a specified path.
 - `file_path` (required) - Directory path to list, e.g., `"/notes/"` or `"/"`
 
 **Returns:** List of files and directories
+
+### download_file
+
+Get a public presigned URL to download a file.
+
+**Parameters:**
+- `filename` (required) - Name of the file to get the download URL for
+- `file_path` (optional) - Directory path where the file is located (defaults to `"/"`)
+- `expire` (optional) - URL expiration time in seconds (defaults to `3600`)
+
+**Returns:** Presigned public URL for downloading the file
 
 <Warning>
 All file operations are scoped to the specific disk. Ensure you create and configure the disk context correctly before executing tools.

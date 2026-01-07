@@ -6,8 +6,11 @@ from ...schema.utils import asUUID
 from ...llm.agent import task_sop as TSOP
 from ...env import LOG
 from ...schema.config import ProjectConfig
+from ...schema.result import Result
 from ...schema.session.task import TaskSchema
 from ..data import task as TD
+from ...telemetry.get_metrics import get_metrics
+from ...constants import ExcessMetricTags
 
 
 async def process_space_task(
@@ -16,10 +19,14 @@ async def process_space_task(
     space_id: asUUID,
     session_id: asUUID,
     task: TaskSchema,
-):
+) -> Result[None]:
+    disabled = await get_metrics(project_id, ExcessMetricTags.new_skill_learned)
+    if disabled:
+        LOG.warning(f"Project {project_id} has disabled new skill learned, skip")
+        return Result.resolve(None)
     if task.status != TaskStatus.SUCCESS:
         LOG.info(f"Task {task.id} is not success, skipping")
-        return
+        return Result.resolve(None)
 
     async with DB_CLIENT.get_session_context() as db_session:
         # 1. fetch messages from task
@@ -43,7 +50,7 @@ async def process_space_task(
             return
         PREVIOUS_TASKS = r.data
 
-    await TSOP.sop_agent_curd(
+    r = await TSOP.sop_agent_curd(
         project_id,
         space_id,
         task,
@@ -52,3 +59,4 @@ async def process_space_task(
         max_iterations=project_config.default_sop_agent_max_iterations,
         project_config=project_config,
     )
+    return r

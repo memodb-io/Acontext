@@ -57,7 +57,7 @@ async def sop_agent_curd(
     message_blobs: list[MessageBlob],
     max_iterations=3,
     project_config: Optional[ProjectConfig] = None,
-):
+) -> Result[None]:
     task_desc, user_perferences, raw_messages = pack_task_data(
         current_task, message_blobs
     )

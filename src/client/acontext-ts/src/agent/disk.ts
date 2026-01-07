@@ -234,20 +234,59 @@ export class ListTool extends AbstractBaseTool {
 
     const artifactsList = result.artifacts.map((artifact) => artifact.filename);
 
-    if (artifactsList.length === 0 && result.directories.length === 0) {
-      return `No files or directories found in '${normalizedPath}'`;
+    const fileSect = artifactsList.length > 0 ? artifactsList.join('\n') : '[NO FILE]';
+    const dirSect =
+      result.directories.length > 0
+        ? result.directories.map((d) => d.replace(/\/$/, '') + '/').join('\n')
+        : '[NO DIR]';
+
+    return `[Listing in ${normalizedPath}]\nDirectories:\n${dirSect}\nFiles:\n${fileSect}`;
+  }
+}
+
+export class DownloadFileTool extends AbstractBaseTool {
+  readonly name = 'download_file';
+  readonly description =
+    'Get a public URL to download a file. Returns a presigned URL that can be shared or used to access the file.';
+  readonly arguments = {
+    file_path: {
+      type: 'string',
+      description:
+        "Optional directory path where the file is located, e.g. '/notes/'. Defaults to root '/' if not specified.",
+    },
+    filename: {
+      type: 'string',
+      description: 'Filename to get the download URL for.',
+    },
+    expire: {
+      type: 'integer',
+      description: 'URL expiration time in seconds. Defaults to 3600 (1 hour).',
+    },
+  };
+  readonly requiredArguments = ['filename'];
+
+  async execute(ctx: DiskContext, llmArguments: Record<string, unknown>): Promise<string> {
+    const filename = llmArguments.filename as string;
+    const filePath = (llmArguments.file_path as string) || null;
+    const expire = (llmArguments.expire as number) || 3600;
+
+    if (!filename) {
+      throw new Error('filename is required');
     }
 
-    const outputParts: string[] = [];
-    if (artifactsList.length > 0) {
-      outputParts.push(`Files: ${artifactsList.join(', ')}`);
-    }
-    if (result.directories.length > 0) {
-      outputParts.push(`Directories: ${result.directories.join(', ')}`);
+    const normalizedPath = normalizePath(filePath);
+    const result = await ctx.client.disks.artifacts.get(ctx.diskId, {
+      filePath: normalizedPath,
+      filename,
+      withPublicUrl: true,
+      expire,
+    });
+
+    if (!result.public_url) {
+      throw new Error('Failed to get public URL: server did not return a URL.');
     }
 
-    const lsSect = outputParts.join('\n');
-    return `[Listing in ${normalizedPath}]\n${lsSect}`;
+    return `Public download URL for '${normalizedPath}${filename}' (expires in ${expire}s):\n${result.public_url}`;
   }
 }
 
@@ -265,4 +304,5 @@ DISK_TOOLS.addTool(new WriteFileTool());
 DISK_TOOLS.addTool(new ReadFileTool());
 DISK_TOOLS.addTool(new ReplaceStringTool());
 DISK_TOOLS.addTool(new ListTool());
+DISK_TOOLS.addTool(new DownloadFileTool());
 

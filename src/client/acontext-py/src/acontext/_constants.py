@@ -4,7 +4,7 @@ Internal constants shared across the Python SDK.
 
 from importlib import metadata as _metadata
 
-DEFAULT_BASE_URL = "https://api.acontext.io/api/v1"
+DEFAULT_BASE_URL = "https://api.acontext.app/api/v1"
 
 try:
     _VERSION = _metadata.version("acontext-py")

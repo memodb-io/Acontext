@@ -93,10 +93,14 @@ const openaiProvider = createOpenAI({
 
 // Initialize Acontext client
 const acontextClient = new AcontextClient({
-  apiKey: process.env.ACONTEXT_API_KEY || 'sk-ac-your-root-api-bearer-token',
-  baseUrl: process.env.ACONTEXT_BASE_URL || 'http://localhost:8029/api/v1',
-  timeout: 60000,
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
+
+// If you're using self-hosted Acontext:
+// const acontextClient = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
 ```
 </Step>
 </Steps>
@@ -142,8 +146,7 @@ const model = openaiProvider('gpt-4o-mini');
 
 // Initialize Acontext
 const acontextClient = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1',
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 
 // Create session
@@ -393,9 +396,7 @@ dotenv.config();
 
 // Initialize Acontext
 const acontextClient = new AcontextClient({
-  apiKey: process.env.ACONTEXT_API_KEY || 'sk-ac-your-root-api-bearer-token',
-  baseUrl: process.env.ACONTEXT_BASE_URL || 'http://localhost:8029/api/v1',
-  timeout: 60000,
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 
 // Tool implementations

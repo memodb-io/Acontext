@@ -261,15 +261,71 @@ class ListTool(BaseTool):
         if not artifacts_list and not result.directories:
             return f"No files or directories found in '{normalized_path}'"
 
-        output_parts = []
-        if artifacts_list:
-            output_parts.append(f"Files: {', '.join(artifacts_list)}")
-        if result.directories:
-            output_parts.append(f"Directories: {', '.join(result.directories)}")
-
-        ls_sect = "\n".join(output_parts)
+        file_sect = "\n".join(artifacts_list) or "[NO FILE]"
+        dir_sect = (
+            "\n".join([d.rstrip("/") + "/" for d in result.directories]) or "[NO DIR]"
+        )
         return f"""[Listing in {normalized_path}]
-{ls_sect}"""
+Directories:
+{dir_sect}
+Files:
+{file_sect}"""
+
+
+class DownloadFileTool(BaseTool):
+    """Tool for getting a public download URL for a file on the Acontext disk."""
+
+    @property
+    def name(self) -> str:
+        return "download_file"
+
+    @property
+    def description(self) -> str:
+        return "Get a public URL to download a file. Returns a presigned URL that can be shared or used to access the file."
+
+    @property
+    def arguments(self) -> dict:
+        return {
+            "file_path": {
+                "type": "string",
+                "description": "Optional directory path where the file is located, e.g. '/notes/'. Defaults to root '/' if not specified.",
+            },
+            "filename": {
+                "type": "string",
+                "description": "Filename to get the download URL for.",
+            },
+            "expire": {
+                "type": "integer",
+                "description": "URL expiration time in seconds. Defaults to 3600 (1 hour).",
+            },
+        }
+
+    @property
+    def required_arguments(self) -> list[str]:
+        return ["filename"]
+
+    def execute(self, ctx: DiskContext, llm_arguments: dict) -> str:
+        """Get a public download URL for a file."""
+        filename = llm_arguments.get("filename")
+        file_path = llm_arguments.get("file_path")
+        expire = llm_arguments.get("expire", 3600)
+
+        if not filename:
+            raise ValueError("filename is required")
+
+        normalized_path = _normalize_path(file_path)
+        result = ctx.client.disks.artifacts.get(
+            ctx.disk_id,
+            file_path=normalized_path,
+            filename=filename,
+            with_public_url=True,
+            expire=expire,
+        )
+
+        if not result.public_url:
+            raise RuntimeError("Failed to get public URL: server did not return a URL.")
+
+        return f"Public download URL for '{normalized_path}{filename}' (expires in {expire}s):\n{result.public_url}"
 
 
 class GrepArtifactsTool(BaseTool):
@@ -390,6 +446,7 @@ DISK_TOOLS.add_tool(ReplaceStringTool())
 DISK_TOOLS.add_tool(ListTool())
 DISK_TOOLS.add_tool(GrepArtifactsTool())
 DISK_TOOLS.add_tool(GlobArtifactsTool())
+DISK_TOOLS.add_tool(DownloadFileTool())
 
 
 if __name__ == "__main__":
@@ -427,5 +484,11 @@ if __name__ == "__main__":
     print(r)
     r = DISK_TOOLS.execute_tool(
         ctx, "read_file", {"filename": "test.txt", "file_path": "/try/"}
+    )
+    print(r)
+    r = DISK_TOOLS.execute_tool(
+        ctx,
+        "download_file",
+        {"filename": "test.txt", "file_path": "/try/", "expire": 300},
     )
     print(r)

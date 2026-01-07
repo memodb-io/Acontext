@@ -30,13 +30,38 @@
   <br/>
 </div>
 
-Acontext can help you:
 
-- **Build a scalable agent with better context engineering**
-- **Observe your agent success rate**
-- **Improve your agent with self-learning for each user**
+> Everyone is telling you how to use their agents.
+> 
+> But what if YOU need to build an agent for 100,000 users, how would you start?
+
+**📦 Problem 1: 99% of your DB is just LLM messages.** 
+
+> Poor schema design makes your most valuable data expensive and slow. Acontext handles context storage and retrieval via PG, Redis, and S3. 
+>
+> ChatGPT, Gemini, Anthropic, images, audio, files... we've got you covered.
+
+**⏰ Problem 2: Long-running agents are a nightmare.** 
+
+> You know context engineering, but you're always writing it from scratch. Acontext comes with built-in context editing methods and a todo agent out of the box.
+>
+> Managing agent state? Piece of cake.
+
+**👀 Problem 3: You can't see how your agent is doing.** 
+
+> How satisfied are your users, really? Acontext tracks tasks per session and shows you your agent's actual success rate. 
+>
+> Stop obsessing over token costs, improve the agent first.
+
+**🧠 Problem 4: Your agent is hit or miss.**
+
+> Can it learn from its wins? Acontext's experience agent remembers successful runs and turns them into reusable tool-use SOPs.
+>
+> Consistency is everything.
 
 
+
+To solve those problems at once, Acontext becomes the **Context Data Platform**:
 
 <div align="center">
     <picture>

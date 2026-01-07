@@ -280,6 +280,7 @@ class AsyncSingleThreadMQConsumer:
         self._processing_tasks: Set[asyncio.Task] = set()
         self.__running = False
         self._connection_lock = asyncio.Lock()  # Lock for connection operations
+        self._stop_lock = asyncio.Lock()
 
     @property
     def running(self) -> bool:
@@ -306,7 +307,7 @@ class AsyncSingleThreadMQConsumer:
                     blocked_connection_timeout=self.connection_config.blocked_connection_timeout,
                 )
                 self._publish_channle = await self.connection.channel()
-                LOG.info(
+                LOG.debug(
                     f"Connected to MQ (connection: {self.connection_config.connection_name})"
                 )
             except Exception as e:
@@ -331,7 +332,7 @@ class AsyncSingleThreadMQConsumer:
             )
 
         self.consumers[consumer_config.queue_name] = consumer_config
-        LOG.info(
+        LOG.debug(
             f"Registered consumer - queue: {consumer_config.queue_name}, "
             f"exchange: {consumer_config.exchange_name}, "
             f"routing_key: {consumer_config.routing_key}"
@@ -824,14 +825,8 @@ class AsyncSingleThreadMQConsumer:
         finally:
             await self.stop()
 
-    async def stop(self) -> None:
-        """Stop all consumers gracefully"""
-        if not self.running:
-            return
-
-        self.__running = False
+    async def stop_current_tasks(self) -> None:
         self._shutdown_event.set()
-
         # Cancel all consumer tasks
         LOG.info(f"Stopping {len(self._consumer_loop_tasks)} consumers...")
         for task in self._consumer_loop_tasks:
@@ -850,8 +845,16 @@ class AsyncSingleThreadMQConsumer:
             self._processing_tasks.clear()
 
         self._consumer_loop_tasks.clear()
-        await self.disconnect()
-        LOG.info("All consumers stopped")
+
+    async def stop(self) -> None:
+        """Stop all consumers gracefully"""
+        async with self._stop_lock:
+            if self.running:
+                await self.stop_current_tasks()
+
+            self.__running = False
+            await self.disconnect()
+            LOG.info("All consumers stopped")
 
     async def health_check(self) -> bool:
         """Check if the consumer is healthy"""
@@ -892,6 +895,7 @@ async def init_mq() -> None:
     else:
         LOG.error("Failed to initialize MQ connection")
         raise ConnectionError("Could not connect to MQ")
+    await MQ_CLIENT.connect()
 
 
 async def start_mq() -> None:

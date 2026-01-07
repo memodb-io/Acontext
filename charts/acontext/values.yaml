@@ -263,6 +263,13 @@ secrets:
 # HTTPRoute is used to define routing rules for the Gateway API
 httpRoute:
   enabled: false
+  # Timeouts for HTTPRoute rules
+  # See: https://gateway-api.sigs.k8s.io/reference/1.4/spec/#httproutetimeouts
+  # Example:
+  #   timeouts:
+  #     request: "4s"
+  #     backendRequest: "2s"
+  timeouts: {}
   # Gateway name and namespace where the HTTPRoute will be attached
   gateway:
     name: ""  # Gateway name (e.g., "main-gateway")

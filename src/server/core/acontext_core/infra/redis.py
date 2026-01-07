@@ -1,8 +1,7 @@
-import os
 from typing import Optional, Dict, Any, AsyncGenerator
 from contextlib import asynccontextmanager
 
-import redis.asyncio as redis
+import redis.asyncio as redis  # noqa: F401
 from redis.asyncio import ConnectionPool, Redis
 from redis.exceptions import (
     ConnectionError,
@@ -33,7 +32,7 @@ class RedisClient:
                 "Redis URL could not be constructed from environment variables"
             )
 
-        logger.info(f"Redis URL: {self._build_redis_url()}")
+        logger.debug(f"Redis URL: {self._build_redis_url()}")
 
         self._pool: ConnectionPool = self._create_pool()
         self._client: Redis = self._create_client()
@@ -72,27 +71,29 @@ class RedisClient:
             encoding="utf-8",  # Default encoding
         )
 
-        logger.info("Redis connection pool created")
+        logger.debug("Redis connection pool created")
         return pool
 
     def _create_client(self) -> Redis:
         """Create the Redis client with optimal settings."""
         client = Redis(connection_pool=self.pool, decode_responses=True)
-        
+
         # Instrument with OpenTelemetry if enabled
         try:
             from ..telemetry.config import TelemetryConfig
+
             telemetry_config = TelemetryConfig.from_env()
             if telemetry_config.enabled:
                 from ..telemetry.otel import instrument_redis
+
                 instrument_redis(client)
-                logger.info("Redis OpenTelemetry instrumentation enabled")
+                logger.debug("Redis OpenTelemetry instrumentation enabled")
         except Exception as e:
             logger.warning(
                 f"Failed to instrument Redis with OpenTelemetry, continuing without tracing: {e}",
-                exc_info=True
+                exc_info=True,
             )
-        
+
         logger.info("Redis client created")
         return client
 
@@ -178,7 +179,7 @@ REDIS_CLIENT = RedisClient()
 async def init_redis() -> None:
     """Initialize Redis connection (perform health check)."""
     if await REDIS_CLIENT.health_check():
-        logger.info(
+        logger.debug(
             f"Redis connection initialized successfully {REDIS_CLIENT.get_pool_status()}"
         )
     else:

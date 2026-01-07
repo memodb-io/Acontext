@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from optparse import Option
 from sqlalchemy import ForeignKey, Index, Column, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -9,9 +8,6 @@ from ..utils import asUUID
 
 if TYPE_CHECKING:
     from .project import Project
-    from .space import Space
-    from .message import Message
-    from .task import Task
     from .tool_sop import ToolSOP
 
 

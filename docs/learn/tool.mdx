@@ -11,12 +11,18 @@ Retrieve a comprehensive list of all tools that have been used by agents in your
 
 <CodeGroup>
 ```python Python
+import os
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
+
+# If you're using self-hosted Acontext:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
 
 # Get all tool names with usage statistics
 tools = client.tools.get_tool_name()
@@ -28,10 +34,15 @@ for tool in tools:
 ```typescript TypeScript
 import { AcontextClient } from '@acontext/acontext';
 
-const client = new AcontextClient({ 
-    apiKey: 'sk-ac-your-root-api-bearer-token',
-    baseUrl: 'http://localhost:8029/api/v1'
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
+
+// If you're using self-hosted Acontext:
+// const client = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
 
 // Get all tool names with usage statistics
 const tools = await client.tools.getToolName();
@@ -57,8 +68,7 @@ Rename multiple tools simultaneously to maintain consistency and improve organiz
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 
 # Rename multiple tools at once
@@ -79,9 +89,8 @@ else:
 ```typescript TypeScript
 import { AcontextClient } from '@acontext/acontext';
 
-const client = new AcontextClient({ 
-    apiKey: 'sk-ac-your-root-api-bearer-token',
-    baseUrl: 'http://localhost:8029/api/v1'
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 
 // Rename multiple tools at once

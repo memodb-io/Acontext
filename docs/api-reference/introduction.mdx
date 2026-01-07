@@ -84,10 +84,19 @@ Here's a complete example to get you started:
 
 <CodeGroup>
 ```python Python
+import os
 from acontext import AcontextClient
 
 # Initialize client
-client = AcontextClient(api_key='YOUR_API_KEY')
+client = AcontextClient(
+    api_key=os.getenv("ACONTEXT_API_KEY"),
+)
+
+# If you're using self-hosted Acontext:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
 
 # Create a knowledge space
 space = client.spaces.create(
@@ -120,7 +129,15 @@ results = client.spaces.experience_search(
 import { AcontextClient } from '@acontext/acontext';
 
 // Initialize client
-const client = new AcontextClient({ apiKey: 'YOUR_API_KEY' });
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+// If you're using self-hosted Acontext:
+// const client = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
 
 // Create a knowledge space
 const space = await client.spaces.create({ 

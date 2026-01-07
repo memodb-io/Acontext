@@ -2,12 +2,11 @@ from dataclasses import dataclass, field
 from sqlalchemy import ForeignKey, Index, Column, String, Integer, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from typing import TYPE_CHECKING, Optional, List
+from typing import TYPE_CHECKING, Optional
 from .base import ORM_BASE, CommonMixin
 from ..utils import asUUID
 
 if TYPE_CHECKING:
-    from .project import Project
     from .tool_reference import ToolReference
     from .block import Block
 

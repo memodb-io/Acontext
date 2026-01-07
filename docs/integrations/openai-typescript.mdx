@@ -90,10 +90,14 @@ const openaiClient = new OpenAI({
 });
 
 const acontextClient = new AcontextClient({
-  apiKey: process.env.ACONTEXT_API_KEY || 'sk-ac-your-root-api-bearer-token',
-  baseUrl: process.env.ACONTEXT_BASE_URL || 'http://localhost:8029/api/v1',
-  timeout: 60000,
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
+
+// If you're using self-hosted Acontext:
+// const acontextClient = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
 ```
 </Step>
 </Steps>
@@ -124,8 +128,7 @@ const openaiClient = new OpenAI({
 });
 
 const acontextClient = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1',
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 
 // Create Acontext session
@@ -322,10 +325,14 @@ const openaiClient = new OpenAI({
 });
 
 const acontextClient = new AcontextClient({
-  apiKey: process.env.ACONTEXT_API_KEY || 'sk-ac-your-root-api-bearer-token',
-  baseUrl: process.env.ACONTEXT_BASE_URL || 'http://localhost:8029/api/v1',
-  timeout: 60000,
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
+
+// If you're using self-hosted Acontext:
+// const acontextClient = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
 
 // Tool definitions
 const tools = [
