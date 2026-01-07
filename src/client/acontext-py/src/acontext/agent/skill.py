@@ -335,17 +335,9 @@ class GetSkillFileTool(BaseTool):
                 "type": "string",
                 "description": "Relative path to the file within the skill (e.g., 'scripts/extract_text.json').",
             },
-            "with_content": {
-                "type": "boolean",
-                "description": "Whether to return file content. Defaults to true for text-based files.",
-            },
-            "with_public_url": {
-                "type": "boolean",
-                "description": "Whether to return a presigned URL. Defaults to false.",
-            },
             "expire": {
                 "type": "integer",
-                "description": "URL expiration time in seconds. Defaults to 900 (15 minutes).",
+                "description": "URL expiration time in seconds (only used for non-parseable files). Defaults to 900 (15 minutes).",
             },
         }
 
@@ -358,8 +350,6 @@ class GetSkillFileTool(BaseTool):
         skill_id = llm_arguments.get("skill_id")
         skill_name = llm_arguments.get("skill_name")
         file_path = llm_arguments.get("file_path")
-        with_content = llm_arguments.get("with_content", True)  # Default to True for LLM usage
-        with_public_url = llm_arguments.get("with_public_url", False)
         expire = llm_arguments.get("expire")
 
         if not file_path:
@@ -371,12 +361,10 @@ class GetSkillFileTool(BaseTool):
             skill_id=skill_id,
             skill_name=skill_name,
             file_path=file_path,
-            with_content=with_content,
-            with_public_url=with_public_url,
             expire=expire,
         )
 
-        output_parts = [f"File '{file_path}' from skill '{skill_name or skill_id}':"]
+        output_parts = [f"File '{result.path}' (MIME: {result.mime}) from skill '{skill_name or skill_id}':"]
 
         if result.content:
             output_parts.append(f"\nContent (type: {result.content.type}):")
@@ -392,7 +380,7 @@ class GetSkillFileTool(BaseTool):
             output_parts.append(result.url)
 
         if not result.content and not result.url:
-            return f"File '{file_path}' retrieved but no content or URL returned."
+            return f"File '{result.path}' retrieved but no content or URL returned."
 
         return "\n".join(output_parts)
 

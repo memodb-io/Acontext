@@ -33,6 +33,8 @@ export const FileContentSchema = z.object({
 export type FileContent = z.infer<typeof FileContentSchema>;
 
 export const GetSkillFileRespSchema = z.object({
+  path: z.string(),
+  mime: z.string(),
   url: z.string().nullable().optional(),
   content: FileContentSchema.nullable().optional(),
 });

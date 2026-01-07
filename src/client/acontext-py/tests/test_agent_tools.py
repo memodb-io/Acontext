@@ -415,8 +415,9 @@ class TestSkillTools:
     ) -> None:
         """Test get_skill_file tool execution."""
         mock_request.return_value = {
-            "url": "https://s3.example.com/presigned-url",
-            "content": {"type": "text", "raw": "print('Hello, World!')"},
+            "path": "scripts/main.py",
+            "mime": "text/x-python",
+            "content": {"type": "code", "raw": "print('Hello, World!')"},
         }
 
         result = SKILL_TOOLS.execute_tool(
@@ -425,11 +426,11 @@ class TestSkillTools:
             {
                 "skill_id": "skill-1",
                 "file_path": "scripts/main.py",
-                "with_content": True,
             },
         )
 
         assert "scripts/main.py" in result
+        assert "text/x-python" in result
         assert "Hello, World!" in result
         mock_request.assert_called_once()
 

@@ -40,6 +40,8 @@ class FileContent(BaseModel):
 class GetSkillFileResp(BaseModel):
     """Response model for getting a skill file."""
 
-    url: str | None = Field(None, description="Presigned URL for downloading the file")
-    content: FileContent | None = Field(None, description="Parsed file content if available")
+    path: str = Field(..., description="File path")
+    mime: str = Field(..., description="MIME type of the file")
+    url: str | None = Field(None, description="Presigned URL for downloading the file (present if file is not parseable)")
+    content: FileContent | None = Field(None, description="Parsed file content if available (present if file is parseable)")
 

@@ -482,13 +482,13 @@ describe('Agent Tools Tests', () => {
       ).rejects.toThrow('skill_id is required');
     });
 
-    test('should throw error when skill_id missing for get_file', async () => {
+    test('should throw error when skill_id and skill_name missing for get_file', async () => {
       const ctx = SKILL_TOOLS.formatContext(client);
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill_file', {
           file_path: 'test.json',
         })
-      ).rejects.toThrow('skill_id is required');
+      ).rejects.toThrow('Either skill_id or skill_name must be provided');
     });
 
     test('should throw error when file_path missing for get_file', async () => {
@@ -565,11 +565,17 @@ describe('Agent Tools Tests', () => {
       const tool = new GetSkillFileTool();
       expect(tool.name).toBe('get_skill_file');
       expect(tool.description).toBeTruthy();
-      expect(tool.requiredArguments).toContain('skill_id');
+      // file_path is required, but skill_id and skill_name are optional (either one must be provided)
       expect(tool.requiredArguments).toContain('file_path');
+      expect(tool.requiredArguments).not.toContain('skill_id');
+      expect(tool.requiredArguments).not.toContain('skill_name');
       expect(tool.arguments).toHaveProperty('skill_id');
+      expect(tool.arguments).toHaveProperty('skill_name');
       expect(tool.arguments).toHaveProperty('file_path');
       expect(tool.arguments).toHaveProperty('expire');
+      // Should not have with_content or with_public_url
+      expect(tool.arguments).not.toHaveProperty('with_content');
+      expect(tool.arguments).not.toHaveProperty('with_public_url');
     });
 
     test('SKILL_TOOLS should generate OpenAI tool schemas', () => {

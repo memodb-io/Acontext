@@ -100,8 +100,6 @@ export class SkillsAPI {
     skillId?: string | null;
     skillName?: string | null;
     filePath: string;
-    withPublicUrl?: boolean | null;
-    withContent?: boolean | null;
     expire?: number | null;
   }): Promise<GetSkillFileResp> {
     if (!options.skillId && !options.skillName) {
@@ -113,22 +111,46 @@ export class SkillsAPI {
       ? `/agent_skills/by_name/${options.skillName}/file`
       : `/agent_skills/${options.skillId}/file`;
 
-    const params: Record<string, string | number | boolean> = {
+    const params: Record<string, string | number> = {
       file_path: options.filePath,
     };
-    if (options.withPublicUrl !== undefined && options.withPublicUrl !== null) {
-      params.with_public_url = options.withPublicUrl;
-    }
-    if (options.withContent !== undefined && options.withContent !== null) {
-      params.with_content = options.withContent;
-    }
     if (options.expire !== undefined && options.expire !== null) {
       params.expire = options.expire;
     }
+
     const data = await this.requester.request('GET', endpoint, {
       params,
     });
-    return GetSkillFileRespSchema.parse(data);
+
+    // Handle different response formats:
+    // - /agent_skills/by_name/{name}/file returns {path, mime, content?, url?}
+    // - /agent_skills/{id}/file returns {url: "..."}
+    if (
+      typeof data === 'object' &&
+      data !== null &&
+      'path' in data &&
+      'mime' in data
+    ) {
+      // New format from GetFile endpoint
+      return GetSkillFileRespSchema.parse(data);
+    } else if (
+      typeof data === 'object' &&
+      data !== null &&
+      'url' in data &&
+      Object.keys(data).length === 1
+    ) {
+      // Old format from GetFileURL endpoint (only URL)
+      // We need to construct a minimal response
+      return GetSkillFileRespSchema.parse({
+        path: options.filePath,
+        mime: '',
+        url: (data as { url: string }).url,
+        content: null,
+      });
+    } else {
+      // Fallback: try to parse as GetSkillFileResp
+      return GetSkillFileRespSchema.parse(data);
+    }
   }
 }
 

@@ -294,18 +294,10 @@ export class GetSkillFileTool extends AbstractBaseTool {
       description:
         "Relative path to the file within the skill (e.g., 'scripts/extract_text.json').",
     },
-    with_content: {
-      type: 'boolean',
-      description:
-        'Whether to return file content. Defaults to true for text-based files.',
-    },
-    with_public_url: {
-      type: 'boolean',
-      description: 'Whether to return a presigned URL. Defaults to false.',
-    },
     expire: {
       type: 'number',
-      description: 'URL expiration time in seconds. Defaults to 900 (15 minutes).',
+      description:
+        'URL expiration time in seconds (only used for non-parseable files). Defaults to 900 (15 minutes).',
     },
   };
   readonly requiredArguments = ['file_path'];
@@ -317,8 +309,6 @@ export class GetSkillFileTool extends AbstractBaseTool {
     const skillId = llmArguments.skill_id as string | undefined;
     const skillName = llmArguments.skill_name as string | undefined;
     const filePath = llmArguments.file_path as string;
-    const withContent = (llmArguments.with_content as boolean) ?? true; // Default to true for LLM usage
-    const withPublicUrl = (llmArguments.with_public_url as boolean) ?? false;
     const expire = llmArguments.expire as number | undefined;
 
     if (!filePath) {
@@ -332,13 +322,11 @@ export class GetSkillFileTool extends AbstractBaseTool {
       skillId: skillId || null,
       skillName: skillName || null,
       filePath,
-      withContent,
-      withPublicUrl,
       expire: expire || null,
     });
 
     const outputParts: string[] = [
-      `File '${filePath}' from skill '${skillName || skillId}':`,
+      `File '${result.path}' (MIME: ${result.mime}) from skill '${skillName || skillId}':`,
     ];
 
     if (result.content) {

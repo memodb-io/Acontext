@@ -150,22 +150,21 @@ class AsyncSkillsAPI:
         skill_name: str | None = None,
         *,
         file_path: str,
-        with_public_url: bool | None = None,
-        with_content: bool | None = None,
         expire: int | None = None,
     ) -> GetSkillFileResp:
         """Get a file from a skill by ID or name.
+
+        The backend automatically returns content for parseable text files, or a presigned URL
+        for non-parseable files (binary, images, etc.).
 
         Args:
             skill_id: The UUID of the skill. Either skill_id or skill_name must be provided.
             skill_name: The name of the skill. Either skill_id or skill_name must be provided.
             file_path: Relative path to the file within the skill (e.g., 'scripts/extract_text.json').
-            with_public_url: Whether to include a presigned public URL. Defaults to None.
-            with_content: Whether to include file content. Defaults to None.
             expire: URL expiration time in seconds. Defaults to 900 (15 minutes).
 
         Returns:
-            GetSkillFileResp containing the file URL and/or content.
+            GetSkillFileResp containing the file path, MIME type, and either content or URL.
         """
         if not skill_id and not skill_name:
             raise ValueError("Either skill_id or skill_name must be provided")
@@ -174,15 +173,31 @@ class AsyncSkillsAPI:
         if skill_name:
             endpoint = f"/agent_skills/by_name/{skill_name}/file"
         else:
+            # For skill_id, use the existing endpoint (which only returns URL)
             endpoint = f"/agent_skills/{skill_id}/file"
 
         params = {"file_path": file_path}
-        if with_public_url is not None:
-            params["with_public_url"] = with_public_url
-        if with_content is not None:
-            params["with_content"] = with_content
         if expire is not None:
             params["expire"] = expire
+
         data = await self._requester.request("GET", endpoint, params=params)
-        return GetSkillFileResp.model_validate(data)
+
+        # Handle different response formats:
+        # - /agent_skills/by_name/{name}/file returns {path, mime, content?, url?}
+        # - /agent_skills/{id}/file returns {url: "..."}
+        if "path" in data and "mime" in data:
+            # New format from GetFile endpoint
+            return GetSkillFileResp.model_validate(data)
+        elif "url" in data:
+            # Old format from GetFileURL endpoint (only URL)
+            # We need to construct a minimal response
+            return GetSkillFileResp(
+                path=file_path,
+                mime="",  # Not available from old endpoint
+                url=data.get("url"),
+                content=None,
+            )
+        else:
+            # Fallback: try to parse as GetSkillFileResp
+            return GetSkillFileResp.model_validate(data)
 
