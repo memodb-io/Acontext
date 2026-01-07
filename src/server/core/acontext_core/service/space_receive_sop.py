@@ -24,7 +24,7 @@ from .data import project as PD
 from .data import task as TD
 from .data import session as SD
 from .controller import space_sop as SSC
-from .utils import check_redis_lock_or_set, release_redis_lock
+from .utils import acquire_redis_lock_token, release_redis_lock
 from . import space_sop_buffer as SSB
 from .space_sop_batch_processor import (
     SOPBatchDependencies,
@@ -67,7 +67,7 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
         mq_client=MQ_CLIENT,
         exchange_name=EX.space_task,
         retry_routing_key=RK.space_task_sop_complete_retry,
-        lock_acquire=check_redis_lock_or_set,
+        lock_acquire=acquire_redis_lock_token,
         lock_release=release_redis_lock,
         lock_key_prefix=RK.space_task_sop_complete,
         buffer=SSB,

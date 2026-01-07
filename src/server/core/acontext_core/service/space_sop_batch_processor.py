@@ -108,14 +108,14 @@ class SOPBatchProcessor:
         await self._buffer_incoming(body)
 
         lock_key = self._space_lock_key(body.space_id)
-        acquired = await self._try_acquire_lock_or_retry(body, lock_key)
+        acquired, lock_token = await self._try_acquire_lock_or_retry(body, lock_key)
         if not acquired:
             return
 
         try:
             await self._process_as_lock_owner(body)
         finally:
-            await self._safe_release_lock(body, lock_key)
+            await self._safe_release_lock(body, lock_key, lock_token)
 
     async def _buffer_incoming(self, body: SOPComplete) -> None:
         """
@@ -142,7 +142,9 @@ class SOPBatchProcessor:
         """Return the per-space lock key used for SOP completion processing."""
         return f"{self._deps.lock_key_prefix}.{space_id}"
 
-    async def _try_acquire_lock_or_retry(self, body: SOPComplete, lock_key: str) -> bool:
+    async def _try_acquire_lock_or_retry(
+        self, body: SOPComplete, lock_key: str
+    ) -> tuple[bool, str | None]:
         """
         Try to acquire the per-space lock.
 
@@ -150,18 +152,21 @@ class SOPBatchProcessor:
         If Redis errors occur, also publish a retry message (best effort).
         """
         try:
-            acquired = await self._deps.lock_acquire(body.project_id, lock_key)
+            lock_result = await self._deps.lock_acquire(body.project_id, lock_key)
         except Exception as e:
             LOG.error(
                 f"Failed to acquire SOP space lock due to Redis error "
                 f"(space={body.space_id}, task={body.task_id}): {e}"
             )
             await self._publish_retry_best_effort(body)
-            return False
+            return False, None
+
+        lock_token = lock_result if isinstance(lock_result, str) else None
+        acquired = bool(lock_result)
 
         if acquired:
             LOG.info(f"Lock Space {body.space_id} for SOP complete task")
-            return True
+            return True, lock_token
 
         # Lock not acquired: ask MQ to redeliver later. This is the primary throttle
         # when many messages arrive for the same space concurrently.
@@ -170,7 +175,7 @@ class SOPBatchProcessor:
             f"wait {self._settings.lock_wait_seconds} seconds for next resend. "
         )
         await self._publish_retry_best_effort(body)
-        return False
+        return False, None
 
     async def _process_as_lock_owner(self, body: SOPComplete) -> None:
         """
@@ -552,10 +557,15 @@ class SOPBatchProcessor:
                 f"Failed to remove SOPComplete from buffer (space={space_id}): {e}"
             )
 
-    async def _safe_release_lock(self, body: SOPComplete, lock_key: str) -> None:
+    async def _safe_release_lock(
+        self, body: SOPComplete, lock_key: str, lock_token: str | None
+    ) -> None:
         """Release the per-space lock, logging but not raising on failure."""
         try:
-            await self._deps.lock_release(body.project_id, lock_key)
+            if lock_token is None:
+                await self._deps.lock_release(body.project_id, lock_key)
+            else:
+                await self._deps.lock_release(body.project_id, lock_key, lock_token)
         except Exception as e:
             LOG.error(
                 f"Failed to release SOP space lock (space={body.space_id}, task={body.task_id}): {e}"
