@@ -1,3 +1,4 @@
+from .env import LOG
 from .infra.db import init_database, close_database
 from .infra.redis import init_redis, close_redis
 from .infra.async_mq import init_mq, close_mq
@@ -19,6 +20,7 @@ async def setup() -> None:
     await init_s3()
     await init_mq()
     await init_sandbox()
+    LOG.info("Acontext launch successfully 🎉")
 
 
 async def cleanup() -> None:
@@ -27,3 +29,4 @@ async def cleanup() -> None:
     await close_s3()
     await close_redis()
     await close_database()
+    LOG.info("Goodbye 👋")
