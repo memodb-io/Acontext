@@ -89,7 +89,7 @@ class S3Client:
         if not self.bucket:
             raise ValueError("S3 bucket name is required")
 
-        logger.info(
+        logger.debug(
             f"S3 Client Config - Region: {self.region}, Bucket: {self.bucket}, Endpoint: {self.endpoint}"
         )
 
@@ -158,15 +158,17 @@ class S3Client:
             # Instrument with OpenTelemetry if enabled
             try:
                 from ..telemetry.config import TelemetryConfig
+
                 telemetry_config = TelemetryConfig.from_env()
                 if telemetry_config.enabled:
                     from ..telemetry.otel import instrument_s3
+
                     instrument_s3(self._client)
-                    logger.info("S3 OpenTelemetry instrumentation enabled")
+                    logger.debug("S3 OpenTelemetry instrumentation enabled")
             except Exception as e:
                 logger.warning(
                     f"Failed to instrument S3 with OpenTelemetry, continuing without tracing: {e}",
-                    exc_info=True
+                    exc_info=True,
                 )
 
         return self._client
@@ -345,7 +347,9 @@ class S3Client:
         except Exception as e:
             _handle_unexpected_error(e, bucket_name, key)
 
-    async def health_check(self, max_retries: int = 5, retry_delay: float = 2.0) -> bool:
+    async def health_check(
+        self, max_retries: int = 5, retry_delay: float = 2.0
+    ) -> bool:
         """
         Perform health check with bucket HEAD operation with retry logic.
 
@@ -360,7 +364,7 @@ class S3Client:
             try:
                 async with self.get_client() as client:
                     await client.head_bucket(Bucket=self.bucket)
-                    logger.info(f"S3 health check passed - bucket: {self.bucket}")
+                    logger.debug(f"S3 health check passed - bucket: {self.bucket}")
                     return True
 
             except (ClientError, NoCredentialsError, Exception) as e:
@@ -376,7 +380,7 @@ class S3Client:
                         f"bucket: {self.bucket}, error: {str(e)}"
                     )
                     return False
-        
+
         return False
 
     def get_connection_status(self) -> Dict[str, Any]:
@@ -444,7 +448,7 @@ async def get_s3_client() -> S3Client:
 async def init_s3() -> None:
     """Initialize S3 client (perform health check)."""
     if await S3_CLIENT.health_check():
-        logger.info(
+        logger.debug(
             f"S3 client initialized successfully {S3_CLIENT.get_connection_status()}"
         )
     else:

@@ -146,7 +146,7 @@ async def check_legal_embedding_dim(
                 f"does not match database dimension ({actual_dim}). "
                 f"This may cause errors when inserting embeddings."
             )
-        LOG.info(
+        LOG.debug(
             f"Configuration embedding dimension ({embedding_dim}) "
             f"matches database dimension ({actual_dim}). "
         )

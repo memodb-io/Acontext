@@ -307,7 +307,7 @@ class AsyncSingleThreadMQConsumer:
                     blocked_connection_timeout=self.connection_config.blocked_connection_timeout,
                 )
                 self._publish_channle = await self.connection.channel()
-                LOG.info(
+                LOG.debug(
                     f"Connected to MQ (connection: {self.connection_config.connection_name})"
                 )
             except Exception as e:
@@ -332,7 +332,7 @@ class AsyncSingleThreadMQConsumer:
             )
 
         self.consumers[consumer_config.queue_name] = consumer_config
-        LOG.info(
+        LOG.debug(
             f"Registered consumer - queue: {consumer_config.queue_name}, "
             f"exchange: {consumer_config.exchange_name}, "
             f"routing_key: {consumer_config.routing_key}"

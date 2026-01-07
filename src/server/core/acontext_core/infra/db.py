@@ -48,7 +48,7 @@ class DatabaseClient:
                 "postgres://", "postgresql+asyncpg://", 1
             )
 
-        logger.info(f"SQLAlchemy Engine URL: {self.database_url}")
+        logger.debug(f"SQLAlchemy Engine URL: {self.database_url}")
         self._engine: AsyncEngine | None = self._create_engine()
         self._table_created: bool = False
         self._sessionmaker: async_sessionmaker[AsyncSession] | None = (
@@ -103,19 +103,21 @@ class DatabaseClient:
 
         # Set up event listeners for connection monitoring
         self._setup_event_listeners(engine)
-        
+
         # Instrument with OpenTelemetry if enabled
         try:
             from ..telemetry.config import TelemetryConfig
+
             telemetry_config = TelemetryConfig.from_env()
             if telemetry_config.enabled:
                 from ..telemetry.otel import instrument_sqlalchemy
+
                 instrument_sqlalchemy(engine)
-                logger.info("SQLAlchemy OpenTelemetry instrumentation enabled")
+                logger.debug("SQLAlchemy OpenTelemetry instrumentation enabled")
         except Exception as e:
             logger.warning(
                 f"Failed to instrument SQLAlchemy with OpenTelemetry, continuing without tracing: {e}",
-                exc_info=True
+                exc_info=True,
             )
 
         return engine
