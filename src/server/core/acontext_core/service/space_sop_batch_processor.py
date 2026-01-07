@@ -271,7 +271,13 @@ class SOPBatchProcessor:
         if pop_size <= 0:
             return []
 
-        return await self._deps.buffer.pop_sop_buffer_batch(project_id, space_id, pop_size)
+        try:
+            return await self._deps.buffer.pop_sop_buffer_batch(
+                project_id, space_id, pop_size
+            )
+        except Exception as e:
+            LOG.error(f"Failed to pop SOP buffer batch (space={space_id}): {e}", exc_info=True)
+            return []
 
     def _parse_and_filter_entries(
         self,
@@ -554,4 +560,3 @@ class SOPBatchProcessor:
             LOG.error(
                 f"Failed to release SOP space lock (space={body.space_id}, task={body.task_id}): {e}"
             )
-
