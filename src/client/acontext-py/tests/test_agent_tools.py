@@ -256,10 +256,10 @@ class TestSkillTools:
         mock_request.assert_called_once()
 
     @patch("acontext.client.AcontextClient.request")
-    def test_get_skill_by_id_tool(
+    def test_get_skill_by_name_tool(
         self, mock_request: MagicMock, skill_ctx: SkillContext
     ) -> None:
-        """Test get_skill tool with ID."""
+        """Test get_skill tool with name (only method supported now)."""
         mock_request.return_value = {
             "id": "skill-1",
             "project_id": "project-id",
@@ -274,37 +274,12 @@ class TestSkillTools:
         result = SKILL_TOOLS.execute_tool(
             skill_ctx,
             "get_skill",
-            {"skill_id": "skill-1"},
+            {"name": "test-skill"},
         )
 
         assert "test-skill" in result
         assert "Test skill" in result
         assert "2 file(s)" in result
-        mock_request.assert_called_once()
-
-    @patch("acontext.client.AcontextClient.request")
-    def test_get_skill_by_name_tool(
-        self, mock_request: MagicMock, skill_ctx: SkillContext
-    ) -> None:
-        """Test get_skill tool with name."""
-        mock_request.return_value = {
-            "id": "skill-1",
-            "project_id": "project-id",
-            "name": "test-skill",
-            "description": "Test skill",
-            "file_index": ["SKILL.md"],
-            "meta": {},
-            "created_at": "2024-01-01T00:00:00Z",
-            "updated_at": "2024-01-01T00:00:00Z",
-        }
-
-        result = SKILL_TOOLS.execute_tool(
-            skill_ctx,
-            "get_skill",
-            {"name": "test-skill"},
-        )
-
-        assert "test-skill" in result
         mock_request.assert_called_once()
 
     @patch("acontext.client.AcontextClient.request")
@@ -486,6 +461,35 @@ class TestSkillTools:
         assert "id" not in catalog["skills"][0]
         assert "file_index" not in catalog["skills"][0]
         mock_request.assert_called_once()
+
+    @patch("acontext.client.AcontextClient.request")
+    def test_get_skill_md_tool(
+        self, mock_request: MagicMock, skill_ctx: SkillContext
+    ) -> None:
+        """Test get_skill_md tool execution."""
+        mock_request.return_value = {
+            "path": "SKILL.md",
+            "mime": "text/markdown",
+            "content": {
+                "type": "text",
+                "raw": "---\nname: test-skill\ndescription: Test skill\n---\n\n# Skill Documentation",
+            },
+        }
+
+        result = SKILL_TOOLS.execute_tool(
+            skill_ctx,
+            "get_skill_md",
+            {"skill_name": "test-skill"},
+        )
+
+        assert "SKILL.md" in result
+        assert "test-skill" in result
+        assert "Test skill" in result
+        assert "Skill Documentation" in result
+        mock_request.assert_called_once()
+        # Verify it calls get_file_by_name with SKILL.md
+        args, kwargs = mock_request.call_args
+        assert kwargs["params"]["file_path"] == "SKILL.md"
 
     def test_get_skill_tool_validation(self, skill_ctx: SkillContext) -> None:
         """Test get_skill tool parameter validation."""

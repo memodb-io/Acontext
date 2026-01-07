@@ -22,6 +22,7 @@ import {
   UpdateSkillTool,
   DeleteSkillTool,
   GetSkillFileTool,
+  GetSkillMDTool,
 } from '../src/agent';
 
 describe('Agent Tools Tests', () => {
@@ -383,9 +384,11 @@ describe('Agent Tools Tests', () => {
       expect(SKILL_TOOLS.toolExists('create_skill')).toBe(true);
       expect(SKILL_TOOLS.toolExists('get_skill')).toBe(true);
       expect(SKILL_TOOLS.toolExists('list_skills')).toBe(true);
+      expect(SKILL_TOOLS.toolExists('list_skills_catalog')).toBe(true);
       expect(SKILL_TOOLS.toolExists('update_skill')).toBe(true);
       expect(SKILL_TOOLS.toolExists('delete_skill')).toBe(true);
       expect(SKILL_TOOLS.toolExists('get_skill_file')).toBe(true);
+      expect(SKILL_TOOLS.toolExists('get_skill_md')).toBe(true);
     });
 
     test('should list skills', async () => {
@@ -395,21 +398,6 @@ describe('Agent Tools Tests', () => {
       });
 
       expect(result).toContain('skill(s)');
-    });
-
-    test('should get skill by ID', async () => {
-      // First, list skills to get an ID if available
-      const skills = await client.skills.list({ limit: 1 });
-      if (skills.items.length > 0) {
-        const skillId = skills.items[0].id;
-        const ctx = SKILL_TOOLS.formatContext(client);
-        const result = await SKILL_TOOLS.executeTool(ctx, 'get_skill', {
-          skill_id: skillId,
-        });
-
-        expect(result).toContain(skills.items[0].name);
-        expect(result).toContain('file(s)');
-      }
     });
 
     test('should get skill by name', async () => {
@@ -422,6 +410,21 @@ describe('Agent Tools Tests', () => {
           name: skillName,
         });
 
+        expect(result).toContain(skillName);
+        expect(result).toContain('file(s)');
+      }
+    });
+
+    test('should get skill md file', async () => {
+      const skills = await client.skills.list({ limit: 1 });
+      if (skills.items.length > 0) {
+        const skillName = skills.items[0].name;
+        const ctx = SKILL_TOOLS.formatContext(client);
+        const result = await SKILL_TOOLS.executeTool(ctx, 'get_skill_md', {
+          skill_name: skillName,
+        });
+
+        expect(result).toContain('SKILL.md');
         expect(result).toContain(skillName);
       }
     });
@@ -527,9 +530,9 @@ describe('Agent Tools Tests', () => {
       const tool = new GetSkillTool();
       expect(tool.name).toBe('get_skill');
       expect(tool.description).toBeTruthy();
-      expect(tool.requiredArguments.length).toBe(0); // Either skill_id or name
-      expect(tool.arguments).toHaveProperty('skill_id');
+      expect(tool.requiredArguments).toContain('name'); // Only name is supported now
       expect(tool.arguments).toHaveProperty('name');
+      expect(tool.arguments).not.toHaveProperty('skill_id'); // skill_id is no longer supported
     });
 
     test('ListSkillsTool should have correct properties', () => {
@@ -605,17 +608,26 @@ describe('Agent Tools Tests', () => {
       }
     });
 
+    test('GetSkillMDTool should have correct properties', () => {
+      const tool = new GetSkillMDTool();
+      expect(tool.name).toBe('get_skill_md');
+      expect(tool.description).toBeTruthy();
+      expect(tool.requiredArguments).toContain('skill_name');
+      expect(tool.arguments).toHaveProperty('skill_name');
+      expect(tool.arguments).not.toHaveProperty('file_path'); // file_path is fixed to SKILL.md
+    });
+
     test('SKILL_TOOLS should generate OpenAI tool schemas', () => {
       const schemas = SKILL_TOOLS.toOpenAIToolSchema();
       expect(Array.isArray(schemas)).toBe(true);
-      expect(schemas.length).toBe(7); // All 7 skill tools (including catalog)
+      expect(schemas.length).toBe(8); // All 8 skill tools (including catalog and get_skill_md)
       expect(schemas.every((s) => s.type === 'function')).toBe(true);
     });
 
     test('SKILL_TOOLS should generate Anthropic tool schemas', () => {
       const schemas = SKILL_TOOLS.toAnthropicToolSchema();
       expect(Array.isArray(schemas)).toBe(true);
-      expect(schemas.length).toBe(7); // All 7 skill tools (including catalog)
+      expect(schemas.length).toBe(8); // All 8 skill tools (including catalog and get_skill_md)
       expect(schemas.every((s) => s.name && s.input_schema)).toBe(true);
     });
   });
