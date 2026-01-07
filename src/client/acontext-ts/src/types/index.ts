@@ -2,6 +2,7 @@
  * Type exports
  */
 
+export * from './common';
 export * from './space';
 export * from './session';
 export * from './disk';

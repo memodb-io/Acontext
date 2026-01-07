@@ -1,9 +1,9 @@
 """Type definitions for API responses."""
 
+from .common import FileContent
 from .disk import (
     Artifact,
     Disk,
-    FileContent,
     GetArtifactResp,
     ListArtifactsResp,
     ListDisksOutput,
@@ -40,7 +40,6 @@ from .tool import (
 )
 from .skill import (
     GetSkillFileResp,
-    FileContent,
     ListSkillsOutput,
     Skill,
 )
@@ -85,5 +84,4 @@ __all__ = [
     "Skill",
     "ListSkillsOutput",
     "GetSkillFileResp",
-    "FileContent",
 ]

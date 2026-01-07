@@ -1,6 +1,5 @@
 """Tests for agent tools (DISK_TOOLS and SKILL_TOOLS)."""
 
-import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -8,9 +7,6 @@ import pytest
 from acontext.agent.disk import DISK_TOOLS, DiskContext
 from acontext.agent.skill import SKILL_TOOLS, SkillContext
 from acontext.client import AcontextClient
-from acontext.types.disk import Artifact, GetArtifactResp
-from acontext.types.skill import GetSkillFileResp, Skill
-from acontext.uploads import FileUpload
 
 
 @pytest.fixture

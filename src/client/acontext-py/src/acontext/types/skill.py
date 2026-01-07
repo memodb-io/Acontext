@@ -4,6 +4,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from .common import FileContent
+
 
 class Skill(BaseModel):
     """Skill model representing an agent skill resource."""
@@ -28,13 +30,6 @@ class ListSkillsOutput(BaseModel):
     items: list[Skill] = Field(..., description="List of skills")
     next_cursor: str | None = Field(None, description="Cursor for pagination")
     has_more: bool = Field(..., description="Whether there are more items")
-
-
-class FileContent(BaseModel):
-    """Parsed file content model."""
-
-    type: str = Field(..., description="File content type: 'text', 'json', 'csv', or 'code'")
-    raw: str = Field(..., description="Raw text content of the file")
 
 
 class GetSkillFileResp(BaseModel):

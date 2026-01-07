@@ -4,6 +4,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from .common import FileContent
+
 
 class Disk(BaseModel):
     """Disk model representing a disk resource."""
@@ -34,13 +36,6 @@ class Artifact(BaseModel):
     )
     created_at: str = Field(..., description="ISO 8601 formatted creation timestamp")
     updated_at: str = Field(..., description="ISO 8601 formatted update timestamp")
-
-
-class FileContent(BaseModel):
-    """Parsed file content model."""
-
-    type: str = Field(..., description="File content type: 'text', 'json', 'csv', or 'code'")
-    raw: str = Field(..., description="Raw text content of the file")
 
 
 class GetArtifactResp(BaseModel):

@@ -4,6 +4,8 @@
 
 import { z } from 'zod';
 
+import { FileContentSchema } from './common';
+
 export const SkillSchema = z.object({
   id: z.string(),
   project_id: z.string(),
@@ -24,13 +26,6 @@ export const ListSkillsOutputSchema = z.object({
 });
 
 export type ListSkillsOutput = z.infer<typeof ListSkillsOutputSchema>;
-
-export const FileContentSchema = z.object({
-  type: z.string(),
-  raw: z.string(),
-});
-
-export type FileContent = z.infer<typeof FileContentSchema>;
 
 export const GetSkillFileRespSchema = z.object({
   path: z.string(),
