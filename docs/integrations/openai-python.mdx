@@ -85,9 +85,14 @@ import os
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 acontext_client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY", "sk-ac-your-root-api-bearer-token"),
-    base_url=os.getenv("ACONTEXT_BASE_URL", "http://localhost:8029/api/v1"),
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
+
+# If you're using self-hosted Acontext:
+# acontext_client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
 ```
 </Step>
 </Steps>
@@ -115,8 +120,7 @@ from acontext import AcontextClient
 # Initialize clients
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 acontext_client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 
 # Create Acontext session
@@ -270,8 +274,7 @@ import os
 # Initialize clients
 openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 acontext_client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 
 # Tool definitions

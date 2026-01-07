@@ -2,7 +2,7 @@
 title: "Search Skills"
 ---
 
-Experience Search is Acontext's advanced search abilty to find the revelant skills for Agent.
+Experience Search is Acontext's advanced search ability to find the relevant skills for Agent.
 It can use Embedding or Agent 
 to find relevant content from skills space.
 
@@ -10,12 +10,19 @@ to find relevant content from skills space.
 
 <CodeGroup>
 ```python Python
+import os
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
+
+# If you're using self-hosted Acontext:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
+
 client.ping()
 # Fast mode - quick semantic search
 result = client.spaces.experience_search(
@@ -34,9 +41,14 @@ for block in result.cited_blocks:
 import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-    apiKey: 'sk-ac-your-root-api-bearer-token',
-    baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
+
+// If you're using self-hosted Acontext:
+// const client = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
 
 // Fast mode - quick semantic search
 const result = await client.spaces.experienceSearch('space-uuid', {

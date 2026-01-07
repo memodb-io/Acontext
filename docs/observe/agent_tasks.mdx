@@ -40,13 +40,20 @@ This example demonstrates how to verify that Acontext correctly extracts tasks f
 
 <CodeGroup>
 ```python Python
+import os
 import time
 from acontext import AcontextClient
 
 # Initialize client
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
+
+# If you're using self-hosted Acontext:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
 
 # Create a project and session
 session = client.sessions.create()
@@ -104,12 +111,18 @@ for task in tasks_response.items:
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext-ts';
+import { AcontextClient } from '@acontext/acontext';
 
 // Initialize client
 const client = new AcontextClient({
-    apiKey: 'sk-ac-your-root-api-bearer-token'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
+
+// If you're using self-hosted Acontext:
+// const client = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
 
 async function demonstrateTasks() {
     // Create a project and session

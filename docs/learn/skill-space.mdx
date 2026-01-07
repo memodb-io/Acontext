@@ -17,7 +17,7 @@ When a session is connected to a Space:
 1. **Task Extraction**: As your agent works, Acontext automatically [extracts tasks](/observe/agent_tasks) from the conversation
 2. **Task Completion**: When tasks are marked as `success`, they're queued for learning
 3. **Automatic Learning**: Acontext analyzes the completed task's execution messages and extracts reusable patterns, approaches, and procedures
-4. **Skill Storage**: Learned skills and user preferencesare stored in the Space as searchable knowledge blocks
+4. **Skill Storage**: Learned skills and user preferences are stored in the Space as searchable knowledge blocks
 5. **Future Use**: Your agent can retrieve and apply these learned skills
 
 <Note>
@@ -34,14 +34,20 @@ This example demonstrates how to create a Space and attach sessions to it so you
 
 <CodeGroup>
 ```python Python
+import os
 import time
 from acontext import AcontextClient
 
 # Initialize client
 client = AcontextClient(
-    base_url="http://localhost:8029/api/v1",
-    api_key="sk-ac-your-root-api-bearer-token"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
+
+# If you're using self-hosted Acontext:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
 
 # Step 1: Create a Space for skill learning
 space = client.spaces.create()
@@ -205,13 +211,18 @@ print("\n✅ Tasks completed successfully will be learned into the Space as skil
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext-ts';
+import { AcontextClient } from '@acontext/acontext';
 
 // Initialize client
 const client = new AcontextClient({
-    baseUrl: 'http://localhost:8029/api/v1',
-    apiKey: 'sk-ac-your-root-api-bearer-token'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
+
+// If you're using self-hosted Acontext:
+// const client = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
 
 async function demonstrateSkillLearning() {
     // Step 1: Create a Space for skill learning
@@ -364,7 +375,7 @@ async function demonstrateSkillLearning() {
     }
 
     // Wait for task extraction and completion processing
-    client.sessions.flush(session.id)
+    await client.sessions.flush(session.id);
 
     // Check extracted tasks
     const tasksResponse = await client.sessions.getTasks(session.id);

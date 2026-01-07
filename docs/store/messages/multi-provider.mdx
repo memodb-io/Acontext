@@ -23,12 +23,19 @@ Before storing messages, create a session:
 
 <CodeGroup>
 ```python Python
+import os
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
+
+# If you're using self-hosted Acontext:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
+
 client.ping()
 # Create a session
 session = client.sessions.create()
@@ -36,12 +43,17 @@ print(f"Session created: {session.id}")
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
+
+// If you're using self-hosted Acontext:
+// const client = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
 
 // Create a session
 const session = await client.sessions.create();
@@ -60,8 +72,7 @@ Store messages in OpenAI, Anthropic, or Gemini format:
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 session = client.sessions.create()
 
@@ -79,11 +90,10 @@ print(f"Message stored: {message.id}")
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 const session = await client.sessions.create();
 
@@ -107,8 +117,7 @@ console.log(`Message stored: ${message.id}`);
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 session = client.sessions.create()
 
@@ -128,11 +137,10 @@ print(f"Message stored: {message.id}")
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 const session = await client.sessions.create();
 
@@ -158,8 +166,7 @@ console.log(`Message stored: ${message.id}`);
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 session = client.sessions.create()
 
@@ -179,11 +186,10 @@ print(f"Message stored: {message.id}")
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 const session = await client.sessions.create();
 
@@ -213,8 +219,7 @@ You can store multiple messages sequentially to build a conversation:
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 session = client.sessions.create()
 
@@ -238,11 +243,10 @@ print(f"Total messages stored: {len(messages_to_store)}")
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 const session = await client.sessions.create();
 
@@ -281,8 +285,7 @@ Retrieve messages from a session:
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 
 # Get messages from a session
@@ -297,11 +300,10 @@ for msg in result.items:
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 
 // Get messages from a session
@@ -374,8 +376,7 @@ from acontext import AcontextClient
 
 # Initialize client
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 
 try:
@@ -414,12 +415,11 @@ finally:
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 // Initialize client
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 
 async function storeAndRetrieveConversation() {
@@ -474,8 +474,7 @@ When you're done with a conversation or workflow, you can delete the session to 
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 
 # Delete a session when you're done with it
@@ -486,11 +485,10 @@ print(f"Session {session_id} deleted successfully")
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 
 // Delete a session when you're done with it
@@ -514,8 +512,7 @@ You can list sessions and delete the ones you no longer need:
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 
 # List all sessions
@@ -530,11 +527,10 @@ for session in sessions.items[10:]:
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 
 // List all sessions

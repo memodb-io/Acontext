@@ -94,9 +94,14 @@ agent = Agent(
 
 # Initialize Acontext client
 acontext_client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY", "sk-ac-your-root-api-bearer-token"),
-    base_url=os.getenv("ACONTEXT_BASE_URL", "http://localhost:8029/api/v1"),
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
+
+# If you're using self-hosted Acontext:
+# acontext_client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
 ```
 </Step>
 </Steps>
@@ -147,8 +152,7 @@ agent = Agent(
 
 # Initialize Acontext
 acontext_client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 
 # Create session
@@ -223,8 +227,7 @@ from helper import message_to_input_items
 
 # Initialize Acontext
 acontext_client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 
 @function_tool

@@ -43,12 +43,19 @@ OpenAI supports images through the `image_url` content part type, which accepts 
 <Tab title="Image URL">
 <CodeGroup>
 ```python Python
+import os
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
+
+# If you're using self-hosted Acontext:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
+
 client.ping()
 session = client.sessions.create()
 
@@ -78,12 +85,18 @@ print(f"Message with image sent: {message.id}")
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
+
+// If you're using self-hosted Acontext:
+// const client = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
+
 const session = await client.sessions.create();
 
 // Store a message with an image URL
@@ -116,8 +129,7 @@ import base64
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 session = client.sessions.create()
 
@@ -151,12 +163,11 @@ print(f"Message with base64 image sent: {message.id}")
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 import fs from 'fs';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 const session = await client.sessions.create();
 
@@ -206,8 +217,7 @@ import base64
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 session = client.sessions.create()
 
@@ -242,12 +252,11 @@ print(f"Message with image sent: {message.id}")
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 import fs from 'fs';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 const session = await client.sessions.create();
 
@@ -292,8 +301,7 @@ import base64
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 session = client.sessions.create()
 
@@ -327,12 +335,11 @@ print(f"Message with audio sent: {message.id}")
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 import fs from 'fs';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 const session = await client.sessions.create();
 
@@ -376,8 +383,7 @@ import base64
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 session = client.sessions.create()
 
@@ -412,12 +418,11 @@ print(f"Message with PDF sent: {message.id}")
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 import fs from 'fs';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 const session = await client.sessions.create();
 
@@ -458,8 +463,7 @@ import base64
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 session = client.sessions.create()
 
@@ -493,12 +497,11 @@ print(f"Message with PDF sent: {message.id}")
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 import fs from 'fs';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 const session = await client.sessions.create();
 
@@ -550,8 +553,7 @@ When retrieving messages, the content format depends on how the message was orig
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 
 # Retrieve messages
@@ -571,11 +573,10 @@ for msg in result.items:
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 
 // Retrieve messages
@@ -624,8 +625,7 @@ Acontext automatically converts between formats when retrieving messages:
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 session = client.sessions.create()
 
@@ -662,11 +662,10 @@ for msg in result.items:
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 const session = await client.sessions.create();
 
@@ -708,8 +707,7 @@ import base64
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 session = client.sessions.create()
 
@@ -752,12 +750,11 @@ for msg in result.items:
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 import fs from 'fs';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 const session = await client.sessions.create();
 
@@ -843,8 +840,7 @@ import base64
 from acontext import AcontextClient
 
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
 
 try:
@@ -898,12 +894,11 @@ finally:
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from 'acontext';
+import { AcontextClient } from '@acontext/acontext';
 import fs from 'fs';
 
 const client = new AcontextClient({
-  apiKey: 'sk-ac-your-root-api-bearer-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
 
 async function processMultiModalMessage() {

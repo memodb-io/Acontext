@@ -31,8 +31,14 @@ from openai import OpenAI
 
 # Initialize clients
 acontext_client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token", base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
+
+# If you're using self-hosted Acontext:
+# acontext_client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
 openai_client = OpenAI()
 
 # Create a disk and tool context
@@ -84,9 +90,14 @@ import OpenAI from 'openai';
 
 // Initialize clients
 const acontextClient = new AcontextClient({
-  apiKey: 'sk-ac-your-token',
-  baseUrl: 'http://localhost:8029/api/v1'
+    apiKey: process.env.ACONTEXT_API_KEY,
 });
+
+// If you're using self-hosted Acontext:
+// const acontextClient = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
 const openaiClient = new OpenAI({ apiKey: 'sk-your-openai-key' });
 
 // Create a disk and tool context
@@ -155,8 +166,7 @@ The agent will automatically call the appropriate tools (`write_file`, `read_fil
   from acontext.agent.disk import DISK_TOOLS
 
   client = AcontextClient(
-      api_key="sk-ac-your-token",
-      base_url="http://localhost:8029/api/v1"
+      api_key=os.getenv("ACONTEXT_API_KEY"),
   )
   disk = client.disks.create()
   ctx = DISK_TOOLS.format_context(client, disk.id)
@@ -166,8 +176,7 @@ The agent will automatically call the appropriate tools (`write_file`, `read_fil
   import { AcontextClient, DISK_TOOLS } from '@acontext/acontext';
 
   const client = new AcontextClient({
-    apiKey: 'sk-ac-your-token',
-    baseUrl: 'http://localhost:8029/api/v1'
+      apiKey: process.env.ACONTEXT_API_KEY,
   });
   const disk = await client.disks.create();
   const ctx = DISK_TOOLS.formatContext(client, disk.id);
