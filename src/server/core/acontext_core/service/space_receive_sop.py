@@ -77,4 +77,7 @@ async def space_sop_complete_task(body: SOPComplete, message: Message):
         session_data=SD,
         controller=SSC,
     )
-    await SOPBatchProcessor(settings, deps).process(body)
+    try:
+        await SOPBatchProcessor(settings, deps).process(body)
+    except Exception as e:
+        LOG.error(f"space_sop_complete_task failed: {e}", exc_info=True)
