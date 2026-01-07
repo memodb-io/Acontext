@@ -534,23 +534,9 @@ class AsyncSingleThreadMQConsumer:
                             break
 
                         # Process message in background task for concurrency
-                        async def process_with_tracing():
-                            # Extract trace context from message headers if available
-                            extracted_context = _extract_trace_context_from_headers(message)
-                            
-                            # Create span for message consumption if OpenTelemetry is enabled
-                            consume_span, consume_context = _create_consume_span(
-                                config, message, extracted_context
-                            )
-                            
-                            try:
-                                # Pass consume_context to process_message so it can create child spans
-                                return await self._process_message(config, message, consume_context)
-                            finally:
-                                if consume_span:
-                                    consume_span.end()
-                        
-                        task = asyncio.create_task(process_with_tracing())
+                        task = asyncio.create_task(
+                            self._process_message_with_tracing(config, message)
+                        )
                         self._processing_tasks.add(task)
                         task.add_done_callback(self.cleanup_message_task)
 
