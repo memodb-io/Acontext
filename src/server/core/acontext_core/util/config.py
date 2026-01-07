@@ -33,7 +33,6 @@ def get_local_project_config() -> ProjectConfig:
 
     if not os.path.isfile(CONFIG_FILE_PATH):
         CONFIG_YAML_STRING = ""
-        print(f"No config file found in {CONFIG_FILE_PATH}")
     else:
         with open(CONFIG_FILE_PATH) as f:
             CONFIG_YAML_STRING = f.read()

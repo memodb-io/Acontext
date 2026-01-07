@@ -1,3 +1,4 @@
+import os
 from typing import Type
 from e2b_code_interpreter import AsyncSandbox
 from e2b_code_interpreter import SandboxState as E2B_SandboxState
@@ -10,7 +11,8 @@ from ....schema.sandbox import (
     SandboxCommandOutput,
     SandboxStatus,
 )
-from ....env import DEFAULT_CORE_CONFIG
+from ....env import DEFAULT_CORE_CONFIG, LOG as logger
+from ...s3 import S3_CLIENT
 
 
 def _convert_e2b_state(state: E2B_SandboxState) -> SandboxStatus:
@@ -42,6 +44,14 @@ class E2BSandboxBackend(SandboxBackend):
         self.__domain_base_url = domain_base_url
         self.__default_template = default_template
         self.__api_key = api_key
+
+    async def connect_sandbox(self, sandbox_id: str) -> AsyncSandbox:
+        return await AsyncSandbox.connect(
+            sandbox_id=str(sandbox_id),
+            api_key=self.__api_key,
+            domain=self.__domain_base_url,
+            timeout=DEFAULT_CORE_CONFIG.sandbox_default_keepalive_seconds,
+        )
 
     @classmethod
     def from_default(cls: Type["E2BSandboxBackend"]) -> "E2BSandboxBackend":
@@ -103,15 +113,9 @@ class E2BSandboxBackend(SandboxBackend):
         Raises:
             ValueError: If the sandbox is not found or not running.
         """
-        sandbox_id_str = str(sandbox_id)
-
         try:
             # Connect to the sandbox to verify it exists and is running
-            sandbox = await AsyncSandbox.connect(
-                sandbox_id=sandbox_id_str,
-                api_key=self.__api_key,
-                domain=self.__domain_base_url,
-            )
+            sandbox = await self.connect_sandbox(sandbox_id)
 
             # Get sandbox info using the SDK method
             info = await sandbox.get_info()
@@ -123,7 +127,7 @@ class E2BSandboxBackend(SandboxBackend):
                 sandbox_expires_at=info.end_at,
             )
         except Exception as e:
-            raise ValueError(f"Sandbox with ID {sandbox_id_str} not found: {e}")
+            raise ValueError(f"Sandbox with ID {sandbox_id} not found: {e}")
 
     async def update_sandbox(
         self, sandbox_id: str, update_config: SandboxUpdateConfig
@@ -137,11 +141,7 @@ class E2BSandboxBackend(SandboxBackend):
         Returns:
             Runtime information about the updated sandbox.
         """
-        sandbox = await AsyncSandbox.connect(
-            sandbox_id=str(sandbox_id),
-            api_key=self.__api_key,
-            domain=self.__domain_base_url,
-        )
+        sandbox = await self.connect_sandbox(sandbox_id)
         await sandbox.set_timeout(update_config.keepalive_longer_by_seconds)
         info = await sandbox.get_info()
         return SandboxRuntimeInfo(
@@ -161,11 +161,7 @@ class E2BSandboxBackend(SandboxBackend):
         Returns:
             The command output including stdout, stderr, and exit code.
         """
-        sandbox = await AsyncSandbox.connect(
-            sandbox_id=str(sandbox_id),
-            api_key=self.__api_key,
-            domain=self.__domain_base_url,
-        )
+        sandbox = await self.connect_sandbox(sandbox_id)
         result = await sandbox.commands.run(cmd=command)
 
         return SandboxCommandOutput(
@@ -173,3 +169,87 @@ class E2BSandboxBackend(SandboxBackend):
             stderr=result.stderr,
             exit_code=result.exit_code,
         )
+
+    async def download_file(
+        self, sandbox_id: str, from_sandbox_file: str, download_to_s3_path: str
+    ) -> bool:
+        """Download a file from the sandbox and upload it to S3.
+
+        Args:
+            sandbox_id: The ID of the sandbox to download from.
+            from_sandbox_file: The path to the file in the sandbox.
+            download_to_s3_path: The S3 parent directory to upload the file to.
+
+        Returns:
+            True if the download and upload were successful, False otherwise.
+        """
+
+        try:
+            sandbox = await self.connect_sandbox(sandbox_id)
+
+            # Read file content from sandbox
+            content = await sandbox.files.read(from_sandbox_file)
+
+            # Convert to bytes if necessary (files.read returns str or bytes)
+            if isinstance(content, str):
+                content_bytes = content.encode("utf-8")
+            else:
+                content_bytes = content
+
+            # Extract base filename and construct full S3 key
+            filename = os.path.basename(from_sandbox_file)
+            s3_key = f"{download_to_s3_path.rstrip('/')}/{filename}"
+
+            # Upload to S3
+            await S3_CLIENT.upload_object(
+                key=s3_key,
+                data=content_bytes,
+            )
+
+            logger.info(
+                f"Downloaded file from sandbox {sandbox_id}: {from_sandbox_file} -> s3://{s3_key}"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(
+                f"Failed to download file from sandbox {sandbox_id}: {from_sandbox_file} -> {download_to_s3_path}, error: {e}"
+            )
+            return False
+
+    async def upload_file(
+        self, sandbox_id: str, from_s3_file: str, upload_to_sandbox_path: str
+    ) -> bool:
+        """Download a file from S3 and upload it to the sandbox.
+
+        Args:
+            sandbox_id: The ID of the sandbox to upload to.
+            from_s3_file: The S3 key to download the file from.
+            upload_to_sandbox_path: The parent directory in the sandbox to upload the file to.
+
+        Returns:
+            True if the download and upload were successful, False otherwise.
+        """
+        try:
+            # Download from S3
+            content = await S3_CLIENT.download_object(key=from_s3_file)
+
+            sandbox = await self.connect_sandbox(sandbox_id)
+
+            # Extract base filename and construct full sandbox path
+            filename = os.path.basename(from_s3_file)
+            sandbox_file_path = f"{upload_to_sandbox_path.rstrip('/')}/{filename}"
+
+            # Write file to sandbox
+            await sandbox.files.write(sandbox_file_path, content)
+
+            logger.info(
+                f"Uploaded file to sandbox {sandbox_id}: s3://{from_s3_file} -> {sandbox_file_path}"
+            )
+            return True
+
+        except Exception as e:
+            logger.error(
+                f"Failed to upload file to sandbox {sandbox_id}: {from_s3_file} -> {upload_to_sandbox_path}, error: {e}"
+            )
+            return False
