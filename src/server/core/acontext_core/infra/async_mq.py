@@ -461,12 +461,15 @@ class AsyncSingleThreadMQConsumer:
                 span.end()
 
     def cleanup_message_task(self, task: asyncio.Task) -> None:
+        queue_name = task.get_name()
         try:
             task.result()
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            LOG.error(f"Message task unknown error: {e}")
+            LOG.error(
+                f"Message task unknown error - queue: {queue_name}: {e}", exc_info=True
+            )
         finally:
             self._processing_tasks.discard(task)
             LOG.debug(f"#Current Processing Tasks: {len(self._processing_tasks)}")
@@ -535,7 +538,8 @@ class AsyncSingleThreadMQConsumer:
 
                         # Process message in background task for concurrency
                         task = asyncio.create_task(
-                            self._process_message_with_tracing(config, message)
+                            self._process_message_with_tracing(config, message),
+                            name=config.queue_name,
                         )
                         self._processing_tasks.add(task)
                         task.add_done_callback(self.cleanup_message_task)
