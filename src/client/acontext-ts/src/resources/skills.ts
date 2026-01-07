@@ -8,7 +8,6 @@ import { buildParams } from '../utils';
 import {
   GetSkillFileResp,
   GetSkillFileRespSchema,
-  ListSkillsOutput,
   ListSkillsOutputSchema,
   Skill,
   SkillSchema,
