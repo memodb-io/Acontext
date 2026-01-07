@@ -226,13 +226,13 @@ class DatabaseClient:
             return
 
         async with self.engine.begin() as conn:
-            await conn.execute(
-                text(
-                    "TRUNCATE TABLE "
-                    + ", ".join(table_names)
-                    + " RESTART IDENTITY CASCADE;"
+            try:
+                await conn.execute(
+                    text("TRUNCATE TABLE " + ", ".join(table_names) + " RESTART IDENTITY CASCADE;")
                 )
-            )
+            except Exception as e:
+                logger.error(f"Failed to truncate ORM tables: {e}", exc_info=True)
+                raise
 
     async def drop_tables(self) -> None:
         """Drop all tables defined in the ORM models."""
