@@ -17,22 +17,6 @@ import {
 export class SkillsAPI {
   constructor(private requester: RequesterProtocol) {}
 
-  async list(options?: {
-    limit?: number | null;
-    cursor?: string | null;
-    timeDesc?: boolean | null;
-  }): Promise<ListSkillsOutput> {
-    const params = buildParams({
-      limit: options?.limit ?? null,
-      cursor: options?.cursor ?? null,
-      time_desc: options?.timeDesc ?? null,
-    });
-    const data = await this.requester.request('GET', '/agent_skills', {
-      params: Object.keys(params).length > 0 ? params : undefined,
-    });
-    return ListSkillsOutputSchema.parse(data);
-  }
-
   async create(options: {
     file:
       | FileUpload
@@ -63,7 +47,15 @@ export class SkillsAPI {
     total: number;
     skills: Array<{ name: string; description: string }>;
   }> {
-    const result = await this.list(options);
+    const params = buildParams({
+      limit: options?.limit ?? null,
+      cursor: options?.cursor ?? null,
+      time_desc: options?.timeDesc ?? null,
+    });
+    const data = await this.requester.request('GET', '/agent_skills', {
+      params: Object.keys(params).length > 0 ? params : undefined,
+    });
+    const result = ListSkillsOutputSchema.parse(data);
     return {
       total: result.items.length,
       skills: result.items.map((skill) => ({

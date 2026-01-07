@@ -21,29 +21,6 @@ class AsyncSkillsAPI:
     def __init__(self, requester: AsyncRequesterProtocol) -> None:
         self._requester = requester
 
-    async def list(
-        self,
-        *,
-        limit: int | None = None,
-        cursor: str | None = None,
-        time_desc: bool | None = None,
-    ) -> ListSkillsOutput:
-        """List all skills in the project.
-
-        Args:
-            limit: Maximum number of skills to return. Defaults to None.
-            cursor: Cursor for pagination. Defaults to None.
-            time_desc: Order by created_at descending if True, ascending if False. Defaults to None.
-
-        Returns:
-            ListSkillsOutput containing the list of skills and pagination information.
-        """
-        params = build_params(limit=limit, cursor=cursor, time_desc=time_desc)
-        data = await self._requester.request(
-            "GET", "/agent_skills", params=params or None
-        )
-        return ListSkillsOutput.model_validate(data)
-
     async def create(
         self,
         *,
@@ -97,7 +74,11 @@ class AsyncSkillsAPI:
         Returns:
             A dictionary with 'total' (number of skills) and 'skills' (list of dicts with 'name' and 'description').
         """
-        result = await self.list(limit=limit, cursor=cursor, time_desc=time_desc)
+        params = build_params(limit=limit, cursor=cursor, time_desc=time_desc)
+        data = await self._requester.request(
+            "GET", "/agent_skills", params=params or None
+        )
+        result = ListSkillsOutput.model_validate(data)
         return {
             "total": len(result.items),
             "skills": [
