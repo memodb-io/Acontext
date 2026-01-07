@@ -13,76 +13,8 @@ class SkillContext(BaseContext):
     client: AcontextClient
 
 
-class CreateSkillTool(BaseTool):
-    """Tool for creating a new skill by uploading a ZIP file."""
-
-    @property
-    def name(self) -> str:
-        return "create_skill"
-
-    @property
-    def description(self) -> str:
-        return (
-            "Create a new agent skill by uploading a ZIP file. "
-            "The ZIP file must contain a SKILL.md file (case-insensitive) with YAML format "
-            "containing 'name' and 'description' fields. "
-            "Returns the created skill with its ID, name, description, and file index."
-        )
-
-    @property
-    def arguments(self) -> dict:
-        return {
-            "file_path": {
-                "type": "string",
-                "description": "Local file path to the ZIP file containing the skill.",
-            },
-            "meta": {
-                "type": "object",
-                "description": "Optional custom metadata as a JSON object.",
-            },
-        }
-
-    @property
-    def required_arguments(self) -> list[str]:
-        return ["file_path"]
-
-    def execute(self, ctx: SkillContext, llm_arguments: dict) -> str:
-        """Create a new skill."""
-        file_path = llm_arguments.get("file_path")
-        meta = llm_arguments.get("meta")
-
-        if not file_path:
-            raise ValueError("file_path is required")
-
-        # Read the ZIP file
-        try:
-            with open(file_path, "rb") as f:
-                file_content = f.read()
-        except FileNotFoundError:
-            raise ValueError(f"File not found: {file_path}")
-        except Exception as e:
-            raise ValueError(f"Failed to read file: {e}")
-
-        import os
-        from ..uploads import FileUpload
-
-        upload = FileUpload(
-            filename=os.path.basename(file_path) or "skill.zip",
-            content=file_content,
-            content_type="application/zip",
-        )
-
-        skill = ctx.client.skills.create(file=upload, meta=meta)
-        file_count = len(skill.file_index)
-        return (
-            f"Skill '{skill.name}' created successfully (ID: {skill.id}). "
-            f"Description: {skill.description}. "
-            f"Contains {file_count} file(s)."
-        )
-
-
 class GetSkillTool(BaseTool):
-    """Tool for getting a skill by ID or name."""
+    """Tool for getting a skill by name."""
 
     @property
     def name(self) -> str:
@@ -91,7 +23,7 @@ class GetSkillTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Get a skill by its ID or name. "
+            "Get a skill by its name. "
             "Returns the skill information including name, description, file index, and metadata."
         )
 
@@ -131,262 +63,8 @@ class GetSkillTool(BaseTool):
         )
 
 
-class ListSkillsTool(BaseTool):
-    """Tool for listing all skills in the project."""
-
-    @property
-    def name(self) -> str:
-        return "list_skills"
-
-    @property
-    def description(self) -> str:
-        return (
-            "List all skills in the project. "
-            "Returns a list of skills with their names, descriptions, and file counts."
-        )
-
-    @property
-    def arguments(self) -> dict:
-        return {
-            "limit": {
-                "type": "integer",
-                "description": "Maximum number of skills to return. Defaults to 20.",
-            },
-            "time_desc": {
-                "type": "boolean",
-                "description": "Order by created_at descending if true, ascending if false. Defaults to false.",
-            },
-        }
-
-    @property
-    def required_arguments(self) -> list[str]:
-        return []
-
-    def execute(self, ctx: SkillContext, llm_arguments: dict) -> str:
-        """List all skills."""
-        limit = llm_arguments.get("limit", 20)
-        time_desc = llm_arguments.get("time_desc", False)
-
-        result = ctx.client.skills.list(limit=limit, time_desc=time_desc)
-
-        if not result.items:
-            return "No skills found in the project."
-
-        output_parts = [
-            f"Found {len(result.items)} skill(s):",
-        ]
-        for skill in result.items:
-            file_count = len(skill.file_index)
-            output_parts.append(
-                f"  - {skill.name} (ID: {skill.id}): {skill.description} "
-                f"({file_count} file(s))"
-            )
-
-        if result.has_more:
-            output_parts.append(f"\n(More skills available, use cursor for pagination)")
-
-        return "\n".join(output_parts)
-
-
-class UpdateSkillTool(BaseTool):
-    """Tool for updating a skill's metadata."""
-
-    @property
-    def name(self) -> str:
-        return "update_skill"
-
-    @property
-    def description(self) -> str:
-        return (
-            "Update a skill's metadata (name, description, or custom metadata). "
-            "Note: This only updates metadata, not the skill files themselves."
-        )
-
-    @property
-    def arguments(self) -> dict:
-        return {
-            "skill_id": {
-                "type": "string",
-                "description": "The UUID of the skill to update.",
-            },
-            "name": {
-                "type": "string",
-                "description": "Optional new name for the skill.",
-            },
-            "description": {
-                "type": "string",
-                "description": "Optional new description for the skill.",
-            },
-            "meta": {
-                "type": "object",
-                "description": "Optional custom metadata as a JSON object.",
-            },
-        }
-
-    @property
-    def required_arguments(self) -> list[str]:
-        return ["skill_id"]
-
-    def execute(self, ctx: SkillContext, llm_arguments: dict) -> str:
-        """Update a skill."""
-        skill_id = llm_arguments.get("skill_id")
-        name = llm_arguments.get("name")
-        description = llm_arguments.get("description")
-        meta = llm_arguments.get("meta")
-
-        if not skill_id:
-            raise ValueError("skill_id is required")
-
-        if not name and not description and not meta:
-            raise ValueError("At least one of name, description, or meta must be provided")
-
-        skill = ctx.client.skills.update(
-            skill_id, name=name, description=description, meta=meta
-        )
-
-        return (
-            f"Skill '{skill.name}' (ID: {skill.id}) updated successfully. "
-            f"Description: {skill.description}"
-        )
-
-
-class DeleteSkillTool(BaseTool):
-    """Tool for deleting a skill."""
-
-    @property
-    def name(self) -> str:
-        return "delete_skill"
-
-    @property
-    def description(self) -> str:
-        return (
-            "Delete a skill by its ID. "
-            "This will delete the skill and all its associated files from storage."
-        )
-
-    @property
-    def arguments(self) -> dict:
-        return {
-            "skill_id": {
-                "type": "string",
-                "description": "The UUID of the skill to delete.",
-            },
-        }
-
-    @property
-    def required_arguments(self) -> list[str]:
-        return ["skill_id"]
-
-    def execute(self, ctx: SkillContext, llm_arguments: dict) -> str:
-        """Delete a skill."""
-        skill_id = llm_arguments.get("skill_id")
-
-        if not skill_id:
-            raise ValueError("skill_id is required")
-
-        ctx.client.skills.delete(skill_id)
-
-        return f"Skill (ID: {skill_id}) deleted successfully."
-
-
-class ListSkillsCatalogTool(BaseTool):
-    """Tool for getting a catalog of all skills (names and descriptions only)."""
-
-    @property
-    def name(self) -> str:
-        return "list_skills_catalog"
-
-    @property
-    def description(self) -> str:
-        return (
-            "Get a catalog of all skills in the project. "
-            "Returns a JSON object containing skill names and descriptions only."
-        )
-
-    @property
-    def arguments(self) -> dict:
-        return {
-            "limit": {
-                "type": "integer",
-                "description": "Maximum number of skills to return. Defaults to 100.",
-            },
-            "time_desc": {
-                "type": "boolean",
-                "description": "Order by created_at descending if true, ascending if false. Defaults to false.",
-            },
-        }
-
-    @property
-    def required_arguments(self) -> list[str]:
-        return []
-
-    def execute(self, ctx: SkillContext, llm_arguments: dict) -> str:
-        """Get skills catalog."""
-        import json
-
-        limit = llm_arguments.get("limit", 100)
-        time_desc = llm_arguments.get("time_desc", False)
-
-        catalog = ctx.client.skills.list_catalog(limit=limit, time_desc=time_desc)
-
-        return json.dumps(catalog, ensure_ascii=False, indent=2)
-
-
-class GetSkillMDTool(BaseTool):
-    """Tool for getting SKILL.md file content from a skill."""
-
-    @property
-    def name(self) -> str:
-        return "get_skill_md"
-
-    @property
-    def description(self) -> str:
-        return (
-            "Get the SKILL.md file content from a skill by name. "
-            "Returns the YAML front matter and markdown content of SKILL.md."
-        )
-
-    @property
-    def arguments(self) -> dict:
-        return {
-            "skill_name": {
-                "type": "string",
-                "description": "The name of the skill.",
-            },
-        }
-
-    @property
-    def required_arguments(self) -> list[str]:
-        return ["skill_name"]
-
-    def execute(self, ctx: SkillContext, llm_arguments: dict) -> str:
-        """Get SKILL.md file from a skill."""
-        skill_name = llm_arguments.get("skill_name")
-
-        if not skill_name:
-            raise ValueError("skill_name is required")
-
-        result = ctx.client.skills.get_file_by_name(
-            skill_name=skill_name,
-            file_path="SKILL.md",
-        )
-
-        output_parts = [f"SKILL.md from skill '{skill_name}':"]
-
-        if result.content:
-            output_parts.append(f"\nContent (type: {result.content.type}):")
-            output_parts.append(result.content.raw)
-        elif result.url:
-            output_parts.append(f"\nDownload URL:")
-            output_parts.append(result.url)
-        else:
-            return f"SKILL.md file not found in skill '{skill_name}'."
-
-        return "\n".join(output_parts)
-
-
 class GetSkillFileTool(BaseTool):
-    """Tool for getting a file from a skill, optionally returning content or URL."""
+    """Tool for getting a file from a skill."""
 
     @property
     def name(self) -> str:
@@ -395,7 +73,7 @@ class GetSkillFileTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Get a file from a skill by ID or name. "
+            "Get a file from a skill by name. "
             "The file_path should be a relative path within the skill (e.g., 'scripts/extract_text.json'). "
             "Can return the file content directly or a presigned URL for downloading. "
             "Supports text files, JSON, CSV, and code files."
@@ -464,12 +142,5 @@ class SkillToolPool(BaseToolPool):
 
 
 SKILL_TOOLS = SkillToolPool()
-SKILL_TOOLS.add_tool(CreateSkillTool())
 SKILL_TOOLS.add_tool(GetSkillTool())
-SKILL_TOOLS.add_tool(ListSkillsTool())
-SKILL_TOOLS.add_tool(ListSkillsCatalogTool())
-SKILL_TOOLS.add_tool(UpdateSkillTool())
-SKILL_TOOLS.add_tool(DeleteSkillTool())
 SKILL_TOOLS.add_tool(GetSkillFileTool())
-SKILL_TOOLS.add_tool(GetSkillMDTool())
-

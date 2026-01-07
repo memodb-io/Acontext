@@ -15,14 +15,8 @@ import {
   DiskContext,
   SKILL_TOOLS,
   SkillContext,
-  CreateSkillTool,
   GetSkillTool,
-  ListSkillsTool,
-  ListSkillsCatalogTool,
-  UpdateSkillTool,
-  DeleteSkillTool,
   GetSkillFileTool,
-  GetSkillMDTool,
 } from '../src/agent';
 
 describe('Agent Tools Tests', () => {
@@ -378,26 +372,9 @@ describe('Agent Tools Tests', () => {
   });
 
   describe('Skill Tools Integration', () => {
-    let createdSkillId: string | null = null;
-
     test('SKILL_TOOLS should be pre-configured with all tools', () => {
-      expect(SKILL_TOOLS.toolExists('create_skill')).toBe(true);
       expect(SKILL_TOOLS.toolExists('get_skill')).toBe(true);
-      expect(SKILL_TOOLS.toolExists('list_skills')).toBe(true);
-      expect(SKILL_TOOLS.toolExists('list_skills_catalog')).toBe(true);
-      expect(SKILL_TOOLS.toolExists('update_skill')).toBe(true);
-      expect(SKILL_TOOLS.toolExists('delete_skill')).toBe(true);
       expect(SKILL_TOOLS.toolExists('get_skill_file')).toBe(true);
-      expect(SKILL_TOOLS.toolExists('get_skill_md')).toBe(true);
-    });
-
-    test('should list skills', async () => {
-      const ctx = SKILL_TOOLS.formatContext(client);
-      const result = await SKILL_TOOLS.executeTool(ctx, 'list_skills', {
-        limit: 10,
-      });
-
-      expect(result).toContain('skill(s)');
     });
 
     test('should get skill by name', async () => {
@@ -415,75 +392,11 @@ describe('Agent Tools Tests', () => {
       }
     });
 
-    test('should get skill md file', async () => {
-      const skills = await client.skills.list({ limit: 1 });
-      if (skills.items.length > 0) {
-        const skillName = skills.items[0].name;
-        const ctx = SKILL_TOOLS.formatContext(client);
-        const result = await SKILL_TOOLS.executeTool(ctx, 'get_skill_md', {
-          skill_name: skillName,
-        });
-
-        expect(result).toContain('SKILL.md');
-        expect(result).toContain(skillName);
-      }
-    });
-
-    test('should update skill', async () => {
-      // First, list skills to get an ID if available
-      const skills = await client.skills.list({ limit: 1 });
-      if (skills.items.length > 0) {
-        const skillId = skills.items[0].id;
-        const originalName = skills.items[0].name;
-        const ctx = SKILL_TOOLS.formatContext(client);
-        const result = await SKILL_TOOLS.executeTool(ctx, 'update_skill', {
-          skill_id: skillId,
-          description: 'Updated description for testing',
-        });
-
-        expect(result).toContain('updated successfully');
-        expect(result).toContain(originalName);
-
-        // Restore original description
-        await client.skills.update(skillId, {
-          description: skills.items[0].description,
-        });
-      }
-    });
-
     test('should throw error when name not provided', async () => {
       const ctx = SKILL_TOOLS.formatContext(client);
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill', {})
       ).rejects.toThrow('name is required');
-    });
-
-    test('should throw error when skill_id missing for update', async () => {
-      const ctx = SKILL_TOOLS.formatContext(client);
-      await expect(
-        SKILL_TOOLS.executeTool(ctx, 'update_skill', {})
-      ).rejects.toThrow('skill_id is required');
-    });
-
-    test('should throw error when no update fields provided', async () => {
-      const skills = await client.skills.list({ limit: 1 });
-      if (skills.items.length > 0) {
-        const ctx = SKILL_TOOLS.formatContext(client);
-        await expect(
-          SKILL_TOOLS.executeTool(ctx, 'update_skill', {
-            skill_id: skills.items[0].id,
-          })
-        ).rejects.toThrow(
-          'At least one of name, description, or meta must be provided'
-        );
-      }
-    });
-
-    test('should throw error when skill_id missing for delete', async () => {
-      const ctx = SKILL_TOOLS.formatContext(client);
-      await expect(
-        SKILL_TOOLS.executeTool(ctx, 'delete_skill', {})
-      ).rejects.toThrow('skill_id is required');
     });
 
     test('should throw error when skill_name missing for get_file', async () => {
@@ -506,60 +419,13 @@ describe('Agent Tools Tests', () => {
   });
 
   describe('Skill Tool Schema Conversion', () => {
-    test('CreateSkillTool should convert to OpenAI schema correctly', () => {
-      const tool = new CreateSkillTool();
-      const schema = tool.toOpenAIToolSchema();
-
-      expect(schema).toHaveProperty('type', 'function');
-      expect(schema).toHaveProperty('function');
-
-      const functionSchema = schema.function as Record<string, unknown>;
-      expect(functionSchema).toHaveProperty('name', 'create_skill');
-      expect(functionSchema).toHaveProperty('description');
-      expect(functionSchema).toHaveProperty('parameters');
-
-      const parameters = functionSchema.parameters as Record<string, unknown>;
-      expect(parameters).toHaveProperty('type', 'object');
-      expect(parameters).toHaveProperty('properties');
-      expect(parameters).toHaveProperty('required');
-      expect(Array.isArray(parameters.required)).toBe(true);
-      expect((parameters.required as string[])).toContain('file_path');
-    });
-
     test('GetSkillTool should have correct properties', () => {
       const tool = new GetSkillTool();
       expect(tool.name).toBe('get_skill');
       expect(tool.description).toBeTruthy();
-      expect(tool.requiredArguments).toContain('name'); // Only name is supported now
+      expect(tool.requiredArguments).toContain('name');
       expect(tool.arguments).toHaveProperty('name');
-      expect(tool.arguments).not.toHaveProperty('skill_id'); // skill_id is no longer supported
-    });
-
-    test('ListSkillsTool should have correct properties', () => {
-      const tool = new ListSkillsTool();
-      expect(tool.name).toBe('list_skills');
-      expect(tool.description).toBeTruthy();
-      expect(tool.requiredArguments.length).toBe(0);
-      expect(tool.arguments).toHaveProperty('limit');
-      expect(tool.arguments).toHaveProperty('time_desc');
-    });
-
-    test('UpdateSkillTool should have correct properties', () => {
-      const tool = new UpdateSkillTool();
-      expect(tool.name).toBe('update_skill');
-      expect(tool.description).toBeTruthy();
-      expect(tool.requiredArguments).toContain('skill_id');
-      expect(tool.arguments).toHaveProperty('skill_id');
-      expect(tool.arguments).toHaveProperty('name');
-      expect(tool.arguments).toHaveProperty('description');
-      expect(tool.arguments).toHaveProperty('meta');
-    });
-
-    test('DeleteSkillTool should have correct properties', () => {
-      const tool = new DeleteSkillTool();
-      expect(tool.name).toBe('delete_skill');
-      expect(tool.description).toBeTruthy();
-      expect(tool.requiredArguments).toContain('skill_id');
+      expect(tool.arguments).not.toHaveProperty('skill_id');
     });
 
     test('GetSkillFileTool should have correct properties', () => {
@@ -579,55 +445,17 @@ describe('Agent Tools Tests', () => {
       expect(tool.arguments).not.toHaveProperty('with_public_url');
     });
 
-    test('ListSkillsCatalogTool should have correct properties', () => {
-      const tool = new ListSkillsCatalogTool();
-      expect(tool.name).toBe('list_skills_catalog');
-      expect(tool.description).toBeTruthy();
-      expect(tool.requiredArguments).toEqual([]);
-      expect(tool.arguments).toHaveProperty('limit');
-      expect(tool.arguments).toHaveProperty('time_desc');
-    });
-
-    test('should return JSON catalog for list_skills_catalog', async () => {
-      const ctx = SKILL_TOOLS.formatContext(client);
-      const result = await SKILL_TOOLS.executeTool(ctx, 'list_skills_catalog', {
-        limit: 100,
-      });
-
-      // Verify it returns valid JSON
-      const catalog = JSON.parse(result);
-      expect(catalog).toHaveProperty('total');
-      expect(catalog).toHaveProperty('skills');
-      expect(Array.isArray(catalog.skills)).toBe(true);
-      if (catalog.skills.length > 0) {
-        expect(catalog.skills[0]).toHaveProperty('name');
-        expect(catalog.skills[0]).toHaveProperty('description');
-        // Verify only name and description are included
-        expect(catalog.skills[0]).not.toHaveProperty('id');
-        expect(catalog.skills[0]).not.toHaveProperty('file_index');
-      }
-    });
-
-    test('GetSkillMDTool should have correct properties', () => {
-      const tool = new GetSkillMDTool();
-      expect(tool.name).toBe('get_skill_md');
-      expect(tool.description).toBeTruthy();
-      expect(tool.requiredArguments).toContain('skill_name');
-      expect(tool.arguments).toHaveProperty('skill_name');
-      expect(tool.arguments).not.toHaveProperty('file_path'); // file_path is fixed to SKILL.md
-    });
-
     test('SKILL_TOOLS should generate OpenAI tool schemas', () => {
       const schemas = SKILL_TOOLS.toOpenAIToolSchema();
       expect(Array.isArray(schemas)).toBe(true);
-      expect(schemas.length).toBe(8); // All 8 skill tools (including catalog and get_skill_md)
+      expect(schemas.length).toBe(2); // Only 2 skill tools: get_skill and get_skill_file
       expect(schemas.every((s) => s.type === 'function')).toBe(true);
     });
 
     test('SKILL_TOOLS should generate Anthropic tool schemas', () => {
       const schemas = SKILL_TOOLS.toAnthropicToolSchema();
       expect(Array.isArray(schemas)).toBe(true);
-      expect(schemas.length).toBe(8); // All 8 skill tools (including catalog and get_skill_md)
+      expect(schemas.length).toBe(2); // Only 2 skill tools: get_skill and get_skill_file
       expect(schemas.every((s) => s.name && s.input_schema)).toBe(true);
     });
   });
