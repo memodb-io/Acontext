@@ -1006,7 +1006,7 @@ def test_skills_list_catalog_returns_catalog_dict(
     method, path = args
     assert method == "GET"
     assert path == "/agent_skills"
-    assert kwargs["params"] == {"limit": 100, "time_desc": "false"}
+    assert kwargs["params"] == {"limit": 100}
     assert result["total"] == 2
     assert len(result["skills"]) == 2
     assert result["skills"][0]["name"] == "test-skill-1"
