@@ -34,7 +34,15 @@ async def acquire_redis_lock_token(project_id: asUUID, key: str) -> str | None:
     return token if result is not None else None
 
 
-async def release_redis_lock(project_id: asUUID, key: str):
+async def release_redis_lock(project_id: asUUID, key: str, token: str | None = None):
     new_key = f"lock.{project_id}.{key}"
     async with REDIS_CLIENT.get_client_context() as client:
-        await client.delete(new_key)
+        if token is None:
+            await client.delete(new_key)
+            return
+        await client.eval(
+            "if redis.call('GET', KEYS[1]) == ARGV[1] then return redis.call('DEL', KEYS[1]) end return 0",
+            1,
+            new_key,
+            token,
+        )
