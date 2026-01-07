@@ -51,6 +51,7 @@ class CoreConfig(BaseModel):
     session_message_session_lock_wait_seconds: int = 1
     session_message_processing_timeout_seconds: int = 60
     space_task_sop_lock_wait_seconds: int = 1
+    space_task_sop_lock_ttl_seconds: int = 60
     space_task_sop_batch_wait_seconds: int = 2
     space_task_sop_batch_max_size: int = 16
     space_task_sop_buffer_ttl_seconds: int = 30 * 60
