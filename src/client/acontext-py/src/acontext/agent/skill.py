@@ -98,32 +98,24 @@ class GetSkillTool(BaseTool):
     @property
     def arguments(self) -> dict:
         return {
-            "skill_id": {
-                "type": "string",
-                "description": "The UUID of the skill. Either skill_id or name must be provided.",
-            },
             "name": {
                 "type": "string",
-                "description": "The name of the skill (unique within project). Either skill_id or name must be provided.",
+                "description": "The name of the skill (unique within project).",
             },
         }
 
     @property
     def required_arguments(self) -> list[str]:
-        return []
+        return ["name"]
 
     def execute(self, ctx: SkillContext, llm_arguments: dict) -> str:
-        """Get a skill by ID or name."""
-        skill_id = llm_arguments.get("skill_id")
+        """Get a skill by name."""
         name = llm_arguments.get("name")
 
-        if not skill_id and not name:
-            raise ValueError("Either skill_id or name must be provided")
+        if not name:
+            raise ValueError("name is required")
 
-        if skill_id:
-            skill = ctx.client.skills.get(skill_id)
-        else:
-            skill = ctx.client.skills.get_by_name(name)
+        skill = ctx.client.skills.get_by_name(name)
 
         file_count = len(skill.file_index)
         file_list = ", ".join(skill.file_index[:10])  # Show first 10 files
@@ -292,16 +284,52 @@ class DeleteSkillTool(BaseTool):
         if not skill_id:
             raise ValueError("skill_id is required")
 
-        # Get skill info before deletion for the response
-        try:
-            skill = ctx.client.skills.get(skill_id)
-            skill_name = skill.name
-        except Exception:
-            skill_name = skill_id
-
         ctx.client.skills.delete(skill_id)
 
-        return f"Skill '{skill_name}' (ID: {skill_id}) deleted successfully."
+        return f"Skill (ID: {skill_id}) deleted successfully."
+
+
+class ListSkillsCatalogTool(BaseTool):
+    """Tool for getting a catalog of all skills (names and descriptions only)."""
+
+    @property
+    def name(self) -> str:
+        return "list_skills_catalog"
+
+    @property
+    def description(self) -> str:
+        return (
+            "Get a catalog of all skills in the project. "
+            "Returns a JSON object containing skill names and descriptions only."
+        )
+
+    @property
+    def arguments(self) -> dict:
+        return {
+            "limit": {
+                "type": "integer",
+                "description": "Maximum number of skills to return. Defaults to 100.",
+            },
+            "time_desc": {
+                "type": "boolean",
+                "description": "Order by created_at descending if true, ascending if false. Defaults to false.",
+            },
+        }
+
+    @property
+    def required_arguments(self) -> list[str]:
+        return []
+
+    def execute(self, ctx: SkillContext, llm_arguments: dict) -> str:
+        """Get skills catalog."""
+        import json
+
+        limit = llm_arguments.get("limit", 100)
+        time_desc = llm_arguments.get("time_desc", False)
+
+        catalog = ctx.client.skills.list_catalog(limit=limit, time_desc=time_desc)
+
+        return json.dumps(catalog, ensure_ascii=False, indent=2)
 
 
 class GetSkillFileTool(BaseTool):
@@ -323,13 +351,9 @@ class GetSkillFileTool(BaseTool):
     @property
     def arguments(self) -> dict:
         return {
-            "skill_id": {
-                "type": "string",
-                "description": "The UUID of the skill. Either skill_id or skill_name must be provided.",
-            },
             "skill_name": {
                 "type": "string",
-                "description": "The name of the skill. Either skill_id or skill_name must be provided.",
+                "description": "The name of the skill.",
             },
             "file_path": {
                 "type": "string",
@@ -343,28 +367,26 @@ class GetSkillFileTool(BaseTool):
 
     @property
     def required_arguments(self) -> list[str]:
-        return ["file_path"]
+        return ["skill_name", "file_path"]
 
     def execute(self, ctx: SkillContext, llm_arguments: dict) -> str:
         """Get a skill file."""
-        skill_id = llm_arguments.get("skill_id")
         skill_name = llm_arguments.get("skill_name")
         file_path = llm_arguments.get("file_path")
         expire = llm_arguments.get("expire")
 
         if not file_path:
             raise ValueError("file_path is required")
-        if not skill_id and not skill_name:
-            raise ValueError("Either skill_id or skill_name must be provided")
+        if not skill_name:
+            raise ValueError("skill_name is required")
 
-        result = ctx.client.skills.get_file(
-            skill_id=skill_id,
+        result = ctx.client.skills.get_file_by_name(
             skill_name=skill_name,
             file_path=file_path,
             expire=expire,
         )
 
-        output_parts = [f"File '{result.path}' (MIME: {result.mime}) from skill '{skill_name or skill_id}':"]
+        output_parts = [f"File '{result.path}' (MIME: {result.mime}) from skill '{skill_name}':"]
 
         if result.content:
             output_parts.append(f"\nContent (type: {result.content.type}):")
@@ -396,6 +418,7 @@ SKILL_TOOLS = SkillToolPool()
 SKILL_TOOLS.add_tool(CreateSkillTool())
 SKILL_TOOLS.add_tool(GetSkillTool())
 SKILL_TOOLS.add_tool(ListSkillsTool())
+SKILL_TOOLS.add_tool(ListSkillsCatalogTool())
 SKILL_TOOLS.add_tool(UpdateSkillTool())
 SKILL_TOOLS.add_tool(DeleteSkillTool())
 SKILL_TOOLS.add_tool(GetSkillFileTool())

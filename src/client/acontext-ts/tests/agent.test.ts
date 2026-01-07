@@ -18,6 +18,7 @@ import {
   CreateSkillTool,
   GetSkillTool,
   ListSkillsTool,
+  ListSkillsCatalogTool,
   UpdateSkillTool,
   DeleteSkillTool,
   GetSkillFileTool,
@@ -447,11 +448,11 @@ describe('Agent Tools Tests', () => {
       }
     });
 
-    test('should throw error when skill_id or name not provided', async () => {
+    test('should throw error when name not provided', async () => {
       const ctx = SKILL_TOOLS.formatContext(client);
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill', {})
-      ).rejects.toThrow('Either skill_id or name must be provided');
+      ).rejects.toThrow('name is required');
     });
 
     test('should throw error when skill_id missing for update', async () => {
@@ -482,25 +483,22 @@ describe('Agent Tools Tests', () => {
       ).rejects.toThrow('skill_id is required');
     });
 
-    test('should throw error when skill_id and skill_name missing for get_file', async () => {
+    test('should throw error when skill_name missing for get_file', async () => {
       const ctx = SKILL_TOOLS.formatContext(client);
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill_file', {
           file_path: 'test.json',
         })
-      ).rejects.toThrow('Either skill_id or skill_name must be provided');
+      ).rejects.toThrow('skill_name is required');
     });
 
     test('should throw error when file_path missing for get_file', async () => {
-      const skills = await client.skills.list({ limit: 1 });
-      if (skills.items.length > 0) {
-        const ctx = SKILL_TOOLS.formatContext(client);
-        await expect(
-          SKILL_TOOLS.executeTool(ctx, 'get_skill_file', {
-            skill_id: skills.items[0].id,
-          })
-        ).rejects.toThrow('file_path is required');
-      }
+      const ctx = SKILL_TOOLS.formatContext(client);
+      await expect(
+        SKILL_TOOLS.executeTool(ctx, 'get_skill_file', {
+          skill_name: 'test-skill',
+        })
+      ).rejects.toThrow('file_path is required');
     });
   });
 
@@ -565,11 +563,11 @@ describe('Agent Tools Tests', () => {
       const tool = new GetSkillFileTool();
       expect(tool.name).toBe('get_skill_file');
       expect(tool.description).toBeTruthy();
-      // file_path is required, but skill_id and skill_name are optional (either one must be provided)
+      // skill_name and file_path are required
+      expect(tool.requiredArguments).toContain('skill_name');
       expect(tool.requiredArguments).toContain('file_path');
       expect(tool.requiredArguments).not.toContain('skill_id');
-      expect(tool.requiredArguments).not.toContain('skill_name');
-      expect(tool.arguments).toHaveProperty('skill_id');
+      expect(tool.arguments).not.toHaveProperty('skill_id');
       expect(tool.arguments).toHaveProperty('skill_name');
       expect(tool.arguments).toHaveProperty('file_path');
       expect(tool.arguments).toHaveProperty('expire');
@@ -578,17 +576,46 @@ describe('Agent Tools Tests', () => {
       expect(tool.arguments).not.toHaveProperty('with_public_url');
     });
 
+    test('ListSkillsCatalogTool should have correct properties', () => {
+      const tool = new ListSkillsCatalogTool();
+      expect(tool.name).toBe('list_skills_catalog');
+      expect(tool.description).toBeTruthy();
+      expect(tool.requiredArguments).toEqual([]);
+      expect(tool.arguments).toHaveProperty('limit');
+      expect(tool.arguments).toHaveProperty('time_desc');
+    });
+
+    test('should return JSON catalog for list_skills_catalog', async () => {
+      const ctx = SKILL_TOOLS.formatContext(client);
+      const result = await SKILL_TOOLS.executeTool(ctx, 'list_skills_catalog', {
+        limit: 100,
+      });
+
+      // Verify it returns valid JSON
+      const catalog = JSON.parse(result);
+      expect(catalog).toHaveProperty('total');
+      expect(catalog).toHaveProperty('skills');
+      expect(Array.isArray(catalog.skills)).toBe(true);
+      if (catalog.skills.length > 0) {
+        expect(catalog.skills[0]).toHaveProperty('name');
+        expect(catalog.skills[0]).toHaveProperty('description');
+        // Verify only name and description are included
+        expect(catalog.skills[0]).not.toHaveProperty('id');
+        expect(catalog.skills[0]).not.toHaveProperty('file_index');
+      }
+    });
+
     test('SKILL_TOOLS should generate OpenAI tool schemas', () => {
       const schemas = SKILL_TOOLS.toOpenAIToolSchema();
       expect(Array.isArray(schemas)).toBe(true);
-      expect(schemas.length).toBe(6); // All 6 skill tools
+      expect(schemas.length).toBe(7); // All 7 skill tools (including catalog)
       expect(schemas.every((s) => s.type === 'function')).toBe(true);
     });
 
     test('SKILL_TOOLS should generate Anthropic tool schemas', () => {
       const schemas = SKILL_TOOLS.toAnthropicToolSchema();
       expect(Array.isArray(schemas)).toBe(true);
-      expect(schemas.length).toBe(6);
+      expect(schemas.length).toBe(7); // All 7 skill tools (including catalog)
       expect(schemas.every((s) => s.name && s.input_schema)).toBe(true);
     });
   });

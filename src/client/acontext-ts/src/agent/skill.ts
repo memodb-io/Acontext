@@ -83,33 +83,24 @@ export class GetSkillTool extends AbstractBaseTool {
     'Get a skill by its ID or name. ' +
     'Returns the skill information including name, description, file index, and metadata.';
   readonly arguments = {
-    skill_id: {
-      type: 'string',
-      description:
-        'The UUID of the skill. Either skill_id or name must be provided.',
-    },
     name: {
       type: 'string',
-      description:
-        'The name of the skill (unique within project). Either skill_id or name must be provided.',
+      description: 'The name of the skill (unique within project).',
     },
   };
-  readonly requiredArguments: string[] = [];
+  readonly requiredArguments = ['name'];
 
   async execute(
     ctx: SkillContext,
     llmArguments: Record<string, unknown>
   ): Promise<string> {
-    const skillId = llmArguments.skill_id as string | undefined;
     const name = llmArguments.name as string | undefined;
 
-    if (!skillId && !name) {
-      throw new Error('Either skill_id or name must be provided');
+    if (!name) {
+      throw new Error('name is required');
     }
 
-    const skill = skillId
-      ? await ctx.client.skills.get(skillId)
-      : await ctx.client.skills.getByName(name!);
+    const skill = await ctx.client.skills.getByName(name);
 
     const fileCount = skill.file_index.length;
     const fileList = skill.file_index.slice(0, 10).join(', ');
@@ -256,18 +247,43 @@ export class DeleteSkillTool extends AbstractBaseTool {
       throw new Error('skill_id is required');
     }
 
-    // Get skill info before deletion for the response
-    let skillName: string;
-    try {
-      const skill = await ctx.client.skills.get(skillId);
-      skillName = skill.name;
-    } catch {
-      skillName = skillId;
-    }
-
     await ctx.client.skills.delete(skillId);
 
-    return `Skill '${skillName}' (ID: ${skillId}) deleted successfully.`;
+    return `Skill (ID: ${skillId}) deleted successfully.`;
+  }
+}
+
+export class ListSkillsCatalogTool extends AbstractBaseTool {
+  readonly name = 'list_skills_catalog';
+  readonly description =
+    'Get a catalog of all skills in the project. Returns a JSON object containing skill names and descriptions only.';
+
+  readonly arguments = {
+    limit: {
+      type: 'number',
+      description: 'Maximum number of skills to return. Defaults to 100.',
+    },
+    time_desc: {
+      type: 'boolean',
+      description:
+        'Order by created_at descending if true, ascending if false. Defaults to false.',
+    },
+  };
+  readonly requiredArguments: string[] = [];
+
+  async execute(
+    ctx: SkillContext,
+    llmArguments: Record<string, unknown>
+  ): Promise<string> {
+    const limit = (llmArguments.limit as number | undefined) || 100;
+    const timeDesc = (llmArguments.time_desc as boolean | undefined) || false;
+
+    const catalog = await ctx.client.skills.listCatalog({
+      limit,
+      timeDesc,
+    });
+
+    return JSON.stringify(catalog, null, 2);
   }
 }
 
@@ -279,15 +295,9 @@ export class GetSkillFileTool extends AbstractBaseTool {
     'Can return the file content directly or a presigned URL for downloading. ' +
     'Supports text files, JSON, CSV, and code files.';
   readonly arguments = {
-    skill_id: {
-      type: 'string',
-      description:
-        'The UUID of the skill. Either skill_id or skill_name must be provided.',
-    },
     skill_name: {
       type: 'string',
-      description:
-        'The name of the skill. Either skill_id or skill_name must be provided.',
+      description: 'The name of the skill.',
     },
     file_path: {
       type: 'string',
@@ -300,13 +310,12 @@ export class GetSkillFileTool extends AbstractBaseTool {
         'URL expiration time in seconds (only used for non-parseable files). Defaults to 900 (15 minutes).',
     },
   };
-  readonly requiredArguments = ['file_path'];
+  readonly requiredArguments = ['skill_name', 'file_path'];
 
   async execute(
     ctx: SkillContext,
     llmArguments: Record<string, unknown>
   ): Promise<string> {
-    const skillId = llmArguments.skill_id as string | undefined;
     const skillName = llmArguments.skill_name as string | undefined;
     const filePath = llmArguments.file_path as string;
     const expire = llmArguments.expire as number | undefined;
@@ -314,19 +323,18 @@ export class GetSkillFileTool extends AbstractBaseTool {
     if (!filePath) {
       throw new Error('file_path is required');
     }
-    if (!skillId && !skillName) {
-      throw new Error('Either skill_id or skill_name must be provided');
+    if (!skillName) {
+      throw new Error('skill_name is required');
     }
 
-    const result = await ctx.client.skills.getFile({
-      skillId: skillId || null,
-      skillName: skillName || null,
+    const result = await ctx.client.skills.getFileByName({
+      skillName,
       filePath,
       expire: expire || null,
     });
 
     const outputParts: string[] = [
-      `File '${result.path}' (MIME: ${result.mime}) from skill '${skillName || skillId}':`,
+      `File '${result.path}' (MIME: ${result.mime}) from skill '${skillName}':`,
     ];
 
     if (result.content) {
@@ -367,6 +375,7 @@ export const SKILL_TOOLS = new SkillToolPool();
 SKILL_TOOLS.addTool(new CreateSkillTool());
 SKILL_TOOLS.addTool(new GetSkillTool());
 SKILL_TOOLS.addTool(new ListSkillsTool());
+SKILL_TOOLS.addTool(new ListSkillsCatalogTool());
 SKILL_TOOLS.addTool(new UpdateSkillTool());
 SKILL_TOOLS.addTool(new DeleteSkillTool());
 SKILL_TOOLS.addTool(new GetSkillFileTool());

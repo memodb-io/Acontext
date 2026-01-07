@@ -929,32 +929,6 @@ def test_skills_create_uses_multipart_payload(
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_skills_get_by_id_hits_skills_endpoint(
-    mock_request, client: AcontextClient
-) -> None:
-    mock_request.return_value = {
-        "id": "skill-1",
-        "project_id": "project-id",
-        "name": "test-skill",
-        "description": "Test skill",
-        "file_index": ["SKILL.md"],
-        "meta": {},
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z",
-    }
-
-    result = client.skills.get("skill-1")
-
-    mock_request.assert_called_once()
-    args, _ = mock_request.call_args
-    method, path = args
-    assert method == "GET"
-    assert path == "/agent_skills/skill-1"
-    assert result.id == "skill-1"
-    assert result.name == "test-skill"
-
-
-@patch("acontext.client.AcontextClient.request")
 def test_skills_get_by_name_hits_by_name_endpoint(
     mock_request, client: AcontextClient
 ) -> None:
@@ -1023,29 +997,53 @@ def test_skills_delete_hits_skills_endpoint(mock_request, client: AcontextClient
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_skills_get_file_hits_file_endpoint(
+def test_skills_list_catalog_returns_catalog_dict(
     mock_request, client: AcontextClient
 ) -> None:
     mock_request.return_value = {
-        "url": "https://s3.example.com/presigned-url",
+        "items": [
+            {
+                "id": "skill-1",
+                "project_id": "project-id",
+                "name": "test-skill-1",
+                "description": "Test skill 1",
+                "file_index": ["SKILL.md"],
+                "meta": {},
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            },
+            {
+                "id": "skill-2",
+                "project_id": "project-id",
+                "name": "test-skill-2",
+                "description": "Test skill 2",
+                "file_index": ["SKILL.md", "scripts/main.py"],
+                "meta": {},
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            },
+        ],
+        "next_cursor": None,
+        "has_more": False,
     }
 
-    result = client.skills.get_file(
-        skill_id="skill-1",
-        file_path="scripts/main.py",
-        expire=1800,
-    )
+    result = client.skills.list_catalog(limit=100)
 
     mock_request.assert_called_once()
     args, kwargs = mock_request.call_args
     method, path = args
     assert method == "GET"
-    assert path == "/agent_skills/skill-1/file"
-    assert kwargs["params"]["file_path"] == "scripts/main.py"
-    assert kwargs["params"]["expire"] == 1800
-    assert result.url == "https://s3.example.com/presigned-url"
-    assert result.path == "scripts/main.py"
-    assert result.mime == ""  # Not available from old endpoint
+    assert path == "/agent_skills"
+    assert kwargs["params"] == {"limit": 100, "time_desc": "false"}
+    assert result["total"] == 2
+    assert len(result["skills"]) == 2
+    assert result["skills"][0]["name"] == "test-skill-1"
+    assert result["skills"][0]["description"] == "Test skill 1"
+    assert result["skills"][1]["name"] == "test-skill-2"
+    assert result["skills"][1]["description"] == "Test skill 2"
+    # Verify only name and description are included
+    assert "id" not in result["skills"][0]
+    assert "file_index" not in result["skills"][0]
 
 
 @patch("acontext.client.AcontextClient.request")
@@ -1058,9 +1056,10 @@ def test_skills_get_file_by_name_hits_by_name_endpoint(
         "content": {"type": "code", "raw": "print('Hello, World!')"},
     }
 
-    result = client.skills.get_file(
+    result = client.skills.get_file_by_name(
         skill_name="test-skill",
         file_path="scripts/main.py",
+        expire=1800,
     )
 
     mock_request.assert_called_once()
@@ -1069,6 +1068,7 @@ def test_skills_get_file_by_name_hits_by_name_endpoint(
     assert method == "GET"
     assert path == "/agent_skills/by_name/test-skill/file"
     assert kwargs["params"]["file_path"] == "scripts/main.py"
+    assert kwargs["params"]["expire"] == 1800
     assert result.path == "scripts/main.py"
     assert result.mime == "text/x-python"
     assert result.content is not None

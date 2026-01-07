@@ -424,7 +424,7 @@ class TestSkillTools:
             skill_ctx,
             "get_skill_file",
             {
-                "skill_id": "skill-1",
+                "skill_name": "test-skill",
                 "file_path": "scripts/main.py",
             },
         )
@@ -434,9 +434,62 @@ class TestSkillTools:
         assert "Hello, World!" in result
         mock_request.assert_called_once()
 
+    @patch("acontext.client.AcontextClient.request")
+    def test_list_skills_catalog_tool(
+        self, mock_request: MagicMock, skill_ctx: SkillContext
+    ) -> None:
+        """Test list_skills_catalog tool execution."""
+        mock_request.return_value = {
+            "items": [
+                {
+                    "id": "skill-1",
+                    "project_id": "project-id",
+                    "name": "test-skill-1",
+                    "description": "Test skill 1",
+                    "file_index": ["SKILL.md"],
+                    "meta": {},
+                    "created_at": "2024-01-01T00:00:00Z",
+                    "updated_at": "2024-01-01T00:00:00Z",
+                },
+                {
+                    "id": "skill-2",
+                    "project_id": "project-id",
+                    "name": "test-skill-2",
+                    "description": "Test skill 2",
+                    "file_index": ["SKILL.md", "scripts/main.py"],
+                    "meta": {},
+                    "created_at": "2024-01-01T00:00:00Z",
+                    "updated_at": "2024-01-01T00:00:00Z",
+                },
+            ],
+            "next_cursor": None,
+            "has_more": False,
+        }
+
+        result = SKILL_TOOLS.execute_tool(
+            skill_ctx,
+            "list_skills_catalog",
+            {"limit": 100},
+        )
+
+        # Verify it returns valid JSON
+        import json
+
+        catalog = json.loads(result)
+        assert catalog["total"] == 2
+        assert len(catalog["skills"]) == 2
+        assert catalog["skills"][0]["name"] == "test-skill-1"
+        assert catalog["skills"][0]["description"] == "Test skill 1"
+        assert catalog["skills"][1]["name"] == "test-skill-2"
+        assert catalog["skills"][1]["description"] == "Test skill 2"
+        # Verify only name and description are included
+        assert "id" not in catalog["skills"][0]
+        assert "file_index" not in catalog["skills"][0]
+        mock_request.assert_called_once()
+
     def test_get_skill_tool_validation(self, skill_ctx: SkillContext) -> None:
         """Test get_skill tool parameter validation."""
-        with pytest.raises(ValueError, match="Either skill_id or name must be provided"):
+        with pytest.raises(ValueError, match="name is required"):
             SKILL_TOOLS.execute_tool(skill_ctx, "get_skill", {})
 
     def test_create_skill_tool_validation(self, skill_ctx: SkillContext) -> None:

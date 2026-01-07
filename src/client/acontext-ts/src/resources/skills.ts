@@ -55,9 +55,22 @@ export class SkillsAPI {
     return SkillSchema.parse(data);
   }
 
-  async get(skillId: string): Promise<Skill> {
-    const data = await this.requester.request('GET', `/agent_skills/${skillId}`);
-    return SkillSchema.parse(data);
+  async listCatalog(options?: {
+    limit?: number | null;
+    cursor?: string | null;
+    timeDesc?: boolean | null;
+  }): Promise<{
+    total: number;
+    skills: Array<{ name: string; description: string }>;
+  }> {
+    const result = await this.list(options);
+    return {
+      total: result.items.length,
+      skills: result.items.map((skill) => ({
+        name: skill.name,
+        description: skill.description,
+      })),
+    };
   }
 
   async getByName(name: string): Promise<Skill> {
@@ -96,20 +109,12 @@ export class SkillsAPI {
     await this.requester.request('DELETE', `/agent_skills/${skillId}`);
   }
 
-  async getFile(options: {
-    skillId?: string | null;
-    skillName?: string | null;
+  async getFileByName(options: {
+    skillName: string;
     filePath: string;
     expire?: number | null;
   }): Promise<GetSkillFileResp> {
-    if (!options.skillId && !options.skillName) {
-      throw new Error('Either skillId or skillName must be provided');
-    }
-
-    // Use by_name endpoint if skillName is provided
-    const endpoint = options.skillName
-      ? `/agent_skills/by_name/${options.skillName}/file`
-      : `/agent_skills/${options.skillId}/file`;
+    const endpoint = `/agent_skills/by_name/${options.skillName}/file`;
 
     const params: Record<string, string | number> = {
       file_path: options.filePath,
@@ -122,35 +127,7 @@ export class SkillsAPI {
       params,
     });
 
-    // Handle different response formats:
-    // - /agent_skills/by_name/{name}/file returns {path, mime, content?, url?}
-    // - /agent_skills/{id}/file returns {url: "..."}
-    if (
-      typeof data === 'object' &&
-      data !== null &&
-      'path' in data &&
-      'mime' in data
-    ) {
-      // New format from GetFile endpoint
-      return GetSkillFileRespSchema.parse(data);
-    } else if (
-      typeof data === 'object' &&
-      data !== null &&
-      'url' in data &&
-      Object.keys(data).length === 1
-    ) {
-      // Old format from GetFileURL endpoint (only URL)
-      // We need to construct a minimal response
-      return GetSkillFileRespSchema.parse({
-        path: options.filePath,
-        mime: '',
-        url: (data as { url: string }).url,
-        content: null,
-      });
-    } else {
-      // Fallback: try to parse as GetSkillFileResp
-      return GetSkillFileRespSchema.parse(data);
-    }
+    return GetSkillFileRespSchema.parse(data);
   }
 }
 

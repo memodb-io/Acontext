@@ -76,17 +76,31 @@ class SkillsAPI:
         )
         return Skill.model_validate(data)
 
-    def get(self, skill_id: str) -> Skill:
-        """Get a skill by its ID.
+    def list_catalog(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        time_desc: bool | None = None,
+    ) -> dict[str, int | list[dict[str, str]]]:
+        """Get a catalog of all skills (names and descriptions only) as a JSON-serializable dict.
 
         Args:
-            skill_id: The UUID of the skill.
+            limit: Maximum number of skills to return. Defaults to None.
+            cursor: Cursor for pagination. Defaults to None.
+            time_desc: Order by created_at descending if True, ascending if False. Defaults to None.
 
         Returns:
-            Skill containing the skill information.
+            A dictionary with 'total' (number of skills) and 'skills' (list of dicts with 'name' and 'description').
         """
-        data = self._requester.request("GET", f"/agent_skills/{skill_id}")
-        return Skill.model_validate(data)
+        result = self.list(limit=limit, cursor=cursor, time_desc=time_desc)
+        return {
+            "total": len(result.items),
+            "skills": [
+                {"name": skill.name, "description": skill.description}
+                for skill in result.items
+            ],
+        }
 
     def get_by_name(self, name: str) -> Skill:
         """Get a skill by its name.
@@ -140,60 +154,32 @@ class SkillsAPI:
         """
         self._requester.request("DELETE", f"/agent_skills/{skill_id}")
 
-    def get_file(
+    def get_file_by_name(
         self,
-        skill_id: str | None = None,
-        skill_name: str | None = None,
         *,
+        skill_name: str,
         file_path: str,
         expire: int | None = None,
     ) -> GetSkillFileResp:
-        """Get a file from a skill by ID or name.
+        """Get a file from a skill by name.
 
         The backend automatically returns content for parseable text files, or a presigned URL
         for non-parseable files (binary, images, etc.).
 
         Args:
-            skill_id: The UUID of the skill. Either skill_id or skill_name must be provided.
-            skill_name: The name of the skill. Either skill_id or skill_name must be provided.
+            skill_name: The name of the skill.
             file_path: Relative path to the file within the skill (e.g., 'scripts/extract_text.json').
             expire: URL expiration time in seconds. Defaults to 900 (15 minutes).
 
         Returns:
             GetSkillFileResp containing the file path, MIME type, and either content or URL.
         """
-        if not skill_id and not skill_name:
-            raise ValueError("Either skill_id or skill_name must be provided")
-
-        # Use by_name endpoint if skill_name is provided
-        if skill_name:
-            endpoint = f"/agent_skills/by_name/{skill_name}/file"
-        else:
-            # For skill_id, use the existing endpoint (which only returns URL)
-            endpoint = f"/agent_skills/{skill_id}/file"
+        endpoint = f"/agent_skills/by_name/{skill_name}/file"
 
         params = {"file_path": file_path}
         if expire is not None:
             params["expire"] = expire
 
         data = self._requester.request("GET", endpoint, params=params)
-
-        # Handle different response formats:
-        # - /agent_skills/by_name/{name}/file returns {path, mime, content?, url?}
-        # - /agent_skills/{id}/file returns {url: "..."}
-        if "path" in data and "mime" in data:
-            # New format from GetFile endpoint
-            return GetSkillFileResp.model_validate(data)
-        elif "url" in data:
-            # Old format from GetFileURL endpoint (only URL)
-            # We need to construct a minimal response
-            return GetSkillFileResp(
-                path=file_path,
-                mime="",  # Not available from old endpoint
-                url=data.get("url"),
-                content=None,
-            )
-        else:
-            # Fallback: try to parse as GetSkillFileResp
-            return GetSkillFileResp.model_validate(data)
+        return GetSkillFileResp.model_validate(data)
 
