@@ -43,6 +43,7 @@ from .skill import (
     GetSkillFileResp,
     ListSkillsOutput,
     Skill,
+    SkillCatalogItem,
 )
 
 __all__ = [
@@ -84,6 +85,7 @@ __all__ = [
     # Skill types
     "FileInfo",
     "Skill",
+    "SkillCatalogItem",
     "ListSkillsOutput",
     "GetSkillFileResp",
 ]

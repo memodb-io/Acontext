@@ -2,14 +2,18 @@
  * Skills endpoints.
  */
 
+import { z } from 'zod';
+
 import { RequesterProtocol } from '../client-types';
 import { FileUpload, normalizeFileUpload } from '../uploads';
 import { buildParams } from '../utils';
 import {
   GetSkillFileResp,
   GetSkillFileRespSchema,
+  ListSkillsOutput,
   ListSkillsOutputSchema,
   Skill,
+  SkillCatalogItem,
   SkillSchema,
 } from '../types';
 
@@ -42,26 +46,52 @@ export class SkillsAPI {
     limit?: number | null;
     cursor?: string | null;
     timeDesc?: boolean | null;
-  }): Promise<{
-    total: number;
-    skills: Array<{ name: string; description: string }>;
-  }> {
-    const params = buildParams({
-      limit: options?.limit ?? null,
-      cursor: options?.cursor ?? null,
-      time_desc: options?.timeDesc ?? null,
+  }): Promise<ListSkillsOutput> {
+    // Parse API response (contains full Skill objects)
+    const apiResponseSchema = z.object({
+      items: z.array(SkillSchema),
+      next_cursor: z.string().nullable().optional(),
+      has_more: z.boolean(),
     });
-    const data = await this.requester.request('GET', '/agent_skills', {
-      params: Object.keys(params).length > 0 ? params : undefined,
+
+    // Collect all skills across all pages
+    const allSkills: Skill[] = [];
+    let currentCursor = options?.cursor ?? null;
+    const pageLimit = options?.limit ?? 200; // Use max limit to minimize requests
+
+    while (true) {
+      const params = buildParams({
+        limit: pageLimit,
+        cursor: currentCursor,
+        time_desc: options?.timeDesc ?? null,
+      });
+      const data = await this.requester.request('GET', '/agent_skills', {
+        params: Object.keys(params).length > 0 ? params : undefined,
+      });
+      const apiResponse = apiResponseSchema.parse(data);
+
+      allSkills.push(...apiResponse.items);
+
+      // If no more pages, break
+      if (!apiResponse.has_more || !apiResponse.next_cursor) {
+        break;
+      }
+
+      currentCursor = apiResponse.next_cursor;
+    }
+
+    // Convert to catalog format (name and description only)
+    return ListSkillsOutputSchema.parse({
+      items: allSkills.map(
+        (skill): SkillCatalogItem => ({
+          name: skill.name,
+          description: skill.description,
+        })
+      ),
+      total: allSkills.length,
+      next_cursor: null, // All results included, no pagination needed
+      has_more: false, // All results included
     });
-    const result = ListSkillsOutputSchema.parse(data);
-    return {
-      total: result.items.length,
-      skills: result.items.map((skill) => ({
-        name: skill.name,
-        description: skill.description,
-      })),
-    };
   }
 
   async getByName(name: string): Promise<Skill> {

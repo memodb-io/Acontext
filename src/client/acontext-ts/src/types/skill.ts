@@ -25,8 +25,16 @@ export const SkillSchema = z.object({
 
 export type Skill = z.infer<typeof SkillSchema>;
 
+export const SkillCatalogItemSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+});
+
+export type SkillCatalogItem = z.infer<typeof SkillCatalogItemSchema>;
+
 export const ListSkillsOutputSchema = z.object({
-  items: z.array(SkillSchema),
+  items: z.array(SkillCatalogItemSchema),
+  total: z.number(),
   next_cursor: z.string().nullable().optional(),
   has_more: z.boolean(),
 });

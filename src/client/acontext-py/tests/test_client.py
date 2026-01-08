@@ -974,15 +974,15 @@ def test_skills_list_returns_catalog_dict(
     assert method == "GET"
     assert path == "/agent_skills"
     assert kwargs["params"] == {"limit": 100}
-    assert result["total"] == 2
-    assert len(result["skills"]) == 2
-    assert result["skills"][0]["name"] == "test-skill-1"
-    assert result["skills"][0]["description"] == "Test skill 1"
-    assert result["skills"][1]["name"] == "test-skill-2"
-    assert result["skills"][1]["description"] == "Test skill 2"
-    # Verify only name and description are included
-    assert "id" not in result["skills"][0]
-    assert "file_index" not in result["skills"][0]
+    assert result.total == 2
+    assert len(result.items) == 2
+    assert result.items[0].name == "test-skill-1"
+    assert result.items[0].description == "Test skill 1"
+    assert result.items[1].name == "test-skill-2"
+    assert result.items[1].description == "Test skill 2"
+    # Verify all results are included (no pagination needed)
+    assert result.next_cursor is None
+    assert result.has_more is False
 
 
 @patch("acontext.client.AcontextClient.request")

@@ -30,10 +30,20 @@ class Skill(BaseModel):
     updated_at: str = Field(..., description="ISO 8601 formatted update timestamp")
 
 
-class ListSkillsOutput(BaseModel):
-    """Response model for listing skills."""
+class SkillCatalogItem(BaseModel):
+    """Catalog item containing only name and description."""
 
-    items: list[Skill] = Field(..., description="List of skills")
+    name: str = Field(..., description="Skill name (unique within project)")
+    description: str = Field(..., description="Skill description")
+
+
+class ListSkillsOutput(BaseModel):
+    """Response model for listing skills (catalog format with name and description only)."""
+
+    items: list[SkillCatalogItem] = Field(
+        ..., description="List of skills with name and description"
+    )
+    total: int = Field(..., description="Total number of skills in this response")
     next_cursor: str | None = Field(None, description="Cursor for pagination")
     has_more: bool = Field(..., description="Whether there are more items")
 

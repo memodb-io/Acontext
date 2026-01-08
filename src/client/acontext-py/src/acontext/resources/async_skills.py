@@ -13,6 +13,7 @@ from ..types.skill import (
     GetSkillFileResp,
     ListSkillsOutput,
     Skill,
+    SkillCatalogItem,
 )
 from ..uploads import FileUpload, normalize_file_upload
 
@@ -63,29 +64,57 @@ class AsyncSkillsAPI:
         limit: int | None = None,
         cursor: str | None = None,
         time_desc: bool | None = None,
-    ) -> dict[str, int | list[dict[str, str]]]:
-        """Get a catalog of all skills (names and descriptions only) as a JSON-serializable dict.
+    ) -> ListSkillsOutput:
+        """Get a catalog of all skills (names and descriptions only).
+
+        Automatically fetches all skills across all pages and returns them as a catalog.
 
         Args:
-            limit: Maximum number of skills to return. Defaults to None.
-            cursor: Cursor for pagination. Defaults to None.
+            limit: Maximum number of skills per page (used for pagination, defaults to API default).
+            cursor: Cursor for pagination (usually not needed, as all results are fetched).
             time_desc: Order by created_at descending if True, ascending if False. Defaults to None.
 
         Returns:
-            A dictionary with 'total' (number of skills) and 'skills' (list of dicts with 'name' and 'description').
+            ListSkillsOutput containing all skills with name and description, total count.
+            Note: next_cursor and has_more will be None/False since all results are included.
         """
-        params = build_params(limit=limit, cursor=cursor, time_desc=time_desc)
-        data = await self._requester.request(
-            "GET", "/agent_skills", params=params or None
-        )
-        result = ListSkillsOutput.model_validate(data)
-        return {
-            "total": len(result.items),
-            "skills": [
-                {"name": skill.name, "description": skill.description}
-                for skill in result.items
+        from pydantic import BaseModel
+
+        class _ListSkillsResponse(BaseModel):
+            items: list[Skill]
+            next_cursor: str | None = None
+            has_more: bool = False
+
+        # Collect all skills across all pages
+        all_skills: list[Skill] = []
+        current_cursor = cursor
+        page_limit = limit if limit is not None else 200  # Use max limit to minimize requests
+
+        while True:
+            params = build_params(limit=page_limit, cursor=current_cursor, time_desc=time_desc)
+            data = await self._requester.request(
+                "GET", "/agent_skills", params=params or None
+            )
+            api_response = _ListSkillsResponse.model_validate(data)
+
+            all_skills.extend(api_response.items)
+
+            # If no more pages, break
+            if not api_response.has_more or api_response.next_cursor is None:
+                break
+
+            current_cursor = api_response.next_cursor
+
+        # Convert to catalog format (name and description only)
+        return ListSkillsOutput(
+            items=[
+                SkillCatalogItem(name=skill.name, description=skill.description)
+                for skill in all_skills
             ],
-        }
+            total=len(all_skills),
+            next_cursor=None,  # All results included, no pagination needed
+            has_more=False,  # All results included
+        )
 
     async def get_by_name(self, name: str) -> Skill:
         """Get a skill by its name.
