@@ -57,7 +57,7 @@ class SkillsAPI:
         )
         return Skill.model_validate(data)
 
-    def list_catalog(
+    def list(
         self,
         *,
         limit: int | None = None,

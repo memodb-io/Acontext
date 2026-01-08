@@ -6,12 +6,18 @@ import { z } from 'zod';
 
 import { FileContentSchema } from './common';
 
+export const FileInfoSchema = z.object({
+  path: z.string(),
+  mime: z.string(),
+});
+
+export type FileInfo = z.infer<typeof FileInfoSchema>;
+
 export const SkillSchema = z.object({
   id: z.string(),
-  project_id: z.string(),
   name: z.string(),
   description: z.string(),
-  file_index: z.array(z.string()),
+  file_index: z.array(FileInfoSchema),
   meta: z.record(z.string(), z.unknown()),
   created_at: z.string(),
   updated_at: z.string(),

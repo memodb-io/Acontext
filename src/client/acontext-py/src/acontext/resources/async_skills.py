@@ -57,7 +57,7 @@ class AsyncSkillsAPI:
         )
         return Skill.model_validate(data)
 
-    async def list_catalog(
+    async def list(
         self,
         *,
         limit: int | None = None,

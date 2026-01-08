@@ -39,6 +39,7 @@ from .tool import (
     ToolRenameItem,
 )
 from .skill import (
+    FileInfo,
     GetSkillFileResp,
     ListSkillsOutput,
     Skill,
@@ -81,6 +82,7 @@ __all__ = [
     "ToolReferenceData",
     "ToolRenameItem",
     # Skill types
+    "FileInfo",
     "Skill",
     "ListSkillsOutput",
     "GetSkillFileResp",

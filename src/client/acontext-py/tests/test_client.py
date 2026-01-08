@@ -865,10 +865,9 @@ def test_skills_create_uses_multipart_payload(
 ) -> None:
     mock_request.return_value = {
         "id": "skill-1",
-        "project_id": "project-id",
         "name": "test-skill",
         "description": "Test skill",
-        "file_index": ["SKILL.md"],
+        "file_index": [{"path": "SKILL.md", "mime": "text/markdown"}],
         "meta": {"version": "1.0"},
         "created_at": "2024-01-01T00:00:00Z",
         "updated_at": "2024-01-01T00:00:00Z",
@@ -902,10 +901,9 @@ def test_skills_get_by_name_hits_by_name_endpoint(
 ) -> None:
     mock_request.return_value = {
         "id": "skill-1",
-        "project_id": "project-id",
         "name": "test-skill",
         "description": "Test skill",
-        "file_index": ["SKILL.md"],
+        "file_index": [{"path": "SKILL.md", "mime": "text/markdown"}],
         "meta": {},
         "created_at": "2024-01-01T00:00:00Z",
         "updated_at": "2024-01-01T00:00:00Z",
@@ -937,27 +935,28 @@ def test_skills_delete_hits_skills_endpoint(mock_request, client: AcontextClient
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_skills_list_catalog_returns_catalog_dict(
+def test_skills_list_returns_catalog_dict(
     mock_request, client: AcontextClient
 ) -> None:
     mock_request.return_value = {
         "items": [
             {
                 "id": "skill-1",
-                "project_id": "project-id",
                 "name": "test-skill-1",
                 "description": "Test skill 1",
-                "file_index": ["SKILL.md"],
+                "file_index": [{"path": "SKILL.md", "mime": "text/markdown"}],
                 "meta": {},
                 "created_at": "2024-01-01T00:00:00Z",
                 "updated_at": "2024-01-01T00:00:00Z",
             },
             {
                 "id": "skill-2",
-                "project_id": "project-id",
                 "name": "test-skill-2",
                 "description": "Test skill 2",
-                "file_index": ["SKILL.md", "scripts/main.py"],
+                "file_index": [
+                    {"path": "SKILL.md", "mime": "text/markdown"},
+                    {"path": "scripts/main.py", "mime": "text/x-python"},
+                ],
                 "meta": {},
                 "created_at": "2024-01-01T00:00:00Z",
                 "updated_at": "2024-01-01T00:00:00Z",
@@ -967,7 +966,7 @@ def test_skills_list_catalog_returns_catalog_dict(
         "has_more": False,
     }
 
-    result = client.skills.list_catalog(limit=100)
+    result = client.skills.list(limit=100)
 
     mock_request.assert_called_once()
     args, kwargs = mock_request.call_args

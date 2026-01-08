@@ -50,7 +50,8 @@ class GetSkillTool(BaseTool):
         skill = ctx.client.skills.get_by_name(name)
 
         file_count = len(skill.file_index)
-        file_list = ", ".join(skill.file_index[:10])  # Show first 10 files
+        file_paths = [file_info.path for file_info in skill.file_index[:10]]
+        file_list = ", ".join(file_paths)  # Show first 10 files
         if len(skill.file_index) > 10:
             file_list += f", ... ({len(skill.file_index) - 10} more)"
 

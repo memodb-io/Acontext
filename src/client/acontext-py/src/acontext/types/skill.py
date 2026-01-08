@@ -7,15 +7,21 @@ from pydantic import BaseModel, Field
 from .common import FileContent
 
 
+class FileInfo(BaseModel):
+    """File information in a skill."""
+
+    path: str = Field(..., description="Relative file path from skill root")
+    mime: str = Field(..., description="MIME type of the file")
+
+
 class Skill(BaseModel):
     """Skill model representing an agent skill resource."""
 
     id: str = Field(..., description="Skill UUID")
-    project_id: str = Field(..., description="Project UUID")
     name: str = Field(..., description="Skill name (unique within project)")
     description: str = Field(..., description="Skill description")
-    file_index: list[str] = Field(
-        ..., description="List of relative file paths in the skill"
+    file_index: list[FileInfo] = Field(
+        ..., description="List of file information (path and MIME type) in the skill"
     )
     meta: dict[str, Any] = Field(
         ..., description="Custom metadata dictionary"

@@ -38,7 +38,7 @@ export class SkillsAPI {
     return SkillSchema.parse(data);
   }
 
-  async listCatalog(options?: {
+  async list(options?: {
     limit?: number | null;
     cursor?: string | null;
     timeDesc?: boolean | null;

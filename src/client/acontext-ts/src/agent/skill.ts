@@ -35,7 +35,8 @@ export class GetSkillTool extends AbstractBaseTool {
     const skill = await ctx.client.skills.getByName(name);
 
     const fileCount = skill.file_index.length;
-    const fileList = skill.file_index.slice(0, 10).join(', ');
+    const filePaths = skill.file_index.slice(0, 10).map((file) => file.path);
+    const fileList = filePaths.join(', ');
     const moreFiles =
       skill.file_index.length > 10
         ? `, ... (${skill.file_index.length - 10} more)`

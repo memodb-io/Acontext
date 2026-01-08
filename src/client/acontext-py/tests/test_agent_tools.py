@@ -223,10 +223,12 @@ class TestSkillTools:
         """Test get_skill tool execution."""
         mock_request.return_value = {
             "id": "skill-1",
-            "project_id": "project-id",
             "name": "test-skill",
             "description": "Test skill",
-            "file_index": ["SKILL.md", "scripts/main.py"],
+            "file_index": [
+                {"path": "SKILL.md", "mime": "text/markdown"},
+                {"path": "scripts/main.py", "mime": "text/x-python"},
+            ],
             "meta": {},
             "created_at": "2024-01-01T00:00:00Z",
             "updated_at": "2024-01-01T00:00:00Z",
