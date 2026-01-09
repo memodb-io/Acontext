@@ -165,7 +165,7 @@ export class DiskArtifactsAPI {
       query: string;
       limit?: number;
     }
-  ): Promise<any[]> {
+  ): Promise<Artifact[]> {
     const params = buildParams({
       query: options.query,
       limit: options.limit ?? 100,
@@ -182,7 +182,7 @@ export class DiskArtifactsAPI {
       query: string;
       limit?: number;
     }
-  ): Promise<any[]> {
+  ): Promise<Artifact[]> {
     const params = buildParams({
       query: options.query,
       limit: options.limit ?? 100,

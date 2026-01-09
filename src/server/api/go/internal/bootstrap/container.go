@@ -3,7 +3,6 @@ package bootstrap
 import (
 	"context"
 	"crypto/tls"
-	"os"
 	"strings"
 	"time"
 
@@ -77,55 +76,49 @@ func BuildContainer() *do.Injector {
 
 	// Redis
 	do.Provide(inj, func(i *do.Injector) (*redis.Client, error) {
-		if os.Getenv("DISABLE_REDIS") == "1" {
-			return nil, nil
-		}
-
 		cfg := do.MustInvoke[*config.Config](i)
 		return cache.New(cfg)
 	})
 
 	// RabbitMQ DialFunc for connection and reconnection
 	do.Provide(inj, func(i *do.Injector) (mq.DialFunc, error) {
-		if os.Getenv("DISABLE_RABBITMQ") == "1" {
-			return nil, nil
-		}
-
 		cfg := do.MustInvoke[*config.Config](i)
 
-		return func() (*amqp.Connection, error) {
+		dialFn := func() (*amqp.Connection, error) {
+			// Check if TLS is enabled via config or URL protocol
 			useTLS := cfg.RabbitMQ.EnableTLS || strings.HasPrefix(cfg.RabbitMQ.URL, "amqps://")
 
 			if useTLS {
-				tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
-				url := strings.Replace(cfg.RabbitMQ.URL, "amqp://", "amqps://", 1)
+				// Use TLS configuration with minimum TLS 1.2
+				tlsConfig := &tls.Config{
+					MinVersion: tls.VersionTLS12,
+				}
+				// Convert amqp:// to amqps:// if needed
+				url := cfg.RabbitMQ.URL
+				if strings.HasPrefix(url, "amqp://") {
+					url = strings.Replace(url, "amqp://", "amqps://", 1)
+				}
 				return amqp.DialTLS(url, tlsConfig)
 			}
 
 			return amqp.Dial(cfg.RabbitMQ.URL)
-		}, nil
+		}
+
+		return dialFn, nil
 	})
 
 	// RabbitMQ Connection
 	do.Provide(inj, func(i *do.Injector) (*amqp.Connection, error) {
 		dialFn := do.MustInvoke[mq.DialFunc](i)
-		if dialFn == nil {
-			return nil, nil
-		}
 		return dialFn()
 	})
 
 	// RabbitMQ Publisher
 	do.Provide(inj, func(i *do.Injector) (*mq.Publisher, error) {
-		conn := do.MustInvoke[*amqp.Connection](i)
-		if conn == nil {
-			return nil, nil
-		}
-
 		cfg := do.MustInvoke[*config.Config](i)
+		conn := do.MustInvoke[*amqp.Connection](i)
 		log := do.MustInvoke[*zap.Logger](i)
 		dialFn := do.MustInvoke[mq.DialFunc](i)
-
 		return mq.NewPublisher(conn, log, cfg, dialFn)
 	})
 
@@ -134,7 +127,6 @@ func BuildContainer() *do.Injector {
 		cfg := do.MustInvoke[*config.Config](i)
 		return blob.NewS3(context.Background(), cfg)
 	})
-
 	// get presign expire duration
 	do.Provide(inj, func(i *do.Injector) (func() time.Duration, error) {
 		cfg := do.MustInvoke[*config.Config](i)

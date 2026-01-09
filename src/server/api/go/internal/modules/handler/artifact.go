@@ -32,13 +32,13 @@ type CreateArtifactReq struct {
 }
 
 type GrepArtifactsReq struct {
-	Query string `form:"query" json:"query" binding:"required"`
-	Limit int    `form:"limit" json:"limit"`
+	Query string `form:"query" json:"query" binding:"required" example:"TODO.*"`
+	Limit *int   `form:"limit" json:"limit" binding:"omitempty,min=1,max=1000" example:"100"`
 }
 
 type GlobArtifactsReq struct {
-	Query string `form:"query" json:"query" binding:"required"`
-	Limit int    `form:"limit" json:"limit"`
+	Query string `form:"query" json:"query" binding:"required" example:"*.py"`
+	Limit *int   `form:"limit" json:"limit" binding:"omitempty,min=1,max=1000" example:"100"`
 }
 
 // UpsertArtifact godoc
@@ -448,6 +448,11 @@ func (h *ArtifactHandler) GrepArtifacts(c *gin.Context) {
 		return
 	}
 
+	limit := 100
+	if req.Limit != nil {
+		limit = *req.Limit
+	}
+
 	artifacts, err := h.svc.GrepArtifacts(c.Request.Context(), project.ID, diskID, req.Query, req.Limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
@@ -487,6 +492,11 @@ func (h *ArtifactHandler) GlobArtifacts(c *gin.Context) {
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
 		return
+	}
+
+	limit := 100
+	if req.Limit != nil {
+		limit = *req.Limit
 	}
 
 	artifacts, err := h.svc.GlobArtifacts(c.Request.Context(), project.ID, diskID, req.Query, req.Limit)
