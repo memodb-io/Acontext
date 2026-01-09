@@ -379,7 +379,7 @@ async def test_async_store_message_rejects_file_field_for_non_acontext_format(
 async def test_async_sessions_get_messages_forwards_format(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
-    mock_request.return_value = {"items": [], "ids": [], "has_more": False}
+    mock_request.return_value = {"items": [], "ids": [], "has_more": False, "this_time_tokens": 0}
 
     result = await async_client.sessions.get_messages(
         "session-id", format="acontext", time_desc=True

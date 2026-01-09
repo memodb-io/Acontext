@@ -395,7 +395,12 @@ def test_store_message_rejects_file_field_for_non_acontext_format(
 def test_sessions_get_messages_forwards_format(
     mock_request, client: AcontextClient
 ) -> None:
-    mock_request.return_value = {"items": [], "ids": [], "has_more": False}
+    mock_request.return_value = {
+        "items": [],
+        "ids": [],
+        "has_more": False,
+        "this_time_tokens": 0,
+    }
 
     result = client.sessions.get_messages(
         "session-id", format="acontext", time_desc=True
@@ -416,7 +421,12 @@ def test_sessions_get_messages_forwards_format(
 def test_sessions_get_messages_with_edit_strategies(
     mock_request, client: AcontextClient
 ) -> None:
-    mock_request.return_value = {"items": [], "ids": [], "has_more": False}
+    mock_request.return_value = {
+        "items": [],
+        "ids": [],
+        "has_more": False,
+        "this_time_tokens": 0,
+    }
 
     edit_strategies = [
         {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}
@@ -446,7 +456,12 @@ def test_sessions_get_messages_with_edit_strategies(
 def test_sessions_get_messages_without_edit_strategies(
     mock_request, client: AcontextClient
 ) -> None:
-    mock_request.return_value = {"items": [], "ids": [], "has_more": False}
+    mock_request.return_value = {
+        "items": [],
+        "ids": [],
+        "has_more": False,
+        "this_time_tokens": 0,
+    }
 
     result = client.sessions.get_messages("session-id", format="openai")
 
