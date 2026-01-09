@@ -23,8 +23,8 @@ class Skill(BaseModel):
     file_index: list[FileInfo] = Field(
         ..., description="List of file information (path and MIME type) in the skill"
     )
-    meta: dict[str, Any] = Field(
-        ..., description="Custom metadata dictionary"
+    meta: dict[str, Any] | None = Field(
+        None, description="Custom metadata dictionary"
     )
     created_at: str = Field(..., description="ISO 8601 formatted creation timestamp")
     updated_at: str = Field(..., description="ISO 8601 formatted update timestamp")
