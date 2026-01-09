@@ -33,12 +33,12 @@ type CreateArtifactReq struct {
 
 type GrepArtifactsReq struct {
 	Query string `form:"query" json:"query" binding:"required" example:"TODO.*"`
-	Limit *int   `form:"limit" json:"limit" binding:"omitempty,min=1,max=1000" example:"100"`
+	Limit *int   `form:"limit" json:"limit" binding:"omitempty,min=0,max=200" example:"20"`
 }
 
 type GlobArtifactsReq struct {
 	Query string `form:"query" json:"query" binding:"required" example:"*.py"`
-	Limit *int   `form:"limit" json:"limit" binding:"omitempty,min=1,max=1000" example:"100"`
+	Limit *int   `form:"limit" json:"limit" binding:"omitempty,min=0,max=200" example:"20"`
 }
 
 // UpsertArtifact godoc
