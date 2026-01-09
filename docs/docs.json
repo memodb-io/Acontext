@@ -40,8 +40,16 @@
                   }
                 ]
               },
-              "store/disk",
-              "store/editing"
+              "store/disk"
+            ]
+          },
+          {
+            "group": "Context Engineering",
+            "icon": "scissors",
+            "pages": [
+              "engineering/whatis",
+              "engineering/editing",
+              "engineering/cache"
             ]
           },
           {
