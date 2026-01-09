@@ -267,6 +267,7 @@ class AsyncSessionsAPI:
         format: Literal["acontext", "openai", "anthropic", "gemini"] = "openai",
         time_desc: bool | None = None,
         edit_strategies: Optional[List[EditStrategy]] = None,
+        pin_editing_strategies_at_message: str | None = None,
     ) -> GetMessagesOutput:
         """Get messages for a session.
 
@@ -283,6 +284,12 @@ class AsyncSessionsAPI:
                     - Remove tool results: [{"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}]
                     - Token limit: [{"type": "token_limit", "params": {"limit_tokens": 20000}}]
                 Defaults to None.
+            pin_editing_strategies_at_message: Message ID to pin editing strategies at.
+                When provided, strategies are only applied to messages up to and including
+                this message ID, keeping subsequent messages unchanged. This helps maintain
+                prompt cache stability by preserving a stable prefix. The response includes
+                edit_at_message_id indicating where strategies were applied. Pass this value
+                in subsequent requests to maintain cache hits. Defaults to None.
 
         Returns:
             GetMessagesOutput containing the list of messages and pagination information.
@@ -300,6 +307,10 @@ class AsyncSessionsAPI:
         )
         if edit_strategies is not None:
             params["edit_strategies"] = json.dumps(edit_strategies)
+        if pin_editing_strategies_at_message is not None:
+            params["pin_editing_strategies_at_message"] = (
+                pin_editing_strategies_at_message
+            )
         data = await self._requester.request(
             "GET", f"/session/{session_id}/messages", params=params or None
         )
@@ -348,20 +359,21 @@ class AsyncSessionsAPI:
         )
         return TokenCounts.model_validate(data)
 
+
 async def messages_observing_status(self, session_id: str) -> MessageObservingStatus:
-        """Get message observing status counts for a session.
-        
-        Returns the count of messages by their observing status:
-        observed, in_process, and pending.
-        
-        Args:
-            session_id: The UUID of the session.
-        
-        Returns:
-            MessageObservingStatus object containing observed, in_process, 
-            pending counts and updated_at timestamp.
-        """
-        data = await self._requester.request(
-            "GET", f"/session/{session_id}/observing_status"
-        )
-        return MessageObservingStatus.model_validate(data)
+    """Get message observing status counts for a session.
+
+    Returns the count of messages by their observing status:
+    observed, in_process, and pending.
+
+    Args:
+        session_id: The UUID of the session.
+
+    Returns:
+        MessageObservingStatus object containing observed, in_process,
+        pending counts and updated_at timestamp.
+    """
+    data = await self._requester.request(
+        "GET", f"/session/{session_id}/observing_status"
+    )
+    return MessageObservingStatus.model_validate(data)

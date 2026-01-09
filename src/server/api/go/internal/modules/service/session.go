@@ -362,13 +362,14 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 }
 
 type GetMessagesInput struct {
-	SessionID          uuid.UUID               `json:"session_id"`
-	Limit              int                     `json:"limit"`
-	Cursor             string                  `json:"cursor"`
-	WithAssetPublicURL bool                    `json:"with_public_url"`
-	AssetExpire        time.Duration           `json:"asset_expire"`
-	TimeDesc           bool                    `json:"time_desc"`
-	EditStrategies     []editor.StrategyConfig `json:"edit_strategies,omitempty"`
+	SessionID                     uuid.UUID               `json:"session_id"`
+	Limit                         int                     `json:"limit"`
+	Cursor                        string                  `json:"cursor"`
+	WithAssetPublicURL            bool                    `json:"with_public_url"`
+	AssetExpire                   time.Duration           `json:"asset_expire"`
+	TimeDesc                      bool                    `json:"time_desc"`
+	EditStrategies                []editor.StrategyConfig `json:"edit_strategies,omitempty"`
+	PinEditingStrategiesAtMessage string                  `json:"pin_editing_strategies_at_message,omitempty"`
 }
 
 type PublicURL struct {
@@ -377,10 +378,11 @@ type PublicURL struct {
 }
 
 type GetMessagesOutput struct {
-	Items      []model.Message      `json:"items"`
-	NextCursor string               `json:"next_cursor,omitempty"`
-	HasMore    bool                 `json:"has_more"`
-	PublicURLs map[string]PublicURL `json:"public_urls,omitempty"` // file_name -> url
+	Items           []model.Message      `json:"items"`
+	NextCursor      string               `json:"next_cursor,omitempty"`
+	HasMore         bool                 `json:"has_more"`
+	PublicURLs      map[string]PublicURL `json:"public_urls,omitempty"` // file_name -> url
+	EditAtMessageID string               `json:"edit_at_message_id,omitempty"`
 }
 
 func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (*GetMessagesOutput, error) {
@@ -445,10 +447,15 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 
 	// Apply edit strategies if provided (before format conversion)
 	if len(in.EditStrategies) > 0 {
-		out.Items, err = editor.ApplyStrategies(out.Items, in.EditStrategies)
+		result, err := editor.ApplyStrategiesWithPin(out.Items, in.EditStrategies, in.PinEditingStrategiesAtMessage)
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply edit strategies: %w", err)
 		}
+		out.Items = result.Messages
+		out.EditAtMessageID = result.EditAtMessageID
+	} else if len(out.Items) > 0 {
+		// No strategies, but still set EditAtMessageID to the last message
+		out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
 	}
 
 	// Generate presigned URLs for assets if requested

@@ -486,12 +486,13 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 }
 
 type GetMessagesReq struct {
-	Limit              *int   `form:"limit" json:"limit" binding:"omitempty,min=0,max=200" example:"20"`
-	Cursor             string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
-	WithAssetPublicURL bool   `form:"with_asset_public_url,default=true" json:"with_asset_public_url" example:"true"`
-	Format             string `form:"format,default=openai" json:"format" binding:"omitempty,oneof=acontext openai anthropic gemini" example:"openai" enums:"acontext,openai,anthropic,gemini"`
-	TimeDesc           bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
-	EditStrategies     string `form:"edit_strategies" json:"edit_strategies" example:"[{\"type\":\"remove_tool_result\",\"params\":{\"keep_recent_n_tool_results\":3}}]"`
+	Limit                         *int   `form:"limit" json:"limit" binding:"omitempty,min=0,max=200" example:"20"`
+	Cursor                        string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
+	WithAssetPublicURL            bool   `form:"with_asset_public_url,default=true" json:"with_asset_public_url" example:"true"`
+	Format                        string `form:"format,default=openai" json:"format" binding:"omitempty,oneof=acontext openai anthropic gemini" example:"openai" enums:"acontext,openai,anthropic,gemini"`
+	TimeDesc                      bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
+	EditStrategies                string `form:"edit_strategies" json:"edit_strategies" example:"[{\"type\":\"remove_tool_result\",\"params\":{\"keep_recent_n_tool_results\":3}}]"`
+	PinEditingStrategiesAtMessage string `form:"pin_editing_strategies_at_message" json:"pin_editing_strategies_at_message" example:""`
 }
 
 // GetMessages godoc
@@ -507,7 +508,8 @@ type GetMessagesReq struct {
 //	@Param			with_asset_public_url	query	string	false	"Whether to return asset public url, default is true"										example(true)
 //	@Param			format					query	string	false	"Format to convert messages to: acontext (original), openai (default), anthropic, gemini."	enums(acontext,openai,anthropic,gemini)
 //	@Param			time_desc				query	string	false	"Order by created_at descending if true, ascending if false (default false)"				example(false)
-//	@Param			edit_strategies			query	string	false	"JSON array of edit strategies to apply before format conversion"							example([{"type":"remove_tool_result","params":{"keep_recent_n_tool_results":3}}])
+//	@Param			edit_strategies						query	string	false	"JSON array of edit strategies to apply before format conversion"																																																																example([{"type":"remove_tool_result","params":{"keep_recent_n_tool_results":3}}])
+//	@Param			pin_editing_strategies_at_message	query	string	false	"Message ID to pin editing strategies at. When provided, strategies are only applied to messages up to and including this message ID, keeping subsequent messages unchanged. This helps maintain prompt cache stability by preserving a stable prefix. The response will include edit_at_message_id indicating where strategies were applied."	example()
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.GetMessagesOutput}
 //	@Router			/session/{session_id}/messages [get]
@@ -541,13 +543,14 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 	}
 
 	out, err := h.svc.GetMessages(c.Request.Context(), service.GetMessagesInput{
-		SessionID:          sessionID,
-		Limit:              limit,
-		Cursor:             req.Cursor,
-		WithAssetPublicURL: req.WithAssetPublicURL,
-		AssetExpire:        time.Hour * 24,
-		TimeDesc:           req.TimeDesc,
-		EditStrategies:     editStrategies,
+		SessionID:                     sessionID,
+		Limit:                         limit,
+		Cursor:                        req.Cursor,
+		WithAssetPublicURL:            req.WithAssetPublicURL,
+		AssetExpire:                   time.Hour * 24,
+		TimeDesc:                      req.TimeDesc,
+		EditStrategies:                editStrategies,
+		PinEditingStrategiesAtMessage: req.PinEditingStrategiesAtMessage,
 	})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.DBErr("", err))
@@ -580,6 +583,7 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		out.NextCursor,
 		out.HasMore,
 		thisTimeTokens,
+		out.EditAtMessageID,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to convert messages", err))

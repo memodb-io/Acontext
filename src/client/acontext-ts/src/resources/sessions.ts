@@ -199,6 +199,11 @@ export class SessionsAPI {
    *   Examples:
    *   - Remove tool results: [{ type: 'remove_tool_result', params: { keep_recent_n_tool_results: 3 } }]
    *   - Token limit: [{ type: 'token_limit', params: { limit_tokens: 20000 } }]
+   * @param options.pinEditingStrategiesAtMessage - Message ID to pin editing strategies at.
+   *   When provided, strategies are only applied to messages up to and including this message ID,
+   *   keeping subsequent messages unchanged. This helps maintain prompt cache stability by
+   *   preserving a stable prefix. The response includes edit_at_message_id indicating where
+   *   strategies were applied. Pass this value in subsequent requests to maintain cache hits.
    * @returns GetMessagesOutput containing the list of messages and pagination information.
    */
   async getMessages(
@@ -210,6 +215,7 @@ export class SessionsAPI {
       format?: 'acontext' | 'openai' | 'anthropic' | 'gemini';
       timeDesc?: boolean | null;
       editStrategies?: Array<EditStrategy> | null;
+      pinEditingStrategiesAtMessage?: string | null;
     }
   ): Promise<GetMessagesOutput> {
     const params: Record<string, string | number> = {};
@@ -227,6 +233,9 @@ export class SessionsAPI {
     );
     if (options?.editStrategies !== undefined && options?.editStrategies !== null) {
       params.edit_strategies = JSON.stringify(options.editStrategies);
+    }
+    if (options?.pinEditingStrategiesAtMessage !== undefined && options?.pinEditingStrategiesAtMessage !== null) {
+      params.pin_editing_strategies_at_message = options.pinEditingStrategiesAtMessage;
     }
     const data = await this.requester.request('GET', `/session/${sessionId}/messages`, {
       params: Object.keys(params).length > 0 ? params : undefined,

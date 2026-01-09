@@ -171,6 +171,7 @@ func TestGetConvertedMessagesOutput(t *testing.T) {
 		"next_cursor_123",
 		true,
 		100, // thisTimeTokens
+		"",  // editAtMessageID
 	)
 
 	require.NoError(t, err)
@@ -202,6 +203,7 @@ func TestGetConvertedMessagesOutput_NonAcontextFormat(t *testing.T) {
 		"",
 		false,
 		50, // thisTimeTokens
+		"", // editAtMessageID
 	)
 
 	require.NoError(t, err)
@@ -224,7 +226,8 @@ func TestGetConvertedMessagesOutput_EmptyMessages(t *testing.T) {
 		nil,
 		"",
 		false,
-		0, // thisTimeTokens
+		0,  // thisTimeTokens
+		"", // editAtMessageID
 	)
 
 	require.NoError(t, err)
@@ -260,6 +263,7 @@ func TestGetConvertedMessagesOutput_SingleMessage(t *testing.T) {
 		"cursor-123",
 		true,
 		25, // thisTimeTokens
+		"", // editAtMessageID
 	)
 
 	require.NoError(t, err)
@@ -298,6 +302,7 @@ func TestGetConvertedMessagesOutput_IDOrderMatchesItemOrder(t *testing.T) {
 		"",
 		false,
 		75, // thisTimeTokens
+		"", // editAtMessageID
 	)
 
 	require.NoError(t, err)
@@ -328,6 +333,7 @@ func TestGetConvertedMessagesOutput_DifferentFormats(t *testing.T) {
 			"",
 			false,
 			30, // thisTimeTokens
+			"", // editAtMessageID
 		)
 
 		require.NoError(t, err, "format %s should not error", format)
@@ -360,6 +366,7 @@ func TestGetConvertedMessagesOutput_WithPublicURLs(t *testing.T) {
 		"",
 		false,
 		42, // thisTimeTokens
+		"", // editAtMessageID
 	)
 
 	require.NoError(t, err)

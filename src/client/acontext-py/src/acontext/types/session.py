@@ -229,6 +229,16 @@ class GetMessagesOutput(BaseModel):
         None,
         description="Map of SHA256 hash to PublicURL (only included when format='acontext')",
     )
+    edit_at_message_id: str | None = Field(
+        None,
+        description=(
+            "The message ID where edit strategies were applied up to. "
+            "If pin_editing_strategies_at_message was provided, this equals that value. "
+            "Otherwise, this is the ID of the last message in the response. "
+            "Use this value to maintain prompt cache stability by passing it as "
+            "pin_editing_strategies_at_message in subsequent requests."
+        ),
+    )
 
 
 class GetTasksOutput(BaseModel):

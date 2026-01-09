@@ -104,6 +104,14 @@ export const GetMessagesOutputSchema = z.object({
   /** Total token count of the returned messages */
   this_time_tokens: z.number(),
   public_urls: z.record(z.string(), PublicURLSchema).nullable().optional(),
+  /**
+   * The message ID where edit strategies were applied up to.
+   * If pin_editing_strategies_at_message was provided, this equals that value.
+   * Otherwise, this is the ID of the last message in the response.
+   * Use this value to maintain prompt cache stability by passing it as
+   * pin_editing_strategies_at_message in subsequent requests.
+   */
+  edit_at_message_id: z.string().nullable().optional(),
 });
 
 export type GetMessagesOutput = z.infer<typeof GetMessagesOutputSchema>;

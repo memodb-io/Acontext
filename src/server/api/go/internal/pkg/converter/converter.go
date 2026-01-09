@@ -64,6 +64,7 @@ func GetConvertedMessagesOutput(
 	nextCursor string,
 	hasMore bool,
 	thisTimeTokens int,
+	editAtMessageID string,
 ) (map[string]interface{}, error) {
 	convertedData, err := ConvertMessages(ConvertMessagesInput{
 		Messages:   messages,
@@ -89,6 +90,11 @@ func GetConvertedMessagesOutput(
 
 	if nextCursor != "" {
 		result["next_cursor"] = nextCursor
+	}
+
+	// Include edit_at_message_id if provided
+	if editAtMessageID != "" {
+		result["edit_at_message_id"] = editAtMessageID
 	}
 
 	// Include public_urls only if format is None (original format)
