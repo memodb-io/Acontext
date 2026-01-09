@@ -453,7 +453,7 @@ func (h *ArtifactHandler) GrepArtifacts(c *gin.Context) {
 		limit = *req.Limit
 	}
 
-	artifacts, err := h.svc.GrepArtifacts(c.Request.Context(), project.ID, diskID, req.Query, req.Limit)
+	artifacts, err := h.svc.GrepArtifacts(c.Request.Context(), project.ID, diskID, req.Query, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
 		return
@@ -499,7 +499,7 @@ func (h *ArtifactHandler) GlobArtifacts(c *gin.Context) {
 		limit = *req.Limit
 	}
 
-	artifacts, err := h.svc.GlobArtifacts(c.Request.Context(), project.ID, diskID, req.Query, req.Limit)
+	artifacts, err := h.svc.GlobArtifacts(c.Request.Context(), project.ID, diskID, req.Query, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
 		return
