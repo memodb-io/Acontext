@@ -50,12 +50,13 @@ type AssetReference struct {
 func (AssetReference) TableName() string { return "asset_references" }
 
 type Asset struct {
-	Bucket string `json:"bucket"`
-	S3Key  string `json:"s3_key"`
-	ETag   string `json:"etag"`
-	SHA256 string `json:"sha256"`
-	MIME   string `json:"mime"`
-	SizeB  int64  `json:"size_b"`
+	Bucket  string `json:"bucket"`
+	S3Key   string `json:"s3_key"`
+	ETag    string `json:"etag"`
+	SHA256  string `json:"sha256"`
+	MIME    string `json:"mime"`
+	SizeB   int64  `json:"size_b"`
+	Content string `json:"content,omitempty"` // Text content for text-searchable files (text/*, application/json, application/x-*)
 }
 
 // IsOrphaned returns true if this asset has no references

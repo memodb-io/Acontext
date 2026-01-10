@@ -96,6 +96,22 @@ func (m *MockArtifactService) GetFileContent(ctx context.Context, artifact *mode
 	return args.Get(0).(*fileparser.FileContent), args.Error(1)
 }
 
+func (m *MockArtifactService) GrepArtifacts(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	args := m.Called(ctx, projectID, diskID, pattern, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*model.Artifact), args.Error(1)
+}
+
+func (m *MockArtifactService) GlobArtifacts(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	args := m.Called(ctx, projectID, diskID, pattern, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*model.Artifact), args.Error(1)
+}
+
 // createTestConfig creates a test config with default artifact settings
 func createTestConfig(maxUploadSizeBytes int64) *config.Config {
 	return &config.Config{
@@ -642,6 +658,181 @@ func TestArtifactHandler_GetArtifact(t *testing.T) {
 			}
 
 			mockService.AssertExpectations(t)
+		})
+	}
+}
+
+func TestArtifactHandler_GrepArtifacts(t *testing.T) {
+	tests := []struct {
+		name           string
+		diskID         string
+		query          string
+		limit          string
+		setupMock      func(*MockArtifactService)
+		expectedStatus int
+		checkBody      func(*testing.T, string)
+	}{
+		{
+			name:   "successful grep search",
+			diskID: "123e4567-e89b-12d3-a456-426614174000",
+			query:  "TODO",
+			limit:  "10",
+			setupMock: func(svc *MockArtifactService) {
+				svc.On("GrepArtifacts", mock.Anything, mock.Anything, mock.Anything, "TODO", 10).
+					Return([]*model.Artifact{
+						{
+							ID:       uuid.New(),
+							Filename: "test.py",
+							Path:     "/",
+						},
+					}, nil)
+			},
+			expectedStatus: http.StatusOK,
+			checkBody: func(t *testing.T, body string) {
+				assert.Contains(t, body, "test.py")
+			},
+		},
+		{
+			name:   "no matches found",
+			diskID: "123e4567-e89b-12d3-a456-426614174000",
+			query:  "NOTFOUND",
+			limit:  "50",
+			setupMock: func(svc *MockArtifactService) {
+				svc.On("GrepArtifacts", mock.Anything, mock.Anything, mock.Anything, "NOTFOUND", 50).
+					Return([]*model.Artifact{}, nil)
+			},
+			expectedStatus: http.StatusOK,
+			checkBody: func(t *testing.T, body string) {
+				assert.Contains(t, body, "data")
+			},
+		},
+		{
+			name:           "invalid disk ID",
+			diskID:         "invalid-uuid",
+			query:          "TODO",
+			limit:          "10",
+			setupMock:      func(svc *MockArtifactService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "missing query parameter",
+			diskID:         "123e4567-e89b-12d3-a456-426614174000",
+			query:          "",
+			limit:          "10",
+			setupMock:      func(svc *MockArtifactService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockSvc := new(MockArtifactService)
+			tt.setupMock(mockSvc)
+
+			handler := NewArtifactHandler(mockSvc, createTestConfig(10*1024*1024))
+
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+
+			project := &model.Project{ID: uuid.New()}
+			c.Set("project", project)
+
+			req := httptest.NewRequest("GET", "/disk/"+tt.diskID+"/artifact/grep?query="+tt.query+"&limit="+tt.limit, nil)
+			c.Request = req
+			c.Params = gin.Params{{Key: "disk_id", Value: tt.diskID}}
+
+			handler.GrepArtifacts(c)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			if tt.checkBody != nil {
+				tt.checkBody(t, w.Body.String())
+			}
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+func TestArtifactHandler_GlobArtifacts(t *testing.T) {
+	tests := []struct {
+		name           string
+		diskID         string
+		query          string
+		limit          string
+		setupMock      func(*MockArtifactService)
+		expectedStatus int
+		checkBody      func(*testing.T, string)
+	}{
+		{
+			name:   "successful glob with wildcard",
+			diskID: "123e4567-e89b-12d3-a456-426614174000",
+			query:  "*.py",
+			limit:  "20",
+			setupMock: func(svc *MockArtifactService) {
+				svc.On("GlobArtifacts", mock.Anything, mock.Anything, mock.Anything, "*.py", 20).
+					Return([]*model.Artifact{
+						{
+							ID:       uuid.New(),
+							Filename: "test.py",
+							Path:     "/",
+						},
+						{
+							ID:       uuid.New(),
+							Filename: "main.py",
+							Path:     "/",
+						},
+					}, nil)
+			},
+			expectedStatus: http.StatusOK,
+			checkBody: func(t *testing.T, body string) {
+				assert.Contains(t, body, "test.py")
+				assert.Contains(t, body, "main.py")
+			},
+		},
+		{
+			name:   "no matches",
+			diskID: "123e4567-e89b-12d3-a456-426614174000",
+			query:  "*.xyz",
+			limit:  "10",
+			setupMock: func(svc *MockArtifactService) {
+				svc.On("GlobArtifacts", mock.Anything, mock.Anything, mock.Anything, "*.xyz", 10).
+					Return([]*model.Artifact{}, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "invalid disk ID",
+			diskID:         "not-a-uuid",
+			query:          "*.txt",
+			limit:          "10",
+			setupMock:      func(svc *MockArtifactService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockSvc := new(MockArtifactService)
+			tt.setupMock(mockSvc)
+
+			handler := NewArtifactHandler(mockSvc, createTestConfig(10*1024*1024))
+
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+
+			project := &model.Project{ID: uuid.New()}
+			c.Set("project", project)
+
+			req := httptest.NewRequest("GET", "/disk/"+tt.diskID+"/artifact/glob?query="+tt.query+"&limit="+tt.limit, nil)
+			c.Request = req
+			c.Params = gin.Params{{Key: "disk_id", Value: tt.diskID}}
+
+			handler.GlobArtifacts(c)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			if tt.checkBody != nil {
+				tt.checkBody(t, w.Body.String())
+			}
+			mockSvc.AssertExpectations(t)
 		})
 	}
 }

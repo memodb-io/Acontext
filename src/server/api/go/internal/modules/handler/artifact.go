@@ -31,6 +31,16 @@ type CreateArtifactReq struct {
 	Meta     string `form:"meta" json:"meta"`
 }
 
+type GrepArtifactsReq struct {
+	Query string `form:"query" json:"query" binding:"required" example:"TODO.*"`
+	Limit *int   `form:"limit" json:"limit" binding:"omitempty,min=0,max=200" example:"20"`
+}
+
+type GlobArtifactsReq struct {
+	Query string `form:"query" json:"query" binding:"required" example:"*.py"`
+	Limit *int   `form:"limit" json:"limit" binding:"omitempty,min=0,max=200" example:"20"`
+}
+
 // UpsertArtifact godoc
 //
 //	@Summary		Upsert artifact
@@ -404,4 +414,96 @@ func (h *ArtifactHandler) ListArtifacts(c *gin.Context) {
 			Directories: directories,
 		},
 	})
+}
+
+// GrepArtifacts godoc
+//
+//	@Summary		Search artifact content with regex
+//	@Description	Search through text-based artifact content using regex patterns
+//	@Tags			artifact
+//	@Accept			json
+//	@Produce		json
+//	@Param			disk_id	path		string				true	"Disk ID"	Format(uuid)
+//	@Param			query	query		string				true	"Regex pattern to search for"
+//	@Param			limit	query		int					false	"Maximum number of results (default 100, max 1000)"
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response{data=[]model.Artifact}
+//	@Router			/disk/{disk_id}/artifact/grep [get]
+func (h *ArtifactHandler) GrepArtifacts(c *gin.Context) {
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	diskID, err := uuid.Parse(c.Param("disk_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid disk_id", err))
+		return
+	}
+
+	req := GrepArtifactsReq{}
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	limit := 100
+	if req.Limit != nil {
+		limit = *req.Limit
+	}
+
+	artifacts, err := h.svc.GrepArtifacts(c.Request.Context(), project.ID, diskID, req.Query, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{Data: artifacts})
+}
+
+// GlobArtifacts godoc
+//
+//	@Summary		Search artifact paths with glob patterns
+//	@Description	Search through artifact file paths using glob patterns (*, ?, etc.)
+//	@Tags			artifact
+//	@Accept			json
+//	@Produce		json
+//	@Param			disk_id	path		string				true	"Disk ID"	Format(uuid)
+//	@Param			query	query		string				true	"Glob pattern (e.g., '**/*.py', '*.txt')"*/
+//	@Param			limit	query		int					false	"Maximum number of results (default 100, max 1000)"
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response{data=[]model.Artifact}
+//	@Router			/disk/{disk_id}/artifact/glob [get]
+func (h *ArtifactHandler) GlobArtifacts(c *gin.Context) {
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	diskID, err := uuid.Parse(c.Param("disk_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid disk_id", err))
+		return
+	}
+
+	req := GlobArtifactsReq{}
+	if err := c.ShouldBindQuery(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	limit := 100
+	if req.Limit != nil {
+		limit = *req.Limit
+	}
+
+	artifacts, err := h.svc.GlobArtifacts(c.Request.Context(), project.ID, diskID, req.Query, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{Data: artifacts})
 }

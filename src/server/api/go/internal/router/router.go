@@ -132,6 +132,9 @@ func NewRouter(d RouterDeps) *gin.Engine {
 				artifact.PUT("", d.ArtifactHandler.UpdateArtifact)
 				artifact.DELETE("", d.ArtifactHandler.DeleteArtifact)
 				artifact.GET("/ls", d.ArtifactHandler.ListArtifacts)
+
+				artifact.GET("/grep", d.ArtifactHandler.GrepArtifacts)
+				artifact.GET("/glob", d.ArtifactHandler.GlobArtifacts)
 			}
 		}
 

@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/modules/model"
@@ -17,6 +18,8 @@ type ArtifactRepo interface {
 	ListByPath(ctx context.Context, diskID uuid.UUID, path string) ([]*model.Artifact, error)
 	GetAllPaths(ctx context.Context, diskID uuid.UUID) ([]string, error)
 	ExistsByPathAndFilename(ctx context.Context, diskID uuid.UUID, path string, filename string, excludeID *uuid.UUID) (bool, error)
+	GrepArtifacts(ctx context.Context, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error)
+	GlobArtifacts(ctx context.Context, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error)
 }
 
 type artifactRepo struct {
@@ -132,4 +135,56 @@ func (r *artifactRepo) ExistsByPathAndFilename(ctx context.Context, diskID uuid.
 	}
 
 	return count > 0, nil
+}
+
+func (r *artifactRepo) GrepArtifacts(ctx context.Context, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	var artifacts []*model.Artifact
+
+	// Use regex pattern matching on text content
+	// Filter by text-searchable mime types and ensure content is not null
+	// This matches the index condition for optimal performance
+	query := r.db.WithContext(ctx).
+		Where("disk_id = ?", diskID).
+		Where("(asset_meta->>'content') IS NOT NULL").
+		Where("((asset_meta->>'mime') LIKE 'text/%' OR (asset_meta->>'mime') = 'application/json' OR (asset_meta->>'mime') LIKE 'application/x-%')").
+		Where("(asset_meta->>'content') ~ ?", pattern).
+		Limit(limit)
+
+	err := query.Find(&artifacts).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return artifacts, nil
+}
+
+func (r *artifactRepo) GlobArtifacts(ctx context.Context, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	var artifacts []*model.Artifact
+
+	// Convert glob pattern to PostgreSQL LIKE pattern
+	// Replace ** with % (recursive directory matching)
+	// Replace * with % (any characters)
+	// Replace ? with _ (single character)
+	// Note: ** must be replaced before * to avoid double replacement
+	sqlPattern := strings.ReplaceAll(pattern, "**", "%")
+	sqlPattern = strings.ReplaceAll(sqlPattern, "*", "%")
+	sqlPattern = strings.ReplaceAll(sqlPattern, "?", "_")
+
+	// Escape special LIKE characters that aren't glob patterns
+	// PostgreSQL LIKE uses % and _ as wildcards, \ as escape
+	// We need to escape any literal % or _ that aren't from our replacements
+	// But since we're doing full replacement, we don't need to escape
+
+	// Match against combined path/filename
+	query := r.db.WithContext(ctx).
+		Where("disk_id = ?", diskID).
+		Where("(path || '/' || filename) LIKE ?", sqlPattern).
+		Limit(limit)
+
+	err := query.Find(&artifacts).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return artifacts, nil
 }

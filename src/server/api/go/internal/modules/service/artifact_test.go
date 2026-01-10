@@ -64,6 +64,22 @@ func (m *MockArtifactRepo) ExistsByPathAndFilename(ctx context.Context, diskID u
 	return args.Bool(0), args.Error(1)
 }
 
+func (m *MockArtifactRepo) GrepArtifacts(ctx context.Context, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	args := m.Called(ctx, diskID, pattern, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*model.Artifact), args.Error(1)
+}
+
+func (m *MockArtifactRepo) GlobArtifacts(ctx context.Context, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	args := m.Called(ctx, diskID, pattern, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*model.Artifact), args.Error(1)
+}
+
 // MockArtifactS3Deps is a mock implementation of blob.S3Deps for file service
 type MockArtifactS3Deps struct {
 	mock.Mock
@@ -287,6 +303,16 @@ func (s *testArtifactService) GetFileContent(ctx context.Context, artifact *mode
 	}, nil
 }
 
+func (s *testArtifactService) GrepArtifacts(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	// Test implementation - return empty list for now
+	return []*model.Artifact{}, nil
+}
+
+func (s *testArtifactService) GlobArtifacts(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	// Test implementation - return empty list for now
+	return []*model.Artifact{}, nil
+}
+
 // Test cases for Create method
 func TestArtifactService_Create(t *testing.T) {
 	projectID := uuid.New()
@@ -499,6 +525,154 @@ func TestArtifactService_UpdateArtifactMetaByPath(t *testing.T) {
 				}
 			}
 
+			mockRepo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestArtifactService_GrepArtifacts(t *testing.T) {
+	tests := []struct {
+		name      string
+		pattern   string
+		limit     int
+		setupMock func(*MockArtifactRepo)
+		wantCount int
+		wantErr   bool
+	}{
+		{
+			name:    "successful search with default limit",
+			pattern: "TODO",
+			limit:   0, // Should default to 100
+			setupMock: func(repo *MockArtifactRepo) {
+				repo.On("GrepArtifacts", mock.Anything, mock.Anything, "TODO", 100).
+					Return([]*model.Artifact{
+						{Filename: "test.py", Path: "/"},
+					}, nil)
+			},
+			wantCount: 1,
+			wantErr:   false,
+		},
+		{
+			name:    "limit capped at 1000",
+			pattern: "function",
+			limit:   5000, // Should be capped to 1000
+			setupMock: func(repo *MockArtifactRepo) {
+				repo.On("GrepArtifacts", mock.Anything, mock.Anything, "function", 1000).
+					Return([]*model.Artifact{}, nil)
+			},
+			wantCount: 0,
+			wantErr:   false,
+		},
+		{
+			name:    "custom limit",
+			pattern: "import",
+			limit:   50,
+			setupMock: func(repo *MockArtifactRepo) {
+				repo.On("GrepArtifacts", mock.Anything, mock.Anything, "import", 50).
+					Return([]*model.Artifact{
+						{Filename: "main.py", Path: "/"},
+						{Filename: "utils.py", Path: "/"},
+					}, nil)
+			},
+			wantCount: 2,
+			wantErr:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := new(MockArtifactRepo)
+			tt.setupMock(mockRepo)
+
+			svc := &artifactService{r: mockRepo}
+
+			results, err := svc.GrepArtifacts(
+				context.Background(),
+				uuid.New(),
+				uuid.New(),
+				tt.pattern,
+				tt.limit,
+			)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Len(t, results, tt.wantCount)
+			}
+			mockRepo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestArtifactService_GlobArtifacts(t *testing.T) {
+	tests := []struct {
+		name      string
+		pattern   string
+		limit     int
+		setupMock func(*MockArtifactRepo)
+		wantCount int
+		wantErr   bool
+	}{
+		{
+			name:    "successful glob with wildcard",
+			pattern: "*.py",
+			limit:   100,
+			setupMock: func(repo *MockArtifactRepo) {
+				repo.On("GlobArtifacts", mock.Anything, mock.Anything, "*.py", 100).
+					Return([]*model.Artifact{
+						{Filename: "test.py", Path: "/"},
+						{Filename: "main.py", Path: "/src/"},
+					}, nil)
+			},
+			wantCount: 2,
+			wantErr:   false,
+		},
+		{
+			name:    "no results",
+			pattern: "*.xyz",
+			limit:   100,
+			setupMock: func(repo *MockArtifactRepo) {
+				repo.On("GlobArtifacts", mock.Anything, mock.Anything, "*.xyz", 100).
+					Return([]*model.Artifact{}, nil)
+			},
+			wantCount: 0,
+			wantErr:   false,
+		},
+		{
+			name:    "limit enforcement",
+			pattern: "**/*.txt",
+			limit:   0, // Should default to 100
+			setupMock: func(repo *MockArtifactRepo) {
+				repo.On("GlobArtifacts", mock.Anything, mock.Anything, "**/*.txt", 100).
+					Return([]*model.Artifact{{Filename: "readme.txt", Path: "/"}}, nil)
+			},
+			wantCount: 1,
+			wantErr:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockRepo := new(MockArtifactRepo)
+			tt.setupMock(mockRepo)
+
+			svc := &artifactService{r: mockRepo}
+
+			results, err := svc.GlobArtifacts(
+				context.Background(),
+				uuid.New(),
+				uuid.New(),
+				tt.pattern,
+				tt.limit,
+			)
+
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Len(t, results, tt.wantCount)
+			}
 			mockRepo.AssertExpectations(t)
 		})
 	}
