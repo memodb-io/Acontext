@@ -379,7 +379,7 @@ describe('Agent Tools Tests', () => {
 
     test('should get skill by name', async () => {
       // First, get catalog to find a skill name if available
-      const catalog = await client.skills.list({ limit: 1 });
+      const catalog = await client.skills.list_catalog({ limit: 1 });
       if (catalog.items.length > 0) {
         const skillName = catalog.items[0].name;
         const ctx = SKILL_TOOLS.formatContext(client);

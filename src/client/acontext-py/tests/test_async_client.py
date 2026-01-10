@@ -873,7 +873,7 @@ async def test_async_skills_list_returns_catalog_dict(
         "has_more": False,
     }
 
-    result = await async_client.skills.list(limit=100)
+    result = await async_client.skills.list_catalog(limit=100)
 
     mock_request.assert_called_once()
     args, kwargs = mock_request.call_args
@@ -887,7 +887,7 @@ async def test_async_skills_list_returns_catalog_dict(
     assert result.items[0].description == "Test skill 1"
     assert result.items[1].name == "test-skill-2"
     assert result.items[1].description == "Test skill 2"
-    # Verify all results are included (no pagination needed)
+    # Verify pagination information (mock data indicates no more pages)
     assert result.next_cursor is None
     assert result.has_more is False
 

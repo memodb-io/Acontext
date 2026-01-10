@@ -42,7 +42,17 @@ export class SkillsAPI {
     return SkillSchema.parse(data);
   }
 
-  async list(options?: {
+  /**
+   * Get a catalog of skills (names and descriptions only) with pagination.
+   *
+   * @param options - Pagination options
+   * @param options.limit - Maximum number of skills per page (defaults to 100, max 200)
+   * @param options.cursor - Cursor for pagination to fetch the next page (optional)
+   * @param options.timeDesc - Order by created_at descending if true, ascending if false (defaults to false)
+   * @returns ListSkillsOutput containing skills with name and description for the current page,
+   *          along with pagination information (next_cursor and has_more)
+   */
+  async list_catalog(options?: {
     limit?: number | null;
     cursor?: string | null;
     timeDesc?: boolean | null;
@@ -54,43 +64,29 @@ export class SkillsAPI {
       has_more: z.boolean(),
     });
 
-    // Collect all skills across all pages
-    const allSkills: Skill[] = [];
-    let currentCursor = options?.cursor ?? null;
-    const pageLimit = options?.limit ?? 200; // Use max limit to minimize requests
-
-    while (true) {
-      const params = buildParams({
-        limit: pageLimit,
-        cursor: currentCursor,
-        time_desc: options?.timeDesc ?? null,
-      });
-      const data = await this.requester.request('GET', '/agent_skills', {
-        params: Object.keys(params).length > 0 ? params : undefined,
-      });
-      const apiResponse = apiResponseSchema.parse(data);
-
-      allSkills.push(...apiResponse.items);
-
-      // If no more pages, break
-      if (!apiResponse.has_more || !apiResponse.next_cursor) {
-        break;
-      }
-
-      currentCursor = apiResponse.next_cursor;
-    }
+    // Use 100 as default for catalog listing (only name and description, lightweight)
+    const effectiveLimit = options?.limit ?? 100;
+    const params = buildParams({
+      limit: effectiveLimit,
+      cursor: options?.cursor ?? null,
+      time_desc: options?.timeDesc ?? null,
+    });
+    const data = await this.requester.request('GET', '/agent_skills', {
+      params: Object.keys(params).length > 0 ? params : undefined,
+    });
+    const apiResponse = apiResponseSchema.parse(data);
 
     // Convert to catalog format (name and description only)
     return ListSkillsOutputSchema.parse({
-      items: allSkills.map(
+      items: apiResponse.items.map(
         (skill): SkillCatalogItem => ({
           name: skill.name,
           description: skill.description,
         })
       ),
-      total: allSkills.length,
-      next_cursor: null, // All results included, no pagination needed
-      has_more: false, // All results included
+      total: apiResponse.items.length,
+      next_cursor: apiResponse.next_cursor ?? null,
+      has_more: apiResponse.has_more,
     });
   }
 
