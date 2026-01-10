@@ -17,6 +17,7 @@ from .resources.blocks import BlocksAPI as BlocksAPI
 from .resources.sessions import SessionsAPI as SessionsAPI
 from .resources.spaces import SpacesAPI as SpacesAPI
 from .resources.tools import ToolsAPI as ToolsAPI
+from .resources.skills import SkillsAPI as SkillsAPI
 
 
 class AcontextClient:
@@ -109,6 +110,7 @@ class AcontextClient:
         self.artifacts = self.disks.artifacts
         self.blocks = BlocksAPI(self)
         self.tools = ToolsAPI(self)
+        self.skills = SkillsAPI(self)
 
     @property
     def base_url(self) -> str:
