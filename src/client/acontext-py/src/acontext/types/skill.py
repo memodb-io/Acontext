@@ -48,6 +48,17 @@ class ListSkillsOutput(BaseModel):
     has_more: bool = Field(..., description="Whether there are more items")
 
 
+class _ListSkillsResponse(BaseModel):
+    """Internal response model for API pagination (full Skill objects).
+    
+    This is used internally to parse the raw API response before converting
+    to the catalog format (ListSkillsOutput).
+    """
+    items: list[Skill]
+    next_cursor: str | None = None
+    has_more: bool = False
+
+
 class GetSkillFileResp(BaseModel):
     """Response model for getting a skill file."""
 

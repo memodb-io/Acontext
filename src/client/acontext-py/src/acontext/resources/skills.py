@@ -14,6 +14,7 @@ from ..types.skill import (
     ListSkillsOutput,
     Skill,
     SkillCatalogItem,
+    _ListSkillsResponse,
 )
 from ..uploads import FileUpload, normalize_file_upload
 
@@ -76,13 +77,6 @@ class SkillsAPI:
             ListSkillsOutput containing skills with name and description for the current page,
             along with pagination information (next_cursor and has_more).
         """
-        from pydantic import BaseModel
-
-        class _ListSkillsResponse(BaseModel):
-            items: list[Skill]
-            next_cursor: str | None = None
-            has_more: bool = False
-
         # Use 100 as default for catalog listing (only name and description, lightweight)
         effective_limit = limit if limit is not None else 100
         params = build_params(limit=effective_limit, cursor=cursor, time_desc=time_desc)
