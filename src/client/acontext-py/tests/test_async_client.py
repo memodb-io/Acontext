@@ -881,7 +881,6 @@ async def test_async_skills_list_returns_catalog_dict(
     assert method == "GET"
     assert path == "/agent_skills"
     assert kwargs["params"] == {"limit": 100}
-    assert result.total == 2
     assert len(result.items) == 2
     assert result.items[0].name == "test-skill-1"
     assert result.items[0].description == "Test skill 1"

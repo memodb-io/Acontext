@@ -34,7 +34,6 @@ export type SkillCatalogItem = z.infer<typeof SkillCatalogItemSchema>;
 
 export const ListSkillsOutputSchema = z.object({
   items: z.array(SkillCatalogItemSchema),
-  total: z.number(),
   next_cursor: z.string().nullable().optional(),
   has_more: z.boolean(),
 });

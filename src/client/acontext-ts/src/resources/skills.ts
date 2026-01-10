@@ -84,7 +84,6 @@ export class SkillsAPI {
           description: skill.description,
         })
       ),
-      total: apiResponse.items.length,
       next_cursor: apiResponse.next_cursor ?? null,
       has_more: apiResponse.has_more,
     });

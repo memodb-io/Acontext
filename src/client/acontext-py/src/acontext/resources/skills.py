@@ -2,8 +2,6 @@
 Skills endpoints.
 """
 
-from __future__ import annotations
-
 import json
 from collections.abc import Mapping
 from typing import Any, BinaryIO, cast
@@ -75,7 +73,6 @@ class SkillsAPI:
             ListSkillsOutput containing skills with name and description for the current page,
             along with pagination information (next_cursor and has_more).
         """
-        # Use 100 as default for catalog listing (only name and description, lightweight)
         effective_limit = limit if limit is not None else 100
         params = build_params(limit=effective_limit, cursor=cursor, time_desc=time_desc)
         data = self._requester.request("GET", "/agent_skills", params=params or None)
@@ -87,7 +84,6 @@ class SkillsAPI:
                 SkillCatalogItem(name=skill.name, description=skill.description)
                 for skill in api_response.items
             ],
-            total=len(api_response.items),
             next_cursor=api_response.next_cursor,
             has_more=api_response.has_more,
         )

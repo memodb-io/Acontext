@@ -43,7 +43,6 @@ class ListSkillsOutput(BaseModel):
     items: list[SkillCatalogItem] = Field(
         ..., description="List of skills with name and description"
     )
-    total: int = Field(..., description="Total number of skills in this response")
     next_cursor: str | None = Field(None, description="Cursor for pagination")
     has_more: bool = Field(..., description="Whether there are more items")
 
