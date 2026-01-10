@@ -23,8 +23,7 @@ class GetSkillTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Get a skill by its name. "
-            "Returns the skill information including name, description, file index, and metadata."
+            "Get a skill by its name. Return the skill information including the relative paths of the files and their mime type categories" 
         )
 
     @property
@@ -50,15 +49,20 @@ class GetSkillTool(BaseTool):
         skill = ctx.client.skills.get_by_name(name)
 
         file_count = len(skill.file_index)
-        file_paths = [file_info.path for file_info in skill.file_index[:10]]
-        file_list = ", ".join(file_paths)  # Show first 10 files
-        if len(skill.file_index) > 10:
-            file_list += f", ... ({len(skill.file_index) - 10} more)"
+        
+        # Format all files with path and MIME type
+        if skill.file_index:
+            file_list = "\n".join(
+                [f"  - {file_info.path} ({file_info.mime})" for file_info in skill.file_index]
+            )
+        else:
+            file_list = "  [NO FILES]"
 
         return (
             f"Skill: {skill.name} (ID: {skill.id})\n"
             f"Description: {skill.description}\n"
-            f"Files: {file_count} file(s) - {file_list}\n"
+            f"Files: {file_count} file(s)\n"
+            f"{file_list}\n"
             f"Created: {skill.created_at}\n"
             f"Updated: {skill.updated_at}"
         )
@@ -74,10 +78,7 @@ class GetSkillFileTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Get a file from a skill by name. "
-            "The file_path should be a relative path within the skill (e.g., 'scripts/extract_text.json'). "
-            "Can return the file content directly or a presigned URL for downloading. "
-            "Supports text files, JSON, CSV, and code files."
+            "Get a file from a skill by name. The file_path should be a relative path within the skill (e.g., 'scripts/extract_text.json'). "
         )
 
     @property

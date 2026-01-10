@@ -12,8 +12,7 @@ export interface SkillContext extends BaseContext {
 export class GetSkillTool extends AbstractBaseTool {
   readonly name = 'get_skill';
   readonly description =
-    'Get a skill by its name. ' +
-    'Returns the skill information including name, description, file index, and metadata.';
+    'Get a skill by its name. Return the skill information including the relative paths of the files and their mime type categories';
   readonly arguments = {
     name: {
       type: 'string',
@@ -35,17 +34,22 @@ export class GetSkillTool extends AbstractBaseTool {
     const skill = await ctx.client.skills.getByName(name);
 
     const fileCount = skill.file_index.length;
-    const filePaths = skill.file_index.slice(0, 10).map((file) => file.path);
-    const fileList = filePaths.join(', ');
-    const moreFiles =
-      skill.file_index.length > 10
-        ? `, ... (${skill.file_index.length - 10} more)`
-        : '';
+
+    // Format all files with path and MIME type
+    let fileList: string;
+    if (skill.file_index.length > 0) {
+      fileList = skill.file_index
+        .map((file) => `  - ${file.path} (${file.mime})`)
+        .join('\n');
+    } else {
+      fileList = '  [NO FILES]';
+    }
 
     return (
       `Skill: ${skill.name} (ID: ${skill.id})\n` +
       `Description: ${skill.description}\n` +
-      `Files: ${fileCount} file(s) - ${fileList}${moreFiles}\n` +
+      `Files: ${fileCount} file(s)\n` +
+      `${fileList}\n` +
       `Created: ${skill.created_at}\n` +
       `Updated: ${skill.updated_at}`
     );
@@ -55,10 +59,7 @@ export class GetSkillTool extends AbstractBaseTool {
 export class GetSkillFileTool extends AbstractBaseTool {
   readonly name = 'get_skill_file';
   readonly description =
-    'Get a file from a skill by name. ' +
-    "The file_path should be a relative path within the skill (e.g., 'scripts/extract_text.json'). " +
-    'Can return the file content directly or a presigned URL for downloading. ' +
-    'Supports text files, JSON, CSV, and code files.';
+    "Get a file from a skill by name. The file_path should be a relative path within the skill (e.g., 'scripts/extract_text.json'). ";
   readonly arguments = {
     skill_name: {
       type: 'string',

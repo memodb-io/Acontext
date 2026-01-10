@@ -4,8 +4,9 @@ Skills endpoints.
 
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
-from typing import Any, BinaryIO
+from typing import Any, BinaryIO, cast
 
 from .._utils import build_params
 from ..client_types import RequesterProtocol
@@ -47,9 +48,6 @@ class SkillsAPI:
         files = {"file": upload.as_httpx()}
         form: dict[str, Any] = {}
         if meta is not None:
-            import json
-            from typing import cast
-
             form["meta"] = json.dumps(cast(Mapping[str, Any], meta))
         data = self._requester.request(
             "POST",

@@ -243,6 +243,11 @@ class TestSkillTools:
         assert "test-skill" in result
         assert "Test skill" in result
         assert "2 file(s)" in result
+        # Check that all files are listed with path and mime
+        assert "SKILL.md" in result
+        assert "text/markdown" in result
+        assert "scripts/main.py" in result
+        assert "text/x-python" in result
         mock_request.assert_called_once()
 
     @patch("acontext.client.AcontextClient.request")
