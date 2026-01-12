@@ -9,6 +9,7 @@ import { FileContentSchema } from './common';
 export const DiskSchema = z.object({
   id: z.string(),
   project_id: z.string(),
+  user_id: z.string().nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),
 });

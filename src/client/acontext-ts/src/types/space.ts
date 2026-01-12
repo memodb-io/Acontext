@@ -7,6 +7,7 @@ import { z } from 'zod';
 export const SpaceSchema = z.object({
   id: z.string(),
   project_id: z.string(),
+  user_id: z.string().nullable().optional(),
   configs: z.record(z.string(), z.unknown()).nullable(),
   created_at: z.string(),
   updated_at: z.string(),

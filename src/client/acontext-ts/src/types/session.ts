@@ -43,6 +43,7 @@ export type Message = z.infer<typeof MessageSchema>;
 export const SessionSchema = z.object({
   id: z.string(),
   project_id: z.string(),
+  user_id: z.string().nullable().optional(),
   disable_task_tracking: z.boolean(),
   space_id: z.string().nullable(),
   configs: z.record(z.string(), z.unknown()).nullable(),

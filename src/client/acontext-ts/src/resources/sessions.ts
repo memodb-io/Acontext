@@ -32,6 +32,7 @@ export class SessionsAPI {
   constructor(private requester: RequesterProtocol) { }
 
   async list(options?: {
+    user?: string | null;
     spaceId?: string | null;
     notConnected?: boolean | null;
     limit?: number | null;
@@ -39,6 +40,9 @@ export class SessionsAPI {
     timeDesc?: boolean | null;
   }): Promise<ListSessionsOutput> {
     const params: Record<string, string | number> = {};
+    if (options?.user) {
+      params.user = options.user;
+    }
     if (options?.spaceId) {
       params.space_id = options.spaceId;
     }
@@ -58,11 +62,15 @@ export class SessionsAPI {
   }
 
   async create(options?: {
+    user?: string | null;
     spaceId?: string | null;
     disableTaskTracking?: boolean | null;
     configs?: Record<string, unknown>;
   }): Promise<Session> {
     const payload: Record<string, unknown> = {};
+    if (options?.user !== undefined && options?.user !== null) {
+      payload.user = options.user;
+    }
     if (options?.spaceId) {
       payload.space_id = options.spaceId;
     }

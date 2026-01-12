@@ -25,6 +25,7 @@ export class SkillsAPI {
       | FileUpload
       | [string, Buffer | NodeJS.ReadableStream]
       | [string, Buffer | NodeJS.ReadableStream, string | null];
+    user?: string | null;
     meta?: Record<string, unknown> | null;
   }): Promise<Skill> {
     const upload = normalizeFileUpload(options.file);
@@ -32,6 +33,9 @@ export class SkillsAPI {
       file: upload.asFormData(),
     };
     const form: Record<string, string> = {};
+    if (options.user !== undefined && options.user !== null) {
+      form.user = options.user;
+    }
     if (options.meta !== undefined && options.meta !== null) {
       form.meta = JSON.stringify(options.meta);
     }
@@ -46,6 +50,7 @@ export class SkillsAPI {
    * Get a catalog of skills (names and descriptions only) with pagination.
    *
    * @param options - Pagination options
+   * @param options.user - Filter by user identifier (optional)
    * @param options.limit - Maximum number of skills per page (defaults to 100, max 200)
    * @param options.cursor - Cursor for pagination to fetch the next page (optional)
    * @param options.timeDesc - Order by created_at descending if true, ascending if false (defaults to false)
@@ -53,6 +58,7 @@ export class SkillsAPI {
    *          along with pagination information (next_cursor and has_more)
    */
   async list_catalog(options?: {
+    user?: string | null;
     limit?: number | null;
     cursor?: string | null;
     timeDesc?: boolean | null;
@@ -67,6 +73,7 @@ export class SkillsAPI {
     // Use 100 as default for catalog listing (only name and description, lightweight)
     const effectiveLimit = options?.limit ?? 100;
     const params = buildParams({
+      user: options?.user ?? null,
       limit: effectiveLimit,
       cursor: options?.cursor ?? null,
       time_desc: options?.timeDesc ?? null,

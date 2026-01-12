@@ -15,6 +15,7 @@ export type FileInfo = z.infer<typeof FileInfoSchema>;
 
 export const SkillSchema = z.object({
   id: z.string(),
+  user_id: z.string().nullable().optional(),
   name: z.string(),
   description: z.string(),
   file_index: z.array(FileInfoSchema),

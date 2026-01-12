@@ -21,11 +21,13 @@ export class SpacesAPI {
   constructor(private requester: RequesterProtocol) { }
 
   async list(options?: {
+    user?: string | null;
     limit?: number | null;
     cursor?: string | null;
     timeDesc?: boolean | null;
   }): Promise<ListSpacesOutput> {
     const params = buildParams({
+      user: options?.user ?? null,
       limit: options?.limit ?? null,
       cursor: options?.cursor ?? null,
       time_desc: options?.timeDesc ?? null,
@@ -37,9 +39,13 @@ export class SpacesAPI {
   }
 
   async create(options?: {
+    user?: string | null;
     configs?: Record<string, unknown>;
   }): Promise<Space> {
     const payload: Record<string, unknown> = {};
+    if (options?.user !== undefined && options?.user !== null) {
+      payload.user = options.user;
+    }
     if (options?.configs !== undefined) {
       payload.configs = options.configs;
     }
