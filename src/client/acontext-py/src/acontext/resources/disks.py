@@ -232,13 +232,13 @@ class DiskArtifactsAPI:
             List of matching artifacts
             
         Example:
-```python
+        ```python
             # Search for TODO comments in code
             results = client.disks.artifacts.grep_artifacts(
                 disk_id="disk-uuid",
                 query="TODO.*bug"
             )
-```
+        ```
         """
         params = build_params(query=query, limit=limit)
         data = self._requester.request(
@@ -266,13 +266,13 @@ class DiskArtifactsAPI:
             List of matching artifacts
             
         Example:
-```python
+        ```python
             # Find all Python files
             results = client.disks.artifacts.glob_artifacts(
                 disk_id="disk-uuid",
                 query="**/*.py"
             )
-```
+        ```
         """
         params = build_params(query=query, limit=limit)
         data = self._requester.request(

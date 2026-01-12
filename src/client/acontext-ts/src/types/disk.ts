@@ -35,6 +35,10 @@ export const ArtifactSchema = z.object({
 
 export type Artifact = z.infer<typeof ArtifactSchema>;
 
+export const ArtifactsSchema = z.array(ArtifactSchema);
+
+export type Artifacts = z.infer<typeof ArtifactsSchema>;
+
 export const GetArtifactRespSchema = z.object({
   artifact: ArtifactSchema,
   public_url: z.string().nullable().optional(),
@@ -44,7 +48,7 @@ export const GetArtifactRespSchema = z.object({
 export type GetArtifactResp = z.infer<typeof GetArtifactRespSchema>;
 
 export const ListArtifactsRespSchema = z.object({
-  artifacts: z.array(ArtifactSchema),
+  artifacts: ArtifactsSchema,
   directories: z.array(z.string()),
 });
 

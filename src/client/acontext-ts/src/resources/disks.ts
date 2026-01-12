@@ -9,6 +9,8 @@ import { buildParams } from '../utils';
 import {
   Artifact,
   ArtifactSchema,
+  Artifacts,
+  ArtifactsSchema,
   Disk,
   DiskSchema,
   GetArtifactResp,
@@ -176,7 +178,7 @@ export class DiskArtifactsAPI {
       query: string;
       limit?: number;
     }
-  ): Promise<Artifact[]> {
+  ): Promise<Artifacts> {
     const params = buildParams({
       query: options.query,
       limit: options.limit ?? 100,
@@ -184,7 +186,7 @@ export class DiskArtifactsAPI {
     const data = await this.requester.request('GET', `/disk/${diskId}/artifact/grep`, {
       params,
     });
-    return z.array(ArtifactSchema).parse(data);
+    return ArtifactsSchema.parse(data);
   }
 
   async globArtifacts(
@@ -193,7 +195,7 @@ export class DiskArtifactsAPI {
       query: string;
       limit?: number;
     }
-  ): Promise<Artifact[]> {
+  ): Promise<Artifacts> {
     const params = buildParams({
       query: options.query,
       limit: options.limit ?? 100,
@@ -201,6 +203,6 @@ export class DiskArtifactsAPI {
     const data = await this.requester.request('GET', `/disk/${diskId}/artifact/glob`, {
       params,
     });
-    return z.array(ArtifactSchema).parse(data);
+    return ArtifactsSchema.parse(data);
   }
 }
