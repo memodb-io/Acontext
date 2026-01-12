@@ -23,16 +23,16 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.22'
-          cache-dependency-path: src/server/api/go/go.sum
+          cache-dependency-path: src/client/acontext-cli/go.sum
 
       - name: Install Dependencies
-        working-directory: src/server/api/go
+        working-directory: src/client/acontext-cli
         run: go mod download
 
       - name: Build Binary
-        working-directory: src/server/api/go
-        run: go build -v -o acontext ./cmd/server/main.go
+        working-directory: src/client/acontext-cli
+        run: go build -v -o acontext .
 
       - name: Run Tests (with Race Detector)
-        working-directory: src/server/api/go
+        working-directory: src/client/acontext-cli
         run: go test -v -race ./...
