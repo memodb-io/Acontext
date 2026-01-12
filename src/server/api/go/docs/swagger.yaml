@@ -441,6 +441,30 @@ definitions:
           type: string
         type: array
     type: object
+  model.User:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      identifier:
+        type: string
+      project_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  repo.UserResourceCounts:
+    properties:
+      disks_count:
+        type: integer
+      sessions_count:
+        type: integer
+      skills_count:
+        type: integer
+      spaces_count:
+        type: integer
+    type: object
   serializer.Response:
     properties:
       code:
@@ -493,6 +517,11 @@ definitions:
       next_cursor:
         type: string
     type: object
+  service.GetUserResourcesOutput:
+    properties:
+      counts:
+        $ref: '#/definitions/repo.UserResourceCounts'
+    type: object
   service.ListAgentSkillsOutput:
     properties:
       has_more:
@@ -544,6 +573,17 @@ definitions:
       items:
         items:
           $ref: '#/definitions/model.Space'
+        type: array
+      next_cursor:
+        type: string
+    type: object
+  service.ListUsersOutput:
+    properties:
+      has_more:
+        type: boolean
+      items:
+        items:
+          $ref: '#/definitions/model.User'
         type: array
       next_cursor:
         type: string
@@ -3357,6 +3397,137 @@ paths:
 
           // Delete a user and all associated resources
           await client.users.delete('alice@acontext.io');
+  /user/{identifier}/resources:
+    get:
+      consumes:
+      - application/json
+      description: Get the resource counts (Spaces, Sessions, Disks, Skills) associated
+        with a user
+      parameters:
+      - description: User identifier string
+        in: path
+        name: identifier
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.GetUserResourcesOutput'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get user resources
+      tags:
+      - user
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Get user resource counts
+          resources = client.users.get_resources('alice@acontext.io')
+          print(f"Spaces: {resources.spaces_count}")
+          print(f"Sessions: {resources.sessions_count}")
+          print(f"Disks: {resources.disks_count}")
+          print(f"Skills: {resources.skills_count}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Get user resource counts
+          const resources = await client.users.getResources('alice@acontext.io');
+          console.log(`Spaces: ${resources.spaces_count}`);
+          console.log(`Sessions: ${resources.sessions_count}`);
+          console.log(`Disks: ${resources.disks_count}`);
+          console.log(`Skills: ${resources.skills_count}`);
+  /user/ls:
+    get:
+      consumes:
+      - application/json
+      description: Get all users under a project. If limit is not provided or 0, all
+        users will be returned.
+      parameters:
+      - description: Limit of users to return. Max 200. If limit is 0 or not provided,
+          all users will be returned.
+        in: query
+        name: limit
+        type: integer
+      - description: Cursor for pagination. Use the cursor from the previous response
+          to get the next page.
+        in: query
+        name: cursor
+        type: string
+      - description: Order by created_at descending if true, ascending if false (default
+          false)
+        example: false
+        in: query
+        name: time_desc
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/service.ListUsersOutput'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: List users
+      tags:
+      - user
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # List all users
+          users = client.users.list()
+          for user in users.items:
+              print(f"{user.identifier}: {user.id}")
+
+          # List users with pagination
+          users = client.users.list(limit=20, time_desc=True)
+          if users.has_more:
+              next_users = client.users.list(limit=20, cursor=users.next_cursor)
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // List all users
+          const users = await client.users.list();
+          for (const user of users.items) {
+            console.log(`${user.identifier}: ${user.id}`);
+          }
+
+          // List users with pagination
+          const paginatedUsers = await client.users.list({ limit: 20, timeDesc: true });
+          if (paginatedUsers.hasMore) {
+            const nextUsers = await client.users.list({ limit: 20, cursor: paginatedUsers.nextCursor });
+          }
 schemes:
 - http
 - https

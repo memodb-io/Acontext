@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/modules/model"
@@ -13,6 +14,15 @@ type UserRepo interface {
 	GetByIdentifier(ctx context.Context, projectID uuid.UUID, identifier string) (*model.User, error)
 	GetOrCreate(ctx context.Context, projectID uuid.UUID, identifier string) (*model.User, error)
 	Delete(ctx context.Context, projectID uuid.UUID, identifier string) error
+	List(ctx context.Context, projectID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]*model.User, error)
+	GetResourceCounts(ctx context.Context, projectID uuid.UUID, userID uuid.UUID) (*UserResourceCounts, error)
+}
+
+type UserResourceCounts struct {
+	SpacesCount   int64 `json:"spaces_count"`
+	SessionsCount int64 `json:"sessions_count"`
+	DisksCount    int64 `json:"disks_count"`
+	SkillsCount   int64 `json:"skills_count"`
 }
 
 type userRepo struct{ db *gorm.DB }
@@ -74,4 +84,85 @@ func (r *userRepo) Delete(ctx context.Context, projectID uuid.UUID, identifier s
 	return r.db.WithContext(ctx).
 		Where("project_id = ? AND identifier = ?", projectID, identifier).
 		Delete(&model.User{}).Error
+}
+
+func (r *userRepo) List(ctx context.Context, projectID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]*model.User, error) {
+	q := r.db.WithContext(ctx).Where("users.project_id = ?", projectID)
+
+	// Apply cursor-based pagination filter if cursor is provided
+	if !afterCreatedAt.IsZero() && afterID != uuid.Nil {
+		// Determine comparison operator based on sort direction
+		comparisonOp := ">"
+		if timeDesc {
+			comparisonOp = "<"
+		}
+		q = q.Where(
+			"(users.created_at "+comparisonOp+" ?) OR (users.created_at = ? AND users.id "+comparisonOp+" ?)",
+			afterCreatedAt, afterCreatedAt, afterID,
+		)
+	}
+
+	// Apply ordering based on sort direction
+	orderBy := "users.created_at ASC, users.id ASC"
+	if timeDesc {
+		orderBy = "users.created_at DESC, users.id DESC"
+	}
+
+	var users []*model.User
+	query := q.Order(orderBy)
+	// Only apply limit if limit > 0
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+	return users, query.Find(&users).Error
+}
+
+func (r *userRepo) GetResourceCounts(ctx context.Context, projectID uuid.UUID, userID uuid.UUID) (*UserResourceCounts, error) {
+	counts := &UserResourceCounts{}
+
+	// Count spaces
+	var spacesCount int64
+	err := r.db.WithContext(ctx).
+		Model(&model.Space{}).
+		Where("project_id = ? AND user_id = ?", projectID, userID).
+		Count(&spacesCount).Error
+	if err != nil {
+		return nil, err
+	}
+	counts.SpacesCount = spacesCount
+
+	// Count sessions
+	var sessionsCount int64
+	err = r.db.WithContext(ctx).
+		Model(&model.Session{}).
+		Where("project_id = ? AND user_id = ?", projectID, userID).
+		Count(&sessionsCount).Error
+	if err != nil {
+		return nil, err
+	}
+	counts.SessionsCount = sessionsCount
+
+	// Count disks
+	var disksCount int64
+	err = r.db.WithContext(ctx).
+		Model(&model.Disk{}).
+		Where("project_id = ? AND user_id = ?", projectID, userID).
+		Count(&disksCount).Error
+	if err != nil {
+		return nil, err
+	}
+	counts.DisksCount = disksCount
+
+	// Count agent skills
+	var skillsCount int64
+	err = r.db.WithContext(ctx).
+		Model(&model.AgentSkills{}).
+		Where("project_id = ? AND user_id = ?", projectID, userID).
+		Count(&skillsCount).Error
+	if err != nil {
+		return nil, err
+	}
+	counts.SkillsCount = skillsCount
+
+	return counts, nil
 }

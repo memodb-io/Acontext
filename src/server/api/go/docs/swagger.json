@@ -3094,6 +3094,79 @@
                 ]
             }
         },
+        "/user/ls": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get all users under a project. If limit is not provided or 0, all users will be returned.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "List users",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit of users to return. Max 200. If limit is 0 or not provided, all users will be returned.",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor for pagination. Use the cursor from the previous response to get the next page.",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Order by created_at descending if true, ascending if false (default false)",
+                        "name": "time_desc",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.ListUsersOutput"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List all users\nusers = client.users.list()\nfor user in users.items:\n    print(f\"{user.identifier}: {user.id}\")\n\n# List users with pagination\nusers = client.users.list(limit=20, time_desc=True)\nif users.has_more:\n    next_users = client.users.list(limit=20, cursor=users.next_cursor)\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List all users\nconst users = await client.users.list();\nfor (const user of users.items) {\n  console.log(`${user.identifier}: ${user.id}`);\n}\n\n// List users with pagination\nconst paginatedUsers = await client.users.list({ limit: 20, timeDesc: true });\nif (paginatedUsers.hasMore) {\n  const nextUsers = await client.users.list({ limit: 20, cursor: paginatedUsers.nextCursor });\n}\n"
+                    }
+                ]
+            }
+        },
         "/user/{identifier}": {
             "delete": {
                 "security": [
@@ -3139,6 +3212,67 @@
                         "label": "JavaScript",
                         "lang": "javascript",
                         "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Delete a user and all associated resources\nawait client.users.delete('alice@acontext.io');\n"
+                    }
+                ]
+            }
+        },
+        "/user/{identifier}/resources": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get the resource counts (Spaces, Sessions, Disks, Skills) associated with a user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user"
+                ],
+                "summary": "Get user resources",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "User identifier string",
+                        "name": "identifier",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.GetUserResourcesOutput"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get user resource counts\nresources = client.users.get_resources('alice@acontext.io')\nprint(f\"Spaces: {resources.spaces_count}\")\nprint(f\"Sessions: {resources.sessions_count}\")\nprint(f\"Disks: {resources.disks_count}\")\nprint(f\"Skills: {resources.skills_count}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get user resource counts\nconst resources = await client.users.getResources('alice@acontext.io');\nconsole.log(`Spaces: ${resources.spaces_count}`);\nconsole.log(`Sessions: ${resources.sessions_count}`);\nconsole.log(`Disks: ${resources.disks_count}`);\nconsole.log(`Skills: ${resources.skills_count}`);\n"
                     }
                 ]
             }
@@ -3803,6 +3937,43 @@
                 }
             }
         },
+        "model.User": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "identifier": {
+                    "type": "string"
+                },
+                "project_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "repo.UserResourceCounts": {
+            "type": "object",
+            "properties": {
+                "disks_count": {
+                    "type": "integer"
+                },
+                "sessions_count": {
+                    "type": "integer"
+                },
+                "skills_count": {
+                    "type": "integer"
+                },
+                "spaces_count": {
+                    "type": "integer"
+                }
+            }
+        },
         "serializer.Response": {
             "type": "object",
             "properties": {
@@ -3884,6 +4055,14 @@
                 }
             }
         },
+        "service.GetUserResourcesOutput": {
+            "type": "object",
+            "properties": {
+                "counts": {
+                    "$ref": "#/definitions/repo.UserResourceCounts"
+                }
+            }
+        },
         "service.ListAgentSkillsOutput": {
             "type": "object",
             "properties": {
@@ -3962,6 +4141,23 @@
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/model.Space"
+                    }
+                },
+                "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.ListUsersOutput": {
+            "type": "object",
+            "properties": {
+                "has_more": {
+                    "type": "boolean"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.User"
                     }
                 },
                 "next_cursor": {

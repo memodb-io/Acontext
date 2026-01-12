@@ -489,6 +489,56 @@ describe('AcontextClient Integration Tests', () => {
     });
   });
 
+  describe('Users API', () => {
+    let testUserIdentifier: string;
+
+    beforeAll(() => {
+      testUserIdentifier = `test-user-${Date.now()}@acontext.io`;
+    });
+
+    test('should list users', async () => {
+      const users = await client.users.list();
+      expect(users).toBeDefined();
+      expect(users.items).toBeInstanceOf(Array);
+      expect(users.has_more).toBeDefined();
+    });
+
+    test('should list users with pagination options', async () => {
+      const users = await client.users.list({ limit: 10, timeDesc: true });
+      expect(users).toBeDefined();
+      expect(users.items).toBeInstanceOf(Array);
+      expect(users.has_more).toBeDefined();
+    });
+
+    test('should create a space with user identifier to create a user', async () => {
+      // Creating a space with a user identifier will auto-create the user
+      const space = await client.spaces.create({
+        configs: { name: 'Test Space for User' },
+        user: testUserIdentifier,
+      });
+      expect(space).toBeDefined();
+      expect(space.id).toBeDefined();
+      // Clean up the space
+      await client.spaces.delete(space.id);
+    });
+
+    test('should get user resources', async () => {
+      const resources = await client.users.getResources(testUserIdentifier);
+      expect(resources).toBeDefined();
+      expect(resources.counts).toBeDefined();
+      expect(typeof resources.counts.spaces_count).toBe('number');
+      expect(typeof resources.counts.sessions_count).toBe('number');
+      expect(typeof resources.counts.disks_count).toBe('number');
+      expect(typeof resources.counts.skills_count).toBe('number');
+    });
+
+    test('should delete a user', async () => {
+      // Delete the test user
+      await client.users.delete(testUserIdentifier);
+      // Should not throw if deletion succeeds
+    });
+  });
+
   // NOTE: All Blocks API tests are commented out because API passes through to core
   // describe('Blocks API', () => {
   //   test('should list blocks', async () => {
