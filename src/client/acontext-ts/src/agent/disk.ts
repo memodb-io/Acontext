@@ -290,6 +290,86 @@ export class DownloadFileTool extends AbstractBaseTool {
   }
 }
 
+export class GrepArtifactsTool extends AbstractBaseTool {
+  readonly name = 'grep_artifacts';
+  readonly description =
+    'Search for text patterns within file contents using regex. Only searches text-based files (code, markdown, json, csv, etc.). Use this to find specific code patterns, TODO comments, function definitions, or any text content.';
+  readonly arguments = {
+    query: {
+      type: 'string',
+      description:
+        "Regex pattern to search for (e.g., 'TODO.*', 'function.*calculate', 'import.*pandas')",
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of results to return (default 100)',
+    },
+  };
+  readonly requiredArguments = ['query'];
+
+  async execute(ctx: DiskContext, llmArguments: Record<string, unknown>): Promise<string> {
+    const query = llmArguments.query as string;
+    const limit = (llmArguments.limit as number) || 100;
+
+    if (!query) {
+      throw new Error('query is required');
+    }
+
+    const results = await ctx.client.disks.artifacts.grepArtifacts(ctx.diskId, {
+      query,
+      limit,
+    });
+
+    if (results.length === 0) {
+      return `No matches found for pattern '${query}'`;
+    }
+
+    const matches = results.map((artifact) => `${artifact.path}${artifact.filename}`);
+
+    return `Found ${matches.length} file(s) matching '${query}':\n` + matches.join('\n');
+  }
+}
+
+export class GlobArtifactsTool extends AbstractBaseTool {
+  readonly name = 'glob_artifacts';
+  readonly description =
+    'Find files by path pattern using glob syntax. Use * for any characters, ? for single character, ** for recursive directories. Perfect for finding files by extension or location.';
+  readonly arguments = {
+    query: {
+      type: 'string',
+      description:
+        "Glob pattern (e.g., '**/*.py' for all Python files, '*.txt' for text files in root, '/docs/**/*.md' for markdown in docs)",
+    },
+    limit: {
+      type: 'integer',
+      description: 'Maximum number of results to return (default 100)',
+    },
+  };
+  readonly requiredArguments = ['query'];
+
+  async execute(ctx: DiskContext, llmArguments: Record<string, unknown>): Promise<string> {
+    const query = llmArguments.query as string;
+    const limit = (llmArguments.limit as number) || 100;
+
+    if (!query) {
+      throw new Error('query is required');
+    }
+
+    const results = await ctx.client.disks.artifacts.globArtifacts(ctx.diskId, {
+      query,
+      limit,
+    });
+
+    if (results.length === 0) {
+      return `No files found matching pattern '${query}'`;
+    }
+
+    const matches = results.map((artifact) => `${artifact.path}${artifact.filename}`);
+
+    return `Found ${matches.length} file(s) matching '${query}':\n` + matches.join('\n');
+  }
+}
+
 export class DiskToolPool extends BaseToolPool {
   formatContext(client: AcontextClient, diskId: string): DiskContext {
     return {
@@ -304,5 +384,7 @@ DISK_TOOLS.addTool(new WriteFileTool());
 DISK_TOOLS.addTool(new ReadFileTool());
 DISK_TOOLS.addTool(new ReplaceStringTool());
 DISK_TOOLS.addTool(new ListTool());
+DISK_TOOLS.addTool(new GrepArtifactsTool());
+DISK_TOOLS.addTool(new GlobArtifactsTool());
 DISK_TOOLS.addTool(new DownloadFileTool());
 

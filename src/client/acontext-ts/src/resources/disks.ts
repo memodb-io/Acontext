@@ -2,6 +2,7 @@
  * Disk and artifact endpoints.
  */
 
+import { z } from 'zod';
 import { RequesterProtocol } from '../client-types';
 import { FileUpload, normalizeFileUpload } from '../uploads';
 import { buildParams } from '../utils';
@@ -56,15 +57,15 @@ export class DisksAPI {
 }
 
 export class DiskArtifactsAPI {
-  constructor(private requester: RequesterProtocol) {}
+  constructor(private requester: RequesterProtocol) { }
 
   async upsert(
     diskId: string,
     options: {
       file:
-        | FileUpload
-        | [string, Buffer | NodeJS.ReadableStream]
-        | [string, Buffer | NodeJS.ReadableStream, string | null];
+      | FileUpload
+      | [string, Buffer | NodeJS.ReadableStream]
+      | [string, Buffer | NodeJS.ReadableStream, string | null];
       filePath?: string | null;
       meta?: Record<string, unknown> | null;
     }
@@ -173,7 +174,7 @@ export class DiskArtifactsAPI {
     const data = await this.requester.request('GET', `/disk/${diskId}/artifact/grep`, {
       params,
     });
-    return data as any[];
+    return z.array(ArtifactSchema).parse(data);
   }
 
   async globArtifacts(
@@ -190,6 +191,6 @@ export class DiskArtifactsAPI {
     const data = await this.requester.request('GET', `/disk/${diskId}/artifact/glob`, {
       params,
     });
-    return data as any[];
+    return z.array(ArtifactSchema).parse(data);
   }
 }

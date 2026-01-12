@@ -8,6 +8,8 @@ import json
 from collections.abc import Mapping
 from typing import Any, BinaryIO, cast
 
+from pydantic import TypeAdapter
+
 from .._utils import build_params
 from ..client_types import RequesterProtocol
 from ..types.disk import (
@@ -210,7 +212,7 @@ class DiskArtifactsAPI:
         *,
         query: str,
         limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    ) -> list[Artifact]:
         """Search artifact content using regex pattern.
         
         Args:
@@ -236,7 +238,7 @@ class DiskArtifactsAPI:
             f"/disk/{disk_id}/artifact/grep",
             params=params
         )
-        return data
+        return TypeAdapter(list[Artifact]).validate_python(data)
 
     def glob_artifacts(
         self,
@@ -244,7 +246,7 @@ class DiskArtifactsAPI:
         *,
         query: str,
         limit: int = 100,
-    ) -> list[dict[str, Any]]:
+    ) -> list[Artifact]:
         """Search artifact paths using glob pattern.
         
         Args:
@@ -270,4 +272,4 @@ class DiskArtifactsAPI:
             f"/disk/{disk_id}/artifact/glob",
             params=params
         )
-        return data
+        return TypeAdapter(list[Artifact]).validate_python(data)

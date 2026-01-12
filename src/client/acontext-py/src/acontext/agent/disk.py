@@ -375,7 +375,7 @@ class GrepArtifactsTool(BaseTool):
 
         matches = []
         for artifact in results:
-            matches.append(f"{artifact['path']}{artifact['filename']}")
+            matches.append(f"{artifact.path}{artifact.filename}")
 
         return f"Found {len(matches)} file(s) matching '{query}':\n" + "\n".join(matches)
 
@@ -427,7 +427,7 @@ class GlobArtifactsTool(BaseTool):
 
         matches = []
         for artifact in results:
-            matches.append(f"{artifact['path']}{artifact['filename']}")
+            matches.append(f"{artifact.path}{artifact.filename}")
 
         return f"Found {len(matches)} file(s) matching '{query}':\n" + "\n".join(matches)
 
