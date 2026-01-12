@@ -44,6 +44,22 @@ func (m *MockUserService) Delete(ctx context.Context, projectID uuid.UUID, ident
 	return args.Error(0)
 }
 
+func (m *MockUserService) List(ctx context.Context, in service.ListUsersInput) (*service.ListUsersOutput, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.ListUsersOutput), args.Error(1)
+}
+
+func (m *MockUserService) GetResourceCounts(ctx context.Context, projectID uuid.UUID, identifier string) (*service.GetUserResourcesOutput, error) {
+	args := m.Called(ctx, projectID, identifier)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.GetUserResourcesOutput), args.Error(1)
+}
+
 func (m *MockSpaceService) Create(ctx context.Context, s *model.Space) error {
 	args := m.Called(ctx, s)
 	return args.Error(0)

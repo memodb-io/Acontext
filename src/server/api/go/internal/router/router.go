@@ -156,7 +156,9 @@ func NewRouter(d RouterDeps) *gin.Engine {
 
 		user := v1.Group("/user")
 		{
+			user.GET("/ls", d.UserHandler.ListUsers)
 			user.DELETE("/:identifier", d.UserHandler.DeleteUser)
+			user.GET("/:identifier/resources", d.UserHandler.GetUserResources)
 		}
 	}
 	return r
