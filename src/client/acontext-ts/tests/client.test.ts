@@ -514,7 +514,7 @@ describe('AcontextClient Integration Tests', () => {
       // Creating a space with a user identifier will auto-create the user
       const space = await client.spaces.create({
         configs: { name: 'Test Space for User' },
-        userIdentifier: testUserIdentifier,
+        user: testUserIdentifier,
       });
       expect(space).toBeDefined();
       expect(space.id).toBeDefined();
