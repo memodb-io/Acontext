@@ -137,6 +137,7 @@ class Session(BaseModel):
 
     id: str = Field(..., description="Session UUID")
     project_id: str = Field(..., description="Project UUID")
+    user_id: str | None = Field(None, description="User UUID")
     disable_task_tracking: bool = Field(
         False, description="Whether task tracking is disabled for this session"
     )

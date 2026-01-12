@@ -37,6 +37,7 @@ class AsyncSessionsAPI:
     async def list(
         self,
         *,
+        user: str | None = None,
         space_id: str | None = None,
         not_connected: bool | None = None,
         limit: int | None = None,
@@ -46,6 +47,7 @@ class AsyncSessionsAPI:
         """List all sessions in the project.
 
         Args:
+            user: Filter by user identifier. Defaults to None.
             space_id: Filter sessions by space ID. Defaults to None.
             not_connected: Filter sessions that are not connected to a space. Defaults to None.
             limit: Maximum number of sessions to return. Defaults to None.
@@ -56,6 +58,8 @@ class AsyncSessionsAPI:
             ListSessionsOutput containing the list of sessions and pagination information.
         """
         params: dict[str, Any] = {}
+        if user:
+            params["user"] = user
         if space_id:
             params["space_id"] = space_id
         params.update(
@@ -72,12 +76,14 @@ class AsyncSessionsAPI:
     async def create(
         self,
         *,
+        user: str | None = None,
         space_id: str | None = None,
         configs: Mapping[str, Any] | None = None,
     ) -> Session:
         """Create a new session.
 
         Args:
+            user: Optional user identifier string. Defaults to None.
             space_id: Optional space ID to associate with the session. Defaults to None.
             configs: Optional session configuration dictionary. Defaults to None.
 
@@ -85,6 +91,8 @@ class AsyncSessionsAPI:
             The created Session object.
         """
         payload: dict[str, Any] = {}
+        if user:
+            payload["user"] = user
         if space_id:
             payload["space_id"] = space_id
         if configs is not None:

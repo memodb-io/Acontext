@@ -12,6 +12,7 @@ class Disk(BaseModel):
 
     id: str = Field(..., description="Disk UUID")
     project_id: str = Field(..., description="Project UUID")
+    user_id: str | None = Field(None, description="User UUID")
     created_at: str = Field(..., description="ISO 8601 formatted creation timestamp")
     updated_at: str = Field(..., description="ISO 8601 formatted update timestamp")
 

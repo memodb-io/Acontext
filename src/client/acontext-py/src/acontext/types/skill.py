@@ -18,6 +18,7 @@ class Skill(BaseModel):
     """Skill model representing an agent skill resource."""
 
     id: str = Field(..., description="Skill UUID")
+    user_id: str | None = Field(None, description="User UUID")
     name: str = Field(..., description="Skill name (unique within project)")
     description: str = Field(..., description="Skill description")
     file_index: list[FileInfo] = Field(

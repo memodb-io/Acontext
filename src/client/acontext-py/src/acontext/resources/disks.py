@@ -27,6 +27,7 @@ class DisksAPI:
     def list(
         self,
         *,
+        user: str | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         time_desc: bool | None = None,
@@ -34,6 +35,7 @@ class DisksAPI:
         """List all disks in the project.
         
         Args:
+            user: Filter by user identifier. Defaults to None.
             limit: Maximum number of disks to return. Defaults to None.
             cursor: Cursor for pagination. Defaults to None.
             time_desc: Order by created_at descending if True, ascending if False. Defaults to None.
@@ -41,17 +43,23 @@ class DisksAPI:
         Returns:
             ListDisksOutput containing the list of disks and pagination information.
         """
-        params = build_params(limit=limit, cursor=cursor, time_desc=time_desc)
+        params = build_params(user=user, limit=limit, cursor=cursor, time_desc=time_desc)
         data = self._requester.request("GET", "/disk", params=params or None)
         return ListDisksOutput.model_validate(data)
 
-    def create(self) -> Disk:
+    def create(self, *, user: str | None = None) -> Disk:
         """Create a new disk.
         
+        Args:
+            user: Optional user identifier string. Defaults to None.
+            
         Returns:
             The created Disk object.
         """
-        data = self._requester.request("POST", "/disk")
+        payload: dict[str, Any] = {}
+        if user is not None:
+            payload["user"] = user
+        data = self._requester.request("POST", "/disk", json_data=payload or None)
         return Disk.model_validate(data)
 
     def delete(self, disk_id: str) -> None:

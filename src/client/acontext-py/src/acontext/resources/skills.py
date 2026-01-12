@@ -28,6 +28,7 @@ class SkillsAPI:
         file: FileUpload
         | tuple[str, BinaryIO | bytes]
         | tuple[str, BinaryIO | bytes, str],
+        user: str | None = None,
         meta: Mapping[str, Any] | None = None,
     ) -> Skill:
         """Create a new skill by uploading a ZIP file.
@@ -37,6 +38,7 @@ class SkillsAPI:
 
         Args:
             file: The ZIP file to upload (FileUpload object or tuple format).
+            user: Optional user identifier string. Defaults to None.
             meta: Custom metadata as JSON-serializable dict, defaults to None.
 
         Returns:
@@ -45,6 +47,8 @@ class SkillsAPI:
         upload = normalize_file_upload(file)
         files = {"file": upload.as_httpx()}
         form: dict[str, Any] = {}
+        if user is not None:
+            form["user"] = user
         if meta is not None:
             form["meta"] = json.dumps(cast(Mapping[str, Any], meta))
         data = self._requester.request(
@@ -58,6 +62,7 @@ class SkillsAPI:
     def list_catalog(
         self,
         *,
+        user: str | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         time_desc: bool | None = None,
@@ -65,6 +70,7 @@ class SkillsAPI:
         """Get a catalog of skills (names and descriptions only) with pagination.
 
         Args:
+            user: Filter by user identifier. Defaults to None.
             limit: Maximum number of skills per page (defaults to 100, max 200).
             cursor: Cursor for pagination to fetch the next page (optional).
             time_desc: Order by created_at descending if True, ascending if False (defaults to False).
@@ -74,7 +80,7 @@ class SkillsAPI:
             along with pagination information (next_cursor and has_more).
         """
         effective_limit = limit if limit is not None else 100
-        params = build_params(limit=effective_limit, cursor=cursor, time_desc=time_desc)
+        params = build_params(user=user, limit=effective_limit, cursor=cursor, time_desc=time_desc)
         data = self._requester.request("GET", "/agent_skills", params=params or None)
         api_response = _ListSkillsResponse.model_validate(data)
 
