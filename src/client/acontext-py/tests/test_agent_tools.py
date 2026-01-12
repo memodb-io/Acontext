@@ -35,20 +35,22 @@ class TestDiskTools:
         """Test that tools can generate OpenAI tool schemas."""
         schemas = DISK_TOOLS.to_openai_tool_schema()
         assert isinstance(schemas, list)
-        assert len(schemas) == 5  # write_file, read_file, replace_string, list_artifacts, download_file
+        assert len(schemas) == 7  # write_file, read_file, replace_string, list_artifacts, grep_artifacts, glob_artifacts, download_file
 
         tool_names = [s["function"]["name"] for s in schemas]
         assert "write_file" in tool_names
         assert "read_file" in tool_names
         assert "replace_string" in tool_names
         assert "list_artifacts" in tool_names
+        assert "grep_artifacts" in tool_names
+        assert "glob_artifacts" in tool_names
         assert "download_file" in tool_names
 
     def test_disk_tools_anthropic_schema(self) -> None:
         """Test Anthropic tool schema generation."""
         schemas = DISK_TOOLS.to_anthropic_tool_schema()
         assert isinstance(schemas, list)
-        assert len(schemas) == 5
+        assert len(schemas) == 7
 
     def test_disk_tools_tool_exists(self) -> None:
         """Test tool_exists method."""
