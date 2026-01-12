@@ -1047,3 +1047,126 @@ async def test_async_spaces_confirm_experience_without_save(
     assert path == "/space/space-id/experience_confirmations/exp-1"
     assert kwargs["json_data"] == {"save": False}
     assert result is None
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_users_list_without_filters(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    mock_request.return_value = {
+        "items": [
+            {
+                "id": "123e4567-e89b-12d3-a456-426614174000",
+                "project_id": "123e4567-e89b-12d3-a456-426614174001",
+                "identifier": "alice@acontext.io",
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            },
+            {
+                "id": "223e4567-e89b-12d3-a456-426614174000",
+                "project_id": "123e4567-e89b-12d3-a456-426614174001",
+                "identifier": "bob@acontext.io",
+                "created_at": "2024-01-02T00:00:00Z",
+                "updated_at": "2024-01-02T00:00:00Z",
+            },
+        ],
+        "has_more": False,
+    }
+
+    result = await async_client.users.list()
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/user/ls"
+    assert kwargs["params"] is None
+    # Verify it returns a Pydantic model
+    assert hasattr(result, "items")
+    assert hasattr(result, "has_more")
+    assert len(result.items) == 2
+    assert result.items[0].identifier == "alice@acontext.io"
+    assert result.items[1].identifier == "bob@acontext.io"
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_users_list_with_filters(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    mock_request.return_value = {
+        "items": [
+            {
+                "id": "123e4567-e89b-12d3-a456-426614174000",
+                "project_id": "123e4567-e89b-12d3-a456-426614174001",
+                "identifier": "alice@acontext.io",
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            },
+        ],
+        "next_cursor": "cursor-123",
+        "has_more": True,
+    }
+
+    result = await async_client.users.list(limit=10, cursor="cursor-456", time_desc=True)
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/user/ls"
+    assert kwargs["params"] == {"limit": 10, "cursor": "cursor-456", "time_desc": "true"}
+    # Verify it returns a Pydantic model
+    assert hasattr(result, "items")
+    assert hasattr(result, "has_more")
+    assert hasattr(result, "next_cursor")
+    assert len(result.items) == 1
+    assert result.items[0].identifier == "alice@acontext.io"
+    assert result.next_cursor == "cursor-123"
+    assert result.has_more is True
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_users_get_resources(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    mock_request.return_value = {
+        "counts": {
+            "spaces_count": 5,
+            "sessions_count": 10,
+            "disks_count": 3,
+            "skills_count": 2,
+        }
+    }
+
+    result = await async_client.users.get_resources("alice@acontext.io")
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/user/alice%40acontext.io/resources"
+    # Verify it returns a Pydantic model
+    assert hasattr(result, "counts")
+    assert result.counts.spaces_count == 5
+    assert result.counts.sessions_count == 10
+    assert result.counts.disks_count == 3
+    assert result.counts.skills_count == 2
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_users_delete(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    mock_request.return_value = None
+
+    await async_client.users.delete("alice@acontext.io")
+
+    mock_request.assert_called_once()
+    args, _ = mock_request.call_args
+    method, path = args
+    assert method == "DELETE"
+    assert path == "/user/alice%40acontext.io"

@@ -45,6 +45,12 @@ from .skill import (
     Skill,
     SkillCatalogItem,
 )
+from .user import (
+    GetUserResourcesOutput,
+    ListUsersOutput,
+    User,
+    UserResourceCounts,
+)
 
 __all__ = [
     # Disk types
@@ -88,4 +94,9 @@ __all__ = [
     "SkillCatalogItem",
     "ListSkillsOutput",
     "GetSkillFileResp",
+    # User types
+    "GetUserResourcesOutput",
+    "ListUsersOutput",
+    "User",
+    "UserResourceCounts",
 ]
