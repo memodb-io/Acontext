@@ -24,23 +24,27 @@ import (
 
 type SessionHandler struct {
 	svc        service.SessionService
+	userSvc    service.UserService
 	coreClient *httpclient.CoreClient
 }
 
-func NewSessionHandler(s service.SessionService, coreClient *httpclient.CoreClient) *SessionHandler {
+func NewSessionHandler(s service.SessionService, userSvc service.UserService, coreClient *httpclient.CoreClient) *SessionHandler {
 	return &SessionHandler{
 		svc:        s,
+		userSvc:    userSvc,
 		coreClient: coreClient,
 	}
 }
 
 type CreateSessionReq struct {
+	User                string                 `form:"user" json:"user" example:"alice@acontext.io"`
 	SpaceID             string                 `form:"space_id" json:"space_id" format:"uuid" example:"123e4567-e89b-12d3-a456-42661417"`
 	DisableTaskTracking *bool                  `form:"disable_task_tracking" json:"disable_task_tracking" example:"false"`
 	Configs             map[string]interface{} `form:"configs" json:"configs"`
 }
 
 type GetSessionsReq struct {
+	User         string `form:"user" json:"user" example:"alice@acontext.io"`
 	SpaceID      string `form:"space_id" json:"space_id" format:"uuid" example:"123e4567-e89b-12d3-a456-42661417"`
 	NotConnected bool   `form:"not_connected,default=false" json:"not_connected" example:"false"`
 	Limit        int    `form:"limit,default=20" json:"limit" binding:"required,min=1,max=200" example:"20"`
@@ -51,10 +55,11 @@ type GetSessionsReq struct {
 // GetSessions godoc
 //
 //	@Summary		Get sessions
-//	@Description	Get all sessions under a project, optionally filtered by space_id
+//	@Description	Get all sessions under a project, optionally filtered by space_id or user
 //	@Tags			session
 //	@Accept			json
 //	@Produce		json
+//	@Param			user			query	string	false	"User identifier to filter sessions"							example(alice@acontext.io)
 //	@Param			space_id		query	string	false	"Space ID to filter sessions"									format(uuid)
 //	@Param			not_connected	query	boolean	false	"Filter sessions not connected to any space (default false)"	example(false)
 //	@Param			limit			query	integer	false	"Limit of sessions to return, default 20. Max 200."
@@ -63,7 +68,7 @@ type GetSessionsReq struct {
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.ListSessionsOutput}
 //	@Router			/session [get]
-//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List sessions\nsessions = client.sessions.list(\n    space_id='space-uuid',\n    limit=20,\n    time_desc=True\n)\nfor session in sessions.items:\n    print(f\"{session.id}: {session.space_id}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List sessions\nconst sessions = await client.sessions.list({\n  spaceId: 'space-uuid',\n  limit: 20,\n  timeDesc: true\n});\nfor (const session of sessions.items) {\n  console.log(`${session.id}: ${session.space_id}`);\n}\n","label":"JavaScript"}]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List sessions\nsessions = client.sessions.list(\n    space_id='space-uuid',\n    limit=20,\n    time_desc=True\n)\nfor session in sessions.items:\n    print(f\"{session.id}: {session.space_id}\")\n\n# List sessions for a specific user\nsessions = client.sessions.list(user='alice@acontext.io', limit=20)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List sessions\nconst sessions = await client.sessions.list({\n  spaceId: 'space-uuid',\n  limit: 20,\n  timeDesc: true\n});\nfor (const session of sessions.items) {\n  console.log(`${session.id}: ${session.space_id}`);\n}\n\n// List sessions for a specific user\nconst userSessions = await client.sessions.list({ user: 'alice@acontext.io', limit: 20 });\n","label":"JavaScript"}]
 func (h *SessionHandler) GetSessions(c *gin.Context) {
 	req := GetSessionsReq{}
 	if err := c.ShouldBind(&req); err != nil {
@@ -90,6 +95,7 @@ func (h *SessionHandler) GetSessions(c *gin.Context) {
 
 	out, err := h.svc.List(c.Request.Context(), service.ListSessionsInput{
 		ProjectID:    project.ID,
+		User:         req.User,
 		SpaceID:      spaceID,
 		NotConnected: req.NotConnected,
 		Limit:        req.Limit,
@@ -107,7 +113,7 @@ func (h *SessionHandler) GetSessions(c *gin.Context) {
 // CreateSession godoc
 //
 //	@Summary		Create session
-//	@Description	Create a new session under a space
+//	@Description	Create a new session under a space. Optionally associate with a user identifier.
 //	@Tags			session
 //	@Accept			json
 //	@Produce		json
@@ -115,7 +121,7 @@ func (h *SessionHandler) GetSessions(c *gin.Context) {
 //	@Security		BearerAuth
 //	@Success		201	{object}	serializer.Response{data=model.Session}
 //	@Router			/session [post]
-//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a session\nsession = client.sessions.create(\n    space_id='space-uuid',\n    configs={\"mode\": \"chat\"}\n)\nprint(f\"Created session: {session.id}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a session\nconst session = await client.sessions.create({\n  spaceId: 'space-uuid',\n  configs: { mode: 'chat' }\n});\nconsole.log(`Created session: ${session.id}`);\n","label":"JavaScript"}]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a session\nsession = client.sessions.create(\n    space_id='space-uuid'\n)\nprint(f\"Created session: {session.id}\")\n\n# Create a session for a specific user\nsession = client.sessions.create(user='alice@acontext.io', space_id='space-uuid')\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a session\nconst session = await client.sessions.create({\n  spaceId: 'space-uuid'\n});\nconsole.log(`Created session: ${session.id}`);\n\n// Create a session for a specific user\nconst userSession = await client.sessions.create({ user: 'alice@acontext.io', spaceId: 'space-uuid' });\n","label":"JavaScript"}]
 func (h *SessionHandler) CreateSession(c *gin.Context) {
 	req := CreateSessionReq{}
 	if err := c.ShouldBind(&req); err != nil {
@@ -134,6 +140,17 @@ func (h *SessionHandler) CreateSession(c *gin.Context) {
 		DisableTaskTracking: false, // Default value
 		Configs:             datatypes.JSONMap(req.Configs),
 	}
+
+	// If user identifier is provided, get or create the user
+	if req.User != "" {
+		user, err := h.userSvc.GetOrCreate(c.Request.Context(), project.ID, req.User)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to get or create user", err))
+			return
+		}
+		session.UserID = &user.ID
+	}
+
 	if len(req.SpaceID) != 0 {
 		spaceID, err := uuid.Parse(req.SpaceID)
 		if err != nil {
@@ -202,7 +219,7 @@ type UpdateSessionConfigsReq struct {
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{}
 //	@Router			/session/{session_id}/configs [put]
-//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Update session configs\nclient.sessions.update_configs(\n    session_id='session-uuid',\n    configs={\"mode\": \"updated-mode\"}\n)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Update session configs\nawait client.sessions.updateConfigs('session-uuid', {\n  configs: { mode: 'updated-mode' }\n});\n","label":"JavaScript"}]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Update session configs\nclient.sessions.update_configs(\n    session_id='session-uuid'\n)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Update session configs\nawait client.sessions.updateConfigs('session-uuid');\n","label":"JavaScript"}]
 func (h *SessionHandler) UpdateConfigs(c *gin.Context) {
 	req := UpdateSessionConfigsReq{}
 	if err := c.ShouldBind(&req); err != nil {
@@ -486,12 +503,13 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 }
 
 type GetMessagesReq struct {
-	Limit              *int   `form:"limit" json:"limit" binding:"omitempty,min=0,max=200" example:"20"`
-	Cursor             string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
-	WithAssetPublicURL bool   `form:"with_asset_public_url,default=true" json:"with_asset_public_url" example:"true"`
-	Format             string `form:"format,default=openai" json:"format" binding:"omitempty,oneof=acontext openai anthropic gemini" example:"openai" enums:"acontext,openai,anthropic,gemini"`
-	TimeDesc           bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
-	EditStrategies     string `form:"edit_strategies" json:"edit_strategies" example:"[{\"type\":\"remove_tool_result\",\"params\":{\"keep_recent_n_tool_results\":3}}]"`
+	Limit                         *int   `form:"limit" json:"limit" binding:"omitempty,min=0,max=200" example:"20"`
+	Cursor                        string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
+	WithAssetPublicURL            bool   `form:"with_asset_public_url,default=true" json:"with_asset_public_url" example:"true"`
+	Format                        string `form:"format,default=openai" json:"format" binding:"omitempty,oneof=acontext openai anthropic gemini" example:"openai" enums:"acontext,openai,anthropic,gemini"`
+	TimeDesc                      bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
+	EditStrategies                string `form:"edit_strategies" json:"edit_strategies" example:"[{\"type\":\"remove_tool_result\",\"params\":{\"keep_recent_n_tool_results\":3}}]"`
+	PinEditingStrategiesAtMessage string `form:"pin_editing_strategies_at_message" json:"pin_editing_strategies_at_message" example:""`
 }
 
 // GetMessages godoc
@@ -501,13 +519,14 @@ type GetMessagesReq struct {
 //	@Tags			session
 //	@Accept			json
 //	@Produce		json
-//	@Param			session_id				path	string	true	"Session ID"	format(uuid)
-//	@Param			limit					query	integer	false	"Limit of messages to return. Max 200. If limit is 0 or not provided, all messages will be returned. \n\nWARNING!\n Use `limit` only for read-only/display purposes (pagination, viewing). Do NOT use `limit` to truncate messages before sending to LLM as it may cause tool-call and tool-result unpairing issues. Instead, use the `token_limit` edit strategy in `edit_strategies` parameter to safely manage message context size."
-//	@Param			cursor					query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
-//	@Param			with_asset_public_url	query	string	false	"Whether to return asset public url, default is true"										example(true)
-//	@Param			format					query	string	false	"Format to convert messages to: acontext (original), openai (default), anthropic, gemini."	enums(acontext,openai,anthropic,gemini)
-//	@Param			time_desc				query	string	false	"Order by created_at descending if true, ascending if false (default false)"				example(false)
-//	@Param			edit_strategies			query	string	false	"JSON array of edit strategies to apply before format conversion"							example([{"type":"remove_tool_result","params":{"keep_recent_n_tool_results":3}}])
+//	@Param			session_id							path	string	true	"Session ID"	format(uuid)
+//	@Param			limit								query	integer	false	"Limit of messages to return. Max 200. If limit is 0 or not provided, all messages will be returned. \n\nWARNING!\n Use `limit` only for read-only/display purposes (pagination, viewing). Do NOT use `limit` to truncate messages before sending to LLM as it may cause tool-call and tool-result unpairing issues. Instead, use the `token_limit` edit strategy in `edit_strategies` parameter to safely manage message context size."
+//	@Param			cursor								query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
+//	@Param			with_asset_public_url				query	string	false	"Whether to return asset public url, default is true"																																																																							example(true)
+//	@Param			format								query	string	false	"Format to convert messages to: acontext (original), openai (default), anthropic, gemini."																																																														enums(acontext,openai,anthropic,gemini)
+//	@Param			time_desc							query	string	false	"Order by created_at descending if true, ascending if false (default false)"																																																																	example(false)
+//	@Param			edit_strategies						query	string	false	"JSON array of edit strategies to apply before format conversion"																																																																				example([{"type":"remove_tool_result","params":{"keep_recent_n_tool_results":3}}])
+//	@Param			pin_editing_strategies_at_message	query	string	false	"Message ID to pin editing strategies at. When provided, strategies are only applied to messages up to and including this message ID, keeping subsequent messages unchanged. This helps maintain prompt cache stability by preserving a stable prefix. The response will include edit_at_message_id indicating where strategies were applied."	example()
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.GetMessagesOutput}
 //	@Router			/session/{session_id}/messages [get]
@@ -541,13 +560,14 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 	}
 
 	out, err := h.svc.GetMessages(c.Request.Context(), service.GetMessagesInput{
-		SessionID:          sessionID,
-		Limit:              limit,
-		Cursor:             req.Cursor,
-		WithAssetPublicURL: req.WithAssetPublicURL,
-		AssetExpire:        time.Hour * 24,
-		TimeDesc:           req.TimeDesc,
-		EditStrategies:     editStrategies,
+		SessionID:                     sessionID,
+		Limit:                         limit,
+		Cursor:                        req.Cursor,
+		WithAssetPublicURL:            req.WithAssetPublicURL,
+		AssetExpire:                   time.Hour * 24,
+		TimeDesc:                      req.TimeDesc,
+		EditStrategies:                editStrategies,
+		PinEditingStrategiesAtMessage: req.PinEditingStrategiesAtMessage,
 	})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.DBErr("", err))
@@ -566,12 +586,21 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		return
 	}
 
+	// Calculate token count for the returned messages
+	thisTimeTokens, err := tokenizer.CountMessagePartsTokens(c.Request.Context(), out.Items)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to count tokens", err))
+		return
+	}
+
 	convertedOut, err := converter.GetConvertedMessagesOutput(
 		out.Items,
 		format,
 		out.PublicURLs,
 		out.NextCursor,
 		out.HasMore,
+		thisTimeTokens,
+		out.EditAtMessageID,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to convert messages", err))

@@ -21,6 +21,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type SessionService interface {
@@ -93,6 +94,7 @@ func (s *sessionService) GetByID(ctx context.Context, ss *model.Session) (*model
 
 type ListSessionsInput struct {
 	ProjectID    uuid.UUID  `json:"project_id"`
+	User         string     `json:"user"`
 	SpaceID      *uuid.UUID `json:"space_id,omitempty"`
 	NotConnected bool       `json:"not_connected"`
 	Limit        int        `json:"limit"`
@@ -119,7 +121,7 @@ func (s *sessionService) List(ctx context.Context, in ListSessionsInput) (*ListS
 	}
 
 	// Query limit+1 is used to determine has_more
-	sessions, err := s.sessionRepo.ListWithCursor(ctx, in.ProjectID, in.SpaceID, in.NotConnected, afterT, afterID, in.Limit+1, in.TimeDesc)
+	sessions, err := s.sessionRepo.ListWithCursor(ctx, in.ProjectID, in.User, in.SpaceID, in.NotConnected, afterT, afterID, in.Limit+1, in.TimeDesc)
 	if err != nil {
 		return nil, err
 	}
@@ -261,6 +263,20 @@ func (s *sessionService) validateAndResolveGeminiToolResult(ctx context.Context,
 }
 
 func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput) (*model.Message, error) {
+	// Validate session exists and belongs to project before performing expensive operations
+	session, err := s.sessionRepo.Get(ctx, &model.Session{ID: in.SessionID})
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("session not found")
+		}
+		return nil, fmt.Errorf("failed to get session: %w", err)
+	}
+
+	// Verify session belongs to the project
+	if session.ProjectID != in.ProjectID {
+		return nil, fmt.Errorf("session does not belong to project")
+	}
+
 	parts := make([]model.Part, 0, len(in.Parts))
 
 	for idx := range in.Parts {
@@ -362,13 +378,14 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 }
 
 type GetMessagesInput struct {
-	SessionID          uuid.UUID               `json:"session_id"`
-	Limit              int                     `json:"limit"`
-	Cursor             string                  `json:"cursor"`
-	WithAssetPublicURL bool                    `json:"with_public_url"`
-	AssetExpire        time.Duration           `json:"asset_expire"`
-	TimeDesc           bool                    `json:"time_desc"`
-	EditStrategies     []editor.StrategyConfig `json:"edit_strategies,omitempty"`
+	SessionID                     uuid.UUID               `json:"session_id"`
+	Limit                         int                     `json:"limit"`
+	Cursor                        string                  `json:"cursor"`
+	WithAssetPublicURL            bool                    `json:"with_public_url"`
+	AssetExpire                   time.Duration           `json:"asset_expire"`
+	TimeDesc                      bool                    `json:"time_desc"`
+	EditStrategies                []editor.StrategyConfig `json:"edit_strategies,omitempty"`
+	PinEditingStrategiesAtMessage string                  `json:"pin_editing_strategies_at_message,omitempty"`
 }
 
 type PublicURL struct {
@@ -377,10 +394,11 @@ type PublicURL struct {
 }
 
 type GetMessagesOutput struct {
-	Items      []model.Message      `json:"items"`
-	NextCursor string               `json:"next_cursor,omitempty"`
-	HasMore    bool                 `json:"has_more"`
-	PublicURLs map[string]PublicURL `json:"public_urls,omitempty"` // file_name -> url
+	Items           []model.Message      `json:"items"`
+	NextCursor      string               `json:"next_cursor,omitempty"`
+	HasMore         bool                 `json:"has_more"`
+	PublicURLs      map[string]PublicURL `json:"public_urls,omitempty"` // file_name -> url
+	EditAtMessageID string               `json:"edit_at_message_id,omitempty"`
 }
 
 func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (*GetMessagesOutput, error) {
@@ -445,10 +463,15 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 
 	// Apply edit strategies if provided (before format conversion)
 	if len(in.EditStrategies) > 0 {
-		out.Items, err = editor.ApplyStrategies(out.Items, in.EditStrategies)
+		result, err := editor.ApplyStrategiesWithPin(out.Items, in.EditStrategies, in.PinEditingStrategiesAtMessage)
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply edit strategies: %w", err)
 		}
+		out.Items = result.Messages
+		out.EditAtMessageID = result.EditAtMessageID
+	} else if len(out.Items) > 0 {
+		// No strategies, but still set EditAtMessageID to the last message
+		out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
 	}
 
 	// Generate presigned URLs for assets if requested

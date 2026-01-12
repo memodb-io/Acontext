@@ -1,0 +1,290 @@
+"""Tests for agent tools (DISK_TOOLS and SKILL_TOOLS)."""
+
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from acontext.agent.disk import DISK_TOOLS, DiskContext
+from acontext.agent.skill import SKILL_TOOLS, SkillContext
+from acontext.client import AcontextClient
+
+
+@pytest.fixture
+def mock_client() -> AcontextClient:
+    """Create a mock client for testing."""
+    client = AcontextClient(api_key="test-token", base_url="http://test.api")
+    return client
+
+
+@pytest.fixture
+def disk_ctx(mock_client: AcontextClient) -> DiskContext:
+    """Create a disk context for testing."""
+    return DISK_TOOLS.format_context(mock_client, "disk-123")
+
+
+@pytest.fixture
+def skill_ctx(mock_client: AcontextClient) -> SkillContext:
+    """Create a skill context for testing."""
+    return SKILL_TOOLS.format_context(mock_client)
+
+
+class TestDiskTools:
+    """Tests for DISK_TOOLS."""
+
+    def test_disk_tools_schema_generation(self) -> None:
+        """Test that tools can generate OpenAI tool schemas."""
+        schemas = DISK_TOOLS.to_openai_tool_schema()
+        assert isinstance(schemas, list)
+        assert len(schemas) == 5  # write_file, read_file, replace_string, list_artifacts, download_file
+
+        tool_names = [s["function"]["name"] for s in schemas]
+        assert "write_file" in tool_names
+        assert "read_file" in tool_names
+        assert "replace_string" in tool_names
+        assert "list_artifacts" in tool_names
+        assert "download_file" in tool_names
+
+    def test_disk_tools_anthropic_schema(self) -> None:
+        """Test Anthropic tool schema generation."""
+        schemas = DISK_TOOLS.to_anthropic_tool_schema()
+        assert isinstance(schemas, list)
+        assert len(schemas) == 5
+
+    def test_disk_tools_tool_exists(self) -> None:
+        """Test tool_exists method."""
+        assert DISK_TOOLS.tool_exists("write_file")
+        assert DISK_TOOLS.tool_exists("read_file")
+        assert not DISK_TOOLS.tool_exists("nonexistent_tool")
+
+    @patch("acontext.client.AcontextClient.request")
+    def test_write_file_tool(self, mock_request: MagicMock, disk_ctx: DiskContext) -> None:
+        """Test write_file tool execution."""
+        mock_request.return_value = {
+            "disk_id": "disk-123",
+            "path": "/test.txt",
+            "filename": "test.txt",
+            "meta": {},
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+        }
+
+        result = DISK_TOOLS.execute_tool(
+            disk_ctx,
+            "write_file",
+            {"filename": "test.txt", "content": "Hello, world!"},
+        )
+
+        assert "written successfully" in result.lower()
+        mock_request.assert_called_once()
+        args, kwargs = mock_request.call_args
+        assert args[0] == "POST"
+        assert args[1] == "/disk/disk-123/artifact"
+
+    @patch("acontext.client.AcontextClient.request")
+    def test_read_file_tool(self, mock_request: MagicMock, disk_ctx: DiskContext) -> None:
+        """Test read_file tool execution."""
+        mock_request.return_value = {
+            "artifact": {
+                "disk_id": "disk-123",
+                "path": "/test.txt",
+                "filename": "test.txt",
+                "meta": {},
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            },
+            "content": {
+                "type": "text",
+                "raw": "Line 1\nLine 2\nLine 3\nLine 4\nLine 5",
+            },
+        }
+
+        result = DISK_TOOLS.execute_tool(
+            disk_ctx,
+            "read_file",
+            {"filename": "test.txt", "line_offset": 1, "line_limit": 2},
+        )
+
+        assert "Line 2" in result
+        assert "Line 3" in result
+        mock_request.assert_called_once()
+
+    @patch("acontext.client.AcontextClient.request")
+    def test_replace_string_tool(
+        self, mock_request: MagicMock, disk_ctx: DiskContext
+    ) -> None:
+        """Test replace_string tool execution."""
+        # Mock read response
+        read_response = {
+            "artifact": {
+                "disk_id": "disk-123",
+                "path": "/test.txt",
+                "filename": "test.txt",
+                "meta": {},
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            },
+            "content": {
+                "type": "text",
+                "raw": "Hello, world! Hello again!",
+            },
+        }
+        # Mock write response
+        write_response = {
+            "disk_id": "disk-123",
+            "path": "/test.txt",
+            "filename": "test.txt",
+            "meta": {},
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+        }
+
+        mock_request.side_effect = [read_response, write_response]
+
+        result = DISK_TOOLS.execute_tool(
+            disk_ctx,
+            "replace_string",
+            {
+                "filename": "test.txt",
+                "old_string": "Hello",
+                "new_string": "Hi",
+            },
+        )
+
+        assert "replaced" in result.lower()
+        assert mock_request.call_count == 2  # One read, one write
+
+    @patch("acontext.client.AcontextClient.request")
+    def test_list_artifacts_tool(
+        self, mock_request: MagicMock, disk_ctx: DiskContext
+    ) -> None:
+        """Test list_artifacts tool execution."""
+        mock_request.return_value = {
+            "artifacts": [
+                {
+                    "disk_id": "disk-123",
+                    "path": "/file1.txt",
+                    "filename": "file1.txt",
+                    "meta": {},
+                    "created_at": "2024-01-01T00:00:00Z",
+                    "updated_at": "2024-01-01T00:00:00Z",
+                }
+            ],
+            "directories": ["/subdir/"],
+        }
+
+        result = DISK_TOOLS.execute_tool(
+            disk_ctx,
+            "list_artifacts",
+            {"file_path": "/"},
+        )
+
+        assert "file1.txt" in result
+        assert "subdir" in result.lower()
+        mock_request.assert_called_once()
+
+    def test_write_file_tool_validation(self, disk_ctx: DiskContext) -> None:
+        """Test write_file tool parameter validation."""
+        with pytest.raises(ValueError, match="filename is required"):
+            DISK_TOOLS.execute_tool(disk_ctx, "write_file", {"content": "test"})
+
+        with pytest.raises(ValueError, match="content is required"):
+            DISK_TOOLS.execute_tool(disk_ctx, "write_file", {"filename": "test.txt"})
+
+
+class TestSkillTools:
+    """Tests for SKILL_TOOLS."""
+
+    def test_skill_tools_schema_generation(self) -> None:
+        """Test that tools can generate OpenAI tool schemas."""
+        schemas = SKILL_TOOLS.to_openai_tool_schema()
+        assert isinstance(schemas, list)
+        assert len(schemas) == 2  # Only 2 skill tools: get_skill and get_skill_file
+
+        tool_names = [s["function"]["name"] for s in schemas]
+        assert "get_skill" in tool_names
+        assert "get_skill_file" in tool_names
+
+    def test_skill_tools_anthropic_schema(self) -> None:
+        """Test Anthropic tool schema generation."""
+        schemas = SKILL_TOOLS.to_anthropic_tool_schema()
+        assert isinstance(schemas, list)
+        assert len(schemas) == 2
+
+    def test_skill_tools_tool_exists(self) -> None:
+        """Test tool_exists method."""
+        assert SKILL_TOOLS.tool_exists("get_skill")
+        assert SKILL_TOOLS.tool_exists("get_skill_file")
+        assert not SKILL_TOOLS.tool_exists("nonexistent_tool")
+
+    @patch("acontext.client.AcontextClient.request")
+    def test_get_skill_tool(
+        self, mock_request: MagicMock, skill_ctx: SkillContext
+    ) -> None:
+        """Test get_skill tool execution."""
+        mock_request.return_value = {
+            "id": "skill-1",
+            "name": "test-skill",
+            "description": "Test skill",
+            "file_index": [
+                {"path": "SKILL.md", "mime": "text/markdown"},
+                {"path": "scripts/main.py", "mime": "text/x-python"},
+            ],
+            "meta": {},
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+        }
+
+        result = SKILL_TOOLS.execute_tool(
+            skill_ctx,
+            "get_skill",
+            {"name": "test-skill"},
+        )
+
+        assert "test-skill" in result
+        assert "Test skill" in result
+        assert "2 file(s)" in result
+        # Check that all files are listed with path and mime
+        assert "SKILL.md" in result
+        assert "text/markdown" in result
+        assert "scripts/main.py" in result
+        assert "text/x-python" in result
+        mock_request.assert_called_once()
+
+    @patch("acontext.client.AcontextClient.request")
+    def test_get_skill_file_tool(
+        self, mock_request: MagicMock, skill_ctx: SkillContext
+    ) -> None:
+        """Test get_skill_file tool execution."""
+        mock_request.return_value = {
+            "path": "scripts/main.py",
+            "mime": "text/x-python",
+            "content": {"type": "code", "raw": "print('Hello, World!')"},
+        }
+
+        result = SKILL_TOOLS.execute_tool(
+            skill_ctx,
+            "get_skill_file",
+            {
+                "skill_name": "test-skill",
+                "file_path": "scripts/main.py",
+            },
+        )
+
+        assert "scripts/main.py" in result
+        assert "text/x-python" in result
+        assert "Hello, World!" in result
+        mock_request.assert_called_once()
+
+    def test_get_skill_tool_validation(self, skill_ctx: SkillContext) -> None:
+        """Test get_skill tool parameter validation."""
+        with pytest.raises(ValueError, match="name is required"):
+            SKILL_TOOLS.execute_tool(skill_ctx, "get_skill", {})
+
+    def test_get_skill_file_tool_validation(self, skill_ctx: SkillContext) -> None:
+        """Test get_skill_file tool parameter validation."""
+        with pytest.raises(ValueError, match="skill_name is required"):
+            SKILL_TOOLS.execute_tool(skill_ctx, "get_skill_file", {"file_path": "test.py"})
+
+        with pytest.raises(ValueError, match="file_path is required"):
+            SKILL_TOOLS.execute_tool(skill_ctx, "get_skill_file", {"skill_name": "test-skill"})
+

@@ -37,8 +37,8 @@ client = AcontextClient(
 # )
 
 client.ping()
-# Create a session
-session = client.sessions.create()
+# Create a session (optionally associate with a user)
+session = client.sessions.create(user="user@example.com")
 print(f"Session created: {session.id}")
 ```
 
@@ -55,11 +55,15 @@ const client = new AcontextClient({
 //     apiKey: "sk-ac-your-root-api-bearer-token",
 // });
 
-// Create a session
-const session = await client.sessions.create();
+// Create a session (optionally associate with a user)
+const session = await client.sessions.create({ user: 'user@example.com' });
 console.log(`Session created: ${session.id}`);
 ```
 </CodeGroup>
+
+<Tip>
+You can associate a session with a specific user by passing the `user` parameter when creating it. This enables per-user resource management and cleanup. See [Per-user Resources](/chore/per-user) for details.
+</Tip>
 
 ### Store a single message
 
@@ -294,7 +298,7 @@ result = client.sessions.get_messages(
     format="openai"
 )
 
-print(f"Retrieved {len(result.items)} messages")
+print(f"Retrieved {len(result.items)} messages ({result.this_time_tokens} tokens)")
 for msg in result.items:
     print(f"- {msg.role}: {msg.content[:50]}...")
 ```
@@ -311,7 +315,7 @@ const result = await client.sessions.getMessages('session_uuid', {
   format: 'openai'
 });
 
-console.log(`Retrieved ${result.items.length} messages`);
+console.log(`Retrieved ${result.items.length} messages (${result.this_time_tokens} tokens)`);
 result.items.forEach(msg => {
   console.log(`- ${msg.role}: ${msg.content.substring(0, 50)}...`);
 });

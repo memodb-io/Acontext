@@ -50,6 +50,7 @@ func BuildContainer() *do.Injector {
 		if cfg.Database.AutoMigrate {
 			_ = d.AutoMigrate(
 				&model.Project{},
+				&model.User{},
 				&model.Space{},
 				&model.Session{},
 				&model.Task{},
@@ -187,6 +188,9 @@ func BuildContainer() *do.Injector {
 			do.MustInvoke[*blob.S3Deps](i),
 		), nil
 	})
+	do.Provide(inj, func(i *do.Injector) (repo.UserRepo, error) {
+		return repo.NewUserRepo(do.MustInvoke[*gorm.DB](i)), nil
+	})
 
 	// Service
 	do.Provide(inj, func(i *do.Injector) (service.SpaceService, error) {
@@ -232,17 +236,22 @@ func BuildContainer() *do.Injector {
 			do.MustInvoke[*blob.S3Deps](i),
 		), nil
 	})
+	do.Provide(inj, func(i *do.Injector) (service.UserService, error) {
+		return service.NewUserService(do.MustInvoke[repo.UserRepo](i)), nil
+	})
 
 	// Handler
 	do.Provide(inj, func(i *do.Injector) (*handler.SpaceHandler, error) {
 		return handler.NewSpaceHandler(
 			do.MustInvoke[service.SpaceService](i),
+			do.MustInvoke[service.UserService](i),
 			do.MustInvoke[*httpclient.CoreClient](i),
 		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.SessionHandler, error) {
 		return handler.NewSessionHandler(
 			do.MustInvoke[service.SessionService](i),
+			do.MustInvoke[service.UserService](i),
 			do.MustInvoke[*httpclient.CoreClient](i),
 		), nil
 	})
@@ -253,7 +262,10 @@ func BuildContainer() *do.Injector {
 		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.DiskHandler, error) {
-		return handler.NewDiskHandler(do.MustInvoke[service.DiskService](i)), nil
+		return handler.NewDiskHandler(
+			do.MustInvoke[service.DiskService](i),
+			do.MustInvoke[service.UserService](i),
+		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.ArtifactHandler, error) {
 		return handler.NewArtifactHandler(
@@ -268,7 +280,13 @@ func BuildContainer() *do.Injector {
 		return handler.NewToolHandler(do.MustInvoke[*httpclient.CoreClient](i)), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.AgentSkillsHandler, error) {
-		return handler.NewAgentSkillsHandler(do.MustInvoke[service.AgentSkillsService](i)), nil
+		return handler.NewAgentSkillsHandler(
+			do.MustInvoke[service.AgentSkillsService](i),
+			do.MustInvoke[service.UserService](i),
+		), nil
+	})
+	do.Provide(inj, func(i *do.Injector) (*handler.UserHandler, error) {
+		return handler.NewUserHandler(do.MustInvoke[service.UserService](i)), nil
 	})
 	return inj
 }

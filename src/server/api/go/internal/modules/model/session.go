@@ -10,6 +10,7 @@ import (
 type Session struct {
 	ID                  uuid.UUID         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
 	ProjectID           uuid.UUID         `gorm:"type:uuid;not null;index" json:"project_id"`
+	UserID              *uuid.UUID        `gorm:"type:uuid;index" json:"user_id"`
 	DisableTaskTracking bool              `gorm:"not null;default:false" json:"disable_task_tracking"`
 	SpaceID             *uuid.UUID        `gorm:"type:uuid;index" json:"space_id"`
 	Configs             datatypes.JSONMap `gorm:"type:jsonb" swaggertype:"object" json:"configs"`
@@ -19,6 +20,9 @@ type Session struct {
 
 	// Session <-> Project
 	Project *Project `gorm:"foreignKey:ProjectID;references:ID;constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
+
+	// Session <-> User
+	User *User `gorm:"foreignKey:UserID;references:ID;constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
 
 	// Session <-> Space
 	Space *Space `gorm:"foreignKey:SpaceID;references:ID;constraint:OnDelete:SET NULL,OnUpdate:CASCADE;" json:"-"`

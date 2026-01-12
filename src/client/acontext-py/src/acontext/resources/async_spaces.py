@@ -23,6 +23,7 @@ class AsyncSpacesAPI:
     async def list(
         self,
         *,
+        user: str | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         time_desc: bool | None = None,
@@ -30,6 +31,7 @@ class AsyncSpacesAPI:
         """List all spaces in the project.
 
         Args:
+            user: Filter by user identifier. Defaults to None.
             limit: Maximum number of spaces to return. Defaults to None.
             cursor: Cursor for pagination. Defaults to None.
             time_desc: Order by created_at descending if True, ascending if False. Defaults to None.
@@ -37,20 +39,28 @@ class AsyncSpacesAPI:
         Returns:
             ListSpacesOutput containing the list of spaces and pagination information.
         """
-        params = build_params(limit=limit, cursor=cursor, time_desc=time_desc)
+        params = build_params(user=user, limit=limit, cursor=cursor, time_desc=time_desc)
         data = await self._requester.request("GET", "/space", params=params or None)
         return ListSpacesOutput.model_validate(data)
 
-    async def create(self, *, configs: Mapping[str, Any] | None = None) -> Space:
+    async def create(
+        self,
+        *,
+        user: str | None = None,
+        configs: Mapping[str, Any] | None = None,
+    ) -> Space:
         """Create a new space.
 
         Args:
+            user: Optional user identifier string. Defaults to None.
             configs: Optional space configuration dictionary. Defaults to None.
 
         Returns:
             The created Space object.
         """
         payload: dict[str, Any] = {}
+        if user is not None:
+            payload["user"] = user
         if configs is not None:
             payload["configs"] = configs
         data = await self._requester.request("POST", "/space", json_data=payload)

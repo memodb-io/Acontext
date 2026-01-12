@@ -48,6 +48,7 @@ func NewAgentSkillsService(r repo.AgentSkillsRepo, s3 *blob.S3Deps) AgentSkillsS
 
 type CreateAgentSkillsInput struct {
 	ProjectID uuid.UUID
+	UserID    *uuid.UUID
 	ZipFile   *multipart.FileHeader
 	Meta      map[string]interface{}
 }
@@ -335,6 +336,7 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 	agentSkills := &model.AgentSkills{
 		ID:          tempID, // Use the same UUID as S3 key
 		ProjectID:   in.ProjectID,
+		UserID:      in.UserID,
 		Name:        skillName,
 		Description: skillDescription,
 		Meta:        in.Meta,
@@ -407,6 +409,7 @@ func (s *agentSkillsService) Delete(ctx context.Context, projectID uuid.UUID, id
 
 type ListAgentSkillsInput struct {
 	ProjectID uuid.UUID
+	User      string
 	Limit     int
 	Cursor    string
 	TimeDesc  bool
@@ -431,7 +434,7 @@ func (s *agentSkillsService) List(ctx context.Context, in ListAgentSkillsInput) 
 	}
 
 	// Query limit+1 to determine has_more
-	agentSkills, err := s.r.ListWithCursor(ctx, in.ProjectID, afterT, afterID, in.Limit+1, in.TimeDesc)
+	agentSkills, err := s.r.ListWithCursor(ctx, in.ProjectID, in.User, afterT, afterID, in.Limit+1, in.TimeDesc)
 	if err != nil {
 		return nil, err
 	}

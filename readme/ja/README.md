@@ -31,14 +31,35 @@
 </div>
 
 
+*みんなが自分のAgentの使い方を教えてくれます。でも、もしあなたが10万人のユーザー向けにAgentを構築する必要があるなら、どこから始めますか？*
 
-Acontextは以下を支援できます：
+**📦 問題1：DBの99%がLLMメッセージ。** 
 
-- **より良いコンテキストエンジニアリングでスケーラブルなAgentを構築する**
-- **Agentの成功率を観察する**
-- **各ユーザーの自己学習でAgentを改善する**
+> 貧弱なスキーマ設計により、最も価値のあるデータが高価で遅くなります。AcontextはPG、Redis、S3を介してコンテキストの保存と取得を処理します。
+>
+> ChatGPT、Gemini、Anthropic、画像、音声、ファイル...すべてカバーしています。
+
+**⏰ 問題2：長時間実行されるAgentは悪夢。** 
+
+> コンテキストエンジニアリングを知っていても、常にゼロから書いています。Acontextには組み込みのコンテキスト編集メソッドとすぐに使えるtodo agentがあります。
+>
+> Agentの状態管理？簡単です。
+
+**👀 問題3：Agentがどう動いているか見えない。** 
+
+> ユーザーは本当に満足していますか？Acontextはセッションごとのタスクを追跡し、Agentの実際の成功率を表示します。
+>
+> トークンコストに固執せず、まずAgentを改善しましょう。
+
+**🧠 問題4：Agentの結果が不安定。**
+
+> 成功から学べますか？AcontextのExperience Agentは成功した実行を記憶し、再利用可能なツール使用SOPに変換します。
+>
+> 一貫性がすべてです。
 
 
+
+これらの問題を一度に解決するため、Acontextは**コンテキストデータプラットフォーム**になりました：
 
 <div align="center">
     <picture>
@@ -48,32 +69,31 @@ Acontextは以下を支援できます：
 </div>
 
 
-
 # 💡 主な機能
 
-- Context Engineering
-  - [Session](https://docs.acontext.io/store/messages/multi-provider): マルチモーダル LLM メッセージストレージ
-  - [Disk](https://docs.acontext.io/store/disk): Artifacts用のファイルシステム
-  - [Context Editing](https://docs.acontext.io/store/editing) - 1回の呼び出しでコンテキストエンジニアリング
+- **Context Engineering**
+  - [Session](https://docs.acontext.io/store/messages/multi-provider): あらゆるLLM、あらゆるモダリティの統一メッセージストレージ。
+  - [Disk](https://docs.acontext.io/store/disk): ファイルパスでartifactsを保存/ダウンロード。
+  - [Context Editing](https://docs.acontext.io/store/editing) - 1つのAPIでコンテキストウィンドウを管理。
 
 <div align="center">
     <picture>
       <img alt="Acontext Learning" src="../../assets/acontext-context-engineering.png" width="80%">
     </picture>
-  <p>Acontext での Context Engineering</p>
+  <p>AcontextでのContext Engineering</p>
 </div>
 
-- **エージェントタスクとユーザーフィードバックを観察**
-  - [Task Agent](https://docs.acontext.io/observe/agent_tasks) - タスクのステータス、進捗、好みを収集するバックグラウンドエージェント
-- **エージェントの自己学習を有効化**
-  - [Experience Agent](https://docs.acontext.io/learn/advance/experience-agent) - 各ユーザーのスキルを蒸留、保存、検索するバックグラウンドエージェント。
+- **Agentタスクとユーザーフィードバックを観察**
+  - [Task](https://docs.acontext.io/observe/agent_tasks): Agentの作業状態、進捗、好みをほぼリアルタイムで収集。
+- **Agentの自己学習**
+  - [Experience](https://docs.acontext.io/learn/advance/experience-agent): 各ユーザー向けにAgentがSOPを学習。
 - **すべてを1つの[ダッシュボード](https://docs.acontext.io/observe/dashboard)で表示**
 
 <div align="center">
     <picture>
       <img alt="Dashboard" src="../../docs/images/dashboard/BI.png" width="80%">
     </picture>
-  <p>Agent 成功率とその他のメトリクスのダッシュボード</p>
+  <p>Agent成功率とその他のメトリクスのダッシュボード</p>
 </div>
 
 
@@ -81,7 +101,7 @@ Acontextは以下を支援できます：
 # 🏗️ どのように機能しますか？
 
 <details>
-<summary>興味がある場合は、アーキテクチャ図を開いてください。</summary>
+<summary>クリックして開く</summary>
 
 ```mermaid
 graph TB
@@ -154,6 +174,7 @@ graph TB
 
 
 ## データ構造
+
 <details>
 <summary>📖 タスク構造</summary>
 
@@ -216,7 +237,22 @@ graph TB
 
 
 
-# 🚀 Start the Backend Locally
+# 🚀 Acontextに接続
+
+1. [Acontext.io](https://acontext.io)にアクセスし、無料クレジットを取得してください。
+2. ワンクリックオンボーディングでAPI Keyを取得：`sk-ac-xxx`
+
+<div align="center">
+    <picture>
+      <img alt="Dashboard" src="../../assets/onboard.png" width="80%">
+    </picture>
+</div>
+
+
+
+
+<details>
+<summary>💻 Acontextをセルフホスト</summary>
 
 概念実証を迅速に行うために、`acontext-cli`を用意しています。まず、ターミナルでダウンロードしてください：
 
@@ -231,7 +267,9 @@ mkdir acontext_server && cd acontext_server
 acontext docker up
 ```
 
-> [📖 ローカル設定](https://docs.acontext.io/local#start-acontext-server-locally) LLMモデルとして`gpt-4.1`を推奨します
+> [!IMPORTANT]
+>
+> LLMに[ツール呼び出し](https://platform.openai.com/docs/guides/function-calling)機能があることを確認してください。デフォルトでは、Acontextは`gpt-4.1`を使用します。
 
 `acontext docker up`は、Acontext用の`.env`と`config.yaml`を作成/使用し、データを永続化するための`db`フォルダを作成します。
 
@@ -242,11 +280,14 @@ acontext docker up
 - Acontext API Base URL: http://localhost:8029/api/v1
 - Acontext Dashboard: http://localhost:3000/
 
+</details>
 
 
 
 
-# 🧐 Use Acontext to build Agent
+
+
+# 🧐 Acontextを使用してAgentを構築
 
 `acontext`でエンドツーエンドスクリプトをダウンロード：
 
@@ -258,9 +299,9 @@ acontext create my-proj --template-path "python/openai-basic"
 
 > Pythonのその他の例：
 >
-> - `python/openai-agent-basic`: openai agent sdkの自己学習 Agent。
-> - `python/agno-basic`: agno frameworkの自己学習 Agent。
-> - `python/openai-agent-artifacts`: Artifacts を編集およびダウンロードできる Agent。
+> - `python/openai-agent-basic`: openai agent sdkの自己学習Agent。
+> - `python/agno-basic`: agno frameworkの自己学習Agent。
+> - `python/openai-agent-artifacts`: Artifactsを編集およびダウンロードできるAgent。
 
 **Typescript**
 
@@ -270,19 +311,19 @@ acontext create my-proj --template-path "typescript/openai-basic"
 
 > Typescriptのその他の例：
 >
-> - `typescript/vercel-ai-basic`: @vercel/ai-sdkの自己学習 Agent
+> - `typescript/vercel-ai-basic`: @vercel/ai-sdkの自己学習Agent
 
 
 
 > [!NOTE]
 >
-> Check our example repo for more templates: [Acontext-Examples](https://github.com/memodb-io/Acontext-Examples).
+> その他のテンプレートについては、サンプルリポジトリをご覧ください：[Acontext-Examples](https://github.com/memodb-io/Acontext-Examples)。
 >
-> We're cooking more full-stack Agent Applications! [Tell us what you want!](https://discord.acontext.io)
+> フルスタックAgentアプリケーションを準備中です！[ご要望をお聞かせください！](https://discord.acontext.io)
 
 
 
-## Step-by-step Quickstart
+## ステップバイステップクイックスタート
 
 <details>
 <summary>クリックして開く</summary>
@@ -302,15 +343,18 @@ npm i @acontext/acontext # for Typescript
 ## クライアントの初期化
 
 ```python
+import os
 from acontext import AcontextClient
 
 client = AcontextClient(
-    base_url="http://localhost:8029/api/v1",
-    api_key="sk-ac-your-root-api-bearer-token"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
-client.ping()
 
-# yes, the default api_key is sk-ac-your-root-api-bearer-token
+# セルフホストAcontextを使用する場合：
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
 ```
 
 > [📖 async client doc](https://docs.acontext.io/settings/core)
@@ -319,7 +363,7 @@ client.ping()
 
 ## 保存
 
-Acontextは Agent セッションと Artifacts を管理できます.
+AcontextはAgentセッションとArtifactsを管理できます。
 
 ### メッセージの保存 [📖](https://docs.acontext.io/api-reference/session/store-message-to-session)
 
@@ -378,7 +422,7 @@ client.sessions.store_message(session_id=session.id, blob=r.choices[0].message)
 
 ### Artifacts [📖](https://docs.acontext.io/store/disk)
 
-ファイルパスを使用して Artifacts を保存および読み取るために、Agent 用のディスクを作成：
+ファイルパスを使用してArtifactsを保存および読み取るために、Agent用のディスクを作成：
 
 <details>
 <summary>コードスニペット</summary>
@@ -422,16 +466,16 @@ print(f"✓ Download URL: {result.public_url}")
     <picture>
       <img alt="Artifacts" src="../../docs/images/dashboard/artifact_viewer.png" width="100%">
     </picture>
-  <p>ローカルダッシュボードで Artifacts を表示できます</p>
+  <p>ローカルダッシュボードでArtifactsを表示できます</p>
 </div>
 
 
 
 ## 観察 [📖](https://docs.acontext.io/observe)
 
-各セッションについて、Acontextは**自動的に**バックグラウンド Agent を起動して、タスクの進捗とユーザーフィードバックを追跡します。**バックグラウンド TODO Agent のようなものです**。Acontextはこれを使用して、日常の Agent 成功率を観察します。
+各セッションについて、Acontextは**自動的に**バックグラウンドAgentを起動して、タスクの進捗とユーザーフィードバックを追跡します。**バックグラウンドTODO Agentのようなものです**。Acontextはこれを使用して、日常のAgent成功率を観察します。
 
-SDKを使用して、Agent セッションの現在の状態を取得し、削減や圧縮などのコンテキストエンジニアリングに使用できます。 
+SDKを使用して、AgentセッションのカレントステートをRetrieveし、削減や圧縮などのコンテキストエンジニアリングに使用できます。 
 
 <details>
 <summary>完全なスクリプト</summary>
@@ -504,7 +548,7 @@ for task in tasks_response.items:
 
 ```
 > `flush`はブロッキング呼び出しで、タスク抽出が完了するまで待機します。
-> 本番環境で呼び出す必要はありません。Acontextには、タスク抽出が適切なタイミングで完了することを保証するバッファメカニズムがあります。
+> 本番環境で呼び出す必要はありません。Acontextには、タスク抽出が適切なタイミングで完了することを保証する[バッファメカニズム](https://docs.acontext.io/observe/buffer)があります。
 
 </details>
 
@@ -632,6 +676,7 @@ Acontextは検索に`fast`と`agentic`モードをサポートしています。
 
 
 
+
 # 🔍 ドキュメント
 
 Acontextの機能をよりよく理解するには、[ドキュメント](https://docs.acontext.io/)をご覧ください
@@ -677,4 +722,3 @@ GithubでAcontextにスターを付けて、サポートし、即座に通知を
 
 [![Made with Acontext](https://assets.memodb.io/Acontext/badge-made-with-acontext-dark.svg)](https://acontext.io)
 ```
-

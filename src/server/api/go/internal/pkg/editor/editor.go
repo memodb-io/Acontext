@@ -67,18 +67,88 @@ func sortStrategies(configs []StrategyConfig) []StrategyConfig {
 	return sorted
 }
 
+// ApplyStrategiesResult contains the result of applying strategies
+type ApplyStrategiesResult struct {
+	// Messages is the list of messages after applying strategies
+	Messages []model.Message
+	// EditAtMessageID is the message ID where editing strategies were applied up to.
+	// If PinAtMessageID was provided, this equals PinAtMessageID.
+	// Otherwise, this is the ID of the last message in the input.
+	EditAtMessageID string
+}
+
 // ApplyStrategies applies multiple editing strategies in sequence.
 // Strategies are automatically sorted to ensure optimal execution order,
 // with token_limit always applied last.
 func ApplyStrategies(messages []model.Message, configs []StrategyConfig) ([]model.Message, error) {
+	result, err := ApplyStrategiesWithPin(messages, configs, "")
+	if err != nil {
+		return nil, err
+	}
+	return result.Messages, nil
+}
+
+// ApplyStrategiesWithPin applies multiple editing strategies in sequence,
+// optionally pinning the strategies to apply only up to a specific message ID.
+// If pinAtMessageID is empty, strategies are applied to all messages.
+// If pinAtMessageID is provided, strategies are only applied to messages
+// up to and including that message, leaving subsequent messages unchanged.
+// This helps maintain prompt cache stability by keeping a stable prefix.
+func ApplyStrategiesWithPin(messages []model.Message, configs []StrategyConfig, pinAtMessageID string) (*ApplyStrategiesResult, error) {
 	if len(configs) == 0 {
-		return messages, nil
+		// No strategies to apply, return the last message ID
+		editAtID := ""
+		if len(messages) > 0 {
+			editAtID = messages[len(messages)-1].ID.String()
+		}
+		return &ApplyStrategiesResult{
+			Messages:        messages,
+			EditAtMessageID: editAtID,
+		}, nil
+	}
+
+	// Determine the edit boundary
+	var editableMessages []model.Message
+	var preservedMessages []model.Message
+	editAtMessageID := ""
+
+	if pinAtMessageID == "" {
+		// No pin: apply strategies to all messages
+		editableMessages = messages
+		if len(messages) > 0 {
+			editAtMessageID = messages[len(messages)-1].ID.String()
+		}
+	} else {
+		// Find the pin message and split
+		pinIndex := -1
+		for i, msg := range messages {
+			if msg.ID.String() == pinAtMessageID {
+				pinIndex = i
+				break
+			}
+		}
+
+		if pinIndex == -1 {
+			// Pin message not found, apply to all messages
+			editableMessages = messages
+			if len(messages) > 0 {
+				editAtMessageID = messages[len(messages)-1].ID.String()
+			}
+		} else {
+			// Split messages at pin point (inclusive)
+			editableMessages = messages[:pinIndex+1]
+			if pinIndex+1 < len(messages) {
+				preservedMessages = messages[pinIndex+1:]
+			}
+			editAtMessageID = pinAtMessageID
+		}
 	}
 
 	// Sort strategies to ensure optimal execution order
 	sortedConfigs := sortStrategies(configs)
 
-	result := messages
+	// Apply strategies only to editable messages
+	result := editableMessages
 	for _, config := range sortedConfigs {
 		strategy, err := CreateStrategy(config)
 		if err != nil {
@@ -91,5 +161,13 @@ func ApplyStrategies(messages []model.Message, configs []StrategyConfig) ([]mode
 		}
 	}
 
-	return result, nil
+	// Concatenate with preserved messages
+	if len(preservedMessages) > 0 {
+		result = append(result, preservedMessages...)
+	}
+
+	return &ApplyStrategiesResult{
+		Messages:        result,
+		EditAtMessageID: editAtMessageID,
+	}, nil
 }

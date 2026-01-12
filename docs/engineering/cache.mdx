@@ -1,0 +1,160 @@
+---
+title: Prompt Cache Stability
+description: "Maintain LLM prompt cache hits when using context editing strategies."
+---
+
+When using [edit strategies](/store/editing), the edited prefix of your messages changes with each new message added. This breaks prompt caching because the LLM sees a different prefix every time.
+
+## The Problem
+
+Without pinning, edit strategies are applied to all messages. As new messages arrive, older messages get edited differently:
+
+```
+Round 1: [a, b, c]
+Round 2: [a(edited), b, c, d]              # prefix changed → cache miss
+Round 3: [a(edited), b(edited), c, d, e]   # prefix changed → cache miss
+```
+
+This results in very low prompt cache hit rates, increasing costs and latency.
+
+## The Solution
+
+Use the `pin_editing_strategies_at_message` parameter to "pin" where edit strategies are applied. Everything after the pin point remains unchanged:
+
+```
+Round 1: [z(edited), a, b, c]              # edit_at_message_id = c
+Round 2: [z(edited), a, b, c, d]           # pinned at c → stable prefix ✓
+Round 3: [z(edited), a, b, c, d, e]        # pinned at c → stable prefix ✓
+```
+
+## How It Works
+
+1. The `get_messages` response includes `edit_at_message_id` - the message ID where strategies were applied up to
+2. Pass this ID as `pin_editing_strategies_at_message` in subsequent requests
+3. Strategies will only apply to messages up to (and including) that message
+4. Messages after the pin point remain unchanged, preserving your prompt cache
+
+## Usage
+
+<CodeGroup>
+```python Python
+from acontext import AcontextClient
+import os
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+
+# First call - get the edit_at_message_id
+result = client.sessions.get_messages(
+    session_id="session-uuid",
+    edit_strategies=[
+        {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}
+    ],
+)
+
+# Store the edit_at_message_id for cache stability
+cache_pin_id = result.edit_at_message_id
+print(f"Edit applied up to message: {cache_pin_id}")
+
+# Subsequent calls - pin to maintain cache
+result = client.sessions.get_messages(
+    session_id="session-uuid",
+    pin_editing_strategies_at_message=cache_pin_id,
+    edit_strategies=[
+        {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}
+    ],
+)
+# New messages after the pin point are NOT edited, preserving cache
+```
+
+```typescript TypeScript
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({ apiKey: process.env.ACONTEXT_API_KEY });
+
+// First call - get the edit_at_message_id
+const result = await client.sessions.getMessages('session-uuid', {
+    editStrategies: [
+        { type: 'remove_tool_result', params: { keep_recent_n_tool_results: 3 } }
+    ],
+});
+
+// Store the edit_at_message_id for cache stability
+const cachePinId = result.edit_at_message_id;
+console.log(`Edit applied up to message: ${cachePinId}`);
+
+// Subsequent calls - pin to maintain cache
+const result2 = await client.sessions.getMessages('session-uuid', {
+    pinEditingStrategiesAtMessage: cachePinId,
+    editStrategies: [
+        { type: 'remove_tool_result', params: { keep_recent_n_tool_results: 3 } }
+    ],
+});
+// New messages after the pin point are NOT edited, preserving cache
+```
+</CodeGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Store the Pin ID" icon="floppy-disk">
+    Always store `edit_at_message_id` from your first request and reuse it in subsequent calls.
+  </Card>
+  <Card title="Monitor Token Count" icon="gauge">
+    Use `this_time_tokens` from the response to track context size and decide when to reset.
+  </Card>
+  <Card title="Reset Strategically" icon="arrows-rotate">
+    Reset the pin during natural breaks (e.g., between user turns) to minimize cache disruption.
+  </Card>
+  <Card title="Combine with Token Limit" icon="scissors">
+    When resetting, combine with `token_limit` strategy to aggressively reduce context size.
+  </Card>
+</CardGroup>
+
+### When to Reset the Pin
+
+When your context grows too large, reset by omitting `pin_editing_strategies_at_message`. This applies strategies to all messages (breaking the cache once), giving you a new `edit_at_message_id` to pin going forward.
+
+<CodeGroup>
+```python Python
+# Use this_time_tokens to decide when to reset
+result = client.sessions.get_messages(
+    session_id="session-uuid",
+    pin_editing_strategies_at_message=cache_pin_id,
+    edit_strategies=[
+        {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}
+    ],
+)
+
+if result.this_time_tokens > 50000:
+    # Reset: apply strategies to all messages, get new pin ID
+    result = client.sessions.get_messages(
+        session_id="session-uuid",
+        edit_strategies=[
+            {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}},
+            {"type": "token_limit", "params": {"limit_tokens": 30000}}
+        ],
+    )
+    cache_pin_id = result.edit_at_message_id
+```
+
+```typescript TypeScript
+// Use this_time_tokens to decide when to reset
+let result = await client.sessions.getMessages('session-uuid', {
+    pinEditingStrategiesAtMessage: cachePinId,
+    editStrategies: [
+        { type: 'remove_tool_result', params: { keep_recent_n_tool_results: 3 } }
+    ],
+});
+
+if (result.this_time_tokens > 50000) {
+    // Reset: apply strategies to all messages, get new pin ID
+    result = await client.sessions.getMessages('session-uuid', {
+        editStrategies: [
+            { type: 'remove_tool_result', params: { keep_recent_n_tool_results: 3 } },
+            { type: 'token_limit', params: { limit_tokens: 30000 } }
+        ],
+    });
+    cachePinId = result.edit_at_message_id;
+}
+```
+</CodeGroup>

@@ -241,6 +241,161 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "Done", result[0].Parts[0].Text)
 	})
+
+	t.Run("keep_tools prevents removal of specified tool results", func(t *testing.T) {
+		messages := []model.Message{
+			{
+				Role: "assistant",
+				Parts: []model.Part{
+					{Type: "tool-call", Meta: map[string]interface{}{"id": "call1", "name": "important_tool"}},
+				},
+			},
+			{
+				Role: "user",
+				Parts: []model.Part{
+					{Type: "tool-result", Text: "Important result", Meta: map[string]interface{}{"tool_call_id": "call1"}},
+				},
+			},
+			{
+				Role: "assistant",
+				Parts: []model.Part{
+					{Type: "tool-call", Meta: map[string]interface{}{"id": "call2", "name": "regular_tool"}},
+				},
+			},
+			{
+				Role: "user",
+				Parts: []model.Part{
+					{Type: "tool-result", Text: "Regular result", Meta: map[string]interface{}{"tool_call_id": "call2"}},
+				},
+			},
+			{
+				Role: "assistant",
+				Parts: []model.Part{
+					{Type: "tool-call", Meta: map[string]interface{}{"id": "call3", "name": "important_tool"}},
+				},
+			},
+			{
+				Role: "user",
+				Parts: []model.Part{
+					{Type: "tool-result", Text: "Another important result", Meta: map[string]interface{}{"tool_call_id": "call3"}},
+				},
+			},
+		}
+
+		strategy := &RemoveToolResultStrategy{KeepRecentN: 0, KeepTools: []string{"important_tool"}}
+		result, err := strategy.Apply(messages)
+
+		require.NoError(t, err)
+		// important_tool results should be kept
+		assert.Equal(t, "Important result", result[1].Parts[0].Text)
+		assert.Equal(t, "Another important result", result[5].Parts[0].Text)
+		// regular_tool result should be replaced
+		assert.Equal(t, "Done", result[3].Parts[0].Text)
+	})
+
+	t.Run("keep_tools with keep_recent_n", func(t *testing.T) {
+		messages := []model.Message{
+			{
+				Role: "assistant",
+				Parts: []model.Part{
+					{Type: "tool-call", Meta: map[string]interface{}{"id": "call1", "name": "regular_tool"}},
+				},
+			},
+			{
+				Role: "user",
+				Parts: []model.Part{
+					{Type: "tool-result", Text: "Old regular result", Meta: map[string]interface{}{"tool_call_id": "call1"}},
+				},
+			},
+			{
+				Role: "assistant",
+				Parts: []model.Part{
+					{Type: "tool-call", Meta: map[string]interface{}{"id": "call2", "name": "important_tool"}},
+				},
+			},
+			{
+				Role: "user",
+				Parts: []model.Part{
+					{Type: "tool-result", Text: "Important result", Meta: map[string]interface{}{"tool_call_id": "call2"}},
+				},
+			},
+			{
+				Role: "assistant",
+				Parts: []model.Part{
+					{Type: "tool-call", Meta: map[string]interface{}{"id": "call3", "name": "regular_tool"}},
+				},
+			},
+			{
+				Role: "user",
+				Parts: []model.Part{
+					{Type: "tool-result", Text: "Recent regular result", Meta: map[string]interface{}{"tool_call_id": "call3"}},
+				},
+			},
+		}
+
+		// Keep 1 recent regular tool result + all important_tool results
+		strategy := &RemoveToolResultStrategy{KeepRecentN: 1, KeepTools: []string{"important_tool"}}
+		result, err := strategy.Apply(messages)
+
+		require.NoError(t, err)
+		// Old regular result should be replaced
+		assert.Equal(t, "Done", result[1].Parts[0].Text)
+		// important_tool result should be kept
+		assert.Equal(t, "Important result", result[3].Parts[0].Text)
+		// Recent regular result should be kept (within keep_recent_n)
+		assert.Equal(t, "Recent regular result", result[5].Parts[0].Text)
+	})
+
+	t.Run("keep_tools with multiple tool names", func(t *testing.T) {
+		messages := []model.Message{
+			{
+				Role: "assistant",
+				Parts: []model.Part{
+					{Type: "tool-call", Meta: map[string]interface{}{"id": "call1", "name": "tool_a"}},
+				},
+			},
+			{
+				Role: "user",
+				Parts: []model.Part{
+					{Type: "tool-result", Text: "Result A", Meta: map[string]interface{}{"tool_call_id": "call1"}},
+				},
+			},
+			{
+				Role: "assistant",
+				Parts: []model.Part{
+					{Type: "tool-call", Meta: map[string]interface{}{"id": "call2", "name": "tool_b"}},
+				},
+			},
+			{
+				Role: "user",
+				Parts: []model.Part{
+					{Type: "tool-result", Text: "Result B", Meta: map[string]interface{}{"tool_call_id": "call2"}},
+				},
+			},
+			{
+				Role: "assistant",
+				Parts: []model.Part{
+					{Type: "tool-call", Meta: map[string]interface{}{"id": "call3", "name": "tool_c"}},
+				},
+			},
+			{
+				Role: "user",
+				Parts: []model.Part{
+					{Type: "tool-result", Text: "Result C", Meta: map[string]interface{}{"tool_call_id": "call3"}},
+				},
+			},
+		}
+
+		strategy := &RemoveToolResultStrategy{KeepRecentN: 0, KeepTools: []string{"tool_a", "tool_c"}}
+		result, err := strategy.Apply(messages)
+
+		require.NoError(t, err)
+		// tool_a and tool_c should be kept
+		assert.Equal(t, "Result A", result[1].Parts[0].Text)
+		assert.Equal(t, "Result C", result[5].Parts[0].Text)
+		// tool_b should be replaced
+		assert.Equal(t, "Done", result[3].Parts[0].Text)
+	})
 }
 
 func TestCreateRemoveToolResultStrategy(t *testing.T) {
@@ -354,5 +509,65 @@ func TestCreateRemoveToolResultStrategy(t *testing.T) {
 		rtr, ok := strategy.(*RemoveToolResultStrategy)
 		require.True(t, ok)
 		assert.Equal(t, "Trimmed", rtr.Placeholder, "should trim whitespace from placeholder")
+	})
+
+	t.Run("create with keep_tools parameter", func(t *testing.T) {
+		config := StrategyConfig{
+			Type: "remove_tool_result",
+			Params: map[string]interface{}{
+				"keep_tools": []interface{}{"tool1", "tool2"},
+			},
+		}
+
+		strategy, err := CreateStrategy(config)
+
+		require.NoError(t, err)
+		rtr, ok := strategy.(*RemoveToolResultStrategy)
+		require.True(t, ok)
+		assert.Equal(t, []string{"tool1", "tool2"}, rtr.KeepTools)
+	})
+
+	t.Run("invalid keep_tools type returns error", func(t *testing.T) {
+		config := StrategyConfig{
+			Type: "remove_tool_result",
+			Params: map[string]interface{}{
+				"keep_tools": "not_an_array",
+			},
+		}
+
+		_, err := CreateStrategy(config)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "keep_tools must be an array of strings")
+	})
+
+	t.Run("invalid keep_tools element type returns error", func(t *testing.T) {
+		config := StrategyConfig{
+			Type: "remove_tool_result",
+			Params: map[string]interface{}{
+				"keep_tools": []interface{}{"valid", 123},
+			},
+		}
+
+		_, err := CreateStrategy(config)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "keep_tools must be an array of strings")
+	})
+
+	t.Run("empty keep_tools is valid", func(t *testing.T) {
+		config := StrategyConfig{
+			Type: "remove_tool_result",
+			Params: map[string]interface{}{
+				"keep_tools": []interface{}{},
+			},
+		}
+
+		strategy, err := CreateStrategy(config)
+
+		require.NoError(t, err)
+		rtr, ok := strategy.(*RemoveToolResultStrategy)
+		require.True(t, ok)
+		assert.Empty(t, rtr.KeepTools)
 	})
 }

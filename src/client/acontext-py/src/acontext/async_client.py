@@ -17,6 +17,8 @@ from .resources.async_blocks import AsyncBlocksAPI as AsyncBlocksAPI
 from .resources.async_sessions import AsyncSessionsAPI as AsyncSessionsAPI
 from .resources.async_spaces import AsyncSpacesAPI as AsyncSpacesAPI
 from .resources.async_tools import AsyncToolsAPI as AsyncToolsAPI
+from .resources.async_skills import AsyncSkillsAPI as AsyncSkillsAPI
+from .resources.async_users import AsyncUsersAPI as AsyncUsersAPI
 
 
 class AcontextAsyncClient:
@@ -109,6 +111,8 @@ class AcontextAsyncClient:
         self.artifacts = self.disks.artifacts
         self.blocks = AsyncBlocksAPI(self)
         self.tools = AsyncToolsAPI(self)
+        self.skills = AsyncSkillsAPI(self)
+        self.users = AsyncUsersAPI(self)
 
     @property
     def base_url(self) -> str:

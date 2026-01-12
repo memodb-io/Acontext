@@ -80,14 +80,14 @@ Create a new disk to store your artifacts. Each disk is an isolated storage cont
 
 <CodeGroup>
 ```python Python
-# Create a new disk
-disk = client.disks.create()
+# Create a new disk (optionally associate with a user)
+disk = client.disks.create(user="user@example.com")
 print(f"Created disk: {disk.id}")
 ```
 
 ```typescript TypeScript
-// Create a new disk
-const disk = await client.disks.create();
+// Create a new disk (optionally associate with a user)
+const disk = await client.disks.create({ user: 'user@example.com' });
 console.log(`Created disk: ${disk.id}`);
 ```
 </CodeGroup>
@@ -101,6 +101,12 @@ The disk object contains:
 <Check>
 Save the disk ID - you'll need it to upload and retrieve files.
 </Check>
+
+<Tip>
+You can associate a disk with a specific user by passing the `user` parameter when creating it. 
+This enables per-user resource management and cleanup. 
+See [Per-user Resources](/chore/per-user) for details.
+</Tip>
 </Step>
 
 <Step title="Upload a file">

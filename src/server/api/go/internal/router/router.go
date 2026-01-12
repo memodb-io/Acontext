@@ -28,6 +28,7 @@ type RouterDeps struct {
 	TaskHandler        *handler.TaskHandler
 	ToolHandler        *handler.ToolHandler
 	AgentSkillsHandler *handler.AgentSkillsHandler
+	UserHandler        *handler.UserHandler
 }
 
 func NewRouter(d RouterDeps) *gin.Engine {
@@ -154,6 +155,11 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			agentSkills.PUT("/:id", d.AgentSkillsHandler.UpdateAgentSkill)
 			agentSkills.DELETE("/:id", d.AgentSkillsHandler.DeleteAgentSkill)
 			agentSkills.GET("/:id/file", d.AgentSkillsHandler.GetAgentSkillFileURL)
+		}
+
+		user := v1.Group("/user")
+		{
+			user.DELETE("/:identifier", d.UserHandler.DeleteUser)
 		}
 	}
 	return r

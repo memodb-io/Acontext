@@ -251,11 +251,12 @@ func TestArtifactHandler_UpsertArtifact(t *testing.T) {
 
 			// Handle large file content for size limit tests
 			var fileData []byte
-			if tt.name == "file size exceeds limit" {
+			switch tt.name {
+			case "file size exceeds limit":
 				fileData = make([]byte, 6*1024*1024) // 6MB file (exceeds 5MB limit in test)
-			} else if tt.name == "file size at limit boundary" {
+			case "file size at limit boundary":
 				fileData = make([]byte, 16777216) // Exactly 16MB
-			} else {
+			default:
 				fileData = []byte(tt.fileContent)
 			}
 			_, err = fileWriter.Write(fileData)

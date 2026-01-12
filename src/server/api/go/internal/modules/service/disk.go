@@ -13,7 +13,7 @@ import (
 )
 
 type DiskService interface {
-	Create(ctx context.Context, projectID uuid.UUID) (*model.Disk, error)
+	Create(ctx context.Context, projectID uuid.UUID, userID *uuid.UUID) (*model.Disk, error)
 	Delete(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID) error
 	List(ctx context.Context, in ListDisksInput) (*ListDisksOutput, error)
 }
@@ -24,9 +24,10 @@ func NewDiskService(r repo.DiskRepo) DiskService {
 	return &diskService{r: r}
 }
 
-func (s *diskService) Create(ctx context.Context, projectID uuid.UUID) (*model.Disk, error) {
+func (s *diskService) Create(ctx context.Context, projectID uuid.UUID, userID *uuid.UUID) (*model.Disk, error) {
 	disk := &model.Disk{
 		ProjectID: projectID,
+		UserID:    userID,
 	}
 
 	if err := s.r.Create(ctx, disk); err != nil {
@@ -45,6 +46,7 @@ func (s *diskService) Delete(ctx context.Context, projectID uuid.UUID, diskID uu
 
 type ListDisksInput struct {
 	ProjectID uuid.UUID `json:"project_id"`
+	User      string    `json:"user"`
 	Limit     int       `json:"limit"`
 	Cursor    string    `json:"cursor"`
 	TimeDesc  bool      `json:"time_desc"`
@@ -69,7 +71,7 @@ func (s *diskService) List(ctx context.Context, in ListDisksInput) (*ListDisksOu
 	}
 
 	// Query limit+1 is used to determine has_more
-	disks, err := s.r.ListWithCursor(ctx, in.ProjectID, afterT, afterID, in.Limit+1, in.TimeDesc)
+	disks, err := s.r.ListWithCursor(ctx, in.ProjectID, in.User, afterT, afterID, in.Limit+1, in.TimeDesc)
 	if err != nil {
 		return nil, err
 	}

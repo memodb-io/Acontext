@@ -43,6 +43,7 @@ export type Message = z.infer<typeof MessageSchema>;
 export const SessionSchema = z.object({
   id: z.string(),
   project_id: z.string(),
+  user_id: z.string().nullable().optional(),
   disable_task_tracking: z.boolean(),
   space_id: z.string().nullable(),
   configs: z.record(z.string(), z.unknown()).nullable(),
@@ -101,7 +102,17 @@ export const GetMessagesOutputSchema = z.object({
   ids: z.array(z.string()),
   next_cursor: z.string().nullable().optional(),
   has_more: z.boolean(),
+  /** Total token count of the returned messages */
+  this_time_tokens: z.number(),
   public_urls: z.record(z.string(), PublicURLSchema).nullable().optional(),
+  /**
+   * The message ID where edit strategies were applied up to.
+   * If pin_editing_strategies_at_message was provided, this equals that value.
+   * Otherwise, this is the ID of the last message in the response.
+   * Use this value to maintain prompt cache stability by passing it as
+   * pin_editing_strategies_at_message in subsequent requests.
+   */
+  edit_at_message_id: z.string().nullable().optional(),
 });
 
 export type GetMessagesOutput = z.infer<typeof GetMessagesOutputSchema>;
@@ -151,6 +162,12 @@ export const RemoveToolResultParamsSchema = z.object({
    * @default "Done"
    */
   tool_result_placeholder: z.string().optional(),
+
+  /**
+   * List of tool names that should never have their results removed.
+   * Tool results from these tools are always kept regardless of keep_recent_n_tool_results.
+   */
+  keep_tools: z.array(z.string()).optional(),
 });
 
 export type RemoveToolResultParams = z.infer<typeof RemoveToolResultParamsSchema>;
@@ -164,6 +181,12 @@ export const RemoveToolCallParamsParamsSchema = z.object({
    * @default 3
    */
   keep_recent_n_tool_calls: z.number().optional(),
+
+  /**
+   * List of tool names that should never have their parameters removed.
+   * Tool calls for these tools always keep their full parameters regardless of keep_recent_n_tool_calls.
+   */
+  keep_tools: z.array(z.string()).optional(),
 });
 export type RemoveToolCallParamsParams = z.infer<typeof RemoveToolCallParamsParamsSchema>;
 

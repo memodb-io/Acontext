@@ -31,14 +31,35 @@
 </div>
 
 
+*Tout le monde vous dit comment utiliser leurs agents. Mais si VOUS devez construire un agent pour 100 000 utilisateurs, par où commenceriez-vous ?*
 
-Acontext peut vous aider à :
+**📦 Problème 1 : 99% de votre DB sont des messages LLM.** 
 
-- **Construire un agent évolutif avec une meilleure ingénierie contextuelle**
-- **Observer le taux de réussite de votre agent**
-- **Améliorer votre agent avec l'auto-apprentissage pour chaque utilisateur**
+> Une mauvaise conception de schéma rend vos données les plus précieuses coûteuses et lentes. Acontext gère le stockage et la récupération du contexte via PG, Redis et S3.
+>
+> ChatGPT, Gemini, Anthropic, images, audio, fichiers... nous avons tout couvert.
+
+**⏰ Problème 2 : Les agents de longue durée sont un cauchemar.** 
+
+> Vous connaissez l'ingénierie de contexte, mais vous l'écrivez toujours de zéro. Acontext est livré avec des méthodes d'édition de contexte intégrées et un todo agent prêt à l'emploi.
+>
+> Gérer l'état de l'agent ? Un jeu d'enfant.
+
+**👀 Problème 3 : Vous ne pouvez pas voir comment votre agent se comporte.** 
+
+> Vos utilisateurs sont-ils vraiment satisfaits ? Acontext suit les tâches par session et vous montre le taux de réussite réel de votre agent.
+>
+> Arrêtez de vous obséder sur les coûts de tokens, améliorez d'abord l'agent.
+
+**🧠 Problème 4 : Votre agent est imprévisible.**
+
+> Peut-il apprendre de ses succès ? L'experience agent d'Acontext se souvient des exécutions réussies et les transforme en SOPs d'utilisation d'outils réutilisables.
+>
+> La cohérence est tout.
 
 
+
+Pour résoudre ces problèmes d'un coup, Acontext devient la **Plateforme de Données de Contexte** :
 
 <div align="center">
     <picture>
@@ -48,13 +69,12 @@ Acontext peut vous aider à :
 </div>
 
 
-
 # 💡 Fonctionnalités Principales
 
-- Context Engineering
-  - [Session](https://docs.acontext.io/store/messages/multi-provider): Stockage de Messages LLM Multi-modal
-  - [Disk](https://docs.acontext.io/store/disk): Système de fichiers pour les artefacts
-  - [Context Editing](https://docs.acontext.io/store/editing) - Ingénierie de Contexte en un appel
+- **Context Engineering**
+  - [Session](https://docs.acontext.io/store/messages/multi-provider) : stockage de messages unifié pour n'importe quel LLM, n'importe quelle modalité.
+  - [Disk](https://docs.acontext.io/store/disk) : sauvegarder/télécharger des artifacts avec chemin de fichier.
+  - [Context Editing](https://docs.acontext.io/store/editing) - gérez votre fenêtre de contexte en une API.
 
 <div align="center">
     <picture>
@@ -63,10 +83,10 @@ Acontext peut vous aider à :
   <p>Context Engineering dans Acontext</p>
 </div>
 
-- **Observer les tâches des agents et les retours des utilisateurs**
-  - [Task Agent](https://docs.acontext.io/observe/agent_tasks) - Agent en arrière-plan qui collecte le statut, la progression et les préférences de la tâche
-- **Permettre l'auto-apprentissage des agents**
-  - [Experience Agent](https://docs.acontext.io/learn/advance/experience-agent) - Agents en arrière-plan qui distillent, sauvegardent et recherchent des compétences pour chaque utilisateur.
+- **Observer les tâches de l'agent et les retours utilisateurs**
+  - [Task](https://docs.acontext.io/observe/agent_tasks) : collecter l'état de travail de l'agent, le progrès et les préférences en temps quasi réel.
+- **Auto-apprentissage de l'agent**
+  - [Experience](https://docs.acontext.io/learn/advance/experience-agent) : laisser l'agent apprendre des SOPs pour chaque utilisateur.
 - **Voir tout dans un [tableau de bord](https://docs.acontext.io/observe/dashboard)**
 
 <div align="center">
@@ -81,7 +101,7 @@ Acontext peut vous aider à :
 # 🏗️ Comment ça fonctionne ?
 
 <details>
-<summary>Cliquez pour ouvrir le diagramme d'architecture, si vous êtes intéressé.</summary>
+<summary>cliquez pour ouvrir</summary>
 
 ```mermaid
 graph TB
@@ -154,6 +174,7 @@ graph TB
 
 
 ## Structures de Données
+
 <details>
 <summary>📖 Structure de Tâche</summary>
 
@@ -216,7 +237,22 @@ graph TB
 
 
 
-# 🚀 Start the Backend Locally
+# 🚀 Se Connecter à Acontext
+
+1. Allez sur [Acontext.io](https://acontext.io), réclamez vos crédits gratuits.
+2. Passez par un onboarding en un clic pour obtenir votre API Key : `sk-ac-xxx`
+
+<div align="center">
+    <picture>
+      <img alt="Dashboard" src="../../assets/onboard.png" width="80%">
+    </picture>
+</div>
+
+
+
+
+<details>
+<summary>💻 Auto-héberger Acontext</summary>
 
 Nous avons un `acontext-cli` pour vous aider à faire une preuve de concept rapide. Téléchargez-le d'abord dans votre terminal :
 
@@ -231,7 +267,9 @@ mkdir acontext_server && cd acontext_server
 acontext docker up
 ```
 
-> [📖 configuration locale](https://docs.acontext.io/local#start-acontext-server-locally) Nous recommandons `gpt-4.1` comme modèle LLM
+> [!IMPORTANT]
+>
+> Assurez-vous que votre LLM a la capacité d'[appeler des outils](https://platform.openai.com/docs/guides/function-calling). Par défaut, Acontext utilisera `gpt-4.1`.
 
 `acontext docker up` créera/utilisera `.env` et `config.yaml` pour Acontext, et créera un dossier `db` pour persister les données.
 
@@ -239,14 +277,17 @@ acontext docker up
 
 Une fois terminé, vous pouvez accéder aux endpoints suivants :
 
-- Acontext API Base URL: http://localhost:8029/api/v1
-- Acontext Dashboard: http://localhost:3000/
+- Acontext API Base URL : http://localhost:8029/api/v1
+- Acontext Dashboard : http://localhost:3000/
+
+</details>
 
 
 
 
 
-# 🧐 Use Acontext to build Agent
+
+# 🧐 Utiliser Acontext pour construire un Agent
 
 Téléchargez des scripts de bout en bout avec `acontext` :
 
@@ -258,9 +299,9 @@ acontext create my-proj --template-path "python/openai-basic"
 
 > Plus d'exemples sur Python :
 >
-> - `python/openai-agent-basic`: agent auto-apprenant dans openai agent sdk.
-> - `python/agno-basic`: agent auto-apprenant dans agno framework.
-> - `python/openai-agent-artifacts`: agent capable de modifier et télécharger des artefacts.
+> - `python/openai-agent-basic` : agent auto-apprenant dans openai agent sdk.
+> - `python/agno-basic` : agent auto-apprenant dans agno framework.
+> - `python/openai-agent-artifacts` : agent capable de modifier et télécharger des artifacts.
 
 **Typescript**
 
@@ -270,19 +311,19 @@ acontext create my-proj --template-path "typescript/openai-basic"
 
 > Plus d'exemples sur Typescript :
 >
-> - `typescript/vercel-ai-basic`: agent auto-apprenant dans @vercel/ai-sdk
+> - `typescript/vercel-ai-basic` : agent auto-apprenant dans @vercel/ai-sdk
 
 
 
 > [!NOTE]
 >
-> Check our example repo for more templates: [Acontext-Examples](https://github.com/memodb-io/Acontext-Examples).
+> Consultez notre dépôt d'exemples pour plus de modèles : [Acontext-Examples](https://github.com/memodb-io/Acontext-Examples).
 >
-> We're cooking more full-stack Agent Applications! [Tell us what you want!](https://discord.acontext.io)
+> Nous préparons plus d'applications Agent full-stack ! [Dites-nous ce que vous voulez !](https://discord.acontext.io)
 
 
 
-## Step-by-step Quickstart
+## Démarrage Rapide Étape par Étape
 
 <details>
 <summary>Cliquez pour Ouvrir</summary>
@@ -302,15 +343,18 @@ npm i @acontext/acontext # for Typescript
 ## Initialiser le Client
 
 ```python
+import os
 from acontext import AcontextClient
 
 client = AcontextClient(
-    base_url="http://localhost:8029/api/v1",
-    api_key="sk-ac-your-root-api-bearer-token"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
-client.ping()
 
-# yes, the default api_key is sk-ac-your-root-api-bearer-token
+# Si vous utilisez Acontext auto-hébergé :
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
 ```
 
 > [📖 async client doc](https://docs.acontext.io/settings/core)
@@ -319,7 +363,7 @@ client.ping()
 
 ## Stocker
 
-Acontext peut gérer les sessions d'agents et les artefacts.
+Acontext peut gérer les sessions d'agents et les artifacts.
 
 ### Enregistrer les Messages [📖](https://docs.acontext.io/api-reference/session/store-message-to-session)
 
@@ -376,9 +420,9 @@ client.sessions.store_message(session_id=session.id, blob=r.choices[0].message)
 </div>
 
 
-### Artefacts [📖](https://docs.acontext.io/store/disk)
+### Artifacts [📖](https://docs.acontext.io/store/disk)
 
-Créez un disque pour votre agent pour stocker et lire des artefacts en utilisant des chemins de fichiers :
+Créez un disque pour votre agent pour stocker et lire des artifacts en utilisant des chemins de fichiers :
 
 <details>
 <summary>Extrait de Code</summary>
@@ -422,7 +466,7 @@ print(f"✓ Download URL: {result.public_url}")
     <picture>
       <img alt="Artifacts" src="../../docs/images/dashboard/artifact_viewer.png" width="100%">
     </picture>
-  <p>Vous pouvez visualiser les artefacts dans votre Tableau de bord local</p>
+  <p>Vous pouvez visualiser les artifacts dans votre Tableau de bord local</p>
 </div>
 
 
@@ -504,7 +548,7 @@ for task in tasks_response.items:
 
 ```
 > `flush` est un appel bloquant, il attendra que l'extraction de la tâche soit terminée.
-> Vous n'avez pas besoin de l'appeler en production, Acontext a un mécanisme de tampon pour s'assurer que l'extraction de la tâche est terminée au bon moment.
+> Vous n'avez pas besoin de l'appeler en production, Acontext a un [mécanisme de tampon](https://docs.acontext.io/observe/buffer) pour s'assurer que l'extraction de la tâche est terminée au bon moment.
 
 </details>
 
@@ -632,6 +676,7 @@ Le retour est une liste de blocs sop, qui ressemblent à ceci :
 
 
 
+
 # 🔍 Documentation
 
 Pour mieux comprendre ce qu'Acontext peut faire, veuillez consulter [notre documentation](https://docs.acontext.io/)
@@ -677,4 +722,3 @@ Ce projet est actuellement sous licence [Apache License 2.0](LICENSE).
 
 [![Made with Acontext](https://assets.memodb.io/Acontext/badge-made-with-acontext-dark.svg)](https://acontext.io)
 ```
-

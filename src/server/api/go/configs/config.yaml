@@ -7,6 +7,7 @@ app:
 root:
   apiBearerToken: "${ROOT_API_BEARER_TOKEN}"
   secretPepper: "your-secret-pepper"
+  enableArgon2Verification: ${ENABLE_ARGON2_VERIFICATION}
 
 log:
   level: info # debug/info/warn/error

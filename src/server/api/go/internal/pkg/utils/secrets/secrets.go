@@ -12,8 +12,8 @@ import (
 
 const (
 	Time      = 2
-	MemoryMB  = 64
-	Threads   = 4
+	MemoryMB  = 16
+	Threads   = 1
 	KeyLen    = 32
 	SaltBytes = 16
 )

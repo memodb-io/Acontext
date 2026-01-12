@@ -13,7 +13,7 @@ import (
 type DiskRepo interface {
 	Create(ctx context.Context, d *model.Disk) error
 	Delete(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID) error
-	ListWithCursor(ctx context.Context, projectID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]*model.Disk, error)
+	ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]*model.Disk, error)
 }
 
 type diskRepo struct {
@@ -73,8 +73,14 @@ func (r *diskRepo) Delete(ctx context.Context, projectID uuid.UUID, diskID uuid.
 	})
 }
 
-func (r *diskRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]*model.Disk, error) {
-	q := r.db.WithContext(ctx).Where("project_id = ?", projectID)
+func (r *diskRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]*model.Disk, error) {
+	q := r.db.WithContext(ctx).Where("disks.project_id = ?", projectID)
+
+	// Filter by user identifier if provided
+	if userIdentifier != "" {
+		q = q.Joins("JOIN users ON users.id = disks.user_id").
+			Where("users.identifier = ?", userIdentifier)
+	}
 
 	// Apply cursor-based pagination filter if cursor is provided
 	if !afterCreatedAt.IsZero() && afterID != uuid.Nil {
@@ -84,15 +90,15 @@ func (r *diskRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, afte
 			comparisonOp = "<"
 		}
 		q = q.Where(
-			"(created_at "+comparisonOp+" ?) OR (created_at = ? AND id "+comparisonOp+" ?)",
+			"(disks.created_at "+comparisonOp+" ?) OR (disks.created_at = ? AND disks.id "+comparisonOp+" ?)",
 			afterCreatedAt, afterCreatedAt, afterID,
 		)
 	}
 
 	// Apply ordering based on sort direction
-	orderBy := "created_at ASC, id ASC"
+	orderBy := "disks.created_at ASC, disks.id ASC"
 	if timeDesc {
-		orderBy = "created_at DESC, id DESC"
+		orderBy = "disks.created_at DESC, disks.id DESC"
 	}
 
 	var disks []*model.Disk

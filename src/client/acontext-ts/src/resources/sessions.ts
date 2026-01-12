@@ -32,6 +32,7 @@ export class SessionsAPI {
   constructor(private requester: RequesterProtocol) { }
 
   async list(options?: {
+    user?: string | null;
     spaceId?: string | null;
     notConnected?: boolean | null;
     limit?: number | null;
@@ -39,6 +40,9 @@ export class SessionsAPI {
     timeDesc?: boolean | null;
   }): Promise<ListSessionsOutput> {
     const params: Record<string, string | number> = {};
+    if (options?.user) {
+      params.user = options.user;
+    }
     if (options?.spaceId) {
       params.space_id = options.spaceId;
     }
@@ -58,11 +62,15 @@ export class SessionsAPI {
   }
 
   async create(options?: {
+    user?: string | null;
     spaceId?: string | null;
     disableTaskTracking?: boolean | null;
     configs?: Record<string, unknown>;
   }): Promise<Session> {
     const payload: Record<string, unknown> = {};
+    if (options?.user !== undefined && options?.user !== null) {
+      payload.user = options.user;
+    }
     if (options?.spaceId) {
       payload.space_id = options.spaceId;
     }
@@ -199,6 +207,11 @@ export class SessionsAPI {
    *   Examples:
    *   - Remove tool results: [{ type: 'remove_tool_result', params: { keep_recent_n_tool_results: 3 } }]
    *   - Token limit: [{ type: 'token_limit', params: { limit_tokens: 20000 } }]
+   * @param options.pinEditingStrategiesAtMessage - Message ID to pin editing strategies at.
+   *   When provided, strategies are only applied to messages up to and including this message ID,
+   *   keeping subsequent messages unchanged. This helps maintain prompt cache stability by
+   *   preserving a stable prefix. The response includes edit_at_message_id indicating where
+   *   strategies were applied. Pass this value in subsequent requests to maintain cache hits.
    * @returns GetMessagesOutput containing the list of messages and pagination information.
    */
   async getMessages(
@@ -210,6 +223,7 @@ export class SessionsAPI {
       format?: 'acontext' | 'openai' | 'anthropic' | 'gemini';
       timeDesc?: boolean | null;
       editStrategies?: Array<EditStrategy> | null;
+      pinEditingStrategiesAtMessage?: string | null;
     }
   ): Promise<GetMessagesOutput> {
     const params: Record<string, string | number> = {};
@@ -227,6 +241,9 @@ export class SessionsAPI {
     );
     if (options?.editStrategies !== undefined && options?.editStrategies !== null) {
       params.edit_strategies = JSON.stringify(options.editStrategies);
+    }
+    if (options?.pinEditingStrategiesAtMessage !== undefined && options?.pinEditingStrategiesAtMessage !== null) {
+      params.pin_editing_strategies_at_message = options.pinEditingStrategiesAtMessage;
     }
     const data = await this.requester.request('GET', `/session/${sessionId}/messages`, {
       params: Object.keys(params).length > 0 ? params : undefined,

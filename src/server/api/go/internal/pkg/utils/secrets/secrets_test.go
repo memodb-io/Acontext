@@ -1,6 +1,7 @@
 package secrets
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -72,9 +73,9 @@ func TestHashSecret(t *testing.T) {
 				assert.True(t, strings.HasPrefix(hash, "$argon2id$v=19$"))
 
 				// Verify hash contains correct parameters
-				assert.Contains(t, hash, "m=65536") // MemoryMB * 1024
-				assert.Contains(t, hash, "t=2")     // Time
-				assert.Contains(t, hash, "p=4")     // Threads
+				assert.Contains(t, hash, fmt.Sprintf("m=%d", MemoryMB*1024)) // MemoryMB * 1024
+				assert.Contains(t, hash, fmt.Sprintf("t=%d", Time))          // Time
+				assert.Contains(t, hash, fmt.Sprintf("p=%d", Threads))       // Threads
 
 				// Verify hash has 6 parts (separated by $)
 				parts := strings.Split(hash, "$")
@@ -137,7 +138,7 @@ func TestVerifySecret(t *testing.T) {
 			name:       "invalid PHC format (insufficient parts)",
 			secret:     testSecret,
 			pepper:     testPepper,
-			phc:        "$argon2id$v=19$m=65536",
+			phc:        fmt.Sprintf("$argon2id$v=19$m=%d", MemoryMB*1024),
 			wantResult: false,
 			wantErr:    true,
 			errMsg:     "invalid phc",
@@ -154,7 +155,7 @@ func TestVerifySecret(t *testing.T) {
 			name:       "invalid salt base64",
 			secret:     testSecret,
 			pepper:     testPepper,
-			phc:        "$argon2id$v=19$m=65536,t=2,p=4$invalid-base64!@#$validkey",
+			phc:        fmt.Sprintf("$argon2id$v=19$m=%d,t=%d,p=%d$invalid-base64!@#$validkey", MemoryMB*1024, Time, Threads),
 			wantResult: false,
 			wantErr:    true,
 		},
@@ -162,7 +163,7 @@ func TestVerifySecret(t *testing.T) {
 			name:       "invalid key base64",
 			secret:     testSecret,
 			pepper:     testPepper,
-			phc:        "$argon2id$v=19$m=65536,t=2,p=4$dGVzdHNhbHQ$invalid-base64!@#",
+			phc:        fmt.Sprintf("$argon2id$v=19$m=%d,t=%d,p=%d$dGVzdHNhbHQ$invalid-base64!@#", MemoryMB*1024, Time, Threads),
 			wantResult: false,
 			wantErr:    true,
 		},
@@ -282,9 +283,9 @@ func TestHashSecret_Parameters(t *testing.T) {
 
 		// Verify parameters
 		params := parts[3]
-		assert.Contains(t, params, "m=65536") // MemoryMB * 1024
-		assert.Contains(t, params, "t=2")     // Time
-		assert.Contains(t, params, "p=4")     // Threads
+		assert.Contains(t, params, fmt.Sprintf("m=%d", MemoryMB*1024)) // MemoryMB * 1024
+		assert.Contains(t, params, fmt.Sprintf("t=%d", Time))          // Time
+		assert.Contains(t, params, fmt.Sprintf("p=%d", Threads))       // Threads
 
 		// Verify salt and key are both base64 encoded
 		salt := parts[4]

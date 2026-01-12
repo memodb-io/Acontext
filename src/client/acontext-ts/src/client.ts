@@ -8,6 +8,8 @@ import { DisksAPI } from './resources/disks';
 import { SessionsAPI } from './resources/sessions';
 import { SpacesAPI } from './resources/spaces';
 import { ToolsAPI } from './resources/tools';
+import { SkillsAPI } from './resources/skills';
+import { UsersAPI } from './resources/users';
 import { DEFAULT_BASE_URL, DEFAULT_USER_AGENT } from './constants';
 import { RequesterProtocol } from './client-types';
 
@@ -30,6 +32,8 @@ export class AcontextClient implements RequesterProtocol {
   public artifacts: DisksAPI['artifacts'];
   public blocks: BlocksAPI;
   public tools: ToolsAPI;
+  public skills: SkillsAPI;
+  public users: UsersAPI;
 
   constructor(options: AcontextClientOptions = {}) {
     // Priority: explicit parameters > environment variables > defaults
@@ -69,6 +73,8 @@ export class AcontextClient implements RequesterProtocol {
     this.artifacts = this.disks.artifacts;
     this.blocks = new BlocksAPI(this);
     this.tools = new ToolsAPI(this);
+    this.skills = new SkillsAPI(this);
+    this.users = new UsersAPI(this);
   }
 
   get baseUrl(): string {

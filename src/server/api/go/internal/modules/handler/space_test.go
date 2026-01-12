@@ -26,6 +26,24 @@ type MockSpaceService struct {
 	mock.Mock
 }
 
+// MockUserService is a mock implementation of UserService
+type MockUserService struct {
+	mock.Mock
+}
+
+func (m *MockUserService) GetOrCreate(ctx context.Context, projectID uuid.UUID, identifier string) (*model.User, error) {
+	args := m.Called(ctx, projectID, identifier)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.User), args.Error(1)
+}
+
+func (m *MockUserService) Delete(ctx context.Context, projectID uuid.UUID, identifier string) error {
+	args := m.Called(ctx, projectID, identifier)
+	return args.Error(0)
+}
+
 func (m *MockSpaceService) Create(ctx context.Context, s *model.Space) error {
 	args := m.Called(ctx, s)
 	return args.Error(0)
@@ -140,7 +158,7 @@ func TestSpaceHandler_GetSpaces(t *testing.T) {
 			mockService := &MockSpaceService{}
 			tt.setup(mockService)
 
-			handler := NewSpaceHandler(mockService, getMockCoreClient())
+			handler := NewSpaceHandler(mockService, &MockUserService{}, getMockCoreClient())
 			router := setupSpaceRouter()
 			router.GET("/space", func(c *gin.Context) {
 				project := &model.Project{ID: projectID}
@@ -216,7 +234,7 @@ func TestSpaceHandler_CreateSpace(t *testing.T) {
 			mockService := &MockSpaceService{}
 			tt.setup(mockService)
 
-			handler := NewSpaceHandler(mockService, getMockCoreClient())
+			handler := NewSpaceHandler(mockService, &MockUserService{}, getMockCoreClient())
 			router := setupSpaceRouter()
 			router.POST("/space", func(c *gin.Context) {
 				// Simulate middleware setting project information
@@ -277,7 +295,7 @@ func TestSpaceHandler_DeleteSpace(t *testing.T) {
 			mockService := &MockSpaceService{}
 			tt.setup(mockService)
 
-			handler := NewSpaceHandler(mockService, getMockCoreClient())
+			handler := NewSpaceHandler(mockService, &MockUserService{}, getMockCoreClient())
 			router := setupSpaceRouter()
 			router.DELETE("/space/:space_id", func(c *gin.Context) {
 				project := &model.Project{ID: projectID}
@@ -345,7 +363,7 @@ func TestSpaceHandler_UpdateConfigs(t *testing.T) {
 			mockService := &MockSpaceService{}
 			tt.setup(mockService)
 
-			handler := NewSpaceHandler(mockService, getMockCoreClient())
+			handler := NewSpaceHandler(mockService, &MockUserService{}, getMockCoreClient())
 			router := setupSpaceRouter()
 			router.PUT("/space/:space_id/configs", handler.UpdateConfigs)
 
@@ -406,7 +424,7 @@ func TestSpaceHandler_GetConfigs(t *testing.T) {
 			mockService := &MockSpaceService{}
 			tt.setup(mockService)
 
-			handler := NewSpaceHandler(mockService, getMockCoreClient())
+			handler := NewSpaceHandler(mockService, &MockUserService{}, getMockCoreClient())
 			router := setupSpaceRouter()
 			router.GET("/space/:space_id/configs", handler.GetConfigs)
 
@@ -454,7 +472,7 @@ func TestSpaceHandler_GetExperienceSearch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			handler := NewSpaceHandler(&MockSpaceService{}, getMockCoreClient())
+			handler := NewSpaceHandler(&MockSpaceService{}, &MockUserService{}, getMockCoreClient())
 			router := setupSpaceRouter()
 
 			// Add middleware to set project in context
@@ -624,7 +642,7 @@ func TestSpaceHandler_ListExperienceConfirmations(t *testing.T) {
 			mockService := &MockSpaceService{}
 			tt.setup(mockService)
 
-			handler := NewSpaceHandler(mockService, getMockCoreClient())
+			handler := NewSpaceHandler(mockService, &MockUserService{}, getMockCoreClient())
 			router := setupSpaceRouter()
 			router.GET("/space/:space_id/experience_confirmations", func(c *gin.Context) {
 				project := &model.Project{ID: projectID}

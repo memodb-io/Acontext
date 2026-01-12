@@ -15,21 +15,25 @@ import (
 
 type SpaceHandler struct {
 	svc        service.SpaceService
+	userSvc    service.UserService
 	coreClient *httpclient.CoreClient
 }
 
-func NewSpaceHandler(s service.SpaceService, coreClient *httpclient.CoreClient) *SpaceHandler {
+func NewSpaceHandler(s service.SpaceService, userSvc service.UserService, coreClient *httpclient.CoreClient) *SpaceHandler {
 	return &SpaceHandler{
 		svc:        s,
+		userSvc:    userSvc,
 		coreClient: coreClient,
 	}
 }
 
 type CreateSpaceReq struct {
+	User    string                 `form:"user" json:"user" example:"alice@acontext.io"`
 	Configs map[string]interface{} `form:"configs" json:"configs"`
 }
 
 type GetSpacesReq struct {
+	User     string `form:"user" json:"user" example:"alice@acontext.io"`
 	Limit    int    `form:"limit,default=20" json:"limit" binding:"required,min=1,max=200" example:"20"`
 	Cursor   string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
 	TimeDesc bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
@@ -42,13 +46,14 @@ type GetSpacesReq struct {
 //	@Tags			space
 //	@Accept			json
 //	@Produce		json
+//	@Param			user		query	string	false	"User identifier to filter spaces"	example(alice@acontext.io)
 //	@Param			limit		query	integer	false	"Limit of spaces to return, default 20. Max 200."
 //	@Param			cursor		query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
 //	@Param			time_desc	query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example(false)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.ListSpacesOutput}
 //	@Router			/space [get]
-//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List spaces\nspaces = client.spaces.list(limit=20, time_desc=True)\nfor space in spaces.items:\n    print(f\"{space.id}: {space.configs}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List spaces\nconst spaces = await client.spaces.list({ limit: 20, timeDesc: true });\nfor (const space of spaces.items) {\n  console.log(`${space.id}: ${JSON.stringify(space.configs)}`);\n}\n","label":"JavaScript"}]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List spaces\nspaces = client.spaces.list(limit=20, time_desc=True)\nfor space in spaces.items:\n    print(f\"{space.id}: {space.configs}\")\n\n# List spaces for a specific user\nspaces = client.spaces.list(user='alice@acontext.io', limit=20)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List spaces\nconst spaces = await client.spaces.list({ limit: 20, timeDesc: true });\nfor (const space of spaces.items) {\n  console.log(`${space.id}: ${JSON.stringify(space.configs)}`);\n}\n\n// List spaces for a specific user\nconst userSpaces = await client.spaces.list({ user: 'alice@acontext.io', limit: 20 });\n","label":"JavaScript"}]
 func (h *SpaceHandler) GetSpaces(c *gin.Context) {
 	req := GetSpacesReq{}
 	if err := c.ShouldBind(&req); err != nil {
@@ -64,6 +69,7 @@ func (h *SpaceHandler) GetSpaces(c *gin.Context) {
 
 	out, err := h.svc.List(c.Request.Context(), service.ListSpacesInput{
 		ProjectID: project.ID,
+		User:      req.User,
 		Limit:     req.Limit,
 		Cursor:    req.Cursor,
 		TimeDesc:  req.TimeDesc,
@@ -79,7 +85,7 @@ func (h *SpaceHandler) GetSpaces(c *gin.Context) {
 // CreateSpace godoc
 //
 //	@Summary		Create space
-//	@Description	Create a new space under a project
+//	@Description	Create a new space under a project. Optionally associate with a user identifier.
 //	@Tags			space
 //	@Accept			json
 //	@Produce		json
@@ -87,7 +93,7 @@ func (h *SpaceHandler) GetSpaces(c *gin.Context) {
 //	@Security		BearerAuth
 //	@Success		201	{object}	serializer.Response{data=model.Space}
 //	@Router			/space [post]
-//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a space\nspace = client.spaces.create(configs={\"name\": \"My Space\"})\nprint(f\"Created space: {space.id}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a space\nconst space = await client.spaces.create({ configs: { name: 'My Space' } });\nconsole.log(`Created space: ${space.id}`);\n","label":"JavaScript"}]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a space\nspace = client.spaces.create()\nprint(f\"Created space: {space.id}\")\n\n# Create a space for a specific user\nspace = client.spaces.create(user='alice@acontext.io')\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a space\nconst space = await client.spaces.create();\nconsole.log(`Created space: ${space.id}`);\n\n// Create a space for a specific user\nconst userSpace = await client.spaces.create({ user: 'alice@acontext.io' });\n","label":"JavaScript"}]
 func (h *SpaceHandler) CreateSpace(c *gin.Context) {
 	req := CreateSpaceReq{}
 	if err := c.ShouldBind(&req); err != nil {
@@ -105,6 +111,17 @@ func (h *SpaceHandler) CreateSpace(c *gin.Context) {
 		ProjectID: project.ID,
 		Configs:   datatypes.JSONMap(req.Configs),
 	}
+
+	// If user identifier is provided, get or create the user
+	if req.User != "" {
+		user, err := h.userSvc.GetOrCreate(c.Request.Context(), project.ID, req.User)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to get or create user", err))
+			return
+		}
+		space.UserID = &user.ID
+	}
+
 	if err := h.svc.Create(c.Request.Context(), &space); err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
 		return
@@ -162,7 +179,7 @@ type UpdateSpaceConfigsReq struct {
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response
 //	@Router			/space/{space_id}/configs [put]
-//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Update space configs\nclient.spaces.update_configs(\n    space_id='space-uuid',\n    configs={\"name\": \"Updated Name\", \"description\": \"New description\"}\n)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Update space configs\nawait client.spaces.updateConfigs('space-uuid', {\n  configs: { name: 'Updated Name', description: 'New description' }\n});\n","label":"JavaScript"}]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Update space configs\nclient.spaces.update_configs(\n    space_id='space-uuid'\n)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Update space configs\nawait client.spaces.updateConfigs('space-uuid');\n","label":"JavaScript"}]
 func (h *SpaceHandler) UpdateConfigs(c *gin.Context) {
 	req := UpdateSpaceConfigsReq{}
 	if err := c.ShouldBind(&req); err != nil {

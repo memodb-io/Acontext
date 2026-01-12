@@ -15,6 +15,11 @@ Before working with multi-modal messages, ensure you have:
 Multi-modal content is stored as assets in S3, while message metadata is stored in PostgreSQL. Acontext automatically handles file uploads and generates presigned URLs for retrieval.
 </Note>
 
+<Tip>
+You can associate a session with a specific user by passing the `user` parameter when creating it. 
+This enables per-user resource management and cleanup. See [Per-user Resources](/chore/per-user) for details.
+</Tip>
+
 ## Supported content types
 
 Acontext supports the following multi-modal content types:
@@ -57,7 +62,8 @@ client = AcontextClient(
 # )
 
 client.ping()
-session = client.sessions.create()
+# Create a session (optionally associate with a user)
+session = client.sessions.create(user="user@example.com")
 
 # Store a message with an image URL
 message = client.sessions.store_message(
@@ -97,7 +103,8 @@ const client = new AcontextClient({
 //     apiKey: "sk-ac-your-root-api-bearer-token",
 // });
 
-const session = await client.sessions.create();
+// Create a session (optionally associate with a user)
+const session = await client.sessions.create({ user: 'user@example.com' });
 
 // Store a message with an image URL
 const message = await client.sessions.storeMessage(session.id, {

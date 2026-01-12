@@ -91,6 +91,7 @@ func main() {
 	taskHandler := do.MustInvoke[*handler.TaskHandler](inj)
 	toolHandler := do.MustInvoke[*handler.ToolHandler](inj)
 	agentSkillsHandler := do.MustInvoke[*handler.AgentSkillsHandler](inj)
+	userHandler := do.MustInvoke[*handler.UserHandler](inj)
 
 	engine := router.NewRouter(router.RouterDeps{
 		Config:             cfg,
@@ -104,6 +105,7 @@ func main() {
 		TaskHandler:        taskHandler,
 		ToolHandler:        toolHandler,
 		AgentSkillsHandler: agentSkillsHandler,
+		UserHandler:        userHandler,
 	})
 
 	addr := fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port)

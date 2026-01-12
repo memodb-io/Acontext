@@ -208,7 +208,7 @@ func TestSessionHandler_GetSessions(t *testing.T) {
 			mockService := &MockSessionService{}
 			tt.setup(mockService)
 
-			handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+			handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 			router := setupSessionRouter()
 			router.GET("/session", func(c *gin.Context) {
 				project := &model.Project{ID: projectID}
@@ -297,7 +297,7 @@ func TestSessionHandler_CreateSession(t *testing.T) {
 			mockService := &MockSessionService{}
 			tt.setup(mockService)
 
-			handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+			handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 			router := setupSessionRouter()
 			router.POST("/session", func(c *gin.Context) {
 				// Simulate middleware setting project information
@@ -358,7 +358,7 @@ func TestSessionHandler_DeleteSession(t *testing.T) {
 			mockService := &MockSessionService{}
 			tt.setup(mockService)
 
-			handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+			handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 			router := setupSessionRouter()
 			router.DELETE("/session/:session_id", func(c *gin.Context) {
 				project := &model.Project{ID: projectID}
@@ -430,7 +430,7 @@ func TestSessionHandler_UpdateConfigs(t *testing.T) {
 			mockService := &MockSessionService{}
 			tt.setup(mockService)
 
-			handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+			handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 			router := setupSessionRouter()
 			router.PUT("/session/:session_id/configs", handler.UpdateConfigs)
 
@@ -491,7 +491,7 @@ func TestSessionHandler_GetConfigs(t *testing.T) {
 			mockService := &MockSessionService{}
 			tt.setup(mockService)
 
-			handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+			handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 			router := setupSessionRouter()
 			router.GET("/session/:session_id/configs", handler.GetConfigs)
 
@@ -566,7 +566,7 @@ func TestSessionHandler_ConnectToSpace(t *testing.T) {
 			mockService := &MockSessionService{}
 			tt.setup(mockService)
 
-			handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+			handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 			router := setupSessionRouter()
 			router.POST("/session/:session_id/connect_to_space", handler.ConnectToSpace)
 
@@ -1859,7 +1859,7 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 			mockService := &MockSessionService{}
 			tt.setup(mockService)
 
-			handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+			handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 			router := setupSessionRouter()
 			router.POST("/session/:session_id/messages", func(c *gin.Context) {
 				project := &model.Project{ID: projectID}
@@ -2249,7 +2249,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 			mockService := &MockSessionService{}
 			tt.setup(mockService)
 
-			handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+			handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 			router := setupSessionRouter()
 			router.GET("/session/:session_id/messages", handler.GetMessages)
 
@@ -2439,7 +2439,7 @@ func TestSessionHandler_StoreMessage_Multipart(t *testing.T) {
 			mockService := &MockSessionService{}
 			tt.setup(mockService)
 
-			handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+			handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 			router := setupSessionRouter()
 			router.POST("/session/:session_id/messages", func(c *gin.Context) {
 				project := &model.Project{ID: projectID}
@@ -2485,7 +2485,7 @@ func TestSessionHandler_StoreMessage_InvalidJSON(t *testing.T) {
 		mockService := &MockSessionService{}
 		// No setup needed as the request should fail before reaching the service
 
-		handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+		handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 		router := setupSessionRouter()
 		router.POST("/session/:session_id/messages", func(c *gin.Context) {
 			project := &model.Project{ID: projectID}
@@ -2507,6 +2507,10 @@ func TestSessionHandler_StoreMessage_InvalidJSON(t *testing.T) {
 
 // TestOpenAI_ToolCalls_FieldPreservation 测试OpenAI tool_calls字段是否在往返过程中保留
 func TestOpenAI_ToolCalls_FieldPreservation(t *testing.T) {
+	// Initialize tokenizer for testing (required by GetMessages handler)
+	testLogger, _ := zap.NewDevelopment()
+	_ = tokenizer.Init(testLogger)
+
 	projectID := uuid.New()
 	sessionID := uuid.New()
 
@@ -2543,7 +2547,7 @@ func TestOpenAI_ToolCalls_FieldPreservation(t *testing.T) {
 		HasMore: false,
 	}, nil)
 
-	handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 	router := setupSessionRouter()
 
 	router.POST("/session/:session_id/messages", func(c *gin.Context) {
@@ -2662,6 +2666,10 @@ func TestOpenAI_ToolCalls_FieldPreservation(t *testing.T) {
 
 // TestOpenAIToAnthropic_FieldMapping 测试 OpenAI → Anthropic 转换时的字段映射
 func TestOpenAIToAnthropic_FieldMapping(t *testing.T) {
+	// Initialize tokenizer for testing (required by GetMessages handler)
+	testLogger, _ := zap.NewDevelopment()
+	_ = tokenizer.Init(testLogger)
+
 	projectID := uuid.New()
 	sessionID := uuid.New()
 
@@ -2698,7 +2706,7 @@ func TestOpenAIToAnthropic_FieldMapping(t *testing.T) {
 		HasMore: false,
 	}, nil)
 
-	handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 	router := setupSessionRouter()
 
 	router.POST("/session/:session_id/messages", func(c *gin.Context) {
@@ -2786,6 +2794,10 @@ func TestOpenAIToAnthropic_FieldMapping(t *testing.T) {
 
 // TestAnthropicToOpenAI_FieldMapping 测试 Anthropic → OpenAI 转换时的字段映射
 func TestAnthropicToOpenAI_FieldMapping(t *testing.T) {
+	// Initialize tokenizer for testing (required by GetMessages handler)
+	testLogger, _ := zap.NewDevelopment()
+	_ = tokenizer.Init(testLogger)
+
 	projectID := uuid.New()
 	sessionID := uuid.New()
 
@@ -2822,7 +2834,7 @@ func TestAnthropicToOpenAI_FieldMapping(t *testing.T) {
 		HasMore: false,
 	}, nil)
 
-	handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 	router := setupSessionRouter()
 
 	router.POST("/session/:session_id/messages", func(c *gin.Context) {
@@ -2898,6 +2910,10 @@ func TestAnthropicToOpenAI_FieldMapping(t *testing.T) {
 
 // TestToolResult_OpenAIToAnthropic 测试 OpenAI tool message → Anthropic tool_result 转换
 func TestToolResult_OpenAIToAnthropic(t *testing.T) {
+	// Initialize tokenizer for testing (required by GetMessages handler)
+	testLogger, _ := zap.NewDevelopment()
+	_ = tokenizer.Init(testLogger)
+
 	projectID := uuid.New()
 	sessionID := uuid.New()
 
@@ -2928,7 +2944,7 @@ func TestToolResult_OpenAIToAnthropic(t *testing.T) {
 		HasMore: false,
 	}, nil)
 
-	handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 	router := setupSessionRouter()
 
 	router.POST("/session/:session_id/messages", func(c *gin.Context) {
@@ -3010,6 +3026,10 @@ func TestToolResult_OpenAIToAnthropic(t *testing.T) {
 
 // TestToolResult_AnthropicToOpenAI 测试 Anthropic tool_result → OpenAI tool message 转换
 func TestToolResult_AnthropicToOpenAI(t *testing.T) {
+	// Initialize tokenizer for testing (required by GetMessages handler)
+	testLogger, _ := zap.NewDevelopment()
+	_ = tokenizer.Init(testLogger)
+
 	projectID := uuid.New()
 	sessionID := uuid.New()
 
@@ -3041,7 +3061,7 @@ func TestToolResult_AnthropicToOpenAI(t *testing.T) {
 		HasMore: false,
 	}, nil)
 
-	handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 	router := setupSessionRouter()
 
 	router.POST("/session/:session_id/messages", func(c *gin.Context) {
@@ -3102,6 +3122,10 @@ func TestToolResult_AnthropicToOpenAI(t *testing.T) {
 
 // TestAnthropic_CacheControl_Preservation 测试 Anthropic cache_control 保留
 func TestAnthropic_CacheControl_Preservation(t *testing.T) {
+	// Initialize tokenizer for testing (required by GetMessages handler)
+	testLogger, _ := zap.NewDevelopment()
+	_ = tokenizer.Init(testLogger)
+
 	projectID := uuid.New()
 	sessionID := uuid.New()
 
@@ -3139,7 +3163,7 @@ func TestAnthropic_CacheControl_Preservation(t *testing.T) {
 		HasMore: false,
 	}, nil)
 
-	handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 	router := setupSessionRouter()
 
 	router.POST("/session/:session_id/messages", func(c *gin.Context) {
@@ -3220,6 +3244,10 @@ func TestAnthropic_CacheControl_Preservation(t *testing.T) {
 
 // TestMultipleToolCalls_Conversion 测试多个 tool_calls 的转换
 func TestMultipleToolCalls_Conversion(t *testing.T) {
+	// Initialize tokenizer for testing (required by GetMessages handler)
+	testLogger, _ := zap.NewDevelopment()
+	_ = tokenizer.Init(testLogger)
+
 	projectID := uuid.New()
 	sessionID := uuid.New()
 
@@ -3265,7 +3293,7 @@ func TestMultipleToolCalls_Conversion(t *testing.T) {
 		HasMore: false,
 	}, nil)
 
-	handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 	router := setupSessionRouter()
 
 	router.POST("/session/:session_id/messages", func(c *gin.Context) {
@@ -3521,7 +3549,7 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 			mockService := &MockSessionService{}
 			tt.setup(mockService)
 
-			handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+			handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 			router := setupSessionRouter()
 			router.GET("/session/:session_id/token_counts", handler.GetTokenCounts)
 
@@ -3560,7 +3588,7 @@ func TestSessionHandler_GetSessionObservingStatus_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockService := new(MockSessionService)
-	handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 
 	sessionID := "550e8400-e29b-41d4-a716-446655440000"
 	expectedStatus := &model.MessageObservingStatus{
@@ -3601,7 +3629,7 @@ func TestSessionHandler_GetSessionObservingStatus_EmptySessionID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockService := new(MockSessionService)
-	handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -3626,7 +3654,7 @@ func TestSessionHandler_GetSessionObservingStatus_InvalidSessionID(t *testing.T)
 	gin.SetMode(gin.TestMode)
 
 	mockService := new(MockSessionService)
-	handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -3651,7 +3679,7 @@ func TestSessionHandler_GetSessionObservingStatus_ServiceError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	mockService := new(MockSessionService)
-	handler := NewSessionHandler(mockService, getMockSessionCoreClient())
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 
 	sessionID := "550e8400-e29b-41d4-a716-446655440000"
 	expectedError := errors.New("database connection failed")

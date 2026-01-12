@@ -20,8 +20,6 @@ The default API key is `sk-ac-your-root-api-bearer-token`.
 
 ## Install SDK
 
-Acontext provides official SDKs for Python and TypeScript/JavaScript, making it easy to integrate Acontext into your applications. The SDKs handle authentication, request formatting, and provide type-safe interfaces to all Acontext features.
-
 <Tabs>
 <Tab title="Python">
 
@@ -87,7 +85,8 @@ client = AcontextClient(
 
 print(client.ping())
 
-session = client.sessions.create()
+# Create a session (optionally associate with a user)
+session = client.sessions.create(user="user@example.com")
 client.sessions.store_message(
     session_id=session.id,
     blob={
@@ -133,7 +132,8 @@ const client = new AcontextClient({
 async function main() {
     console.log(await client.ping());
 
-    const session = await client.sessions.create();
+    // Create a session (optionally associate with a user)
+    const session = await client.sessions.create({ user: 'user@example.com' });
     await client.sessions.storeMessage(session.id, {
         role: "assistant",
         content: `Here is my plan:

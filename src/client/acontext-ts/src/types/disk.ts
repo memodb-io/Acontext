@@ -4,9 +4,12 @@
 
 import { z } from 'zod';
 
+import { FileContentSchema } from './common';
+
 export const DiskSchema = z.object({
   id: z.string(),
   project_id: z.string(),
+  user_id: z.string().nullable().optional(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -31,13 +34,6 @@ export const ArtifactSchema = z.object({
 });
 
 export type Artifact = z.infer<typeof ArtifactSchema>;
-
-export const FileContentSchema = z.object({
-  type: z.string(),
-  raw: z.string(),
-});
-
-export type FileContent = z.infer<typeof FileContentSchema>;
 
 export const GetArtifactRespSchema = z.object({
   artifact: ArtifactSchema,

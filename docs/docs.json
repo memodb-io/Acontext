@@ -40,8 +40,16 @@
                   }
                 ]
               },
-              "store/disk",
-              "store/editing"
+              "store/disk"
+            ]
+          },
+          {
+            "group": "Context Engineering",
+            "icon": "scissors",
+            "pages": [
+              "engineering/whatis",
+              "engineering/editing",
+              "engineering/cache"
             ]
           },
           {
@@ -90,19 +98,20 @@
             ]
           },
           {
+            "group": "Miscellaneous",
+            "icon": "ellipsis",
+            "pages": [
+              "chore/per-user",
+              "chore/async_python",
+              "chore/badge"
+            ]
+          },
+          {
             "group": "Customization",
             "icon": "gear",
             "pages": [
               "settings/core",
               "settings/runtime"
-            ]
-          },
-          {
-            "group": "Miscellaneous",
-            "icon": "ellipsis",
-            "pages": [
-              "chore/async_python",
-              "chore/badge"
             ]
           }
         ]

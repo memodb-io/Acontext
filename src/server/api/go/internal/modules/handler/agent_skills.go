@@ -15,25 +15,28 @@ import (
 )
 
 type AgentSkillsHandler struct {
-	svc service.AgentSkillsService
+	svc     service.AgentSkillsService
+	userSvc service.UserService
 }
 
-func NewAgentSkillsHandler(s service.AgentSkillsService) *AgentSkillsHandler {
-	return &AgentSkillsHandler{svc: s}
+func NewAgentSkillsHandler(s service.AgentSkillsService, userSvc service.UserService) *AgentSkillsHandler {
+	return &AgentSkillsHandler{svc: s, userSvc: userSvc}
 }
 
 type CreateAgentSkillsReq struct {
+	User string `form:"user" json:"user" example:"alice@acontext.io"`
 	Meta string `form:"meta" json:"meta" example:"{\"version\":\"1.0\"}"`
 }
 
 // CreateAgentSkills godoc
 //
 //	@Summary		Create agent skill
-//	@Description	Upload a zip file containing agent skill and extract it to S3. The zip file must contain a SKILL.md file (case-insensitive) with YAML format containing 'name' and 'description' fields. The name and description will be extracted from SKILL.md.
+//	@Description	Upload a zip file containing agent skill and extract it to S3. The zip file must contain a SKILL.md file (case-insensitive) with YAML format containing 'name' and 'description' fields. The name and description will be extracted from SKILL.md. Optionally associate with a user identifier.
 //	@Tags			agent_skills
 //	@Accept			multipart/form-data
 //	@Produce		json
 //	@Param			file	formData	file	true	"ZIP file containing agent skill. Must contain SKILL.md (case-insensitive) with YAML format: name and description fields."
+//	@Param			user	formData	string	false	"User identifier to associate with the skill"	example(alice@acontext.io)
 //	@Param			meta	formData	string	false	"Additional metadata (JSON string)"
 //	@Security		BearerAuth
 //	@Success		201	{object}	serializer.Response{data=model.AgentSkills}	"Returns agent skill with name and description extracted from SKILL.md"
@@ -73,8 +76,20 @@ func (h *AgentSkillsHandler) CreateAgentSkill(c *gin.Context) {
 		}
 	}
 
+	// If user identifier is provided, get or create the user
+	var userID *uuid.UUID
+	if req.User != "" {
+		user, err := h.userSvc.GetOrCreate(c.Request.Context(), project.ID, req.User)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to get or create user", err))
+			return
+		}
+		userID = &user.ID
+	}
+
 	agentSkills, err := h.svc.Create(c.Request.Context(), service.CreateAgentSkillsInput{
 		ProjectID: project.ID,
+		UserID:    userID,
 		ZipFile:   fileHeader,
 		Meta:      meta,
 	})
@@ -243,6 +258,7 @@ func (h *AgentSkillsHandler) DeleteAgentSkill(c *gin.Context) {
 }
 
 type ListAgentSkillsReq struct {
+	User     string `form:"user" json:"user" example:"alice@acontext.io"`
 	Limit    int    `form:"limit,default=20" json:"limit" binding:"required,min=1,max=200" example:"20"`
 	Cursor   string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
 	TimeDesc bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
@@ -255,6 +271,7 @@ type ListAgentSkillsReq struct {
 //	@Tags			agent_skills
 //	@Accept			json
 //	@Produce		json
+//	@Param			user		query	string	false	"User identifier to filter skills"	example(alice@acontext.io)
 //	@Param			limit		query	integer	false	"Limit of agent skills to return, default 20. Max 200."
 //	@Param			cursor		query	string	false	"Cursor for pagination"
 //	@Param			time_desc	query	boolean	false	"Order by created_at descending if true"
@@ -276,6 +293,7 @@ func (h *AgentSkillsHandler) ListAgentSkills(c *gin.Context) {
 
 	out, err := h.svc.List(c.Request.Context(), service.ListAgentSkillsInput{
 		ProjectID: project.ID,
+		User:      req.User,
 		Limit:     req.Limit,
 		Cursor:    req.Cursor,
 		TimeDesc:  req.TimeDesc,

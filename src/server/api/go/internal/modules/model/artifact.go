@@ -15,14 +15,18 @@ const (
 )
 
 type Disk struct {
-	ID        uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	ProjectID uuid.UUID `gorm:"type:uuid;not null;index" json:"project_id"`
+	ID        uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	ProjectID uuid.UUID  `gorm:"type:uuid;not null;index" json:"project_id"`
+	UserID    *uuid.UUID `gorm:"type:uuid;index" json:"user_id"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime;not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime;not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 
 	// Disk <-> Project
 	Project *Project `gorm:"foreignKey:ProjectID;references:ID;constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
+
+	// Disk <-> User
+	User *User `gorm:"foreignKey:UserID;references:ID;constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
 }
 
 func (Disk) TableName() string { return "disks" }

@@ -13,10 +13,13 @@ class RemoveToolResultParams(TypedDict, total=False):
             Defaults to 3 if not specified.
         tool_result_placeholder: Custom text to replace old tool results with.
             Defaults to "Done" if not specified.
+        keep_tools: List of tool names that should never have their results removed.
+            Tool results from these tools are always kept regardless of keep_recent_n_tool_results.
     """
 
     keep_recent_n_tool_results: NotRequired[int]
     tool_result_placeholder: NotRequired[str]
+    keep_tools: NotRequired[list[str]]
 
 
 class RemoveToolResultStrategy(TypedDict):
@@ -36,10 +39,12 @@ class RemoveToolCallParamsParams(TypedDict, total=False):
     Attributes:
         keep_recent_n_tool_calls: Number of most recent tool calls to keep with full parameters.
             Defaults to 3 if not specified.
+        keep_tools: List of tool names that should never have their parameters removed.
+            Tool calls for these tools always keep their full parameters regardless of keep_recent_n_tool_calls.
     """
 
     keep_recent_n_tool_calls: NotRequired[int]
-
+    keep_tools: NotRequired[list[str]]
 
 
 class RemoveToolCallParamsStrategy(TypedDict):
@@ -55,7 +60,6 @@ class RemoveToolCallParamsStrategy(TypedDict):
 
     type: Literal["remove_tool_call_params"]
     params: RemoveToolCallParamsParams
-
 
 
 class TokenLimitParams(TypedDict):
@@ -87,7 +91,9 @@ class TokenLimitStrategy(TypedDict):
 
 # Union type for all edit strategies
 # When adding new strategies, add them to this Union: EditStrategy = Union[RemoveToolResultStrategy, OtherStrategy, ...]
-EditStrategy = Union[RemoveToolResultStrategy, RemoveToolCallParamsStrategy, TokenLimitStrategy]
+EditStrategy = Union[
+    RemoveToolResultStrategy, RemoveToolCallParamsStrategy, TokenLimitStrategy
+]
 
 
 class Asset(BaseModel):
@@ -137,6 +143,7 @@ class Session(BaseModel):
 
     id: str = Field(..., description="Session UUID")
     project_id: str = Field(..., description="Project UUID")
+    user_id: str | None = Field(None, description="User UUID")
     disable_task_tracking: bool = Field(
         False, description="Whether task tracking is disabled for this session"
     )
@@ -216,14 +223,28 @@ class GetMessagesOutput(BaseModel):
         description="List of messages in the requested format (Message, OpenAI format, or Anthropic format)",
     )
     ids: list[str] = Field(
-	...,
-	description="List of message UUIDs corresponding to each item in the same order",
+        ...,
+        description="List of message UUIDs corresponding to each item in the same order",
     )
     next_cursor: str | None = Field(None, description="Cursor for pagination")
     has_more: bool = Field(..., description="Whether there are more items")
+    this_time_tokens: int = Field(
+        ...,
+        description="Total token count of the returned messages",
+    )
     public_urls: dict[str, PublicURL] | None = Field(
         None,
         description="Map of SHA256 hash to PublicURL (only included when format='acontext')",
+    )
+    edit_at_message_id: str | None = Field(
+        None,
+        description=(
+            "The message ID where edit strategies were applied up to. "
+            "If pin_editing_strategies_at_message was provided, this equals that value. "
+            "Otherwise, this is the ID of the last message in the response. "
+            "Use this value to maintain prompt cache stability by passing it as "
+            "pin_editing_strategies_at_message in subsequent requests."
+        ),
     )
 
 
@@ -254,18 +275,13 @@ class TokenCounts(BaseModel):
         description="Total token count for all text and tool-call parts in a session",
     )
 
+
 class MessageObservingStatus(BaseModel):
     """Response model for message observing status."""
-    
-    observed: int = Field(
-        ..., description="Number of messages with observed status"
-    )
+
+    observed: int = Field(..., description="Number of messages with observed status")
     in_process: int = Field(
         ..., description="Number of messages with in_process status"
     )
-    pending: int = Field(
-        ..., description="Number of messages with pending status"
-    )
-    updated_at: str = Field(
-        ..., description="Timestamp when the status was retrieved"
-    )
+    pending: int = Field(..., description="Number of messages with pending status")
+    updated_at: str = Field(..., description="Timestamp when the status was retrieved")

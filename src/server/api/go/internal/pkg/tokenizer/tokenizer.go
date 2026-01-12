@@ -64,14 +64,32 @@ func ExtractTextAndToolContent(parts []model.Part) (string, error) {
 				content.WriteString("\n") // Add separator
 			}
 		case "tool-call":
-			// Extract tool call information from meta
+			// Extract only "name" and "arguments" from meta for token counting
 			if part.Meta != nil {
-				// Serialize meta to JSON string for token counting
-				metaJSON, err := json.Marshal(part.Meta)
+				filtered := make(map[string]interface{})
+				if name, ok := part.Meta["name"]; ok {
+					filtered["name"] = name
+				}
+				if args, ok := part.Meta["arguments"]; ok {
+					filtered["arguments"] = args
+				}
+				metaJSON, err := json.Marshal(filtered)
 				if err != nil {
 					return "", fmt.Errorf("failed to marshal tool-call meta: %w", err)
 				}
 				content.WriteString(string(metaJSON))
+				content.WriteString("\n")
+			}
+		case "tool-result":
+			// Extract tool result information from meta
+			if part.Text != "" {
+				content.WriteString(part.Text)
+				content.WriteString("\n")
+			}
+		default:
+			// Fallback: write text if not empty
+			if part.Text != "" {
+				content.WriteString(part.Text)
 				content.WriteString("\n")
 			}
 		}

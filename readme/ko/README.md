@@ -31,14 +31,35 @@
 </div>
 
 
+*모두가 자신의 Agent 사용법을 알려주고 있습니다. 하지만 10만 명의 사용자를 위한 Agent를 구축해야 한다면 어디서부터 시작하시겠습니까?*
 
-Acontext는 다음을 도울 수 있습니다:
+**📦 문제 1: DB의 99%가 LLM 메시지입니다.** 
 
-- **더 나은 컨텍스트 엔지니어링으로 확장 가능한 Agent 구축**
-- **Agent 성공률 관찰**
-- **각 사용자를 위한 자기 학습으로 Agent 개선**
+> 잘못된 스키마 설계로 가장 가치 있는 데이터가 비용이 많이 들고 느려집니다. Acontext는 PG, Redis, S3를 통해 컨텍스트 저장 및 검색을 처리합니다.
+>
+> ChatGPT, Gemini, Anthropic, 이미지, 오디오, 파일... 모두 지원합니다.
+
+**⏰ 문제 2: 장시간 실행되는 Agent는 악몽입니다.** 
+
+> 컨텍스트 엔지니어링을 알고 있지만 항상 처음부터 작성합니다. Acontext에는 내장된 컨텍스트 편집 방법과 바로 사용할 수 있는 todo agent가 있습니다.
+>
+> Agent 상태 관리? 식은 죽 먹기입니다.
+
+**👀 문제 3: Agent가 어떻게 작동하는지 볼 수 없습니다.** 
+
+> 사용자가 정말 만족하고 있습니까? Acontext는 세션별 작업을 추적하고 Agent의 실제 성공률을 보여줍니다.
+>
+> 토큰 비용에 집착하지 말고 먼저 Agent를 개선하세요.
+
+**🧠 문제 4: Agent 결과가 들쭉날쭉합니다.**
+
+> 성공에서 배울 수 있습니까? Acontext의 Experience Agent는 성공적인 실행을 기억하고 재사용 가능한 도구 사용 SOP로 변환합니다.
+>
+> 일관성이 전부입니다.
 
 
+
+이러한 문제를 한 번에 해결하기 위해 Acontext는 **컨텍스트 데이터 플랫폼**이 되었습니다:
 
 <div align="center">
     <picture>
@@ -48,13 +69,12 @@ Acontext는 다음을 도울 수 있습니다:
 </div>
 
 
+# 💡 핵심 기능
 
-# 💡 주요 기능
-
-- Context Engineering
-  - [Session](https://docs.acontext.io/store/messages/multi-provider): 멀티 모달 LLM 메시지 저장소
-  - [Disk](https://docs.acontext.io/store/disk): Artifacts용 파일 시스템
-  - [Context Editing](https://docs.acontext.io/store/editing) - 한 번의 호출로 컨텍스트 엔지니어링
+- **Context Engineering**
+  - [Session](https://docs.acontext.io/store/messages/multi-provider): 모든 LLM, 모든 모달리티를 위한 통합 메시지 저장소.
+  - [Disk](https://docs.acontext.io/store/disk): 파일 경로로 artifacts 저장/다운로드.
+  - [Context Editing](https://docs.acontext.io/store/editing) - 하나의 API로 컨텍스트 윈도우 관리.
 
 <div align="center">
     <picture>
@@ -63,10 +83,10 @@ Acontext는 다음을 도울 수 있습니다:
   <p>Acontext의 Context Engineering</p>
 </div>
 
-- **에이전트 작업 및 사용자 피드백 관찰**
-  - [Task Agent](https://docs.acontext.io/observe/agent_tasks) - 작업의 상태, 진행 상황 및 선호도를 수집하는 백그라운드 에이전트
-- **에이전트 자기 학습 활성화**
-  - [Experience Agent](https://docs.acontext.io/learn/advance/experience-agent) - 각 사용자를 위해 스킬을 추출, 저장 및 검색하는 백그라운드 에이전트.
+- **Agent 작업 및 사용자 피드백 관찰**
+  - [Task](https://docs.acontext.io/observe/agent_tasks): 거의 실시간으로 Agent의 작업 상태, 진행 상황 및 선호도 수집.
+- **Agent 자기 학습**
+  - [Experience](https://docs.acontext.io/learn/advance/experience-agent): 각 사용자를 위해 Agent가 SOP를 학습.
 - **모든 것을 하나의 [대시보드](https://docs.acontext.io/observe/dashboard)에서 보기**
 
 <div align="center">
@@ -78,10 +98,10 @@ Acontext는 다음을 도울 수 있습니다:
 
 
 
-# 🏗️ 아키텍처
+# 🏗️ 어떻게 작동하나요?
 
 <details>
-<summary>관심이 있으시면 아키텍처 다이어그램을 열어보세요.</summary>
+<summary>클릭하여 열기</summary>
 
 ```mermaid
 graph TB
@@ -154,6 +174,7 @@ graph TB
 
 
 ## 데이터 구조
+
 <details>
 <summary>📖 작업 구조</summary>
 
@@ -216,7 +237,22 @@ graph TB
 
 
 
-# 🚀 Start the Backend Locally
+# 🚀 Acontext에 연결
+
+1. [Acontext.io](https://acontext.io)로 이동하여 무료 크레딧을 받으세요.
+2. 원클릭 온보딩을 통해 API Key를 받으세요: `sk-ac-xxx`
+
+<div align="center">
+    <picture>
+      <img alt="Dashboard" src="../../assets/onboard.png" width="80%">
+    </picture>
+</div>
+
+
+
+
+<details>
+<summary>💻 Acontext 셀프 호스팅</summary>
 
 빠른 개념 증명을 위해 `acontext-cli`가 있습니다. 먼저 터미널에서 다운로드하세요:
 
@@ -231,7 +267,9 @@ mkdir acontext_server && cd acontext_server
 acontext docker up
 ```
 
-> [📖 로컬 설정](https://docs.acontext.io/local#start-acontext-server-locally) LLM 모델로 `gpt-4.1`을 권장합니다
+> [!IMPORTANT]
+>
+> LLM에 [도구 호출](https://platform.openai.com/docs/guides/function-calling) 기능이 있는지 확인하세요. 기본적으로 Acontext는 `gpt-4.1`을 사용합니다.
 
 `acontext docker up`은 Acontext용 `.env` 및 `config.yaml`을 생성/사용하고 데이터를 유지하기 위한 `db` 폴더를 생성합니다.
 
@@ -242,11 +280,14 @@ acontext docker up
 - Acontext API Base URL: http://localhost:8029/api/v1
 - Acontext Dashboard: http://localhost:3000/
 
+</details>
 
 
 
 
-# 🧐 Use Acontext to build Agent
+
+
+# 🧐 Acontext를 사용하여 Agent 구축
 
 `acontext`로 엔드투엔드 스크립트 다운로드:
 
@@ -276,13 +317,13 @@ acontext create my-proj --template-path "typescript/openai-basic"
 
 > [!NOTE]
 >
-> Check our example repo for more templates: [Acontext-Examples](https://github.com/memodb-io/Acontext-Examples).
+> 더 많은 템플릿은 예제 저장소를 확인하세요: [Acontext-Examples](https://github.com/memodb-io/Acontext-Examples).
 >
-> We're cooking more full-stack Agent Applications! [Tell us what you want!](https://discord.acontext.io)
+> 풀스택 Agent 애플리케이션을 준비 중입니다! [원하는 것을 알려주세요!](https://discord.acontext.io)
 
 
 
-## Step-by-step Quickstart
+## 단계별 빠른 시작
 
 <details>
 <summary>클릭하여 열기</summary>
@@ -302,15 +343,18 @@ npm i @acontext/acontext # for Typescript
 ## 클라이언트 초기화
 
 ```python
+import os
 from acontext import AcontextClient
 
 client = AcontextClient(
-    base_url="http://localhost:8029/api/v1",
-    api_key="sk-ac-your-root-api-bearer-token"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
-client.ping()
 
-# yes, the default api_key is sk-ac-your-root-api-bearer-token
+# 셀프 호스팅 Acontext를 사용하는 경우:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
 ```
 
 > [📖 async client doc](https://docs.acontext.io/settings/core)
@@ -504,7 +548,7 @@ for task in tasks_response.items:
 
 ```
 > `flush`는 블로킹 호출이며 작업 추출이 완료될 때까지 기다립니다.
-> 프로덕션에서 호출할 필요가 없습니다. Acontext에는 작업 추출이 적시에 완료되도록 하는 버퍼 메커니즘이 있습니다.
+> 프로덕션에서 호출할 필요가 없습니다. Acontext에는 작업 추출이 적시에 완료되도록 하는 [버퍼 메커니즘](https://docs.acontext.io/observe/buffer)이 있습니다.
 
 </details>
 
@@ -632,6 +676,7 @@ Acontext는 검색을 위해 `fast` 및 `agentic` 모드를 지원합니다. 전
 
 
 
+
 # 🔍 문서
 
 Acontext가 무엇을 할 수 있는지 더 잘 이해하려면 [문서](https://docs.acontext.io/)를 확인하세요
@@ -677,4 +722,3 @@ Github에서 Acontext에 별표를 표시하여 지원하고 즉시 알림을 �
 
 [![Made with Acontext](https://assets.memodb.io/Acontext/badge-made-with-acontext-dark.svg)](https://acontext.io)
 ```
-

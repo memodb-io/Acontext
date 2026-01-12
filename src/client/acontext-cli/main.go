@@ -26,9 +26,14 @@ func GetVersion() string {
 }
 
 func main() {
-	// Print logo on first run (skip for help commands)
+	// Print logo on first run (skip for help commands and root command)
 	shouldSkipLogo := false
-	if len(os.Args) > 1 {
+
+	// Check if running root command (no subcommand)
+	if len(os.Args) == 1 {
+		// No arguments - will execute rootCmd.Run, which prints logo
+		shouldSkipLogo = true
+	} else if len(os.Args) > 1 {
 		firstArg := os.Args[1]
 		// Skip logo for help flags
 		if firstArg == "--help" || firstArg == "-h" {
@@ -42,7 +47,21 @@ func main() {
 		if firstArg == "help" {
 			shouldSkipLogo = true
 		}
+		// Skip logo if executing root command (first arg is not a known subcommand)
+		knownSubcommands := []string{"create", "docker", "version", "upgrade", "help"}
+		isSubcommand := false
+		for _, subcmd := range knownSubcommands {
+			if firstArg == subcmd {
+				isSubcommand = true
+				break
+			}
+		}
+		if !isSubcommand {
+			// Not a known subcommand, will execute rootCmd.Run which prints logo
+			shouldSkipLogo = true
+		}
 	}
+
 	if !shouldSkipLogo {
 		fmt.Println(logo.Logo)
 	}

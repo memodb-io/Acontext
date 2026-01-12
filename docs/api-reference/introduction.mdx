@@ -5,82 +5,48 @@ description: 'Build AI agents with context storage, semantic search, and learnin
 
 ## Overview
 
-Acontext provides a powerful API for building AI agents with persistent context, semantic search, and self-learning capabilities. The API is organized around REST principles and returns JSON responses.
+Acontext provides a REST API for building AI agents with persistent context, semantic search, and self-learning capabilities.
 
 <CardGroup cols={2}>
   <Card title="REST API" icon="code" iconType="solid">
     RESTful endpoints with predictable URLs
   </Card>
-  <Card title="OpenAPI 3.0" icon="file-code" iconType="solid">
+  <Card title="OpenAPI 3.0" icon="file-code" iconType="solid"> 
     Full OpenAPI specification available
   </Card>
   <Card title="Multi-format Support" icon="layer-group" iconType="solid">
-    OpenAI, Anthropic, and native formats
+    OpenAI, Anthropic, Gemini, and native formats
   </Card>
   <Card title="Client SDKs" icon="puzzle-piece" iconType="solid">
     Python and TypeScript libraries
   </Card>
 </CardGroup>
 
-## Base URLs
-
-<CodeGroup>
-```text Local Development
-http://localhost:8029/api/v1
-```
-
-```text Production
-https://api.acontext.com/api/v1
-```
-</CodeGroup>
-
 ## Authentication
 
-All API requests require authentication using a Bearer token. Include your project API key in the `Authorization` header:
+All API requests require a Bearer token in the `Authorization` header:
 
 ```bash
 Authorization: Bearer YOUR_API_KEY
 ```
 
 <Warning>
-  Keep your API keys secure and never expose them in client-side code or public repositories.
+Keep your API keys secure and never expose them in client-side code.
 </Warning>
 
-## Client Libraries
-
-Install the official SDKs to get started quickly:
+## Install SDKs
 
 <CodeGroup>
 ```bash Python
 pip install acontext
 ```
 
-```bash TypeScript/JavaScript
+```bash TypeScript
 npm install @acontext/acontext
 ```
 </CodeGroup>
 
-<CardGroup cols={2}>
-  <Card 
-    title="Python SDK" 
-    icon="python" 
-    href="https://github.com/memodb-io/Acontext/tree/main/src/client/acontext-py"
-  >
-    Full-featured Python client with async support
-  </Card>
-  
-  <Card 
-    title="TypeScript SDK" 
-    icon="js" 
-    href="https://github.com/memodb-io/Acontext/tree/main/src/client/acontext-ts"
-  >
-    Type-safe TypeScript/JavaScript client
-  </Card>
-</CardGroup>
-
 ## Quick Start
-
-Here's a complete example to get you started:
 
 <CodeGroup>
 ```python Python
@@ -99,29 +65,22 @@ client = AcontextClient(
 # )
 
 # Create a knowledge space
-space = client.spaces.create(
-    configs={"name": "Customer Support KB"}
+space = client.spaces.create()
+
+# Create a session connected to the space
+session = client.sessions.create(space_id=space.id)
+
+# Store a message
+client.sessions.store_message(
+    session.id,
+    blob={'role': 'user', 'content': 'How do I reset my password?'}
 )
 
-# Create a conversation session
-session = client.sessions.create(
-    space_id=space.id,
-    configs={"mode": "chat"}
-)
-
-# Store a message (OpenAI format)
-response = client.sessions.store_message(
-    session_id=session.id,
-    blob={'role': 'user', 'content': 'How do I reset my password?'},
-    format='openai'
-)
-
-# Search knowledge base
+# Search the knowledge base
 results = client.spaces.experience_search(
-    space_id=space.id,
+    space.id,
     query='password reset process',
-    mode='agentic',
-    limit=5
+    mode='agentic'
 )
 ```
 
@@ -140,28 +99,21 @@ const client = new AcontextClient({
 // });
 
 // Create a knowledge space
-const space = await client.spaces.create({ 
-  configs: { name: 'Customer Support KB' } 
-});
+const space = await client.spaces.create();
 
-// Create a conversation session
-const session = await client.sessions.create({
-  spaceId: space.id,
-  configs: { mode: 'chat' }
-});
+// Create a session connected to the space
+const session = await client.sessions.create({ spaceId: space.id });
 
-// Store a message (OpenAI format)
-const response = await client.sessions.storeMessage(
+// Store a message
+await client.sessions.storeMessage(
   session.id,
-  { role: 'user', content: 'How do I reset my password?' },
-  { format: 'openai' }
+  { role: 'user', content: 'How do I reset my password?' }
 );
 
-// Search knowledge base
+// Search the knowledge base
 const results = await client.spaces.experienceSearch(space.id, {
   query: 'password reset process',
-  mode: 'agentic',
-  limit: 5
+  mode: 'agentic'
 });
 ```
 </CodeGroup>
@@ -170,23 +122,23 @@ const results = await client.spaces.experienceSearch(space.id, {
 
 <AccordionGroup>
   <Accordion title="Spaces" icon="cube">
-    Knowledge spaces store structured information with semantic search capabilities. Each space can contain pages, folders, and content blocks organized hierarchically.
+    Knowledge spaces store structured information with semantic search capabilities. Each space can contain pages, folders, and content blocks.
   </Accordion>
 
   <Accordion title="Sessions" icon="messages">
-    Sessions represent conversation threads with message history. Sessions can be connected to spaces to leverage stored knowledge during interactions.
+    Sessions represent conversation threads with message history. Connect sessions to spaces to leverage stored knowledge.
   </Accordion>
 
   <Accordion title="Blocks" icon="block">
-    Blocks are the building units of knowledge: pages, folders, text blocks, and SOPs (Standard Operating Procedures). Blocks support rich properties and nested structures.
+    Building units of knowledge: pages, folders, text blocks, and SOPs. Blocks support rich properties and nested structures.
   </Accordion>
 
   <Accordion title="Disks" icon="hard-drive">
-    Disks provide isolated storage groups for organizing multiple knowledge bases within a project.
+    Isolated storage groups for organizing multiple knowledge bases within a project.
   </Accordion>
 
   <Accordion title="Tools" icon="wrench">
-    Tools define capabilities that AI agents can use. The API allows managing and renaming tools across your project.
+    Capabilities that AI agents can use. Manage and configure tools across your project.
   </Accordion>
 </AccordionGroup>
 
@@ -213,17 +165,17 @@ const results = await client.spaces.experienceSearch(space.id, {
   </Card>
 </CardGroup>
 
-## Message Format Support
+## Message Formats
 
-Acontext supports multiple message formats for maximum compatibility:
+Acontext supports multiple message formats for compatibility:
 
 - **OpenAI** - Compatible with OpenAI Chat Completion format (default)
 - **Anthropic** - Compatible with Anthropic Messages format
-- **Acontext** - Native format with extended capabilities
+- **Gemini** - Compatible with Google Gemini Messages format
 
-You can convert between formats when retrieving or storing messages using the `format` parameter.
+Convert between formats when retrieving or storing messages using the `format` parameter.
 
-## Join the Community
+## Community
 
 <CardGroup cols={2}>
   <Card title="GitHub" icon="github" href="https://github.com/memodb-io/Acontext">

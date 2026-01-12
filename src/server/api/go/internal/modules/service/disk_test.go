@@ -63,10 +63,11 @@ func newTestDiskService(r *MockDiskRepo, s3 *MockS3Deps) DiskService {
 	return &testDiskService{r: r, s3: s3}
 }
 
-func (s *testDiskService) Create(ctx context.Context, projectID uuid.UUID) (*model.Disk, error) {
+func (s *testDiskService) Create(ctx context.Context, projectID uuid.UUID, userID *uuid.UUID) (*model.Disk, error) {
 	disk := &model.Disk{
 		ID:        uuid.New(),
 		ProjectID: projectID,
+		UserID:    userID,
 	}
 
 	if err := s.r.Create(ctx, disk); err != nil {
@@ -138,7 +139,7 @@ func TestDiskService_Create(t *testing.T) {
 
 			service := newTestDiskService(mockRepo, &MockS3Deps{})
 
-			disk, err := service.Create(context.Background(), projectID)
+			disk, err := service.Create(context.Background(), projectID, nil)
 
 			if tt.expectError {
 				assert.Error(t, err)

@@ -31,14 +31,35 @@
 </div>
 
 
+*每个人都在告诉你如何使用他们的Agent。但如果你需要为10万用户构建一个Agent，你会从哪里开始？*
 
-Acontext 可以帮助您：
+**📦 问题1：你99%的数据库都是LLM消息。** 
 
-- **通过更好的上下文工程构建可扩展的Agent**
-- **观察您的Agent成功率**
-- **通过为每个用户自学习来改进您的Agent**
+> 糟糕的架构设计使你最有价值的数据变得昂贵且缓慢。Acontext通过PG、Redis和S3处理上下文存储和检索。
+>
+> ChatGPT、Gemini、Anthropic、图片、音频、文件...我们都支持。
+
+**⏰ 问题2：长时间运行的Agent是个噩梦。** 
+
+> 你了解上下文工程，但你总是从头开始写。Acontext内置了上下文编辑方法和开箱即用的todo agent。
+>
+> 管理Agent状态？小菜一碟。
+
+**👀 问题3：你无法看到你的Agent表现如何。** 
+
+> 你的用户真的满意吗？Acontext跟踪每个会话的任务，并向你展示Agent的实际成功率。
+>
+> 不要只关注token成本，先改进Agent。
+
+**🧠 问题4：你的Agent时好时坏。**
+
+> 它能从成功中学习吗？Acontext的experience agent记住成功的运行，并将它们转化为可重用的工具使用SOP。
+>
+> 一致性就是一切。
 
 
+
+为了一次解决这些问题，Acontext成为了**上下文数据平台**：
 
 <div align="center">
     <picture>
@@ -48,32 +69,31 @@ Acontext 可以帮助您：
 </div>
 
 
-
 # 💡 核心功能
 
-- Context Engineering
-  - [Session](https://docs.acontext.io/store/messages/multi-provider): 多模态 LLM 消息存储
-  - [Disk](https://docs.acontext.io/store/disk): Artifacts的文件系统
-  - [Context Editing](https://docs.acontext.io/store/editing) - 一次调用完成上下文工程
+- **Context Engineering**
+  - [Session](https://docs.acontext.io/store/messages/multi-provider): 为任何LLM、任何模态提供统一的消息存储。
+  - [Disk](https://docs.acontext.io/store/disk): 使用文件路径保存/下载artifacts。
+  - [Context Editing](https://docs.acontext.io/store/editing) - 一个API管理你的上下文窗口。
 
 <div align="center">
     <picture>
       <img alt="Acontext Learning" src="../../assets/acontext-context-engineering.png" width="80%">
     </picture>
-  <p>Acontext 中的 Context Engineering</p>
+  <p>Acontext中的Context Engineering</p>
 </div>
 
 - **观察Agent任务和用户反馈**
-  - [Task Agent](https://docs.acontext.io/observe/agent_tasks) - 后台Agent，收集任务的状态、进度和偏好
-- **启用Agent自我学习**
-  - [Experience Agent](https://docs.acontext.io/learn/advance/experience-agent) - 后台Agent，为每个用户提炼、保存和搜索技能。
+  - [Task](https://docs.acontext.io/observe/agent_tasks): 近实时收集Agent的工作状态、进度和偏好。
+- **Agent自我学习**
+  - [Experience](https://docs.acontext.io/learn/advance/experience-agent): 让Agent为每个用户学习SOP。
 - **在一个[仪表板](https://docs.acontext.io/observe/dashboard)中查看所有内容**
 
 <div align="center">
     <picture>
       <img alt="Dashboard" src="../../docs/images/dashboard/BI.png" width="80%">
     </picture>
-  <p>Agent 成功率和其他指标的仪表板</p>
+  <p>Agent成功率和其他指标的仪表板</p>
 </div>
 
 
@@ -81,7 +101,7 @@ Acontext 可以帮助您：
 # 🏗️ 架构
 
 <details>
-<summary>如果您感兴趣，请点击打开架构图。</summary>
+<summary>点击打开</summary>
 
 ```mermaid
 graph TB
@@ -154,6 +174,7 @@ graph TB
 
 
 ## 数据结构
+
 <details>
 <summary>📖 任务结构</summary>
 
@@ -216,37 +237,57 @@ graph TB
 
 
 
-# 🚀 Start the Backend Locally
+# 🚀 连接到Acontext
 
-我们有一个 `acontext-cli` 来帮助您快速进行概念验证。首先在终端中下载它：
+1. 前往 [Acontext.io](https://acontext.io)，领取免费额度。
+2. 通过一键式引导获取你的API Key：`sk-ac-xxx`
+
+<div align="center">
+    <picture>
+      <img alt="Dashboard" src="../../assets/onboard.png" width="80%">
+    </picture>
+</div>
+
+
+
+
+<details>
+<summary>💻 自托管Acontext</summary>
+
+我们有一个 `acontext-cli` 来帮助你快速进行概念验证。首先在终端中下载它：
 
 ```bash
 curl -fsSL https://install.acontext.io | sh
 ```
 
-您应该安装 [docker](https://www.docker.com/get-started/) 并拥有 OpenAI API Key，以便在计算机上启动 Acontext 后端：
+你应该安装 [docker](https://www.docker.com/get-started/) 并拥有 OpenAI API Key，以便在计算机上启动 Acontext 后端：
 
 ```bash
 mkdir acontext_server && cd acontext_server
 acontext docker up
 ```
 
-> [📖 本地设置](https://docs.acontext.io/local#start-acontext-server-locally) 我们推荐使用 `gpt-4.1` 作为 LLM 模型
+> [!IMPORTANT]
+>
+> 确保你的LLM有[调用工具](https://platform.openai.com/docs/guides/function-calling)的能力。默认情况下，Acontext将使用 `gpt-4.1`。
 
-`acontext docker up` 将为 Acontext 创建/使用 `.env` 和 `config.yaml`，并创建 `db` 文件夹来持久化数据。
+`acontext docker up` 将为Acontext创建/使用 `.env` 和 `config.yaml`，并创建 `db` 文件夹来持久化数据。
 
 
 
-完成后，您可以访问以下端点：
+完成后，你可以访问以下端点：
 
 - Acontext API Base URL: http://localhost:8029/api/v1
 - Acontext Dashboard: http://localhost:3000/
 
+</details>
 
 
 
 
-# 🧐 Use Acontext to build Agent
+
+
+# 🧐 使用Acontext构建Agent
 
 使用 `acontext` 下载端到端脚本：
 
@@ -256,11 +297,11 @@ acontext docker up
 acontext create my-proj --template-path "python/openai-basic"
 ```
 
-> Python 的更多示例：
+> Python的更多示例：
 >
-> - `python/openai-agent-basic`: openai agent sdk 中的自学习 Agent。
-> - `python/agno-basic`: agno framework 中的自学习 Agent。
-> - `python/openai-agent-artifacts`: 可以编辑和下载 Artifacts 的 Agent。
+> - `python/openai-agent-basic`: openai agent sdk中的自学习Agent。
+> - `python/agno-basic`: agno framework中的自学习Agent。
+> - `python/openai-agent-artifacts`: 可以编辑和下载Artifacts的Agent。
 
 **Typescript**
 
@@ -268,29 +309,29 @@ acontext create my-proj --template-path "python/openai-basic"
 acontext create my-proj --template-path "typescript/openai-basic"
 ```
 
-> Typescript 的更多示例：
+> Typescript的更多示例：
 >
-> - `typescript/vercel-ai-basic`: @vercel/ai-sdk 中的自学习 Agent
+> - `typescript/vercel-ai-basic`: @vercel/ai-sdk中的自学习Agent
 
 
 
 > [!NOTE]
 >
-> Check our example repo for more templates: [Acontext-Examples](https://github.com/memodb-io/Acontext-Examples).
+> 查看我们的示例仓库获取更多模板：[Acontext-Examples](https://github.com/memodb-io/Acontext-Examples)。
 >
-> We're cooking more full-stack Agent Applications! [Tell us what you want!](https://discord.acontext.io)
+> 我们正在开发更多全栈Agent应用！[告诉我们你想要什么！](https://discord.acontext.io)
 
 
 
-## Step-by-step Quickstart
+## 分步快速入门
 
 <details>
 <summary>点击打开</summary>
 
 
-我们维护 Python [![pypi](https://img.shields.io/pypi/v/acontext.svg)](https://pypi.org/project/acontext/) 和 Typescript [![npm](https://img.shields.io/npm/v/@acontext/acontext.svg?logo=npm&logoColor=fff&style=flat&labelColor=2C2C2C&color=28CF8D)](https://www.npmjs.com/package/@acontext/acontext) SDK。下面的代码片段使用 Python。
+我们维护 Python [![pypi](https://img.shields.io/pypi/v/acontext.svg)](https://pypi.org/project/acontext/) 和 Typescript [![npm](https://img.shields.io/npm/v/@acontext/acontext.svg?logo=npm&logoColor=fff&style=flat&labelColor=2C2C2C&color=28CF8D)](https://www.npmjs.com/package/@acontext/acontext) SDK。下面的代码片段使用Python。
 
-## 安装 SDK
+## 安装SDK
 
 ```
 pip install acontext # for Python
@@ -302,15 +343,18 @@ npm i @acontext/acontext # for Typescript
 ## 初始化客户端
 
 ```python
+import os
 from acontext import AcontextClient
 
 client = AcontextClient(
-    base_url="http://localhost:8029/api/v1",
-    api_key="sk-ac-your-root-api-bearer-token"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
-client.ping()
 
-# yes, the default api_key is sk-ac-your-root-api-bearer-token
+# 如果你使用自托管Acontext：
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
 ```
 
 > [📖 异步客户端文档](https://docs.acontext.io/settings/core)
@@ -319,11 +363,11 @@ client.ping()
 
 ## 存储
 
-Acontext 可以管理 Agent 会话和 Artifacts。
+Acontext可以管理Agent会话和Artifacts。
 
 ### 保存消息 [📖](https://docs.acontext.io/api-reference/session/store-message-to-session)
 
-Acontext 为消息数据提供持久化存储。当您调用 `session.store_message` 时，Acontext 将持久化消息并开始监控此会话：
+Acontext为消息数据提供持久化存储。当你调用 `session.store_message` 时，Acontext将持久化消息并开始监控此会话：
 
 <details>
 <summary>代码片段</summary>
@@ -344,14 +388,14 @@ for msg in messages:
     client.sessions.store_message(session_id=session.id, blob=msg, format="openai")
 ```
 
-> [📖](https://docs.acontext.io/store/messages/multi-modal) 我们还支持多模态消息存储和 anthropic SDK。
+> [📖](https://docs.acontext.io/store/messages/multi-modal) 我们还支持多模态消息存储和anthropic SDK。
 
 
 </details>
 
 ### 加载消息 [📖](https://docs.acontext.io/api-reference/session/get-messages-from-session)
 
-使用 `sessions.get_messages` 获取您的会话消息
+使用 `sessions.get_messages` 获取你的会话消息
 
 <details>
 <summary>代码片段</summary>
@@ -372,13 +416,13 @@ client.sessions.store_message(session_id=session.id, blob=r.choices[0].message)
     <picture>
       <img alt="Session" src="../../docs/images/dashboard/message_viewer.png" width="100%">
     </picture>
-  <p>您可以在本地仪表板中查看会话</p>
+  <p>你可以在本地仪表板中查看会话</p>
 </div>
 
 
 ### Artifacts [📖](https://docs.acontext.io/store/disk)
 
-为您的 Agent 创建一个磁盘，使用文件路径存储和读取 Artifacts：
+为你的Agent创建一个磁盘，使用文件路径存储和读取Artifacts：
 
 <details>
 <summary>代码片段</summary>
@@ -422,16 +466,16 @@ print(f"✓ Download URL: {result.public_url}")
     <picture>
       <img alt="Artifacts" src="../../docs/images/dashboard/artifact_viewer.png" width="100%">
     </picture>
-  <p>您可以在本地仪表板中查看 Artifacts</p>
+  <p>你可以在本地仪表板中查看Artifacts</p>
 </div>
 
 
 
 ## 观察 [📖](https://docs.acontext.io/observe)
 
-对于每个会话，Acontext 将**自动**启动一个后台 Agent 来跟踪任务进度和用户反馈。**它就像一个后台 TODO Agent**。Acontext 将使用它来观察您日常 Agent 的成功率。
+对于每个会话，Acontext将**自动**启动一个后台Agent来跟踪任务进度和用户反馈。**它就像一个后台TODO Agent**。Acontext将使用它来观察你日常Agent的成功率。
 
-您可以使用 SDK 检索 Agent 会话的当前状态，用于上下文工程，如减少和压缩。 
+你可以使用SDK检索Agent会话的当前状态，用于上下文工程，如减少和压缩。 
 
 <details>
 <summary>完整脚本</summary>
@@ -504,7 +548,7 @@ for task in tasks_response.items:
 
 ```
 > `flush` 是一个阻塞调用，它将等待任务提取完成。
-> 您不需要在生产环境中调用它，Acontext 有一个[缓冲机制](https://docs.acontext.io/observe/buffer)来确保任务提取在正确的时间完成。
+> 你不需要在生产环境中调用它，Acontext有一个[缓冲机制](https://docs.acontext.io/observe/buffer)来确保任务提取在正确的时间完成。
 
 </details>
 
@@ -531,7 +575,7 @@ Task #3:
 
 
 
-您可以在仪表板中查看会话任务的状态：
+你可以在仪表板中查看会话任务的状态：
 
 <div align="center">
     <picture>
@@ -544,7 +588,7 @@ Task #3:
 
 ## 自我学习
 
-Acontext 可以收集大量会话，并学习如何为某些任务调用工具的技能（SOP）。
+Acontext可以收集大量会话，并学习如何为某些任务调用工具的技能（SOP）。
 
 ### 将技能学习到 `Space` [📖](https://docs.acontext.io/learn/skill-space)
 
@@ -555,7 +599,7 @@ Acontext 可以收集大量会话，并学习如何为某些任务调用工具�
   <p>自我学习如何工作？</p>
 </div>
 
-`Space` 可以在类似 Notion 的系统中存储技能和记忆。您首先需要将会话连接到 `Space` 以启用学习过程：
+`Space` 可以在类似Notion的系统中存储技能和记忆。你首先需要将会话连接到 `Space` 以启用学习过程：
 
 ```python
 # Step 1: Create a Space for skill learning
@@ -568,9 +612,9 @@ session = client.sessions.create(space_id=space.id)
 # ... push the agent working context
 ```
 
-学习在后台进行，不是实时的（延迟约 10-30 秒）。 
+学习在后台进行，不是实时的（延迟约10-30秒）。 
 
-Acontext 在后台将执行的操作：
+Acontext在后台将执行的操作：
 
 ```mermaid
 graph LR
@@ -585,13 +629,13 @@ graph LR
     I --> J[Available for Future Sessions]
 ```
 
-最终，带有工具调用模式的 SOP 块将被保存到 `Space`。您可以在仪表板中查看每个 `Space`：
+最终，带有工具调用模式的SOP块将被保存到 `Space`。你可以在仪表板中查看每个 `Space`：
 
 <div align="center">
     <picture>
       <img alt="A Space Demo" src="../../docs/images/dashboard/skill_viewer.png" width="100%">
     </picture>
-  <p>Space 演示</p>
+  <p>Space演示</p>
 </div>
 
 
@@ -609,9 +653,9 @@ result = client.spaces.experience_search(
 )
 ```
 
-Acontext 支持 `fast` 和 `agentic` 搜索模式。前者使用嵌入来匹配技能。后者使用 Experience Agents 探索整个 `Space`，并尝试涵盖所需的每个技能。
+Acontext支持 `fast` 和 `agentic` 搜索模式。前者使用嵌入来匹配技能。后者使用Experience Agent探索整个 `Space`，并尝试涵盖所需的每个技能。
 
-返回的是一个 sop 块列表，如下所示：
+返回的是一个sop块列表，如下所示：
 
 ```json
 {
@@ -632,15 +676,16 @@ Acontext 支持 `fast` 和 `agentic` 搜索模式。前者使用嵌入来匹配�
 
 
 
+
 # 🔍 文档
 
-要更好地了解 Acontext 的功能，请查看 [我们的文档](https://docs.acontext.io/)
+要更好地了解Acontext的功能，请查看 [我们的文档](https://docs.acontext.io/)
 
 
 
 # ❤️ 保持更新
 
-在 Github 上为 Acontext 加星标以支持并接收即时通知 
+在Github上为Acontext加星标以支持并接收即时通知 
 
 ![click_star](../../assets/star_acontext.gif)
 
@@ -650,8 +695,8 @@ Acontext 支持 `fast` 和 `agentic` 搜索模式。前者使用嵌入来匹配�
 
 加入社区以获得支持和讨论：
 
--   [在 Acontext Discord 上与构建者讨论](https://discord.acontext.io) 👻 
--  [在 X 上关注 Acontext](https://x.com/acontext_io) 𝕏 
+-   [在Acontext Discord上与构建者讨论](https://discord.acontext.io) 👻 
+-  [在X上关注Acontext](https://x.com/acontext_io) 𝕏 
 
 
 
@@ -677,4 +722,3 @@ Acontext 支持 `fast` 和 `agentic` 搜索模式。前者使用嵌入来匹配�
 
 [![Made with Acontext](https://assets.memodb.io/Acontext/badge-made-with-acontext-dark.svg)](https://acontext.io)
 ```
-

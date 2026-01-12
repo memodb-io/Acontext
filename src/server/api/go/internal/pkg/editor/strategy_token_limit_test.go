@@ -429,14 +429,14 @@ func TestTokenLimitStrategy_ToolCallPairing(t *testing.T) {
 			},
 		}
 
-		// Count tokens for last message only
+		// Count tokens for last 2 messages only
 		ctx := context.Background()
-		lastMessage := messages[4:]
-		tokensForLast, err := tokenizer.CountMessagePartsTokens(ctx, lastMessage)
+		lastMessages := messages[3:]
+		tokensForLast, err := tokenizer.CountMessagePartsTokens(ctx, lastMessages)
 		require.NoError(t, err)
 
-		// Set very low limit to remove tool pairs
-		strategy := &TokenLimitStrategy{LimitTokens: tokensForLast + 10}
+		// Set limit to exactly the last message tokens to force removal of all tool pairs
+		strategy := &TokenLimitStrategy{LimitTokens: tokensForLast}
 
 		result, err := strategy.Apply(messages)
 

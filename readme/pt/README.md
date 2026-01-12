@@ -31,13 +31,35 @@
 </div>
 
 
-Acontext pode ajudá-lo a:
+*Todo mundo está te dizendo como usar seus agents. Mas se VOCÊ precisa construir um agent para 100.000 usuários, por onde começaria?*
 
-- **Construir um agente escalável com melhor engenharia de contexto**
-- **Observar a taxa de sucesso do seu agente**
-- **Melhorar seu agente com autoaprendizado para cada usuário**
+**📦 Problema 1: 99% do seu DB são mensagens LLM.** 
+
+> Design de schema ruim torna seus dados mais valiosos caros e lentos. Acontext lida com armazenamento e recuperação de contexto via PG, Redis e S3.
+>
+> ChatGPT, Gemini, Anthropic, imagens, áudio, arquivos... temos você coberto.
+
+**⏰ Problema 2: Agents de longa duração são um pesadelo.** 
+
+> Você conhece engenharia de contexto, mas está sempre escrevendo do zero. Acontext vem com métodos de edição de contexto integrados e um todo agent pronto para usar.
+>
+> Gerenciar estado do agent? Moleza.
+
+**👀 Problema 3: Você não consegue ver como seu agent está se saindo.** 
+
+> Seus usuários estão realmente satisfeitos? Acontext rastreia tarefas por sessão e mostra a taxa de sucesso real do seu agent.
+>
+> Pare de se obcecar com custos de tokens, melhore o agent primeiro.
+
+**🧠 Problema 4: Seu agent é imprevisível.**
+
+> Ele pode aprender com seus sucessos? O experience agent do Acontext lembra execuções bem-sucedidas e as transforma em SOPs de uso de ferramentas reutilizáveis.
+>
+> Consistência é tudo.
 
 
+
+Para resolver esses problemas de uma vez, Acontext se torna a **Plataforma de Dados de Contexto**:
 
 <div align="center">
     <picture>
@@ -47,13 +69,12 @@ Acontext pode ajudá-lo a:
 </div>
 
 
-
 # 💡 Principais Recursos
 
-- Context Engineering
-  - [Session](https://docs.acontext.io/store/messages/multi-provider): Armazenamento de Mensagens LLM Multi-modal
-  - [Disk](https://docs.acontext.io/store/disk): Sistema de arquivos para artifacts
-  - [Context Editing](https://docs.acontext.io/store/editing) - Engenharia de Contexto em uma chamada
+- **Context Engineering**
+  - [Session](https://docs.acontext.io/store/messages/multi-provider): armazenamento de mensagens unificado para qualquer LLM, qualquer modalidade.
+  - [Disk](https://docs.acontext.io/store/disk): salvar/baixar artifacts com caminho de arquivo.
+  - [Context Editing](https://docs.acontext.io/store/editing) - gerencie sua janela de contexto em uma API.
 
 <div align="center">
     <picture>
@@ -62,10 +83,10 @@ Acontext pode ajudá-lo a:
   <p>Context Engineering no Acontext</p>
 </div>
 
-- **Observar tarefas de agentes e feedback do usuário**
-  - [Task Agent](https://docs.acontext.io/observe/agent_tasks) - Agente em segundo plano que coleta status, progresso e preferências da tarefa
-- **Habilitar autoaprendizado de agentes**
-  - [Experience Agent](https://docs.acontext.io/learn/advance/experience-agent) - Agentes em segundo plano que destilam, salvam e pesquisam habilidades para cada usuário.
+- **Observar tarefas do agent e feedback do usuário**
+  - [Task](https://docs.acontext.io/observe/agent_tasks): coletar status de trabalho do agent, progresso e preferências em tempo quase real.
+- **Auto-aprendizado do agent**
+  - [Experience](https://docs.acontext.io/learn/advance/experience-agent): deixe o agent aprender SOPs para cada usuário.
 - **Visualizar tudo em um [dashboard](https://docs.acontext.io/observe/dashboard)**
 
 <div align="center">
@@ -80,7 +101,7 @@ Acontext pode ajudá-lo a:
 # 🏗️ Como funciona?
 
 <details>
-<summary>Clique para abrir o diagrama de arquitetura, se estiver interessado.</summary>
+<summary>clique para abrir</summary>
 
 ```mermaid
 graph TB
@@ -153,6 +174,7 @@ graph TB
 
 
 ## Estruturas de Dados
+
 <details>
 <summary>📖 Estrutura de Tarefa</summary>
 
@@ -215,7 +237,22 @@ graph TB
 
 
 
-# 🚀 Start the Backend Locally
+# 🚀 Conectar ao Acontext
+
+1. Vá para [Acontext.io](https://acontext.io), resgate seus créditos grátis.
+2. Passe por um onboarding de um clique para obter sua API Key: `sk-ac-xxx`
+
+<div align="center">
+    <picture>
+      <img alt="Dashboard" src="../../assets/onboard.png" width="80%">
+    </picture>
+</div>
+
+
+
+
+<details>
+<summary>💻 Auto-hospedar Acontext</summary>
 
 Temos um `acontext-cli` para ajudá-lo a fazer uma prova de conceito rápida. Baixe-o primeiro no seu terminal:
 
@@ -230,7 +267,9 @@ mkdir acontext_server && cd acontext_server
 acontext docker up
 ```
 
-> [📖 configuração local](https://docs.acontext.io/local#start-acontext-server-locally) Recomendamos `gpt-4.1` como modelo LLM
+> [!IMPORTANT]
+>
+> Certifique-se de que seu LLM tenha a capacidade de [chamar ferramentas](https://platform.openai.com/docs/guides/function-calling). Por padrão, Acontext usará `gpt-4.1`.
 
 `acontext docker up` criará/usará `.env` e `config.yaml` para Acontext, e criará uma pasta `db` para persistir dados.
 
@@ -241,11 +280,14 @@ Quando terminar, você pode acessar os seguintes endpoints:
 - Acontext API Base URL: http://localhost:8029/api/v1
 - Acontext Dashboard: http://localhost:3000/
 
+</details>
 
 
 
 
-# 🧐 Use Acontext to build Agent
+
+
+# 🧐 Usar Acontext para construir Agent
 
 Baixe scripts de ponta a ponta com `acontext`:
 
@@ -257,9 +299,9 @@ acontext create my-proj --template-path "python/openai-basic"
 
 > Mais exemplos em Python:
 >
-> - `python/openai-agent-basic`: Agent de autoaprendizado no openai agent sdk.
-> - `python/agno-basic`: Agent de autoaprendizado no agno framework.
-> - `python/openai-agent-artifacts`: Agent que pode editar e baixar Artifacts.
+> - `python/openai-agent-basic`: agent de auto-aprendizado no openai agent sdk.
+> - `python/agno-basic`: agent de auto-aprendizado no agno framework.
+> - `python/openai-agent-artifacts`: agent que pode editar e baixar artifacts.
 
 **Typescript**
 
@@ -269,19 +311,19 @@ acontext create my-proj --template-path "typescript/openai-basic"
 
 > Mais exemplos em Typescript:
 >
-> - `typescript/vercel-ai-basic`: Agent de autoaprendizado no @vercel/ai-sdk
+> - `typescript/vercel-ai-basic`: agent de auto-aprendizado no @vercel/ai-sdk
 
 
 
 > [!NOTE]
 >
-> Check our example repo for more templates: [Acontext-Examples](https://github.com/memodb-io/Acontext-Examples).
+> Confira nosso repositório de exemplos para mais templates: [Acontext-Examples](https://github.com/memodb-io/Acontext-Examples).
 >
-> We're cooking more full-stack Agent Applications! [Tell us what you want!](https://discord.acontext.io)
+> Estamos preparando mais aplicações Agent full-stack! [Diga-nos o que você quer!](https://discord.acontext.io)
 
 
 
-## Step-by-step Quickstart
+## Início Rápido Passo a Passo
 
 <details>
 <summary>Clique para Abrir</summary>
@@ -301,15 +343,18 @@ npm i @acontext/acontext # for Typescript
 ## Inicializar Cliente
 
 ```python
+import os
 from acontext import AcontextClient
 
 client = AcontextClient(
-    base_url="http://localhost:8029/api/v1",
-    api_key="sk-ac-your-root-api-bearer-token"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
-client.ping()
 
-# yes, the default api_key is sk-ac-your-root-api-bearer-token
+# Se você estiver usando Acontext auto-hospedado:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
 ```
 
 > [📖 async client doc](https://docs.acontext.io/settings/core)
@@ -318,7 +363,7 @@ client.ping()
 
 ## Armazenar
 
-Acontext pode gerenciar sessões de Agents e Artifacts.
+Acontext pode gerenciar sessões de agents e artifacts.
 
 ### Salvar Mensagens [📖](https://docs.acontext.io/api-reference/session/store-message-to-session)
 
@@ -377,7 +422,7 @@ client.sessions.store_message(session_id=session.id, blob=r.choices[0].message)
 
 ### Artifacts [📖](https://docs.acontext.io/store/disk)
 
-Crie um disco para seu Agent armazenar e ler Artifacts usando caminhos de arquivo:
+Crie um disco para seu agent armazenar e ler artifacts usando caminhos de arquivo:
 
 <details>
 <summary>Trecho de Código</summary>
@@ -428,9 +473,9 @@ print(f"✓ Download URL: {result.public_url}")
 
 ## Observar [📖](https://docs.acontext.io/observe)
 
-Para cada sessão, o Acontext **automaticamente** iniciará um Agent em segundo plano para rastrear o progresso da tarefa e o feedback do usuário. **É como um Agent TODO em segundo plano**. Acontext o usará para observar sua taxa de sucesso diária do Agent.
+Para cada sessão, o Acontext **automaticamente** iniciará um agent em segundo plano para rastrear o progresso da tarefa e o feedback do usuário. **É como um agent TODO em segundo plano**. Acontext o usará para observar sua taxa de sucesso diária do agent.
 
-Você pode usar o SDK para recuperar o estado atual da sessão do Agent, para Context Engineering como Redução e Compressão. 
+Você pode usar o SDK para recuperar o estado atual da sessão do agent, para Context Engineering como Redução e Compressão. 
 
 <details>
 <summary>Script Completo</summary>
@@ -503,7 +548,7 @@ for task in tasks_response.items:
 
 ```
 > `flush` é uma chamada bloqueante, aguardará a conclusão da extração da tarefa.
-> Você não precisa chamá-lo em produção, o Acontext tem um mecanismo de buffer para garantir que a extração da tarefa seja concluída no momento certo.
+> Você não precisa chamá-lo em produção, o Acontext tem um [mecanismo de buffer](https://docs.acontext.io/observe/buffer) para garantir que a extração da tarefa seja concluída no momento certo.
 
 </details>
 
@@ -541,7 +586,7 @@ Você pode visualizar os status das tarefas da sessão no Painel:
 
 
 
-## Autoaprendizado
+## Auto-aprendizado
 
 Acontext pode coletar várias sessões e aprender habilidades (SOPs) sobre como chamar ferramentas para certas tarefas.
 
@@ -551,7 +596,7 @@ Acontext pode coletar várias sessões e aprender habilidades (SOPs) sobre como 
     <picture>
       <img alt="A Space Demo" src="../../assets/acontext_dataflow.png" width="100%">
     </picture>
-  <p>Como funciona o autoaprendizado?</p>
+  <p>Como funciona o auto-aprendizado?</p>
 </div>
 
 Um `Space` pode armazenar habilidades e memórias em um sistema semelhante ao Notion. Você primeiro precisa conectar uma sessão ao `Space` para habilitar o processo de aprendizado:
@@ -631,6 +676,7 @@ O retorno é uma lista de blocos sop, que se parecem com isto:
 
 
 
+
 # 🔍 Documentação
 
 Para entender melhor o que o Acontext pode fazer, por favor, consulte [nossa documentação](https://docs.acontext.io/)
@@ -676,4 +722,3 @@ Este projeto está atualmente licenciado sob [Apache License 2.0](LICENSE).
 
 [![Made with Acontext](https://assets.memodb.io/Acontext/badge-made-with-acontext-dark.svg)](https://acontext.io)
 ```
-

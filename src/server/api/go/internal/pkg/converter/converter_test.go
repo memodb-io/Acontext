@@ -170,6 +170,8 @@ func TestGetConvertedMessagesOutput(t *testing.T) {
 		publicURLs,
 		"next_cursor_123",
 		true,
+		100, // thisTimeTokens
+		"",  // editAtMessageID
 	)
 
 	require.NoError(t, err)
@@ -177,6 +179,7 @@ func TestGetConvertedMessagesOutput(t *testing.T) {
 	assert.NotNil(t, result["items"])
 	assert.Equal(t, true, result["has_more"])
 	assert.Equal(t, "next_cursor_123", result["next_cursor"])
+	assert.Equal(t, 100, result["this_time_tokens"])
 
 	// Acontext format should include public_urls
 	assert.NotNil(t, result["public_urls"])
@@ -199,12 +202,15 @@ func TestGetConvertedMessagesOutput_NonAcontextFormat(t *testing.T) {
 		publicURLs,
 		"",
 		false,
+		50, // thisTimeTokens
+		"", // editAtMessageID
 	)
 
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 	assert.NotNil(t, result["items"])
 	assert.Equal(t, false, result["has_more"])
+	assert.Equal(t, 50, result["this_time_tokens"])
 
 	// Non-Acontext formats should NOT include public_urls
 	assert.Nil(t, result["public_urls"])
@@ -220,6 +226,8 @@ func TestGetConvertedMessagesOutput_EmptyMessages(t *testing.T) {
 		nil,
 		"",
 		false,
+		0,  // thisTimeTokens
+		"", // editAtMessageID
 	)
 
 	require.NoError(t, err)
@@ -235,6 +243,9 @@ func TestGetConvertedMessagesOutput_EmptyMessages(t *testing.T) {
 	// Verify items exists (don't check type, just that it exists)
 	_, hasItems := result["items"]
 	assert.True(t, hasItems, "items field should exist")
+
+	// Verify this_time_tokens is 0 for empty messages
+	assert.Equal(t, 0, result["this_time_tokens"])
 }
 
 func TestGetConvertedMessagesOutput_SingleMessage(t *testing.T) {
@@ -251,6 +262,8 @@ func TestGetConvertedMessagesOutput_SingleMessage(t *testing.T) {
 		nil,
 		"cursor-123",
 		true,
+		25, // thisTimeTokens
+		"", // editAtMessageID
 	)
 
 	require.NoError(t, err)
@@ -263,6 +276,7 @@ func TestGetConvertedMessagesOutput_SingleMessage(t *testing.T) {
 	// Verify pagination fields
 	assert.Equal(t, "cursor-123", result["next_cursor"])
 	assert.Equal(t, true, result["has_more"])
+	assert.Equal(t, 25, result["this_time_tokens"])
 
 	// Verify items exists
 	_, hasItems := result["items"]
@@ -287,6 +301,8 @@ func TestGetConvertedMessagesOutput_IDOrderMatchesItemOrder(t *testing.T) {
 		nil,
 		"",
 		false,
+		75, // thisTimeTokens
+		"", // editAtMessageID
 	)
 
 	require.NoError(t, err)
@@ -316,6 +332,8 @@ func TestGetConvertedMessagesOutput_DifferentFormats(t *testing.T) {
 			nil,
 			"",
 			false,
+			30, // thisTimeTokens
+			"", // editAtMessageID
 		)
 
 		require.NoError(t, err, "format %s should not error", format)
@@ -326,6 +344,7 @@ func TestGetConvertedMessagesOutput_DifferentFormats(t *testing.T) {
 		idsSlice := ids.([]string)
 		assert.Equal(t, 1, len(idsSlice), "should have 1 ID for format %s", format)
 		assert.Equal(t, msg.ID.String(), idsSlice[0], "ID should match for format %s", format)
+		assert.Equal(t, 30, result["this_time_tokens"], "this_time_tokens should be present for format %s", format)
 	}
 }
 
@@ -346,6 +365,8 @@ func TestGetConvertedMessagesOutput_WithPublicURLs(t *testing.T) {
 		publicURLs,
 		"",
 		false,
+		42, // thisTimeTokens
+		"", // editAtMessageID
 	)
 
 	require.NoError(t, err)
@@ -356,4 +377,6 @@ func TestGetConvertedMessagesOutput_WithPublicURLs(t *testing.T) {
 
 	_, hasURLs := result["public_urls"]
 	assert.True(t, hasURLs, "public_urls should exist for Acontext format")
+
+	assert.Equal(t, 42, result["this_time_tokens"])
 }

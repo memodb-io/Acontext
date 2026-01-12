@@ -395,7 +395,12 @@ def test_store_message_rejects_file_field_for_non_acontext_format(
 def test_sessions_get_messages_forwards_format(
     mock_request, client: AcontextClient
 ) -> None:
-    mock_request.return_value = {"items": [], "ids": [], "has_more": False}
+    mock_request.return_value = {
+        "items": [],
+        "ids": [],
+        "has_more": False,
+        "this_time_tokens": 0,
+    }
 
     result = client.sessions.get_messages(
         "session-id", format="acontext", time_desc=True
@@ -416,7 +421,12 @@ def test_sessions_get_messages_forwards_format(
 def test_sessions_get_messages_with_edit_strategies(
     mock_request, client: AcontextClient
 ) -> None:
-    mock_request.return_value = {"items": [], "ids": [], "has_more": False}
+    mock_request.return_value = {
+        "items": [],
+        "ids": [],
+        "has_more": False,
+        "this_time_tokens": 0,
+    }
 
     edit_strategies = [
         {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}
@@ -446,7 +456,12 @@ def test_sessions_get_messages_with_edit_strategies(
 def test_sessions_get_messages_without_edit_strategies(
     mock_request, client: AcontextClient
 ) -> None:
-    mock_request.return_value = {"items": [], "ids": [], "has_more": False}
+    mock_request.return_value = {
+        "items": [],
+        "ids": [],
+        "has_more": False,
+        "this_time_tokens": 0,
+    }
 
     result = client.sessions.get_messages("session-id", format="openai")
 
@@ -842,6 +857,160 @@ def test_disk_artifacts_get_translates_query_params(
         "with_content": "true",
         "expire": 900,
     }
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_skills_create_uses_multipart_payload(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = {
+        "id": "skill-1",
+        "name": "test-skill",
+        "description": "Test skill",
+        "file_index": [{"path": "SKILL.md", "mime": "text/markdown"}],
+        "meta": {"version": "1.0"},
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
+
+    client.skills.create(
+        file=FileUpload(
+            filename="skill.zip", content=b"zip content", content_type="application/zip"
+        ),
+        meta={"version": "1.0"},
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "POST"
+    assert path == "/agent_skills"
+    assert "files" in kwargs
+    assert "data" in kwargs
+    meta = json.loads(kwargs["data"]["meta"])
+    assert meta["version"] == "1.0"
+    filename, stream, content_type = kwargs["files"]["file"]
+    assert filename == "skill.zip"
+    assert content_type == "application/zip"
+    assert stream.read() == b"zip content"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_skills_get_by_name_hits_by_name_endpoint(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = {
+        "id": "skill-1",
+        "name": "test-skill",
+        "description": "Test skill",
+        "file_index": [{"path": "SKILL.md", "mime": "text/markdown"}],
+        "meta": {},
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
+
+    result = client.skills.get_by_name("test-skill")
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/agent_skills/by_name"
+    assert kwargs["params"] == {"name": "test-skill"}
+    assert result.id == "skill-1"
+    assert result.name == "test-skill"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_skills_delete_hits_skills_endpoint(mock_request, client: AcontextClient) -> None:
+    mock_request.return_value = None
+
+    client.skills.delete("skill-1")
+
+    mock_request.assert_called_once()
+    args, _ = mock_request.call_args
+    method, path = args
+    assert method == "DELETE"
+    assert path == "/agent_skills/skill-1"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_skills_list_returns_catalog_dict(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = {
+        "items": [
+            {
+                "id": "skill-1",
+                "name": "test-skill-1",
+                "description": "Test skill 1",
+                "file_index": [{"path": "SKILL.md", "mime": "text/markdown"}],
+                "meta": {},
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            },
+            {
+                "id": "skill-2",
+                "name": "test-skill-2",
+                "description": "Test skill 2",
+                "file_index": [
+                    {"path": "SKILL.md", "mime": "text/markdown"},
+                    {"path": "scripts/main.py", "mime": "text/x-python"},
+                ],
+                "meta": {},
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            },
+        ],
+        "next_cursor": None,
+        "has_more": False,
+    }
+
+    result = client.skills.list_catalog(limit=100)
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/agent_skills"
+    assert kwargs["params"] == {"limit": 100}
+    assert len(result.items) == 2
+    assert result.items[0].name == "test-skill-1"
+    assert result.items[0].description == "Test skill 1"
+    assert result.items[1].name == "test-skill-2"
+    assert result.items[1].description == "Test skill 2"
+    # Verify pagination information (mock data indicates no more pages)
+    assert result.next_cursor is None
+    assert result.has_more is False
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_skills_get_file_by_name_hits_by_name_endpoint(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = {
+        "path": "scripts/main.py",
+        "mime": "text/x-python",
+        "content": {"type": "code", "raw": "print('Hello, World!')"},
+    }
+
+    result = client.skills.get_file_by_name(
+        skill_name="test-skill",
+        file_path="scripts/main.py",
+        expire=1800,
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/agent_skills/by_name/test-skill/file"
+    assert kwargs["params"]["file_path"] == "scripts/main.py"
+    assert kwargs["params"]["expire"] == 1800
+    assert result.path == "scripts/main.py"
+    assert result.mime == "text/x-python"
+    assert result.content is not None
+    assert result.content.raw == "print('Hello, World!')"
 
 
 @patch("acontext.client.AcontextClient.request")

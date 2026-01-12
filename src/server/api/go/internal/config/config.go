@@ -21,6 +21,7 @@ type RootCfg struct {
 	ApiBearerToken           string
 	ProjectBearerTokenPrefix string
 	SecretPepper             string
+	EnableArgon2Verification bool
 }
 
 type LogCfg struct {
@@ -103,6 +104,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("app.port", 8029)
 	v.SetDefault("root.apiBearerToken", "your-root-api-bearer-token")
 	v.SetDefault("root.projectBearerTokenPrefix", "sk-ac-")
+	v.SetDefault("root.enableArgon2Verification", true)
 	v.SetDefault("database.dsn", "host=127.0.0.1 user=acontext password=helloworld dbname=acontext port=15432 sslmode=disable TimeZone=UTC")
 	v.SetDefault("database.enableTLS", false)
 	v.SetDefault("redis.addr", "127.0.0.1:16379")

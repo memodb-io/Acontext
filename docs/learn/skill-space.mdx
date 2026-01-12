@@ -49,12 +49,12 @@ client = AcontextClient(
 #     api_key="sk-ac-your-root-api-bearer-token",
 # )
 
-# Step 1: Create a Space for skill learning
-space = client.spaces.create()
+# Step 1: Create a Space for skill learning (optionally associate with a user)
+space = client.spaces.create(user="user@example.com")
 print(f"Created Space: {space.id}")
 
-# Step 2: Create a session attached to the space
-session = client.sessions.create(space_id=space.id)
+# Step 2: Create a session attached to the space (optionally associate with a user)
+session = client.sessions.create(space_id=space.id, user="user@example.com")
 print(f"Created Session: {session.id}")
 print(f"Session is connected to Space: {session.space_id}")
 
@@ -225,13 +225,14 @@ const client = new AcontextClient({
 // });
 
 async function demonstrateSkillLearning() {
-    // Step 1: Create a Space for skill learning
-    const space = await client.spaces.create();
+    // Step 1: Create a Space for skill learning (optionally associate with a user)
+    const space = await client.spaces.create({ user: 'user@example.com' });
     console.log(`Created Space: ${space.id}`);
 
-    // Step 2: Create a session attached to the space
+    // Step 2: Create a session attached to the space (optionally associate with a user)
     const session = await client.sessions.create({
-        spaceId: space.id
+        spaceId: space.id,
+        user: 'user@example.com'
     });
     console.log(`Created Session: ${session.id}`);
     console.log(`Session is connected to Space: ${session.space_id}`);
@@ -394,6 +395,10 @@ demonstrateSkillLearning();
 <Check>
 Once tasks complete successfully, they'll be automatically processed and learned into the Space. This happens asynchronously in the background.
 </Check>
+
+<Tip>
+You can associate spaces and sessions with a specific user by passing the `user` parameter when creating them. This enables per-user skill libraries and resource cleanup. See [Per-user Resources](/chore/per-user) for details.
+</Tip>
 
 ## Connecting Existing Sessions to a Space
 

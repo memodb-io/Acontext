@@ -31,11 +31,13 @@ export class DisksAPI {
   }
 
   async list(options?: {
+    user?: string | null;
     limit?: number | null;
     cursor?: string | null;
     timeDesc?: boolean | null;
   }): Promise<ListDisksOutput> {
     const params = buildParams({
+      user: options?.user ?? null,
       limit: options?.limit ?? null,
       cursor: options?.cursor ?? null,
       time_desc: options?.timeDesc ?? null,
@@ -46,8 +48,16 @@ export class DisksAPI {
     return ListDisksOutputSchema.parse(data);
   }
 
-  async create(): Promise<Disk> {
-    const data = await this.requester.request('POST', '/disk');
+  async create(options?: {
+    user?: string | null;
+  }): Promise<Disk> {
+    const payload: Record<string, unknown> = {};
+    if (options?.user !== undefined && options?.user !== null) {
+      payload.user = options.user;
+    }
+    const data = await this.requester.request('POST', '/disk', {
+      jsonData: Object.keys(payload).length > 0 ? payload : undefined,
+    });
     return DiskSchema.parse(data);
   }
 

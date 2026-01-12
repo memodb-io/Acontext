@@ -1,0 +1,466 @@
+---
+title: Per-user Resources
+description: "Manage resources per user with Acontext's user-based resource management feature"
+---
+
+User-based resource management allows you to associate Acontext resources (Spaces, Sessions, Disks, and Skills) with user identifiers. This enables multi-tenant scenarios, per-user resource isolation, and simplified resource cleanup.
+
+## What you'll learn
+
+In this guide, you'll learn how to:
+
+- Associate resources (Spaces, Sessions, Disks, Skills) with user identifiers
+- Filter resources by user
+- Delete a user and cascade delete all associated resources
+- Build multi-tenant applications with per-user resource isolation
+
+## Prerequisites
+
+Before you begin, ensure you have:
+- A running Acontext server ([run locally](/local))
+- An Acontext API key (default is `sk-ac-your-root-api-bearer-token`)
+
+## Initialize the client
+
+First, create a client instance with your API key and base URL.
+
+<CodeGroup>
+```python Python
+import os
+from acontext import AcontextClient
+
+client = AcontextClient(
+    api_key=os.getenv("ACONTEXT_API_KEY"),
+)
+
+# If you're using self-hosted Acontext:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
+
+client.ping()
+```
+
+```typescript TypeScript
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+// If you're using self-hosted Acontext:
+// const client = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
+```
+</CodeGroup>
+
+<Warning>
+Never hardcode API keys in production code. Use environment variables instead.
+</Warning>
+
+## Step-by-step tutorial
+
+<Steps>
+<Step title="Create resources with user association">
+Associate resources with a user by passing the `user` parameter when creating them. User records are created automatically when first referenced.
+
+<CodeGroup>
+```python Python
+# Create a space for a user
+space = client.spaces.create(
+    user="alice@acontext.io",
+    configs={"name": "Alice's Workspace"}
+)
+print(f"Created space: {space.id}")
+
+# Create a session for the same user
+session = client.sessions.create(
+    user="alice@acontext.io",
+    space_id=space.id,
+    configs={"mode": "chat"}
+)
+print(f"Created session: {session.id}")
+
+# Create a disk for the user
+disk = client.disks.create(user="alice@acontext.io")
+print(f"Created disk: {disk.id}")
+```
+
+```typescript TypeScript
+// Create a space for a user
+const space = await client.spaces.create({
+  user: 'alice@acontext.io',
+  configs: { name: "Alice's Workspace" }
+});
+console.log(`Created space: ${space.id}`);
+
+// Create a session for the same user
+const session = await client.sessions.create({
+  user: 'alice@acontext.io',
+  spaceId: space.id,
+  configs: { mode: 'chat' }
+});
+console.log(`Created session: ${session.id}`);
+
+// Create a disk for the user
+const disk = await client.disks.create({ user: 'alice@acontext.io' });
+console.log(`Created disk: ${disk.id}`);
+```
+</CodeGroup>
+
+<Info>
+The `user` parameter is optional. Resources created without a `user` parameter are not associated with any user and can still be queried and managed normally.
+</Info>
+</Step>
+
+<Step title="Filter resources by user">
+All list operations support filtering by user identifier to retrieve only resources belonging to a specific user.
+
+<CodeGroup>
+```python Python
+# List spaces for a specific user
+spaces = client.spaces.list(user="alice@acontext.io", limit=20)
+print(f"Found {len(spaces.items)} spaces")
+
+# List sessions for a specific user
+sessions = client.sessions.list(user="alice@acontext.io", limit=20)
+print(f"Found {len(sessions.items)} sessions")
+
+# List disks for a specific user
+disks = client.disks.list(user="alice@acontext.io", limit=20)
+print(f"Found {len(disks.items)} disks")
+
+# List skills for a specific user
+skills = client.skills.list_catalog(user="alice@acontext.io", limit=20)
+print(f"Found {len(skills.items)} skills")
+```
+
+```typescript TypeScript
+// List spaces for a specific user
+const spaces = await client.spaces.list({ 
+  user: 'alice@acontext.io', 
+  limit: 20 
+});
+console.log(`Found ${spaces.items.length} spaces`);
+
+// List sessions for a specific user
+const sessions = await client.sessions.list({ 
+  user: 'alice@acontext.io', 
+  limit: 20 
+});
+console.log(`Found ${sessions.items.length} sessions`);
+
+// List disks for a specific user
+const disks = await client.disks.list({ 
+  user: 'alice@acontext.io', 
+  limit: 20 
+});
+console.log(`Found ${disks.items.length} disks`);
+
+// List skills for a specific user
+const skills = await client.skills.listCatalog({ 
+  user: 'alice@acontext.io', 
+  limit: 20 
+});
+console.log(`Found ${skills.items.length} skills`);
+```
+</CodeGroup>
+
+<Check>
+Use user filtering to build user-specific dashboards and views.
+</Check>
+</Step>
+
+<Step title="Delete a user and all resources">
+Deleting a user removes the user record and cascades to delete all associated resources (Spaces, Sessions, Disks, and Skills).
+
+<CodeGroup>
+```python Python
+# Delete a user and all their resources
+client.users.delete("alice@acontext.io")
+print("User and all resources deleted")
+```
+
+```typescript TypeScript
+// Delete a user and all their resources
+await client.users.delete('alice@acontext.io');
+console.log("User and all resources deleted");
+```
+</CodeGroup>
+
+<Warning>
+Deleting a user is a destructive operation that cannot be undone. All Spaces, Sessions, Disks, and Skills associated with the user will be permanently deleted.
+</Warning>
+</Step>
+</Steps>
+
+## Complete example
+
+Here's a complete working example that demonstrates the full workflow:
+
+<CodeGroup>
+```python Python
+import os
+from acontext import AcontextClient, FileUpload
+
+def main():
+    # Initialize client
+    client = AcontextClient(
+        api_key=os.getenv("ACONTEXT_API_KEY"),
+    )
+    
+    user_id = "demo-user@example.com"
+    
+    try:
+        # Create resources for a user
+        space = client.spaces.create(
+            user=user_id,
+            configs={"name": "Demo Workspace"}
+        )
+        print(f"✓ Created space: {space.id}")
+        
+        session = client.sessions.create(
+            user=user_id,
+            space_id=space.id
+        )
+        print(f"✓ Created session: {session.id}")
+        
+        disk = client.disks.create(user=user_id)
+        print(f"✓ Created disk: {disk.id}")
+        
+        # List all resources for the user
+        spaces = client.spaces.list(user=user_id)
+        sessions = client.sessions.list(user=user_id)
+        disks = client.disks.list(user=user_id)
+        print(f"✓ User has {len(spaces.items)} space(s), {len(sessions.items)} session(s), {len(disks.items)} disk(s)")
+        
+        # Cleanup: Delete user and all resources
+        client.users.delete(user_id)
+        print(f"✓ Deleted user {user_id} and all resources")
+        
+    except Exception as e:
+        print(f"✗ Error: {e}")
+
+if __name__ == "__main__":
+    main()
+```
+
+```typescript TypeScript
+import { AcontextClient } from '@acontext/acontext';
+
+async function main() {
+    // Initialize client
+    const client = new AcontextClient({
+        apiKey: process.env.ACONTEXT_API_KEY,
+    });
+    
+    const userId = "demo-user@example.com";
+    
+    try {
+        // Create resources for a user
+        const space = await client.spaces.create({
+            user: userId,
+            configs: { name: "Demo Workspace" }
+        });
+        console.log(`✓ Created space: ${space.id}`);
+        
+        const session = await client.sessions.create({
+            user: userId,
+            spaceId: space.id
+        });
+        console.log(`✓ Created session: ${session.id}`);
+        
+        const disk = await client.disks.create({ user: userId });
+        console.log(`✓ Created disk: ${disk.id}`);
+        
+        // List all resources for the user
+        const spaces = await client.spaces.list({ user: userId });
+        const sessions = await client.sessions.list({ user: userId });
+        const disks = await client.disks.list({ user: userId });
+        console.log(`✓ User has ${spaces.items.length} space(s), ${sessions.items.length} session(s), ${disks.items.length} disk(s)`);
+        
+        // Cleanup: Delete user and all resources
+        await client.users.delete(userId);
+        console.log(`✓ Deleted user ${userId} and all resources`);
+        
+    } catch (error) {
+        console.error(`✗ Error: ${error}`);
+    }
+}
+
+main();
+```
+</CodeGroup>
+
+## Use cases
+
+<CardGroup cols={2}>
+<Card title="Multi-tenant Applications" icon="building">
+Manage resources for multiple users in a single Acontext project without requiring separate API keys for each user.
+</Card>
+
+<Card title="Per-user Isolation" icon="user-shield">
+Query and manage resources for specific users, enabling user-specific dashboards and access control.
+</Card>
+
+<Card title="User Offboarding" icon="user-minus">
+Easily clean up all resources when a user leaves by deleting the user and cascading to all associated resources.
+</Card>
+
+<Card title="Usage Analytics" icon="chart-bar">
+Track resource usage per user for billing, quotas, or analytics purposes.
+</Card>
+</CardGroup>
+
+## How it works
+
+<AccordionGroup>
+<Accordion title="Automatic user creation">
+When you create a resource with a `user` parameter:
+
+1. Acontext checks if a user with that identifier exists in the project
+2. If the user doesn't exist, it creates a new user record automatically
+3. The resource is associated with the user via a foreign key
+4. If the user already exists, the existing user record is used
+
+This means you don't need to explicitly create users - they are created automatically when first referenced.
+</Accordion>
+
+<Accordion title="User identifiers">
+User identifiers are:
+- **Strings**: Any string value (e.g., email addresses, user IDs, usernames)
+- **Unique per project**: The same identifier can be used in different projects
+- **Case-sensitive**: `alice@acontext.io` and `alice@acontext.io` are different users
+</Accordion>
+
+<Accordion title="Cascade deletion">
+When you delete a user, the database's foreign key constraints ensure that all associated resources are automatically deleted:
+
+- All Spaces associated with the user
+- All Sessions associated with the user
+- All Disks associated with the user
+- All Skills associated with the user
+
+This is handled by the database's `ON DELETE CASCADE` constraint, ensuring data consistency.
+</Accordion>
+
+<Accordion title="Async/await in Python">
+The Python SDK includes full async support for non-blocking operations:
+
+```python
+import asyncio
+from acontext import AsyncAcontextClient
+
+async def main():
+    async with AsyncAcontextClient(
+        api_key=os.getenv("ACONTEXT_API_KEY"),
+    ) as client:
+        # All methods are async
+        space = await client.spaces.create(user="alice@acontext.io")
+        spaces = await client.spaces.list(user="alice@acontext.io")
+        await client.users.delete("alice@acontext.io")
+
+asyncio.run(main())
+```
+</Accordion>
+</AccordionGroup>
+
+## Best practices
+
+<Tip>
+Use consistent identifier formats across your application (e.g., always use email addresses or always use user IDs).
+</Tip>
+
+```python
+# Good: Consistent email format
+client.spaces.create(user="alice@acontext.io")
+client.sessions.create(user="alice@acontext.io")
+
+# Avoid: Inconsistent formats
+client.spaces.create(user="alice@acontext.io")
+client.sessions.create(user="user_123")  # Different format for same user
+```
+
+<Note>
+Always inform users before deleting their data. The cascade deletion removes all associated resources permanently.
+</Note>
+
+## API Reference
+
+### Delete User
+
+<Endpoint method="DELETE" path="/api/v1/user/{identifier}">
+Delete a user by identifier and cascade delete all associated resources.
+
+**Path Parameters:**
+- `identifier` (string, required): The user identifier string
+
+**Response:**
+- `200 OK`: User and all resources deleted successfully
+
+**Example:**
+```bash
+curl -X DELETE "https://api.acontext.io/api/v1/user/alice%40example.com" \
+  -H "Authorization: Bearer sk_project_token"
+```
+</Endpoint>
+
+For details on creating and listing resources with user parameters, see the API reference for:
+- [Spaces API](/api-reference/introduction#/space)
+- [Sessions API](/api-reference/introduction#/session)
+- [Disks API](/api-reference/introduction#/disk)
+- [Skills API](/api-reference/introduction#/agent_skills)
+
+## Troubleshooting
+
+<AccordionGroup>
+<Accordion title="User not found when listing resources">
+**Problem**: Resources exist but are not returned when filtering by user.
+
+**Solution**: 
+- Verify the user identifier is spelled correctly (case-sensitive)
+- Ensure resources were created with the same user identifier
+- Check that you're querying within the same project
+</Accordion>
+
+<Accordion title="Cannot delete user">
+**Problem**: Getting an error when trying to delete a user.
+
+**Solution**: 
+- Verify the user identifier exists
+- Ensure you have the correct API key with permissions
+- URL-encode special characters in the identifier (e.g., `@` becomes `%40`)
+</Accordion>
+
+<Accordion title="Resources created without user association">
+**Problem**: Resources were created but not associated with a user.
+
+**Solution**: 
+- The `user` parameter must be provided at resource creation time
+- Resources cannot be retroactively associated with a user
+- Create new resources with the `user` parameter
+</Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Disk Storage" icon="database" href="/store/disk">
+Learn how to store and manage files with the Disk API
+</Card>
+
+<Card title="Session Management" icon="folder" href="/store/messages/multi-provider">
+Create and manage sessions for organizing conversations
+</Card>
+
+<Card title="API Reference" icon="code" href="/api-reference/introduction">
+Explore the complete API documentation
+</Card>
+
+<Card title="Dashboard" icon="chart-line" href="/observe/dashboard">
+View and monitor your resources in the dashboard
+</Card>
+</CardGroup>

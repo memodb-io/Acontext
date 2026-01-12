@@ -10,6 +10,7 @@ class Space(BaseModel):
 
     id: str = Field(..., description="Space UUID")
     project_id: str = Field(..., description="Project UUID")
+    user_id: str | None = Field(None, description="User UUID")
     configs: dict[str, Any] | None = Field(
         None, description="Space configuration dictionary"
     )
