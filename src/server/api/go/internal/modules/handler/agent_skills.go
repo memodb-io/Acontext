@@ -173,58 +173,6 @@ func (h *AgentSkillsHandler) GetAgentSkillByName(c *gin.Context) {
 	c.JSON(http.StatusOK, serializer.Response{Data: agentSkills})
 }
 
-type UpdateAgentSkillsReq struct {
-	Name        *string                `json:"name" example:"updated-name"`
-	Description *string                `json:"description" example:"Updated description"`
-	Meta        map[string]interface{} `json:"meta"`
-}
-
-// UpdateAgentSkills godoc
-//
-//	@Summary		Update agent skill
-//	@Description	Update agent skill metadata (name, description, meta)
-//	@Tags			agent_skills
-//	@Accept			json
-//	@Produce		json
-//	@Param			id		path	string					true	"Agent skill UUID"
-//	@Param			body	body	UpdateAgentSkillsReq	true	"Update request"
-//	@Security		BearerAuth
-//	@Success		200	{object}	serializer.Response{data=model.AgentSkills}
-//	@Router			/agent_skills/{id} [put]
-func (h *AgentSkillsHandler) UpdateAgentSkill(c *gin.Context) {
-	project, ok := c.MustGet("project").(*model.Project)
-	if !ok {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
-		return
-	}
-
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("invalid id")))
-		return
-	}
-
-	var req UpdateAgentSkillsReq
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
-		return
-	}
-
-	agentSkills, err := h.svc.Update(c.Request.Context(), service.UpdateAgentSkillsInput{
-		ProjectID:   project.ID,
-		ID:          id,
-		Name:        req.Name,
-		Description: req.Description,
-		Meta:        req.Meta,
-	})
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
-		return
-	}
-
-	c.JSON(http.StatusOK, serializer.Response{Data: agentSkills})
-}
-
 // DeleteAgentSkills godoc
 //
 //	@Summary		Delete agent skill

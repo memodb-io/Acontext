@@ -220,47 +220,6 @@
         } ],
         "summary" : "Get agent skill by ID",
         "tags" : [ "agent_skills" ]
-      },
-      "put" : {
-        "description" : "Update agent skill metadata (name, description, meta)",
-        "parameters" : [ {
-          "description" : "Agent skill UUID",
-          "in" : "path",
-          "name" : "id",
-          "required" : true,
-          "schema" : {
-            "type" : "string"
-          }
-        } ],
-        "requestBody" : {
-          "content" : {
-            "application/json" : {
-              "schema" : {
-                "$ref" : "#/components/schemas/handler.UpdateAgentSkillsReq"
-              }
-            }
-          },
-          "description" : "Update request",
-          "required" : true
-        },
-        "responses" : {
-          "200" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/_agent_skills_post_201_response"
-                }
-              }
-            },
-            "description" : "OK"
-          }
-        },
-        "security" : [ {
-          "BearerAuth" : [ ]
-        } ],
-        "summary" : "Update agent skill",
-        "tags" : [ "agent_skills" ],
-        "x-codegen-request-body-name" : "body"
       }
     },
     "/agent_skills/{id}/file" : {
@@ -2715,23 +2674,6 @@
           }
         },
         "required" : [ "new_name", "old_name" ],
-        "type" : "object"
-      },
-      "handler.UpdateAgentSkillsReq" : {
-        "properties" : {
-          "description" : {
-            "example" : "Updated description",
-            "type" : "string"
-          },
-          "meta" : {
-            "additionalProperties" : true,
-            "type" : "object"
-          },
-          "name" : {
-            "example" : "updated-name",
-            "type" : "string"
-          }
-        },
         "type" : "object"
       },
       "handler.UpdateArtifactReq" : {

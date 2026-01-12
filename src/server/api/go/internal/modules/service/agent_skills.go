@@ -27,7 +27,6 @@ type AgentSkillsService interface {
 	Create(ctx context.Context, in CreateAgentSkillsInput) (*model.AgentSkills, error)
 	GetByID(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*model.AgentSkills, error)
 	GetByName(ctx context.Context, projectID uuid.UUID, name string) (*model.AgentSkills, error)
-	Update(ctx context.Context, in UpdateAgentSkillsInput) (*model.AgentSkills, error)
 	Delete(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error
 	List(ctx context.Context, in ListAgentSkillsInput) (*ListAgentSkillsOutput, error)
 	GetPresignedURL(ctx context.Context, agentSkills *model.AgentSkills, filePath string, expire time.Duration) (string, error)
@@ -359,48 +358,6 @@ func (s *agentSkillsService) GetByID(ctx context.Context, projectID uuid.UUID, i
 
 func (s *agentSkillsService) GetByName(ctx context.Context, projectID uuid.UUID, name string) (*model.AgentSkills, error) {
 	return s.r.GetByName(ctx, projectID, name)
-}
-
-type UpdateAgentSkillsInput struct {
-	ProjectID   uuid.UUID
-	ID          uuid.UUID
-	Name        *string
-	Description *string
-	Meta        map[string]interface{}
-}
-
-func (s *agentSkillsService) Update(ctx context.Context, in UpdateAgentSkillsInput) (*model.AgentSkills, error) {
-	// Get existing record
-	agentSkills, err := s.r.GetByID(ctx, in.ProjectID, in.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update fields if provided
-	if in.Name != nil {
-		// Check if new name conflicts with existing name
-		if *in.Name != agentSkills.Name {
-			existing, err := s.r.GetByName(ctx, in.ProjectID, *in.Name)
-			if err == nil && existing != nil && existing.ID != in.ID {
-				return nil, fmt.Errorf("agent_skills with name '%s' already exists in project", *in.Name)
-			}
-		}
-		agentSkills.Name = *in.Name
-	}
-
-	if in.Description != nil {
-		agentSkills.Description = *in.Description
-	}
-
-	if in.Meta != nil {
-		agentSkills.Meta = in.Meta
-	}
-
-	if err := s.r.Update(ctx, agentSkills); err != nil {
-		return nil, fmt.Errorf("update agent_skills: %w", err)
-	}
-
-	return agentSkills, nil
 }
 
 func (s *agentSkillsService) Delete(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error {

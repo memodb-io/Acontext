@@ -50,14 +50,6 @@ func (m *MockAgentSkillsService) GetByName(ctx context.Context, projectID uuid.U
 	return args.Get(0).(*model.AgentSkills), args.Error(1)
 }
 
-func (m *MockAgentSkillsService) Update(ctx context.Context, in service.UpdateAgentSkillsInput) (*model.AgentSkills, error) {
-	args := m.Called(ctx, in)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.AgentSkills), args.Error(1)
-}
-
 func (m *MockAgentSkillsService) Delete(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error {
 	args := m.Called(ctx, projectID, id)
 	return args.Error(0)

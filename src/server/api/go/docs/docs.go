@@ -303,62 +303,6 @@ const docTemplate = `{
                     }
                 }
             },
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Update agent skill metadata (name, description, meta)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agent_skills"
-                ],
-                "summary": "Update agent skill",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Agent skill UUID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Update request",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.UpdateAgentSkillsReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/serializer.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/model.AgentSkills"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            },
             "delete": {
                 "security": [
                     {
@@ -3613,23 +3557,6 @@ const docTemplate = `{
                 },
                 "old_name": {
                     "type": "string"
-                }
-            }
-        },
-        "handler.UpdateAgentSkillsReq": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string",
-                    "example": "Updated description"
-                },
-                "meta": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "name": {
-                    "type": "string",
-                    "example": "updated-name"
                 }
             }
         },

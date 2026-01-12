@@ -137,18 +137,6 @@ definitions:
     - new_name
     - old_name
     type: object
-  handler.UpdateAgentSkillsReq:
-    properties:
-      description:
-        example: Updated description
-        type: string
-      meta:
-        additionalProperties: true
-        type: object
-      name:
-        example: updated-name
-        type: string
-    type: object
   handler.UpdateArtifactReq:
     properties:
       file_path:
@@ -728,39 +716,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Get agent skill by ID
-      tags:
-      - agent_skills
-    put:
-      consumes:
-      - application/json
-      description: Update agent skill metadata (name, description, meta)
-      parameters:
-      - description: Agent skill UUID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Update request
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/handler.UpdateAgentSkillsReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.AgentSkills'
-              type: object
-      security:
-      - BearerAuth: []
-      summary: Update agent skill
       tags:
       - agent_skills
   /agent_skills/{id}/file:
