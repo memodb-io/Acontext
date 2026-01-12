@@ -162,6 +162,12 @@ export const RemoveToolResultParamsSchema = z.object({
    * @default "Done"
    */
   tool_result_placeholder: z.string().optional(),
+
+  /**
+   * List of tool names that should never have their results removed.
+   * Tool results from these tools are always kept regardless of keep_recent_n_tool_results.
+   */
+  keep_tools: z.array(z.string()).optional(),
 });
 
 export type RemoveToolResultParams = z.infer<typeof RemoveToolResultParamsSchema>;
@@ -175,6 +181,12 @@ export const RemoveToolCallParamsParamsSchema = z.object({
    * @default 3
    */
   keep_recent_n_tool_calls: z.number().optional(),
+
+  /**
+   * List of tool names that should never have their parameters removed.
+   * Tool calls for these tools always keep their full parameters regardless of keep_recent_n_tool_calls.
+   */
+  keep_tools: z.array(z.string()).optional(),
 });
 export type RemoveToolCallParamsParams = z.infer<typeof RemoveToolCallParamsParamsSchema>;
 

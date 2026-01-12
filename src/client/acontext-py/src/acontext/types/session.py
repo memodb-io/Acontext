@@ -13,10 +13,13 @@ class RemoveToolResultParams(TypedDict, total=False):
             Defaults to 3 if not specified.
         tool_result_placeholder: Custom text to replace old tool results with.
             Defaults to "Done" if not specified.
+        keep_tools: List of tool names that should never have their results removed.
+            Tool results from these tools are always kept regardless of keep_recent_n_tool_results.
     """
 
     keep_recent_n_tool_results: NotRequired[int]
     tool_result_placeholder: NotRequired[str]
+    keep_tools: NotRequired[list[str]]
 
 
 class RemoveToolResultStrategy(TypedDict):
@@ -36,9 +39,12 @@ class RemoveToolCallParamsParams(TypedDict, total=False):
     Attributes:
         keep_recent_n_tool_calls: Number of most recent tool calls to keep with full parameters.
             Defaults to 3 if not specified.
+        keep_tools: List of tool names that should never have their parameters removed.
+            Tool calls for these tools always keep their full parameters regardless of keep_recent_n_tool_calls.
     """
 
     keep_recent_n_tool_calls: NotRequired[int]
+    keep_tools: NotRequired[list[str]]
 
 
 class RemoveToolCallParamsStrategy(TypedDict):

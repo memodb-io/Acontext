@@ -153,6 +153,7 @@ This strategy will replace the oldest tool results' content with a placeholder t
 **Parameters:**
 - `keep_recent_n_tool_results` (optional, default: 3): Number of most recent tool results to keep with original content
 - `tool_result_placeholder` (optional, default: "Done"): Custom text to replace old tool results with
+- `keep_tools` (optional): List of tool names that should never have their results removed. Tool results from these tools are always kept regardless of `keep_recent_n_tool_results`
 
 **Example Output:**
 
@@ -237,6 +238,7 @@ This is particularly useful when you have many tool calls in your session histor
 
 **Parameters:**
 - `keep_recent_n_tool_calls` (optional, default: 3): Number of most recent tool calls to keep with full parameters
+- `keep_tools` (optional): List of tool names that should never have their parameters removed. Tool calls for these tools always keep their full parameters regardless of `keep_recent_n_tool_calls`
 
 **How it works:**
 - Keeps the most recent N tool calls with their original parameters

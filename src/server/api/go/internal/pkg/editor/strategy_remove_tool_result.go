@@ -11,6 +11,7 @@ import (
 type RemoveToolResultStrategy struct {
 	KeepRecentN int
 	Placeholder string
+	KeepTools   []string // Tool names that should never have their results removed
 }
 
 // Name returns the strategy name
@@ -20,12 +21,33 @@ func (s *RemoveToolResultStrategy) Name() string {
 
 // Apply replaces old tool-result parts' text with a placeholder
 // Keeps the most recent N tool-result parts with their original content
+// Also keeps tool results for tools listed in KeepTools
 func (s *RemoveToolResultStrategy) Apply(messages []model.Message) ([]model.Message, error) {
 	if s.KeepRecentN < 0 {
 		return nil, fmt.Errorf("keep_recent_n_tool_results must be >= 0, got %d", s.KeepRecentN)
 	}
 
-	// First, collect all tool-result parts with their positions
+	// Build a set of tool names to keep for O(1) lookup
+	keepToolsSet := make(map[string]bool)
+	for _, toolName := range s.KeepTools {
+		keepToolsSet[toolName] = true
+	}
+
+	// Build a map from tool-call ID to tool name
+	toolCallIDToName := make(map[string]string)
+	for _, msg := range messages {
+		for _, part := range msg.Parts {
+			if part.Type == "tool-call" && part.Meta != nil {
+				if id, ok := part.Meta["id"].(string); ok {
+					if name, ok := part.Meta["name"].(string); ok {
+						toolCallIDToName[id] = name
+					}
+				}
+			}
+		}
+	}
+
+	// Collect all tool-result parts with their positions, excluding those in KeepTools
 	type toolResultPosition struct {
 		messageIdx int
 		partIdx    int
@@ -35,6 +57,17 @@ func (s *RemoveToolResultStrategy) Apply(messages []model.Message) ([]model.Mess
 	for msgIdx, msg := range messages {
 		for partIdx, part := range msg.Parts {
 			if part.Type == "tool-result" {
+				// Check if this tool result should be kept based on KeepTools
+				if part.Meta != nil {
+					if toolCallID, ok := part.Meta["tool_call_id"].(string); ok {
+						if toolName, found := toolCallIDToName[toolCallID]; found {
+							if keepToolsSet[toolName] {
+								// Skip this tool result - it should always be kept
+								continue
+							}
+						}
+					}
+				}
 				toolResultPositions = append(toolResultPositions, toolResultPosition{
 					messageIdx: msgIdx,
 					partIdx:    partIdx,
@@ -94,8 +127,27 @@ func createRemoveToolResultStrategy(params map[string]interface{}) (EditStrategy
 		}
 	}
 
+	// Get keep_tools list (tool names that should never have their results removed)
+	var keepTools []string
+	if keepToolsValue, ok := params["keep_tools"]; ok {
+		if keepToolsArr, ok := keepToolsValue.([]interface{}); ok {
+			for _, v := range keepToolsArr {
+				if toolName, ok := v.(string); ok {
+					keepTools = append(keepTools, toolName)
+				} else {
+					return nil, fmt.Errorf("keep_tools must be an array of strings, got element of type %T", v)
+				}
+			}
+		} else if keepToolsStrArr, ok := keepToolsValue.([]string); ok {
+			keepTools = keepToolsStrArr
+		} else {
+			return nil, fmt.Errorf("keep_tools must be an array of strings, got %T", keepToolsValue)
+		}
+	}
+
 	return &RemoveToolResultStrategy{
 		KeepRecentN: keepRecentNInt,
 		Placeholder: placeholder,
+		KeepTools:   keepTools,
 	}, nil
 }

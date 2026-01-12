@@ -9,6 +9,7 @@ import (
 // RemoveToolCallParamsStrategy removes parameters from old tool-call parts
 type RemoveToolCallParamsStrategy struct {
 	KeepRecentN int
+	KeepTools   []string // Tool names that should never have their parameters removed
 }
 
 // Name returns the strategy name
@@ -18,12 +19,19 @@ func (s *RemoveToolCallParamsStrategy) Name() string {
 
 // Apply removes input parameters from old tool-call parts
 // Keeps the most recent N tool-call parts with their original parameters
+// Also keeps parameters for tools listed in KeepTools
 func (s *RemoveToolCallParamsStrategy) Apply(messages []model.Message) ([]model.Message, error) {
 	if s.KeepRecentN < 0 {
 		return nil, fmt.Errorf("keep_recent_n_tool_calls must be >= 0, got %d", s.KeepRecentN)
 	}
 
-	// Collect all tool-call parts with their positions
+	// Build a set of tool names to keep for O(1) lookup
+	keepToolsSet := make(map[string]bool)
+	for _, toolName := range s.KeepTools {
+		keepToolsSet[toolName] = true
+	}
+
+	// Collect all tool-call parts with their positions, excluding those in KeepTools
 	type toolCallPosition struct {
 		messageIdx int
 		partIdx    int
@@ -33,6 +41,15 @@ func (s *RemoveToolCallParamsStrategy) Apply(messages []model.Message) ([]model.
 	for msgIdx, msg := range messages {
 		for partIdx, part := range msg.Parts {
 			if part.Type == "tool-call" {
+				// Check if this tool call should be kept based on KeepTools
+				if part.Meta != nil {
+					if toolName, ok := part.Meta["name"].(string); ok {
+						if keepToolsSet[toolName] {
+							// Skip this tool call - its parameters should always be kept
+							continue
+						}
+					}
+				}
 				toolCallPositions = append(toolCallPositions, toolCallPosition{
 					messageIdx: msgIdx,
 					partIdx:    partIdx,
@@ -75,7 +92,26 @@ func createRemoveToolCallParamsStrategy(params map[string]interface{}) (EditStra
 		}
 	}
 
+	// Get keep_tools list (tool names that should never have their parameters removed)
+	var keepTools []string
+	if keepToolsValue, ok := params["keep_tools"]; ok {
+		if keepToolsArr, ok := keepToolsValue.([]interface{}); ok {
+			for _, v := range keepToolsArr {
+				if toolName, ok := v.(string); ok {
+					keepTools = append(keepTools, toolName)
+				} else {
+					return nil, fmt.Errorf("keep_tools must be an array of strings, got element of type %T", v)
+				}
+			}
+		} else if keepToolsStrArr, ok := keepToolsValue.([]string); ok {
+			keepTools = keepToolsStrArr
+		} else {
+			return nil, fmt.Errorf("keep_tools must be an array of strings, got %T", keepToolsValue)
+		}
+	}
+
 	return &RemoveToolCallParamsStrategy{
 		KeepRecentN: keepRecentNInt,
+		KeepTools:   keepTools,
 	}, nil
 }
