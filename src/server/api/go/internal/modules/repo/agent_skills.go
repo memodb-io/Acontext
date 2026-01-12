@@ -14,7 +14,6 @@ import (
 type AgentSkillsRepo interface {
 	Create(ctx context.Context, as *model.AgentSkills) error
 	GetByID(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*model.AgentSkills, error)
-	GetByName(ctx context.Context, projectID uuid.UUID, name string) (*model.AgentSkills, error)
 	Update(ctx context.Context, as *model.AgentSkills) error
 	Delete(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error
 	ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]*model.AgentSkills, error)
@@ -40,17 +39,6 @@ func (r *agentSkillsRepo) GetByID(ctx context.Context, projectID uuid.UUID, id u
 	var as model.AgentSkills
 	err := r.db.WithContext(ctx).
 		Where("id = ? AND project_id = ?", id, projectID).
-		First(&as).Error
-	if err != nil {
-		return nil, err
-	}
-	return &as, nil
-}
-
-func (r *agentSkillsRepo) GetByName(ctx context.Context, projectID uuid.UUID, name string) (*model.AgentSkills, error) {
-	var as model.AgentSkills
-	err := r.db.WithContext(ctx).
-		Where("project_id = ? AND name = ?", projectID, name).
 		First(&as).Error
 	if err != nil {
 		return nil, err

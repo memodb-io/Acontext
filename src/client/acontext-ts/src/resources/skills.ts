@@ -75,11 +75,14 @@ export class SkillsAPI {
     return ListSkillsOutputSchema.parse(data);
   }
 
-  async getByName(name: string): Promise<Skill> {
-    const params = { name };
-    const data = await this.requester.request('GET', '/agent_skills/by_name', {
-      params,
-    });
+  /**
+   * Get a skill by its ID.
+   *
+   * @param skillId - The UUID of the skill
+   * @returns Skill containing the full skill information including file_index
+   */
+  async get(skillId: string): Promise<Skill> {
+    const data = await this.requester.request('GET', `/agent_skills/${skillId}`);
     return SkillSchema.parse(data);
   }
 
@@ -87,12 +90,24 @@ export class SkillsAPI {
     await this.requester.request('DELETE', `/agent_skills/${skillId}`);
   }
 
-  async getFileByName(options: {
-    skillName: string;
+  /**
+   * Get a file from a skill by skill ID.
+   *
+   * The backend automatically returns content for parseable text files, or a presigned URL
+   * for non-parseable files (binary, images, etc.).
+   *
+   * @param options - File retrieval options
+   * @param options.skillId - The UUID of the skill
+   * @param options.filePath - Relative path to the file within the skill (e.g., 'scripts/extract_text.json')
+   * @param options.expire - URL expiration time in seconds (defaults to 900 / 15 minutes)
+   * @returns GetSkillFileResp containing the file path, MIME type, and either content or URL
+   */
+  async getFile(options: {
+    skillId: string;
     filePath: string;
     expire?: number | null;
   }): Promise<GetSkillFileResp> {
-    const endpoint = `/agent_skills/by_name/${options.skillName}/file`;
+    const endpoint = `/agent_skills/${options.skillId}/file`;
 
     const params: Record<string, string | number> = {
       file_path: options.filePath,

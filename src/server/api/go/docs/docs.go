@@ -79,7 +79,19 @@ const docTemplate = `{
                             ]
                         }
                     }
-                }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List all skills with pagination\nresult = client.skills.list_catalog(limit=50)\nfor skill in result.items:\n    print(f\"{skill.name}: {skill.description}\")\n\n# Paginate through all skills\nif result.has_more:\n    next_page = client.skills.list_catalog(cursor=result.next_cursor)\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@anthropic/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List all skills with pagination\nconst result = await client.skills.list_catalog({ limit: 50 });\nresult.items.forEach(skill =\u003e {\n  console.log(` + "`" + `${skill.name}: ${skill.description}` + "`" + `);\n});\n\n// Paginate through all skills\nif (result.has_more) {\n  const nextPage = await client.skills.list_catalog({ cursor: result.next_cursor });\n}\n"
+                    }
+                ]
             },
             "post": {
                 "security": [
@@ -139,120 +151,19 @@ const docTemplate = `{
                             ]
                         }
                     }
-                }
-            }
-        },
-        "/agent_skills/by_name": {
-            "get": {
-                "security": [
+                },
+                "x-code-samples": [
                     {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get agent skill by its name (unique within project)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agent_skills"
-                ],
-                "summary": "Get agent skill by name",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Agent skill name",
-                        "name": "name",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/serializer.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/model.AgentSkills"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
-            }
-        },
-        "/agent_skills/by_name/{name}/file": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get file content or download URL from agent skill by skill name and file path. If the file is a text-based file (parseable), returns parsed content. Otherwise, returns a presigned download URL.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "agent_skills"
-                ],
-                "summary": "Get file from agent skill",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Agent skill name",
-                        "name": "name",
-                        "in": "path",
-                        "required": true
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\nfrom acontext.uploads import FileUpload\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Upload a skill from a zip file\nwith open('my_skill.zip', 'rb') as f:\n    skill = client.skills.create(\n        file=FileUpload(filename='my_skill.zip', content=f.read(), content_type='application/zip'),\n        user='alice@example.com',\n        meta={'version': '1.0'}\n    )\nprint(f\"Created skill: {skill.name} (ID: {skill.id})\")\n"
                     },
                     {
-                        "type": "string",
-                        "example": "SKILL.md",
-                        "description": "Relative file path from skill root",
-                        "name": "file_path",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "example": 900,
-                        "description": "Expire time in seconds for presigned URL (default: 900)",
-                        "name": "expire",
-                        "in": "query"
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@anthropic/acontext';\nimport fs from 'fs';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Upload a skill from a zip file\nconst fileBuffer = fs.readFileSync('my_skill.zip');\nconst skill = await client.skills.create({\n  file: ['my_skill.zip', fileBuffer, 'application/zip'],\n  user: 'alice@example.com',\n  meta: { version: '1.0' }\n});\nconsole.log(` + "`" + `Created skill: ${skill.name} (ID: ${skill.id})` + "`" + `);\n"
                     }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/serializer.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/service.GetFileOutput"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                }
+                ]
             }
         },
         "/agent_skills/{id}": {
@@ -301,7 +212,19 @@ const docTemplate = `{
                             ]
                         }
                     }
-                }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get a skill by ID\nskill = client.skills.get('skill-uuid-here')\nprint(f\"Skill: {skill.name}\")\nprint(f\"Description: {skill.description}\")\nprint(f\"Files: {len(skill.file_index)} file(s)\")\nfor f in skill.file_index:\n    print(f\"  - {f.path} ({f.mime})\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@anthropic/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get a skill by ID\nconst skill = await client.skills.get('skill-uuid-here');\nconsole.log(` + "`" + `Skill: ${skill.name}` + "`" + `);\nconsole.log(` + "`" + `Description: ${skill.description}` + "`" + `);\nconsole.log(` + "`" + `Files: ${skill.file_index.length} file(s)` + "`" + `);\nskill.file_index.forEach(f =\u003e console.log(` + "`" + `  - ${f.path} (${f.mime})` + "`" + `));\n"
+                    }
+                ]
             },
             "delete": {
                 "security": [
@@ -333,7 +256,19 @@ const docTemplate = `{
                     "204": {
                         "description": ""
                     }
-                }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Delete a skill by ID\nclient.skills.delete('skill-uuid-here')\nprint('Skill deleted successfully')\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@anthropic/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Delete a skill by ID\nawait client.skills.delete('skill-uuid-here');\nconsole.log('Skill deleted successfully');\n"
+                    }
+                ]
             }
         },
         "/agent_skills/{id}/file": {
@@ -343,7 +278,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a presigned URL to download a specific file from agent skill",
+                "description": "Get file content or download URL from agent skill. If the file is text-based (parseable), returns parsed content. Otherwise, returns a presigned download URL.",
                 "consumes": [
                     "application/json"
                 ],
@@ -353,7 +288,7 @@ const docTemplate = `{
                 "tags": [
                     "agent_skills"
                 ],
-                "summary": "Get presigned URL for a file",
+                "summary": "Get file from agent skill",
                 "parameters": [
                     {
                         "type": "string",
@@ -364,14 +299,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "File path within the zip (e.g., 'github/GTM/find_trending_repos.json')",
+                        "description": "File path within the skill (e.g., 'scripts/extract_text.json')",
                         "name": "file_path",
                         "in": "query",
                         "required": true
                     },
                     {
                         "type": "integer",
-                        "description": "URL expiration in seconds (default 900)",
+                        "description": "URL expiration in seconds for presigned URL (default 900)",
                         "name": "expire",
                         "in": "query"
                     }
@@ -388,17 +323,26 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "type": "object",
-                                            "additionalProperties": {
-                                                "type": "string"
-                                            }
+                                            "$ref": "#/definitions/service.GetFileOutput"
                                         }
                                     }
                                 }
                             ]
                         }
                     }
-                }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get a file from a skill (text files return content, binary files return URL)\nfile_resp = client.skills.get_file(\n    skill_id='skill-uuid-here',\n    file_path='scripts/main.py',\n    expire=1800  # URL expires in 30 minutes\n)\n\nprint(f\"File: {file_resp.path} ({file_resp.mime})\")\nif file_resp.content:\n    print(f\"Content: {file_resp.content.raw}\")\nif file_resp.url:\n    print(f\"Download URL: {file_resp.url}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@anthropic/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get a file from a skill (text files return content, binary files return URL)\nconst fileResp = await client.skills.getFile({\n  skillId: 'skill-uuid-here',\n  filePath: 'scripts/main.py',\n  expire: 1800  // URL expires in 30 minutes\n});\n\nconsole.log(` + "`" + `File: ${fileResp.path} (${fileResp.mime})` + "`" + `);\nif (fileResp.content) {\n  console.log(` + "`" + `Content: ${fileResp.content.raw}` + "`" + `);\n}\nif (fileResp.url) {\n  console.log(` + "`" + `Download URL: ${fileResp.url}` + "`" + `);\n}\n"
+                    }
+                ]
             }
         },
         "/disk": {
@@ -3722,7 +3666,7 @@ const docTemplate = `{
                     "type": "object"
                 },
                 "name": {
-                    "description": "Name is unique within a project",
+                    "description": "Name is not unique - multiple skills can have the same name",
                     "type": "string"
                 },
                 "updated_at": {

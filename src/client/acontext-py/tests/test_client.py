@@ -896,7 +896,7 @@ def test_skills_create_uses_multipart_payload(
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_skills_get_by_name_hits_by_name_endpoint(
+def test_skills_get_hits_id_endpoint(
     mock_request, client: AcontextClient
 ) -> None:
     mock_request.return_value = {
@@ -909,14 +909,13 @@ def test_skills_get_by_name_hits_by_name_endpoint(
         "updated_at": "2024-01-01T00:00:00Z",
     }
 
-    result = client.skills.get_by_name("test-skill")
+    result = client.skills.get("skill-1")
 
     mock_request.assert_called_once()
-    args, kwargs = mock_request.call_args
+    args, _ = mock_request.call_args
     method, path = args
     assert method == "GET"
-    assert path == "/agent_skills/by_name"
-    assert kwargs["params"] == {"name": "test-skill"}
+    assert path == "/agent_skills/skill-1"
     assert result.id == "skill-1"
     assert result.name == "test-skill"
 
@@ -985,7 +984,7 @@ def test_skills_list_returns_catalog_dict(
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_skills_get_file_by_name_hits_by_name_endpoint(
+def test_skills_get_file_hits_id_endpoint(
     mock_request, client: AcontextClient
 ) -> None:
     mock_request.return_value = {
@@ -994,8 +993,8 @@ def test_skills_get_file_by_name_hits_by_name_endpoint(
         "content": {"type": "code", "raw": "print('Hello, World!')"},
     }
 
-    result = client.skills.get_file_by_name(
-        skill_name="test-skill",
+    result = client.skills.get_file(
+        skill_id="skill-1",
         file_path="scripts/main.py",
         expire=1800,
     )
@@ -1004,7 +1003,7 @@ def test_skills_get_file_by_name_hits_by_name_endpoint(
     args, kwargs = mock_request.call_args
     method, path = args
     assert method == "GET"
-    assert path == "/agent_skills/by_name/test-skill/file"
+    assert path == "/agent_skills/skill-1/file"
     assert kwargs["params"]["file_path"] == "scripts/main.py"
     assert kwargs["params"]["expire"] == 1800
     assert result.path == "scripts/main.py"

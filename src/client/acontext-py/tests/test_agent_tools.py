@@ -35,7 +35,9 @@ class TestDiskTools:
         """Test that tools can generate OpenAI tool schemas."""
         schemas = DISK_TOOLS.to_openai_tool_schema()
         assert isinstance(schemas, list)
-        assert len(schemas) == 7  # write_file, read_file, replace_string, list_artifacts, grep_artifacts, glob_artifacts, download_file
+        assert (
+            len(schemas) == 7
+        )  # write_file, read_file, replace_string, list_artifacts, grep_artifacts, glob_artifacts, download_file
 
         tool_names = [s["function"]["name"] for s in schemas]
         assert "write_file" in tool_names
@@ -59,7 +61,9 @@ class TestDiskTools:
         assert not DISK_TOOLS.tool_exists("nonexistent_tool")
 
     @patch("acontext.client.AcontextClient.request")
-    def test_write_file_tool(self, mock_request: MagicMock, disk_ctx: DiskContext) -> None:
+    def test_write_file_tool(
+        self, mock_request: MagicMock, disk_ctx: DiskContext
+    ) -> None:
         """Test write_file tool execution."""
         mock_request.return_value = {
             "disk_id": "disk-123",
@@ -83,7 +87,9 @@ class TestDiskTools:
         assert args[1] == "/disk/disk-123/artifact"
 
     @patch("acontext.client.AcontextClient.request")
-    def test_read_file_tool(self, mock_request: MagicMock, disk_ctx: DiskContext) -> None:
+    def test_read_file_tool(
+        self, mock_request: MagicMock, disk_ctx: DiskContext
+    ) -> None:
         """Test read_file tool execution."""
         mock_request.return_value = {
             "artifact": {
@@ -239,7 +245,7 @@ class TestSkillTools:
         result = SKILL_TOOLS.execute_tool(
             skill_ctx,
             "get_skill",
-            {"name": "test-skill"},
+            {"skill_id": "skill-1"},
         )
 
         assert "test-skill" in result
@@ -267,7 +273,7 @@ class TestSkillTools:
             skill_ctx,
             "get_skill_file",
             {
-                "skill_name": "test-skill",
+                "skill_id": "skill-1",
                 "file_path": "scripts/main.py",
             },
         )
@@ -279,14 +285,17 @@ class TestSkillTools:
 
     def test_get_skill_tool_validation(self, skill_ctx: SkillContext) -> None:
         """Test get_skill tool parameter validation."""
-        with pytest.raises(ValueError, match="name is required"):
+        with pytest.raises(ValueError, match="skill_id is required"):
             SKILL_TOOLS.execute_tool(skill_ctx, "get_skill", {})
 
     def test_get_skill_file_tool_validation(self, skill_ctx: SkillContext) -> None:
         """Test get_skill_file tool parameter validation."""
-        with pytest.raises(ValueError, match="skill_name is required"):
-            SKILL_TOOLS.execute_tool(skill_ctx, "get_skill_file", {"file_path": "test.py"})
+        with pytest.raises(ValueError, match="skill_id is required"):
+            SKILL_TOOLS.execute_tool(
+                skill_ctx, "get_skill_file", {"file_path": "test.py"}
+            )
 
         with pytest.raises(ValueError, match="file_path is required"):
-            SKILL_TOOLS.execute_tool(skill_ctx, "get_skill_file", {"skill_name": "test-skill"})
-
+            SKILL_TOOLS.execute_tool(
+                skill_ctx, "get_skill_file", {"skill_id": "skill-1"}
+            )

@@ -14,7 +14,7 @@ class SkillContext(BaseContext):
 
 
 class GetSkillTool(BaseTool):
-    """Tool for getting a skill by name."""
+    """Tool for getting a skill by ID."""
 
     @property
     def name(self) -> str:
@@ -23,33 +23,33 @@ class GetSkillTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Get a skill by its name. Return the skill information including the relative paths of the files and their mime type categories" 
+            "Get a skill by its ID. Return the skill information including the relative paths of the files and their mime type categories"
         )
 
     @property
     def arguments(self) -> dict:
         return {
-            "name": {
+            "skill_id": {
                 "type": "string",
-                "description": "The name of the skill (unique within project).",
+                "description": "The UUID of the skill.",
             },
         }
 
     @property
     def required_arguments(self) -> list[str]:
-        return ["name"]
+        return ["skill_id"]
 
     def execute(self, ctx: SkillContext, llm_arguments: dict) -> str:
-        """Get a skill by name."""
-        name = llm_arguments.get("name")
+        """Get a skill by ID."""
+        skill_id = llm_arguments.get("skill_id")
 
-        if not name:
-            raise ValueError("name is required")
+        if not skill_id:
+            raise ValueError("skill_id is required")
 
-        skill = ctx.client.skills.get_by_name(name)
+        skill = ctx.client.skills.get(skill_id)
 
         file_count = len(skill.file_index)
-        
+
         # Format all files with path and MIME type
         if skill.file_index:
             file_list = "\n".join(
@@ -78,15 +78,15 @@ class GetSkillFileTool(BaseTool):
     @property
     def description(self) -> str:
         return (
-            "Get a file from a skill by name. The file_path should be a relative path within the skill (e.g., 'scripts/extract_text.json'). "
+            "Get a file from a skill by ID. The file_path should be a relative path within the skill (e.g., 'scripts/extract_text.json')."
         )
 
     @property
     def arguments(self) -> dict:
         return {
-            "skill_name": {
+            "skill_id": {
                 "type": "string",
-                "description": "The name of the skill.",
+                "description": "The UUID of the skill.",
             },
             "file_path": {
                 "type": "string",
@@ -100,26 +100,26 @@ class GetSkillFileTool(BaseTool):
 
     @property
     def required_arguments(self) -> list[str]:
-        return ["skill_name", "file_path"]
+        return ["skill_id", "file_path"]
 
     def execute(self, ctx: SkillContext, llm_arguments: dict) -> str:
         """Get a skill file."""
-        skill_name = llm_arguments.get("skill_name")
+        skill_id = llm_arguments.get("skill_id")
         file_path = llm_arguments.get("file_path")
         expire = llm_arguments.get("expire")
 
         if not file_path:
             raise ValueError("file_path is required")
-        if not skill_name:
-            raise ValueError("skill_name is required")
+        if not skill_id:
+            raise ValueError("skill_id is required")
 
-        result = ctx.client.skills.get_file_by_name(
-            skill_name=skill_name,
+        result = ctx.client.skills.get_file(
+            skill_id=skill_id,
             file_path=file_path,
             expire=expire,
         )
 
-        output_parts = [f"File '{result.path}' (MIME: {result.mime}) from skill '{skill_name}':"]
+        output_parts = [f"File '{result.path}' (MIME: {result.mime}) from skill '{skill_id}':"]
 
         if result.content:
             output_parts.append(f"\nContent (type: {result.content.type}):")

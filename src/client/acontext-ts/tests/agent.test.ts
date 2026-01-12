@@ -377,42 +377,27 @@ describe('Agent Tools Tests', () => {
       expect(SKILL_TOOLS.toolExists('get_skill_file')).toBe(true);
     });
 
-    test('should get skill by name', async () => {
-      // First, get catalog to find a skill name if available
-      const catalog = await client.skills.list_catalog({ limit: 1 });
-      if (catalog.items.length > 0) {
-        const skillName = catalog.items[0].name;
-        const ctx = SKILL_TOOLS.formatContext(client);
-        const result = await SKILL_TOOLS.executeTool(ctx, 'get_skill', {
-          name: skillName,
-        });
-
-        expect(result).toContain(skillName);
-        expect(result).toContain('file(s)');
-      }
-    });
-
-    test('should throw error when name not provided', async () => {
+    test('should throw error when skill_id not provided', async () => {
       const ctx = SKILL_TOOLS.formatContext(client);
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill', {})
-      ).rejects.toThrow('name is required');
+      ).rejects.toThrow('skill_id is required');
     });
 
-    test('should throw error when skill_name missing for get_file', async () => {
+    test('should throw error when skill_id missing for get_file', async () => {
       const ctx = SKILL_TOOLS.formatContext(client);
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill_file', {
           file_path: 'test.json',
         })
-      ).rejects.toThrow('skill_name is required');
+      ).rejects.toThrow('skill_id is required');
     });
 
     test('should throw error when file_path missing for get_file', async () => {
       const ctx = SKILL_TOOLS.formatContext(client);
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill_file', {
-          skill_name: 'test-skill',
+          skill_id: 'test-skill-id',
         })
       ).rejects.toThrow('file_path is required');
     });
@@ -423,21 +408,18 @@ describe('Agent Tools Tests', () => {
       const tool = new GetSkillTool();
       expect(tool.name).toBe('get_skill');
       expect(tool.description).toBeTruthy();
-      expect(tool.requiredArguments).toContain('name');
-      expect(tool.arguments).toHaveProperty('name');
-      expect(tool.arguments).not.toHaveProperty('skill_id');
+      expect(tool.requiredArguments).toContain('skill_id');
+      expect(tool.arguments).toHaveProperty('skill_id');
     });
 
     test('GetSkillFileTool should have correct properties', () => {
       const tool = new GetSkillFileTool();
       expect(tool.name).toBe('get_skill_file');
       expect(tool.description).toBeTruthy();
-      // skill_name and file_path are required
-      expect(tool.requiredArguments).toContain('skill_name');
+      // skill_id and file_path are required
+      expect(tool.requiredArguments).toContain('skill_id');
       expect(tool.requiredArguments).toContain('file_path');
-      expect(tool.requiredArguments).not.toContain('skill_id');
-      expect(tool.arguments).not.toHaveProperty('skill_id');
-      expect(tool.arguments).toHaveProperty('skill_name');
+      expect(tool.arguments).toHaveProperty('skill_id');
       expect(tool.arguments).toHaveProperty('file_path');
       expect(tool.arguments).toHaveProperty('expire');
       // Should not have with_content or with_public_url

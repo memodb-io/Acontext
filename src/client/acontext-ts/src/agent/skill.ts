@@ -12,26 +12,26 @@ export interface SkillContext extends BaseContext {
 export class GetSkillTool extends AbstractBaseTool {
   readonly name = 'get_skill';
   readonly description =
-    'Get a skill by its name. Return the skill information including the relative paths of the files and their mime type categories';
+    'Get a skill by its ID. Return the skill information including the relative paths of the files and their mime type categories';
   readonly arguments = {
-    name: {
+    skill_id: {
       type: 'string',
-      description: 'The name of the skill (unique within project).',
+      description: 'The UUID of the skill.',
     },
   };
-  readonly requiredArguments = ['name'];
+  readonly requiredArguments = ['skill_id'];
 
   async execute(
     ctx: SkillContext,
     llmArguments: Record<string, unknown>
   ): Promise<string> {
-    const name = llmArguments.name as string | undefined;
+    const skillId = llmArguments.skill_id as string | undefined;
 
-    if (!name) {
-      throw new Error('name is required');
+    if (!skillId) {
+      throw new Error('skill_id is required');
     }
 
-    const skill = await ctx.client.skills.getByName(name);
+    const skill = await ctx.client.skills.get(skillId);
 
     const fileCount = skill.file_index.length;
 
@@ -59,11 +59,11 @@ export class GetSkillTool extends AbstractBaseTool {
 export class GetSkillFileTool extends AbstractBaseTool {
   readonly name = 'get_skill_file';
   readonly description =
-    "Get a file from a skill by name. The file_path should be a relative path within the skill (e.g., 'scripts/extract_text.json'). ";
+    "Get a file from a skill by ID. The file_path should be a relative path within the skill (e.g., 'scripts/extract_text.json').";
   readonly arguments = {
-    skill_name: {
+    skill_id: {
       type: 'string',
-      description: 'The name of the skill.',
+      description: 'The UUID of the skill.',
     },
     file_path: {
       type: 'string',
@@ -76,31 +76,31 @@ export class GetSkillFileTool extends AbstractBaseTool {
         'URL expiration time in seconds (only used for non-parseable files). Defaults to 900 (15 minutes).',
     },
   };
-  readonly requiredArguments = ['skill_name', 'file_path'];
+  readonly requiredArguments = ['skill_id', 'file_path'];
 
   async execute(
     ctx: SkillContext,
     llmArguments: Record<string, unknown>
   ): Promise<string> {
-    const skillName = llmArguments.skill_name as string | undefined;
+    const skillId = llmArguments.skill_id as string | undefined;
     const filePath = llmArguments.file_path as string;
     const expire = llmArguments.expire as number | undefined;
 
     if (!filePath) {
       throw new Error('file_path is required');
     }
-    if (!skillName) {
-      throw new Error('skill_name is required');
+    if (!skillId) {
+      throw new Error('skill_id is required');
     }
 
-    const result = await ctx.client.skills.getFileByName({
-      skillName,
+    const result = await ctx.client.skills.getFile({
+      skillId,
       filePath,
       expire: expire || null,
     });
 
     const outputParts: string[] = [
-      `File '${result.path}' (MIME: ${result.mime}) from skill '${skillName}':`,
+      `File '${result.path}' (MIME: ${result.mime}) from skill '${skillId}':`,
     ];
 
     if (result.content) {

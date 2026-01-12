@@ -248,7 +248,7 @@ definitions:
       meta:
         type: object
       name:
-        description: Name is unique within a project
+        description: Name is not unique - multiple skills can have the same name
         type: string
       updated_at:
         type: string
@@ -647,6 +647,39 @@ paths:
       summary: List agent skills
       tags:
       - agent_skills
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # List all skills with pagination
+          result = client.skills.list_catalog(limit=50)
+          for skill in result.items:
+              print(f"{skill.name}: {skill.description}")
+
+          # Paginate through all skills
+          if result.has_more:
+              next_page = client.skills.list_catalog(cursor=result.next_cursor)
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@anthropic/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // List all skills with pagination
+          const result = await client.skills.list_catalog({ limit: 50 });
+          result.items.forEach(skill => {
+            console.log(`${skill.name}: ${skill.description}`);
+          });
+
+          // Paginate through all skills
+          if (result.has_more) {
+            const nextPage = await client.skills.list_catalog({ cursor: result.next_cursor });
+          }
     post:
       consumes:
       - multipart/form-data
@@ -688,6 +721,39 @@ paths:
       summary: Create agent skill
       tags:
       - agent_skills
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+          from acontext.uploads import FileUpload
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Upload a skill from a zip file
+          with open('my_skill.zip', 'rb') as f:
+              skill = client.skills.create(
+                  file=FileUpload(filename='my_skill.zip', content=f.read(), content_type='application/zip'),
+                  user='alice@example.com',
+                  meta={'version': '1.0'}
+              )
+          print(f"Created skill: {skill.name} (ID: {skill.id})")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@anthropic/acontext';
+          import fs from 'fs';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Upload a skill from a zip file
+          const fileBuffer = fs.readFileSync('my_skill.zip');
+          const skill = await client.skills.create({
+            file: ['my_skill.zip', fileBuffer, 'application/zip'],
+            user: 'alice@example.com',
+            meta: { version: '1.0' }
+          });
+          console.log(`Created skill: ${skill.name} (ID: ${skill.id})`);
   /agent_skills/{id}:
     delete:
       consumes:
@@ -709,6 +775,27 @@ paths:
       summary: Delete agent skill
       tags:
       - agent_skills
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Delete a skill by ID
+          client.skills.delete('skill-uuid-here')
+          print('Skill deleted successfully')
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@anthropic/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Delete a skill by ID
+          await client.skills.delete('skill-uuid-here');
+          console.log('Skill deleted successfully');
     get:
       consumes:
       - application/json
@@ -736,94 +823,53 @@ paths:
       summary: Get agent skill by ID
       tags:
       - agent_skills
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Get a skill by ID
+          skill = client.skills.get('skill-uuid-here')
+          print(f"Skill: {skill.name}")
+          print(f"Description: {skill.description}")
+          print(f"Files: {len(skill.file_index)} file(s)")
+          for f in skill.file_index:
+              print(f"  - {f.path} ({f.mime})")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@anthropic/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Get a skill by ID
+          const skill = await client.skills.get('skill-uuid-here');
+          console.log(`Skill: ${skill.name}`);
+          console.log(`Description: ${skill.description}`);
+          console.log(`Files: ${skill.file_index.length} file(s)`);
+          skill.file_index.forEach(f => console.log(`  - ${f.path} (${f.mime})`));
   /agent_skills/{id}/file:
     get:
       consumes:
       - application/json
-      description: Get a presigned URL to download a specific file from agent skill
+      description: Get file content or download URL from agent skill. If the file
+        is text-based (parseable), returns parsed content. Otherwise, returns a presigned
+        download URL.
       parameters:
       - description: Agent skill UUID
         in: path
         name: id
         required: true
         type: string
-      - description: File path within the zip (e.g., 'github/GTM/find_trending_repos.json')
+      - description: File path within the skill (e.g., 'scripts/extract_text.json')
         in: query
         name: file_path
         required: true
         type: string
-      - description: URL expiration in seconds (default 900)
-        in: query
-        name: expire
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  additionalProperties:
-                    type: string
-                  type: object
-              type: object
-      security:
-      - BearerAuth: []
-      summary: Get presigned URL for a file
-      tags:
-      - agent_skills
-  /agent_skills/by_name:
-    get:
-      consumes:
-      - application/json
-      description: Get agent skill by its name (unique within project)
-      parameters:
-      - description: Agent skill name
-        in: query
-        name: name
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.AgentSkills'
-              type: object
-      security:
-      - BearerAuth: []
-      summary: Get agent skill by name
-      tags:
-      - agent_skills
-  /agent_skills/by_name/{name}/file:
-    get:
-      consumes:
-      - application/json
-      description: Get file content or download URL from agent skill by skill name
-        and file path. If the file is a text-based file (parseable), returns parsed
-        content. Otherwise, returns a presigned download URL.
-      parameters:
-      - description: Agent skill name
-        in: path
-        name: name
-        required: true
-        type: string
-      - description: Relative file path from skill root
-        example: SKILL.md
-        in: query
-        name: file_path
-        required: true
-        type: string
-      - description: 'Expire time in seconds for presigned URL (default: 900)'
-        example: 900
+      - description: URL expiration in seconds for presigned URL (default 900)
         in: query
         name: expire
         type: integer
@@ -844,6 +890,47 @@ paths:
       summary: Get file from agent skill
       tags:
       - agent_skills
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Get a file from a skill (text files return content, binary files return URL)
+          file_resp = client.skills.get_file(
+              skill_id='skill-uuid-here',
+              file_path='scripts/main.py',
+              expire=1800  # URL expires in 30 minutes
+          )
+
+          print(f"File: {file_resp.path} ({file_resp.mime})")
+          if file_resp.content:
+              print(f"Content: {file_resp.content.raw}")
+          if file_resp.url:
+              print(f"Download URL: {file_resp.url}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@anthropic/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Get a file from a skill (text files return content, binary files return URL)
+          const fileResp = await client.skills.getFile({
+            skillId: 'skill-uuid-here',
+            filePath: 'scripts/main.py',
+            expire: 1800  // URL expires in 30 minutes
+          });
+
+          console.log(`File: ${fileResp.path} (${fileResp.mime})`);
+          if (fileResp.content) {
+            console.log(`Content: ${fileResp.content.raw}`);
+          }
+          if (fileResp.url) {
+            console.log(`Download URL: ${fileResp.url}`);
+          }
   /disk:
     get:
       consumes:

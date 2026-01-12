@@ -85,19 +85,16 @@ class AsyncSkillsAPI:
         # Pydantic ignores extra fields, so ListSkillsOutput directly extracts name/description
         return ListSkillsOutput.model_validate(data)
 
-    async def get_by_name(self, name: str) -> Skill:
-        """Get a skill by its name.
+    async def get(self, skill_id: str) -> Skill:
+        """Get a skill by its ID.
 
         Args:
-            name: The name of the skill (unique within project).
+            skill_id: The UUID of the skill.
 
         Returns:
-            Skill containing the skill information.
+            Skill containing the full skill information including file_index.
         """
-        params = {"name": name}
-        data = await self._requester.request(
-            "GET", "/agent_skills/by_name", params=params
-        )
+        data = await self._requester.request("GET", f"/agent_skills/{skill_id}")
         return Skill.model_validate(data)
 
     async def delete(self, skill_id: str) -> None:
@@ -108,32 +105,31 @@ class AsyncSkillsAPI:
         """
         await self._requester.request("DELETE", f"/agent_skills/{skill_id}")
 
-    async def get_file_by_name(
+    async def get_file(
         self,
         *,
-        skill_name: str,
+        skill_id: str,
         file_path: str,
         expire: int | None = None,
     ) -> GetSkillFileResp:
-        """Get a file from a skill by name.
+        """Get a file from a skill by skill ID.
 
         The backend automatically returns content for parseable text files, or a presigned URL
         for non-parseable files (binary, images, etc.).
 
         Args:
-            skill_name: The name of the skill.
+            skill_id: The UUID of the skill.
             file_path: Relative path to the file within the skill (e.g., 'scripts/extract_text.json').
             expire: URL expiration time in seconds. Defaults to 900 (15 minutes).
 
         Returns:
             GetSkillFileResp containing the file path, MIME type, and either content or URL.
         """
-        endpoint = f"/agent_skills/by_name/{skill_name}/file"
+        endpoint = f"/agent_skills/{skill_id}/file"
 
-        params = {"file_path": file_path}
+        params: dict[str, Any] = {"file_path": file_path}
         if expire is not None:
             params["expire"] = expire
 
         data = await self._requester.request("GET", endpoint, params=params)
         return GetSkillFileResp.model_validate(data)
-

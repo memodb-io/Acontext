@@ -41,6 +41,7 @@ type CreateAgentSkillsReq struct {
 //	@Security		BearerAuth
 //	@Success		201	{object}	serializer.Response{data=model.AgentSkills}	"Returns agent skill with name and description extracted from SKILL.md"
 //	@Router			/agent_skills [post]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\nfrom acontext.uploads import FileUpload\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Upload a skill from a zip file\nwith open('my_skill.zip', 'rb') as f:\n    skill = client.skills.create(\n        file=FileUpload(filename='my_skill.zip', content=f.read(), content_type='application/zip'),\n        user='alice@example.com',\n        meta={'version': '1.0'}\n    )\nprint(f\"Created skill: {skill.name} (ID: {skill.id})\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@anthropic/acontext';\nimport fs from 'fs';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Upload a skill from a zip file\nconst fileBuffer = fs.readFileSync('my_skill.zip');\nconst skill = await client.skills.create({\n  file: ['my_skill.zip', fileBuffer, 'application/zip'],\n  user: 'alice@example.com',\n  meta: { version: '1.0' }\n});\nconsole.log(`Created skill: ${skill.name} (ID: ${skill.id})`);\n","label":"JavaScript"}]
 func (h *AgentSkillsHandler) CreateAgentSkill(c *gin.Context) {
 	project, ok := c.MustGet("project").(*model.Project)
 	if !ok {
@@ -118,6 +119,7 @@ func (h *AgentSkillsHandler) CreateAgentSkill(c *gin.Context) {
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=model.AgentSkills}
 //	@Router			/agent_skills/{id} [get]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get a skill by ID\nskill = client.skills.get('skill-uuid-here')\nprint(f\"Skill: {skill.name}\")\nprint(f\"Description: {skill.description}\")\nprint(f\"Files: {len(skill.file_index)} file(s)\")\nfor f in skill.file_index:\n    print(f\"  - {f.path} ({f.mime})\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@anthropic/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get a skill by ID\nconst skill = await client.skills.get('skill-uuid-here');\nconsole.log(`Skill: ${skill.name}`);\nconsole.log(`Description: ${skill.description}`);\nconsole.log(`Files: ${skill.file_index.length} file(s)`);\nskill.file_index.forEach(f => console.log(`  - ${f.path} (${f.mime})`));\n","label":"JavaScript"}]
 func (h *AgentSkillsHandler) GetAgentSkill(c *gin.Context) {
 	project, ok := c.MustGet("project").(*model.Project)
 	if !ok {
@@ -140,39 +142,6 @@ func (h *AgentSkillsHandler) GetAgentSkill(c *gin.Context) {
 	c.JSON(http.StatusOK, serializer.Response{Data: agentSkills})
 }
 
-// GetAgentSkillsByName godoc
-//
-//	@Summary		Get agent skill by name
-//	@Description	Get agent skill by its name (unique within project)
-//	@Tags			agent_skills
-//	@Accept			json
-//	@Produce		json
-//	@Param			name	query	string	true	"Agent skill name"
-//	@Security		BearerAuth
-//	@Success		200	{object}	serializer.Response{data=model.AgentSkills}
-//	@Router			/agent_skills/by_name [get]
-func (h *AgentSkillsHandler) GetAgentSkillByName(c *gin.Context) {
-	project, ok := c.MustGet("project").(*model.Project)
-	if !ok {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
-		return
-	}
-
-	name := c.Query("name")
-	if name == "" {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("name is required")))
-		return
-	}
-
-	agentSkills, err := h.svc.GetByName(c.Request.Context(), project.ID, name)
-	if err != nil {
-		c.JSON(http.StatusNotFound, serializer.DBErr("", err))
-		return
-	}
-
-	c.JSON(http.StatusOK, serializer.Response{Data: agentSkills})
-}
-
 // DeleteAgentSkills godoc
 //
 //	@Summary		Delete agent skill
@@ -184,6 +153,7 @@ func (h *AgentSkillsHandler) GetAgentSkillByName(c *gin.Context) {
 //	@Security		BearerAuth
 //	@Success		204	""
 //	@Router			/agent_skills/{id} [delete]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Delete a skill by ID\nclient.skills.delete('skill-uuid-here')\nprint('Skill deleted successfully')\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@anthropic/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Delete a skill by ID\nawait client.skills.delete('skill-uuid-here');\nconsole.log('Skill deleted successfully');\n","label":"JavaScript"}]
 func (h *AgentSkillsHandler) DeleteAgentSkill(c *gin.Context) {
 	project, ok := c.MustGet("project").(*model.Project)
 	if !ok {
@@ -226,6 +196,7 @@ type ListAgentSkillsReq struct {
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.ListAgentSkillsOutput}
 //	@Router			/agent_skills [get]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List all skills with pagination\nresult = client.skills.list_catalog(limit=50)\nfor skill in result.items:\n    print(f\"{skill.name}: {skill.description}\")\n\n# Paginate through all skills\nif result.has_more:\n    next_page = client.skills.list_catalog(cursor=result.next_cursor)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@anthropic/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List all skills with pagination\nconst result = await client.skills.list_catalog({ limit: 50 });\nresult.items.forEach(skill => {\n  console.log(`${skill.name}: ${skill.description}`);\n});\n\n// Paginate through all skills\nif (result.has_more) {\n  const nextPage = await client.skills.list_catalog({ cursor: result.next_cursor });\n}\n","label":"JavaScript"}]
 func (h *AgentSkillsHandler) ListAgentSkills(c *gin.Context) {
 	req := ListAgentSkillsReq{}
 	if err := c.ShouldBind(&req); err != nil {
@@ -254,20 +225,21 @@ func (h *AgentSkillsHandler) ListAgentSkills(c *gin.Context) {
 	c.JSON(http.StatusOK, serializer.Response{Data: out})
 }
 
-// GetAgentSkillsFileURL godoc
+// GetAgentSkillFile godoc
 //
-//	@Summary		Get presigned URL for a file
-//	@Description	Get a presigned URL to download a specific file from agent skill
+//	@Summary		Get file from agent skill
+//	@Description	Get file content or download URL from agent skill. If the file is text-based (parseable), returns parsed content. Otherwise, returns a presigned download URL.
 //	@Tags			agent_skills
 //	@Accept			json
 //	@Produce		json
 //	@Param			id			path	string	true	"Agent skill UUID"
-//	@Param			file_path	query	string	true	"File path within the zip (e.g., 'github/GTM/find_trending_repos.json')"
-//	@Param			expire		query	int		false	"URL expiration in seconds (default 900)"
+//	@Param			file_path	query	string	true	"File path within the skill (e.g., 'scripts/extract_text.json')"
+//	@Param			expire		query	int		false	"URL expiration in seconds for presigned URL (default 900)"
 //	@Security		BearerAuth
-//	@Success		200	{object}	serializer.Response{data=map[string]string}
+//	@Success		200	{object}	serializer.Response{data=service.GetFileOutput}
 //	@Router			/agent_skills/{id}/file [get]
-func (h *AgentSkillsHandler) GetAgentSkillFileURL(c *gin.Context) {
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get a file from a skill (text files return content, binary files return URL)\nfile_resp = client.skills.get_file(\n    skill_id='skill-uuid-here',\n    file_path='scripts/main.py',\n    expire=1800  # URL expires in 30 minutes\n)\n\nprint(f\"File: {file_resp.path} ({file_resp.mime})\")\nif file_resp.content:\n    print(f\"Content: {file_resp.content.raw}\")\nif file_resp.url:\n    print(f\"Download URL: {file_resp.url}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@anthropic/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get a file from a skill (text files return content, binary files return URL)\nconst fileResp = await client.skills.getFile({\n  skillId: 'skill-uuid-here',\n  filePath: 'scripts/main.py',\n  expire: 1800  // URL expires in 30 minutes\n});\n\nconsole.log(`File: ${fileResp.path} (${fileResp.mime})`);\nif (fileResp.content) {\n  console.log(`Content: ${fileResp.content.raw}`);\n}\nif (fileResp.url) {\n  console.log(`Download URL: ${fileResp.url}`);\n}\n","label":"JavaScript"}]
+func (h *AgentSkillsHandler) GetAgentSkillFile(c *gin.Context) {
 	project, ok := c.MustGet("project").(*model.Project)
 	if !ok {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
@@ -299,55 +271,7 @@ func (h *AgentSkillsHandler) GetAgentSkillFileURL(c *gin.Context) {
 		}
 	}
 
-	url, err := h.svc.GetPresignedURL(c.Request.Context(), agentSkills, filePath, expire)
-	if err != nil {
-		c.JSON(http.StatusNotFound, serializer.DBErr("", err))
-		return
-	}
-
-	c.JSON(http.StatusOK, serializer.Response{Data: map[string]string{"url": url}})
-}
-
-// GetAgentSkillFile godoc
-//
-//	@Summary		Get file from agent skill
-//	@Description	Get file content or download URL from agent skill by skill name and file path. If the file is a text-based file (parseable), returns parsed content. Otherwise, returns a presigned download URL.
-//	@Tags			agent_skills
-//	@Accept			json
-//	@Produce		json
-//	@Param			name		path	string	true	"Agent skill name"
-//	@Param			file_path	query	string	true	"Relative file path from skill root"						example(SKILL.md)
-//	@Param			expire		query	int		false	"Expire time in seconds for presigned URL (default: 900)"	example(900)
-//	@Security		BearerAuth
-//	@Success		200	{object}	serializer.Response{data=service.GetFileOutput}
-//	@Router			/agent_skills/by_name/{name}/file [get]
-func (h *AgentSkillsHandler) GetAgentSkillFile(c *gin.Context) {
-	project, ok := c.MustGet("project").(*model.Project)
-	if !ok {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
-		return
-	}
-
-	skillName := c.Param("name")
-	if skillName == "" {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("name is required")))
-		return
-	}
-
-	filePath := c.Query("file_path")
-	if filePath == "" {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("file_path is required")))
-		return
-	}
-
-	expire := time.Duration(900) * time.Second // default 15 minutes
-	if expireStr := c.Query("expire"); expireStr != "" {
-		if expireInt, err := time.ParseDuration(expireStr + "s"); err == nil {
-			expire = expireInt
-		}
-	}
-
-	output, err := h.svc.GetFile(c.Request.Context(), project.ID, skillName, filePath, expire)
+	output, err := h.svc.GetFile(c.Request.Context(), agentSkills, filePath, expire)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			c.JSON(http.StatusNotFound, serializer.DBErr("", err))
