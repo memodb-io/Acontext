@@ -12,8 +12,6 @@ from ..types.skill import (
     GetSkillFileResp,
     ListSkillsOutput,
     Skill,
-    SkillCatalogItem,
-    _ListSkillsResponse,
 )
 from ..uploads import FileUpload, normalize_file_upload
 
@@ -84,17 +82,8 @@ class AsyncSkillsAPI:
         data = await self._requester.request(
             "GET", "/agent_skills", params=params or None
         )
-        api_response = _ListSkillsResponse.model_validate(data)
-
-        # Convert to catalog format (name and description only)
-        return ListSkillsOutput(
-            items=[
-                SkillCatalogItem(name=skill.name, description=skill.description)
-                for skill in api_response.items
-            ],
-            next_cursor=api_response.next_cursor,
-            has_more=api_response.has_more,
-        )
+        # Pydantic ignores extra fields, so ListSkillsOutput directly extracts name/description
+        return ListSkillsOutput.model_validate(data)
 
     async def get_by_name(self, name: str) -> Skill:
         """Get a skill by its name.

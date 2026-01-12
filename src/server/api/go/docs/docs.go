@@ -4050,6 +4050,33 @@ const docTemplate = `{
                 }
             }
         },
+        "service.AgentSkillsListItem": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "meta": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
         "service.GetFileOutput": {
             "type": "object",
             "properties": {
@@ -4134,7 +4161,7 @@ const docTemplate = `{
                 "items": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/model.AgentSkills"
+                        "$ref": "#/definitions/service.AgentSkillsListItem"
                     }
                 },
                 "next_cursor": {

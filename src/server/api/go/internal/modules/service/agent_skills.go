@@ -372,10 +372,22 @@ type ListAgentSkillsInput struct {
 	TimeDesc  bool
 }
 
+// AgentSkillsListItem is a lightweight representation of AgentSkills for list responses.
+// It excludes file_index to reduce response payload size.
+type AgentSkillsListItem struct {
+	ID          uuid.UUID              `json:"id"`
+	UserID      *uuid.UUID             `json:"user_id"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Meta        map[string]interface{} `json:"meta"`
+	CreatedAt   time.Time              `json:"created_at"`
+	UpdatedAt   time.Time              `json:"updated_at"`
+}
+
 type ListAgentSkillsOutput struct {
-	Items      []*model.AgentSkills `json:"items"`
-	NextCursor string               `json:"next_cursor,omitempty"`
-	HasMore    bool                 `json:"has_more"`
+	Items      []*AgentSkillsListItem `json:"items"`
+	NextCursor string                 `json:"next_cursor,omitempty"`
+	HasMore    bool                   `json:"has_more"`
 }
 
 func (s *agentSkillsService) List(ctx context.Context, in ListAgentSkillsInput) (*ListAgentSkillsOutput, error) {
@@ -396,14 +408,32 @@ func (s *agentSkillsService) List(ctx context.Context, in ListAgentSkillsInput) 
 		return nil, err
 	}
 
-	out := &ListAgentSkillsOutput{
-		Items:   agentSkills,
-		HasMore: false,
+	// Determine pagination
+	hasMore := len(agentSkills) > in.Limit
+	if hasMore {
+		agentSkills = agentSkills[:in.Limit]
 	}
-	if len(agentSkills) > in.Limit {
-		out.HasMore = true
-		out.Items = agentSkills[:in.Limit]
-		last := out.Items[len(out.Items)-1]
+
+	// Convert to lightweight list items (excludes file_index)
+	items := make([]*AgentSkillsListItem, len(agentSkills))
+	for i, skill := range agentSkills {
+		items[i] = &AgentSkillsListItem{
+			ID:          skill.ID,
+			UserID:      skill.UserID,
+			Name:        skill.Name,
+			Description: skill.Description,
+			Meta:        skill.Meta,
+			CreatedAt:   skill.CreatedAt,
+			UpdatedAt:   skill.UpdatedAt,
+		}
+	}
+
+	out := &ListAgentSkillsOutput{
+		Items:   items,
+		HasMore: hasMore,
+	}
+	if hasMore && len(items) > 0 {
+		last := agentSkills[len(agentSkills)-1]
 		out.NextCursor = paging.EncodeCursor(last.CreatedAt, last.ID)
 	}
 

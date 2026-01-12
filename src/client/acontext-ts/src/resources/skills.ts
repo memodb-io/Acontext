@@ -2,8 +2,6 @@
  * Skills endpoints.
  */
 
-import { z } from 'zod';
-
 import { RequesterProtocol } from '../client-types';
 import { FileUpload, normalizeFileUpload } from '../uploads';
 import { buildParams } from '../utils';
@@ -13,18 +11,17 @@ import {
   ListSkillsOutput,
   ListSkillsOutputSchema,
   Skill,
-  SkillCatalogItem,
   SkillSchema,
 } from '../types';
 
 export class SkillsAPI {
-  constructor(private requester: RequesterProtocol) {}
+  constructor(private requester: RequesterProtocol) { }
 
   async create(options: {
     file:
-      | FileUpload
-      | [string, Buffer | NodeJS.ReadableStream]
-      | [string, Buffer | NodeJS.ReadableStream, string | null];
+    | FileUpload
+    | [string, Buffer | NodeJS.ReadableStream]
+    | [string, Buffer | NodeJS.ReadableStream, string | null];
     user?: string | null;
     meta?: Record<string, unknown> | null;
   }): Promise<Skill> {
@@ -63,13 +60,6 @@ export class SkillsAPI {
     cursor?: string | null;
     timeDesc?: boolean | null;
   }): Promise<ListSkillsOutput> {
-    // Parse API response (contains full Skill objects)
-    const apiResponseSchema = z.object({
-      items: z.array(SkillSchema),
-      next_cursor: z.string().nullable().optional(),
-      has_more: z.boolean(),
-    });
-
     // Use 100 as default for catalog listing (only name and description, lightweight)
     const effectiveLimit = options?.limit ?? 100;
     const params = buildParams({
@@ -81,19 +71,8 @@ export class SkillsAPI {
     const data = await this.requester.request('GET', '/agent_skills', {
       params: Object.keys(params).length > 0 ? params : undefined,
     });
-    const apiResponse = apiResponseSchema.parse(data);
-
-    // Convert to catalog format (name and description only)
-    return ListSkillsOutputSchema.parse({
-      items: apiResponse.items.map(
-        (skill): SkillCatalogItem => ({
-          name: skill.name,
-          description: skill.description,
-        })
-      ),
-      next_cursor: apiResponse.next_cursor ?? null,
-      has_more: apiResponse.has_more,
-    });
+    // Zod strips unknown keys, so ListSkillsOutputSchema extracts only name/description
+    return ListSkillsOutputSchema.parse(data);
   }
 
   async getByName(name: string): Promise<Skill> {

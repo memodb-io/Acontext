@@ -24,9 +24,7 @@ class Skill(BaseModel):
     file_index: list[FileInfo] = Field(
         ..., description="List of file information (path and MIME type) in the skill"
     )
-    meta: dict[str, Any] | None = Field(
-        None, description="Custom metadata dictionary"
-    )
+    meta: dict[str, Any] | None = Field(None, description="Custom metadata dictionary")
     created_at: str = Field(..., description="ISO 8601 formatted creation timestamp")
     updated_at: str = Field(..., description="ISO 8601 formatted update timestamp")
 
@@ -39,7 +37,11 @@ class SkillCatalogItem(BaseModel):
 
 
 class ListSkillsOutput(BaseModel):
-    """Response model for listing skills (catalog format with name and description only)."""
+    """Response model for listing skills (catalog format with name and description only).
+
+    Pydantic ignores extra fields, so this directly parses API responses
+    and extracts only name/description from each item.
+    """
 
     items: list[SkillCatalogItem] = Field(
         ..., description="List of skills with name and description"
@@ -48,22 +50,16 @@ class ListSkillsOutput(BaseModel):
     has_more: bool = Field(..., description="Whether there are more items")
 
 
-class _ListSkillsResponse(BaseModel):
-    """Internal response model for API pagination (full Skill objects).
-    
-    This is used internally to parse the raw API response before converting
-    to the catalog format (ListSkillsOutput).
-    """
-    items: list[Skill]
-    next_cursor: str | None = None
-    has_more: bool = False
-
-
 class GetSkillFileResp(BaseModel):
     """Response model for getting a skill file."""
 
     path: str = Field(..., description="File path")
     mime: str = Field(..., description="MIME type of the file")
-    url: str | None = Field(None, description="Presigned URL for downloading the file (present if file is not parseable)")
-    content: FileContent | None = Field(None, description="Parsed file content if available (present if file is parseable)")
-
+    url: str | None = Field(
+        None,
+        description="Presigned URL for downloading the file (present if file is not parseable)",
+    )
+    content: FileContent | None = Field(
+        None,
+        description="Parsed file content if available (present if file is parseable)",
+    )

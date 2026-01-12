@@ -3172,6 +3172,33 @@
         },
         "type" : "object"
       },
+      "service.AgentSkillsListItem" : {
+        "properties" : {
+          "created_at" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "meta" : {
+            "additionalProperties" : true,
+            "type" : "object"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "updated_at" : {
+            "type" : "string"
+          },
+          "user_id" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "service.GetFileOutput" : {
         "properties" : {
           "content" : {
@@ -3253,7 +3280,7 @@
           },
           "items" : {
             "items" : {
-              "$ref" : "#/components/schemas/model.AgentSkills"
+              "$ref" : "#/components/schemas/service.AgentSkillsListItem"
             },
             "type" : "array"
           },

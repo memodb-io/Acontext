@@ -12,8 +12,6 @@ from ..types.skill import (
     GetSkillFileResp,
     ListSkillsOutput,
     Skill,
-    SkillCatalogItem,
-    _ListSkillsResponse,
 )
 from ..uploads import FileUpload, normalize_file_upload
 
@@ -25,9 +23,11 @@ class SkillsAPI:
     def create(
         self,
         *,
-        file: FileUpload
-        | tuple[str, BinaryIO | bytes]
-        | tuple[str, BinaryIO | bytes, str],
+        file: (
+            FileUpload
+            | tuple[str, BinaryIO | bytes]
+            | tuple[str, BinaryIO | bytes, str]
+        ),
         user: str | None = None,
         meta: Mapping[str, Any] | None = None,
     ) -> Skill:
@@ -80,19 +80,12 @@ class SkillsAPI:
             along with pagination information (next_cursor and has_more).
         """
         effective_limit = limit if limit is not None else 100
-        params = build_params(user=user, limit=effective_limit, cursor=cursor, time_desc=time_desc)
-        data = self._requester.request("GET", "/agent_skills", params=params or None)
-        api_response = _ListSkillsResponse.model_validate(data)
-
-        # Convert to catalog format (name and description only)
-        return ListSkillsOutput(
-            items=[
-                SkillCatalogItem(name=skill.name, description=skill.description)
-                for skill in api_response.items
-            ],
-            next_cursor=api_response.next_cursor,
-            has_more=api_response.has_more,
+        params = build_params(
+            user=user, limit=effective_limit, cursor=cursor, time_desc=time_desc
         )
+        data = self._requester.request("GET", "/agent_skills", params=params or None)
+        # Pydantic ignores extra fields, so ListSkillsOutput directly extracts name/description
+        return ListSkillsOutput.model_validate(data)
 
     def get_by_name(self, name: str) -> Skill:
         """Get a skill by its name.
@@ -143,4 +136,3 @@ class SkillsAPI:
 
         data = self._requester.request("GET", endpoint, params=params)
         return GetSkillFileResp.model_validate(data)
-

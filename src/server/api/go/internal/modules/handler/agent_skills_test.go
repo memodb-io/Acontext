@@ -633,6 +633,26 @@ func TestAgentSkillsHandler_ListAgentSkills(t *testing.T) {
 	agentSkills2 := createTestAgentSkills()
 	agentSkills2.ProjectID = projectID
 
+	// Convert to list items (without file_index)
+	listItem1 := &service.AgentSkillsListItem{
+		ID:          agentSkills1.ID,
+		UserID:      agentSkills1.UserID,
+		Name:        agentSkills1.Name,
+		Description: agentSkills1.Description,
+		Meta:        agentSkills1.Meta,
+		CreatedAt:   agentSkills1.CreatedAt,
+		UpdatedAt:   agentSkills1.UpdatedAt,
+	}
+	listItem2 := &service.AgentSkillsListItem{
+		ID:          agentSkills2.ID,
+		UserID:      agentSkills2.UserID,
+		Name:        agentSkills2.Name,
+		Description: agentSkills2.Description,
+		Meta:        agentSkills2.Meta,
+		CreatedAt:   agentSkills2.CreatedAt,
+		UpdatedAt:   agentSkills2.UpdatedAt,
+	}
+
 	tests := []struct {
 		name           string
 		setup          func(*MockAgentSkillsService)
@@ -643,7 +663,7 @@ func TestAgentSkillsHandler_ListAgentSkills(t *testing.T) {
 			name: "successful list with items",
 			setup: func(svc *MockAgentSkillsService) {
 				svc.On("List", mock.Anything, mock.Anything).Return(&service.ListAgentSkillsOutput{
-					Items:   []*model.AgentSkills{agentSkills1, agentSkills2},
+					Items:   []*service.AgentSkillsListItem{listItem1, listItem2},
 					HasMore: false,
 				}, nil)
 			},
@@ -653,7 +673,7 @@ func TestAgentSkillsHandler_ListAgentSkills(t *testing.T) {
 			name: "successful list with empty result",
 			setup: func(svc *MockAgentSkillsService) {
 				svc.On("List", mock.Anything, mock.Anything).Return(&service.ListAgentSkillsOutput{
-					Items:   []*model.AgentSkills{},
+					Items:   []*service.AgentSkillsListItem{},
 					HasMore: false,
 				}, nil)
 			},
