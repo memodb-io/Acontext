@@ -9,4 +9,5 @@ export * from './disk';
 export * from './block';
 export * from './tool';
 export * from './skill';
+export * from './user';
 
