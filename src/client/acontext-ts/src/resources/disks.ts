@@ -2,7 +2,6 @@
  * Disk and artifact endpoints.
  */
 
-import { z } from 'zod';
 import { RequesterProtocol } from '../client-types';
 import { FileUpload, normalizeFileUpload } from '../uploads';
 import { buildParams } from '../utils';
