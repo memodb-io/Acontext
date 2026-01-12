@@ -42,8 +42,8 @@ func (m *MockSpaceRepo) Get(ctx context.Context, s *model.Space) (*model.Space, 
 	return args.Get(0).(*model.Space), args.Error(1)
 }
 
-func (m *MockSpaceRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Space, error) {
-	args := m.Called(ctx, projectID, afterCreatedAt, afterID, limit, timeDesc)
+func (m *MockSpaceRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Space, error) {
+	args := m.Called(ctx, projectID, userIdentifier, afterCreatedAt, afterID, limit, timeDesc)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -365,7 +365,7 @@ func TestSpaceService_List(t *testing.T) {
 						ProjectID: projectID,
 					},
 				}
-				repo.On("ListWithCursor", ctx, projectID, time.Time{}, uuid.UUID{}, 11, false).Return(expectedSpaces, nil)
+				repo.On("ListWithCursor", ctx, projectID, "", time.Time{}, uuid.UUID{}, 11, false).Return(expectedSpaces, nil)
 			},
 			wantErr: false,
 		},
@@ -376,7 +376,7 @@ func TestSpaceService_List(t *testing.T) {
 				Limit:     10,
 			},
 			setup: func(repo *MockSpaceRepo) {
-				repo.On("ListWithCursor", ctx, projectID, time.Time{}, uuid.UUID{}, 11, false).Return([]model.Space{}, nil)
+				repo.On("ListWithCursor", ctx, projectID, "", time.Time{}, uuid.UUID{}, 11, false).Return([]model.Space{}, nil)
 			},
 			wantErr: false,
 		},
@@ -387,7 +387,7 @@ func TestSpaceService_List(t *testing.T) {
 				Limit:     10,
 			},
 			setup: func(repo *MockSpaceRepo) {
-				repo.On("ListWithCursor", ctx, projectID, time.Time{}, uuid.UUID{}, 11, false).Return(nil, errors.New("database error"))
+				repo.On("ListWithCursor", ctx, projectID, "", time.Time{}, uuid.UUID{}, 11, false).Return(nil, errors.New("database error"))
 			},
 			wantErr: true,
 		},

@@ -14,7 +14,7 @@ type SpaceRepo interface {
 	Delete(ctx context.Context, s *model.Space) error
 	Update(ctx context.Context, s *model.Space) error
 	Get(ctx context.Context, s *model.Space) (*model.Space, error)
-	ListWithCursor(ctx context.Context, projectID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Space, error)
+	ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Space, error)
 	ListExperienceConfirmationsWithCursor(ctx context.Context, spaceID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.ExperienceConfirmation, error)
 	GetExperienceConfirmation(ctx context.Context, spaceID uuid.UUID, experienceID uuid.UUID) (*model.ExperienceConfirmation, error)
 	DeleteExperienceConfirmation(ctx context.Context, spaceID uuid.UUID, experienceID uuid.UUID) error
@@ -42,8 +42,14 @@ func (r *spaceRepo) Get(ctx context.Context, s *model.Space) (*model.Space, erro
 	return s, r.db.WithContext(ctx).Where(&model.Space{ID: s.ID}).First(s).Error
 }
 
-func (r *spaceRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Space, error) {
-	q := r.db.WithContext(ctx).Where("project_id = ?", projectID)
+func (r *spaceRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Space, error) {
+	q := r.db.WithContext(ctx).Where("spaces.project_id = ?", projectID)
+
+	// Filter by user identifier if provided
+	if userIdentifier != "" {
+		q = q.Joins("JOIN users ON users.id = spaces.user_id").
+			Where("users.identifier = ?", userIdentifier)
+	}
 
 	// Apply cursor-based pagination filter if cursor is provided
 	if !afterCreatedAt.IsZero() && afterID != uuid.Nil {
@@ -53,15 +59,15 @@ func (r *spaceRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, aft
 			comparisonOp = "<"
 		}
 		q = q.Where(
-			"(created_at "+comparisonOp+" ?) OR (created_at = ? AND id "+comparisonOp+" ?)",
+			"(spaces.created_at "+comparisonOp+" ?) OR (spaces.created_at = ? AND spaces.id "+comparisonOp+" ?)",
 			afterCreatedAt, afterCreatedAt, afterID,
 		)
 	}
 
 	// Apply ordering based on sort direction
-	orderBy := "created_at ASC, id ASC"
+	orderBy := "spaces.created_at ASC, spaces.id ASC"
 	if timeDesc {
-		orderBy = "created_at DESC, id DESC"
+		orderBy = "spaces.created_at DESC, spaces.id DESC"
 	}
 
 	var spaces []model.Space

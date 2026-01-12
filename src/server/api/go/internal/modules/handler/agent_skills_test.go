@@ -350,7 +350,7 @@ description: Test with SKILL.md in subdirectory`,
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := &MockAgentSkillsService{}
 			tt.setup(mockService)
-			handler := NewAgentSkillsHandler(mockService)
+			handler := NewAgentSkillsHandler(mockService, &MockUserService{})
 
 			router := setupAgentSkillsRouter()
 			router.POST("/agent_skills", func(c *gin.Context) {
@@ -452,7 +452,7 @@ func TestAgentSkillsHandler_GetAgentSkill(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := &MockAgentSkillsService{}
 			tt.setup(mockService)
-			handler := NewAgentSkillsHandler(mockService)
+			handler := NewAgentSkillsHandler(mockService, &MockUserService{})
 
 			router := setupAgentSkillsRouter()
 			router.GET("/agent_skills/:id", func(c *gin.Context) {
@@ -527,7 +527,7 @@ func TestAgentSkillsHandler_GetAgentSkillByName(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := &MockAgentSkillsService{}
 			tt.setup(mockService)
-			handler := NewAgentSkillsHandler(mockService)
+			handler := NewAgentSkillsHandler(mockService, &MockUserService{})
 
 			router := setupAgentSkillsRouter()
 			router.GET("/agent_skills/by_name", func(c *gin.Context) {
@@ -605,7 +605,7 @@ func TestAgentSkillsHandler_DeleteAgentSkill(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := &MockAgentSkillsService{}
 			tt.setup(mockService)
-			handler := NewAgentSkillsHandler(mockService)
+			handler := NewAgentSkillsHandler(mockService, &MockUserService{})
 
 			router := setupAgentSkillsRouter()
 			router.DELETE("/agent_skills/:id", func(c *gin.Context) {
@@ -680,7 +680,7 @@ func TestAgentSkillsHandler_ListAgentSkills(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := &MockAgentSkillsService{}
 			tt.setup(mockService)
-			handler := NewAgentSkillsHandler(mockService)
+			handler := NewAgentSkillsHandler(mockService, &MockUserService{})
 
 			router := setupAgentSkillsRouter()
 			router.GET("/agent_skills", func(c *gin.Context) {
@@ -769,7 +769,7 @@ func TestAgentSkillsHandler_GetAgentSkillFileURL(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := &MockAgentSkillsService{}
 			tt.setup(mockService)
-			handler := NewAgentSkillsHandler(mockService)
+			handler := NewAgentSkillsHandler(mockService, &MockUserService{})
 
 			router := setupAgentSkillsRouter()
 			router.GET("/agent_skills/:id/file", func(c *gin.Context) {

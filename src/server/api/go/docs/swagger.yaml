@@ -40,6 +40,12 @@ definitions:
     required:
     - type
     type: object
+  handler.CreateDiskReq:
+    properties:
+      user:
+        example: alice@acontext.io
+        type: string
+    type: object
   handler.CreateSessionReq:
     properties:
       configs:
@@ -52,12 +58,18 @@ definitions:
         example: 123e4567-e89b-12d3-a456-42661417
         format: uuid
         type: string
+      user:
+        example: alice@acontext.io
+        type: string
     type: object
   handler.CreateSpaceReq:
     properties:
       configs:
         additionalProperties: true
         type: object
+      user:
+        example: alice@acontext.io
+        type: string
     type: object
   handler.GetArtifactResp:
     properties:
@@ -252,6 +264,8 @@ definitions:
         type: string
       updated_at:
         type: string
+      user_id:
+        type: string
     type: object
   model.Artifact:
     properties:
@@ -300,6 +314,8 @@ definitions:
       project_id:
         type: string
       updated_at:
+        type: string
+      user_id:
         type: string
     type: object
   model.ExperienceConfirmation:
@@ -369,6 +385,8 @@ definitions:
         type: string
       updated_at:
         type: string
+      user_id:
+        type: string
     type: object
   model.Space:
     properties:
@@ -381,6 +399,8 @@ definitions:
       project_id:
         type: string
       updated_at:
+        type: string
+      user_id:
         type: string
     type: object
   model.Task:
@@ -547,6 +567,11 @@ paths:
       - application/json
       description: List all agent skills under a project
       parameters:
+      - description: User identifier to filter skills
+        example: alice@acontext.io
+        in: query
+        name: user
+        type: string
       - description: Limit of agent skills to return, default 20. Max 200.
         in: query
         name: limit
@@ -582,7 +607,7 @@ paths:
       description: Upload a zip file containing agent skill and extract it to S3.
         The zip file must contain a SKILL.md file (case-insensitive) with YAML format
         containing 'name' and 'description' fields. The name and description will
-        be extracted from SKILL.md.
+        be extracted from SKILL.md. Optionally associate with a user identifier.
       parameters:
       - description: 'ZIP file containing agent skill. Must contain SKILL.md (case-insensitive)
           with YAML format: name and description fields.'
@@ -590,6 +615,11 @@ paths:
         name: file
         required: true
         type: file
+      - description: User identifier to associate with the skill
+        example: alice@acontext.io
+        in: formData
+        name: user
+        type: string
       - description: Additional metadata (JSON string)
         in: formData
         name: meta
@@ -807,6 +837,11 @@ paths:
       - application/json
       description: List all disks under a project
       parameters:
+      - description: User identifier to filter disks
+        example: alice@acontext.io
+        in: query
+        name: user
+        type: string
       - description: Limit of disks to return, default 20. Max 200.
         in: query
         name: limit
@@ -851,6 +886,9 @@ paths:
           disks = client.disks.list(limit=10, time_desc=True)
           for disk in disks.items:
               print(f"Disk: {disk.id}")
+
+          # List disks for a specific user
+          disks = client.disks.list(user='alice@acontext.io', limit=10)
       - label: JavaScript
         lang: javascript
         source: |
@@ -863,10 +901,21 @@ paths:
           for (const disk of disks.items) {
             console.log(`Disk: ${disk.id}`);
           }
+
+          // List disks for a specific user
+          const userDisks = await client.disks.list({ user: 'alice@acontext.io', limit: 10 });
     post:
       consumes:
       - application/json
-      description: Create a disk group under a project
+      description: Create a disk group under a project. Optionally associate with
+        a user identifier.
+      parameters:
+      - description: CreateDisk payload
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handler.CreateDiskReq'
       produces:
       - application/json
       responses:
@@ -895,6 +944,9 @@ paths:
           # Create a disk
           disk = client.disks.create()
           print(f"Created disk: {disk.id}")
+
+          # Create a disk for a specific user
+          disk = client.disks.create(user='alice@acontext.io')
       - label: JavaScript
         lang: javascript
         source: |
@@ -905,6 +957,9 @@ paths:
           // Create a disk
           const disk = await client.disks.create();
           console.log(`Created disk: ${disk.id}`);
+
+          // Create a disk for a specific user
+          const userDisk = await client.disks.create({ user: 'alice@acontext.io' });
   /disk/{disk_id}:
     delete:
       consumes:
@@ -1316,7 +1371,13 @@ paths:
       consumes:
       - application/json
       description: Get all sessions under a project, optionally filtered by space_id
+        or user
       parameters:
+      - description: User identifier to filter sessions
+        example: alice@acontext.io
+        in: query
+        name: user
+        type: string
       - description: Space ID to filter sessions
         format: uuid
         in: query
@@ -1375,6 +1436,9 @@ paths:
           )
           for session in sessions.items:
               print(f"{session.id}: {session.space_id}")
+
+          # List sessions for a specific user
+          sessions = client.sessions.list(user='alice@acontext.io', limit=20)
       - label: JavaScript
         lang: javascript
         source: |
@@ -1391,10 +1455,14 @@ paths:
           for (const session of sessions.items) {
             console.log(`${session.id}: ${session.space_id}`);
           }
+
+          // List sessions for a specific user
+          const userSessions = await client.sessions.list({ user: 'alice@acontext.io', limit: 20 });
     post:
       consumes:
       - application/json
-      description: Create a new session under a space
+      description: Create a new session under a space. Optionally associate with a
+        user identifier.
       parameters:
       - description: CreateSession payload
         in: body
@@ -1432,6 +1500,9 @@ paths:
               space_id='space-uuid'
           )
           print(f"Created session: {session.id}")
+
+          # Create a session for a specific user
+          session = client.sessions.create(user='alice@acontext.io', space_id='space-uuid')
       - label: JavaScript
         lang: javascript
         source: |
@@ -1444,6 +1515,9 @@ paths:
             spaceId: 'space-uuid'
           });
           console.log(`Created session: ${session.id}`);
+
+          // Create a session for a specific user
+          const userSession = await client.sessions.create({ user: 'alice@acontext.io', spaceId: 'space-uuid' });
   /session/{session_id}:
     delete:
       consumes:
@@ -2153,6 +2227,11 @@ paths:
       - application/json
       description: Get all spaces under a project
       parameters:
+      - description: User identifier to filter spaces
+        example: alice@acontext.io
+        in: query
+        name: user
+        type: string
       - description: Limit of spaces to return, default 20. Max 200.
         in: query
         name: limit
@@ -2197,6 +2276,9 @@ paths:
           spaces = client.spaces.list(limit=20, time_desc=True)
           for space in spaces.items:
               print(f"{space.id}: {space.configs}")
+
+          # List spaces for a specific user
+          spaces = client.spaces.list(user='alice@acontext.io', limit=20)
       - label: JavaScript
         lang: javascript
         source: |
@@ -2209,10 +2291,14 @@ paths:
           for (const space of spaces.items) {
             console.log(`${space.id}: ${JSON.stringify(space.configs)}`);
           }
+
+          // List spaces for a specific user
+          const userSpaces = await client.spaces.list({ user: 'alice@acontext.io', limit: 20 });
     post:
       consumes:
       - application/json
-      description: Create a new space under a project
+      description: Create a new space under a project. Optionally associate with a
+        user identifier.
       parameters:
       - description: CreateSpace payload
         in: body
@@ -2248,6 +2334,9 @@ paths:
           # Create a space
           space = client.spaces.create()
           print(f"Created space: {space.id}")
+
+          # Create a space for a specific user
+          space = client.spaces.create(user='alice@acontext.io')
       - label: JavaScript
         lang: javascript
         source: |
@@ -2258,6 +2347,9 @@ paths:
           // Create a space
           const space = await client.spaces.create();
           console.log(`Created space: ${space.id}`);
+
+          // Create a space for a specific user
+          const userSpace = await client.spaces.create({ user: 'alice@acontext.io' });
   /space/{space_id}:
     delete:
       consumes:
@@ -3222,6 +3314,49 @@ paths:
             { oldName: 'old_tool_name', newName: 'new_tool_name' }
           ]);
           console.log(result.status);
+  /user/{identifier}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a user by identifier and cascade delete all associated resources
+        (Space, Session, Disk, Skill)
+      parameters:
+      - description: User identifier string
+        in: path
+        name: identifier
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/serializer.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete user
+      tags:
+      - user
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Delete a user and all associated resources
+          client.users.delete('alice@acontext.io')
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Delete a user and all associated resources
+          await client.users.delete('alice@acontext.io');
 schemes:
 - http
 - https

@@ -17,7 +17,7 @@ type AgentSkillsRepo interface {
 	GetByName(ctx context.Context, projectID uuid.UUID, name string) (*model.AgentSkills, error)
 	Update(ctx context.Context, as *model.AgentSkills) error
 	Delete(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error
-	ListWithCursor(ctx context.Context, projectID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]*model.AgentSkills, error)
+	ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]*model.AgentSkills, error)
 }
 
 type agentSkillsRepo struct {
@@ -99,8 +99,14 @@ func (r *agentSkillsRepo) Delete(ctx context.Context, projectID uuid.UUID, id uu
 	})
 }
 
-func (r *agentSkillsRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]*model.AgentSkills, error) {
-	q := r.db.WithContext(ctx).Where("project_id = ?", projectID)
+func (r *agentSkillsRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]*model.AgentSkills, error) {
+	q := r.db.WithContext(ctx).Where("agent_skills.project_id = ?", projectID)
+
+	// Filter by user identifier if provided
+	if userIdentifier != "" {
+		q = q.Joins("JOIN users ON users.id = agent_skills.user_id").
+			Where("users.identifier = ?", userIdentifier)
+	}
 
 	// Apply cursor-based pagination filter if cursor is provided
 	if !afterCreatedAt.IsZero() && afterID != uuid.Nil {
@@ -110,15 +116,15 @@ func (r *agentSkillsRepo) ListWithCursor(ctx context.Context, projectID uuid.UUI
 			comparisonOp = "<"
 		}
 		q = q.Where(
-			"(created_at "+comparisonOp+" ?) OR (created_at = ? AND id "+comparisonOp+" ?)",
+			"(agent_skills.created_at "+comparisonOp+" ?) OR (agent_skills.created_at = ? AND agent_skills.id "+comparisonOp+" ?)",
 			afterCreatedAt, afterCreatedAt, afterID,
 		)
 	}
 
 	// Apply ordering based on sort direction
-	orderBy := "created_at ASC, id ASC"
+	orderBy := "agent_skills.created_at ASC, agent_skills.id ASC"
 	if timeDesc {
-		orderBy = "created_at DESC, id DESC"
+		orderBy = "agent_skills.created_at DESC, agent_skills.id DESC"
 	}
 
 	var agentSkills []*model.AgentSkills

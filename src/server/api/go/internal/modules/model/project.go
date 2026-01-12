@@ -33,6 +33,9 @@ type Project struct {
 
 	// Project <-> AgentSkills
 	AgentSkills []AgentSkills `gorm:"constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
+
+	// Project <-> User
+	Users []User `gorm:"constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
 }
 
 func (Project) TableName() string { return "projects" }

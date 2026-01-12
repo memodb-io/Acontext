@@ -8,8 +8,9 @@ import (
 )
 
 type AgentSkills struct {
-	ID        uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	ProjectID uuid.UUID `gorm:"type:uuid;not null;index;uniqueIndex:idx_project_name,priority:1" json:"-"`
+	ID        uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	ProjectID uuid.UUID  `gorm:"type:uuid;not null;index;uniqueIndex:idx_project_name,priority:1" json:"-"`
+	UserID    *uuid.UUID `gorm:"type:uuid;index" json:"user_id"`
 
 	// Name is unique within a project
 	Name        string `gorm:"type:text;not null;uniqueIndex:idx_project_name,priority:2" json:"name"`
@@ -33,6 +34,9 @@ type AgentSkills struct {
 
 	// AgentSkills <-> Project
 	Project *Project `gorm:"foreignKey:ProjectID;references:ID;constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
+
+	// AgentSkills <-> User
+	User *User `gorm:"foreignKey:UserID;references:ID;constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
 }
 
 func (AgentSkills) TableName() string { return "agent_skills" }

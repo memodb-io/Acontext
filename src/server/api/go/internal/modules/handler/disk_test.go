@@ -22,8 +22,8 @@ type MockDiskService struct {
 	mock.Mock
 }
 
-func (m *MockDiskService) Create(ctx context.Context, projectID uuid.UUID) (*model.Disk, error) {
-	args := m.Called(ctx, projectID)
+func (m *MockDiskService) Create(ctx context.Context, projectID uuid.UUID, userID *uuid.UUID) (*model.Disk, error) {
+	args := m.Called(ctx, projectID, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -74,14 +74,14 @@ func TestDiskHandler_CreateDisk(t *testing.T) {
 		{
 			name: "successful disk creation",
 			setup: func(svc *MockDiskService) {
-				svc.On("Create", mock.Anything, projectID).Return(disk, nil)
+				svc.On("Create", mock.Anything, projectID, mock.Anything).Return(disk, nil)
 			},
 			expectedStatus: http.StatusCreated,
 		},
 		{
 			name: "service error",
 			setup: func(svc *MockDiskService) {
-				svc.On("Create", mock.Anything, projectID).Return(nil, errors.New("service error"))
+				svc.On("Create", mock.Anything, projectID, mock.Anything).Return(nil, errors.New("service error"))
 			},
 			expectedStatus: http.StatusInternalServerError,
 		},
@@ -91,7 +91,7 @@ func TestDiskHandler_CreateDisk(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := &MockDiskService{}
 			tt.setup(mockService)
-			handler := NewDiskHandler(mockService)
+			handler := NewDiskHandler(mockService, &MockUserService{})
 
 			router := setupDiskRouter()
 			router.POST("/disk", func(c *gin.Context) {
@@ -171,7 +171,7 @@ func TestDiskHandler_ListDisks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := &MockDiskService{}
 			tt.setup(mockService)
-			handler := NewDiskHandler(mockService)
+			handler := NewDiskHandler(mockService, &MockUserService{})
 
 			router := setupDiskRouter()
 			router.GET("/disk", func(c *gin.Context) {
@@ -245,7 +245,7 @@ func TestDiskHandler_DeleteDisk(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := &MockDiskService{}
 			tt.setup(mockService)
-			handler := NewDiskHandler(mockService)
+			handler := NewDiskHandler(mockService, &MockUserService{})
 
 			router := setupDiskRouter()
 			router.DELETE("/disk/:disk_id", func(c *gin.Context) {

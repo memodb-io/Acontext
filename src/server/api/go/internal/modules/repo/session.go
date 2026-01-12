@@ -21,7 +21,7 @@ type SessionRepo interface {
 	Update(ctx context.Context, s *model.Session) error
 	Get(ctx context.Context, s *model.Session) (*model.Session, error)
 	GetDisableTaskTracking(ctx context.Context, sessionID uuid.UUID) (bool, error)
-	ListWithCursor(ctx context.Context, projectID uuid.UUID, spaceID *uuid.UUID, notConnected bool, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Session, error)
+	ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, spaceID *uuid.UUID, notConnected bool, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Session, error)
 	CreateMessageWithAssets(ctx context.Context, msg *model.Message) error
 	ListBySessionWithCursor(ctx context.Context, sessionID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Message, error)
 	ListAllMessagesBySession(ctx context.Context, sessionID uuid.UUID) ([]model.Message, error)
@@ -128,13 +128,19 @@ func (r *sessionRepo) GetDisableTaskTracking(ctx context.Context, sessionID uuid
 	return result.DisableTaskTracking, err
 }
 
-func (r *sessionRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, spaceID *uuid.UUID, notConnected bool, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Session, error) {
-	q := r.db.WithContext(ctx).Where("project_id = ?", projectID)
+func (r *sessionRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, spaceID *uuid.UUID, notConnected bool, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Session, error) {
+	q := r.db.WithContext(ctx).Where("sessions.project_id = ?", projectID)
+
+	// Filter by user identifier if provided
+	if userIdentifier != "" {
+		q = q.Joins("JOIN users ON users.id = sessions.user_id").
+			Where("users.identifier = ?", userIdentifier)
+	}
 
 	if notConnected {
-		q = q.Where("space_id IS NULL")
+		q = q.Where("sessions.space_id IS NULL")
 	} else if spaceID != nil {
-		q = q.Where("space_id = ?", spaceID)
+		q = q.Where("sessions.space_id = ?", spaceID)
 	}
 
 	// Apply cursor-based pagination filter if cursor is provided
@@ -145,15 +151,15 @@ func (r *sessionRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, s
 			comparisonOp = "<"
 		}
 		q = q.Where(
-			"(created_at "+comparisonOp+" ?) OR (created_at = ? AND id "+comparisonOp+" ?)",
+			"(sessions.created_at "+comparisonOp+" ?) OR (sessions.created_at = ? AND sessions.id "+comparisonOp+" ?)",
 			afterCreatedAt, afterCreatedAt, afterID,
 		)
 	}
 
 	// Apply ordering based on sort direction
-	orderBy := "created_at ASC, id ASC"
+	orderBy := "sessions.created_at ASC, sessions.id ASC"
 	if timeDesc {
-		orderBy = "created_at DESC, id DESC"
+		orderBy = "sessions.created_at DESC, sessions.id DESC"
 	}
 
 	var sessions []model.Session

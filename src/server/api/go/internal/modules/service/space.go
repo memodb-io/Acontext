@@ -68,6 +68,7 @@ func (s *spaceService) GetByID(ctx context.Context, m *model.Space) (*model.Spac
 
 type ListSpacesInput struct {
 	ProjectID uuid.UUID `json:"project_id"`
+	User      string    `json:"user"`
 	Limit     int       `json:"limit"`
 	Cursor    string    `json:"cursor"`
 	TimeDesc  bool      `json:"time_desc"`
@@ -92,7 +93,7 @@ func (s *spaceService) List(ctx context.Context, in ListSpacesInput) (*ListSpace
 	}
 
 	// Query limit+1 is used to determine has_more
-	spaces, err := s.r.ListWithCursor(ctx, in.ProjectID, afterT, afterID, in.Limit+1, in.TimeDesc)
+	spaces, err := s.r.ListWithCursor(ctx, in.ProjectID, in.User, afterT, afterID, in.Limit+1, in.TimeDesc)
 	if err != nil {
 		return nil, err
 	}
