@@ -2299,6 +2299,59 @@
         "x-codegen-request-body-name" : "payload"
       }
     },
+    "/user/ls" : {
+      "get" : {
+        "description" : "Get all users under a project. If limit is not provided or 0, all users will be returned.",
+        "parameters" : [ {
+          "description" : "Limit of users to return. Max 200. If limit is 0 or not provided, all users will be returned.",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer"
+          }
+        }, {
+          "description" : "Cursor for pagination. Use the cursor from the previous response to get the next page.",
+          "in" : "query",
+          "name" : "cursor",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Order by created_at descending if true, ascending if false (default false)",
+          "in" : "query",
+          "name" : "time_desc",
+          "schema" : {
+            "type" : "boolean"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_user_ls_get_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "List users",
+        "tags" : [ "user" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List all users\nusers = client.users.list()\nfor user in users.items:\n    print(f\"{user.identifier}: {user.id}\")\n\n# List users with pagination\nusers = client.users.list(limit=20, time_desc=True)\nif users.has_more:\n    next_users = client.users.list(limit=20, cursor=users.next_cursor)\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List all users\nconst users = await client.users.list();\nfor (const user of users.items) {\n  console.log(`${user.identifier}: ${user.id}`);\n}\n\n// List users with pagination\nconst paginatedUsers = await client.users.list({ limit: 20, timeDesc: true });\nif (paginatedUsers.hasMore) {\n  const nextUsers = await client.users.list({ limit: 20, cursor: paginatedUsers.nextCursor });\n}\n"
+        } ]
+      }
+    },
     "/user/{identifier}" : {
       "delete" : {
         "description" : "Delete a user by identifier and cascade delete all associated resources (Space, Session, Disk, Skill)",
@@ -2336,6 +2389,46 @@
           "label" : "JavaScript",
           "lang" : "javascript",
           "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Delete a user and all associated resources\nawait client.users.delete('alice@acontext.io');\n"
+        } ]
+      }
+    },
+    "/user/{identifier}/resources" : {
+      "get" : {
+        "description" : "Get the resource counts (Spaces, Sessions, Disks, Skills) associated with a user",
+        "parameters" : [ {
+          "description" : "User identifier string",
+          "in" : "path",
+          "name" : "identifier",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_user__identifier__resources_get_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Get user resources",
+        "tags" : [ "user" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get user resource counts\nresources = client.users.get_resources('alice@acontext.io')\nprint(f\"Spaces: {resources.spaces_count}\")\nprint(f\"Sessions: {resources.sessions_count}\")\nprint(f\"Disks: {resources.disks_count}\")\nprint(f\"Skills: {resources.skills_count}\")\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get user resource counts\nconst resources = await client.users.getResources('alice@acontext.io');\nconsole.log(`Spaces: ${resources.spaces_count}`);\nconsole.log(`Sessions: ${resources.sessions_count}`);\nconsole.log(`Disks: ${resources.disks_count}`);\nconsole.log(`Skills: ${resources.skills_count}`);\n"
         } ]
       }
     }
@@ -2992,6 +3085,43 @@
         },
         "type" : "object"
       },
+      "model.User" : {
+        "properties" : {
+          "created_at" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "identifier" : {
+            "type" : "string"
+          },
+          "project_id" : {
+            "type" : "string"
+          },
+          "updated_at" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "repo.UserResourceCounts" : {
+        "properties" : {
+          "disks_count" : {
+            "type" : "integer"
+          },
+          "sessions_count" : {
+            "type" : "integer"
+          },
+          "skills_count" : {
+            "type" : "integer"
+          },
+          "spaces_count" : {
+            "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
       "serializer.Response" : {
         "properties" : {
           "code" : {
@@ -3072,6 +3202,14 @@
         },
         "type" : "object"
       },
+      "service.GetUserResourcesOutput" : {
+        "properties" : {
+          "counts" : {
+            "$ref" : "#/components/schemas/repo.UserResourceCounts"
+          }
+        },
+        "type" : "object"
+      },
       "service.ListAgentSkillsOutput" : {
         "properties" : {
           "has_more" : {
@@ -3148,6 +3286,23 @@
           "items" : {
             "items" : {
               "$ref" : "#/components/schemas/model.Space"
+            },
+            "type" : "array"
+          },
+          "next_cursor" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "service.ListUsersOutput" : {
+        "properties" : {
+          "has_more" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/model.User"
             },
             "type" : "array"
           },
@@ -3560,6 +3715,30 @@
                 "$ref" : "#/components/schemas/httpclient.ToolReferenceData"
               },
               "type" : "array"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_user_ls_get_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/service.ListUsersOutput"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_user__identifier__resources_get_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/service.GetUserResourcesOutput"
             }
           },
           "type" : "object"
