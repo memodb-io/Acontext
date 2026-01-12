@@ -14,6 +14,13 @@
       "get" : {
         "description" : "List all agent skills under a project",
         "parameters" : [ {
+          "description" : "User identifier to filter skills",
+          "in" : "query",
+          "name" : "user",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "description" : "Limit of agent skills to return, default 20. Max 200.",
           "in" : "query",
           "name" : "limit",
@@ -54,7 +61,7 @@
         "tags" : [ "agent_skills" ]
       },
       "post" : {
-        "description" : "Upload a zip file containing agent skill and extract it to S3. The zip file must contain a SKILL.md file (case-insensitive) with YAML format containing 'name' and 'description' fields. The name and description will be extracted from SKILL.md.",
+        "description" : "Upload a zip file containing agent skill and extract it to S3. The zip file must contain a SKILL.md file (case-insensitive) with YAML format containing 'name' and 'description' fields. The name and description will be extracted from SKILL.md. Optionally associate with a user identifier.",
         "requestBody" : {
           "content" : {
             "multipart/form-data" : {
@@ -306,6 +313,13 @@
       "get" : {
         "description" : "List all disks under a project",
         "parameters" : [ {
+          "description" : "User identifier to filter disks",
+          "in" : "query",
+          "name" : "user",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "description" : "Limit of disks to return, default 20. Max 200.",
           "in" : "query",
           "name" : "limit",
@@ -347,15 +361,26 @@
         "x-code-samples" : [ {
           "label" : "Python",
           "lang" : "python",
-          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List disks\ndisks = client.disks.list(limit=10, time_desc=True)\nfor disk in disks.items:\n    print(f\"Disk: {disk.id}\")\n"
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List disks\ndisks = client.disks.list(limit=10, time_desc=True)\nfor disk in disks.items:\n    print(f\"Disk: {disk.id}\")\n\n# List disks for a specific user\ndisks = client.disks.list(user='alice@acontext.io', limit=10)\n"
         }, {
           "label" : "JavaScript",
           "lang" : "javascript",
-          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List disks\nconst disks = await client.disks.list({ limit: 10, timeDesc: true });\nfor (const disk of disks.items) {\n  console.log(`Disk: ${disk.id}`);\n}\n"
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List disks\nconst disks = await client.disks.list({ limit: 10, timeDesc: true });\nfor (const disk of disks.items) {\n  console.log(`Disk: ${disk.id}`);\n}\n\n// List disks for a specific user\nconst userDisks = await client.disks.list({ user: 'alice@acontext.io', limit: 10 });\n"
         } ]
       },
       "post" : {
-        "description" : "Create a disk group under a project",
+        "description" : "Create a disk group under a project. Optionally associate with a user identifier.",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/handler.CreateDiskReq"
+              }
+            }
+          },
+          "description" : "CreateDisk payload",
+          "required" : true
+        },
         "responses" : {
           "201" : {
             "content" : {
@@ -376,12 +401,13 @@
         "x-code-samples" : [ {
           "label" : "Python",
           "lang" : "python",
-          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a disk\ndisk = client.disks.create()\nprint(f\"Created disk: {disk.id}\")\n"
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a disk\ndisk = client.disks.create()\nprint(f\"Created disk: {disk.id}\")\n\n# Create a disk for a specific user\ndisk = client.disks.create(user='alice@acontext.io')\n"
         }, {
           "label" : "JavaScript",
           "lang" : "javascript",
-          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a disk\nconst disk = await client.disks.create();\nconsole.log(`Created disk: ${disk.id}`);\n"
-        } ]
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a disk\nconst disk = await client.disks.create();\nconsole.log(`Created disk: ${disk.id}`);\n\n// Create a disk for a specific user\nconst userDisk = await client.disks.create({ user: 'alice@acontext.io' });\n"
+        } ],
+        "x-codegen-request-body-name" : "payload"
       }
     },
     "/disk/{disk_id}" : {
@@ -702,8 +728,15 @@
     },
     "/session" : {
       "get" : {
-        "description" : "Get all sessions under a project, optionally filtered by space_id",
+        "description" : "Get all sessions under a project, optionally filtered by space_id or user",
         "parameters" : [ {
+          "description" : "User identifier to filter sessions",
+          "in" : "query",
+          "name" : "user",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "description" : "Space ID to filter sessions",
           "in" : "query",
           "name" : "space_id",
@@ -760,15 +793,15 @@
         "x-code-samples" : [ {
           "label" : "Python",
           "lang" : "python",
-          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List sessions\nsessions = client.sessions.list(\n    space_id='space-uuid',\n    limit=20,\n    time_desc=True\n)\nfor session in sessions.items:\n    print(f\"{session.id}: {session.space_id}\")\n"
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List sessions\nsessions = client.sessions.list(\n    space_id='space-uuid',\n    limit=20,\n    time_desc=True\n)\nfor session in sessions.items:\n    print(f\"{session.id}: {session.space_id}\")\n\n# List sessions for a specific user\nsessions = client.sessions.list(user='alice@acontext.io', limit=20)\n"
         }, {
           "label" : "JavaScript",
           "lang" : "javascript",
-          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List sessions\nconst sessions = await client.sessions.list({\n  spaceId: 'space-uuid',\n  limit: 20,\n  timeDesc: true\n});\nfor (const session of sessions.items) {\n  console.log(`${session.id}: ${session.space_id}`);\n}\n"
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List sessions\nconst sessions = await client.sessions.list({\n  spaceId: 'space-uuid',\n  limit: 20,\n  timeDesc: true\n});\nfor (const session of sessions.items) {\n  console.log(`${session.id}: ${session.space_id}`);\n}\n\n// List sessions for a specific user\nconst userSessions = await client.sessions.list({ user: 'alice@acontext.io', limit: 20 });\n"
         } ]
       },
       "post" : {
-        "description" : "Create a new session under a space",
+        "description" : "Create a new session under a space. Optionally associate with a user identifier.",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -800,11 +833,11 @@
         "x-code-samples" : [ {
           "label" : "Python",
           "lang" : "python",
-          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a session\nsession = client.sessions.create(\n    space_id='space-uuid'\n)\nprint(f\"Created session: {session.id}\")\n"
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a session\nsession = client.sessions.create(\n    space_id='space-uuid'\n)\nprint(f\"Created session: {session.id}\")\n\n# Create a session for a specific user\nsession = client.sessions.create(user='alice@acontext.io', space_id='space-uuid')\n"
         }, {
           "label" : "JavaScript",
           "lang" : "javascript",
-          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a session\nconst session = await client.sessions.create({\n  spaceId: 'space-uuid'\n});\nconsole.log(`Created session: ${session.id}`);\n"
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a session\nconst session = await client.sessions.create({\n  spaceId: 'space-uuid'\n});\nconsole.log(`Created session: ${session.id}`);\n\n// Create a session for a specific user\nconst userSession = await client.sessions.create({ user: 'alice@acontext.io', spaceId: 'space-uuid' });\n"
         } ],
         "x-codegen-request-body-name" : "payload"
       }
@@ -1370,6 +1403,13 @@
       "get" : {
         "description" : "Get all spaces under a project",
         "parameters" : [ {
+          "description" : "User identifier to filter spaces",
+          "in" : "query",
+          "name" : "user",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
           "description" : "Limit of spaces to return, default 20. Max 200.",
           "in" : "query",
           "name" : "limit",
@@ -1411,15 +1451,15 @@
         "x-code-samples" : [ {
           "label" : "Python",
           "lang" : "python",
-          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List spaces\nspaces = client.spaces.list(limit=20, time_desc=True)\nfor space in spaces.items:\n    print(f\"{space.id}: {space.configs}\")\n"
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List spaces\nspaces = client.spaces.list(limit=20, time_desc=True)\nfor space in spaces.items:\n    print(f\"{space.id}: {space.configs}\")\n\n# List spaces for a specific user\nspaces = client.spaces.list(user='alice@acontext.io', limit=20)\n"
         }, {
           "label" : "JavaScript",
           "lang" : "javascript",
-          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List spaces\nconst spaces = await client.spaces.list({ limit: 20, timeDesc: true });\nfor (const space of spaces.items) {\n  console.log(`${space.id}: ${JSON.stringify(space.configs)}`);\n}\n"
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List spaces\nconst spaces = await client.spaces.list({ limit: 20, timeDesc: true });\nfor (const space of spaces.items) {\n  console.log(`${space.id}: ${JSON.stringify(space.configs)}`);\n}\n\n// List spaces for a specific user\nconst userSpaces = await client.spaces.list({ user: 'alice@acontext.io', limit: 20 });\n"
         } ]
       },
       "post" : {
-        "description" : "Create a new space under a project",
+        "description" : "Create a new space under a project. Optionally associate with a user identifier.",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -1451,11 +1491,11 @@
         "x-code-samples" : [ {
           "label" : "Python",
           "lang" : "python",
-          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a space\nspace = client.spaces.create()\nprint(f\"Created space: {space.id}\")\n"
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a space\nspace = client.spaces.create()\nprint(f\"Created space: {space.id}\")\n\n# Create a space for a specific user\nspace = client.spaces.create(user='alice@acontext.io')\n"
         }, {
           "label" : "JavaScript",
           "lang" : "javascript",
-          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a space\nconst space = await client.spaces.create();\nconsole.log(`Created space: ${space.id}`);\n"
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a space\nconst space = await client.spaces.create();\nconsole.log(`Created space: ${space.id}`);\n\n// Create a space for a specific user\nconst userSpace = await client.spaces.create({ user: 'alice@acontext.io' });\n"
         } ],
         "x-codegen-request-body-name" : "payload"
       }
@@ -2258,6 +2298,46 @@
         } ],
         "x-codegen-request-body-name" : "payload"
       }
+    },
+    "/user/{identifier}" : {
+      "delete" : {
+        "description" : "Delete a user by identifier and cascade delete all associated resources (Space, Session, Disk, Skill)",
+        "parameters" : [ {
+          "description" : "User identifier string",
+          "in" : "path",
+          "name" : "identifier",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/serializer.Response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Delete user",
+        "tags" : [ "user" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Delete a user and all associated resources\nclient.users.delete('alice@acontext.io')\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Delete a user and all associated resources\nawait client.users.delete('alice@acontext.io');\n"
+        } ]
+      }
     }
   },
   "components" : {
@@ -2317,6 +2397,15 @@
         "required" : [ "type" ],
         "type" : "object"
       },
+      "handler.CreateDiskReq" : {
+        "properties" : {
+          "user" : {
+            "example" : "alice@acontext.io",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "handler.CreateSessionReq" : {
         "properties" : {
           "configs" : {
@@ -2331,6 +2420,10 @@
             "example" : "123e4567-e89b-12d3-a456-000042661417",
             "format" : "uuid",
             "type" : "string"
+          },
+          "user" : {
+            "example" : "alice@acontext.io",
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -2340,6 +2433,10 @@
           "configs" : {
             "additionalProperties" : true,
             "type" : "object"
+          },
+          "user" : {
+            "example" : "alice@acontext.io",
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -2615,6 +2712,9 @@
           },
           "updated_at" : {
             "type" : "string"
+          },
+          "user_id" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -2691,6 +2791,9 @@
             "type" : "string"
           },
           "updated_at" : {
+            "type" : "string"
+          },
+          "user_id" : {
             "type" : "string"
           }
         },
@@ -2800,6 +2903,9 @@
           },
           "updated_at" : {
             "type" : "string"
+          },
+          "user_id" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -2820,6 +2926,9 @@
             "type" : "string"
           },
           "updated_at" : {
+            "type" : "string"
+          },
+          "user_id" : {
             "type" : "string"
           }
         },
@@ -3076,6 +3185,10 @@
           "file" : {
             "description" : "ZIP file containing agent skill. Must contain SKILL.md (case-insensitive) with YAML format: name and description fields.",
             "format" : "binary",
+            "type" : "string"
+          },
+          "user" : {
+            "description" : "User identifier to associate with the skill",
             "type" : "string"
           },
           "meta" : {
