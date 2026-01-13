@@ -78,5 +78,6 @@ func TestMiddleOutStrategy_Apply(t *testing.T) {
 	require.NoError(t, err)
 	res3, err := (&MiddleOutStrategy{TokenReduceTo: total - callTokens}).Apply(withToolCall)
 	require.NoError(t, err)
+	require.Len(t, res3, 3)
 	require.Equal(t, []string{"a", "b", "c"}, []string{res3[0].Parts[0].Text, res3[1].Parts[0].Text, res3[2].Parts[0].Text})
 }
