@@ -40,7 +40,8 @@
                   }
                 ]
               },
-              "store/disk"
+              "store/disk",
+              "store/skill"
             ]
           },
           {
@@ -56,7 +57,8 @@
             "group": "Agentic SDK",
             "icon": "wand-magic-sparkles",
             "pages": [
-              "sdk/disk_tools"
+              "sdk/disk_tools",
+              "sdk/skill_tools"
             ]
           },
           {

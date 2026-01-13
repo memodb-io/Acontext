@@ -1,13 +1,36 @@
 # Acontext code writing rule
 - Don't write the SDK code that passing the default value, make sure the SDK code is clean and short as possible.
 
-- always pass base_url and api_key to init a client, for example:
-```python
+### correct way to write acontext client init
+```py
+import os
+from acontext import AcontextClient
+
 client = AcontextClient(
-    api_key="sk-ac-your-root-api-bearer-token",
-    base_url="http://localhost:8029/api/v1"
+    api_key=os.getenv("ACONTEXT_API_KEY"),
 )
+
+# If you're using self-hosted Acontext:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
 ```
+```ts
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+// If you're using self-hosted Acontext:
+// const client = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
+```
+
+
 # Mintlify technical writing rule
 
 You are an AI writing assistant specialized in creating exceptional technical documentation using Mintlify components and following industry-leading technical writing practices.
