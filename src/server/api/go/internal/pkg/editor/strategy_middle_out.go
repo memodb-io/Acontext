@@ -36,6 +36,13 @@ func (s *MiddleOutStrategy) Apply(messages []model.Message) ([]model.Message, er
 			return nil, fmt.Errorf("failed to count tokens: %w", err)
 		}
 	}
+	for totalTokens > s.TokenReduceTo && len(result) > 0 {
+		result = result[1:]
+		totalTokens, err = tokenizer.CountMessagePartsTokens(ctx, result)
+		if err != nil {
+			return nil, fmt.Errorf("failed to count tokens: %w", err)
+		}
+	}
 	return result, nil
 }
 
