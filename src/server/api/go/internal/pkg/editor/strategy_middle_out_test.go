@@ -54,6 +54,21 @@ func TestMiddleOutStrategy_Apply(t *testing.T) {
 	require.Len(t, res, 3)
 	require.Equal(t, []string{"m0", "m1", "m3"}, []string{res[0].Parts[0].Text, res[1].Parts[0].Text, res[2].Parts[0].Text})
 
+	odd := []model.Message{
+		{Role: "user", Parts: []model.Part{{Type: "text", Text: "first"}}},
+		{Role: "user", Parts: []model.Part{{Type: "text", Text: "middle"}}},
+		{Role: "user", Parts: []model.Part{{Type: "text", Text: "last"}}},
+	}
+	total, err = tokenizer.CountMessagePartsTokens(context.Background(), odd)
+	require.NoError(t, err)
+	midTokens, err = tokenizer.CountSingleMessageTokens(context.Background(), odd[1])
+	require.NoError(t, err)
+	resOdd, err := (&MiddleOutStrategy{TokenReduceTo: total - midTokens}).Apply(odd)
+	require.NoError(t, err)
+	require.Len(t, resOdd, 2)
+	require.Equal(t, "first", resOdd[0].Parts[0].Text)
+	require.Equal(t, "last", resOdd[1].Parts[0].Text)
+
 	two := []model.Message{
 		{Role: "user", Parts: []model.Part{{Type: "text", Text: "old"}}},
 		{Role: "user", Parts: []model.Part{{Type: "text", Text: "new"}}},
