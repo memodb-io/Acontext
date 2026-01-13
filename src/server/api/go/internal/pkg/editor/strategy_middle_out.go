@@ -30,20 +30,24 @@ func (s *MiddleOutStrategy) Apply(messages []model.Message) ([]model.Message, er
 	result := messages
 	for totalTokens > s.TokenReduceTo && len(result) > 2 {
 		mid := len(result) / 2
-		result = append(result[:mid], result[mid+1:]...)
+		result = removeWithToolPairing(result, mid)
 		totalTokens, err = tokenizer.CountMessagePartsTokens(ctx, result)
 		if err != nil {
 			return nil, fmt.Errorf("failed to count tokens: %w", err)
 		}
 	}
 	for totalTokens > s.TokenReduceTo && len(result) > 0 {
-		result = result[1:]
+		result = removeWithToolPairing(result, 0)
 		totalTokens, err = tokenizer.CountMessagePartsTokens(ctx, result)
 		if err != nil {
 			return nil, fmt.Errorf("failed to count tokens: %w", err)
 		}
 	}
 	return result, nil
+}
+
+func removeWithToolPairing(messages []model.Message, idx int) []model.Message {
+	return append(messages[:idx], messages[idx+1:]...)
 }
 
 func createMiddleOutStrategy(params map[string]interface{}) (EditStrategy, error) {
