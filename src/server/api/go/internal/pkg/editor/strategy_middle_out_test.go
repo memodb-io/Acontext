@@ -53,4 +53,15 @@ func TestMiddleOutStrategy_Apply(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, res, 3)
 	require.Equal(t, []string{"m0", "m1", "m3"}, []string{res[0].Parts[0].Text, res[1].Parts[0].Text, res[2].Parts[0].Text})
+
+	two := []model.Message{
+		{Role: "user", Parts: []model.Part{{Type: "text", Text: "old"}}},
+		{Role: "user", Parts: []model.Part{{Type: "text", Text: "new"}}},
+	}
+	newTokens, err := tokenizer.CountSingleMessageTokens(context.Background(), two[1])
+	require.NoError(t, err)
+	res2, err := (&MiddleOutStrategy{TokenReduceTo: newTokens}).Apply(two)
+	require.NoError(t, err)
+	require.Len(t, res2, 1)
+	require.Equal(t, "new", res2[0].Parts[0].Text)
 }
