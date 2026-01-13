@@ -54,11 +54,11 @@ func removeWithToolPairing(messages []model.Message, idx int) []model.Message {
 		queue = queue[1:]
 		for _, removedPart := range messages[current].Parts {
 			if removedPart.Type != "tool-call" || removedPart.Meta == nil {
-				continue
+				goto toolResultPairing
 			}
 			toolCallID, ok := removedPart.Meta["id"].(string)
 			if !ok || toolCallID == "" {
-				continue
+				goto toolResultPairing
 			}
 			for i, msg := range messages {
 				for _, part := range msg.Parts {
@@ -69,6 +69,26 @@ func removeWithToolPairing(messages []model.Message, idx int) []model.Message {
 								queue = append(queue, i)
 							}
 							break
+						}
+					}
+				}
+			}
+		toolResultPairing:
+			if removedPart.Type == "tool-result" && removedPart.Meta != nil {
+				toolCallID, ok := removedPart.Meta["tool_call_id"].(string)
+				if !ok || toolCallID == "" {
+					continue
+				}
+				for i, msg := range messages {
+					for _, part := range msg.Parts {
+						if part.Type == "tool-call" && part.Meta != nil {
+							if id, ok := part.Meta["id"].(string); ok && id == toolCallID {
+								if _, ok := toRemove[i]; !ok {
+									toRemove[i] = struct{}{}
+									queue = append(queue, i)
+								}
+								break
+							}
 						}
 					}
 				}
