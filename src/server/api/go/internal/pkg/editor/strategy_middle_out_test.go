@@ -3,6 +3,7 @@ package editor
 import (
 	"testing"
 
+	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,4 +29,11 @@ func TestCreateMiddleOutStrategy(t *testing.T) {
 
 func TestMiddleOutStrategy_Apply(t *testing.T) {
 	initTokenizer(t)
+	messages := []model.Message{
+		{Role: "user", Parts: []model.Part{{Type: "text", Text: "Hello"}}},
+		{Role: "assistant", Parts: []model.Part{{Type: "text", Text: "World"}}},
+	}
+	result, err := (&MiddleOutStrategy{TokenReduceTo: 1_000_000}).Apply(messages)
+	require.NoError(t, err)
+	require.Equal(t, messages, result)
 }
