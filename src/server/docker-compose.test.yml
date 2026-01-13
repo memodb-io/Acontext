@@ -81,7 +81,7 @@ services:
       redis: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
       seaweedfs: { condition: service_healthy }
-      seaweedfs-setup: { condition: service_completed_successfully }
+      seaweedfs-setup: { condition: service_started }
     healthcheck:
       test: ["CMD-SHELL", "wget -q -O- http://localhost:8000/health || exit 1"]
       interval: 10s
