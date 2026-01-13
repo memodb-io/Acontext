@@ -64,4 +64,19 @@ func TestMiddleOutStrategy_Apply(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, res2, 1)
 	require.Equal(t, "new", res2[0].Parts[0].Text)
+
+	withToolCall := []model.Message{
+		{Role: "user", Parts: []model.Part{{Type: "text", Text: "a"}}},
+		{Role: "user", Parts: []model.Part{{Type: "text", Text: "b"}}},
+		{Role: "assistant", Parts: []model.Part{{Type: "tool-call", Meta: map[string]interface{}{"id": "call_1", "name": "t", "arguments": "{}"}}}},
+		{Role: "user", Parts: []model.Part{{Type: "tool-result", Text: "ok", Meta: map[string]interface{}{"tool_call_id": "call_1"}}}},
+		{Role: "user", Parts: []model.Part{{Type: "text", Text: "c"}}},
+	}
+	total, err = tokenizer.CountMessagePartsTokens(context.Background(), withToolCall)
+	require.NoError(t, err)
+	callTokens, err := tokenizer.CountSingleMessageTokens(context.Background(), withToolCall[2])
+	require.NoError(t, err)
+	res3, err := (&MiddleOutStrategy{TokenReduceTo: total - callTokens}).Apply(withToolCall)
+	require.NoError(t, err)
+	require.Equal(t, []string{"a", "b", "c"}, []string{res3[0].Parts[0].Text, res3[1].Parts[0].Text, res3[2].Parts[0].Text})
 }
