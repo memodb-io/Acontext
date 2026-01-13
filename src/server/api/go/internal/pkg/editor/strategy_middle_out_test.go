@@ -18,6 +18,10 @@ func TestCreateMiddleOutStrategy(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "must be an integer")
 
+	_, err = createMiddleOutStrategy(map[string]interface{}{"token_reduce_to": 12.5})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "must be an integer")
+
 	_, err = createMiddleOutStrategy(map[string]interface{}{"token_reduce_to": 0})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "> 0")

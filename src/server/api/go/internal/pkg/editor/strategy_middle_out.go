@@ -3,6 +3,7 @@ package editor
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
@@ -143,6 +144,9 @@ func createMiddleOutStrategy(params map[string]interface{}) (EditStrategy, error
 	var tokenReduceTo int
 	switch v := rawTokenReduceTo.(type) {
 	case float64:
+		if v != math.Trunc(v) {
+			return nil, fmt.Errorf("token_reduce_to must be an integer, got %v", v)
+		}
 		tokenReduceTo = int(v)
 	case int:
 		tokenReduceTo = v
