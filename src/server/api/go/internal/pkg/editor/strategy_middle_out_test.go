@@ -1,9 +1,11 @@
 package editor
 
 import (
+	"context"
 	"testing"
 
 	"github.com/memodb-io/Acontext/internal/modules/model"
+	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -36,4 +38,18 @@ func TestMiddleOutStrategy_Apply(t *testing.T) {
 	result, err := (&MiddleOutStrategy{TokenReduceTo: 1_000_000}).Apply(messages)
 	require.NoError(t, err)
 	require.Equal(t, messages, result)
+
+	msgs := []model.Message{
+		{Role: "user", Parts: []model.Part{{Type: "text", Text: "m0"}}},
+		{Role: "user", Parts: []model.Part{{Type: "text", Text: "m1"}}},
+		{Role: "user", Parts: []model.Part{{Type: "text", Text: "m2"}}},
+		{Role: "user", Parts: []model.Part{{Type: "text", Text: "m3"}}},
+	}
+	total, err := tokenizer.CountMessagePartsTokens(context.Background(), msgs)
+	require.NoError(t, err)
+	midTokens, err := tokenizer.CountSingleMessageTokens(context.Background(), msgs[2])
+	require.NoError(t, err)
+	res, err := (&MiddleOutStrategy{TokenReduceTo: total - midTokens}).Apply(msgs)
+	require.NoError(t, err)
+	require.Equal(t, []string{"m0", "m1", "m3"}, []string{res[0].Parts[0].Text, res[1].Parts[0].Text, res[2].Parts[0].Text})
 }
