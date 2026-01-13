@@ -80,4 +80,22 @@ func TestMiddleOutStrategy_Apply(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, res3, 3)
 	require.Equal(t, []string{"a", "b", "c"}, []string{res3[0].Parts[0].Text, res3[1].Parts[0].Text, res3[2].Parts[0].Text})
+
+	cascade := []model.Message{
+		{Role: "user", Parts: []model.Part{{Type: "text", Text: "s"}}},
+		{Role: "assistant", Parts: []model.Part{
+			{Type: "tool-call", Meta: map[string]interface{}{"id": "call_a", "name": "a", "arguments": "{}"}},
+			{Type: "tool-call", Meta: map[string]interface{}{"id": "call_b", "name": "b", "arguments": "{}"}},
+		}},
+		{Role: "user", Parts: []model.Part{{Type: "tool-result", Text: "ra", Meta: map[string]interface{}{"tool_call_id": "call_a"}}}},
+		{Role: "user", Parts: []model.Part{{Type: "tool-result", Text: "rb", Meta: map[string]interface{}{"tool_call_id": "call_b"}}}},
+		{Role: "user", Parts: []model.Part{{Type: "text", Text: "e"}}},
+	}
+	total, err = tokenizer.CountMessagePartsTokens(context.Background(), cascade)
+	require.NoError(t, err)
+	callTokens, err = tokenizer.CountSingleMessageTokens(context.Background(), cascade[1])
+	require.NoError(t, err)
+	res4, err := (&MiddleOutStrategy{TokenReduceTo: total - callTokens}).Apply(cascade)
+	require.NoError(t, err)
+	require.Equal(t, []string{"s", "e"}, []string{res4[0].Parts[0].Text, res4[1].Parts[0].Text})
 }
