@@ -206,6 +206,7 @@ export class SessionsAPI {
    * @param options.editStrategies - Optional list of edit strategies to apply before format conversion.
    *   Examples:
    *   - Remove tool results: [{ type: 'remove_tool_result', params: { keep_recent_n_tool_results: 3 } }]
+   *   - Middle out: [{ type: 'middle_out', params: { token_reduce_to: 5000 } }]
    *   - Token limit: [{ type: 'token_limit', params: { limit_tokens: 20000 } }]
    * @param options.pinEditingStrategiesAtMessage - Message ID to pin editing strategies at.
    *   When provided, strategies are only applied to messages up to and including this message ID,
@@ -299,4 +300,3 @@ export class SessionsAPI {
     return MessageObservingStatusSchema.parse(data);
   }
 }
-
