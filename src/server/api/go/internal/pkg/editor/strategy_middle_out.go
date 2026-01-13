@@ -81,19 +81,7 @@ func removeWithToolPairing(messages []model.Message, messageTokens []int, idx in
 				if !ok || toolCallID == "" {
 					continue
 				}
-				for i, msg := range messages {
-					for _, part := range msg.Parts {
-						if part.Type == "tool-result" && part.Meta != nil {
-							if id, ok := part.Meta["tool_call_id"].(string); ok && id == toolCallID {
-								if _, ok := toRemove[i]; !ok {
-									toRemove[i] = struct{}{}
-									queue = append(queue, i)
-								}
-								break
-							}
-						}
-					}
-				}
+				enqueueToolPair(messages, toolCallID, toRemove, &queue)
 			case "tool-result":
 				if removedPart.Meta == nil {
 					continue
@@ -102,32 +90,7 @@ func removeWithToolPairing(messages []model.Message, messageTokens []int, idx in
 				if !ok || toolCallID == "" {
 					continue
 				}
-				for i, msg := range messages {
-					for _, part := range msg.Parts {
-						if part.Type == "tool-result" && part.Meta != nil {
-							if id, ok := part.Meta["tool_call_id"].(string); ok && id == toolCallID {
-								if _, ok := toRemove[i]; !ok {
-									toRemove[i] = struct{}{}
-									queue = append(queue, i)
-								}
-								break
-							}
-						}
-					}
-				}
-				for i, msg := range messages {
-					for _, part := range msg.Parts {
-						if part.Type == "tool-call" && part.Meta != nil {
-							if id, ok := part.Meta["id"].(string); ok && id == toolCallID {
-								if _, ok := toRemove[i]; !ok {
-									toRemove[i] = struct{}{}
-									queue = append(queue, i)
-								}
-								break
-							}
-						}
-					}
-				}
+				enqueueToolPair(messages, toolCallID, toRemove, &queue)
 			}
 		}
 	}
@@ -143,6 +106,33 @@ func removeWithToolPairing(messages []model.Message, messageTokens []int, idx in
 		outTokens = append(outTokens, messageTokens[i])
 	}
 	return out, outTokens, removedTokens
+}
+
+func enqueueToolPair(messages []model.Message, toolCallID string, toRemove map[int]struct{}, queue *[]int) {
+	for i, msg := range messages {
+		if _, ok := toRemove[i]; ok {
+			continue
+		}
+		for _, part := range msg.Parts {
+			if part.Meta == nil {
+				continue
+			}
+			if part.Type == "tool-call" {
+				if id, ok := part.Meta["id"].(string); ok && id == toolCallID {
+					toRemove[i] = struct{}{}
+					*queue = append(*queue, i)
+					break
+				}
+			}
+			if part.Type == "tool-result" {
+				if id, ok := part.Meta["tool_call_id"].(string); ok && id == toolCallID {
+					toRemove[i] = struct{}{}
+					*queue = append(*queue, i)
+					break
+				}
+			}
+		}
+	}
 }
 
 func createMiddleOutStrategy(params map[string]interface{}) (EditStrategy, error) {
