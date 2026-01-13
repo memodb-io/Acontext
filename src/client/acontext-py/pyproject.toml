@@ -9,6 +9,7 @@ dependencies = [
     "openai>=2.6.1",
     "anthropic>=0.72.0",
     "pydantic>=2.12.3",
+    "urllib3>=2.6.3",
 ]
 keywords = ["acontext", "sdk", "client", "api"]
 

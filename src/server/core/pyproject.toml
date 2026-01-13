@@ -29,6 +29,7 @@ dependencies = [
     "opentelemetry-instrumentation-redis>=0.54.0",
     "e2b-code-interpreter>=2.4.1",
     "novita-sandbox>=1.0.4",
+    "urllib3>=2.6.3",
 ]
 
 [dependency-groups]
