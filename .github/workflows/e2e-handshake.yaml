@@ -32,24 +32,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      - name: Install Docker Compose
-        run: |
-          sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          sudo chmod +x /usr/local/bin/docker-compose
-          docker-compose --version
-
       - name: Build Images
         run: |
           cd src/server
-          docker-compose -f docker-compose.test.yml build
+          docker compose -f docker-compose.test.yml build
 
       - name: Run Handshake Test
         run: |
           cd src/server
-          docker-compose -f docker-compose.test.yml up --abort-on-container-exit --exit-code-from tests
+          docker compose -f docker-compose.test.yml up --abort-on-container-exit --exit-code-from tests
 
       - name: Collect Container Logs
         if: failure()
         run: |
           cd src/server
-          docker-compose -f docker-compose.test.yml logs
+          docker compose -f docker-compose.test.yml logs
