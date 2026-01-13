@@ -28,9 +28,13 @@ func (s *MiddleOutStrategy) Apply(messages []model.Message) ([]model.Message, er
 		return messages, nil
 	}
 	result := messages
-	if len(result) > 2 {
+	for totalTokens > s.TokenReduceTo && len(result) > 2 {
 		mid := len(result) / 2
 		result = append(result[:mid], result[mid+1:]...)
+		totalTokens, err = tokenizer.CountMessagePartsTokens(ctx, result)
+		if err != nil {
+			return nil, fmt.Errorf("failed to count tokens: %w", err)
+		}
 	}
 	return result, nil
 }
