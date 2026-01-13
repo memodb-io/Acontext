@@ -25,3 +25,7 @@ func TestCreateMiddleOutStrategy(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, 123, mos.TokenReduceTo)
 }
+
+func TestMiddleOutStrategy_Apply(t *testing.T) {
+	initTokenizer(t)
+}
