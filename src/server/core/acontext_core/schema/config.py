@@ -97,10 +97,11 @@ class CoreConfig(BaseModel):
     otel_service_version: str = "0.0.1"
 
     # sandbox
-    sandbox_type: Literal["disabled", "novita", "e2b"] = "disabled"
+    sandbox_type: Literal["disabled", "novita", "e2b", "aws_agentcore"] = "disabled"
     novita_api_key: Optional[str] = None
     e2b_domain_base_url: Optional[str] = None
     e2b_api_key: Optional[str] = None
+    aws_agentcore_region: Optional[str] = None
     sandbox_default_cpu_count: float = 1
     sandbox_default_memory_mb: int = 512
     sandbox_default_disk_gb: int = 10
@@ -165,3 +166,8 @@ def post_validate_core_config_sanity(config: CoreConfig) -> None:
         assert (
             config.sandbox_default_template is not None
         ), "sandbox_default_template is required when sandbox_type is novita"
+
+    if config.sandbox_type == "aws_agentcore":
+        assert (
+            config.aws_region is not None
+        ), "aws_region is required when sandbox_type is aws_agentcore"

@@ -35,6 +35,7 @@ dependencies = [
     "e2b-code-interpreter>=2.4.1",
     "novita-sandbox>=1.0.4",
     "urllib3>=2.6.3",
+    "boto3>=1.42.19",
 ]
 
 [dependency-groups]

@@ -2,12 +2,14 @@ from typing import Type
 from .backend.base import SandboxBackend
 from .backend.e2b import E2BSandboxBackend
 from .backend.novita import NovitaSandboxBackend
+from .backend.aws_agentcore import AWSAgentCoreSandboxBackend
 from ...env import DEFAULT_CORE_CONFIG, LOG
 
-SANDBOX_FACTORIES: dict[str, Type[SandboxBackend]] = {
+SANDBOX_FACTORIES: dict[str, Type[SandboxBackend] | None] = {
     "disabled": None,
     E2BSandboxBackend.type: E2BSandboxBackend,
     NovitaSandboxBackend.type: NovitaSandboxBackend,
+    AWSAgentCoreSandboxBackend.type: AWSAgentCoreSandboxBackend,
 }
 
 
