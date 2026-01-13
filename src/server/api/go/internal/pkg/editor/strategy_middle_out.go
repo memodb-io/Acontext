@@ -1,10 +1,24 @@
 package editor
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/memodb-io/Acontext/internal/modules/model"
+)
 
 type MiddleOutStrategy struct{ TokenReduceTo int }
 
 func (s *MiddleOutStrategy) Name() string { return "middle_out" }
+
+func (s *MiddleOutStrategy) Apply(messages []model.Message) ([]model.Message, error) {
+	if s.TokenReduceTo <= 0 {
+		return nil, fmt.Errorf("token_reduce_to must be > 0, got %d", s.TokenReduceTo)
+	}
+	if len(messages) == 0 {
+		return messages, nil
+	}
+	return messages, nil
+}
 
 func createMiddleOutStrategy(params map[string]interface{}) (EditStrategy, error) {
 	rawTokenReduceTo, ok := params["token_reduce_to"]
