@@ -99,10 +99,24 @@ class MiddleOutParams(TypedDict):
     token_reduce_to: int
 
 
+class MiddleOutStrategy(TypedDict):
+    """Edit strategy to reduce prompt size by removing middle messages.
+
+    Example:
+        {"type": "middle_out", "params": {"token_reduce_to": 5000}}
+    """
+
+    type: Literal["middle_out"]
+    params: MiddleOutParams
+
+
 # Union type for all edit strategies
 # When adding new strategies, add them to this Union: EditStrategy = Union[RemoveToolResultStrategy, OtherStrategy, ...]
 EditStrategy = Union[
-    RemoveToolResultStrategy, RemoveToolCallParamsStrategy, TokenLimitStrategy
+    RemoveToolResultStrategy,
+    RemoveToolCallParamsStrategy,
+    TokenLimitStrategy,
+    MiddleOutStrategy,
 ]
 
 
