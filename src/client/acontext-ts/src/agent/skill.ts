@@ -3,35 +3,121 @@
  */
 
 import { AcontextClient } from '../client';
+import { Skill } from '../types';
 import { AbstractBaseTool, BaseContext, BaseToolPool } from './base';
 
+/**
+ * Context for skill tools with preloaded skill name mapping.
+ */
 export interface SkillContext extends BaseContext {
   client: AcontextClient;
+  skills: Map<string, Skill>;
+}
+
+/**
+ * Create a SkillContext by preloading skills from a list of skill IDs.
+ *
+ * @param client - The Acontext client instance.
+ * @param skillIds - List of skill UUIDs to preload.
+ * @returns SkillContext with preloaded skills mapped by name.
+ * @throws Error if duplicate skill names are found.
+ */
+export async function createSkillContext(
+  client: AcontextClient,
+  skillIds: string[]
+): Promise<SkillContext> {
+  const skills = new Map<string, Skill>();
+
+  for (const skillId of skillIds) {
+    const skill = await client.skills.get(skillId);
+    if (skills.has(skill.name)) {
+      const existingSkill = skills.get(skill.name)!;
+      throw new Error(
+        `Duplicate skill name '${skill.name}' found. ` +
+        `Existing ID: ${existingSkill.id}, New ID: ${skill.id}`
+      );
+    }
+    skills.set(skill.name, skill);
+  }
+
+  return { client, skills };
+}
+
+/**
+ * Get a skill by name from the preloaded skills.
+ *
+ * @param ctx - The skill context.
+ * @param skillName - The name of the skill.
+ * @returns The Skill object.
+ * @throws Error if the skill is not found in the context.
+ */
+export function getSkillFromContext(ctx: SkillContext, skillName: string): Skill {
+  const skill = ctx.skills.get(skillName);
+  if (!skill) {
+    const available =
+      ctx.skills.size > 0 ? Array.from(ctx.skills.keys()).join(', ') : '[none]';
+    throw new Error(
+      `Skill '${skillName}' not found in context. Available skills: ${available}`
+    );
+  }
+  return skill;
+}
+
+/**
+ * Return list of available skill names in this context.
+ */
+export function listSkillNamesFromContext(ctx: SkillContext): string[] {
+  return Array.from(ctx.skills.keys());
+}
+
+export class ListSkillsTool extends AbstractBaseTool {
+  readonly name = 'list_skills';
+  readonly description =
+    'List all available skills in the current context with their names and descriptions.';
+  readonly arguments = {};
+  readonly requiredArguments: string[] = [];
+
+  async execute(
+    ctx: SkillContext,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _llmArguments: Record<string, unknown>
+  ): Promise<string> {
+    if (ctx.skills.size === 0) {
+      return 'No skills available in the current context.';
+    }
+
+    const skillList: string[] = [];
+    for (const [skillName, skill] of ctx.skills.entries()) {
+      skillList.push(`- ${skillName}: ${skill.description}`);
+    }
+
+    return `Available skills (${ctx.skills.size}):\n${skillList.join('\n')}`;
+  }
 }
 
 export class GetSkillTool extends AbstractBaseTool {
   readonly name = 'get_skill';
   readonly description =
-    'Get a skill by its ID. Return the skill information including the relative paths of the files and their mime type categories';
+    'Get a skill by its name. Returns the skill information including the relative paths of the files and their mime type categories.';
   readonly arguments = {
-    skill_id: {
+    skill_name: {
       type: 'string',
-      description: 'The UUID of the skill.',
+      description: 'The name of the skill.',
     },
   };
-  readonly requiredArguments = ['skill_id'];
+  readonly requiredArguments = ['skill_name'];
 
   async execute(
     ctx: SkillContext,
     llmArguments: Record<string, unknown>
   ): Promise<string> {
-    const skillId = llmArguments.skill_id as string | undefined;
+    const skillName = llmArguments.skill_name as string | undefined;
 
-    if (!skillId) {
-      throw new Error('skill_id is required');
+    if (!skillName) {
+      throw new Error('skill_name is required');
     }
 
-    const skill = await ctx.client.skills.get(skillId);
+    const skill = getSkillFromContext(ctx, skillName);
 
     const fileCount = skill.file_index.length;
 
@@ -49,9 +135,7 @@ export class GetSkillTool extends AbstractBaseTool {
       `Skill: ${skill.name} (ID: ${skill.id})\n` +
       `Description: ${skill.description}\n` +
       `Files: ${fileCount} file(s)\n` +
-      `${fileList}\n` +
-      `Created: ${skill.created_at}\n` +
-      `Updated: ${skill.updated_at}`
+      `${fileList}`
     );
   }
 }
@@ -59,11 +143,12 @@ export class GetSkillTool extends AbstractBaseTool {
 export class GetSkillFileTool extends AbstractBaseTool {
   readonly name = 'get_skill_file';
   readonly description =
-    "Get a file from a skill by ID. The file_path should be a relative path within the skill (e.g., 'scripts/extract_text.json').";
+    "Get a file from a skill by name. The file_path should be a relative path within the skill (e.g., 'scripts/extract_text.json')." +
+    'Tips: SKILL.md is the first file you should read to understand the full picture of this skill\'s content.';
   readonly arguments = {
-    skill_id: {
+    skill_name: {
       type: 'string',
-      description: 'The UUID of the skill.',
+      description: 'The name of the skill.',
     },
     file_path: {
       type: 'string',
@@ -76,31 +161,33 @@ export class GetSkillFileTool extends AbstractBaseTool {
         'URL expiration time in seconds (only used for non-parseable files). Defaults to 900 (15 minutes).',
     },
   };
-  readonly requiredArguments = ['skill_id', 'file_path'];
+  readonly requiredArguments = ['skill_name', 'file_path'];
 
   async execute(
     ctx: SkillContext,
     llmArguments: Record<string, unknown>
   ): Promise<string> {
-    const skillId = llmArguments.skill_id as string | undefined;
+    const skillName = llmArguments.skill_name as string | undefined;
     const filePath = llmArguments.file_path as string;
     const expire = llmArguments.expire as number | undefined;
 
+    if (!skillName) {
+      throw new Error('skill_name is required');
+    }
     if (!filePath) {
       throw new Error('file_path is required');
     }
-    if (!skillId) {
-      throw new Error('skill_id is required');
-    }
+
+    const skill = getSkillFromContext(ctx, skillName);
 
     const result = await ctx.client.skills.getFile({
-      skillId,
+      skillId: skill.id,
       filePath,
       expire: expire || null,
     });
 
     const outputParts: string[] = [
-      `File '${result.path}' (MIME: ${result.mime}) from skill '${skillId}':`,
+      `File '${result.path}' (MIME: ${result.mime}) from skill '${skillName}':`,
     ];
 
     if (result.content) {
@@ -125,13 +212,22 @@ export class GetSkillFileTool extends AbstractBaseTool {
 }
 
 export class SkillToolPool extends BaseToolPool {
-  formatContext(client: AcontextClient): SkillContext {
-    return {
-      client,
-    };
+  /**
+   * Create a SkillContext by preloading skills from a list of skill IDs.
+   *
+   * @param client - The Acontext client instance.
+   * @param skillIds - List of skill UUIDs to preload.
+   * @returns Promise resolving to SkillContext with preloaded skills mapped by name.
+   */
+  async formatContext(
+    client: AcontextClient,
+    skillIds: string[]
+  ): Promise<SkillContext> {
+    return createSkillContext(client, skillIds);
   }
 }
 
 export const SKILL_TOOLS = new SkillToolPool();
+SKILL_TOOLS.addTool(new ListSkillsTool());
 SKILL_TOOLS.addTool(new GetSkillTool());
 SKILL_TOOLS.addTool(new GetSkillFileTool());

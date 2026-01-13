@@ -17,6 +17,9 @@ import {
   SkillContext,
   GetSkillTool,
   GetSkillFileTool,
+  ListSkillsTool,
+  createSkillContext,
+  getSkillFromContext,
 } from '../src/agent';
 
 describe('Agent Tools Tests', () => {
@@ -48,12 +51,12 @@ describe('Agent Tools Tests', () => {
 
       expect(schema).toHaveProperty('type', 'function');
       expect(schema).toHaveProperty('function');
-      
+
       const functionSchema = schema.function as Record<string, unknown>;
       expect(functionSchema).toHaveProperty('name', 'write_file');
       expect(functionSchema).toHaveProperty('description');
       expect(functionSchema).toHaveProperty('parameters');
-      
+
       const parameters = functionSchema.parameters as Record<string, unknown>;
       expect(parameters).toHaveProperty('type', 'object');
       expect(parameters).toHaveProperty('properties');
@@ -70,7 +73,7 @@ describe('Agent Tools Tests', () => {
       expect(schema).toHaveProperty('name', 'write_file');
       expect(schema).toHaveProperty('description');
       expect(schema).toHaveProperty('input_schema');
-      
+
       const inputSchema = schema.input_schema as Record<string, unknown>;
       expect(inputSchema).toHaveProperty('type', 'object');
       expect(inputSchema).toHaveProperty('properties');
@@ -373,53 +376,76 @@ describe('Agent Tools Tests', () => {
 
   describe('Skill Tools Integration', () => {
     test('SKILL_TOOLS should be pre-configured with all tools', () => {
+      expect(SKILL_TOOLS.toolExists('list_skills')).toBe(true);
       expect(SKILL_TOOLS.toolExists('get_skill')).toBe(true);
       expect(SKILL_TOOLS.toolExists('get_skill_file')).toBe(true);
     });
 
-    test('should throw error when skill_id not provided', async () => {
-      const ctx = SKILL_TOOLS.formatContext(client);
+    test('should throw error when skill_name not provided', async () => {
+      // Create empty context for validation test
+      const ctx: SkillContext = { client, skills: new Map() };
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill', {})
-      ).rejects.toThrow('skill_id is required');
+      ).rejects.toThrow('skill_name is required');
     });
 
-    test('should throw error when skill_id missing for get_file', async () => {
-      const ctx = SKILL_TOOLS.formatContext(client);
+    test('should throw error when skill_name missing for get_file', async () => {
+      const ctx: SkillContext = { client, skills: new Map() };
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill_file', {
           file_path: 'test.json',
         })
-      ).rejects.toThrow('skill_id is required');
+      ).rejects.toThrow('skill_name is required');
     });
 
     test('should throw error when file_path missing for get_file', async () => {
-      const ctx = SKILL_TOOLS.formatContext(client);
+      const ctx: SkillContext = { client, skills: new Map() };
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill_file', {
-          skill_id: 'test-skill-id',
+          skill_name: 'test-skill',
         })
       ).rejects.toThrow('file_path is required');
+    });
+
+    test('should throw error when skill not found in context', async () => {
+      const ctx: SkillContext = { client, skills: new Map() };
+      await expect(
+        SKILL_TOOLS.executeTool(ctx, 'get_skill', { skill_name: 'unknown-skill' })
+      ).rejects.toThrow("Skill 'unknown-skill' not found in context");
+    });
+
+    test('list_skills should return empty message when no skills', async () => {
+      const ctx: SkillContext = { client, skills: new Map() };
+      const result = await SKILL_TOOLS.executeTool(ctx, 'list_skills', {});
+      expect(result).toBe('No skills available in the current context.');
     });
   });
 
   describe('Skill Tool Schema Conversion', () => {
+    test('ListSkillsTool should have correct properties', () => {
+      const tool = new ListSkillsTool();
+      expect(tool.name).toBe('list_skills');
+      expect(tool.description).toBeTruthy();
+      expect(tool.requiredArguments).toEqual([]);
+      expect(tool.arguments).toEqual({});
+    });
+
     test('GetSkillTool should have correct properties', () => {
       const tool = new GetSkillTool();
       expect(tool.name).toBe('get_skill');
       expect(tool.description).toBeTruthy();
-      expect(tool.requiredArguments).toContain('skill_id');
-      expect(tool.arguments).toHaveProperty('skill_id');
+      expect(tool.requiredArguments).toContain('skill_name');
+      expect(tool.arguments).toHaveProperty('skill_name');
     });
 
     test('GetSkillFileTool should have correct properties', () => {
       const tool = new GetSkillFileTool();
       expect(tool.name).toBe('get_skill_file');
       expect(tool.description).toBeTruthy();
-      // skill_id and file_path are required
-      expect(tool.requiredArguments).toContain('skill_id');
+      // skill_name and file_path are required
+      expect(tool.requiredArguments).toContain('skill_name');
       expect(tool.requiredArguments).toContain('file_path');
-      expect(tool.arguments).toHaveProperty('skill_id');
+      expect(tool.arguments).toHaveProperty('skill_name');
       expect(tool.arguments).toHaveProperty('file_path');
       expect(tool.arguments).toHaveProperty('expire');
       // Should not have with_content or with_public_url
@@ -430,14 +456,14 @@ describe('Agent Tools Tests', () => {
     test('SKILL_TOOLS should generate OpenAI tool schemas', () => {
       const schemas = SKILL_TOOLS.toOpenAIToolSchema();
       expect(Array.isArray(schemas)).toBe(true);
-      expect(schemas.length).toBe(2); // Only 2 skill tools: get_skill and get_skill_file
+      expect(schemas.length).toBe(3); // list_skills, get_skill, get_skill_file
       expect(schemas.every((s) => s.type === 'function')).toBe(true);
     });
 
     test('SKILL_TOOLS should generate Anthropic tool schemas', () => {
       const schemas = SKILL_TOOLS.toAnthropicToolSchema();
       expect(Array.isArray(schemas)).toBe(true);
-      expect(schemas.length).toBe(2); // Only 2 skill tools: get_skill and get_skill_file
+      expect(schemas.length).toBe(3); // list_skills, get_skill, get_skill_file
       expect(schemas.every((s) => s.name && s.input_schema)).toBe(true);
     });
   });

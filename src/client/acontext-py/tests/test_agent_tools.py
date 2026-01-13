@@ -22,12 +22,6 @@ def disk_ctx(mock_client: AcontextClient) -> DiskContext:
     return DISK_TOOLS.format_context(mock_client, "disk-123")
 
 
-@pytest.fixture
-def skill_ctx(mock_client: AcontextClient) -> SkillContext:
-    """Create a skill context for testing."""
-    return SKILL_TOOLS.format_context(mock_client)
-
-
 class TestDiskTools:
     """Tests for DISK_TOOLS."""
 
@@ -206,9 +200,10 @@ class TestSkillTools:
         """Test that tools can generate OpenAI tool schemas."""
         schemas = SKILL_TOOLS.to_openai_tool_schema()
         assert isinstance(schemas, list)
-        assert len(schemas) == 2  # Only 2 skill tools: get_skill and get_skill_file
+        assert len(schemas) == 3  # list_skills, get_skill, get_skill_file
 
         tool_names = [s["function"]["name"] for s in schemas]
+        assert "list_skills" in tool_names
         assert "get_skill" in tool_names
         assert "get_skill_file" in tool_names
 
@@ -216,17 +211,104 @@ class TestSkillTools:
         """Test Anthropic tool schema generation."""
         schemas = SKILL_TOOLS.to_anthropic_tool_schema()
         assert isinstance(schemas, list)
-        assert len(schemas) == 2
+        assert len(schemas) == 3
 
     def test_skill_tools_tool_exists(self) -> None:
         """Test tool_exists method."""
+        assert SKILL_TOOLS.tool_exists("list_skills")
         assert SKILL_TOOLS.tool_exists("get_skill")
         assert SKILL_TOOLS.tool_exists("get_skill_file")
         assert not SKILL_TOOLS.tool_exists("nonexistent_tool")
 
     @patch("acontext.client.AcontextClient.request")
+    def test_skill_context_creation(
+        self, mock_request: MagicMock, mock_client: AcontextClient
+    ) -> None:
+        """Test SkillContext.create preloads skills and maps by name."""
+        mock_request.side_effect = [
+            {
+                "id": "skill-1",
+                "name": "test-skill",
+                "description": "Test skill",
+                "file_index": [{"path": "SKILL.md", "mime": "text/markdown"}],
+                "meta": {},
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            },
+            {
+                "id": "skill-2",
+                "name": "another-skill",
+                "description": "Another skill",
+                "file_index": [],
+                "meta": {},
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            },
+        ]
+
+        ctx = SkillContext.create(mock_client, ["skill-1", "skill-2"])
+
+        assert len(ctx.skills) == 2
+        assert "test-skill" in ctx.skills
+        assert "another-skill" in ctx.skills
+        assert ctx.skills["test-skill"].id == "skill-1"
+        assert ctx.skills["another-skill"].id == "skill-2"
+        assert mock_request.call_count == 2
+
+    @patch("acontext.client.AcontextClient.request")
+    def test_skill_context_duplicate_name_error(
+        self, mock_request: MagicMock, mock_client: AcontextClient
+    ) -> None:
+        """Test SkillContext.create raises error on duplicate skill names."""
+        mock_request.side_effect = [
+            {
+                "id": "skill-1",
+                "name": "same-name",
+                "description": "First skill",
+                "file_index": [],
+                "meta": {},
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            },
+            {
+                "id": "skill-2",
+                "name": "same-name",
+                "description": "Second skill with same name",
+                "file_index": [],
+                "meta": {},
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            },
+        ]
+
+        with pytest.raises(ValueError, match="Duplicate skill name"):
+            SkillContext.create(mock_client, ["skill-1", "skill-2"])
+
+    @patch("acontext.client.AcontextClient.request")
+    def test_list_skills_tool(
+        self, mock_request: MagicMock, mock_client: AcontextClient
+    ) -> None:
+        """Test list_skills tool execution."""
+        mock_request.return_value = {
+            "id": "skill-1",
+            "name": "test-skill",
+            "description": "Test skill description",
+            "file_index": [],
+            "meta": {},
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+        }
+
+        ctx = SKILL_TOOLS.format_context(mock_client, ["skill-1"])
+        result = SKILL_TOOLS.execute_tool(ctx, "list_skills", {})
+
+        assert "test-skill" in result
+        assert "Test skill description" in result
+        assert "Available skills (1)" in result
+
+    @patch("acontext.client.AcontextClient.request")
     def test_get_skill_tool(
-        self, mock_request: MagicMock, skill_ctx: SkillContext
+        self, mock_request: MagicMock, mock_client: AcontextClient
     ) -> None:
         """Test get_skill tool execution."""
         mock_request.return_value = {
@@ -242,10 +324,11 @@ class TestSkillTools:
             "updated_at": "2024-01-01T00:00:00Z",
         }
 
+        ctx = SKILL_TOOLS.format_context(mock_client, ["skill-1"])
         result = SKILL_TOOLS.execute_tool(
-            skill_ctx,
+            ctx,
             "get_skill",
-            {"skill_id": "skill-1"},
+            {"skill_name": "test-skill"},
         )
 
         assert "test-skill" in result
@@ -256,24 +339,36 @@ class TestSkillTools:
         assert "text/markdown" in result
         assert "scripts/main.py" in result
         assert "text/x-python" in result
-        mock_request.assert_called_once()
 
     @patch("acontext.client.AcontextClient.request")
     def test_get_skill_file_tool(
-        self, mock_request: MagicMock, skill_ctx: SkillContext
+        self, mock_request: MagicMock, mock_client: AcontextClient
     ) -> None:
         """Test get_skill_file tool execution."""
-        mock_request.return_value = {
-            "path": "scripts/main.py",
-            "mime": "text/x-python",
-            "content": {"type": "code", "raw": "print('Hello, World!')"},
-        }
+        # First call for context creation, second for get_file
+        mock_request.side_effect = [
+            {
+                "id": "skill-1",
+                "name": "test-skill",
+                "description": "Test skill",
+                "file_index": [{"path": "scripts/main.py", "mime": "text/x-python"}],
+                "meta": {},
+                "created_at": "2024-01-01T00:00:00Z",
+                "updated_at": "2024-01-01T00:00:00Z",
+            },
+            {
+                "path": "scripts/main.py",
+                "mime": "text/x-python",
+                "content": {"type": "code", "raw": "print('Hello, World!')"},
+            },
+        ]
 
+        ctx = SKILL_TOOLS.format_context(mock_client, ["skill-1"])
         result = SKILL_TOOLS.execute_tool(
-            skill_ctx,
+            ctx,
             "get_skill_file",
             {
-                "skill_id": "skill-1",
+                "skill_name": "test-skill",
                 "file_path": "scripts/main.py",
             },
         )
@@ -281,21 +376,69 @@ class TestSkillTools:
         assert "scripts/main.py" in result
         assert "text/x-python" in result
         assert "Hello, World!" in result
-        mock_request.assert_called_once()
+        assert mock_request.call_count == 2
 
-    def test_get_skill_tool_validation(self, skill_ctx: SkillContext) -> None:
+    @patch("acontext.client.AcontextClient.request")
+    def test_get_skill_tool_not_found(
+        self, mock_request: MagicMock, mock_client: AcontextClient
+    ) -> None:
+        """Test get_skill tool with skill not in context."""
+        mock_request.return_value = {
+            "id": "skill-1",
+            "name": "test-skill",
+            "description": "Test skill",
+            "file_index": [],
+            "meta": {},
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+        }
+
+        ctx = SKILL_TOOLS.format_context(mock_client, ["skill-1"])
+
+        with pytest.raises(
+            ValueError, match="Skill 'unknown-skill' not found in context"
+        ):
+            SKILL_TOOLS.execute_tool(ctx, "get_skill", {"skill_name": "unknown-skill"})
+
+    @patch("acontext.client.AcontextClient.request")
+    def test_get_skill_tool_validation(
+        self, mock_request: MagicMock, mock_client: AcontextClient
+    ) -> None:
         """Test get_skill tool parameter validation."""
-        with pytest.raises(ValueError, match="skill_id is required"):
-            SKILL_TOOLS.execute_tool(skill_ctx, "get_skill", {})
+        mock_request.return_value = {
+            "id": "skill-1",
+            "name": "test-skill",
+            "description": "Test skill",
+            "file_index": [],
+            "meta": {},
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+        }
+        ctx = SKILL_TOOLS.format_context(mock_client, ["skill-1"])
 
-    def test_get_skill_file_tool_validation(self, skill_ctx: SkillContext) -> None:
+        with pytest.raises(ValueError, match="skill_name is required"):
+            SKILL_TOOLS.execute_tool(ctx, "get_skill", {})
+
+    @patch("acontext.client.AcontextClient.request")
+    def test_get_skill_file_tool_validation(
+        self, mock_request: MagicMock, mock_client: AcontextClient
+    ) -> None:
         """Test get_skill_file tool parameter validation."""
-        with pytest.raises(ValueError, match="skill_id is required"):
-            SKILL_TOOLS.execute_tool(
-                skill_ctx, "get_skill_file", {"file_path": "test.py"}
-            )
+        mock_request.return_value = {
+            "id": "skill-1",
+            "name": "test-skill",
+            "description": "Test skill",
+            "file_index": [],
+            "meta": {},
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:00:00Z",
+        }
+        ctx = SKILL_TOOLS.format_context(mock_client, ["skill-1"])
+
+        with pytest.raises(ValueError, match="skill_name is required"):
+            SKILL_TOOLS.execute_tool(ctx, "get_skill_file", {"file_path": "test.py"})
 
         with pytest.raises(ValueError, match="file_path is required"):
             SKILL_TOOLS.execute_tool(
-                skill_ctx, "get_skill_file", {"skill_id": "skill-1"}
+                ctx, "get_skill_file", {"skill_name": "test-skill"}
             )
