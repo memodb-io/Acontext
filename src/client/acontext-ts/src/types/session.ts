@@ -257,6 +257,18 @@ export const MiddleOutParamsSchema = z.object({
 export type MiddleOutParams = z.infer<typeof MiddleOutParamsSchema>;
 
 /**
+ * Edit strategy to reduce prompt size by removing middle messages.
+ *
+ * Example: { type: 'middle_out', params: { token_reduce_to: 5000 } }
+ */
+export const MiddleOutStrategySchema = z.object({
+  type: z.literal('middle_out'),
+  params: MiddleOutParamsSchema,
+});
+
+export type MiddleOutStrategy = z.infer<typeof MiddleOutStrategySchema>;
+
+/**
  * Union schema for all edit strategies.
  * When adding new strategies, extend this union: z.union([RemoveToolResultStrategySchema, OtherStrategySchema, ...])
  */
@@ -264,6 +276,7 @@ export const EditStrategySchema = z.union([
   RemoveToolResultStrategySchema,
   RemoveToolCallParamsStrategySchema,
   TokenLimitStrategySchema,
+  MiddleOutStrategySchema,
 ]);
 
 export type EditStrategy = z.infer<typeof EditStrategySchema>;
