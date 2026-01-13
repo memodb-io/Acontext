@@ -40,6 +40,9 @@ func (s *MiddleOutStrategy) Apply(messages []model.Message) ([]model.Message, er
 		)
 		totalTokens -= removedTokens
 	}
+	// Keep-tail fallback: if removing only middle messages can't meet the budget,
+	// drop the oldest remaining messages (idx=0). This preserves recency and only
+	// removes the last message if it alone still exceeds the budget.
 	for totalTokens > s.TokenReduceTo && len(result) > 0 {
 		var removedTokens int
 		result, resultTokens, removedTokens = removeWithToolPairing(
