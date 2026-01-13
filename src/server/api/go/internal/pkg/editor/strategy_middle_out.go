@@ -47,7 +47,15 @@ func (s *MiddleOutStrategy) Apply(messages []model.Message) ([]model.Message, er
 }
 
 func removeWithToolPairing(messages []model.Message, idx int) []model.Message {
-	return append(messages[:idx], messages[idx+1:]...)
+	toRemove := map[int]struct{}{idx: {}}
+	out := make([]model.Message, 0, len(messages)-1)
+	for i, msg := range messages {
+		if _, ok := toRemove[i]; ok {
+			continue
+		}
+		out = append(out, msg)
+	}
+	return out
 }
 
 func createMiddleOutStrategy(params map[string]interface{}) (EditStrategy, error) {
