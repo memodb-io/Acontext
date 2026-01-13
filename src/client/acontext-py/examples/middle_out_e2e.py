@@ -35,6 +35,11 @@ def banner(title: str) -> None:
     print("=" * 80)
 
 
+def ensure(condition: bool, message: str) -> None:
+    if not condition:
+        raise AssertionError(message)
+
+
 def store_text(client: AcontextClient, session_id: str, text: str) -> None:
     client.sessions.store_message(
         session_id,
@@ -107,11 +112,11 @@ def exercise_basic_middle_out(client: AcontextClient) -> None:
         texts = get_text_parts(items)
         joined = "\n".join(texts)
 
-        assert "msg-0 short" in joined
-        assert "msg-1 short" in joined
-        assert "msg-28 short" in joined
-        assert "msg-29 short" in joined
-        assert "msg-15 " not in joined
+        ensure("msg-0 short" in joined, "Expected earliest messages to be kept")
+        ensure("msg-1 short" in joined, "Expected earliest messages to be kept")
+        ensure("msg-28 short" in joined, "Expected most recent messages to be kept")
+        ensure("msg-29 short" in joined, "Expected most recent messages to be kept")
+        ensure("msg-15 " not in joined, "Expected middle message to be removed")
     finally:
         client.sessions.delete(session_id)
 
@@ -134,10 +139,10 @@ def exercise_even_determinism(client: AcontextClient) -> None:
         texts = get_text_parts(items)
         joined = "\n".join(texts)
 
-        assert "m0" in joined
-        assert "m1" in joined
-        assert "m2 " not in joined
-        assert "m3" in joined
+        ensure("m0" in joined, "Expected head to be kept")
+        ensure("m1" in joined, "Expected head to be kept")
+        ensure("m2 " not in joined, "Expected right-middle to be removed")
+        ensure("m3" in joined, "Expected tail to be kept")
     finally:
         client.sessions.delete(session_id)
 
@@ -158,8 +163,8 @@ def exercise_keep_tail(client: AcontextClient) -> None:
         texts = get_text_parts(items)
         joined = "\n".join(texts)
 
-        assert "old " not in joined
-        assert "new" in joined
+        ensure("old " not in joined, "Expected keep-tail fallback to drop oldest")
+        ensure("new" in joined, "Expected keep-tail fallback to keep newest")
     finally:
         client.sessions.delete(session_id)
 
@@ -199,8 +204,8 @@ def exercise_tool_pairing(client: AcontextClient) -> None:
             edit_strategies=[{"type": "middle_out", "params": {"token_reduce_to": 500}}],
         )
 
-        assert not has_tool_call(items, "call_1")
-        assert not has_tool_result(items, "call_1")
+        ensure(not has_tool_call(items, "call_1"), "Expected tool-call to be removed")
+        ensure(not has_tool_result(items, "call_1"), "Expected tool-result to be removed")
     finally:
         client.sessions.delete(session_id)
 
@@ -245,4 +250,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
