@@ -294,6 +294,7 @@ class AsyncSessionsAPI:
                 Each strategy is a dict with 'type' and 'params' keys.
                 Examples:
                     - Remove tool results: [{"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}]
+                    - Middle out: [{"type": "middle_out", "params": {"token_reduce_to": 5000}}]
                     - Token limit: [{"type": "token_limit", "params": {"limit_tokens": 20000}}]
                 Defaults to None.
             pin_editing_strategies_at_message: Message ID to pin editing strategies at.
