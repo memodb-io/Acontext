@@ -20,7 +20,7 @@ func (s *MiddleOutStrategy) Apply(messages []model.Message) ([]model.Message, er
 		return messages, nil
 	}
 	ctx := context.Background()
-	totalTokens, err := tokenizer.CountMessagePartsTokens(ctx, messages)
+	messageTokens, totalTokens, err := countMessageTokens(ctx, messages)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count tokens: %w", err)
 	}
@@ -28,25 +28,44 @@ func (s *MiddleOutStrategy) Apply(messages []model.Message) ([]model.Message, er
 		return messages, nil
 	}
 	result := messages
+	resultTokens := messageTokens
 	for totalTokens > s.TokenReduceTo && len(result) > 2 {
 		mid := len(result) / 2
-		result = removeWithToolPairing(result, mid)
-		totalTokens, err = tokenizer.CountMessagePartsTokens(ctx, result)
-		if err != nil {
-			return nil, fmt.Errorf("failed to count tokens: %w", err)
-		}
+		var removedTokens int
+		result, resultTokens, removedTokens = removeWithToolPairing(
+			result,
+			resultTokens,
+			mid,
+		)
+		totalTokens -= removedTokens
 	}
 	for totalTokens > s.TokenReduceTo && len(result) > 0 {
-		result = removeWithToolPairing(result, 0)
-		totalTokens, err = tokenizer.CountMessagePartsTokens(ctx, result)
-		if err != nil {
-			return nil, fmt.Errorf("failed to count tokens: %w", err)
-		}
+		var removedTokens int
+		result, resultTokens, removedTokens = removeWithToolPairing(
+			result,
+			resultTokens,
+			0,
+		)
+		totalTokens -= removedTokens
 	}
 	return result, nil
 }
 
-func removeWithToolPairing(messages []model.Message, idx int) []model.Message {
+func countMessageTokens(ctx context.Context, messages []model.Message) ([]int, int, error) {
+	tokens := make([]int, len(messages))
+	total := 0
+	for i, message := range messages {
+		count, err := tokenizer.CountSingleMessageTokens(ctx, message)
+		if err != nil {
+			return nil, 0, err
+		}
+		tokens[i] = count
+		total += count
+	}
+	return tokens, total, nil
+}
+
+func removeWithToolPairing(messages []model.Message, messageTokens []int, idx int) ([]model.Message, []int, int) {
 	toRemove := map[int]struct{}{idx: {}}
 	queue := []int{idx}
 	for len(queue) > 0 {
@@ -112,14 +131,18 @@ func removeWithToolPairing(messages []model.Message, idx int) []model.Message {
 			}
 		}
 	}
+	removedTokens := 0
 	out := make([]model.Message, 0, len(messages)-1)
+	outTokens := make([]int, 0, len(messageTokens)-1)
 	for i, msg := range messages {
 		if _, ok := toRemove[i]; ok {
+			removedTokens += messageTokens[i]
 			continue
 		}
 		out = append(out, msg)
+		outTokens = append(outTokens, messageTokens[i])
 	}
-	return out
+	return out, outTokens, removedTokens
 }
 
 func createMiddleOutStrategy(params map[string]interface{}) (EditStrategy, error) {
