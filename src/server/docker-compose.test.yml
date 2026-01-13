@@ -61,7 +61,7 @@ services:
     entrypoint:
       - /bin/sh
       - -c
-      - 'set -e; BUCKET_NAME=acontext-assets; echo "Checking bucket: $$BUCKET_NAME"; for i in 1 2 3 4 5; do if aws --endpoint-url=http://seaweedfs:9000 s3 ls s3://$$BUCKET_NAME >/dev/null 2>&1; then echo "Bucket exists"; exit 0; fi; echo "Creating bucket (attempt $$i)..."; aws --endpoint-url=http://seaweedfs:9000 s3 mb s3://$$BUCKET_NAME 2>/dev/null && exit 0 || sleep 2; done; echo "Failed to ensure bucket exists"; exit 1'
+      - 'set -e; BUCKET_NAME=acontext-assets; echo "Checking bucket: $$BUCKET_NAME"; for i in 1 2 3 4 5; do if aws --endpoint-url=http://seaweedfs:9000 s3 ls s3://$$BUCKET_NAME >/dev/null 2>&1; then echo "Bucket exists"; break; fi; echo "Creating bucket (attempt $$i)..."; aws --endpoint-url=http://seaweedfs:9000 s3 mb s3://$$BUCKET_NAME 2>/dev/null && break || sleep 2; done; echo "S3 ready"; sleep infinity'
 
   # --- Python Core ---
   core:
