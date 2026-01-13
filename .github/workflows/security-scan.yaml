@@ -1,0 +1,92 @@
+name: Security Scan
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'src/server/api/go/go.mod'
+      - 'src/server/api/go/go.sum'
+      - 'src/server/core/pyproject.toml'
+      - 'src/server/core/uv.lock'
+      - 'src/client/acontext-py/pyproject.toml'
+      - 'src/client/acontext-py/uv.lock'
+      - 'src/client/acontext-ts/package.json'
+      - 'src/client/acontext-ts/package-lock.json'
+      - 'src/server/ui/package.json'
+      - 'src/server/ui/pnpm-lock.yaml'
+      - '.github/workflows/security-scan.yaml'
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'src/server/api/go/go.mod'
+      - 'src/server/api/go/go.sum'
+      - 'src/server/core/pyproject.toml'
+      - 'src/server/core/uv.lock'
+      - 'src/client/acontext-py/pyproject.toml'
+      - 'src/client/acontext-py/uv.lock'
+      - 'src/client/acontext-ts/package.json'
+      - 'src/client/acontext-ts/package-lock.json'
+      - 'src/server/ui/package.json'
+      - 'src/server/ui/pnpm-lock.yaml'
+      - '.github/workflows/security-scan.yaml'
+  workflow_dispatch:
+
+jobs:
+  go-vulncheck:
+    name: Go Vulnerability Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.1'
+          cache: true
+      - name: Run govulncheck
+        working-directory: src/server/api/go
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+  python-audit:
+    name: Python Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install pip-audit
+      - name: Audit Core
+        working-directory: src/server/core
+        run: pip-audit pyproject.toml
+      - name: Audit SDK
+        working-directory: src/client/acontext-py
+        run: pip-audit pyproject.toml
+
+  js-audit:
+    name: JS/TS Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Audit TS SDK
+        working-directory: src/client/acontext-ts
+        run: npm audit --audit-level=high
+      - name: Audit UI (pnpm)
+        working-directory: src/server/ui
+        run: |
+          npm install -g pnpm
+          pnpm audit --audit-level=high
