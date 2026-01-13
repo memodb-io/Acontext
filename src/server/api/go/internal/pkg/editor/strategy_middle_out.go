@@ -48,6 +48,25 @@ func (s *MiddleOutStrategy) Apply(messages []model.Message) ([]model.Message, er
 
 func removeWithToolPairing(messages []model.Message, idx int) []model.Message {
 	toRemove := map[int]struct{}{idx: {}}
+	for _, removedPart := range messages[idx].Parts {
+		if removedPart.Type != "tool-call" || removedPart.Meta == nil {
+			continue
+		}
+		toolCallID, ok := removedPart.Meta["id"].(string)
+		if !ok || toolCallID == "" {
+			continue
+		}
+		for i, msg := range messages {
+			for _, part := range msg.Parts {
+				if part.Type == "tool-result" && part.Meta != nil {
+					if id, ok := part.Meta["tool_call_id"].(string); ok && id == toolCallID {
+						toRemove[i] = struct{}{}
+						break
+					}
+				}
+			}
+		}
+	}
 	out := make([]model.Message, 0, len(messages)-1)
 	for i, msg := range messages {
 		if _, ok := toRemove[i]; ok {
