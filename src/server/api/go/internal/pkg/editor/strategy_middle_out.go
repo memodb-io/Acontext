@@ -1,9 +1,11 @@
 package editor
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/memodb-io/Acontext/internal/modules/model"
+	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 )
 
 type MiddleOutStrategy struct{ TokenReduceTo int }
@@ -15,6 +17,14 @@ func (s *MiddleOutStrategy) Apply(messages []model.Message) ([]model.Message, er
 		return nil, fmt.Errorf("token_reduce_to must be > 0, got %d", s.TokenReduceTo)
 	}
 	if len(messages) == 0 {
+		return messages, nil
+	}
+	ctx := context.Background()
+	totalTokens, err := tokenizer.CountMessagePartsTokens(ctx, messages)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count tokens: %w", err)
+	}
+	if totalTokens <= s.TokenReduceTo {
 		return messages, nil
 	}
 	return messages, nil
