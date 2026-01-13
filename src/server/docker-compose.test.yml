@@ -98,22 +98,32 @@ services:
       DATABASE_PASSWORD: helloworld
       DATABASE_NAME: acontext_test
       DATABASE_EXPORT_PORT: 5432
+      DATABASE_ENABLE_TLS: "false"
       REDIS_HOST: redis
       REDIS_PASSWORD: helloworld
       REDIS_EXPORT_PORT: 6379
+      REDIS_ENABLE_TLS: "false"
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_USER: acontext
       RABBITMQ_PASSWORD: helloworld
       RABBITMQ_VHOST: /
+      RABBITMQ_VHOST_ENCODED: "%2F"
+      RABBITMQ_EXPORT_PORT: 5672
+      RABBITMQ_ENABLE_TLS: "false"
+      S3_ENDPOINT: http://seaweedfs:9000
       S3_INTERNAL_ENDPOINT: http://seaweedfs:9000
+      S3_REGION: us-east-1
       S3_ACCESS_KEY: acontext
       S3_SECRET_KEY: helloworld
       S3_BUCKET: acontext-assets
       CORE_BASE_URL: http://core:8000
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
+      APP_TELEMETRY_ENABLED: "false"
+      ENABLE_ARGON2_VERIFICATION: "false"
+      ARTIFACT_MAX_UPLOAD_SIZE_BYTES: 16777216
       ROOT_API_BEARER_TOKEN: test-token
       APP_ROOT_SECRETPEPPER: test-pepper
       APP_ROOT_ENABLEARGON2VERIFICATION: "false"
-      APP_TELEMETRY_ENABLED: "false"
     depends_on:
       core: { condition: service_healthy }
     healthcheck:

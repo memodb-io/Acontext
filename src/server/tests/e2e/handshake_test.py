@@ -7,9 +7,9 @@ import hmac
 import hashlib
 import time
 
-API_URL = os.getenv("API_URL", "http://localhost:8029")
-CORE_URL = os.getenv("CORE_URL", "http://localhost:8000")
-DB_URL = os.getenv("DB_URL", "postgresql://acontext:helloworld@localhost:5432/acontext_test")
+API_URL = os.getenv("API_URL", "http://api:8029")
+CORE_URL = os.getenv("CORE_URL", "http://core:8000")
+DB_URL = os.getenv("DB_URL", "postgresql://acontext:helloworld@pg:5432/acontext_test")
 TEST_TOKEN_PREFIX = "sk-ac-"
 PEPPER = "test-pepper" 
 
@@ -22,13 +22,14 @@ async def wait_for_services():
     async with httpx.AsyncClient() as client:
         for i in range(30):
             try:
-                api_resp = await client.get(f"{API_URL}/health")
-                core_resp = await client.get(f"{CORE_URL}/health")
+                api_resp = await client.get(f"{API_URL}/health", timeout=2.0)
+                core_resp = await client.get(f"{CORE_URL}/health", timeout=2.0)
                 if api_resp.status_code == 200 and core_resp.status_code == 200:
                     print("Both services are healthy!")
                     return True
-            except Exception:
-                pass
+                print(f"Waiting... API: {api_resp.status_code}, Core: {core_resp.status_code}")
+            except Exception as e:
+                print(f"Waiting... Error: {e}")
             await asyncio.sleep(2)
     print("Timeout waiting for services")
     return False
@@ -43,12 +44,13 @@ async def seed_project(conn, project_id, secret):
 
 async def run_test():
     if not await wait_for_services():
-        exit(1)
+        return False
 
     project_id = uuid.uuid4()
-    secret = "my-secret-key"
+    secret = str(uuid.uuid4())
     bearer_token = f"{TEST_TOKEN_PREFIX}{secret}" # matching cfg.Root.ProjectBearerTokenPrefix "sk-ac-"
 
+    print(f"Connecting to DB at {DB_URL}...")
     conn = await asyncpg.connect(DB_URL)
     try:
         await seed_project(conn, project_id, secret)
@@ -60,26 +62,29 @@ async def run_test():
             print("Creating session...")
             resp = await client.post(
                 f"{API_URL}/api/v1/session",
-                json={"project_id": str(project_id)},
+                json={},
                 headers=headers
             )
             print(f"Session Response: {resp.status_code}, {resp.text}")
-            assert resp.status_code == 200
-            session_id = resp.json()["id"]
+            assert resp.status_code in (200, 201)
+            session_id = resp.json()["data"]["id"]
 
             # 2. Store message
             print("Storing message...")
             resp = await client.post(
                 f"{API_URL}/api/v1/session/{session_id}/messages",
                 json={
-                    "role": "user",
-                    "parts": [{"type": "text", "text": "Hello, bot!"}]
+                    "format": "acontext",
+                    "blob": {
+                        "role": "user",
+                        "parts": [{"type": "text", "text": "Hello, bot!"}]
+                    }
                 },
                 headers=headers
             )
             print(f"Message Response: {resp.status_code}, {resp.text}")
-            assert resp.status_code == 200
-            message_id = resp.json()["id"]
+            assert resp.status_code in (200, 201)
+            message_id = resp.json()["data"]["id"]
 
             # 3. Poll for processing
             print("Polling for message processing (Python Core handshake)...")
