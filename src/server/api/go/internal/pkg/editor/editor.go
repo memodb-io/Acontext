@@ -28,6 +28,8 @@ func CreateStrategy(config StrategyConfig) (EditStrategy, error) {
 		return createRemoveToolCallParamsStrategy(config.Params)
 	case "token_limit":
 		return createTokenLimitStrategy(config.Params)
+	case "middle_out":
+		return createMiddleOutStrategy(config.Params)
 	default:
 		return nil, fmt.Errorf("unknown strategy type: %s", config.Type)
 	}
