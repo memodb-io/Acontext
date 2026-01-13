@@ -27,7 +27,12 @@ func (s *MiddleOutStrategy) Apply(messages []model.Message) ([]model.Message, er
 	if totalTokens <= s.TokenReduceTo {
 		return messages, nil
 	}
-	return messages, nil
+	result := messages
+	if len(result) > 2 {
+		mid := len(result) / 2
+		result = append(result[:mid], result[mid+1:]...)
+	}
+	return result, nil
 }
 
 func createMiddleOutStrategy(params map[string]interface{}) (EditStrategy, error) {
