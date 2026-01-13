@@ -248,6 +248,15 @@ export const TokenLimitStrategySchema = z.object({
 export type TokenLimitStrategy = z.infer<typeof TokenLimitStrategySchema>;
 
 /**
+ * Parameters for the middle_out edit strategy.
+ */
+export const MiddleOutParamsSchema = z.object({
+  token_reduce_to: z.number(),
+});
+
+export type MiddleOutParams = z.infer<typeof MiddleOutParamsSchema>;
+
+/**
  * Union schema for all edit strategies.
  * When adding new strategies, extend this union: z.union([RemoveToolResultStrategySchema, OtherStrategySchema, ...])
  */
@@ -258,4 +267,3 @@ export const EditStrategySchema = z.union([
 ]);
 
 export type EditStrategy = z.infer<typeof EditStrategySchema>;
-
