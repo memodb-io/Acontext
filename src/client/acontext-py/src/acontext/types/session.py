@@ -89,6 +89,16 @@ class TokenLimitStrategy(TypedDict):
     params: TokenLimitParams
 
 
+class MiddleOutParams(TypedDict):
+    """Parameters for the middle_out edit strategy.
+
+    Attributes:
+        token_reduce_to: Target token count to reduce the prompt to. Required parameter.
+    """
+
+    token_reduce_to: int
+
+
 # Union type for all edit strategies
 # When adding new strategies, add them to this Union: EditStrategy = Union[RemoveToolResultStrategy, OtherStrategy, ...]
 EditStrategy = Union[
