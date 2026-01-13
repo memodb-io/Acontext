@@ -20,5 +20,8 @@ func createMiddleOutStrategy(params map[string]interface{}) (EditStrategy, error
 	default:
 		return nil, fmt.Errorf("token_reduce_to must be an integer, got %T", v)
 	}
+	if tokenReduceTo <= 0 {
+		return nil, fmt.Errorf("token_reduce_to must be > 0, got %d", tokenReduceTo)
+	}
 	return &MiddleOutStrategy{TokenReduceTo: tokenReduceTo}, nil
 }
