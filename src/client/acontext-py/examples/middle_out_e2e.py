@@ -17,6 +17,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from acontext import AcontextClient
 
 
+LARGE_CONTENT_CHARS = 8_000
+
+
 def resolve_credentials() -> tuple[str, str]:
     api_key = (
         os.getenv("ACONTEXT_API_KEY")
@@ -99,7 +102,7 @@ def exercise_basic_middle_out(client: AcontextClient) -> None:
     try:
         for i in range(30):
             if 10 <= i <= 19:
-                payload = f"msg-{i} " + ("x" * 20000)
+                payload = f"msg-{i} " + ("x" * LARGE_CONTENT_CHARS)
             else:
                 payload = f"msg-{i} short"
             store_text(client, session_id, payload)
@@ -128,7 +131,7 @@ def exercise_even_determinism(client: AcontextClient) -> None:
     try:
         store_text(client, session_id, "m0")
         store_text(client, session_id, "m1")
-        store_text(client, session_id, "m2 " + ("x" * 20000))
+        store_text(client, session_id, "m2 " + ("x" * LARGE_CONTENT_CHARS))
         store_text(client, session_id, "m3")
 
         items = get_acontext_items(
@@ -152,7 +155,7 @@ def exercise_keep_tail(client: AcontextClient) -> None:
 
     session_id = client.sessions.create(configs={"mode": "sdk-e2e-middle-out"}).id
     try:
-        store_text(client, session_id, "old " + ("x" * 20000))
+        store_text(client, session_id, "old " + ("x" * LARGE_CONTENT_CHARS))
         store_text(client, session_id, "new")
 
         items = get_acontext_items(
@@ -185,7 +188,7 @@ def exercise_tool_pairing(client: AcontextClient) -> None:
                     {
                         "id": "call_1",
                         "type": "function",
-                        "function": {"name": "f", "arguments": "x" * 20000},
+                        "function": {"name": "f", "arguments": "x" * LARGE_CONTENT_CHARS},
                     }
                 ],
             },
