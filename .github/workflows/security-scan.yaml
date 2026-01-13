@@ -57,7 +57,7 @@ jobs:
         run: |
           for dir in src/server/core src/client/acontext-py; do
             cd $dir
-            uv export --format requirements-txt > reqs.txt
+            uv export --format requirements-txt --no-hashes --no-dev > reqs.txt
             pip-audit -r reqs.txt
             rm reqs.txt
             cd - > /dev/null
