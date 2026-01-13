@@ -61,7 +61,7 @@ services:
     entrypoint:
       - /bin/sh
       - -c
-      - 'aws --endpoint-url=http://seaweedfs:8333 s3 mb s3://acontext-assets || true'
+      - 'set -e; echo "Creating bucket..."; for i in 1 2 3 4 5; do aws --endpoint-url=http://seaweedfs:9000 s3 mb s3://acontext-assets && exit 0 || echo "Wait for seaweedfs... $$i" && sleep 2; done; aws --endpoint-url=http://seaweedfs:9000 s3 ls s3://acontext-assets || (echo "Bucket creation failed" && exit 1)'
 
   # --- Python Core ---
   core:
@@ -71,7 +71,7 @@ services:
       DATABASE_URL: postgresql://acontext:helloworld@pg:5432/acontext_test
       MQ_URL: amqp://acontext:helloworld@rabbitmq:5672/
       REDIS_URL: redis://:helloworld@redis:6379
-      S3_ENDPOINT: http://seaweedfs:8333
+      S3_ENDPOINT: http://seaweedfs:9000
       LLM_SIMPLE_MODEL: gpt-4o # Mock/Stub if possible, or dummy
       LLM_API_KEY: fake-key
       OTEL_ENABLED: "false"
@@ -105,7 +105,7 @@ services:
       RABBITMQ_USER: acontext
       RABBITMQ_PASSWORD: helloworld
       RABBITMQ_VHOST: /
-      S3_INTERNAL_ENDPOINT: http://seaweedfs:8333
+      S3_INTERNAL_ENDPOINT: http://seaweedfs:9000
       S3_ACCESS_KEY: acontext
       S3_SECRET_KEY: helloworld
       S3_BUCKET: acontext-assets
