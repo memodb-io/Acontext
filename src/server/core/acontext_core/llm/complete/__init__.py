@@ -5,7 +5,6 @@ from ...schema.llm import LLMResponse
 from ...schema.result import Result
 from ...env import LOG, DEFAULT_CORE_CONFIG
 from ...telemetry.log import bound_logging_vars
-from ...telemetry.otel import instrument_llm_complete
 
 
 COMPLETE_FUNC = Callable[..., Awaitable[LLMResponse]]
@@ -16,7 +15,6 @@ FACTORIES: Mapping[str, COMPLETE_FUNC] = {
 }
 
 
-@instrument_llm_complete
 async def llm_complete(
     prompt=None,
     model=None,

@@ -11,6 +11,7 @@ from acontext_core.env import LOG
 from acontext_core.telemetry.otel import (
     setup_otel_tracing,
     instrument_fastapi,
+    instrument_all_clients,
     shutdown_otel_tracing,
 )
 from acontext_core.telemetry.config import TelemetryConfig
@@ -74,6 +75,8 @@ if telemetry_config.enabled:
             sample_ratio=telemetry_config.sample_ratio,
             service_version=telemetry_config.service_version,
         )
+        # Instrument all clients (must be called before client creation)
+        instrument_all_clients()
         LOG.info(
             f"OpenTelemetry tracing setup: endpoint={telemetry_config.otlp_endpoint}, "
             f"sample_ratio={telemetry_config.sample_ratio}"

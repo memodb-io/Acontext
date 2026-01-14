@@ -26,4 +26,4 @@ EXPOSE 8000
 ENV PYTHONUNBUFFERED=1
 
 # Run the FastAPI server using uvicorn
-CMD ["/app/.venv/bin/uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/app/.venv/bin/uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "600"]

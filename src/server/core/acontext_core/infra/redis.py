@@ -78,21 +78,7 @@ class RedisClient:
         """Create the Redis client with optimal settings."""
         client = Redis(connection_pool=self.pool, decode_responses=True)
 
-        # Instrument with OpenTelemetry if enabled
-        try:
-            from ..telemetry.config import TelemetryConfig
-
-            telemetry_config = TelemetryConfig.from_env()
-            if telemetry_config.enabled:
-                from ..telemetry.otel import instrument_redis
-
-                instrument_redis(client)
-                logger.debug("Redis OpenTelemetry instrumentation enabled")
-        except Exception as e:
-            logger.warning(
-                f"Failed to instrument Redis with OpenTelemetry, continuing without tracing: {e}",
-                exc_info=True,
-            )
+        # OpenTelemetry instrumentation handled globally at startup
 
         logger.info("Redis client created")
         return client

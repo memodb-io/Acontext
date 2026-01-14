@@ -104,15 +104,15 @@ class DatabaseClient:
         # Set up event listeners for connection monitoring
         self._setup_event_listeners(engine)
 
-        # Instrument with OpenTelemetry if enabled
+        # Instrument with OpenTelemetry (requires sync_engine for async engines)
         try:
             from ..telemetry.config import TelemetryConfig
 
             telemetry_config = TelemetryConfig.from_env()
             if telemetry_config.enabled:
-                from ..telemetry.otel import instrument_sqlalchemy
+                from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
 
-                instrument_sqlalchemy(engine)
+                SQLAlchemyInstrumentor().instrument(engine=engine.sync_engine)
                 logger.debug("SQLAlchemy OpenTelemetry instrumentation enabled")
         except Exception as e:
             logger.warning(

@@ -3,7 +3,6 @@ from traceback import format_exc
 from ...env import LOG, DEFAULT_CORE_CONFIG
 from ...schema.result import Result
 from ...schema.embedding import EmbeddingReturn
-from ...telemetry.otel import instrument_llm_embedding
 from .jina_embedding import jina_embedding
 from .openai_embedding import openai_embedding
 
@@ -31,7 +30,6 @@ async def embedding_sanity_check():
     LOG.info(f"Embedding dimension matched with Config: {embedding_dim}")
 
 
-@instrument_llm_embedding
 async def get_embedding(
     texts: list[str],
     phase: Literal["query", "document"] = "document",
