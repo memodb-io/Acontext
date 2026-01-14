@@ -8,7 +8,6 @@ import (
 
 	"github.com/memodb-io/Acontext/internal/config"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -32,9 +31,9 @@ func SetupTracing(cfg *config.Config) (*sdktrace.TracerProvider, error) {
 	res, err := resource.New(
 		context.Background(),
 		resource.WithAttributes(
-			semconv.ServiceNameKey.String(cfg.App.Name), // Use service name from config
-			semconv.ServiceVersionKey.String("0.0.1"),
-			attribute.String("environment", cfg.App.Env),
+			semconv.ServiceName(cfg.App.Name),
+			semconv.ServiceVersion("0.0.1"),
+			semconv.DeploymentEnvironment(cfg.App.Env),
 		),
 	)
 	if err != nil {

@@ -12,8 +12,7 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/config"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.uber.org/zap"
 )
 
@@ -22,18 +21,17 @@ type CoreClient struct {
 	BaseURL    string
 	HTTPClient *http.Client
 	Logger     *zap.Logger
-	Propagator propagation.TextMapPropagator
 }
 
-// NewCoreClient creates a new CoreClient
+// NewCoreClient creates a new CoreClient with OpenTelemetry instrumentation
 func NewCoreClient(cfg *config.Config, log *zap.Logger) *CoreClient {
 	return &CoreClient{
 		BaseURL: cfg.Core.BaseURL,
 		HTTPClient: &http.Client{
-			Timeout: 30 * time.Second,
+			Timeout:   5 * time.Minute,
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
 		},
-		Logger:     log,
-		Propagator: otel.GetTextMapPropagator(), // Get global propagator
+		Logger: log,
 	}
 }
 
@@ -80,9 +78,6 @@ func (c *CoreClient) ExperienceSearch(ctx context.Context, projectID, spaceID uu
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
-
-	// Important: propagate trace context to downstream service
-	c.Propagator.Inject(ctx, propagation.HeaderCarrier(httpReq.Header))
 
 	resp, err := c.HTTPClient.Do(httpReq)
 	if err != nil {
@@ -139,9 +134,6 @@ func (c *CoreClient) InsertBlock(ctx context.Context, projectID, spaceID uuid.UU
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	// Important: propagate trace context to downstream service
-	c.Propagator.Inject(ctx, propagation.HeaderCarrier(httpReq.Header))
-
 	resp, err := c.HTTPClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("do request: %w", err)
@@ -189,9 +181,6 @@ func (c *CoreClient) SessionFlush(ctx context.Context, projectID, sessionID uuid
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 
-	// Important: propagate trace context to downstream service
-	c.Propagator.Inject(ctx, propagation.HeaderCarrier(httpReq.Header))
-
 	resp, err := c.HTTPClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("do request: %w", err)
@@ -226,9 +215,6 @@ func (c *CoreClient) GetLearningStatus(ctx context.Context, projectID, sessionID
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
-
-	// Important: propagate trace context to downstream service
-	c.Propagator.Inject(ctx, propagation.HeaderCarrier(httpReq.Header))
 
 	resp, err := c.HTTPClient.Do(httpReq)
 	if err != nil {
@@ -290,9 +276,6 @@ func (c *CoreClient) ToolRename(ctx context.Context, projectID uuid.UUID, rename
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	// Important: propagate trace context to downstream service
-	c.Propagator.Inject(ctx, propagation.HeaderCarrier(httpReq.Header))
-
 	resp, err := c.HTTPClient.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("do request: %w", err)
@@ -327,9 +310,6 @@ func (c *CoreClient) GetToolNames(ctx context.Context, projectID uuid.UUID) ([]T
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
-
-	// Important: propagate trace context to downstream service
-	c.Propagator.Inject(ctx, propagation.HeaderCarrier(httpReq.Header))
 
 	resp, err := c.HTTPClient.Do(httpReq)
 	if err != nil {

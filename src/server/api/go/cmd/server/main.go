@@ -109,7 +109,13 @@ func main() {
 	})
 
 	addr := fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port)
-	srv := &http.Server{Addr: addr, Handler: engine}
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           engine,
+		ReadHeaderTimeout: 30 * time.Second,
+		WriteTimeout:      15 * time.Minute,
+		IdleTimeout:       120 * time.Second,
+	}
 
 	go func() {
 		log.Sugar().Infow("starting http server", "addr", addr)

@@ -11,36 +11,33 @@ import (
 	"github.com/memodb-io/Acontext/internal/config"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
+	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
-// tableCarrier adapts amqp.Table to TextMapCarrier for OpenTelemetry propagation
-type tableCarrier struct {
-	table amqp.Table
+// injectTraceContext injects trace context into AMQP headers
+func injectTraceContext(ctx context.Context, headers amqp.Table) {
+	carrier := propagation.MapCarrier{}
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
+	for k, v := range carrier {
+		headers[k] = v
+	}
 }
 
-func (c tableCarrier) Get(key string) string {
-	if val, ok := c.table[key]; ok {
-		if str, ok := val.(string); ok {
-			return str
+// extractTraceContext extracts trace context from AMQP headers
+func extractTraceContext(ctx context.Context, headers amqp.Table) context.Context {
+	if headers == nil {
+		return ctx
+	}
+	carrier := propagation.MapCarrier{}
+	for k, v := range headers {
+		if str, ok := v.(string); ok {
+			carrier[k] = str
 		}
-		return fmt.Sprintf("%v", val)
 	}
-	return ""
-}
-
-func (c tableCarrier) Set(key, value string) {
-	c.table[key] = value
-}
-
-func (c tableCarrier) Keys() []string {
-	keys := make([]string, 0, len(c.table))
-	for k := range c.table {
-		keys = append(keys, k)
-	}
-	return keys
+	return otel.GetTextMapPropagator().Extract(ctx, carrier)
 }
 
 // DialFunc is a function type for establishing RabbitMQ connections
@@ -207,21 +204,22 @@ func (p *Publisher) PublishJSON(ctx context.Context, exchangeName string, routin
 		return err
 	}
 
-	// Create a span for the publish operation
+	// Create producer span using semantic conventions
 	tracer := otel.Tracer(p.cfg.App.Name)
-	ctx, span := tracer.Start(ctx, "rabbitmq.publish",
+	ctx, span := tracer.Start(ctx, fmt.Sprintf("%s publish", exchangeName),
+		trace.WithSpanKind(trace.SpanKindProducer),
 		trace.WithAttributes(
-			attribute.String("messaging.system", "rabbitmq"),
-			attribute.String("messaging.destination", exchangeName),
-			attribute.String("messaging.destination_kind", "exchange"),
-			attribute.String("messaging.rabbitmq.routing_key", routingKey),
+			semconv.MessagingSystemRabbitmq,
+			semconv.MessagingDestinationName(exchangeName),
+			semconv.MessagingRabbitmqDestinationRoutingKey(routingKey),
+			semconv.MessagingOperationPublish,
+			semconv.MessagingMessageBodySize(len(b)),
 		))
 	defer span.End()
 
 	// Inject trace context into message headers
 	headers := make(amqp.Table)
-	propagator := otel.GetTextMapPropagator()
-	propagator.Inject(ctx, tableCarrier{table: headers})
+	injectTraceContext(ctx, headers)
 
 	publishing := amqp.Publishing{
 		ContentType:  "application/json",
@@ -238,13 +236,11 @@ func (p *Publisher) PublishJSON(ctx context.Context, exchangeName string, routin
 		return fmt.Errorf("failed to get channel: %w", err)
 	}
 
-	err = ch.PublishWithContext(ctx, exchangeName, routingKey, false, false, publishing)
-	if err != nil {
+	if err := ch.PublishWithContext(ctx, exchangeName, routingKey, false, false, publishing); err != nil {
 		span.RecordError(err)
 		return err
 	}
 
-	span.SetAttributes(attribute.Int("messaging.message.body.size", len(b)))
 	return nil
 }
 
@@ -276,7 +272,6 @@ func (c *Consumer) Handle(ctx context.Context, handler func([]byte) error) error
 	}
 
 	tracer := otel.Tracer(c.cfg.App.Name)
-	propagator := otel.GetTextMapPropagator()
 
 	for {
 		select {
@@ -287,34 +282,39 @@ func (c *Consumer) Handle(ctx context.Context, handler func([]byte) error) error
 				return errors.New("consumer channel closed")
 			}
 
-			// Extract trace context from message headers
-			msgCtx := ctx
-			if m.Headers != nil {
-				msgCtx = propagator.Extract(ctx, tableCarrier{table: m.Headers})
-			}
-
-			// Create a span for the consume operation
-			// Note: We don't use the returned context since handler doesn't accept context
-			_, span := tracer.Start(msgCtx, "rabbitmq.consume",
-				trace.WithAttributes(
-					attribute.String("messaging.system", "rabbitmq"),
-					attribute.String("messaging.destination", c.q.Name),
-					attribute.String("messaging.destination_kind", "queue"),
-					attribute.String("messaging.operation", "receive"),
-					attribute.Int("messaging.message.body.size", len(m.Body)),
-				))
-			defer span.End()
-
-			// Execute handler with trace context
-			// Note: handler receives []byte, not context, so trace context is propagated via span
-			if err := handler(m.Body); err != nil {
-				span.RecordError(err)
-				_ = m.Nack(false, true) // Processing failed, requeue.
-				c.log.Sugar().Errorw("consume error", "err", err)
-				continue
-			}
-
-			_ = m.Ack(false)
+			c.handleMessage(ctx, m, tracer, handler)
 		}
 	}
+}
+
+// handleMessage processes a single message with tracing
+func (c *Consumer) handleMessage(
+	ctx context.Context,
+	m amqp.Delivery,
+	tracer trace.Tracer,
+	handler func([]byte) error,
+) {
+	// Extract trace context from message headers
+	msgCtx := extractTraceContext(ctx, m.Headers)
+
+	// Create consumer span using semantic conventions
+	_, span := tracer.Start(msgCtx, fmt.Sprintf("%s receive", c.q.Name),
+		trace.WithSpanKind(trace.SpanKindConsumer),
+		trace.WithAttributes(
+			semconv.MessagingSystemRabbitmq,
+			semconv.MessagingDestinationName(c.q.Name),
+			semconv.MessagingOperationReceive,
+			semconv.MessagingMessageBodySize(len(m.Body)),
+		))
+	defer span.End()
+
+	// Execute handler
+	if err := handler(m.Body); err != nil {
+		span.RecordError(err)
+		_ = m.Nack(false, true) // Processing failed, requeue.
+		c.log.Sugar().Errorw("consume error", "err", err)
+		return
+	}
+
+	_ = m.Ack(false)
 }

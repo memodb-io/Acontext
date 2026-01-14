@@ -19,13 +19,14 @@ import (
 )
 
 // ProjectAuth returns a middleware that authenticates requests using project bearer tokens.
-// It validates the token, looks up the project in the database, and sets the project in the context.
-// It also sets the project_id attribute on the current span for telemetry filtering.
 func ProjectAuth(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx := c.Request.Context()
-		ctx, authSpan := otel.Tracer("middleware").Start(ctx, "project_auth",
-			trace.WithAttributes(attribute.String("middleware", "project_auth")))
+		// Create auth span without propagating context to avoid nested span hierarchy
+		authCtx, authSpan := otel.Tracer("middleware").Start(
+			c.Request.Context(),
+			"project_auth",
+			trace.WithAttributes(attribute.String("middleware", "project_auth")),
+		)
 
 		auth := c.GetHeader("Authorization")
 		if !strings.HasPrefix(auth, "Bearer ") {
@@ -47,7 +48,7 @@ func ProjectAuth(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
 		lookup := tokens.HMAC256Hex(cfg.Root.SecretPepper, secret)
 
 		var project model.Project
-		if err := db.WithContext(ctx).Where(&model.Project{SecretKeyHMAC: lookup}).First(&project).Error; err != nil {
+		if err := db.WithContext(authCtx).Where(&model.Project{SecretKeyHMAC: lookup}).First(&project).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				authSpan.SetAttributes(attribute.Bool("authenticated", false))
 				authSpan.End()
@@ -61,7 +62,7 @@ func ProjectAuth(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
 		}
 
 		if cfg.Root.EnableArgon2Verification {
-			_, verifySpan := otel.Tracer("middleware").Start(ctx, "project_auth.verify_secret")
+			_, verifySpan := otel.Tracer("middleware").Start(authCtx, "project_auth.verify_secret")
 			pass, err := secrets.VerifySecret(secret, cfg.Root.SecretPepper, project.SecretKeyHashPHC)
 			verifySpan.End()
 			if err != nil || !pass {
@@ -75,10 +76,10 @@ func ProjectAuth(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
 			}
 		}
 
-		// Set project_id attribute on the current span for telemetry filtering
-		rootSpan := trace.SpanFromContext(c.Request.Context())
-		if rootSpan.SpanContext().IsValid() {
-			rootSpan.SetAttributes(attribute.String("project_id", project.ID.String()))
+		// Set project_id on HTTP span for telemetry filtering
+		httpSpan := trace.SpanFromContext(c.Request.Context())
+		if httpSpan.SpanContext().IsValid() {
+			httpSpan.SetAttributes(attribute.String("project_id", project.ID.String()))
 		}
 
 		authSpan.SetAttributes(
