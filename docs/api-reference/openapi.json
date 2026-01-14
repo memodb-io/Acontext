@@ -122,9 +122,15 @@
           }
         } ],
         "responses" : {
-          "204" : {
-            "content" : { },
-            "description" : ""
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/serializer.Response"
+                }
+              }
+            },
+            "description" : "OK"
           }
         },
         "security" : [ {

@@ -768,8 +768,10 @@ paths:
       produces:
       - application/json
       responses:
-        "204":
-          description: ""
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/serializer.Response'
       security:
       - BearerAuth: []
       summary: Delete agent skill

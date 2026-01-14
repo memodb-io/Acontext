@@ -482,7 +482,7 @@ func TestAgentSkillsHandler_DeleteAgentSkill(t *testing.T) {
 			setup: func(svc *MockAgentSkillsService) {
 				svc.On("Delete", mock.Anything, projectID, agentSkillsID).Return(nil)
 			},
-			expectedStatus: http.StatusNoContent,
+			expectedStatus: http.StatusOK,
 		},
 		{
 			name:           "invalid ID",

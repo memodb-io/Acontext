@@ -151,7 +151,7 @@ func (h *AgentSkillsHandler) GetAgentSkill(c *gin.Context) {
 //	@Produce		json
 //	@Param			id	path	string	true	"Agent skill UUID"
 //	@Security		BearerAuth
-//	@Success		204	""
+//	@Success		200	{object}	serializer.Response
 //	@Router			/agent_skills/{id} [delete]
 //	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Delete a skill by ID\nclient.skills.delete('skill-uuid-here')\nprint('Skill deleted successfully')\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@anthropic/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Delete a skill by ID\nawait client.skills.delete('skill-uuid-here');\nconsole.log('Skill deleted successfully');\n","label":"JavaScript"}]
 func (h *AgentSkillsHandler) DeleteAgentSkill(c *gin.Context) {
@@ -172,7 +172,7 @@ func (h *AgentSkillsHandler) DeleteAgentSkill(c *gin.Context) {
 		return
 	}
 
-	c.Status(http.StatusNoContent)
+	c.JSON(http.StatusOK, serializer.Response{})
 }
 
 type ListAgentSkillsReq struct {

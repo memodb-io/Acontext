@@ -6,15 +6,15 @@ on:
       - main
       - dev
     paths:
-      - 'src/client/acontext-ts/**'
-      - '.github/workflows/client-test-ts.yaml'
+      - "src/client/acontext-ts/**"
+      - ".github/workflows/client-test-ts.yaml"
   pull_request:
     branches:
       - main
       - dev
     paths:
-      - 'src/client/acontext-ts/**'
-      - '.github/workflows/client-test-ts.yaml'
+      - "src/client/acontext-ts/**"
+      - ".github/workflows/client-test-ts.yaml"
 
 jobs:
   test:
@@ -27,8 +27,8 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
           cache-dependency-path: src/client/acontext-ts/package-lock.json
 
       - name: Install dependencies
@@ -83,9 +83,15 @@ jobs:
           ACONTEXT_API_KEY: sk-ac-your-root-api-bearer-token
           ACONTEXT_BASE_URL: http://localhost:8029/api/v1
 
+      - name: e2e test
+        working-directory: src/client/acontext-ts
+        run: npm run e2e
+        env:
+          ACONTEXT_API_KEY: sk-ac-your-root-api-bearer-token
+          ACONTEXT_BASE_URL: http://localhost:8029/api/v1
+
       - name: Stop containers
         working-directory: src/server
         if: ${{ always() }}
         run: |
           docker compose down
-

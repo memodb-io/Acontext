@@ -9,6 +9,7 @@
     "dev": "tsc --watch",
     "test": "jest",
     "lint": "eslint src",
+    "e2e": "tsx examples/basic-usage.ts",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -35,6 +36,7 @@
     "eslint": "^9.39.1",
     "jest": "^30.2.0",
     "ts-jest": "^29.4.5",
+    "tsx": "^4.19.0",
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
