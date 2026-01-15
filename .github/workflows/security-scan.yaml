@@ -39,5 +39,4 @@ on:
 
 jobs:
   security:
-    name: Security Scan
     uses: ./.github/workflows/security-reusable.yaml

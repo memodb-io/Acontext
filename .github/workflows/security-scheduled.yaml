@@ -7,5 +7,4 @@ on:
 
 jobs:
   security:
-    name: Weekly Security Scan
     uses: ./.github/workflows/security-reusable.yaml
