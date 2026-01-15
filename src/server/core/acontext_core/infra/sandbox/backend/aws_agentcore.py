@@ -1,7 +1,10 @@
+import base64
 import os
-from datetime import datetime, timedelta, timezone
-from typing import Type, Optional, Dict
-from bedrock_agentcore.tools.code_interpreter_client import CodeInterpreter
+import uuid
+from datetime import datetime, timedelta
+from typing import Optional, Type
+
+import boto3
 
 from .base import SandboxBackend
 from ....schema.sandbox import (
@@ -24,6 +27,9 @@ class AWSAgentCoreSandboxBackend(SandboxBackend):
 
     type: str = "aws_agentcore"
 
+    # System-managed interpreter identifier
+    _DEFAULT_CODE_INTERPRETER_IDENTIFIER = "aws.codeinterpreter.v1"
+
     def __init__(
         self,
         region: str,
@@ -34,8 +40,10 @@ class AWSAgentCoreSandboxBackend(SandboxBackend):
             region: AWS region (e.g., "us-west-2")
         """
         self.__region = region
-        # Track active sessions: sandbox_id -> CodeInterpreter client
-        self.__clients: Dict[str, CodeInterpreter] = {}
+        self.__client = boto3.client(
+            "bedrock-agentcore",
+            region_name=region,
+        )
 
     @classmethod
     def from_default(cls: Type["AWSAgentCoreSandboxBackend"]) -> "AWSAgentCoreSandboxBackend":
@@ -57,37 +65,26 @@ class AWSAgentCoreSandboxBackend(SandboxBackend):
         Returns:
             Runtime information about the created session.
         """
-        # Create a new client for this session
-        client = CodeInterpreter(self.__region)
-        
-        # Start the session with the configured timeout
-        client.start(session_timeout_seconds=create_config.keepalive_seconds)
-        
-        # Get the session ID
-        session_id = client.session_id
-        
+        # NOTE: we intentionally do not keep per-session state; we always use the
+        # system-managed interpreter identifier.
+        response = self.__client.start_code_interpreter_session(
+            codeInterpreterIdentifier=self._DEFAULT_CODE_INTERPRETER_IDENTIFIER,
+            name=f"code-session-{uuid.uuid4().hex[:8]}",
+            sessionTimeoutSeconds=create_config.keepalive_seconds,
+        )
+
+        session_id = response.get("sessionId")
         if not session_id:
-            raise ValueError("Failed to start AWS AgentCore session: no session_id returned")
-        
-        # Store the client
-        self.__clients[session_id] = client
-        
+            raise ValueError("Failed to start AWS AgentCore session: no sessionId returned")
+
+        created_at = response.get("createdAt")
+        if not isinstance(created_at, datetime):
+            raise ValueError("Failed to get createdAt from start_code_interpreter_session response")
+
+        expires_at = created_at + timedelta(seconds=create_config.keepalive_seconds)
+
         logger.info(f"Started AWS AgentCore session: {session_id}")
-        
-        # Get session info to return accurate data
-        session_info = client.get_session(session_id=session_id)
-        
-        # Parse timestamps
-        created_at = session_info.get("createdAt")
-        if isinstance(created_at, str):
-            created_at = datetime.fromisoformat(created_at)
-        else:
-            raise ValueError("Failed to get createdAt from session info")
-        
-        # Calculate expiration time
-        timeout_seconds = session_info.get("sessionTimeoutSeconds", create_config.keepalive_seconds)
-        expires_at = created_at + timedelta(seconds=timeout_seconds)
-        
+
         return SandboxRuntimeInfo(
             sandbox_id=session_id,
             sandbox_status=SandboxStatus.RUNNING,
@@ -104,26 +101,15 @@ class AWSAgentCoreSandboxBackend(SandboxBackend):
         Returns:
             True if successfully stopped
         """
-        if sandbox_id not in self.__clients:
-            logger.warning(f"Session {sandbox_id} not found in active clients")
-            return False
-        
         try:
-            client = self.__clients[sandbox_id]
-            
-            # Stop the session
-            client.stop()
-            
-            # Remove from tracking
-            del self.__clients[sandbox_id]
-            
+            self.__client.stop_code_interpreter_session(
+                codeInterpreterIdentifier=self._DEFAULT_CODE_INTERPRETER_IDENTIFIER,
+                sessionId=sandbox_id,
+            )
             logger.info(f"Stopped AWS AgentCore session: {sandbox_id}")
             return True
         except Exception as e:
             logger.error(f"Failed to stop session {sandbox_id}: {e}")
-            # Remove from tracking even if stop fails
-            if sandbox_id in self.__clients:
-                del self.__clients[sandbox_id]
             return False
 
     async def get_sandbox(self, sandbox_id: str) -> SandboxRuntimeInfo:
@@ -138,15 +124,13 @@ class AWSAgentCoreSandboxBackend(SandboxBackend):
         Raises:
             ValueError: If the session is not found
         """
-        if sandbox_id not in self.__clients:
-            raise ValueError(f"Session {sandbox_id} not found in active clients")
-        
         try:
-            client = self.__clients[sandbox_id]
-            
             # Get actual session info from AWS
-            session_info = client.get_session(session_id=sandbox_id)
-            
+            session_info = self.__client.get_code_interpreter_session(
+                codeInterpreterIdentifier=self._DEFAULT_CODE_INTERPRETER_IDENTIFIER,
+                sessionId=sandbox_id,
+            )
+
             # Parse status
             aws_status = session_info.get("status", "READY")
             if aws_status == "READY":
@@ -158,16 +142,14 @@ class AWSAgentCoreSandboxBackend(SandboxBackend):
             
             # Parse timestamps
             created_at = session_info.get("createdAt")
-            if isinstance(created_at, str):
-                created_at = datetime.fromisoformat(created_at)
-            else:
+            if not isinstance(created_at, datetime):
                 raise ValueError("Failed to get createdAt from session info")
             
             # Calculate expiration time
             timeout_seconds = session_info.get("sessionTimeoutSeconds")
             if timeout_seconds is None:
                 raise ValueError("Failed to get sessionTimeoutSeconds from session info")
-            expires_at = created_at + timedelta(seconds=timeout_seconds)
+            expires_at = created_at + timedelta(seconds=int(timeout_seconds))
             
             return SandboxRuntimeInfo(
                 sandbox_id=sandbox_id,
@@ -212,15 +194,15 @@ class AWSAgentCoreSandboxBackend(SandboxBackend):
         Returns:
             Command output including stdout, stderr, and exit code
         """
-        if sandbox_id not in self.__clients:
-            raise ValueError(f"Session {sandbox_id} not found in active clients")
-        
         try:
-            client = self.__clients[sandbox_id]
-            
             # Execute command and get result
-            # Response: {'sessionId': str, 'stream': EventStream}
-            result = client.execute_command(command)
+            # reference: https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/invoke_code_interpreter.html
+            result = self.__client.invoke_code_interpreter(
+                codeInterpreterIdentifier=self._DEFAULT_CODE_INTERPRETER_IDENTIFIER,
+                sessionId=sandbox_id,
+                name="executeCommand",
+                arguments={"command": command},
+            )
             
             stdout = ""
             stderr = ""
@@ -309,15 +291,35 @@ class AWSAgentCoreSandboxBackend(SandboxBackend):
         Returns:
             True if successful
         """
-        if sandbox_id not in self.__clients:
-            logger.error(f"Session {sandbox_id} not found in active clients")
-            return False
-        
         try:
-            client = self.__clients[sandbox_id]
-            
-            # Download file from session
-            content = client.download_file(from_sandbox_file)
+            # Read file content from the session using readFiles
+            result = self.__client.invoke_code_interpreter(
+                codeInterpreterIdentifier=self._DEFAULT_CODE_INTERPRETER_IDENTIFIER,
+                sessionId=sandbox_id,
+                name="readFiles",
+                arguments={"paths": [from_sandbox_file]},
+            )
+
+            content: str | bytes | None = None
+            if "stream" in result:
+                for event in result["stream"]:
+                    if "result" not in event:
+                        continue
+                    for content_item in event["result"].get("content", []):
+                        if content_item.get("type") != "resource":
+                            continue
+                        resource = content_item.get("resource", {})
+                        if "text" in resource:
+                            content = resource["text"]
+                            break
+                        if "blob" in resource:
+                            content = base64.b64decode(resource["blob"])
+                            break
+                    if content is not None:
+                        break
+
+            if content is None:
+                raise FileNotFoundError(f"Could not read file: {from_sandbox_file}")
             
             # Convert to bytes if necessary
             if isinstance(content, str):
@@ -360,26 +362,37 @@ class AWSAgentCoreSandboxBackend(SandboxBackend):
         Returns:
             True if successful
         """
-        if sandbox_id not in self.__clients:
-            logger.error(f"Session {sandbox_id} not found in active clients")
-            return False
-        
         try:
-            client = self.__clients[sandbox_id]
-            
             # Download from S3
             content = await S3_CLIENT.download_object(key=from_s3_file)
             
             # Construct session file path
             filename = os.path.basename(from_s3_file)
-            session_file_path = f"{upload_to_sandbox_path.rstrip('/')}/{filename}"
-            
-            # Upload to session
-            # Use upload_file which takes path, content, and optional description
-            client.upload_file(
-                path=session_file_path,
-                content=content,
-                description=f"Uploaded from S3: {from_s3_file}"
+            parent = upload_to_sandbox_path.strip().strip("/")
+            session_file_path = f"{parent}/{filename}" if parent else filename
+
+            # Upload to session via writeFiles (blob for bytes)
+            file_payload: dict
+            if isinstance(content, bytes):
+                file_payload = {
+                    "path": session_file_path,
+                    "blob": base64.b64encode(content).decode("utf-8"),
+                }
+            else:
+                file_payload = {
+                    "path": session_file_path,
+                    "text": content,
+                }
+
+            self.__client.invoke_code_interpreter(
+                codeInterpreterIdentifier=self._DEFAULT_CODE_INTERPRETER_IDENTIFIER,
+                sessionId=sandbox_id,
+                name="writeFiles",
+                arguments={
+                    "content": [
+                        file_payload
+                    ]
+                },
             )
             
             logger.info(
