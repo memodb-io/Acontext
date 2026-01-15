@@ -12,6 +12,7 @@ import { AbstractBaseTool, BaseContext, BaseToolPool } from './base';
 export interface SkillContext extends BaseContext {
   client: AcontextClient;
   skills: Map<string, Skill>;
+  getContextPrompt(): string;
 }
 
 /**
@@ -40,7 +41,25 @@ export async function createSkillContext(
     skills.set(skill.name, skill);
   }
 
-  return { client, skills };
+  return {
+    client,
+    skills,
+    getContextPrompt(): string {
+      if (skills.size === 0) {
+        return '';
+      }
+
+      const lines: string[] = ['<available_skills>'];
+      for (const [skillName, skill] of skills.entries()) {
+        lines.push('<skill>');
+        lines.push(`<name>${skillName}</name>`);
+        lines.push(`<description>${skill.description}</description>`);
+        lines.push('</skill>');
+      }
+      lines.push('</available_skills>');
+      return lines.join('\n');
+    },
+  };
 }
 
 /**
@@ -68,30 +87,6 @@ export function getSkillFromContext(ctx: SkillContext, skillName: string): Skill
  */
 export function listSkillNamesFromContext(ctx: SkillContext): string[] {
   return Array.from(ctx.skills.keys());
-}
-
-export class ListSkillsTool extends AbstractBaseTool {
-  readonly name = 'list_skills';
-  readonly description =
-    'List all available skills in the current context with their names and descriptions.';
-  readonly arguments = {};
-  readonly requiredArguments: string[] = [];
-
-  async execute(
-    ctx: SkillContext,
-    _llmArguments: Record<string, unknown>
-  ): Promise<string> {
-    if (ctx.skills.size === 0) {
-      return 'No skills available in the current context.';
-    }
-
-    const skillList: string[] = [];
-    for (const [skillName, skill] of ctx.skills.entries()) {
-      skillList.push(`- ${skillName}: ${skill.description}`);
-    }
-
-    return `Available skills (${ctx.skills.size}):\n${skillList.join('\n')}`;
-  }
 }
 
 export class GetSkillTool extends AbstractBaseTool {
@@ -227,6 +222,5 @@ export class SkillToolPool extends BaseToolPool {
 }
 
 export const SKILL_TOOLS = new SkillToolPool();
-SKILL_TOOLS.addTool(new ListSkillsTool());
 SKILL_TOOLS.addTool(new GetSkillTool());
 SKILL_TOOLS.addTool(new GetSkillFileTool());

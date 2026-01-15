@@ -187,24 +187,44 @@ The agent will automatically call the appropriate tools (`write_file`, `read_fil
   </CodeGroup>
 </Step>
 
-<Step title="Get tool schemas for your LLM">
-  Convert the disk tools to the schema format your LLM provider expects.
+<Step title="Pass tools to LLM">
+  Convert the disk tools to the schema format your LLM provider expects and pass them when calling the LLM.
 
   <CodeGroup>
   ```python Python
   # For OpenAI
   tools = DISK_TOOLS.to_openai_tool_schema()
+  response = openai_client.chat.completions.create(
+      model="gpt-4.1",
+      messages=messages,
+      tools=tools,  # Pass tools here
+  )
 
   # For Anthropic
   tools = DISK_TOOLS.to_anthropic_tool_schema()
+  response = anthropic_client.messages.create(
+      model="claude-sonnet-4-20250514",
+      messages=messages,
+      tools=tools,  # Pass tools here
+  )
   ```
 
   ```typescript TypeScript
   // For OpenAI
   const tools = DISK_TOOLS.toOpenAIToolSchema();
+  const response = await openaiClient.chat.completions.create({
+      model: 'gpt-4.1',
+      messages,
+      tools,  // Pass tools here
+  });
 
   // For Anthropic
   const tools = DISK_TOOLS.toAnthropicToolSchema();
+  const response = await anthropicClient.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      messages,
+      tools,  // Pass tools here
+  });
   ```
   </CodeGroup>
 </Step>

@@ -9,6 +9,7 @@ import { AbstractBaseTool, BaseContext, BaseToolPool } from './base';
 export interface DiskContext extends BaseContext {
   client: AcontextClient;
   diskId: string;
+  getContextPrompt(): string;
 }
 
 function normalizePath(path: string | null | undefined): string {
@@ -375,6 +376,9 @@ export class DiskToolPool extends BaseToolPool {
     return {
       client,
       diskId,
+      getContextPrompt(): string {
+        return '';
+      },
     };
   }
 }
