@@ -2,66 +2,10 @@ name: Security Scheduled Scan
 
 on:
   schedule:
-    - cron: '0 0 * * 1'
+    - cron: '0 0 * * 1'  # Every Monday at midnight UTC
   workflow_dispatch:
 
 jobs:
-  go-vulncheck:
-    name: Go Vulnerability Check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: src/server/api/go/go.mod
-          cache: true
-      - name: Run govulncheck
-        working-directory: src/server/api/go
-        run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
-          govulncheck ./...
-
-  python-audit:
-    name: Python Security Audit
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install pip-audit
-        run: pip install pip-audit
-      - name: Audit Projects
-        run: |
-          for dir in src/server/core src/client/acontext-py; do
-            cd $dir
-            uv export --format requirements-txt --no-hashes --no-dev > reqs.txt
-            pip-audit -r reqs.txt
-            rm reqs.txt
-            cd - > /dev/null
-          done
-
-  js-audit:
-    name: JS/TS Security Audit
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Audit TS SDK
-        working-directory: src/client/acontext-ts
-        run: npm audit --audit-level=high
-      - name: Audit UI
-        working-directory: src/server/ui
-        run: |
-          npm install -g pnpm
-          pnpm audit --audit-level=high
+  security:
+    name: Weekly Security Scan
+    uses: ./.github/workflows/security-reusable.yaml
