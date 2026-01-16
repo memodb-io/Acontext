@@ -17,7 +17,7 @@ RUN --mount=target=. \
 FROM build-stage AS run-test-stage
 RUN go test -v ./...
 
-FROM alpine:3.22 AS build-release-stage
+FROM alpine:3.23 AS build-release-stage
 
 WORKDIR /
 
