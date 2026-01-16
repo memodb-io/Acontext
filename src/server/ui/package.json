@@ -40,7 +40,7 @@
     "@uiw/react-codemirror": "^4.25.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "lucide-react": "^0.545.0",
+    "lucide-react": "^0.562.0",
     "next": "15.5.9",
     "next-intl": "^4.3.12",
     "next-themes": "^0.4.6",
