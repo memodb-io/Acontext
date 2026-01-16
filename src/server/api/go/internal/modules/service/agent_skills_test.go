@@ -833,9 +833,13 @@ func TestAgentSkillsService_Create_RootPrefixStripping(t *testing.T) {
 
 	fileIndex := result.FileIndex.Data()
 	assert.Equal(t, 3, len(fileIndex))
-	assert.Equal(t, "SKILL.md", fileIndex[0].Path)
-	assert.Equal(t, "file1.json", fileIndex[1].Path)
-	assert.Equal(t, "subdir/file2.md", fileIndex[2].Path)
+
+	// Extract paths and check without relying on order (map iteration order is non-deterministic)
+	var paths []string
+	for _, fi := range fileIndex {
+		paths = append(paths, fi.Path)
+	}
+	assert.ElementsMatch(t, []string{"SKILL.md", "file1.json", "subdir/file2.md"}, paths)
 }
 
 func TestAgentSkillsService_GetByID(t *testing.T) {
