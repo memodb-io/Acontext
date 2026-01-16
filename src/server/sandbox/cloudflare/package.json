@@ -1,0 +1,23 @@
+{
+	"name": "cloudflare-sandbox-worker",
+	"version": "0.1.0",
+	"description": "Cloudflare Sandbox Worker API proxy for Acontext",
+	"main": "src/index.ts",
+	"scripts": {
+		"dev": "wrangler dev",
+		"deploy": "wrangler deploy",
+		"build": "tsc",
+		"lint": "eslint ."
+	},
+	"dependencies": {
+		"@cloudflare/sandbox": "^0.7.0"
+	},
+	"devDependencies": {
+		"@cloudflare/workers-types": "^4.20260116.0",
+		"typescript": "^5.9.3",
+		"wrangler": "^4.59.2"
+	},
+	"engines": {
+		"node": ">=18.0.0"
+	}
+}

@@ -2,12 +2,14 @@ from typing import Type
 from .backend.base import SandboxBackend
 from .backend.e2b import E2BSandboxBackend
 from .backend.novita import NovitaSandboxBackend
+from .backend.cf import CloudflareSandboxBackend
 from ...env import DEFAULT_CORE_CONFIG, LOG
 
 SANDBOX_FACTORIES: dict[str, Type[SandboxBackend]] = {
     "disabled": None,
     E2BSandboxBackend.type: E2BSandboxBackend,
     NovitaSandboxBackend.type: NovitaSandboxBackend,
+    CloudflareSandboxBackend.type: CloudflareSandboxBackend,
 }
 
 
