@@ -10,8 +10,6 @@ This Worker acts as a bridge between the Python `acontext_core` module and the C
 
 ```
 Python Core → CloudflareSandboxBackend → HTTP API → Cloudflare Worker → Sandbox SDK
-                                                      (本地: wrangler dev)
-                                                      (云端: workers.dev)
 ```
 
 ## API Endpoints
