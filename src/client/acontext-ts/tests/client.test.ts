@@ -1,56 +1,36 @@
 /**
- * Integration tests for the Acontext TypeScript SDK.
- * These tests require a running Acontext API instance.
+ * Unit tests for the Acontext TypeScript SDK.
+ * These tests use mock data and do not require a running API server.
  */
 
-import { AcontextClient, MessagePart, FileUpload, buildAcontextMessage } from '../src/index';
+import { MessagePart, FileUpload, buildAcontextMessage } from '../src/index';
+import {
+  createMockClient,
+  MockAcontextClient,
+  mockSpace,
+  mockSession,
+  mockMessage,
+  mockGetMessagesOutput,
+  mockDisk,
+  mockArtifact,
+  mockGetArtifactResp,
+  mockFileContent,
+  mockUser,
+  mockTask,
+  mockPaginatedList,
+  resetMockIds,
+} from './mocks';
 
-describe('AcontextClient Integration Tests', () => {
-  const apiKey = process.env.ACONTEXT_API_KEY || 'sk-ac-your-root-api-bearer-token';
-  const baseUrl = process.env.ACONTEXT_BASE_URL || 'http://localhost:8029/api/v1';
+describe('AcontextClient Unit Tests', () => {
+  let client: MockAcontextClient;
 
-  let client: AcontextClient;
-  let createdSpaceId: string | null = null;
-  let createdSessionId: string | null = null;
-  let createdDiskId: string | null = null;
-  let createdBlockIds: string[] = [];
-
-  beforeAll(() => {
-    client = new AcontextClient({ apiKey, baseUrl });
+  beforeEach(() => {
+    client = createMockClient();
+    resetMockIds();
   });
 
-  afterAll(async () => {
-    // Cleanup: delete all created resources
-    if (createdBlockIds.length > 0 && createdSpaceId) {
-      for (const blockId of createdBlockIds) {
-        try {
-          await client.blocks.delete(createdSpaceId, blockId);
-        } catch (error) {
-          // Ignore cleanup errors
-        }
-      }
-    }
-    if (createdSessionId) {
-      try {
-        await client.sessions.delete(createdSessionId);
-      } catch (error) {
-        // Ignore cleanup errors
-      }
-    }
-    if (createdDiskId) {
-      try {
-        await client.disks.delete(createdDiskId);
-      } catch (error) {
-        // Ignore cleanup errors
-      }
-    }
-    if (createdSpaceId) {
-      try {
-        await client.spaces.delete(createdSpaceId);
-      } catch (error) {
-        // Ignore cleanup errors
-      }
-    }
+  afterEach(() => {
+    client.reset();
   });
 
   describe('Health Check', () => {
@@ -62,96 +42,179 @@ describe('AcontextClient Integration Tests', () => {
 
   describe('Spaces API', () => {
     test('should list spaces', async () => {
-      const spaces = await client.spaces.list();
-      expect(spaces).toBeDefined();
-      expect(spaces.items).toBeInstanceOf(Array);
-      expect(spaces.has_more).toBeDefined();
+      const spaces = [mockSpace({ configs: { name: 'Space 1' } }), mockSpace({ configs: { name: 'Space 2' } })];
+      client.mock().onGet('/space', () => mockPaginatedList(spaces, false));
+
+      const result = await client.spaces.list();
+      expect(result).toBeDefined();
+      expect(result.items).toBeInstanceOf(Array);
+      expect(result.items.length).toBe(2);
+      expect(result.has_more).toBe(false);
+    });
+
+    test('should list spaces with pagination options', async () => {
+      const spaces = [mockSpace()];
+      client.mock().onGet('/space', (options) => {
+        expect(options?.params?.limit).toBe(10);
+        expect(options?.params?.time_desc).toBe('true');
+        return mockPaginatedList(spaces, true, 'next-cursor');
+      });
+
+      const result = await client.spaces.list({ limit: 10, timeDesc: true });
+      expect(result.items.length).toBe(1);
+      expect(result.has_more).toBe(true);
+      expect(result.next_cursor).toBe('next-cursor');
     });
 
     test('should create a space', async () => {
+      const createdSpace = mockSpace({ configs: { name: 'Test Space' } });
+      client.mock().onPost('/space', (options) => {
+        expect(options?.jsonData).toEqual({ configs: { name: 'Test Space' } });
+        return createdSpace;
+      });
+
       const space = await client.spaces.create({
         configs: { name: 'Test Space' },
       });
       expect(space).toBeDefined();
       expect(space.id).toBeDefined();
       expect(space.project_id).toBeDefined();
-      expect(space.configs).toBeDefined();
-      createdSpaceId = space.id;
+      expect(space.configs).toEqual({ name: 'Test Space' });
+    });
+
+    test('should create a space with user identifier', async () => {
+      const createdSpace = mockSpace({
+        configs: { name: 'User Space' },
+      });
+      // Set user_id directly
+      (createdSpace as Record<string, unknown>).user_id = 'user@test.com';
+      client.mock().onPost('/space', (options) => {
+        const data = options?.jsonData as Record<string, unknown>;
+        expect(data?.configs).toEqual({ name: 'User Space' });
+        expect(data?.user).toBe('user@test.com');
+        return createdSpace;
+      });
+
+      const space = await client.spaces.create({
+        configs: { name: 'User Space' },
+        user: 'user@test.com',
+      });
+      expect(space.user_id).toBe('user@test.com');
     });
 
     test('should get space configs', async () => {
-      if (!createdSpaceId) {
-        throw new Error('Space not created');
-      }
-      const space = await client.spaces.getConfigs(createdSpaceId);
-      expect(space).toBeDefined();
-      expect(space.id).toBe(createdSpaceId);
-      expect(space.configs).toBeDefined();
+      const spaceId = 'test-space-id';
+      const space = mockSpace({ id: spaceId, configs: { name: 'Test Space' } });
+      client.mock().onGet(`/space/${spaceId}/configs`, () => space);
+
+      const result = await client.spaces.getConfigs(spaceId);
+      expect(result).toBeDefined();
+      expect(result.id).toBe(spaceId);
+      expect(result.configs).toEqual({ name: 'Test Space' });
     });
 
     test('should update space configs', async () => {
-      if (!createdSpaceId) {
-        throw new Error('Space not created');
-      }
-      await client.spaces.updateConfigs(createdSpaceId, {
+      const spaceId = 'test-space-id';
+      client.mock().onPut(`/space/${spaceId}/configs`, (options) => {
+        expect(options?.jsonData).toEqual({
+          configs: { name: 'Updated Test Space', test: true },
+        });
+        return undefined;
+      });
+
+      await client.spaces.updateConfigs(spaceId, {
         configs: { name: 'Updated Test Space', test: true },
       });
-      const space = await client.spaces.getConfigs(createdSpaceId);
-      expect(space.configs).toMatchObject({ name: 'Updated Test Space', test: true });
+
+      // Verify the call was made
+      expect(client.requester.calls).toHaveLength(1);
+      expect(client.requester.calls[0].method).toBe('PUT');
     });
 
-    // TODO: Uncomment these tests when the search APIs are ready to test
-    // test('should perform experience search with fast mode', async () => {
-    //   if (!createdSpaceId) {
-    //     throw new Error('Space not created');
-    //   }
-    //   const result = await client.spaces.experienceSearch(createdSpaceId, {
-    //     query: 'test query',
-    //     limit: 5,
-    //     mode: 'fast',
-    //   });
-    //   expect(result).toBeDefined();
-    //   expect(result.cited_blocks).toBeInstanceOf(Array);
-    //   expect(result.final_answer === null || typeof result.final_answer === 'string').toBe(true);
-    // });
+    test('should delete a space', async () => {
+      const spaceId = 'test-space-id';
+      client.mock().onDelete(`/space/${spaceId}`, () => undefined);
 
-    // test('should perform experience search with agentic mode', async () => {
-    //   if (!createdSpaceId) {
-    //     throw new Error('Space not created');
-    //   }
-    //   const result = await client.spaces.experienceSearch(createdSpaceId, {
-    //     query: 'API best practices',
-    //     limit: 10,
-    //     mode: 'agentic',
-    //     semanticThreshold: 0.8,
-    //     maxIterations: 20,
-    //   });
-    //   expect(result).toBeDefined();
-    //   expect(result.cited_blocks).toBeInstanceOf(Array);
-    // });
+      await client.spaces.delete(spaceId);
+      expect(client.requester.calls).toHaveLength(1);
+      expect(client.requester.calls[0].method).toBe('DELETE');
+      expect(client.requester.calls[0].path).toBe(`/space/${spaceId}`);
+    });
+
+    test('should perform experience search', async () => {
+      const spaceId = 'test-space-id';
+      const searchResult = {
+        cited_blocks: [],
+        final_answer: 'Test answer',
+      };
+      client.mock().onGet(/^\/space\/.*\/experience_search$/, (options) => {
+        expect(options?.params?.query).toBe('test query');
+        expect(options?.params?.limit).toBe(5);
+        expect(options?.params?.mode).toBe('fast');
+        return searchResult;
+      });
+
+      const result = await client.spaces.experienceSearch(spaceId, {
+        query: 'test query',
+        limit: 5,
+        mode: 'fast',
+      });
+      expect(result).toBeDefined();
+      expect(result.cited_blocks).toBeInstanceOf(Array);
+      expect(result.final_answer).toBe('Test answer');
+    });
   });
 
   describe('Sessions API', () => {
+    test('should list sessions', async () => {
+      const sessions = [mockSession(), mockSession()];
+      client.mock().onGet('/session', () => mockPaginatedList(sessions, false));
+
+      const result = await client.sessions.list();
+      expect(result).toBeDefined();
+      expect(result.items).toBeInstanceOf(Array);
+      expect(result.items.length).toBe(2);
+      expect(result.has_more).toBe(false);
+    });
+
     test('should create a session', async () => {
-      if (!createdSpaceId) {
-        throw new Error('Space not created');
-      }
+      const spaceId = 'test-space-id';
+      const createdSession = mockSession({
+        space_id: spaceId,
+        configs: { mode: 'test' },
+      });
+      client.mock().onPost('/session', (options) => {
+        expect(options?.jsonData).toEqual({
+          space_id: spaceId,
+          configs: { mode: 'test' },
+        });
+        return createdSession;
+      });
+
       const session = await client.sessions.create({
-        spaceId: createdSpaceId,
+        spaceId: spaceId,
         configs: { mode: 'test' },
       });
       expect(session).toBeDefined();
       expect(session.id).toBeDefined();
-      expect(session.space_id).toBe(createdSpaceId);
-      createdSessionId = session.id;
+      expect(session.space_id).toBe(spaceId);
     });
 
-    test('should store a message', async () => {
-      if (!createdSessionId) {
-        throw new Error('Session not created');
-      }
+    test('should store a message in acontext format', async () => {
+      const sessionId = 'test-session-id';
+      const storedMessage = mockMessage({
+        session_id: sessionId,
+        role: 'user',
+        parts: [{ type: 'text', text: 'Hello from TypeScript!' }],
+      });
+      client.mock().onPost(`/session/${sessionId}/messages`, (options) => {
+        const data = options?.jsonData as Record<string, unknown>;
+        expect(data?.format).toBe('acontext');
+        return storedMessage;
+      });
+
       const message = await client.sessions.storeMessage(
-        createdSessionId,
+        sessionId,
         {
           role: 'user',
           parts: [MessagePart.textPart('Hello from TypeScript!')],
@@ -160,62 +223,50 @@ describe('AcontextClient Integration Tests', () => {
       );
       expect(message).toBeDefined();
       expect(message.id).toBeDefined();
-      expect(message.session_id).toBe(createdSessionId);
+      expect(message.session_id).toBe(sessionId);
       expect(message.role).toBe('user');
-      expect(message.parts).toBeInstanceOf(Array);
-      expect(message.parts.length).toBeGreaterThan(0);
     });
 
-    test('should get messages', async () => {
-      if (!createdSessionId) {
-        throw new Error('Session not created');
-      }
-      const messages = await client.sessions.getMessages(createdSessionId, {
-        format: 'acontext',
+    test('should store a message in openai format', async () => {
+      const sessionId = 'test-session-id';
+      const storedMessage = mockMessage({
+        session_id: sessionId,
+        role: 'user',
       });
-      expect(messages).toBeDefined();
-      expect(messages.items).toBeInstanceOf(Array);
-      expect(messages.has_more).toBeDefined();
-    });
+      client.mock().onPost(`/session/${sessionId}/messages`, (options) => {
+        const data = options?.jsonData as Record<string, unknown>;
+        expect(data?.format).toBe('openai');
+        expect(data?.blob).toEqual({
+          role: 'user',
+          content: 'Hello, how are you?',
+        });
+        return storedMessage;
+      });
 
-    test('should get messages with edit strategies', async () => {
-      if (!createdSessionId) {
-        throw new Error('Session not created');
-      }
-      const editStrategies = [
-        { type: 'remove_tool_result' as const, params: { keep_recent_n_tool_results: 3 } },
-      ];
-      const messages = await client.sessions.getMessages(createdSessionId, {
-        format: 'openai',
-        editStrategies,
-      });
-      expect(messages).toBeDefined();
-      expect(messages.items).toBeInstanceOf(Array);
-      expect(messages.has_more).toBeDefined();
-    });
-
-    test('should get messages without edit strategies', async () => {
-      if (!createdSessionId) {
-        throw new Error('Session not created');
-      }
-      const messages = await client.sessions.getMessages(createdSessionId, {
-        format: 'openai',
-      });
-      expect(messages).toBeDefined();
-      expect(messages.items).toBeInstanceOf(Array);
-      expect(messages.has_more).toBeDefined();
+      const message = await client.sessions.storeMessage(
+        sessionId,
+        { role: 'user', content: 'Hello, how are you?' },
+        { format: 'openai' }
+      );
+      expect(message).toBeDefined();
+      expect(message.role).toBe('user');
     });
 
     test('should store message with file upload', async () => {
-      if (!createdSessionId) {
-        throw new Error('Session not created');
-      }
+      const sessionId = 'test-session-id';
+      const storedMessage = mockMessage({ session_id: sessionId });
+      client.mock().onPost(`/session/${sessionId}/messages`, (options) => {
+        expect(options?.files).toBeDefined();
+        expect(options?.files?.test_file).toBeDefined();
+        return storedMessage;
+      });
+
       const fileField = 'test_file';
       const blob = buildAcontextMessage({
         role: 'user',
         parts: [MessagePart.fileFieldPart(fileField)],
       });
-      const message = await client.sessions.storeMessage(createdSessionId, blob, {
+      const message = await client.sessions.storeMessage(sessionId, blob, {
         format: 'acontext',
         fileField: fileField,
         file: new FileUpload({
@@ -228,108 +279,122 @@ describe('AcontextClient Integration Tests', () => {
       expect(message.id).toBeDefined();
     });
 
+    test('should get messages', async () => {
+      const sessionId = 'test-session-id';
+      const messageId = 'msg-1';
+      client.mock().onGet(`/session/${sessionId}/messages`, () =>
+        mockGetMessagesOutput({
+          items: [{ role: 'user', content: 'Hello' }],
+          ids: [messageId],
+          has_more: false,
+          this_time_tokens: 10,
+        })
+      );
+
+      const result = await client.sessions.getMessages(sessionId, {
+        format: 'acontext',
+      });
+      expect(result).toBeDefined();
+      expect(result.items).toBeInstanceOf(Array);
+      expect(result.has_more).toBe(false);
+    });
+
+    test('should get messages with edit strategies', async () => {
+      const sessionId = 'test-session-id';
+      const messageId = 'msg-1';
+      client.mock().onGet(`/session/${sessionId}/messages`, (options) => {
+        expect(options?.params?.edit_strategies).toBeDefined();
+        const strategies = JSON.parse(options?.params?.edit_strategies as string);
+        expect(strategies[0].type).toBe('remove_tool_result');
+        return mockGetMessagesOutput({
+          items: [{ role: 'user', content: 'Hello' }],
+          ids: [messageId],
+          has_more: false,
+          this_time_tokens: 10,
+        });
+      });
+
+      const editStrategies = [
+        { type: 'remove_tool_result' as const, params: { keep_recent_n_tool_results: 3 } },
+      ];
+      const result = await client.sessions.getMessages(sessionId, {
+        format: 'openai',
+        editStrategies,
+      });
+      expect(result).toBeDefined();
+      expect(result.items).toBeInstanceOf(Array);
+    });
+
     test('should get tasks', async () => {
-      if (!createdSessionId) {
-        throw new Error('Session not created');
-      }
-      const tasks = await client.sessions.getTasks(createdSessionId);
-      expect(tasks).toBeDefined();
-      expect(tasks.items).toBeInstanceOf(Array);
-      expect(tasks.has_more).toBeDefined();
+      const sessionId = 'test-session-id';
+      const tasks = [mockTask({ session_id: sessionId })];
+      client.mock().onGet(`/session/${sessionId}/task`, () =>
+        mockPaginatedList(tasks, false)
+      );
+
+      const result = await client.sessions.getTasks(sessionId);
+      expect(result).toBeDefined();
+      expect(result.items).toBeInstanceOf(Array);
+      expect(result.has_more).toBeDefined();
     });
 
     test('should get learning status', async () => {
-      if (!createdSessionId) {
-        throw new Error('Session not created');
-      }
-      const learningStatus = await client.sessions.getLearningStatus(createdSessionId);
-      expect(learningStatus).toBeDefined();
-      expect(learningStatus.space_digested_count).toBeDefined();
-      expect(learningStatus.not_space_digested_count).toBeDefined();
-      expect(typeof learningStatus.space_digested_count).toBe('number');
-      expect(typeof learningStatus.not_space_digested_count).toBe('number');
-      expect(learningStatus.space_digested_count).toBeGreaterThanOrEqual(0);
-      expect(learningStatus.not_space_digested_count).toBeGreaterThanOrEqual(0);
+      const sessionId = 'test-session-id';
+      const learningStatus = {
+        space_digested_count: 5,
+        not_space_digested_count: 3,
+      };
+      client.mock().onGet(`/session/${sessionId}/get_learning_status`, () => learningStatus);
+
+      const result = await client.sessions.getLearningStatus(sessionId);
+      expect(result).toBeDefined();
+      expect(result.space_digested_count).toBe(5);
+      expect(result.not_space_digested_count).toBe(3);
     });
 
     test('should get token counts', async () => {
-      if (!createdSessionId) {
-        throw new Error('Session not created');
-      }
-      const tokenCounts = await client.sessions.getTokenCounts(createdSessionId);
-      expect(tokenCounts).toBeDefined();
-      expect(tokenCounts.total_tokens).toBeDefined();
-      expect(typeof tokenCounts.total_tokens).toBe('number');
-      expect(tokenCounts.total_tokens).toBeGreaterThanOrEqual(0);
+      const sessionId = 'test-session-id';
+      const tokenCounts = { total_tokens: 1234 };
+      client.mock().onGet(`/session/${sessionId}/token_counts`, () => tokenCounts);
+
+      const result = await client.sessions.getTokenCounts(sessionId);
+      expect(result).toBeDefined();
+      expect(result.total_tokens).toBe(1234);
     });
 
     test('should update session configs', async () => {
-      if (!createdSessionId) {
-        throw new Error('Session not created');
-      }
-      await client.sessions.updateConfigs(createdSessionId, {
+      const sessionId = 'test-session-id';
+      client.mock().onPut(`/session/${sessionId}/configs`, (options) => {
+        expect(options?.jsonData).toEqual({ configs: { mode: 'test-updated' } });
+        return undefined;
+      });
+
+      await client.sessions.updateConfigs(sessionId, {
         configs: { mode: 'test-updated' },
       });
-      const session = await client.sessions.getConfigs(createdSessionId);
-      expect(session.configs).toMatchObject({ mode: 'test-updated' });
+      expect(client.requester.calls).toHaveLength(1);
     });
 
-    test('should store messages in OpenAI format', async () => {
-      if (!createdSessionId) {
-        throw new Error('Session not created');
-      }
+    test('should delete a session', async () => {
+      const sessionId = 'test-session-id';
+      client.mock().onDelete(`/session/${sessionId}`, () => undefined);
 
-      // Store user message in OpenAI format
-      const userMessage = {
-        role: 'user',
-        content: 'Hello, how are you?',
-      };
-
-      const sentUserMessage = await client.sessions.storeMessage(
-        createdSessionId,
-        userMessage,
-        { format: 'openai' }
-      );
-      expect(sentUserMessage).toBeDefined();
-      expect(sentUserMessage.id).toBeDefined();
-      expect(sentUserMessage.session_id).toBe(createdSessionId);
-      expect(sentUserMessage.role).toBe('user');
-
-      // Store assistant message in OpenAI format
-      const assistantMessage = {
-        role: 'assistant',
-        content: 'I am doing well, thank you for asking!',
-      };
-
-      const sentAssistantMessage = await client.sessions.storeMessage(
-        createdSessionId,
-        assistantMessage,
-        { format: 'openai' }
-      );
-      expect(sentAssistantMessage).toBeDefined();
-      expect(sentAssistantMessage.id).toBeDefined();
-      expect(sentAssistantMessage.session_id).toBe(createdSessionId);
-      expect(sentAssistantMessage.role).toBe('assistant');
+      await client.sessions.delete(sessionId);
+      expect(client.requester.calls).toHaveLength(1);
+      expect(client.requester.calls[0].method).toBe('DELETE');
     });
 
     test('should store Anthropic response format messages', async () => {
-      if (!createdSessionId) {
-        throw new Error('Session not created');
-      }
-
-      // Store user message
-      const userMessage = {
-        role: 'user',
-        content: 'Hello, how are you?',
-      };
-
-      const sentUserMessage = await client.sessions.storeMessage(
-        createdSessionId,
-        userMessage,
-        { format: 'openai' }
-      );
-      expect(sentUserMessage).toBeDefined();
-      expect(sentUserMessage.role).toBe('user');
+      const sessionId = 'test-session-id';
+      const storedMessage = mockMessage({
+        session_id: sessionId,
+        role: 'assistant',
+      });
+      client.mock().onPost(`/session/${sessionId}/messages`, (options) => {
+        const data = options?.jsonData as Record<string, unknown>;
+        expect(data?.format).toBe('openai');
+        return storedMessage;
+      });
 
       // Simulate Anthropic API response format
       const anthropicResponse = {
@@ -340,90 +405,70 @@ describe('AcontextClient Integration Tests', () => {
         content: [
           {
             type: 'text',
-            text: 'Hello! I\'m doing well, thank you for asking. How can I assist you today?',
+            text: "Hello! I'm doing well, thank you for asking.",
           },
         ],
         stop_reason: 'end_turn',
         stop_sequence: null,
-        usage: {
-          input_tokens: 10,
-          output_tokens: 20,
-        },
+        usage: { input_tokens: 10, output_tokens: 20 },
       };
 
-      // Store Anthropic response as a message
-      const sentAnthropicMessage = await client.sessions.storeMessage(
-        createdSessionId,
+      const message = await client.sessions.storeMessage(
+        sessionId,
         anthropicResponse,
         { format: 'openai' }
       );
-      expect(sentAnthropicMessage).toBeDefined();
-      expect(sentAnthropicMessage.id).toBeDefined();
-      expect(sentAnthropicMessage.session_id).toBe(createdSessionId);
-      expect(sentAnthropicMessage.role).toBe('assistant');
-    });
-
-    test('should store OpenAI chat completion response format messages', async () => {
-      if (!createdSessionId) {
-        throw new Error('Session not created');
-      }
-
-      // Store user message
-      const userMessage = {
-        role: 'user',
-        content: 'Hello, how are you?',
-      };
-
-      const sentUserMessage = await client.sessions.storeMessage(
-        createdSessionId,
-        userMessage,
-        { format: 'openai' }
-      );
-      expect(sentUserMessage).toBeDefined();
-      expect(sentUserMessage.role).toBe('user');
-
-      // Simulate OpenAI chat completion response message format
-      const openaiResponseMessage = {
-        role: 'assistant',
-        content: 'I\'m doing well, thank you for asking! How can I help you today?',
-        refusal: null,
-      };
-
-      // Store OpenAI response message
-      const sentOpenAIMessage = await client.sessions.storeMessage(
-        createdSessionId,
-        openaiResponseMessage,
-        { format: 'openai' }
-      );
-
-      expect(sentOpenAIMessage).toBeDefined();
-      expect(sentOpenAIMessage.id).toBeDefined();
-      expect(sentOpenAIMessage.session_id).toBe(createdSessionId);
-      expect(sentOpenAIMessage.role).toBe('assistant');
+      expect(message).toBeDefined();
+      expect(message.role).toBe('assistant');
     });
   });
 
   describe('Disks API', () => {
     test('should list disks', async () => {
-      const disks = await client.disks.list();
-      expect(disks).toBeDefined();
-      expect(disks.items).toBeInstanceOf(Array);
-      expect(disks.has_more).toBeDefined();
+      const disks = [mockDisk(), mockDisk()];
+      client.mock().onGet('/disk', () => mockPaginatedList(disks, false));
+
+      const result = await client.disks.list();
+      expect(result).toBeDefined();
+      expect(result.items).toBeInstanceOf(Array);
+      expect(result.items.length).toBe(2);
+      expect(result.has_more).toBe(false);
     });
 
     test('should create a disk', async () => {
+      const createdDisk = mockDisk();
+      client.mock().onPost('/disk', () => createdDisk);
+
       const disk = await client.disks.create();
       expect(disk).toBeDefined();
       expect(disk.id).toBeDefined();
       expect(disk.project_id).toBeDefined();
-      createdDiskId = disk.id;
+    });
+
+    test('should delete a disk', async () => {
+      const diskId = 'test-disk-id';
+      client.mock().onDelete(`/disk/${diskId}`, () => undefined);
+
+      await client.disks.delete(diskId);
+      expect(client.requester.calls).toHaveLength(1);
+      expect(client.requester.calls[0].method).toBe('DELETE');
     });
 
     test('should upsert an artifact', async () => {
-      if (!createdDiskId) {
-        throw new Error('Disk not created');
-      }
-      const artifact = await client.disks.artifacts.upsert(createdDiskId, {
+      const diskId = 'test-disk-id';
+      const artifact = mockArtifact({
+        disk_id: diskId,
+        path: '/',
+        filename: 'test.txt',
+        meta: { source: 'test' },
+      });
+      client.mock().onPost(`/disk/${diskId}/artifact`, (options) => {
+        expect(options?.files?.file).toBeDefined();
+        expect(options?.data?.file_path).toBe('/');
+        return artifact;
+      });
+
+      const result = await client.disks.artifacts.upsert(diskId, {
         file: new FileUpload({
           filename: 'test.txt',
           content: Buffer.from('Hello, World!'),
@@ -432,193 +477,178 @@ describe('AcontextClient Integration Tests', () => {
         filePath: '/',
         meta: { source: 'test' },
       });
-      expect(artifact).toBeDefined();
-      expect(artifact.disk_id).toBe(createdDiskId);
-      expect(artifact.filename).toBe('test.txt');
+      expect(result).toBeDefined();
+      expect(result.disk_id).toBe(diskId);
+      expect(result.filename).toBe('test.txt');
     });
 
     test('should get an artifact', async () => {
-      if (!createdDiskId) {
-        throw new Error('Disk not created');
-      }
-      const artifact = await client.disks.artifacts.get(createdDiskId, {
+      const diskId = 'test-disk-id';
+      const artifact = mockArtifact({
+        disk_id: diskId,
+        path: '/',
+        filename: 'test.txt',
+      });
+      client.mock().onGet(`/disk/${diskId}/artifact`, (options) => {
+        expect(options?.params?.file_path).toBe('/test.txt');
+        return mockGetArtifactResp({
+          artifact,
+          public_url: 'https://example.com/test.txt',
+          content: mockFileContent({ raw: 'Hello!' }),
+        });
+      });
+
+      const result = await client.disks.artifacts.get(diskId, {
         filePath: '/',
         filename: 'test.txt',
         withPublicUrl: true,
         withContent: true,
       });
-      expect(artifact).toBeDefined();
-      expect(artifact.artifact).toBeDefined();
-      expect(artifact.artifact.filename).toBe('test.txt');
+      expect(result).toBeDefined();
+      expect(result.artifact).toBeDefined();
+      expect(result.artifact.filename).toBe('test.txt');
     });
 
     test('should update an artifact', async () => {
-      if (!createdDiskId) {
-        throw new Error('Disk not created');
-      }
-      const artifact = await client.disks.artifacts.update(createdDiskId, {
+      const diskId = 'test-disk-id';
+      const artifact = mockArtifact({
+        disk_id: diskId,
+        path: '/',
+        filename: 'test.txt',
+        meta: { source: 'test', updated: true },
+      });
+      client.mock().onPut(`/disk/${diskId}/artifact`, (options) => {
+        expect(options?.jsonData).toMatchObject({
+          file_path: '/test.txt',
+        });
+        return { artifact };
+      });
+
+      const result = await client.disks.artifacts.update(diskId, {
         filePath: '/',
         filename: 'test.txt',
         meta: { source: 'test', updated: true },
       });
-      expect(artifact).toBeDefined();
-      expect(artifact.artifact.meta).toMatchObject({ source: 'test', updated: true });
+      expect(result).toBeDefined();
+      expect(result.artifact.meta).toMatchObject({ source: 'test', updated: true });
     });
 
     test('should list artifacts', async () => {
-      if (!createdDiskId) {
-        throw new Error('Disk not created');
-      }
-      const result = await client.disks.artifacts.list(createdDiskId, {
-        path: '/',
+      const diskId = 'test-disk-id';
+      const artifacts = [mockArtifact({ disk_id: diskId, path: '/' })];
+      client.mock().onGet(`/disk/${diskId}/artifact/ls`, (options) => {
+        expect(options?.params?.path).toBe('/');
+        return { artifacts, directories: [] };
       });
+
+      const result = await client.disks.artifacts.list(diskId, { path: '/' });
       expect(result).toBeDefined();
       expect(result.artifacts).toBeInstanceOf(Array);
       expect(result.directories).toBeInstanceOf(Array);
     });
 
     test('should delete an artifact', async () => {
-      if (!createdDiskId) {
-        throw new Error('Disk not created');
-      }
-      await client.disks.artifacts.delete(createdDiskId, {
+      const diskId = 'test-disk-id';
+      client.mock().onDelete(`/disk/${diskId}/artifact`, (options) => {
+        expect(options?.params?.file_path).toBe('/test.txt');
+        return undefined;
+      });
+
+      await client.disks.artifacts.delete(diskId, {
         filePath: '/',
         filename: 'test.txt',
       });
-      // Should not throw if deletion succeeds
+      expect(client.requester.calls).toHaveLength(1);
     });
   });
 
   describe('Users API', () => {
-    let testUserIdentifier: string;
-
-    beforeAll(() => {
-      testUserIdentifier = `test-user-${Date.now()}@acontext.io`;
-    });
-
     test('should list users', async () => {
-      const users = await client.users.list();
-      expect(users).toBeDefined();
-      expect(users.items).toBeInstanceOf(Array);
-      expect(users.has_more).toBeDefined();
+      const users = [mockUser(), mockUser()];
+      client.mock().onGet('/user/ls', () => mockPaginatedList(users, false));
+
+      const result = await client.users.list();
+      expect(result).toBeDefined();
+      expect(result.items).toBeInstanceOf(Array);
+      expect(result.items.length).toBe(2);
+      expect(result.has_more).toBe(false);
     });
 
     test('should list users with pagination options', async () => {
-      const users = await client.users.list({ limit: 10, timeDesc: true });
-      expect(users).toBeDefined();
-      expect(users.items).toBeInstanceOf(Array);
-      expect(users.has_more).toBeDefined();
-    });
-
-    test('should create a space with user identifier to create a user', async () => {
-      // Creating a space with a user identifier will auto-create the user
-      const space = await client.spaces.create({
-        configs: { name: 'Test Space for User' },
-        user: testUserIdentifier,
+      const users = [mockUser()];
+      client.mock().onGet('/user/ls', (options) => {
+        expect(options?.params?.limit).toBe(10);
+        expect(options?.params?.time_desc).toBe('true');
+        return mockPaginatedList(users, false);
       });
-      expect(space).toBeDefined();
-      expect(space.id).toBeDefined();
-      // Clean up the space
-      await client.spaces.delete(space.id);
+
+      const result = await client.users.list({ limit: 10, timeDesc: true });
+      expect(result).toBeDefined();
+      expect(result.items).toBeInstanceOf(Array);
     });
 
     test('should get user resources', async () => {
-      const resources = await client.users.getResources(testUserIdentifier);
-      expect(resources).toBeDefined();
-      expect(resources.counts).toBeDefined();
-      expect(typeof resources.counts.spaces_count).toBe('number');
-      expect(typeof resources.counts.sessions_count).toBe('number');
-      expect(typeof resources.counts.disks_count).toBe('number');
-      expect(typeof resources.counts.skills_count).toBe('number');
+      const identifier = 'user@test.com';
+      const resources = {
+        counts: {
+          spaces_count: 5,
+          sessions_count: 10,
+          disks_count: 3,
+          skills_count: 2,
+        },
+      };
+      client
+        .mock()
+        .onGet(`/user/${encodeURIComponent(identifier)}/resources`, () => resources);
+
+      const result = await client.users.getResources(identifier);
+      expect(result).toBeDefined();
+      expect(result.counts).toBeDefined();
+      expect(result.counts.spaces_count).toBe(5);
+      expect(result.counts.sessions_count).toBe(10);
+      expect(result.counts.disks_count).toBe(3);
+      expect(result.counts.skills_count).toBe(2);
     });
 
     test('should delete a user', async () => {
-      // Delete the test user
-      await client.users.delete(testUserIdentifier);
-      // Should not throw if deletion succeeds
+      const identifier = 'user@test.com';
+      client.mock().onDelete(`/user/${encodeURIComponent(identifier)}`, () => undefined);
+
+      await client.users.delete(identifier);
+      expect(client.requester.calls).toHaveLength(1);
+      expect(client.requester.calls[0].method).toBe('DELETE');
     });
   });
 
-  // NOTE: All Blocks API tests are commented out because API passes through to core
-  // describe('Blocks API', () => {
-  //   test('should list blocks', async () => {
-  //     if (!createdSpaceId) {
-  //       throw new Error('Space not created');
-  //     }
-  //     const blocks = await client.blocks.list(createdSpaceId);
-  //     expect(Array.isArray(blocks)).toBe(true);
-  //   });
+  describe('Message Building Utilities', () => {
+    test('should create text parts correctly', () => {
+      const part = MessagePart.textPart('Hello, World!');
+      expect(part.type).toBe('text');
+      expect(part.text).toBe('Hello, World!');
+    });
 
-  //   test('should create a page block', async () => {
-  //     if (!createdSpaceId) {
-  //       throw new Error('Space not created');
-  //     }
-  //     const page = await client.blocks.create(createdSpaceId, {
-  //       blockType: 'page',
-  //       title: 'Test Page',
-  //     });
-  //     expect(page).toBeDefined();
-  //     expect(page.id).toBeDefined();
-  //     createdBlockIds.push(page.id);
-  //   });
+    test('should create file field parts correctly', () => {
+      const part = MessagePart.fileFieldPart('my_file');
+      expect(part.type).toBe('file');
+      expect(part.file_field).toBe('my_file');
+    });
 
-  //   test('should create a text block', async () => {
-  //     if (!createdSpaceId || createdBlockIds.length === 0) {
-  //       throw new Error('Space or parent block not created');
-  //     }
-  //     const textBlock = await client.blocks.create(createdSpaceId, {
-  //       blockType: 'text',
-  //       parentId: createdBlockIds[0],
-  //       title: 'Test Block',
-  //       props: { text: 'This is a test block' },
-  //     });
-  //     expect(textBlock).toBeDefined();
-  //     expect(textBlock.id).toBeDefined();
-  //     createdBlockIds.push(textBlock.id);
-  //   });
+    test('should build acontext message', () => {
+      const message = buildAcontextMessage({
+        role: 'user',
+        parts: [MessagePart.textPart('Test message')],
+      });
+      expect(message).toBeDefined();
+      expect(message.role).toBe('user');
+      expect(message.parts).toHaveLength(1);
+    });
+  });
 
-  //   test('should get block properties', async () => {
-  //     if (!createdSpaceId || createdBlockIds.length === 0) {
-  //       throw new Error('Space or block not created');
-  //     }
-  //     const block = await client.blocks.getProperties(createdSpaceId, createdBlockIds[0]);
-  //     expect(block).toBeDefined();
-  //     expect(block.id).toBe(createdBlockIds[0]);
-  //   });
-
-  //   test('should update block properties', async () => {
-  //     if (!createdSpaceId || createdBlockIds.length === 0) {
-  //       throw new Error('Space or block not created');
-  //     }
-  //     await client.blocks.updateProperties(createdSpaceId, createdBlockIds[0], {
-  //       title: 'Updated Block Title',
-  //       props: { text: 'Updated content' },
-  //     });
-  //     const block = await client.blocks.getProperties(createdSpaceId, createdBlockIds[0]);
-  //     expect(block.title).toBe('Updated Block Title');
-  //   });
-
-  //   test('should move a block', async () => {
-  //     if (!createdSpaceId || createdBlockIds.length < 2) {
-  //       throw new Error('Space or blocks not created');
-  //     }
-  //     await client.blocks.move(createdSpaceId, createdBlockIds[1], {
-  //       parentId: createdBlockIds[0],
-  //     });
-  //     const block = await client.blocks.getProperties(createdSpaceId, createdBlockIds[1]);
-  //     expect(block.parent_id).toBe(createdBlockIds[0]);
-  //   });
-
-  //   test('should update block sort', async () => {
-  //     if (!createdSpaceId || createdBlockIds.length === 0) {
-  //       throw new Error('Space or block not created');
-  //     }
-  //     await client.blocks.updateSort(createdSpaceId, createdBlockIds[0], {
-  //       sort: 0,
-  //     });
-  //     const block = await client.blocks.getProperties(createdSpaceId, createdBlockIds[0]);
-  //     expect(block.sort).toBe(0);
-  //   });
-  // });
+  describe('Error Handling', () => {
+    test('should throw error when no mock handler found', async () => {
+      await expect(client.spaces.list()).rejects.toThrow(
+        'No mock handler found for GET /space'
+      );
+    });
+  });
 });
-
