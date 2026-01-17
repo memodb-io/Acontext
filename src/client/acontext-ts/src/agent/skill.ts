@@ -79,7 +79,6 @@ export class ListSkillsTool extends AbstractBaseTool {
 
   async execute(
     ctx: SkillContext,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     _llmArguments: Record<string, unknown>
   ): Promise<string> {
     if (ctx.skills.size === 0) {
