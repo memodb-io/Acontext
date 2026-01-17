@@ -333,3 +333,49 @@ class AsyncDiskArtifactsAPI:
             json_data=payload,
         )
         return bool(data.get("success", False))
+
+    async def upload_from_sandbox(
+        self,
+        disk_id: str,
+        *,
+        sandbox_id: str,
+        sandbox_path: str,
+        sandbox_filename: str,
+        file_path: str,
+    ) -> Artifact:
+        """Upload a file from a sandbox environment to disk storage as an artifact.
+
+        Args:
+            disk_id: The UUID of the target disk.
+            sandbox_id: The UUID of the source sandbox.
+            sandbox_path: Source directory in the sandbox (not including filename).
+            sandbox_filename: Filename in the sandbox.
+            file_path: Destination directory path on the disk.
+
+        Returns:
+            Artifact containing the created artifact information.
+
+        Example:
+        ```python
+            artifact = await client.disks.artifacts.upload_from_sandbox(
+                disk_id="disk-uuid",
+                sandbox_id="sandbox-uuid",
+                sandbox_path="/home/user/",
+                sandbox_filename="output.txt",
+                file_path="/results/"
+            )
+            print(f"Created: {artifact.path}{artifact.filename}")
+        ```
+        """
+        payload = {
+            "sandbox_id": sandbox_id,
+            "sandbox_path": sandbox_path,
+            "sandbox_filename": sandbox_filename,
+            "file_path": file_path,
+        }
+        data = await self._requester.request(
+            "POST",
+            f"/disk/{disk_id}/artifact/upload_from_sandbox",
+            json_data=payload,
+        )
+        return Artifact.model_validate(data)

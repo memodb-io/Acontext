@@ -272,6 +272,7 @@ func BuildContainer() *do.Injector {
 			do.MustInvoke[service.ArtifactService](i),
 			do.MustInvoke[*config.Config](i),
 			do.MustInvoke[*httpclient.CoreClient](i),
+			do.MustInvoke[*blob.S3Deps](i),
 		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.TaskHandler, error) {

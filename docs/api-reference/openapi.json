@@ -806,6 +806,59 @@
         } ]
       }
     },
+    "/disk/{disk_id}/artifact/upload_from_sandbox" : {
+      "post" : {
+        "description" : "Upload a file from a sandbox environment to disk storage as an artifact",
+        "parameters" : [ {
+          "description" : "Disk ID",
+          "in" : "path",
+          "name" : "disk_id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/handler.UploadFromSandboxReq"
+              }
+            }
+          },
+          "description" : "Upload from sandbox request",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_disk__disk_id__artifact_post_201_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Upload file from sandbox to disk",
+        "tags" : [ "artifact" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Upload file from sandbox to disk\nartifact = client.disks.artifacts.upload_from_sandbox(\n    disk_id='disk-uuid',\n    sandbox_id='sandbox-uuid',\n    sandbox_path='/home/user/',\n    sandbox_filename='output.txt',\n    file_path='/results/'\n)\nprint(f\"Created: {artifact.path}{artifact.filename}\")\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Upload file from sandbox to disk\nconst artifact = await client.disks.artifacts.uploadFromSandbox('disk-uuid', {\n  sandboxId: 'sandbox-uuid',\n  sandboxPath: '/home/user/',\n  sandboxFilename: 'output.txt',\n  filePath: '/results/'\n});\nconsole.log(`Created: ${artifact.path}${artifact.filename}`);\n"
+        } ],
+        "x-codegen-request-body-name" : "request"
+      }
+    },
     "/sandbox" : {
       "post" : {
         "description" : "Create and start a new sandbox for the project",
@@ -2926,6 +2979,28 @@
           }
         },
         "required" : [ "configs" ],
+        "type" : "object"
+      },
+      "handler.UploadFromSandboxReq" : {
+        "properties" : {
+          "file_path" : {
+            "description" : "Destination directory path on the disk",
+            "type" : "string"
+          },
+          "sandbox_filename" : {
+            "description" : "Filename in the sandbox",
+            "type" : "string"
+          },
+          "sandbox_id" : {
+            "description" : "Source sandbox ID",
+            "type" : "string"
+          },
+          "sandbox_path" : {
+            "description" : "Source directory in the sandbox",
+            "type" : "string"
+          }
+        },
+        "required" : [ "file_path", "sandbox_filename", "sandbox_id", "sandbox_path" ],
         "type" : "object"
       },
       "httpclient.FlagResponse" : {

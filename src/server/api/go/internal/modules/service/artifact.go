@@ -18,6 +18,7 @@ import (
 
 type ArtifactService interface {
 	Create(ctx context.Context, in CreateArtifactInput) (*model.Artifact, error)
+	CreateFromBytes(ctx context.Context, in CreateArtifactFromBytesInput) (*model.Artifact, error)
 	DeleteByPath(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, path string, filename string) error
 	GetByPath(ctx context.Context, diskID uuid.UUID, path string, filename string) (*model.Artifact, error)
 	GetPresignedURL(ctx context.Context, artifact *model.Artifact, expire time.Duration) (string, error)
@@ -45,6 +46,14 @@ type CreateArtifactInput struct {
 	Filename   string
 	FileHeader *multipart.FileHeader
 	UserMeta   map[string]interface{}
+}
+
+type CreateArtifactFromBytesInput struct {
+	ProjectID uuid.UUID
+	DiskID    uuid.UUID
+	Path      string
+	Filename  string
+	Content   []byte
 }
 
 func (s *artifactService) Create(ctx context.Context, in CreateArtifactInput) (*model.Artifact, error) {
@@ -95,6 +104,61 @@ func (s *artifactService) Create(ctx context.Context, in CreateArtifactInput) (*
 	}
 	for k, v := range in.UserMeta {
 		meta[k] = v
+	}
+
+	artifact := &model.Artifact{
+		DiskID:    in.DiskID,
+		Path:      in.Path,
+		Filename:  in.Filename,
+		Meta:      meta,
+		AssetMeta: datatypes.NewJSONType(*asset),
+	}
+
+	if err := s.r.Create(ctx, in.ProjectID, artifact); err != nil {
+		return nil, fmt.Errorf("create artifact record: %w", err)
+	}
+
+	return artifact, nil
+}
+
+func (s *artifactService) CreateFromBytes(ctx context.Context, in CreateArtifactFromBytesInput) (*model.Artifact, error) {
+	// Check if artifact with same path and filename already exists in the same disk
+	exists, err := s.r.ExistsByPathAndFilename(ctx, in.DiskID, in.Path, in.Filename, nil)
+	if err != nil {
+		return nil, fmt.Errorf("check artifact existence: %w", err)
+	}
+	if exists {
+		if err := s.r.DeleteByPath(ctx, in.ProjectID, in.DiskID, in.Path, in.Filename); err != nil {
+			return nil, fmt.Errorf("upsert existing artifact: %w", err)
+		}
+	}
+
+	// Upload bytes to S3 with deduplication
+	asset, err := s.s3.UploadBytes(ctx, "disks/"+in.ProjectID.String(), in.Filename, in.Content)
+	if err != nil {
+		return nil, fmt.Errorf("upload bytes to S3: %w", err)
+	}
+
+	// Extract and store text content for text-searchable files
+	// This enables grep search functionality
+	parser := fileparser.NewFileParser()
+	var textContent string
+	if parser.CanParseFile(in.Filename, asset.MIME) {
+		fileContent, parseErr := parser.ParseFile(in.Filename, asset.MIME, in.Content)
+		if parseErr == nil && fileContent != nil {
+			textContent = fileContent.Raw
+		}
+	}
+	asset.Content = textContent
+
+	// Build artifact metadata
+	meta := map[string]interface{}{
+		model.ArtifactInfoKey: map[string]interface{}{
+			"path":     in.Path,
+			"filename": in.Filename,
+			"mime":     asset.MIME,
+			"size":     asset.SizeB,
+		},
 	}
 
 	artifact := &model.Artifact{

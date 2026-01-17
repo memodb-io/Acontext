@@ -78,14 +78,14 @@ class MockSandboxBackend(SandboxBackend):
         return output
 
     async def download_file(
-        self, sandbox_id: str, from_sandbox_file: str, download_to_s3_path: str
+        self, sandbox_id: str, from_sandbox_file: str, download_to_s3_key: str
     ) -> bool:
         if sandbox_id not in self._sandboxes:
             raise ValueError(f"Sandbox {sandbox_id} not found")
         return True
 
     async def upload_file(
-        self, sandbox_id: str, from_s3_file: str, upload_to_sandbox_path: str
+        self, sandbox_id: str, from_s3_key: str, upload_to_sandbox_file: str
     ) -> bool:
         if sandbox_id not in self._sandboxes:
             raise ValueError(f"Sandbox {sandbox_id} not found")

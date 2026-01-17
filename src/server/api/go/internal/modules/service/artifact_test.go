@@ -313,6 +313,41 @@ func (s *testArtifactService) GlobArtifacts(ctx context.Context, projectID uuid.
 	return []*model.Artifact{}, nil
 }
 
+func (s *testArtifactService) CreateFromBytes(ctx context.Context, in CreateArtifactFromBytesInput) (*model.Artifact, error) {
+	// Check if artifact with same path and filename already exists in the same disk
+	exists, err := s.r.ExistsByPathAndFilename(ctx, in.DiskID, in.Path, in.Filename, nil)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return nil, errors.New("artifact already exists")
+	}
+
+	// Build artifact metadata
+	meta := map[string]interface{}{
+		model.ArtifactInfoKey: map[string]interface{}{
+			"path":     in.Path,
+			"filename": in.Filename,
+			"mime":     "application/octet-stream",
+			"size":     len(in.Content),
+		},
+	}
+
+	artifact := &model.Artifact{
+		ID:       uuid.New(),
+		DiskID:   in.DiskID,
+		Path:     in.Path,
+		Filename: in.Filename,
+		Meta:     meta,
+	}
+
+	if err := s.r.Create(ctx, in.ProjectID, artifact); err != nil {
+		return nil, err
+	}
+
+	return artifact, nil
+}
+
 // Test cases for Create method
 func TestArtifactService_Create(t *testing.T) {
 	projectID := uuid.New()

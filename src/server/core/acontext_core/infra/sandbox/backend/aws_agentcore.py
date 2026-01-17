@@ -1,5 +1,4 @@
 import base64
-import os
 import uuid
 from datetime import datetime, timedelta
 from typing import Optional, Type
@@ -279,14 +278,14 @@ class AWSAgentCoreSandboxBackend(SandboxBackend):
             )
 
     async def download_file(
-        self, sandbox_id: str, from_sandbox_file: str, download_to_s3_path: str
+        self, sandbox_id: str, from_sandbox_file: str, download_to_s3_key: str
     ) -> bool:
         """Download a file from the session and upload it to S3.
 
         Args:
             sandbox_id: The session ID
             from_sandbox_file: Path to the file in the session
-            download_to_s3_path: S3 parent directory to upload to
+            download_to_s3_key: The full S3 key (path) to upload the file to
 
         Returns:
             True if successful
@@ -327,60 +326,51 @@ class AWSAgentCoreSandboxBackend(SandboxBackend):
             else:
                 content_bytes = content
             
-            # Construct S3 key
-            filename = os.path.basename(from_sandbox_file)
-            s3_key = f"{download_to_s3_path.rstrip('/')}/{filename}"
-            
-            # Upload to S3
+            # Upload to S3 using the provided key directly
             await S3_CLIENT.upload_object(
-                key=s3_key,
+                key=download_to_s3_key,
                 data=content_bytes,
             )
             
             logger.info(
-                f"Downloaded file from session {sandbox_id}: {from_sandbox_file} -> s3://{s3_key}"
+                f"Downloaded file from session {sandbox_id}: {from_sandbox_file} -> s3://{download_to_s3_key}"
             )
             return True
         
         except Exception as e:
             logger.error(
                 f"Failed to download file from session {sandbox_id}: "
-                f"{from_sandbox_file} -> {download_to_s3_path}, error: {e}"
+                f"{from_sandbox_file} -> {download_to_s3_key}, error: {e}"
             )
             return False
 
     async def upload_file(
-        self, sandbox_id: str, from_s3_file: str, upload_to_sandbox_path: str
+        self, sandbox_id: str, from_s3_key: str, upload_to_sandbox_file: str
     ) -> bool:
         """Download a file from S3 and upload it to the session.
 
         Args:
             sandbox_id: The session ID
-            from_s3_file: S3 key to download from
-            upload_to_sandbox_path: Parent directory in the session
+            from_s3_key: S3 key to download from
+            upload_to_sandbox_file: The full path in the session to upload the file to
 
         Returns:
             True if successful
         """
         try:
             # Download from S3
-            content = await S3_CLIENT.download_object(key=from_s3_file)
-            
-            # Construct session file path
-            filename = os.path.basename(from_s3_file)
-            parent = upload_to_sandbox_path.strip().strip("/")
-            session_file_path = f"{parent}/{filename}" if parent else filename
+            content = await S3_CLIENT.download_object(key=from_s3_key)
 
             # Upload to session via writeFiles (blob for bytes)
             file_payload: dict
             if isinstance(content, bytes):
                 file_payload = {
-                    "path": session_file_path,
+                    "path": upload_to_sandbox_file,
                     "blob": base64.b64encode(content).decode("utf-8"),
                 }
             else:
                 file_payload = {
-                    "path": session_file_path,
+                    "path": upload_to_sandbox_file,
                     "text": content,
                 }
 
@@ -396,14 +386,14 @@ class AWSAgentCoreSandboxBackend(SandboxBackend):
             )
             
             logger.info(
-                f"Uploaded file to session {sandbox_id}: s3://{from_s3_file} -> {session_file_path}"
+                f"Uploaded file to session {sandbox_id}: s3://{from_s3_key} -> {upload_to_sandbox_file}"
             )
             return True
         
         except Exception as e:
             logger.error(
                 f"Failed to upload file to session {sandbox_id}: "
-                f"{from_s3_file} -> {upload_to_sandbox_path}, error: {e}"
+                f"{from_s3_key} -> {upload_to_sandbox_file}, error: {e}"
             )
             return False
 

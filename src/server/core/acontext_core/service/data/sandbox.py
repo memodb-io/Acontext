@@ -266,7 +266,7 @@ async def download_file(
     db_session: AsyncSession,
     sandbox_id: asUUID,
     from_sandbox_file: str,
-    download_to_s3_path: str,
+    download_to_s3_key: str,
 ) -> Result[bool]:
     """
     Download a file from the sandbox and upload it to S3.
@@ -275,7 +275,7 @@ async def download_file(
         db_session: Database session.
         sandbox_id: The unified sandbox ID (UUID).
         from_sandbox_file: The path to the file in the sandbox.
-        download_to_s3_path: The S3 path to upload the file to.
+        download_to_s3_key: The full S3 key (path) to upload the file to.
 
     Returns:
         Result containing True if the file was transferred successfully.
@@ -289,14 +289,14 @@ async def download_file(
         backend_sandbox_id = result.data
         backend = SANDBOX_CLIENT.use_backend()
         success = await backend.download_file(
-            backend_sandbox_id, from_sandbox_file, download_to_s3_path
+            backend_sandbox_id, from_sandbox_file, download_to_s3_key
         )
 
         if success:
             # Append to generated_files using PostgreSQL JSONB || operator
             # Use COALESCE to handle NULL values
             new_entry = [
-                {"sandbox_path": from_sandbox_file, "s3_path": download_to_s3_path}
+                {"sandbox_path": from_sandbox_file, "s3_path": download_to_s3_key}
             ]
             stmt = (
                 update(SandboxLog)
@@ -324,8 +324,8 @@ async def download_file(
 async def upload_file(
     db_session: AsyncSession,
     sandbox_id: asUUID,
-    from_s3_file: str,
-    upload_to_sandbox_path: str,
+    from_s3_key: str,
+    upload_to_sandbox_file: str,
 ) -> Result[bool]:
     """
     Download a file from S3 and upload it to the sandbox.
@@ -333,8 +333,8 @@ async def upload_file(
     Args:
         db_session: Database session.
         sandbox_id: The unified sandbox ID (UUID).
-        from_s3_file: The S3 path of the file to download.
-        upload_to_sandbox_path: The parent directory in the sandbox to upload to.
+        from_s3_key: The S3 key of the file to download.
+        upload_to_sandbox_file: The full path in the sandbox to upload the file to.
 
     Returns:
         Result containing True if the file was transferred successfully.
@@ -348,7 +348,7 @@ async def upload_file(
         backend_sandbox_id = result.data
         backend = SANDBOX_CLIENT.use_backend()
         success = await backend.upload_file(
-            backend_sandbox_id, from_s3_file, upload_to_sandbox_path
+            backend_sandbox_id, from_s3_key, upload_to_sandbox_file
         )
 
         # Update will_total_alive_seconds

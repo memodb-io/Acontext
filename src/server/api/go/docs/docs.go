@@ -1118,6 +1118,78 @@ const docTemplate = `{
                 ]
             }
         },
+        "/disk/{disk_id}/artifact/upload_from_sandbox": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Upload a file from a sandbox environment to disk storage as an artifact",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "artifact"
+                ],
+                "summary": "Upload file from sandbox to disk",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "123e4567-e89b-12d3-a456-426614174000",
+                        "description": "Disk ID",
+                        "name": "disk_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Upload from sandbox request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.UploadFromSandboxReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.Artifact"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Upload file from sandbox to disk\nartifact = client.disks.artifacts.upload_from_sandbox(\n    disk_id='disk-uuid',\n    sandbox_id='sandbox-uuid',\n    sandbox_path='/home/user/',\n    sandbox_filename='output.txt',\n    file_path='/results/'\n)\nprint(f\"Created: {artifact.path}{artifact.filename}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Upload file from sandbox to disk\nconst artifact = await client.disks.artifacts.uploadFromSandbox('disk-uuid', {\n  sandboxId: 'sandbox-uuid',\n  sandboxPath: '/home/user/',\n  sandboxFilename: 'output.txt',\n  filePath: '/results/'\n});\nconsole.log(` + "`" + `Created: ${artifact.path}${artifact.filename}` + "`" + `);\n"
+                    }
+                ]
+            }
+        },
         "/sandbox": {
             "post": {
                 "security": [
@@ -3871,6 +3943,33 @@ const docTemplate = `{
                 "configs": {
                     "type": "object",
                     "additionalProperties": true
+                }
+            }
+        },
+        "handler.UploadFromSandboxReq": {
+            "type": "object",
+            "required": [
+                "file_path",
+                "sandbox_filename",
+                "sandbox_id",
+                "sandbox_path"
+            ],
+            "properties": {
+                "file_path": {
+                    "description": "Destination directory path on the disk",
+                    "type": "string"
+                },
+                "sandbox_filename": {
+                    "description": "Filename in the sandbox",
+                    "type": "string"
+                },
+                "sandbox_id": {
+                    "description": "Source sandbox ID",
+                    "type": "string"
+                },
+                "sandbox_path": {
+                    "description": "Source directory in the sandbox",
+                    "type": "string"
                 }
             }
         },

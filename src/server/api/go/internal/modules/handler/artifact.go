@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	pathpkg "path"
 	"strings"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/config"
+	"github.com/memodb-io/Acontext/internal/infra/blob"
 	"github.com/memodb-io/Acontext/internal/infra/httpclient"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
@@ -23,10 +25,11 @@ type ArtifactHandler struct {
 	svc        service.ArtifactService
 	config     *config.Config
 	coreClient *httpclient.CoreClient
+	s3         *blob.S3Deps
 }
 
-func NewArtifactHandler(s service.ArtifactService, cfg *config.Config, coreClient *httpclient.CoreClient) *ArtifactHandler {
-	return &ArtifactHandler{svc: s, config: cfg, coreClient: coreClient}
+func NewArtifactHandler(s service.ArtifactService, cfg *config.Config, coreClient *httpclient.CoreClient, s3 *blob.S3Deps) *ArtifactHandler {
+	return &ArtifactHandler{svc: s, config: cfg, coreClient: coreClient, s3: s3}
 }
 
 type CreateArtifactReq struct {
@@ -593,4 +596,104 @@ func (h *ArtifactHandler) DownloadToSandbox(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, serializer.Response{Data: DownloadToSandboxResp{Success: result.Success}})
+}
+
+type UploadFromSandboxReq struct {
+	SandboxID       string `json:"sandbox_id" binding:"required"`       // Source sandbox ID
+	SandboxPath     string `json:"sandbox_path" binding:"required"`     // Source directory in the sandbox
+	SandboxFilename string `json:"sandbox_filename" binding:"required"` // Filename in the sandbox
+	FilePath        string `json:"file_path" binding:"required"`        // Destination directory path on the disk
+}
+
+// UploadFromSandbox godoc
+//
+//	@Summary		Upload file from sandbox to disk
+//	@Description	Upload a file from a sandbox environment to disk storage as an artifact
+//	@Tags			artifact
+//	@Accept			json
+//	@Produce		json
+//	@Param			disk_id	path	string							true	"Disk ID"	Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
+//	@Param			request	body	handler.UploadFromSandboxReq	true	"Upload from sandbox request"
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response{data=model.Artifact}
+//	@Router			/disk/{disk_id}/artifact/upload_from_sandbox [post]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Upload file from sandbox to disk\nartifact = client.disks.artifacts.upload_from_sandbox(\n    disk_id='disk-uuid',\n    sandbox_id='sandbox-uuid',\n    sandbox_path='/home/user/',\n    sandbox_filename='output.txt',\n    file_path='/results/'\n)\nprint(f\"Created: {artifact.path}{artifact.filename}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Upload file from sandbox to disk\nconst artifact = await client.disks.artifacts.uploadFromSandbox('disk-uuid', {\n  sandboxId: 'sandbox-uuid',\n  sandboxPath: '/home/user/',\n  sandboxFilename: 'output.txt',\n  filePath: '/results/'\n});\nconsole.log(`Created: ${artifact.path}${artifact.filename}`);\n","label":"JavaScript"}]
+func (h *ArtifactHandler) UploadFromSandbox(c *gin.Context) {
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	diskID, err := uuid.Parse(c.Param("disk_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid disk_id", err))
+		return
+	}
+
+	req := UploadFromSandboxReq{}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	// Parse sandbox ID
+	sandboxID, err := uuid.Parse(req.SandboxID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid sandbox_id", err))
+		return
+	}
+
+	// Validate the destination file path
+	if err := path.ValidatePath(req.FilePath); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid file_path", err))
+		return
+	}
+
+	// Generate temp S3 key for sandbox file download
+	tempUUID := uuid.New()
+	ext := pathpkg.Ext(req.SandboxFilename)
+	tempS3Key := fmt.Sprintf("sandbox_tmp/%s/sandbox_file_temp/%s%s", project.ID.String(), tempUUID.String(), ext)
+
+	// Build the source path in sandbox: sandbox_path + "/" + sandbox_filename
+	sandboxSourcePath := strings.TrimSuffix(req.SandboxPath, "/") + "/" + req.SandboxFilename
+
+	// Download file from sandbox to temp S3 location
+	downloadResult, err := h.coreClient.DownloadSandboxFile(c.Request.Context(), project.ID, sandboxID, sandboxSourcePath, tempS3Key)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "failed to download file from sandbox", err))
+		return
+	}
+	if !downloadResult.Success {
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "sandbox file download returned failure", nil))
+		return
+	}
+
+	// Download file content from temp S3 location
+	content, err := h.s3.DownloadFile(c.Request.Context(), tempS3Key)
+	if err != nil {
+		// Cleanup temp file on error
+		_ = h.s3.DeleteObject(c.Request.Context(), tempS3Key)
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "failed to download temp file from S3", err))
+		return
+	}
+
+	// Create artifact using the downloaded content (this handles dedup, text parsing, etc.)
+	artifact, err := h.svc.CreateFromBytes(c.Request.Context(), service.CreateArtifactFromBytesInput{
+		ProjectID: project.ID,
+		DiskID:    diskID,
+		Path:      req.FilePath,
+		Filename:  req.SandboxFilename,
+		Content:   content,
+	})
+
+	// Cleanup temp S3 file regardless of artifact creation result
+	_ = h.s3.DeleteObject(c.Request.Context(), tempS3Key)
+
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to create artifact", err))
+		return
+	}
+
+	c.JSON(http.StatusCreated, serializer.Response{Data: artifact})
 }

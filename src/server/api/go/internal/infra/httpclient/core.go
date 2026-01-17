@@ -286,14 +286,14 @@ type SandboxExecRequest struct {
 
 // SandboxDownloadRequest represents the request for downloading a file from sandbox
 type SandboxDownloadRequest struct {
-	FromSandboxFile  string `json:"from_sandbox_file"`
-	DownloadToS3Path string `json:"download_to_s3_path"`
+	FromSandboxFile string `json:"from_sandbox_file"`
+	DownloadToS3Key string `json:"download_to_s3_key"`
 }
 
 // SandboxUploadRequest represents the request for uploading a file to sandbox
 type SandboxUploadRequest struct {
-	FromS3File          string `json:"from_s3_file"`
-	UploadToSandboxPath string `json:"upload_to_sandbox_path"`
+	FromS3Key           string `json:"from_s3_key"`
+	UploadToSandboxFile string `json:"upload_to_sandbox_file"`
 }
 
 // SandboxFileTransferResponse represents the response from file transfer operations
@@ -568,12 +568,12 @@ func (c *CoreClient) ExecSandboxCommand(ctx context.Context, projectID, sandboxI
 }
 
 // DownloadSandboxFile downloads a file from the sandbox and uploads it to S3
-func (c *CoreClient) DownloadSandboxFile(ctx context.Context, projectID, sandboxID uuid.UUID, fromSandboxFile, downloadToS3Path string) (*SandboxFileTransferResponse, error) {
+func (c *CoreClient) DownloadSandboxFile(ctx context.Context, projectID, sandboxID uuid.UUID, fromSandboxFile, downloadToS3Key string) (*SandboxFileTransferResponse, error) {
 	endpoint := fmt.Sprintf("%s/api/v1/project/%s/sandbox/%s/download", c.BaseURL, projectID.String(), sandboxID.String())
 
 	reqBody := SandboxDownloadRequest{
-		FromSandboxFile:  fromSandboxFile,
-		DownloadToS3Path: downloadToS3Path,
+		FromSandboxFile: fromSandboxFile,
+		DownloadToS3Key: downloadToS3Key,
 	}
 	body, err := sonic.Marshal(reqBody)
 	if err != nil {
@@ -613,12 +613,12 @@ func (c *CoreClient) DownloadSandboxFile(ctx context.Context, projectID, sandbox
 }
 
 // UploadSandboxFile downloads a file from S3 and uploads it to the sandbox
-func (c *CoreClient) UploadSandboxFile(ctx context.Context, projectID, sandboxID uuid.UUID, fromS3File, uploadToSandboxPath string) (*SandboxFileTransferResponse, error) {
+func (c *CoreClient) UploadSandboxFile(ctx context.Context, projectID, sandboxID uuid.UUID, fromS3Key, uploadToSandboxFile string) (*SandboxFileTransferResponse, error) {
 	endpoint := fmt.Sprintf("%s/api/v1/project/%s/sandbox/%s/upload", c.BaseURL, projectID.String(), sandboxID.String())
 
 	reqBody := SandboxUploadRequest{
-		FromS3File:          fromS3File,
-		UploadToSandboxPath: uploadToSandboxPath,
+		FromS3Key:           fromS3Key,
+		UploadToSandboxFile: uploadToSandboxFile,
 	}
 	body, err := sonic.Marshal(reqBody)
 	if err != nil {

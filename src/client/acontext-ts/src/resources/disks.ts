@@ -225,4 +225,25 @@ export class DiskArtifactsAPI {
     }) as { success?: boolean };
     return Boolean(data?.success);
   }
+
+  async uploadFromSandbox(
+    diskId: string,
+    options: {
+      sandboxId: string;
+      sandboxPath: string;
+      sandboxFilename: string;
+      filePath: string;
+    }
+  ): Promise<Artifact> {
+    const payload = {
+      sandbox_id: options.sandboxId,
+      sandbox_path: options.sandboxPath,
+      sandbox_filename: options.sandboxFilename,
+      file_path: options.filePath,
+    };
+    const data = await this.requester.request('POST', `/disk/${diskId}/artifact/upload_from_sandbox`, {
+      jsonData: payload,
+    });
+    return ArtifactSchema.parse(data);
+  }
 }

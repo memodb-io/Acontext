@@ -213,6 +213,26 @@ definitions:
     required:
     - configs
     type: object
+  handler.UploadFromSandboxReq:
+    properties:
+      file_path:
+        description: Destination directory path on the disk
+        type: string
+      sandbox_filename:
+        description: Filename in the sandbox
+        type: string
+      sandbox_id:
+        description: Source sandbox ID
+        type: string
+      sandbox_path:
+        description: Source directory in the sandbox
+        type: string
+    required:
+    - file_path
+    - sandbox_filename
+    - sandbox_id
+    - sandbox_path
+    type: object
   httpclient.FlagResponse:
     properties:
       errmsg:
@@ -1668,6 +1688,75 @@ paths:
             console.log(`  - ${artifact.path}${artifact.filename}`);
           }
           console.log(`Subdirectories: ${result.directories.join(', ')}`);
+  /disk/{disk_id}/artifact/upload_from_sandbox:
+    post:
+      consumes:
+      - application/json
+      description: Upload a file from a sandbox environment to disk storage as an
+        artifact
+      parameters:
+      - description: Disk ID
+        example: 123e4567-e89b-12d3-a456-426614174000
+        format: uuid
+        in: path
+        name: disk_id
+        required: true
+        type: string
+      - description: Upload from sandbox request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UploadFromSandboxReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Artifact'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Upload file from sandbox to disk
+      tags:
+      - artifact
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Upload file from sandbox to disk
+          artifact = client.disks.artifacts.upload_from_sandbox(
+              disk_id='disk-uuid',
+              sandbox_id='sandbox-uuid',
+              sandbox_path='/home/user/',
+              sandbox_filename='output.txt',
+              file_path='/results/'
+          )
+          print(f"Created: {artifact.path}{artifact.filename}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Upload file from sandbox to disk
+          const artifact = await client.disks.artifacts.uploadFromSandbox('disk-uuid', {
+            sandboxId: 'sandbox-uuid',
+            sandboxPath: '/home/user/',
+            sandboxFilename: 'output.txt',
+            filePath: '/results/'
+          });
+          console.log(`Created: ${artifact.path}${artifact.filename}`);
   /sandbox:
     post:
       consumes:

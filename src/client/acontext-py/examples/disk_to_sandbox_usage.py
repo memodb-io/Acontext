@@ -1,12 +1,13 @@
 """
-Example demonstrating downloading an artifact from disk to sandbox.
+Example demonstrating file transfer between disk and sandbox.
 
 This script demonstrates:
 1. Creating a disk and uploading an artifact
 2. Creating a sandbox
-3. Downloading the artifact to the sandbox
+3. Downloading the artifact to the sandbox (download_to_sandbox)
 4. Verifying the file exists in the sandbox
-5. Cleaning up resources
+5. Creating a new file in sandbox and uploading it to disk (upload_from_sandbox)
+6. Cleaning up resources
 """
 
 from __future__ import annotations
@@ -71,7 +72,7 @@ def main() -> None:
                 file_path="/test/",
                 filename="test_file.txt",
                 sandbox_id=sandbox_id,
-                sandbox_path="/home/user/",
+                sandbox_path="/workspace/",
             )
             print(f"Download success: {success}")
 
@@ -79,7 +80,7 @@ def main() -> None:
             print("\n--- Verifying file in sandbox ---")
             result = client.sandboxes.exec_command(
                 sandbox_id=sandbox_id,
-                command="ls -la /home/user/test_file.txt",
+                command="ls -la /workspace/test_file.txt",
             )
             print(f"ls result:\n{result.stdout}")
             print(f"exit_code: {result.exit_code}")
@@ -93,12 +94,55 @@ def main() -> None:
             print("\n--- Reading file content in sandbox ---")
             result = client.sandboxes.exec_command(
                 sandbox_id=sandbox_id,
-                command="cat /home/user/test_file.txt",
+                command="cat /workspace/test_file.txt",
             )
             print(f"File content:\n{result.stdout}")
             print(f"exit_code: {result.exit_code}")
 
-            print("\n✓ Disk to sandbox example completed successfully!")
+            # Create a new file in sandbox
+            print("\n--- Creating new file in sandbox ---")
+            result = client.sandboxes.exec_command(
+                sandbox_id=sandbox_id,
+                command="echo 'Generated in sandbox!' > /workspace/sandbox_output.txt",
+            )
+            print(f"File created, exit_code: {result.exit_code}")
+
+            print("\n--- Reading new file in sandbox ---")
+            result = client.sandboxes.exec_command(
+                sandbox_id=sandbox_id,
+                command="cat /workspace/sandbox_output.txt",
+            )
+            print(f"File content:\n{result.stdout}")
+            print(f"exit_code: {result.exit_code}")
+
+            # Upload the sandbox file to disk
+            print("\n--- Uploading file from sandbox to disk ---")
+            uploaded_artifact = client.disks.artifacts.upload_from_sandbox(
+                disk_id=disk_id,
+                sandbox_id=sandbox_id,
+                sandbox_path="/workspace/",
+                sandbox_filename="sandbox_output.txt",
+                file_path="/results/",
+            )
+            print(
+                f"Uploaded artifact: {uploaded_artifact.path}{uploaded_artifact.filename}"
+            )
+
+            # Verify the uploaded artifact by reading it back
+            print("\n--- Verifying uploaded artifact ---")
+            artifact_info = client.disks.artifacts.get(
+                disk_id=disk_id,
+                file_path="/results/",
+                filename="sandbox_output.txt",
+                with_content=True,
+            )
+            print(
+                f"Artifact path: {artifact_info.artifact.path}{artifact_info.artifact.filename}"
+            )
+            if artifact_info.content:
+                print(f"Artifact content: {artifact_info.content.raw}")
+
+            print("\n✓ Disk-sandbox file transfer example completed successfully!")
 
         finally:
             # Cleanup: Kill sandbox and delete disk

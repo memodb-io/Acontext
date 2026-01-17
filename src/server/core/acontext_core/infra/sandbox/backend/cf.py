@@ -295,14 +295,14 @@ class CloudflareSandboxBackend(SandboxBackend):
             raise ValueError(f"Failed to execute command: {e}")
 
     async def download_file(
-        self, sandbox_id: str, from_sandbox_file: str, download_to_s3_path: str
+        self, sandbox_id: str, from_sandbox_file: str, download_to_s3_key: str
     ) -> bool:
         """Download a file from the sandbox and upload it to S3.
 
         Args:
             sandbox_id: The ID of the sandbox to download from.
             from_sandbox_file: The path to the file in the sandbox.
-            download_to_s3_path: The S3 parent directory to upload the file to.
+            download_to_s3_key: The full S3 key (path) to upload the file to.
 
         Returns:
             True if the download and upload were successful, False otherwise.
@@ -330,49 +330,42 @@ class CloudflareSandboxBackend(SandboxBackend):
                 )
                 raise
 
-            # Extract base filename and construct full S3 key
-            filename = os.path.basename(from_sandbox_file)
-            s3_key = f"{download_to_s3_path.rstrip('/')}/{filename}"
-
-            # Upload to S3
+            # Upload to S3 using the provided key directly
             await S3_CLIENT.upload_object(
-                key=s3_key,
+                key=download_to_s3_key,
                 data=content_bytes,
             )
 
             logger.info(
-                f"Downloaded file from sandbox {sandbox_id}: {from_sandbox_file} -> s3://{s3_key}"
+                f"Downloaded file from sandbox {sandbox_id}: {from_sandbox_file} -> s3://{download_to_s3_key}"
             )
             return True
 
         except Exception as e:
             logger.error(
-                f"Failed to download file from sandbox {sandbox_id}: {from_sandbox_file} -> {download_to_s3_path}, error: {e}"
+                f"Failed to download file from sandbox {sandbox_id}: {from_sandbox_file} -> {download_to_s3_key}, error: {e}"
             )
             return False
 
     async def upload_file(
-        self, sandbox_id: str, from_s3_file: str, upload_to_sandbox_path: str
+        self, sandbox_id: str, from_s3_key: str, upload_to_sandbox_file: str
     ) -> bool:
         """Download a file from S3 and upload it to the sandbox.
 
         Args:
             sandbox_id: The ID of the sandbox to upload to.
-            from_s3_file: The S3 key to download the file from.
-            upload_to_sandbox_path: The parent directory in the sandbox to upload the file to.
+            from_s3_key: The S3 key to download the file from.
+            upload_to_sandbox_file: The full path in the sandbox to upload the file to.
 
         Returns:
             True if the download and upload were successful, False otherwise.
         """
         try:
-            content_bytes = await S3_CLIENT.download_object(key=from_s3_file)
+            content_bytes = await S3_CLIENT.download_object(key=from_s3_key)
             content_base64 = base64.b64encode(content_bytes).decode("utf-8")
 
-            filename = os.path.basename(from_s3_file)
-            sandbox_file_path = f"{upload_to_sandbox_path.rstrip('/')}/{filename}"
-
             request_body = {
-                "file_path": sandbox_file_path,
+                "file_path": upload_to_sandbox_file,
                 "content": content_base64,
                 "encoding": "base64",
                 "keepalive_seconds": self.__keepalive_seconds,
@@ -390,12 +383,12 @@ class CloudflareSandboxBackend(SandboxBackend):
                 raise ValueError("Upload to sandbox failed")
 
             logger.info(
-                f"Uploaded file to sandbox {sandbox_id}: s3://{from_s3_file} -> {sandbox_file_path}"
+                f"Uploaded file to sandbox {sandbox_id}: s3://{from_s3_key} -> {upload_to_sandbox_file}"
             )
             return True
 
         except Exception as e:
             logger.error(
-                f"Failed to upload file to sandbox {sandbox_id}: {from_s3_file} -> {upload_to_sandbox_path}, error: {e}"
+                f"Failed to upload file to sandbox {sandbox_id}: {from_s3_key} -> {upload_to_sandbox_file}, error: {e}"
             )
             return False

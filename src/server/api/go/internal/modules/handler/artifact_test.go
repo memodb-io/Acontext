@@ -112,6 +112,14 @@ func (m *MockArtifactService) GlobArtifacts(ctx context.Context, projectID uuid.
 	return args.Get(0).([]*model.Artifact), args.Error(1)
 }
 
+func (m *MockArtifactService) CreateFromBytes(ctx context.Context, in service.CreateArtifactFromBytesInput) (*model.Artifact, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Artifact), args.Error(1)
+}
+
 // createTestConfig creates a test config with default artifact settings
 func createTestConfig(maxUploadSizeBytes int64) *config.Config {
 	return &config.Config{
@@ -239,7 +247,7 @@ func TestArtifactHandler_UpsertArtifact(t *testing.T) {
 			tt.mockSetup(mockService, tt.diskID, projectID)
 
 			testConfig := createTestConfig(tt.maxUploadSize)
-			handler := NewArtifactHandler(mockService, testConfig)
+			handler := NewArtifactHandler(mockService, testConfig, nil, nil)
 
 			// Create multipart form data
 			body := &bytes.Buffer{}
@@ -335,7 +343,7 @@ func TestArtifactHandler_DeleteArtifact(t *testing.T) {
 			tt.mockSetup(mockService, tt.diskID, tt.filePath, projectID)
 
 			testConfig := createDefaultTestConfig() // Default 16MB
-			handler := NewArtifactHandler(mockService, testConfig)
+			handler := NewArtifactHandler(mockService, testConfig, nil, nil)
 
 			// Create request with query parameters
 			req := httptest.NewRequest(http.MethodDelete, fmt.Sprintf("/disk/%s/artifact?file_path=%s", tt.diskID, tt.filePath), nil)
@@ -461,7 +469,7 @@ func TestArtifactHandler_UpdateArtifact(t *testing.T) {
 			tt.mockSetup(mockService, tt.diskID)
 
 			testConfig := createDefaultTestConfig() // Default 16MB
-			handler := NewArtifactHandler(mockService, testConfig)
+			handler := NewArtifactHandler(mockService, testConfig, nil, nil)
 
 			// Create JSON request body
 			requestBody := map[string]string{
@@ -608,7 +616,7 @@ func TestArtifactHandler_GetArtifact(t *testing.T) {
 			tt.mockSetup(mockService, tt.diskID, tt.filePath)
 
 			testConfig := createDefaultTestConfig() // Default 16MB
-			handler := NewArtifactHandler(mockService, testConfig)
+			handler := NewArtifactHandler(mockService, testConfig, nil, nil)
 
 			// Create request with query parameters
 			url := fmt.Sprintf("/disk/%s/artifact?file_path=%s", tt.diskID, tt.filePath)
@@ -729,7 +737,7 @@ func TestArtifactHandler_GrepArtifacts(t *testing.T) {
 			mockSvc := new(MockArtifactService)
 			tt.setupMock(mockSvc)
 
-			handler := NewArtifactHandler(mockSvc, createTestConfig(10*1024*1024))
+			handler := NewArtifactHandler(mockSvc, createTestConfig(10*1024*1024), nil, nil)
 
 			w := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(w)
@@ -814,7 +822,7 @@ func TestArtifactHandler_GlobArtifacts(t *testing.T) {
 			mockSvc := new(MockArtifactService)
 			tt.setupMock(mockSvc)
 
-			handler := NewArtifactHandler(mockSvc, createTestConfig(10*1024*1024))
+			handler := NewArtifactHandler(mockSvc, createTestConfig(10*1024*1024), nil, nil)
 
 			w := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(w)

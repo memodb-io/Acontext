@@ -112,7 +112,7 @@ async def download_sandbox_file(
             db_session,
             sandbox_id,
             request.from_sandbox_file,
-            request.download_to_s3_path,
+            request.download_to_s3_key,
         )
         if not result.ok():
             raise HTTPException(status_code=404, detail=result.error.errmsg)
@@ -130,7 +130,7 @@ async def upload_sandbox_file(
     """
     async with DB_CLIENT.get_session_context() as db_session:
         result = await SB.upload_file(
-            db_session, sandbox_id, request.from_s3_file, request.upload_to_sandbox_path
+            db_session, sandbox_id, request.from_s3_key, request.upload_to_sandbox_file
         )
         if not result.ok():
             raise HTTPException(status_code=404, detail=result.error.errmsg)
