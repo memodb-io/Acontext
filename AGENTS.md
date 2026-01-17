@@ -19,6 +19,8 @@ Acontext is a platform for building AI agents with persistent context, observabi
 - CORE: Python + FastAPI + SQLAlchemy/PostgreSQL + pgvector + Redis + RabbitMQ + S3 + OpenAI/Anthropic + OpenTelemetry
 
 ## RULES
+### Confirm API Schemas before actually implementing them
+When you're asked to implement new api endpoints, always lay out the api schema first to let user confirm the input and output are correct.
 ### Update SDKs after modifying API if necessary
 When your task is about modify API, always look for the revelant SDKs and see it should be updated.
 - Make sure you update both sync and async sdk in python if updated.
