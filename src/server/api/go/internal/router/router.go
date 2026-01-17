@@ -137,6 +137,7 @@ func NewRouter(d RouterDeps) *gin.Engine {
 
 				artifact.GET("/grep", d.ArtifactHandler.GrepArtifacts)
 				artifact.GET("/glob", d.ArtifactHandler.GlobArtifacts)
+				artifact.POST("/download_to_sandbox", d.ArtifactHandler.DownloadToSandbox)
 			}
 		}
 

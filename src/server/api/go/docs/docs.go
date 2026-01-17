@@ -845,6 +845,78 @@ const docTemplate = `{
                 ]
             }
         },
+        "/disk/{disk_id}/artifact/download_to_sandbox": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Download an artifact from disk storage to a sandbox environment",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "artifact"
+                ],
+                "summary": "Download artifact to sandbox",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "example": "123e4567-e89b-12d3-a456-426614174000",
+                        "description": "Disk ID",
+                        "name": "disk_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Download to sandbox request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.DownloadToSandboxReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handler.DownloadToSandboxResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Download artifact to sandbox\nresult = client.disks.artifacts.download_to_sandbox(\n    disk_id='disk-uuid',\n    file_path='/documents/',\n    filename='report.pdf',\n    sandbox_id='sandbox-uuid',\n    sandbox_path='/home/user/'\n)\nprint(f\"Success: {result.success}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Download artifact to sandbox\nconst result = await client.disks.artifacts.downloadToSandbox('disk-uuid', {\n  filePath: '/documents/',\n  filename: 'report.pdf',\n  sandboxId: 'sandbox-uuid',\n  sandboxPath: '/home/user/'\n});\nconsole.log(` + "`" + `Success: ${result.success}` + "`" + `);\n"
+                    }
+                ]
+            }
+        },
         "/disk/{disk_id}/artifact/glob": {
             "get": {
                 "security": [
@@ -3588,6 +3660,41 @@ const docTemplate = `{
                 "user": {
                     "type": "string",
                     "example": "alice@acontext.io"
+                }
+            }
+        },
+        "handler.DownloadToSandboxReq": {
+            "type": "object",
+            "required": [
+                "file_path",
+                "filename",
+                "sandbox_id",
+                "sandbox_path"
+            ],
+            "properties": {
+                "file_path": {
+                    "description": "File path (directory) of the artifact",
+                    "type": "string"
+                },
+                "filename": {
+                    "description": "Filename of the artifact",
+                    "type": "string"
+                },
+                "sandbox_id": {
+                    "description": "Target sandbox ID",
+                    "type": "string"
+                },
+                "sandbox_path": {
+                    "description": "Destination directory in the sandbox",
+                    "type": "string"
+                }
+            }
+        },
+        "handler.DownloadToSandboxResp": {
+            "type": "object",
+            "properties": {
+                "success": {
+                    "type": "boolean"
                 }
             }
         },

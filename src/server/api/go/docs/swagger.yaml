@@ -71,6 +71,31 @@ definitions:
         example: alice@acontext.io
         type: string
     type: object
+  handler.DownloadToSandboxReq:
+    properties:
+      file_path:
+        description: File path (directory) of the artifact
+        type: string
+      filename:
+        description: Filename of the artifact
+        type: string
+      sandbox_id:
+        description: Target sandbox ID
+        type: string
+      sandbox_path:
+        description: Destination directory in the sandbox
+        type: string
+    required:
+    - file_path
+    - filename
+    - sandbox_id
+    - sandbox_path
+    type: object
+  handler.DownloadToSandboxResp:
+    properties:
+      success:
+        type: boolean
+    type: object
   handler.ExecCommandReq:
     properties:
       command:
@@ -1428,6 +1453,74 @@ paths:
             meta: { category: 'updated', reviewed: true, version: 2 }
           });
           console.log(`Updated artifact: ${artifact.artifact.id}`);
+  /disk/{disk_id}/artifact/download_to_sandbox:
+    post:
+      consumes:
+      - application/json
+      description: Download an artifact from disk storage to a sandbox environment
+      parameters:
+      - description: Disk ID
+        example: 123e4567-e89b-12d3-a456-426614174000
+        format: uuid
+        in: path
+        name: disk_id
+        required: true
+        type: string
+      - description: Download to sandbox request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.DownloadToSandboxReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.DownloadToSandboxResp'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Download artifact to sandbox
+      tags:
+      - artifact
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Download artifact to sandbox
+          result = client.disks.artifacts.download_to_sandbox(
+              disk_id='disk-uuid',
+              file_path='/documents/',
+              filename='report.pdf',
+              sandbox_id='sandbox-uuid',
+              sandbox_path='/home/user/'
+          )
+          print(f"Success: {result.success}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Download artifact to sandbox
+          const result = await client.disks.artifacts.downloadToSandbox('disk-uuid', {
+            filePath: '/documents/',
+            filename: 'report.pdf',
+            sandboxId: 'sandbox-uuid',
+            sandboxPath: '/home/user/'
+          });
+          console.log(`Success: ${result.success}`);
   /disk/{disk_id}/artifact/glob:
     get:
       consumes:

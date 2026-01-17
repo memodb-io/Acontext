@@ -204,4 +204,25 @@ export class DiskArtifactsAPI {
     });
     return ArtifactsSchema.parse(data);
   }
+
+  async downloadToSandbox(
+    diskId: string,
+    options: {
+      filePath: string;
+      filename: string;
+      sandboxId: string;
+      sandboxPath: string;
+    }
+  ): Promise<boolean> {
+    const payload = {
+      file_path: options.filePath,
+      filename: options.filename,
+      sandbox_id: options.sandboxId,
+      sandbox_path: options.sandboxPath,
+    };
+    const data = await this.requester.request('POST', `/disk/${diskId}/artifact/download_to_sandbox`, {
+      jsonData: payload,
+    }) as { success?: boolean };
+    return Boolean(data?.success);
+  }
 }

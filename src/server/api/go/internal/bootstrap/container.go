@@ -271,6 +271,7 @@ func BuildContainer() *do.Injector {
 		return handler.NewArtifactHandler(
 			do.MustInvoke[service.ArtifactService](i),
 			do.MustInvoke[*config.Config](i),
+			do.MustInvoke[*httpclient.CoreClient](i),
 		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.TaskHandler, error) {

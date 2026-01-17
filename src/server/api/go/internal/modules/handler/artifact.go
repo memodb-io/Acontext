@@ -4,12 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/bytedance/sonic"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/config"
+	"github.com/memodb-io/Acontext/internal/infra/httpclient"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
@@ -18,12 +20,13 @@ import (
 )
 
 type ArtifactHandler struct {
-	svc    service.ArtifactService
-	config *config.Config
+	svc        service.ArtifactService
+	config     *config.Config
+	coreClient *httpclient.CoreClient
 }
 
-func NewArtifactHandler(s service.ArtifactService, cfg *config.Config) *ArtifactHandler {
-	return &ArtifactHandler{svc: s, config: cfg}
+func NewArtifactHandler(s service.ArtifactService, cfg *config.Config, coreClient *httpclient.CoreClient) *ArtifactHandler {
+	return &ArtifactHandler{svc: s, config: cfg, coreClient: coreClient}
 }
 
 type CreateArtifactReq struct {
@@ -506,4 +509,88 @@ func (h *ArtifactHandler) GlobArtifacts(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, serializer.Response{Data: artifacts})
+}
+
+type DownloadToSandboxReq struct {
+	FilePath    string `json:"file_path" binding:"required"`    // File path (directory) of the artifact
+	Filename    string `json:"filename" binding:"required"`     // Filename of the artifact
+	SandboxID   string `json:"sandbox_id" binding:"required"`   // Target sandbox ID
+	SandboxPath string `json:"sandbox_path" binding:"required"` // Destination directory in the sandbox
+}
+
+type DownloadToSandboxResp struct {
+	Success bool `json:"success"`
+}
+
+// DownloadToSandbox godoc
+//
+//	@Summary		Download artifact to sandbox
+//	@Description	Download an artifact from disk storage to a sandbox environment
+//	@Tags			artifact
+//	@Accept			json
+//	@Produce		json
+//	@Param			disk_id	path	string							true	"Disk ID"	Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
+//	@Param			request	body	handler.DownloadToSandboxReq	true	"Download to sandbox request"
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response{data=handler.DownloadToSandboxResp}
+//	@Router			/disk/{disk_id}/artifact/download_to_sandbox [post]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Download artifact to sandbox\nresult = client.disks.artifacts.download_to_sandbox(\n    disk_id='disk-uuid',\n    file_path='/documents/',\n    filename='report.pdf',\n    sandbox_id='sandbox-uuid',\n    sandbox_path='/home/user/'\n)\nprint(f\"Success: {result.success}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Download artifact to sandbox\nconst result = await client.disks.artifacts.downloadToSandbox('disk-uuid', {\n  filePath: '/documents/',\n  filename: 'report.pdf',\n  sandboxId: 'sandbox-uuid',\n  sandboxPath: '/home/user/'\n});\nconsole.log(`Success: ${result.success}`);\n","label":"JavaScript"}]
+func (h *ArtifactHandler) DownloadToSandbox(c *gin.Context) {
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	diskID, err := uuid.Parse(c.Param("disk_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid disk_id", err))
+		return
+	}
+
+	req := DownloadToSandboxReq{}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	// Parse sandbox ID
+	sandboxID, err := uuid.Parse(req.SandboxID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid sandbox_id", err))
+		return
+	}
+
+	// Validate and normalize the file path
+	filePath := req.FilePath
+	if err := path.ValidatePath(filePath); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid file_path", err))
+		return
+	}
+
+	// Get the artifact to retrieve its S3 key
+	artifact, err := h.svc.GetByPath(c.Request.Context(), diskID, filePath, req.Filename)
+	if err != nil {
+		c.JSON(http.StatusNotFound, serializer.DBErr("artifact not found", err))
+		return
+	}
+
+	// Get the S3 key from artifact's asset metadata
+	assetData := artifact.AssetMeta.Data()
+	if assetData.S3Key == "" {
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "artifact has no S3 key", nil))
+		return
+	}
+
+	// Build the destination path in sandbox: sandbox_path + "/" + filename
+	sandboxDestPath := strings.TrimSuffix(req.SandboxPath, "/") + "/" + req.Filename
+
+	// Upload the file from S3 to the sandbox
+	result, err := h.coreClient.UploadSandboxFile(c.Request.Context(), project.ID, sandboxID, assetData.S3Key, sandboxDestPath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "failed to download artifact to sandbox", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{Data: DownloadToSandboxResp{Success: result.Success}})
 }

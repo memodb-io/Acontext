@@ -287,3 +287,49 @@ class AsyncDiskArtifactsAPI:
             "GET", f"/disk/{disk_id}/artifact/glob", params=params
         )
         return [Artifact.model_validate(item) for item in data]
+
+    async def download_to_sandbox(
+        self,
+        disk_id: str,
+        *,
+        file_path: str,
+        filename: str,
+        sandbox_id: str,
+        sandbox_path: str,
+    ) -> bool:
+        """Download an artifact from disk storage to a sandbox environment.
+
+        Args:
+            disk_id: The UUID of the disk containing the artifact.
+            file_path: Directory path of the artifact (not including filename).
+            filename: The filename of the artifact.
+            sandbox_id: The UUID of the target sandbox.
+            sandbox_path: Destination directory in the sandbox.
+
+        Returns:
+            True if the download was successful.
+
+        Example:
+        ```python
+            success = await client.disks.artifacts.download_to_sandbox(
+                disk_id="disk-uuid",
+                file_path="/documents/",
+                filename="report.pdf",
+                sandbox_id="sandbox-uuid",
+                sandbox_path="/home/user/"
+            )
+            print(f"Success: {success}")
+        ```
+        """
+        payload = {
+            "file_path": file_path,
+            "filename": filename,
+            "sandbox_id": sandbox_id,
+            "sandbox_path": sandbox_path,
+        }
+        data = await self._requester.request(
+            "POST",
+            f"/disk/{disk_id}/artifact/download_to_sandbox",
+            json_data=payload,
+        )
+        return bool(data.get("success", False))
