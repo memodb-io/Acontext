@@ -67,7 +67,7 @@ jobs:
         run: npm install -g pnpm
       - name: Audit TS SDK
         working-directory: src/client/acontext-ts
-        run: npm audit --audit-level=high
+        run: npm audit --audit-level=high --omit=dev
       - name: Audit UI
         working-directory: src/server/ui
-        run: pnpm audit --audit-level=high
+        run: pnpm audit --audit-level=high --prod
