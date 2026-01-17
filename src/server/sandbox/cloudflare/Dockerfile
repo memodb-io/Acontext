@@ -1,4 +1,4 @@
-FROM docker.io/cloudflare/sandbox:0.7.0
+FROM docker.io/cloudflare/sandbox:0.7.0-python
 
 # Optional: Install additional dependencies if needed
 # RUN pip install ...
