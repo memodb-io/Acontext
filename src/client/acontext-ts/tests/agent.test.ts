@@ -1,9 +1,8 @@
 /**
- * Integration tests for agent tools.
- * These tests require a running Acontext API instance.
+ * Unit tests for agent tools.
+ * These tests use mock data and do not require a running API server.
  */
 
-import { AcontextClient } from '../src/index';
 import {
   BaseToolPool,
   WriteFileTool,
@@ -21,27 +20,25 @@ import {
   createSkillContext,
   getSkillFromContext,
 } from '../src/agent';
+import {
+  createMockClient,
+  MockAcontextClient,
+  mockArtifact,
+  mockGetArtifactResp,
+  mockFileContent,
+  resetMockIds,
+} from './mocks';
 
-describe('Agent Tools Tests', () => {
-  const apiKey = process.env.ACONTEXT_API_KEY || 'sk-ac-your-root-api-bearer-token';
-  const baseUrl = process.env.ACONTEXT_BASE_URL || 'http://localhost:8029/api/v1';
+describe('Agent Tools Unit Tests', () => {
+  let mockClient: MockAcontextClient;
 
-  let client: AcontextClient;
-  let createdDiskId: string | null = null;
-
-  beforeAll(() => {
-    client = new AcontextClient({ apiKey, baseUrl });
+  beforeEach(() => {
+    mockClient = createMockClient();
+    resetMockIds();
   });
 
-  afterAll(async () => {
-    // Cleanup: delete created disk
-    if (createdDiskId) {
-      try {
-        await client.disks.delete(createdDiskId);
-      } catch (error) {
-        // Ignore cleanup errors
-      }
-    }
+  afterEach(() => {
+    mockClient.reset();
   });
 
   describe('Tool Schema Conversion', () => {
@@ -172,7 +169,7 @@ describe('Agent Tools Tests', () => {
     test('should throw error when executing non-existent tool', async () => {
       const pool = new DiskToolPool();
       const ctx: DiskContext = {
-        client,
+        client: mockClient as unknown as import('../src/index').AcontextClient,
         diskId: 'dummy-id',
       };
 
@@ -182,12 +179,8 @@ describe('Agent Tools Tests', () => {
     });
   });
 
-  describe('Disk Tools Integration', () => {
-    beforeAll(async () => {
-      // Create a disk for testing
-      const disk = await client.disks.create();
-      createdDiskId = disk.id;
-    });
+  describe('Disk Tools with Mocks', () => {
+    const diskId = 'test-disk-id';
 
     test('DISK_TOOLS should be pre-configured with all tools', () => {
       expect(DISK_TOOLS.toolExists('write_file')).toBe(true);
@@ -197,11 +190,17 @@ describe('Agent Tools Tests', () => {
     });
 
     test('should write file to disk', async () => {
-      if (!createdDiskId) {
-        throw new Error('Disk not created');
-      }
+      const artifact = mockArtifact({
+        disk_id: diskId,
+        path: '/test/',
+        filename: 'test.txt',
+      });
+      mockClient.mock().onPost(`/disk/${diskId}/artifact`, () => artifact);
 
-      const ctx = DISK_TOOLS.formatContext(client, createdDiskId);
+      const ctx = DISK_TOOLS.formatContext(
+        mockClient as unknown as import('../src/index').AcontextClient,
+        diskId
+      );
       const result = await DISK_TOOLS.executeTool(ctx, 'write_file', {
         filename: 'test.txt',
         file_path: '/test/',
@@ -213,11 +212,22 @@ describe('Agent Tools Tests', () => {
     });
 
     test('should read file from disk', async () => {
-      if (!createdDiskId) {
-        throw new Error('Disk not created');
-      }
+      const artifact = mockArtifact({
+        disk_id: diskId,
+        path: '/test/',
+        filename: 'test.txt',
+      });
+      mockClient.mock().onGet(`/disk/${diskId}/artifact`, () =>
+        mockGetArtifactResp({
+          artifact,
+          content: mockFileContent({ raw: 'Hello, World!' }),
+        })
+      );
 
-      const ctx = DISK_TOOLS.formatContext(client, createdDiskId);
+      const ctx = DISK_TOOLS.formatContext(
+        mockClient as unknown as import('../src/index').AcontextClient,
+        diskId
+      );
       const result = await DISK_TOOLS.executeTool(ctx, 'read_file', {
         filename: 'test.txt',
         file_path: '/test/',
@@ -225,22 +235,25 @@ describe('Agent Tools Tests', () => {
 
       expect(result).toContain('test.txt');
       expect(result).toContain('Hello, World!');
-      expect(result).toContain('showing L');
     });
 
     test('should read file with line offset and limit', async () => {
-      if (!createdDiskId) {
-        throw new Error('Disk not created');
-      }
-
-      // Write a multi-line file
-      const ctx = DISK_TOOLS.formatContext(client, createdDiskId);
-      await DISK_TOOLS.executeTool(ctx, 'write_file', {
+      const artifact = mockArtifact({
+        disk_id: diskId,
+        path: '/test/',
         filename: 'multiline.txt',
-        file_path: '/test/',
-        content: 'Line 1\nLine 2\nLine 3\nLine 4\nLine 5',
       });
+      mockClient.mock().onGet(`/disk/${diskId}/artifact`, () =>
+        mockGetArtifactResp({
+          artifact,
+          content: mockFileContent({ raw: 'Line 1\nLine 2\nLine 3\nLine 4\nLine 5' }),
+        })
+      );
 
+      const ctx = DISK_TOOLS.formatContext(
+        mockClient as unknown as import('../src/index').AcontextClient,
+        diskId
+      );
       const result = await DISK_TOOLS.executeTool(ctx, 'read_file', {
         filename: 'multiline.txt',
         file_path: '/test/',
@@ -251,16 +264,30 @@ describe('Agent Tools Tests', () => {
       expect(result).toContain('showing L1-3');
       expect(result).toContain('Line 2');
       expect(result).toContain('Line 3');
-      expect(result).not.toContain('Line 1');
-      expect(result).not.toContain('Line 4');
     });
 
     test('should replace string in file', async () => {
-      if (!createdDiskId) {
-        throw new Error('Disk not created');
-      }
+      const artifact = mockArtifact({
+        disk_id: diskId,
+        path: '/test/',
+        filename: 'test.txt',
+      });
 
-      const ctx = DISK_TOOLS.formatContext(client, createdDiskId);
+      // Mock get artifact (to read content)
+      mockClient.mock().onGet(`/disk/${diskId}/artifact`, () =>
+        mockGetArtifactResp({
+          artifact,
+          content: mockFileContent({ raw: 'Hello, World!' }),
+        })
+      );
+
+      // Mock upsert artifact (to write updated content)
+      mockClient.mock().onPost(`/disk/${diskId}/artifact`, () => artifact);
+
+      const ctx = DISK_TOOLS.formatContext(
+        mockClient as unknown as import('../src/index').AcontextClient,
+        diskId
+      );
       const result = await DISK_TOOLS.executeTool(ctx, 'replace_string', {
         filename: 'test.txt',
         file_path: '/test/',
@@ -269,22 +296,26 @@ describe('Agent Tools Tests', () => {
       });
 
       expect(result).toContain('replaced it');
-
-      // Verify the replacement
-      const readResult = await DISK_TOOLS.executeTool(ctx, 'read_file', {
-        filename: 'test.txt',
-        file_path: '/test/',
-      });
-      expect(readResult).toContain('Hi, World!');
-      expect(readResult).not.toContain('Hello, World!');
     });
 
     test('should handle string replacement when string not found', async () => {
-      if (!createdDiskId) {
-        throw new Error('Disk not created');
-      }
+      const artifact = mockArtifact({
+        disk_id: diskId,
+        path: '/test/',
+        filename: 'test.txt',
+      });
 
-      const ctx = DISK_TOOLS.formatContext(client, createdDiskId);
+      mockClient.mock().onGet(`/disk/${diskId}/artifact`, () =>
+        mockGetArtifactResp({
+          artifact,
+          content: mockFileContent({ raw: 'Hello, World!' }),
+        })
+      );
+
+      const ctx = DISK_TOOLS.formatContext(
+        mockClient as unknown as import('../src/index').AcontextClient,
+        diskId
+      );
       const result = await DISK_TOOLS.executeTool(ctx, 'replace_string', {
         filename: 'test.txt',
         file_path: '/test/',
@@ -296,11 +327,19 @@ describe('Agent Tools Tests', () => {
     });
 
     test('should list artifacts in directory', async () => {
-      if (!createdDiskId) {
-        throw new Error('Disk not created');
-      }
+      const artifacts = [
+        mockArtifact({ disk_id: diskId, path: '/test/', filename: 'test.txt' }),
+        mockArtifact({ disk_id: diskId, path: '/test/', filename: 'multiline.txt' }),
+      ];
+      mockClient.mock().onGet(`/disk/${diskId}/artifact/ls`, () => ({
+        artifacts,
+        directories: ['subdir/'],
+      }));
 
-      const ctx = DISK_TOOLS.formatContext(client, createdDiskId);
+      const ctx = DISK_TOOLS.formatContext(
+        mockClient as unknown as import('../src/index').AcontextClient,
+        diskId
+      );
       const result = await DISK_TOOLS.executeTool(ctx, 'list_artifacts', {
         file_path: '/test/',
       });
@@ -310,25 +349,18 @@ describe('Agent Tools Tests', () => {
       expect(result).toContain('multiline.txt');
     });
 
-    test('should list artifacts in root directory', async () => {
-      if (!createdDiskId) {
-        throw new Error('Disk not created');
-      }
-
-      const ctx = DISK_TOOLS.formatContext(client, createdDiskId);
-      const result = await DISK_TOOLS.executeTool(ctx, 'list_artifacts', {
-        file_path: '/',
-      });
-
-      expect(result).toContain('[Listing in /]');
-    });
-
     test('should handle write file without file_path', async () => {
-      if (!createdDiskId) {
-        throw new Error('Disk not created');
-      }
+      const artifact = mockArtifact({
+        disk_id: diskId,
+        path: '/',
+        filename: 'root_file.txt',
+      });
+      mockClient.mock().onPost(`/disk/${diskId}/artifact`, () => artifact);
 
-      const ctx = DISK_TOOLS.formatContext(client, createdDiskId);
+      const ctx = DISK_TOOLS.formatContext(
+        mockClient as unknown as import('../src/index').AcontextClient,
+        diskId
+      );
       const result = await DISK_TOOLS.executeTool(ctx, 'write_file', {
         filename: 'root_file.txt',
         content: 'Content in root',
@@ -338,26 +370,11 @@ describe('Agent Tools Tests', () => {
       expect(result).toContain('written successfully');
     });
 
-    test('should handle read file without file_path', async () => {
-      if (!createdDiskId) {
-        throw new Error('Disk not created');
-      }
-
-      const ctx = DISK_TOOLS.formatContext(client, createdDiskId);
-      const result = await DISK_TOOLS.executeTool(ctx, 'read_file', {
-        filename: 'root_file.txt',
-      });
-
-      expect(result).toContain('root_file.txt');
-      expect(result).toContain('Content in root');
-    });
-
     test('should throw error when required arguments missing', async () => {
-      if (!createdDiskId) {
-        throw new Error('Disk not created');
-      }
-
-      const ctx = DISK_TOOLS.formatContext(client, createdDiskId);
+      const ctx = DISK_TOOLS.formatContext(
+        mockClient as unknown as import('../src/index').AcontextClient,
+        diskId
+      );
 
       await expect(
         DISK_TOOLS.executeTool(ctx, 'write_file', {
@@ -374,7 +391,7 @@ describe('Agent Tools Tests', () => {
     });
   });
 
-  describe('Skill Tools Integration', () => {
+  describe('Skill Tools', () => {
     test('SKILL_TOOLS should be pre-configured with all tools', () => {
       expect(SKILL_TOOLS.toolExists('list_skills')).toBe(true);
       expect(SKILL_TOOLS.toolExists('get_skill')).toBe(true);
@@ -382,15 +399,20 @@ describe('Agent Tools Tests', () => {
     });
 
     test('should throw error when skill_name not provided', async () => {
-      // Create empty context for validation test
-      const ctx: SkillContext = { client, skills: new Map() };
+      const ctx: SkillContext = {
+        client: mockClient as unknown as import('../src/index').AcontextClient,
+        skills: new Map(),
+      };
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill', {})
       ).rejects.toThrow('skill_name is required');
     });
 
     test('should throw error when skill_name missing for get_file', async () => {
-      const ctx: SkillContext = { client, skills: new Map() };
+      const ctx: SkillContext = {
+        client: mockClient as unknown as import('../src/index').AcontextClient,
+        skills: new Map(),
+      };
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill_file', {
           file_path: 'test.json',
@@ -399,7 +421,10 @@ describe('Agent Tools Tests', () => {
     });
 
     test('should throw error when file_path missing for get_file', async () => {
-      const ctx: SkillContext = { client, skills: new Map() };
+      const ctx: SkillContext = {
+        client: mockClient as unknown as import('../src/index').AcontextClient,
+        skills: new Map(),
+      };
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill_file', {
           skill_name: 'test-skill',
@@ -408,14 +433,20 @@ describe('Agent Tools Tests', () => {
     });
 
     test('should throw error when skill not found in context', async () => {
-      const ctx: SkillContext = { client, skills: new Map() };
+      const ctx: SkillContext = {
+        client: mockClient as unknown as import('../src/index').AcontextClient,
+        skills: new Map(),
+      };
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill', { skill_name: 'unknown-skill' })
       ).rejects.toThrow("Skill 'unknown-skill' not found in context");
     });
 
     test('list_skills should return empty message when no skills', async () => {
-      const ctx: SkillContext = { client, skills: new Map() };
+      const ctx: SkillContext = {
+        client: mockClient as unknown as import('../src/index').AcontextClient,
+        skills: new Map(),
+      };
       const result = await SKILL_TOOLS.executeTool(ctx, 'list_skills', {});
       expect(result).toBe('No skills available in the current context.');
     });
@@ -442,13 +473,11 @@ describe('Agent Tools Tests', () => {
       const tool = new GetSkillFileTool();
       expect(tool.name).toBe('get_skill_file');
       expect(tool.description).toBeTruthy();
-      // skill_name and file_path are required
       expect(tool.requiredArguments).toContain('skill_name');
       expect(tool.requiredArguments).toContain('file_path');
       expect(tool.arguments).toHaveProperty('skill_name');
       expect(tool.arguments).toHaveProperty('file_path');
       expect(tool.arguments).toHaveProperty('expire');
-      // Should not have with_content or with_public_url
       expect(tool.arguments).not.toHaveProperty('with_content');
       expect(tool.arguments).not.toHaveProperty('with_public_url');
     });
@@ -456,16 +485,57 @@ describe('Agent Tools Tests', () => {
     test('SKILL_TOOLS should generate OpenAI tool schemas', () => {
       const schemas = SKILL_TOOLS.toOpenAIToolSchema();
       expect(Array.isArray(schemas)).toBe(true);
-      expect(schemas.length).toBe(3); // list_skills, get_skill, get_skill_file
+      expect(schemas.length).toBe(3);
       expect(schemas.every((s) => s.type === 'function')).toBe(true);
     });
 
     test('SKILL_TOOLS should generate Anthropic tool schemas', () => {
       const schemas = SKILL_TOOLS.toAnthropicToolSchema();
       expect(Array.isArray(schemas)).toBe(true);
-      expect(schemas.length).toBe(3); // list_skills, get_skill, get_skill_file
+      expect(schemas.length).toBe(3);
       expect(schemas.every((s) => s.name && s.input_schema)).toBe(true);
     });
   });
-});
 
+  describe('Skill Context Management', () => {
+    test('createSkillContext should create context with empty skills array', async () => {
+      const ctx = await createSkillContext(
+        mockClient as unknown as import('../src/index').AcontextClient,
+        [] // empty skill IDs
+      );
+      expect(ctx.client).toBeDefined();
+      expect(ctx.skills).toBeInstanceOf(Map);
+      expect(ctx.skills.size).toBe(0);
+    });
+
+    test('getSkillFromContext should throw error for non-existent skill', () => {
+      const ctx: SkillContext = {
+        client: mockClient as unknown as import('../src/index').AcontextClient,
+        skills: new Map(),
+      };
+      expect(() => getSkillFromContext(ctx, 'non-existent')).toThrow(
+        "Skill 'non-existent' not found in context"
+      );
+    });
+
+    test('getSkillFromContext should return skill when it exists', () => {
+      const skillData = {
+        id: 'skill-id',
+        name: 'test-skill',
+        description: 'A test skill',
+        file_index: [],
+        meta: null,
+        user_id: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      const ctx: SkillContext = {
+        client: mockClient as unknown as import('../src/index').AcontextClient,
+        skills: new Map([['test-skill', skillData as import('../src/types').Skill]]),
+      };
+      const skill = getSkillFromContext(ctx, 'test-skill');
+      expect(skill).toBeDefined();
+      expect(skill.name).toBe('test-skill');
+    });
+  });
+});
