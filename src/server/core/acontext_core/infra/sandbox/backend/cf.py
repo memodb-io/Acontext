@@ -58,6 +58,7 @@ class CloudflareSandboxBackend(SandboxBackend):
         self.__worker_url = worker_url.rstrip("/")
         self.__auth_token = auth_token
         self.__timeout = timeout
+        self.__keepalive_seconds = DEFAULT_CORE_CONFIG.sandbox_default_keepalive_seconds
         self.__client = httpx.AsyncClient(
             timeout=httpx.Timeout(self.__timeout),
             follow_redirects=True,
@@ -100,7 +101,7 @@ class CloudflareSandboxBackend(SandboxBackend):
 
         request_body = {
             "sandbox_id": sandbox_id,
-            "keepalive_seconds": DEFAULT_CORE_CONFIG.sandbox_default_keepalive_seconds,
+            "keepalive_seconds": self.__keepalive_seconds,
             "additional_configs": additional_configs,
         }
 
@@ -181,6 +182,7 @@ class CloudflareSandboxBackend(SandboxBackend):
         try:
             response = await self.__client.get(
                 f"{self.__worker_url}/sandbox/{sandbox_id}",
+                params={"keepalive_seconds": self.__keepalive_seconds},
                 headers=self._get_headers(),
             )
             response.raise_for_status()
@@ -278,7 +280,10 @@ class CloudflareSandboxBackend(SandboxBackend):
             The command output including stdout, stderr, and exit code.
         """
         try:
-            request_body = {"command": command}
+            request_body = {
+                "command": command,
+                "keepalive_seconds": self.__keepalive_seconds,
+            }
 
             response = await self.__client.post(
                 f"{self.__worker_url}/sandbox/{sandbox_id}/exec",
@@ -316,7 +321,11 @@ class CloudflareSandboxBackend(SandboxBackend):
             True if the download and upload were successful, False otherwise.
         """
         try:
-            request_body = {"file_path": from_sandbox_file, "encoding": "base64"}
+            request_body = {
+                "file_path": from_sandbox_file,
+                "encoding": "base64",
+                "keepalive_seconds": self.__keepalive_seconds,
+            }
             response = await self.__client.post(
                 f"{self.__worker_url}/sandbox/{sandbox_id}/download",
                 json=request_body,
@@ -383,6 +392,7 @@ class CloudflareSandboxBackend(SandboxBackend):
                 "file_path": sandbox_file_path,
                 "content": content_base64,
                 "encoding": "base64",
+                "keepalive_seconds": self.__keepalive_seconds,
             }
 
             response = await self.__client.post(

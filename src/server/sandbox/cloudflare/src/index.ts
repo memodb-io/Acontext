@@ -19,17 +19,20 @@ interface UpdateSandboxRequest {
 
 interface ExecCommandRequest {
 	command: string;
+	keepalive_seconds?: number;
 }
 
 interface DownloadFileRequest {
 	file_path: string;
 	encoding?: 'utf-8' | 'base64';
+	keepalive_seconds?: number;
 }
 
 interface UploadFileRequest {
 	file_path: string;
 	content: string;
 	encoding?: 'utf-8' | 'base64';
+	keepalive_seconds?: number;
 }
 
 function checkAuth(request: Request, env: Env): Response | null {
@@ -121,18 +124,32 @@ async function handleKillSandbox(sandboxId: string, env: Env): Promise<Response>
 	}
 }
 
-async function handleGetSandbox(sandboxId: string, env: Env): Promise<Response> {
+async function handleGetSandbox(sandboxId: string, request: Request, env: Env): Promise<Response> {
 	try {
-		const sandbox = getSandbox(env.Sandbox, sandboxId);
+		let keepalive_seconds: number | undefined;
+
+		// Try to parse keepalive_seconds from query params or body
+		const url = new URL(request.url);
+		const keepaliveParam = url.searchParams.get('keepalive_seconds');
+		if (keepaliveParam) {
+			keepalive_seconds = parseInt(keepaliveParam, 10);
+		}
+
+		const sandbox = getSandbox(env.Sandbox, sandboxId, {
+			sleepAfter: keepalive_seconds ? `${keepalive_seconds}s` : undefined,
+		});
 		const checkResult = await sandbox.exec('echo "alive"');
 		const status = checkResult.success ? 'running' : 'error';
 
+		const now = new Date();
 		return new Response(
 			JSON.stringify({
 				sandbox_id: sandboxId,
 				sandbox_status: status,
-				sandbox_created_at: new Date().toISOString(),
-				sandbox_expires_at: null,
+				sandbox_created_at: now.toISOString(),
+				sandbox_expires_at: keepalive_seconds
+					? new Date(now.getTime() + keepalive_seconds * 1000).toISOString()
+					: null,
 			}),
 			{
 				status: 200,
@@ -163,7 +180,10 @@ async function handleUpdateSandbox(sandboxId: string, request: Request, env: Env
 			});
 		}
 
-		const sandbox = getSandbox(env.Sandbox, sandboxId);
+		// Use keepalive_longer_by_seconds as the new sleepAfter duration
+		const sandbox = getSandbox(env.Sandbox, sandboxId, {
+			sleepAfter: `${keepalive_longer_by_seconds}s`,
+		});
 
 		// Any operation resets the idle timer, effectively extending the lifetime
 		const touchResult = await sandbox.exec('echo "keepalive"');
@@ -175,12 +195,13 @@ async function handleUpdateSandbox(sandboxId: string, request: Request, env: Env
 			});
 		}
 
+		const now = new Date();
 		return new Response(
 			JSON.stringify({
 				sandbox_id: sandboxId,
 				sandbox_status: 'running',
-				sandbox_created_at: new Date().toISOString(),
-				sandbox_expires_at: new Date(Date.now() + keepalive_longer_by_seconds * 1000).toISOString(),
+				sandbox_created_at: now.toISOString(),
+				sandbox_expires_at: new Date(now.getTime() + keepalive_longer_by_seconds * 1000).toISOString(),
 			}),
 			{
 				status: 200,
@@ -198,7 +219,7 @@ async function handleUpdateSandbox(sandboxId: string, request: Request, env: Env
 async function handleExecCommand(sandboxId: string, request: Request, env: Env): Promise<Response> {
 	try {
 		const body: ExecCommandRequest = await request.json();
-		const { command } = body;
+		const { command, keepalive_seconds } = body;
 
 		if (!command) {
 			return new Response(JSON.stringify({ error: 'command is required' }), {
@@ -207,7 +228,9 @@ async function handleExecCommand(sandboxId: string, request: Request, env: Env):
 			});
 		}
 
-		const sandbox = getSandbox(env.Sandbox, sandboxId);
+		const sandbox = getSandbox(env.Sandbox, sandboxId, {
+			sleepAfter: keepalive_seconds ? `${keepalive_seconds}s` : undefined,
+		});
 		const result = await sandbox.exec(command);
 
 		return new Response(
@@ -232,7 +255,7 @@ async function handleExecCommand(sandboxId: string, request: Request, env: Env):
 async function handleDownloadFile(sandboxId: string, request: Request, env: Env): Promise<Response> {
 	try {
 		const body: DownloadFileRequest = await request.json();
-		const { file_path } = body;
+		const { file_path, keepalive_seconds } = body;
 
 		if (!file_path) {
 			return new Response(JSON.stringify({ error: 'file_path is required' }), {
@@ -241,7 +264,9 @@ async function handleDownloadFile(sandboxId: string, request: Request, env: Env)
 			});
 		}
 
-		const sandbox = getSandbox(env.Sandbox, sandboxId);
+		const sandbox = getSandbox(env.Sandbox, sandboxId, {
+			sleepAfter: keepalive_seconds ? `${keepalive_seconds}s` : undefined,
+		});
 
 		// Check file exists using SDK exists() method
 		const existsResult = await sandbox.exists(file_path);
@@ -276,7 +301,7 @@ async function handleDownloadFile(sandboxId: string, request: Request, env: Env)
 async function handleUploadFile(sandboxId: string, request: Request, env: Env): Promise<Response> {
 	try {
 		const body: UploadFileRequest = await request.json();
-		const { file_path, content, encoding = 'utf-8' } = body;
+		const { file_path, content, encoding = 'utf-8', keepalive_seconds } = body;
 
 		if (!file_path || !content) {
 			return new Response(JSON.stringify({ error: 'file_path and content are required' }), {
@@ -285,7 +310,9 @@ async function handleUploadFile(sandboxId: string, request: Request, env: Env): 
 			});
 		}
 
-		const sandbox = getSandbox(env.Sandbox, sandboxId);
+		const sandbox = getSandbox(env.Sandbox, sandboxId, {
+			sleepAfter: keepalive_seconds ? `${keepalive_seconds}s` : undefined,
+		});
 
 		// Write file with specified encoding (SDK handles base64 decoding)
 		await sandbox.writeFile(file_path, content, { encoding });
@@ -326,7 +353,7 @@ export default {
 
 		const getMatch = path.match(/^\/sandbox\/([^\/]+)$/);
 		if (getMatch && request.method === 'GET') {
-			return handleGetSandbox(getMatch[1], env);
+			return handleGetSandbox(getMatch[1], request, env);
 		}
 
 		const updateMatch = path.match(/^\/sandbox\/([^\/]+)\/update$/);
