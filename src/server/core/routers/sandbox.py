@@ -22,13 +22,11 @@ router = APIRouter(prefix="/api/v1/project/{project_id}/sandbox", tags=["sandbox
 @router.post("")
 async def start_sandbox(
     project_id: asUUID = Path(..., description="Project ID"),
-    config: SandboxCreateConfig = Body(
-        ..., description="Sandbox creation configuration"
-    ),
 ) -> SandboxRuntimeInfo:
     """
     Create and start a new sandbox.
     """
+    config = SandboxCreateConfig()
     async with DB_CLIENT.get_session_context() as db_session:
         result = await SB.create_sandbox(db_session, project_id, config)
         if not result.ok():
