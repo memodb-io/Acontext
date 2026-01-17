@@ -753,6 +753,129 @@
         } ]
       }
     },
+    "/sandbox" : {
+      "post" : {
+        "description" : "Create and start a new sandbox for the project",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_sandbox_post_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Create a new sandbox",
+        "tags" : [ "sandbox" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a new sandbox\nsandbox = client.sandboxes.create()\nprint(f\"Sandbox ID: {sandbox.sandbox_id}\")\nprint(f\"Status: {sandbox.sandbox_status}\")\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a new sandbox\nconst sandbox = await client.sandboxes.create();\nconsole.log(`Sandbox ID: ${sandbox.sandboxId}`);\nconsole.log(`Status: ${sandbox.sandboxStatus}`);\n"
+        } ]
+      }
+    },
+    "/sandbox/{sandbox_id}" : {
+      "delete" : {
+        "description" : "Kill a running sandbox",
+        "parameters" : [ {
+          "description" : "Sandbox ID",
+          "in" : "path",
+          "name" : "sandbox_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_sandbox__sandbox_id__delete_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Kill a sandbox",
+        "tags" : [ "sandbox" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Kill a sandbox\nresult = client.sandboxes.kill(sandbox_id='sandbox-uuid')\nprint(f\"Status: {result.status}\")\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Kill a sandbox\nconst result = await client.sandboxes.kill('sandbox-uuid');\nconsole.log(`Status: ${result.status}`);\n"
+        } ]
+      }
+    },
+    "/sandbox/{sandbox_id}/exec" : {
+      "post" : {
+        "description" : "Execute a shell command in the specified sandbox",
+        "parameters" : [ {
+          "description" : "Sandbox ID",
+          "in" : "path",
+          "name" : "sandbox_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/handler.ExecCommandReq"
+              }
+            }
+          },
+          "description" : "Command to execute",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_sandbox__sandbox_id__exec_post_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Execute command in sandbox",
+        "tags" : [ "sandbox" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Execute a command in the sandbox\nresult = client.sandboxes.exec_command(\n    sandbox_id='sandbox-uuid',\n    command='ls -la'\n)\nprint(f\"stdout: {result.stdout}\")\nprint(f\"stderr: {result.stderr}\")\nprint(f\"exit_code: {result.exit_code}\")\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Execute a command in the sandbox\nconst result = await client.sandboxes.execCommand({\n  sandboxId: 'sandbox-uuid',\n  command: 'ls -la'\n});\nconsole.log(`stdout: ${result.stdout}`);\nconsole.log(`stderr: ${result.stderr}`);\nconsole.log(`exitCode: ${result.exitCode}`);\n"
+        } ],
+        "x-codegen-request-body-name" : "payload"
+      }
+    },
     "/session" : {
       "get" : {
         "description" : "Get all sessions under a project, optionally filtered by space_id or user",
@@ -1073,7 +1196,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/_session__session_id__flush_post_200_response"
+                  "$ref" : "#/components/schemas/_sandbox__sandbox_id__delete_200_response"
                 }
               }
             },
@@ -2302,7 +2425,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/_session__session_id__flush_post_200_response"
+                  "$ref" : "#/components/schemas/_sandbox__sandbox_id__delete_200_response"
                 }
               }
             },
@@ -2561,6 +2684,15 @@
         },
         "type" : "object"
       },
+      "handler.ExecCommandReq" : {
+        "properties" : {
+          "command" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "command" ],
+        "type" : "object"
+      },
       "handler.GetArtifactResp" : {
         "properties" : {
           "artifact" : {
@@ -2739,6 +2871,37 @@
           },
           "space_digested_count" : {
             "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "httpclient.SandboxCommandOutput" : {
+        "properties" : {
+          "exit_code" : {
+            "type" : "integer"
+          },
+          "stderr" : {
+            "type" : "string"
+          },
+          "stdout" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "httpclient.SandboxRuntimeInfo" : {
+        "properties" : {
+          "sandbox_created_at" : {
+            "type" : "string"
+          },
+          "sandbox_expires_at" : {
+            "type" : "string"
+          },
+          "sandbox_id" : {
+            "type" : "string"
+          },
+          "sandbox_status" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -3521,6 +3684,42 @@
           "type" : "object"
         } ]
       },
+      "_sandbox_post_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/httpclient.SandboxRuntimeInfo"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_sandbox__sandbox_id__delete_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/httpclient.FlagResponse"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_sandbox__sandbox_id__exec_post_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/httpclient.SandboxCommandOutput"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "_session_get_200_response" : {
         "allOf" : [ {
           "$ref" : "#/components/schemas/serializer.Response"
@@ -3540,18 +3739,6 @@
           "properties" : {
             "data" : {
               "$ref" : "#/components/schemas/model.Session"
-            }
-          },
-          "type" : "object"
-        } ]
-      },
-      "_session__session_id__flush_post_200_response" : {
-        "allOf" : [ {
-          "$ref" : "#/components/schemas/serializer.Response"
-        }, {
-          "properties" : {
-            "data" : {
-              "$ref" : "#/components/schemas/httpclient.FlagResponse"
             }
           },
           "type" : "object"

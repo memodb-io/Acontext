@@ -45,6 +45,10 @@ from .skill import (
     Skill,
     SkillCatalogItem,
 )
+from .sandbox import (
+    SandboxCommandOutput,
+    SandboxRuntimeInfo,
+)
 from .user import (
     GetUserResourcesOutput,
     ListUsersOutput,
@@ -94,6 +98,9 @@ __all__ = [
     "SkillCatalogItem",
     "ListSkillsOutput",
     "GetSkillFileResp",
+    # Sandbox types
+    "SandboxCommandOutput",
+    "SandboxRuntimeInfo",
     # User types
     "GetUserResourcesOutput",
     "ListUsersOutput",

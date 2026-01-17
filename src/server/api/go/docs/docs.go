@@ -1046,6 +1046,189 @@ const docTemplate = `{
                 ]
             }
         },
+        "/sandbox": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create and start a new sandbox for the project",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sandbox"
+                ],
+                "summary": "Create a new sandbox",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpclient.SandboxRuntimeInfo"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a new sandbox\nsandbox = client.sandboxes.create()\nprint(f\"Sandbox ID: {sandbox.sandbox_id}\")\nprint(f\"Status: {sandbox.sandbox_status}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a new sandbox\nconst sandbox = await client.sandboxes.create();\nconsole.log(` + "`" + `Sandbox ID: ${sandbox.sandboxId}` + "`" + `);\nconsole.log(` + "`" + `Status: ${sandbox.sandboxStatus}` + "`" + `);\n"
+                    }
+                ]
+            }
+        },
+        "/sandbox/{sandbox_id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Kill a running sandbox",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sandbox"
+                ],
+                "summary": "Kill a sandbox",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox ID",
+                        "name": "sandbox_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpclient.FlagResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Kill a sandbox\nresult = client.sandboxes.kill(sandbox_id='sandbox-uuid')\nprint(f\"Status: {result.status}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Kill a sandbox\nconst result = await client.sandboxes.kill('sandbox-uuid');\nconsole.log(` + "`" + `Status: ${result.status}` + "`" + `);\n"
+                    }
+                ]
+            }
+        },
+        "/sandbox/{sandbox_id}/exec": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Execute a shell command in the specified sandbox",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sandbox"
+                ],
+                "summary": "Execute command in sandbox",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sandbox ID",
+                        "name": "sandbox_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Command to execute",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.ExecCommandReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/httpclient.SandboxCommandOutput"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Execute a command in the sandbox\nresult = client.sandboxes.exec_command(\n    sandbox_id='sandbox-uuid',\n    command='ls -la'\n)\nprint(f\"stdout: {result.stdout}\")\nprint(f\"stderr: {result.stderr}\")\nprint(f\"exit_code: {result.exit_code}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Execute a command in the sandbox\nconst result = await client.sandboxes.execCommand({\n  sandboxId: 'sandbox-uuid',\n  command: 'ls -la'\n});\nconsole.log(` + "`" + `stdout: ${result.stdout}` + "`" + `);\nconsole.log(` + "`" + `stderr: ${result.stderr}` + "`" + `);\nconsole.log(` + "`" + `exitCode: ${result.exitCode}` + "`" + `);\n"
+                    }
+                ]
+            }
+        },
         "/session": {
             "get": {
                 "security": [
@@ -3408,6 +3591,17 @@ const docTemplate = `{
                 }
             }
         },
+        "handler.ExecCommandReq": {
+            "type": "object",
+            "required": [
+                "command"
+            ],
+            "properties": {
+                "command": {
+                    "type": "string"
+                }
+            }
+        },
         "handler.GetArtifactResp": {
             "type": "object",
             "properties": {
@@ -3600,6 +3794,37 @@ const docTemplate = `{
                 },
                 "space_digested_count": {
                     "type": "integer"
+                }
+            }
+        },
+        "httpclient.SandboxCommandOutput": {
+            "type": "object",
+            "properties": {
+                "exit_code": {
+                    "type": "integer"
+                },
+                "stderr": {
+                    "type": "string"
+                },
+                "stdout": {
+                    "type": "string"
+                }
+            }
+        },
+        "httpclient.SandboxRuntimeInfo": {
+            "type": "object",
+            "properties": {
+                "sandbox_created_at": {
+                    "type": "string"
+                },
+                "sandbox_expires_at": {
+                    "type": "string"
+                },
+                "sandbox_id": {
+                    "type": "string"
+                },
+                "sandbox_status": {
+                    "type": "string"
                 }
             }
         },

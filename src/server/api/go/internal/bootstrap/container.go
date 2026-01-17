@@ -288,5 +288,8 @@ func BuildContainer() *do.Injector {
 	do.Provide(inj, func(i *do.Injector) (*handler.UserHandler, error) {
 		return handler.NewUserHandler(do.MustInvoke[service.UserService](i)), nil
 	})
+	do.Provide(inj, func(i *do.Injector) (*handler.SandboxHandler, error) {
+		return handler.NewSandboxHandler(do.MustInvoke[*httpclient.CoreClient](i)), nil
+	})
 	return inj
 }
