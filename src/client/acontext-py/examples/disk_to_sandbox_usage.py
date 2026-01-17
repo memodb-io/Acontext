@@ -142,6 +142,12 @@ def main() -> None:
             if artifact_info.content:
                 print(f"Artifact content: {artifact_info.content.raw}")
 
+            artifact_infos = client.disks.artifacts.grep_artifacts(
+                disk_id=disk_id, query="Generated in"
+            )
+
+            print("Grep result", artifact_infos)
+
             print("\n✓ Disk-sandbox file transfer example completed successfully!")
 
         finally:

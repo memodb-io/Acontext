@@ -15,8 +15,8 @@ describe('SandboxesAPI Mock Tests', () => {
       apiKey: 'test-api-key',
       baseUrl: 'http://localhost:8029/api/v1',
     });
-    // Replace the requester's request method with our mock
-    (client as any).requester.request = mockRequest;
+    // Replace the client's request method with our mock
+    (client as any).request = mockRequest;
     mockRequest.mockReset();
   });
 
