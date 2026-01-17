@@ -33,9 +33,9 @@ type ExecCommandReq struct {
 //	@Accept			json
 //	@Produce		json
 //	@Security		BearerAuth
-//	@Success		200	{object}	serializer.Response{data=httpclient.SandboxRuntimeInfo}
+//	@Success		201	{object}	serializer.Response{data=httpclient.SandboxRuntimeInfo}
 //	@Router			/sandbox [post]
-//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a new sandbox\nsandbox = client.sandboxes.create()\nprint(f\"Sandbox ID: {sandbox.sandbox_id}\")\nprint(f\"Status: {sandbox.sandbox_status}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a new sandbox\nconst sandbox = await client.sandboxes.create();\nconsole.log(`Sandbox ID: ${sandbox.sandboxId}`);\nconsole.log(`Status: ${sandbox.sandboxStatus}`);\n","label":"JavaScript"}]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a new sandbox\nsandbox = client.sandboxes.create()\nprint(f\"Sandbox ID: {sandbox.sandbox_id}\")\nprint(f\"Status: {sandbox.sandbox_status}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a new sandbox\nconst sandbox = await client.sandboxes.create();\nconsole.log(`Sandbox ID: ${sandbox.sandbox_id}`);\nconsole.log(`Status: ${sandbox.sandbox_status}`);\n","label":"JavaScript"}]
 func (h *SandboxHandler) CreateSandbox(c *gin.Context) {
 	// Get project from context
 	project, ok := c.MustGet("project").(*model.Project)
@@ -51,7 +51,7 @@ func (h *SandboxHandler) CreateSandbox(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, serializer.Response{Data: result})
+	c.JSON(http.StatusCreated, serializer.Response{Data: result})
 }
 
 // ExecCommand godoc
@@ -66,7 +66,7 @@ func (h *SandboxHandler) CreateSandbox(c *gin.Context) {
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=httpclient.SandboxCommandOutput}
 //	@Router			/sandbox/{sandbox_id}/exec [post]
-//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Execute a command in the sandbox\nresult = client.sandboxes.exec_command(\n    sandbox_id='sandbox-uuid',\n    command='ls -la'\n)\nprint(f\"stdout: {result.stdout}\")\nprint(f\"stderr: {result.stderr}\")\nprint(f\"exit_code: {result.exit_code}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Execute a command in the sandbox\nconst result = await client.sandboxes.execCommand({\n  sandboxId: 'sandbox-uuid',\n  command: 'ls -la'\n});\nconsole.log(`stdout: ${result.stdout}`);\nconsole.log(`stderr: ${result.stderr}`);\nconsole.log(`exitCode: ${result.exitCode}`);\n","label":"JavaScript"}]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Execute a command in the sandbox\nresult = client.sandboxes.exec_command(\n    sandbox_id='sandbox-uuid',\n    command='ls -la'\n)\nprint(f\"stdout: {result.stdout}\")\nprint(f\"stderr: {result.stderr}\")\nprint(f\"exit_code: {result.exit_code}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Execute a command in the sandbox\nconst result = await client.sandboxes.execCommand({\n  sandboxId: 'sandbox-uuid',\n  command: 'ls -la'\n});\nconsole.log(`stdout: ${result.stdout}`);\nconsole.log(`stderr: ${result.stderr}`);\nconsole.log(`exit_code: ${result.exit_code}`);\n","label":"JavaScript"}]
 func (h *SandboxHandler) ExecCommand(c *gin.Context) {
 	// Get project from context
 	project, ok := c.MustGet("project").(*model.Project)

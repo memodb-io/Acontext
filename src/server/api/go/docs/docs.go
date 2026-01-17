@@ -1209,8 +1209,8 @@ const docTemplate = `{
                 ],
                 "summary": "Create a new sandbox",
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "201": {
+                        "description": "Created",
                         "schema": {
                             "allOf": [
                                 {
@@ -1237,7 +1237,7 @@ const docTemplate = `{
                     {
                         "label": "JavaScript",
                         "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a new sandbox\nconst sandbox = await client.sandboxes.create();\nconsole.log(` + "`" + `Sandbox ID: ${sandbox.sandboxId}` + "`" + `);\nconsole.log(` + "`" + `Status: ${sandbox.sandboxStatus}` + "`" + `);\n"
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a new sandbox\nconst sandbox = await client.sandboxes.create();\nconsole.log(` + "`" + `Sandbox ID: ${sandbox.sandbox_id}` + "`" + `);\nconsole.log(` + "`" + `Status: ${sandbox.sandbox_status}` + "`" + `);\n"
                     }
                 ]
             }
@@ -1368,7 +1368,7 @@ const docTemplate = `{
                     {
                         "label": "JavaScript",
                         "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Execute a command in the sandbox\nconst result = await client.sandboxes.execCommand({\n  sandboxId: 'sandbox-uuid',\n  command: 'ls -la'\n});\nconsole.log(` + "`" + `stdout: ${result.stdout}` + "`" + `);\nconsole.log(` + "`" + `stderr: ${result.stderr}` + "`" + `);\nconsole.log(` + "`" + `exitCode: ${result.exitCode}` + "`" + `);\n"
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Execute a command in the sandbox\nconst result = await client.sandboxes.execCommand({\n  sandboxId: 'sandbox-uuid',\n  command: 'ls -la'\n});\nconsole.log(` + "`" + `stdout: ${result.stdout}` + "`" + `);\nconsole.log(` + "`" + `stderr: ${result.stderr}` + "`" + `);\nconsole.log(` + "`" + `exit_code: ${result.exit_code}` + "`" + `);\n"
                     }
                 ]
             }

@@ -1765,8 +1765,8 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Created
           schema:
             allOf:
             - $ref: '#/definitions/serializer.Response'
@@ -1800,8 +1800,8 @@ paths:
 
           // Create a new sandbox
           const sandbox = await client.sandboxes.create();
-          console.log(`Sandbox ID: ${sandbox.sandboxId}`);
-          console.log(`Status: ${sandbox.sandboxStatus}`);
+          console.log(`Sandbox ID: ${sandbox.sandbox_id}`);
+          console.log(`Status: ${sandbox.sandbox_status}`);
   /sandbox/{sandbox_id}:
     delete:
       consumes:
@@ -1915,7 +1915,7 @@ paths:
           });
           console.log(`stdout: ${result.stdout}`);
           console.log(`stderr: ${result.stderr}`);
-          console.log(`exitCode: ${result.exitCode}`);
+          console.log(`exit_code: ${result.exit_code}`);
   /session:
     get:
       consumes:
