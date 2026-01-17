@@ -271,6 +271,8 @@ func BuildContainer() *do.Injector {
 		return handler.NewArtifactHandler(
 			do.MustInvoke[service.ArtifactService](i),
 			do.MustInvoke[*config.Config](i),
+			do.MustInvoke[*httpclient.CoreClient](i),
+			do.MustInvoke[*blob.S3Deps](i),
 		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.TaskHandler, error) {
@@ -287,6 +289,9 @@ func BuildContainer() *do.Injector {
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.UserHandler, error) {
 		return handler.NewUserHandler(do.MustInvoke[service.UserService](i)), nil
+	})
+	do.Provide(inj, func(i *do.Injector) (*handler.SandboxHandler, error) {
+		return handler.NewSandboxHandler(do.MustInvoke[*httpclient.CoreClient](i)), nil
 	})
 	return inj
 }

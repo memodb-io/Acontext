@@ -29,6 +29,7 @@ type RouterDeps struct {
 	ToolHandler        *handler.ToolHandler
 	AgentSkillsHandler *handler.AgentSkillsHandler
 	UserHandler        *handler.UserHandler
+	SandboxHandler     *handler.SandboxHandler
 }
 
 func NewRouter(d RouterDeps) *gin.Engine {
@@ -136,6 +137,8 @@ func NewRouter(d RouterDeps) *gin.Engine {
 
 				artifact.GET("/grep", d.ArtifactHandler.GrepArtifacts)
 				artifact.GET("/glob", d.ArtifactHandler.GlobArtifacts)
+				artifact.POST("/download_to_sandbox", d.ArtifactHandler.DownloadToSandbox)
+				artifact.POST("/upload_from_sandbox", d.ArtifactHandler.UploadFromSandbox)
 			}
 		}
 
@@ -159,6 +162,13 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			user.GET("/ls", d.UserHandler.ListUsers)
 			user.DELETE("/:identifier", d.UserHandler.DeleteUser)
 			user.GET("/:identifier/resources", d.UserHandler.GetUserResources)
+		}
+
+		sandbox := v1.Group("/sandbox")
+		{
+			sandbox.POST("", d.SandboxHandler.CreateSandbox)
+			sandbox.POST("/:sandbox_id/exec", d.SandboxHandler.ExecCommand)
+			sandbox.DELETE("/:sandbox_id", d.SandboxHandler.KillSandbox)
 		}
 	}
 	return r

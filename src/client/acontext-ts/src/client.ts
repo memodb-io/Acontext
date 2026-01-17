@@ -5,6 +5,7 @@
 import { APIError, TransportError } from './errors';
 import { BlocksAPI } from './resources/blocks';
 import { DisksAPI } from './resources/disks';
+import { SandboxesAPI } from './resources/sandboxes';
 import { SessionsAPI } from './resources/sessions';
 import { SpacesAPI } from './resources/spaces';
 import { ToolsAPI } from './resources/tools';
@@ -34,6 +35,7 @@ export class AcontextClient implements RequesterProtocol {
   public tools: ToolsAPI;
   public skills: SkillsAPI;
   public users: UsersAPI;
+  public sandboxes: SandboxesAPI;
 
   constructor(options: AcontextClientOptions = {}) {
     // Priority: explicit parameters > environment variables > defaults
@@ -75,6 +77,7 @@ export class AcontextClient implements RequesterProtocol {
     this.tools = new ToolsAPI(this);
     this.skills = new SkillsAPI(this);
     this.users = new UsersAPI(this);
+    this.sandboxes = new SandboxesAPI(this);
   }
 
   get baseUrl(): string {

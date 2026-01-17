@@ -71,6 +71,38 @@ definitions:
         example: alice@acontext.io
         type: string
     type: object
+  handler.DownloadToSandboxReq:
+    properties:
+      file_path:
+        description: File path (directory) of the artifact
+        type: string
+      filename:
+        description: Filename of the artifact
+        type: string
+      sandbox_id:
+        description: Target sandbox ID
+        type: string
+      sandbox_path:
+        description: Destination directory in the sandbox
+        type: string
+    required:
+    - file_path
+    - filename
+    - sandbox_id
+    - sandbox_path
+    type: object
+  handler.DownloadToSandboxResp:
+    properties:
+      success:
+        type: boolean
+    type: object
+  handler.ExecCommandReq:
+    properties:
+      command:
+        type: string
+    required:
+    - command
+    type: object
   handler.GetArtifactResp:
     properties:
       artifact:
@@ -181,6 +213,26 @@ definitions:
     required:
     - configs
     type: object
+  handler.UploadFromSandboxReq:
+    properties:
+      file_path:
+        description: Destination directory path on the disk
+        type: string
+      sandbox_filename:
+        description: Filename in the sandbox
+        type: string
+      sandbox_id:
+        description: Source sandbox ID
+        type: string
+      sandbox_path:
+        description: Source directory in the sandbox
+        type: string
+    required:
+    - file_path
+    - sandbox_filename
+    - sandbox_id
+    - sandbox_path
+    type: object
   httpclient.FlagResponse:
     properties:
       errmsg:
@@ -199,6 +251,26 @@ definitions:
         type: integer
       space_digested_count:
         type: integer
+    type: object
+  httpclient.SandboxCommandOutput:
+    properties:
+      exit_code:
+        type: integer
+      stderr:
+        type: string
+      stdout:
+        type: string
+    type: object
+  httpclient.SandboxRuntimeInfo:
+    properties:
+      sandbox_created_at:
+        type: string
+      sandbox_expires_at:
+        type: string
+      sandbox_id:
+        type: string
+      sandbox_status:
+        type: string
     type: object
   httpclient.SearchResultBlockItem:
     properties:
@@ -1401,6 +1473,74 @@ paths:
             meta: { category: 'updated', reviewed: true, version: 2 }
           });
           console.log(`Updated artifact: ${artifact.artifact.id}`);
+  /disk/{disk_id}/artifact/download_to_sandbox:
+    post:
+      consumes:
+      - application/json
+      description: Download an artifact from disk storage to a sandbox environment
+      parameters:
+      - description: Disk ID
+        example: 123e4567-e89b-12d3-a456-426614174000
+        format: uuid
+        in: path
+        name: disk_id
+        required: true
+        type: string
+      - description: Download to sandbox request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.DownloadToSandboxReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.DownloadToSandboxResp'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Download artifact to sandbox
+      tags:
+      - artifact
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Download artifact to sandbox
+          result = client.disks.artifacts.download_to_sandbox(
+              disk_id='disk-uuid',
+              file_path='/documents/',
+              filename='report.pdf',
+              sandbox_id='sandbox-uuid',
+              sandbox_path='/home/user/'
+          )
+          print(f"Success: {result.success}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Download artifact to sandbox
+          const result = await client.disks.artifacts.downloadToSandbox('disk-uuid', {
+            filePath: '/documents/',
+            filename: 'report.pdf',
+            sandboxId: 'sandbox-uuid',
+            sandboxPath: '/home/user/'
+          });
+          console.log(`Success: ${result.success}`);
   /disk/{disk_id}/artifact/glob:
     get:
       consumes:
@@ -1548,6 +1688,234 @@ paths:
             console.log(`  - ${artifact.path}${artifact.filename}`);
           }
           console.log(`Subdirectories: ${result.directories.join(', ')}`);
+  /disk/{disk_id}/artifact/upload_from_sandbox:
+    post:
+      consumes:
+      - application/json
+      description: Upload a file from a sandbox environment to disk storage as an
+        artifact
+      parameters:
+      - description: Disk ID
+        example: 123e4567-e89b-12d3-a456-426614174000
+        format: uuid
+        in: path
+        name: disk_id
+        required: true
+        type: string
+      - description: Upload from sandbox request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.UploadFromSandboxReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.Artifact'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Upload file from sandbox to disk
+      tags:
+      - artifact
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Upload file from sandbox to disk
+          artifact = client.disks.artifacts.upload_from_sandbox(
+              disk_id='disk-uuid',
+              sandbox_id='sandbox-uuid',
+              sandbox_path='/home/user/',
+              sandbox_filename='output.txt',
+              file_path='/results/'
+          )
+          print(f"Created: {artifact.path}{artifact.filename}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Upload file from sandbox to disk
+          const artifact = await client.disks.artifacts.uploadFromSandbox('disk-uuid', {
+            sandboxId: 'sandbox-uuid',
+            sandboxPath: '/home/user/',
+            sandboxFilename: 'output.txt',
+            filePath: '/results/'
+          });
+          console.log(`Created: ${artifact.path}${artifact.filename}`);
+  /sandbox:
+    post:
+      consumes:
+      - application/json
+      description: Create and start a new sandbox for the project
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/httpclient.SandboxRuntimeInfo'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Create a new sandbox
+      tags:
+      - sandbox
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Create a new sandbox
+          sandbox = client.sandboxes.create()
+          print(f"Sandbox ID: {sandbox.sandbox_id}")
+          print(f"Status: {sandbox.sandbox_status}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Create a new sandbox
+          const sandbox = await client.sandboxes.create();
+          console.log(`Sandbox ID: ${sandbox.sandbox_id}`);
+          console.log(`Status: ${sandbox.sandbox_status}`);
+  /sandbox/{sandbox_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Kill a running sandbox
+      parameters:
+      - description: Sandbox ID
+        in: path
+        name: sandbox_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/httpclient.FlagResponse'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Kill a sandbox
+      tags:
+      - sandbox
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Kill a sandbox
+          result = client.sandboxes.kill(sandbox_id='sandbox-uuid')
+          print(f"Status: {result.status}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Kill a sandbox
+          const result = await client.sandboxes.kill('sandbox-uuid');
+          console.log(`Status: ${result.status}`);
+  /sandbox/{sandbox_id}/exec:
+    post:
+      consumes:
+      - application/json
+      description: Execute a shell command in the specified sandbox
+      parameters:
+      - description: Sandbox ID
+        in: path
+        name: sandbox_id
+        required: true
+        type: string
+      - description: Command to execute
+        in: body
+        name: payload
+        required: true
+        schema:
+          $ref: '#/definitions/handler.ExecCommandReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/httpclient.SandboxCommandOutput'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Execute command in sandbox
+      tags:
+      - sandbox
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Execute a command in the sandbox
+          result = client.sandboxes.exec_command(
+              sandbox_id='sandbox-uuid',
+              command='ls -la'
+          )
+          print(f"stdout: {result.stdout}")
+          print(f"stderr: {result.stderr}")
+          print(f"exit_code: {result.exit_code}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Execute a command in the sandbox
+          const result = await client.sandboxes.execCommand({
+            sandboxId: 'sandbox-uuid',
+            command: 'ls -la'
+          });
+          console.log(`stdout: ${result.stdout}`);
+          console.log(`stderr: ${result.stderr}`);
+          console.log(`exit_code: ${result.exit_code}`);
   /session:
     get:
       consumes:

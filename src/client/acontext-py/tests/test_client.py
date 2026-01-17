@@ -1358,3 +1358,122 @@ def test_users_delete_url_encodes_identifier(
     assert method == "DELETE"
     # Verify the identifier is URL encoded
     assert path == "/user/user%2Fwith%2Fspecial%40chars"
+
+
+# ===== Sandbox API Tests =====
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sandboxes_create(mock_request, client: AcontextClient) -> None:
+    mock_request.return_value = {
+        "sandbox_id": "sandbox-123",
+        "sandbox_status": "running",
+        "sandbox_created_at": "2024-01-01T00:00:00Z",
+        "sandbox_expires_at": "2024-01-01T01:00:00Z",
+    }
+
+    result = client.sandboxes.create()
+
+    mock_request.assert_called_once()
+    args, _ = mock_request.call_args
+    method, path = args
+    assert method == "POST"
+    assert path == "/sandbox"
+    # Verify it returns a Pydantic model with correct fields
+    assert hasattr(result, "sandbox_id")
+    assert hasattr(result, "sandbox_status")
+    assert hasattr(result, "sandbox_created_at")
+    assert hasattr(result, "sandbox_expires_at")
+    assert result.sandbox_id == "sandbox-123"
+    assert result.sandbox_status == "running"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sandboxes_exec_command(mock_request, client: AcontextClient) -> None:
+    mock_request.return_value = {
+        "stdout": "Hello, World!",
+        "stderr": "",
+        "exit_code": 0,
+    }
+
+    result = client.sandboxes.exec_command(
+        sandbox_id="sandbox-123",
+        command="echo 'Hello, World!'",
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "POST"
+    assert path == "/sandbox/sandbox-123/exec"
+    assert kwargs["json_data"] == {"command": "echo 'Hello, World!'"}
+    # Verify it returns a Pydantic model with correct fields
+    assert hasattr(result, "stdout")
+    assert hasattr(result, "stderr")
+    assert hasattr(result, "exit_code")
+    assert result.stdout == "Hello, World!"
+    assert result.stderr == ""
+    assert result.exit_code == 0
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sandboxes_exec_command_with_error(mock_request, client: AcontextClient) -> None:
+    mock_request.return_value = {
+        "stdout": "",
+        "stderr": "command not found: invalid_cmd",
+        "exit_code": 127,
+    }
+
+    result = client.sandboxes.exec_command(
+        sandbox_id="sandbox-123",
+        command="invalid_cmd",
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "POST"
+    assert path == "/sandbox/sandbox-123/exec"
+    assert kwargs["json_data"] == {"command": "invalid_cmd"}
+    assert result.stdout == ""
+    assert result.stderr == "command not found: invalid_cmd"
+    assert result.exit_code == 127
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sandboxes_kill(mock_request, client: AcontextClient) -> None:
+    mock_request.return_value = {
+        "status": 0,
+        "errmsg": "",
+    }
+
+    result = client.sandboxes.kill("sandbox-123")
+
+    mock_request.assert_called_once()
+    args, _ = mock_request.call_args
+    method, path = args
+    assert method == "DELETE"
+    assert path == "/sandbox/sandbox-123"
+    # Verify it returns a FlagResponse
+    assert hasattr(result, "status")
+    assert hasattr(result, "errmsg")
+    assert result.status == 0
+    assert result.errmsg == ""
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sandboxes_kill_with_error(mock_request, client: AcontextClient) -> None:
+    mock_request.return_value = {
+        "status": 1,
+        "errmsg": "sandbox not found",
+    }
+
+    result = client.sandboxes.kill("nonexistent-sandbox")
+
+    mock_request.assert_called_once()
+    args, _ = mock_request.call_args
+    method, path = args
+    assert method == "DELETE"
+    assert path == "/sandbox/nonexistent-sandbox"
+    assert result.status == 1
+    assert result.errmsg == "sandbox not found"

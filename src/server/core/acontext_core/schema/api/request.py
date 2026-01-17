@@ -30,11 +30,13 @@ class SandboxExecRequest(BaseModel):
 
 class SandboxDownloadRequest(BaseModel):
     from_sandbox_file: str = Field(..., description="Path to the file in the sandbox")
-    download_to_s3_path: str = Field(..., description="S3 path to upload the file to")
+    download_to_s3_key: str = Field(
+        ..., description="The full S3 key (path) to upload the file to"
+    )
 
 
 class SandboxUploadRequest(BaseModel):
-    from_s3_file: str = Field(..., description="S3 path of the file to download")
-    upload_to_sandbox_path: str = Field(
-        ..., description="Parent directory in the sandbox to upload the file to"
+    from_s3_key: str = Field(..., description="The S3 key of the file to download")
+    upload_to_sandbox_file: str = Field(
+        ..., description="The full path in the sandbox to upload the file to"
     )

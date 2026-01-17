@@ -298,6 +298,34 @@ func (u *S3Deps) UploadFormFile(ctx context.Context, keyPrefix string, fh *multi
 	)
 }
 
+// UploadBytes uploads raw bytes to S3 with automatic deduplication
+// Similar to UploadFormFile but accepts raw bytes instead of multipart.FileHeader
+func (u *S3Deps) UploadBytes(ctx context.Context, keyPrefix string, filename string, content []byte) (*model.Asset, error) {
+	// Calculate SHA256 of the content
+	h := sha256.New()
+	h.Write(content)
+	sumHex := hex.EncodeToString(h.Sum(nil))
+
+	ext := strings.ToLower(filepath.Ext(filename))
+
+	// Detect MIME type from content, with extension-based refinement for text files
+	contentType := mime.DetectMimeType(content, filename)
+
+	return u.uploadWithDedup(
+		ctx,
+		keyPrefix,
+		sumHex,
+		contentType,
+		ext,
+		int64(len(content)),
+		bytes.NewReader(content),
+		map[string]string{
+			"sha256": sumHex,
+			"name":   filename,
+		},
+	)
+}
+
 // UploadJSON uploads JSON data to S3 and returns metadata
 func (u *S3Deps) UploadJSON(ctx context.Context, keyPrefix string, data interface{}) (*model.Asset, error) {
 	// Serialize data to JSON

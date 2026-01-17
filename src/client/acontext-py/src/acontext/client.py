@@ -14,6 +14,7 @@ from .messages import MessagePart as MessagePart
 from .uploads import FileUpload as FileUpload
 from .resources.disks import DisksAPI as DisksAPI
 from .resources.blocks import BlocksAPI as BlocksAPI
+from .resources.sandboxes import SandboxesAPI as SandboxesAPI
 from .resources.sessions import SessionsAPI as SessionsAPI
 from .resources.spaces import SpacesAPI as SpacesAPI
 from .resources.tools import ToolsAPI as ToolsAPI
@@ -113,6 +114,7 @@ class AcontextClient:
         self.tools = ToolsAPI(self)
         self.skills = SkillsAPI(self)
         self.users = UsersAPI(self)
+        self.sandboxes = SandboxesAPI(self)
 
     @property
     def base_url(self) -> str:

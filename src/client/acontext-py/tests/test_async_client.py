@@ -295,7 +295,9 @@ async def test_async_store_message_accepts_acontext_message(
     }
 
     blob = build_acontext_message(role="assistant", parts=["hi"])
-    await async_client.sessions.store_message("session-id", blob=blob, format="acontext")
+    await async_client.sessions.store_message(
+        "session-id", blob=blob, format="acontext"
+    )
 
     mock_request.assert_called_once()
     _, kwargs = mock_request.call_args
@@ -379,7 +381,12 @@ async def test_async_store_message_rejects_file_field_for_non_acontext_format(
 async def test_async_sessions_get_messages_forwards_format(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
-    mock_request.return_value = {"items": [], "ids": [], "has_more": False, "this_time_tokens": 0}
+    mock_request.return_value = {
+        "items": [],
+        "ids": [],
+        "has_more": False,
+        "this_time_tokens": 0,
+    }
 
     result = await async_client.sessions.get_messages(
         "session-id", format="acontext", time_desc=True
@@ -1108,14 +1115,20 @@ async def test_async_users_list_with_filters(
         "has_more": True,
     }
 
-    result = await async_client.users.list(limit=10, cursor="cursor-456", time_desc=True)
+    result = await async_client.users.list(
+        limit=10, cursor="cursor-456", time_desc=True
+    )
 
     mock_request.assert_called_once()
     args, kwargs = mock_request.call_args
     method, path = args
     assert method == "GET"
     assert path == "/user/ls"
-    assert kwargs["params"] == {"limit": 10, "cursor": "cursor-456", "time_desc": "true"}
+    assert kwargs["params"] == {
+        "limit": 10,
+        "cursor": "cursor-456",
+        "time_desc": "true",
+    }
     # Verify it returns a Pydantic model
     assert hasattr(result, "items")
     assert hasattr(result, "has_more")
@@ -1169,3 +1182,137 @@ async def test_async_users_delete(
     method, path = args
     assert method == "DELETE"
     assert path == "/user/alice%40acontext.io"
+
+
+# ===== Sandbox API Tests =====
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_sandboxes_create(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    mock_request.return_value = {
+        "sandbox_id": "sandbox-123",
+        "sandbox_status": "running",
+        "sandbox_created_at": "2024-01-01T00:00:00Z",
+        "sandbox_expires_at": "2024-01-01T01:00:00Z",
+    }
+
+    result = await async_client.sandboxes.create()
+
+    mock_request.assert_called_once()
+    args, _ = mock_request.call_args
+    method, path = args
+    assert method == "POST"
+    assert path == "/sandbox"
+    # Verify it returns a Pydantic model with correct fields
+    assert hasattr(result, "sandbox_id")
+    assert hasattr(result, "sandbox_status")
+    assert hasattr(result, "sandbox_created_at")
+    assert hasattr(result, "sandbox_expires_at")
+    assert result.sandbox_id == "sandbox-123"
+    assert result.sandbox_status == "running"
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_sandboxes_exec_command(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    mock_request.return_value = {
+        "stdout": "Hello, World!",
+        "stderr": "",
+        "exit_code": 0,
+    }
+
+    result = await async_client.sandboxes.exec_command(
+        sandbox_id="sandbox-123",
+        command="echo 'Hello, World!'",
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "POST"
+    assert path == "/sandbox/sandbox-123/exec"
+    assert kwargs["json_data"] == {"command": "echo 'Hello, World!'"}
+    # Verify it returns a Pydantic model with correct fields
+    assert hasattr(result, "stdout")
+    assert hasattr(result, "stderr")
+    assert hasattr(result, "exit_code")
+    assert result.stdout == "Hello, World!"
+    assert result.stderr == ""
+    assert result.exit_code == 0
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_sandboxes_exec_command_with_error(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    mock_request.return_value = {
+        "stdout": "",
+        "stderr": "command not found: invalid_cmd",
+        "exit_code": 127,
+    }
+
+    result = await async_client.sandboxes.exec_command(
+        sandbox_id="sandbox-123",
+        command="invalid_cmd",
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "POST"
+    assert path == "/sandbox/sandbox-123/exec"
+    assert kwargs["json_data"] == {"command": "invalid_cmd"}
+    assert result.stdout == ""
+    assert result.stderr == "command not found: invalid_cmd"
+    assert result.exit_code == 127
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_sandboxes_kill(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    mock_request.return_value = {
+        "status": 0,
+        "errmsg": "",
+    }
+
+    result = await async_client.sandboxes.kill("sandbox-123")
+
+    mock_request.assert_called_once()
+    args, _ = mock_request.call_args
+    method, path = args
+    assert method == "DELETE"
+    assert path == "/sandbox/sandbox-123"
+    # Verify it returns a FlagResponse
+    assert hasattr(result, "status")
+    assert hasattr(result, "errmsg")
+    assert result.status == 0
+    assert result.errmsg == ""
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_sandboxes_kill_with_error(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    mock_request.return_value = {
+        "status": 1,
+        "errmsg": "sandbox not found",
+    }
+
+    result = await async_client.sandboxes.kill("nonexistent-sandbox")
+
+    mock_request.assert_called_once()
+    args, _ = mock_request.call_args
+    method, path = args
+    assert method == "DELETE"
+    assert path == "/sandbox/nonexistent-sandbox"
+    assert result.status == 1
+    assert result.errmsg == "sandbox not found"

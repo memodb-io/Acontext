@@ -611,6 +611,59 @@
         "x-codegen-request-body-name" : "request"
       }
     },
+    "/disk/{disk_id}/artifact/download_to_sandbox" : {
+      "post" : {
+        "description" : "Download an artifact from disk storage to a sandbox environment",
+        "parameters" : [ {
+          "description" : "Disk ID",
+          "in" : "path",
+          "name" : "disk_id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/handler.DownloadToSandboxReq"
+              }
+            }
+          },
+          "description" : "Download to sandbox request",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_disk__disk_id__artifact_download_to_sandbox_post_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Download artifact to sandbox",
+        "tags" : [ "artifact" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Download artifact to sandbox\nresult = client.disks.artifacts.download_to_sandbox(\n    disk_id='disk-uuid',\n    file_path='/documents/',\n    filename='report.pdf',\n    sandbox_id='sandbox-uuid',\n    sandbox_path='/home/user/'\n)\nprint(f\"Success: {result.success}\")\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Download artifact to sandbox\nconst result = await client.disks.artifacts.downloadToSandbox('disk-uuid', {\n  filePath: '/documents/',\n  filename: 'report.pdf',\n  sandboxId: 'sandbox-uuid',\n  sandboxPath: '/home/user/'\n});\nconsole.log(`Success: ${result.success}`);\n"
+        } ],
+        "x-codegen-request-body-name" : "request"
+      }
+    },
     "/disk/{disk_id}/artifact/glob" : {
       "get" : {
         "description" : "Search through artifact file paths using glob patterns (*, ?, etc.)",
@@ -751,6 +804,182 @@
           "lang" : "javascript",
           "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List artifacts in a path\nconst result = await client.disks.listArtifacts('disk-uuid', {\n  path: '/documents/'\n});\nconsole.log(`Found ${result.artifacts.length} artifacts`);\nfor (const artifact of result.artifacts) {\n  console.log(`  - ${artifact.path}${artifact.filename}`);\n}\nconsole.log(`Subdirectories: ${result.directories.join(', ')}`);\n"
         } ]
+      }
+    },
+    "/disk/{disk_id}/artifact/upload_from_sandbox" : {
+      "post" : {
+        "description" : "Upload a file from a sandbox environment to disk storage as an artifact",
+        "parameters" : [ {
+          "description" : "Disk ID",
+          "in" : "path",
+          "name" : "disk_id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/handler.UploadFromSandboxReq"
+              }
+            }
+          },
+          "description" : "Upload from sandbox request",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_disk__disk_id__artifact_post_201_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Upload file from sandbox to disk",
+        "tags" : [ "artifact" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Upload file from sandbox to disk\nartifact = client.disks.artifacts.upload_from_sandbox(\n    disk_id='disk-uuid',\n    sandbox_id='sandbox-uuid',\n    sandbox_path='/home/user/',\n    sandbox_filename='output.txt',\n    file_path='/results/'\n)\nprint(f\"Created: {artifact.path}{artifact.filename}\")\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Upload file from sandbox to disk\nconst artifact = await client.disks.artifacts.uploadFromSandbox('disk-uuid', {\n  sandboxId: 'sandbox-uuid',\n  sandboxPath: '/home/user/',\n  sandboxFilename: 'output.txt',\n  filePath: '/results/'\n});\nconsole.log(`Created: ${artifact.path}${artifact.filename}`);\n"
+        } ],
+        "x-codegen-request-body-name" : "request"
+      }
+    },
+    "/sandbox" : {
+      "post" : {
+        "description" : "Create and start a new sandbox for the project",
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_sandbox_post_201_response"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Create a new sandbox",
+        "tags" : [ "sandbox" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a new sandbox\nsandbox = client.sandboxes.create()\nprint(f\"Sandbox ID: {sandbox.sandbox_id}\")\nprint(f\"Status: {sandbox.sandbox_status}\")\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a new sandbox\nconst sandbox = await client.sandboxes.create();\nconsole.log(`Sandbox ID: ${sandbox.sandbox_id}`);\nconsole.log(`Status: ${sandbox.sandbox_status}`);\n"
+        } ]
+      }
+    },
+    "/sandbox/{sandbox_id}" : {
+      "delete" : {
+        "description" : "Kill a running sandbox",
+        "parameters" : [ {
+          "description" : "Sandbox ID",
+          "in" : "path",
+          "name" : "sandbox_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_sandbox__sandbox_id__delete_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Kill a sandbox",
+        "tags" : [ "sandbox" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Kill a sandbox\nresult = client.sandboxes.kill(sandbox_id='sandbox-uuid')\nprint(f\"Status: {result.status}\")\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Kill a sandbox\nconst result = await client.sandboxes.kill('sandbox-uuid');\nconsole.log(`Status: ${result.status}`);\n"
+        } ]
+      }
+    },
+    "/sandbox/{sandbox_id}/exec" : {
+      "post" : {
+        "description" : "Execute a shell command in the specified sandbox",
+        "parameters" : [ {
+          "description" : "Sandbox ID",
+          "in" : "path",
+          "name" : "sandbox_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/handler.ExecCommandReq"
+              }
+            }
+          },
+          "description" : "Command to execute",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_sandbox__sandbox_id__exec_post_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Execute command in sandbox",
+        "tags" : [ "sandbox" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Execute a command in the sandbox\nresult = client.sandboxes.exec_command(\n    sandbox_id='sandbox-uuid',\n    command='ls -la'\n)\nprint(f\"stdout: {result.stdout}\")\nprint(f\"stderr: {result.stderr}\")\nprint(f\"exit_code: {result.exit_code}\")\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Execute a command in the sandbox\nconst result = await client.sandboxes.execCommand({\n  sandboxId: 'sandbox-uuid',\n  command: 'ls -la'\n});\nconsole.log(`stdout: ${result.stdout}`);\nconsole.log(`stderr: ${result.stderr}`);\nconsole.log(`exit_code: ${result.exit_code}`);\n"
+        } ],
+        "x-codegen-request-body-name" : "payload"
       }
     },
     "/session" : {
@@ -1073,7 +1302,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/_session__session_id__flush_post_200_response"
+                  "$ref" : "#/components/schemas/_sandbox__sandbox_id__delete_200_response"
                 }
               }
             },
@@ -2302,7 +2531,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/_session__session_id__flush_post_200_response"
+                  "$ref" : "#/components/schemas/_sandbox__sandbox_id__delete_200_response"
                 }
               }
             },
@@ -2561,6 +2790,45 @@
         },
         "type" : "object"
       },
+      "handler.DownloadToSandboxReq" : {
+        "properties" : {
+          "file_path" : {
+            "description" : "File path (directory) of the artifact",
+            "type" : "string"
+          },
+          "filename" : {
+            "description" : "Filename of the artifact",
+            "type" : "string"
+          },
+          "sandbox_id" : {
+            "description" : "Target sandbox ID",
+            "type" : "string"
+          },
+          "sandbox_path" : {
+            "description" : "Destination directory in the sandbox",
+            "type" : "string"
+          }
+        },
+        "required" : [ "file_path", "filename", "sandbox_id", "sandbox_path" ],
+        "type" : "object"
+      },
+      "handler.DownloadToSandboxResp" : {
+        "properties" : {
+          "success" : {
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
+      "handler.ExecCommandReq" : {
+        "properties" : {
+          "command" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "command" ],
+        "type" : "object"
+      },
       "handler.GetArtifactResp" : {
         "properties" : {
           "artifact" : {
@@ -2713,6 +2981,28 @@
         "required" : [ "configs" ],
         "type" : "object"
       },
+      "handler.UploadFromSandboxReq" : {
+        "properties" : {
+          "file_path" : {
+            "description" : "Destination directory path on the disk",
+            "type" : "string"
+          },
+          "sandbox_filename" : {
+            "description" : "Filename in the sandbox",
+            "type" : "string"
+          },
+          "sandbox_id" : {
+            "description" : "Source sandbox ID",
+            "type" : "string"
+          },
+          "sandbox_path" : {
+            "description" : "Source directory in the sandbox",
+            "type" : "string"
+          }
+        },
+        "required" : [ "file_path", "sandbox_filename", "sandbox_id", "sandbox_path" ],
+        "type" : "object"
+      },
       "httpclient.FlagResponse" : {
         "properties" : {
           "errmsg" : {
@@ -2739,6 +3029,37 @@
           },
           "space_digested_count" : {
             "type" : "integer"
+          }
+        },
+        "type" : "object"
+      },
+      "httpclient.SandboxCommandOutput" : {
+        "properties" : {
+          "exit_code" : {
+            "type" : "integer"
+          },
+          "stderr" : {
+            "type" : "string"
+          },
+          "stdout" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "httpclient.SandboxRuntimeInfo" : {
+        "properties" : {
+          "sandbox_created_at" : {
+            "type" : "string"
+          },
+          "sandbox_expires_at" : {
+            "type" : "string"
+          },
+          "sandbox_id" : {
+            "type" : "string"
+          },
+          "sandbox_status" : {
+            "type" : "string"
           }
         },
         "type" : "object"
@@ -3494,6 +3815,18 @@
           "type" : "object"
         } ]
       },
+      "_disk__disk_id__artifact_download_to_sandbox_post_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/handler.DownloadToSandboxResp"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "_disk__disk_id__artifact_glob_get_200_response" : {
         "allOf" : [ {
           "$ref" : "#/components/schemas/serializer.Response"
@@ -3521,6 +3854,42 @@
           "type" : "object"
         } ]
       },
+      "_sandbox_post_201_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/httpclient.SandboxRuntimeInfo"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_sandbox__sandbox_id__delete_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/httpclient.FlagResponse"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_sandbox__sandbox_id__exec_post_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/httpclient.SandboxCommandOutput"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
       "_session_get_200_response" : {
         "allOf" : [ {
           "$ref" : "#/components/schemas/serializer.Response"
@@ -3540,18 +3909,6 @@
           "properties" : {
             "data" : {
               "$ref" : "#/components/schemas/model.Session"
-            }
-          },
-          "type" : "object"
-        } ]
-      },
-      "_session__session_id__flush_post_200_response" : {
-        "allOf" : [ {
-          "$ref" : "#/components/schemas/serializer.Response"
-        }, {
-          "properties" : {
-            "data" : {
-              "$ref" : "#/components/schemas/httpclient.FlagResponse"
             }
           },
           "type" : "object"

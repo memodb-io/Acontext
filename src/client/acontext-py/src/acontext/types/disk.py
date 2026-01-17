@@ -43,8 +43,12 @@ class GetArtifactResp(BaseModel):
     """Response model for getting an artifact."""
 
     artifact: Artifact = Field(..., description="Artifact information")
-    public_url: str | None = Field(None, description="Presigned URL for downloading the artifact")
-    content: FileContent | None = Field(None, description="Parsed file content if available")
+    public_url: str | None = Field(
+        None, description="Presigned URL for downloading the artifact"
+    )
+    content: FileContent | None = Field(
+        None, description="Parsed file content if available"
+    )
 
 
 class ListArtifactsResp(BaseModel):
@@ -58,4 +62,3 @@ class UpdateArtifactResp(BaseModel):
     """Response model for updating an artifact."""
 
     artifact: Artifact = Field(..., description="Updated artifact information")
-
