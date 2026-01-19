@@ -13,7 +13,7 @@ if __name__ == "__main__":
         ctx, "read_file", {"filename": "test.txt", "file_path": "/try/"}
     )
     print(r)
-    r = DISK_TOOLS.execute_tool(ctx, "list_artifacts", {"file_path": "/"})
+    r = DISK_TOOLS.execute_tool(ctx, "list", {"file_path": "/"})
     print(r)
 
     r = DISK_TOOLS.execute_tool(

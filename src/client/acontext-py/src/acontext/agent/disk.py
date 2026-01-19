@@ -328,7 +328,7 @@ class ListTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "list_artifacts"
+        return "list"
 
     @property
     def description(self) -> str:
@@ -482,7 +482,7 @@ class GrepArtifactsTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "grep_artifacts"
+        return "grep"
 
     @property
     def description(self) -> str:
@@ -561,7 +561,7 @@ class GlobArtifactsTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "glob_artifacts"
+        return "glob"
 
     @property
     def description(self) -> str:

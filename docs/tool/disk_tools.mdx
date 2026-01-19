@@ -12,10 +12,10 @@ The SDK includes seven disk operation tools:
 - **`write_file`** - Create or overwrite text files
 - **`read_file`** - Read file contents with optional line offset and limit
 - **`replace_string`** - Find and replace text in files  
-- **`list_artifacts`** - List files and directories in a path
+- **`list`** - List files and directories in a path
 - **`download_file`** - Get a public URL to download a file
-- **`grep_artifacts`** - Search file contents using regex patterns
-- **`glob_artifacts`** - Find files by path pattern using glob syntax
+- **`grep`** - Search file contents using regex patterns
+- **`glob`** - Find files by path pattern using glob syntax
 
 <Tip>
 These tools handle path normalization automatically and support nested directory structures like `/notes/`, `/documents/2024/`, etc.
@@ -314,7 +314,7 @@ Replace all occurrences of a string in a file.
 
 **Returns:** Number of replacements made
 
-### list_artifacts
+### list
 
 List all files and directories at a specified path.
 
@@ -334,7 +334,7 @@ Get a public presigned URL to download a file.
 
 **Returns:** Presigned public URL for downloading the file
 
-### grep_artifacts
+### grep
 
 Search for text patterns within file contents using **regex**. Only searches text-based files (code, markdown, JSON, CSV, etc.).
 
@@ -356,7 +356,7 @@ For example, `"test*"` matches "tes", "test", "testt" — NOT "test-file". Use `
 Common patterns: `"TODO.*"` (TODO comments), `"#.*Summary"` (markdown headers), `"error"` (case-sensitive match), `"(?i)error"` (case-insensitive).
 </Tip>
 
-### glob_artifacts
+### glob
 
 Find files by **path pattern** using glob syntax. Use `*` for any characters, `?` for single character, `**` for recursive directories.
 
@@ -367,7 +367,7 @@ Find files by **path pattern** using glob syntax. Use `*` for any characters, `?
 **Returns:** List of files matching the glob pattern
 
 <Tip>
-Use `glob_artifacts` to find files by extension or location, perfect for discovering files without knowing exact names.
+Use `glob` to find files by extension or location, perfect for discovering files without knowing exact names.
 </Tip>
 
 <Warning>

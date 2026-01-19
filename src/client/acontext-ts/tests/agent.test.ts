@@ -16,7 +16,6 @@ import {
   SkillContext,
   GetSkillTool,
   GetSkillFileTool,
-  ListSkillsTool,
   createSkillContext,
   getSkillFromContext,
 } from '../src/agent';
@@ -102,7 +101,7 @@ describe('Agent Tools Unit Tests', () => {
 
     test('ListTool should have correct properties', () => {
       const tool = new ListTool();
-      expect(tool.name).toBe('list_artifacts');
+      expect(tool.name).toBe('list');
       expect(tool.description).toBeTruthy();
       expect(tool.requiredArguments).toContain('file_path');
     });
@@ -186,7 +185,7 @@ describe('Agent Tools Unit Tests', () => {
       expect(DISK_TOOLS.toolExists('write_file')).toBe(true);
       expect(DISK_TOOLS.toolExists('read_file')).toBe(true);
       expect(DISK_TOOLS.toolExists('replace_string')).toBe(true);
-      expect(DISK_TOOLS.toolExists('list_artifacts')).toBe(true);
+      expect(DISK_TOOLS.toolExists('list')).toBe(true);
     });
 
     test('should write file to disk', async () => {
@@ -340,7 +339,7 @@ describe('Agent Tools Unit Tests', () => {
         mockClient as unknown as import('../src/index').AcontextClient,
         diskId
       );
-      const result = await DISK_TOOLS.executeTool(ctx, 'list_artifacts', {
+      const result = await DISK_TOOLS.executeTool(ctx, 'list', {
         file_path: '/test/',
       });
 
@@ -393,7 +392,6 @@ describe('Agent Tools Unit Tests', () => {
 
   describe('Skill Tools', () => {
     test('SKILL_TOOLS should be pre-configured with all tools', () => {
-      expect(SKILL_TOOLS.toolExists('list_skills')).toBe(true);
       expect(SKILL_TOOLS.toolExists('get_skill')).toBe(true);
       expect(SKILL_TOOLS.toolExists('get_skill_file')).toBe(true);
     });
@@ -441,26 +439,9 @@ describe('Agent Tools Unit Tests', () => {
         SKILL_TOOLS.executeTool(ctx, 'get_skill', { skill_name: 'unknown-skill' })
       ).rejects.toThrow("Skill 'unknown-skill' not found in context");
     });
-
-    test('list_skills should return empty message when no skills', async () => {
-      const ctx: SkillContext = {
-        client: mockClient as unknown as import('../src/index').AcontextClient,
-        skills: new Map(),
-      };
-      const result = await SKILL_TOOLS.executeTool(ctx, 'list_skills', {});
-      expect(result).toBe('No skills available in the current context.');
-    });
   });
 
   describe('Skill Tool Schema Conversion', () => {
-    test('ListSkillsTool should have correct properties', () => {
-      const tool = new ListSkillsTool();
-      expect(tool.name).toBe('list_skills');
-      expect(tool.description).toBeTruthy();
-      expect(tool.requiredArguments).toEqual([]);
-      expect(tool.arguments).toEqual({});
-    });
-
     test('GetSkillTool should have correct properties', () => {
       const tool = new GetSkillTool();
       expect(tool.name).toBe('get_skill');
@@ -485,14 +466,14 @@ describe('Agent Tools Unit Tests', () => {
     test('SKILL_TOOLS should generate OpenAI tool schemas', () => {
       const schemas = SKILL_TOOLS.toOpenAIToolSchema();
       expect(Array.isArray(schemas)).toBe(true);
-      expect(schemas.length).toBe(3);
+      expect(schemas.length).toBe(2);
       expect(schemas.every((s) => s.type === 'function')).toBe(true);
     });
 
     test('SKILL_TOOLS should generate Anthropic tool schemas', () => {
       const schemas = SKILL_TOOLS.toAnthropicToolSchema();
       expect(Array.isArray(schemas)).toBe(true);
-      expect(schemas.length).toBe(3);
+      expect(schemas.length).toBe(2);
       expect(schemas.every((s) => s.name && s.input_schema)).toBe(true);
     });
   });

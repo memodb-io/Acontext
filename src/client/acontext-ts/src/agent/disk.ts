@@ -215,7 +215,7 @@ export class ReplaceStringTool extends AbstractBaseTool {
 }
 
 export class ListTool extends AbstractBaseTool {
-  readonly name = 'list_artifacts';
+  readonly name = 'list';
   readonly description = 'List all files and directories in a specified path on the disk.';
   readonly arguments = {
     file_path: {
@@ -292,7 +292,7 @@ export class DownloadFileTool extends AbstractBaseTool {
 }
 
 export class GrepArtifactsTool extends AbstractBaseTool {
-  readonly name = 'grep_artifacts';
+  readonly name = 'grep';
   readonly description =
     'Search for text patterns within file contents using regex. Only searches text-based files (code, markdown, json, csv, etc.). Use this to find specific code patterns, TODO comments, function definitions, or any text content.';
   readonly arguments = {
@@ -332,7 +332,7 @@ export class GrepArtifactsTool extends AbstractBaseTool {
 }
 
 export class GlobArtifactsTool extends AbstractBaseTool {
-  readonly name = 'glob_artifacts';
+  readonly name = 'glob';
   readonly description =
     'Find files by path pattern using glob syntax. Use * for any characters, ? for single character, ** for recursive directories. Perfect for finding files by extension or location.';
   readonly arguments = {
