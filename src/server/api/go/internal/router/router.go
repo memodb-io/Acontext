@@ -166,6 +166,7 @@ func NewRouter(d RouterDeps) *gin.Engine {
 
 		sandbox := v1.Group("/sandbox")
 		{
+			sandbox.GET("/logs", d.SandboxHandler.GetSandboxLogs)
 			sandbox.POST("", d.SandboxHandler.CreateSandbox)
 			sandbox.POST("/:sandbox_id/exec", d.SandboxHandler.ExecCommand)
 			sandbox.DELETE("/:sandbox_id", d.SandboxHandler.KillSandbox)

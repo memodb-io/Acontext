@@ -64,6 +64,7 @@ func BuildContainer() *do.Injector {
 				&model.ExperienceConfirmation{},
 				&model.Metric{},
 				&model.AgentSkills{},
+				&model.SandboxLog{},
 			)
 		}
 
@@ -191,6 +192,9 @@ func BuildContainer() *do.Injector {
 	do.Provide(inj, func(i *do.Injector) (repo.UserRepo, error) {
 		return repo.NewUserRepo(do.MustInvoke[*gorm.DB](i)), nil
 	})
+	do.Provide(inj, func(i *do.Injector) (repo.SandboxLogRepo, error) {
+		return repo.NewSandboxLogRepo(do.MustInvoke[*gorm.DB](i)), nil
+	})
 
 	// Service
 	do.Provide(inj, func(i *do.Injector) (service.SpaceService, error) {
@@ -238,6 +242,9 @@ func BuildContainer() *do.Injector {
 	})
 	do.Provide(inj, func(i *do.Injector) (service.UserService, error) {
 		return service.NewUserService(do.MustInvoke[repo.UserRepo](i)), nil
+	})
+	do.Provide(inj, func(i *do.Injector) (service.SandboxLogService, error) {
+		return service.NewSandboxLogService(do.MustInvoke[repo.SandboxLogRepo](i)), nil
 	})
 
 	// Handler
@@ -291,7 +298,10 @@ func BuildContainer() *do.Injector {
 		return handler.NewUserHandler(do.MustInvoke[service.UserService](i)), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.SandboxHandler, error) {
-		return handler.NewSandboxHandler(do.MustInvoke[*httpclient.CoreClient](i)), nil
+		return handler.NewSandboxHandler(
+			do.MustInvoke[*httpclient.CoreClient](i),
+			do.MustInvoke[service.SandboxLogService](i),
+		), nil
 	})
 	return inj
 }

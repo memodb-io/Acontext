@@ -9,15 +9,18 @@ import (
 	"github.com/memodb-io/Acontext/internal/infra/httpclient"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
+	"github.com/memodb-io/Acontext/internal/modules/service"
 )
 
 type SandboxHandler struct {
-	coreClient *httpclient.CoreClient
+	coreClient        *httpclient.CoreClient
+	sandboxLogService service.SandboxLogService
 }
 
-func NewSandboxHandler(coreClient *httpclient.CoreClient) *SandboxHandler {
+func NewSandboxHandler(coreClient *httpclient.CoreClient, sandboxLogService service.SandboxLogService) *SandboxHandler {
 	return &SandboxHandler{
-		coreClient: coreClient,
+		coreClient:        coreClient,
+		sandboxLogService: sandboxLogService,
 	}
 }
 
@@ -136,4 +139,52 @@ func (h *SandboxHandler) KillSandbox(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, serializer.Response{Data: result})
+}
+
+type GetSandboxLogsReq struct {
+	Limit    int    `form:"limit,default=20" json:"limit" binding:"required,min=1,max=200" example:"20"`
+	Cursor   string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
+	TimeDesc bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
+}
+
+// GetSandboxLogs godoc
+//
+//	@Summary		Get sandbox logs
+//	@Description	Get sandbox logs for the project with cursor-based pagination
+//	@Tags			sandbox
+//	@Accept			json
+//	@Produce		json
+//	@Param			limit		query	integer	false	"Limit of sandbox logs to return, default 20. Max 200."
+//	@Param			cursor		query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
+//	@Param			time_desc	query	boolean	false	"Order by created_at descending if true, ascending if false (default false)"	example(false)
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response{data=service.GetSandboxLogsOutput}
+//	@Router			/sandbox/logs [get]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get sandbox logs\nlogs = client.sandboxes.get_logs(limit=20, time_desc=True)\nfor log in logs.items:\n    print(f\"Log {log.id}: {log.backend_type}\")\n\n# If there are more logs, use the cursor for pagination\nif logs.has_more:\n    next_logs = client.sandboxes.get_logs(\n        limit=20,\n        cursor=logs.next_cursor\n    )\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get sandbox logs\nconst logs = await client.sandboxes.getLogs({ limit: 20, timeDesc: true });\nfor (const log of logs.items) {\n  console.log(`Log ${log.id}: ${log.backend_type}`);\n}\n\n// If there are more logs, use the cursor for pagination\nif (logs.hasMore) {\n  const nextLogs = await client.sandboxes.getLogs({\n    limit: 20,\n    cursor: logs.nextCursor\n  });\n}\n","label":"JavaScript"}]
+func (h *SandboxHandler) GetSandboxLogs(c *gin.Context) {
+	req := GetSandboxLogsReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	// Get project from context
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	out, err := h.sandboxLogService.GetSandboxLogs(c.Request.Context(), service.GetSandboxLogsInput{
+		ProjectID: project.ID,
+		Limit:     req.Limit,
+		Cursor:    req.Cursor,
+		TimeDesc:  req.TimeDesc,
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{Data: out})
 }
