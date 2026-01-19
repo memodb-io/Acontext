@@ -2,8 +2,10 @@
 Sandboxes endpoints.
 """
 
+from .._utils import build_params
 from ..client_types import RequesterProtocol
 from ..types.sandbox import (
+    GetSandboxLogsOutput,
     SandboxCommandOutput,
     SandboxRuntimeInfo,
 )
@@ -56,3 +58,24 @@ class SandboxesAPI:
         """
         data = self._requester.request("DELETE", f"/sandbox/{sandbox_id}")
         return FlagResponse.model_validate(data)
+
+    def get_logs(
+        self,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        time_desc: bool | None = None,
+    ) -> GetSandboxLogsOutput:
+        """Get sandbox logs for the project with cursor-based pagination.
+
+        Args:
+            limit: Maximum number of logs to return (default 20, max 200).
+            cursor: Cursor for pagination. Use the cursor from the previous response to get the next page.
+            time_desc: Order by created_at descending if True, ascending if False (default False).
+
+        Returns:
+            GetSandboxLogsOutput containing the list of sandbox logs and pagination information.
+        """
+        params = build_params(limit=limit, cursor=cursor, time_desc=time_desc)
+        data = self._requester.request("GET", "/sandbox/logs", params=params or None)
+        return GetSandboxLogsOutput.model_validate(data)
