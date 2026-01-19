@@ -170,6 +170,7 @@ describe('Agent Tools Unit Tests', () => {
       const ctx: DiskContext = {
         client: mockClient as unknown as import('../src/index').AcontextClient,
         diskId: 'dummy-id',
+        getContextPrompt: () => '',
       };
 
       await expect(
@@ -400,6 +401,7 @@ describe('Agent Tools Unit Tests', () => {
       const ctx: SkillContext = {
         client: mockClient as unknown as import('../src/index').AcontextClient,
         skills: new Map(),
+        getContextPrompt: () => '',
       };
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill', {})
@@ -410,6 +412,7 @@ describe('Agent Tools Unit Tests', () => {
       const ctx: SkillContext = {
         client: mockClient as unknown as import('../src/index').AcontextClient,
         skills: new Map(),
+        getContextPrompt: () => '',
       };
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill_file', {
@@ -422,6 +425,7 @@ describe('Agent Tools Unit Tests', () => {
       const ctx: SkillContext = {
         client: mockClient as unknown as import('../src/index').AcontextClient,
         skills: new Map(),
+        getContextPrompt: () => '',
       };
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill_file', {
@@ -434,6 +438,7 @@ describe('Agent Tools Unit Tests', () => {
       const ctx: SkillContext = {
         client: mockClient as unknown as import('../src/index').AcontextClient,
         skills: new Map(),
+        getContextPrompt: () => '',
       };
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill', { skill_name: 'unknown-skill' })
@@ -493,6 +498,7 @@ describe('Agent Tools Unit Tests', () => {
       const ctx: SkillContext = {
         client: mockClient as unknown as import('../src/index').AcontextClient,
         skills: new Map(),
+        getContextPrompt: () => '',
       };
       expect(() => getSkillFromContext(ctx, 'non-existent')).toThrow(
         "Skill 'non-existent' not found in context"
@@ -513,6 +519,7 @@ describe('Agent Tools Unit Tests', () => {
       const ctx: SkillContext = {
         client: mockClient as unknown as import('../src/index').AcontextClient,
         skills: new Map([['test-skill', skillData as import('../src/types').Skill]]),
+        getContextPrompt: () => '',
       };
       const skill = getSkillFromContext(ctx, 'test-skill');
       expect(skill).toBeDefined();
