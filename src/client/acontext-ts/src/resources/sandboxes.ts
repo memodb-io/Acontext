@@ -3,9 +3,12 @@
  */
 
 import { RequesterProtocol } from '../client-types';
+import { buildParams } from '../utils';
 import {
   FlagResponse,
   FlagResponseSchema,
+  GetSandboxLogsOutput,
+  GetSandboxLogsOutputSchema,
   SandboxCommandOutput,
   SandboxCommandOutputSchema,
   SandboxRuntimeInfo,
@@ -59,5 +62,30 @@ export class SandboxesAPI {
       `/sandbox/${sandboxId}`
     );
     return FlagResponseSchema.parse(data);
+  }
+
+  /**
+   * Get sandbox logs for the project with cursor-based pagination.
+   *
+   * @param options - Optional parameters for retrieving logs
+   * @param options.limit - Maximum number of logs to return (default 20, max 200)
+   * @param options.cursor - Cursor for pagination. Use the cursor from the previous response to get the next page
+   * @param options.timeDesc - Order by created_at descending if true, ascending if false (default false)
+   * @returns GetSandboxLogsOutput containing the list of sandbox logs and pagination information
+   */
+  async getLogs(options?: {
+    limit?: number | null;
+    cursor?: string | null;
+    timeDesc?: boolean | null;
+  }): Promise<GetSandboxLogsOutput> {
+    const params = buildParams({
+      limit: options?.limit ?? null,
+      cursor: options?.cursor ?? null,
+      time_desc: options?.timeDesc ?? null,
+    });
+    const data = await this.requester.request('GET', '/sandbox/logs', {
+      params: Object.keys(params).length > 0 ? params : undefined,
+    });
+    return GetSandboxLogsOutputSchema.parse(data);
   }
 }
