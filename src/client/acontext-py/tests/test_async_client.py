@@ -929,6 +929,31 @@ async def test_async_skills_get_file_hits_id_endpoint(
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
 @pytest.mark.asyncio
+async def test_async_skills_download_to_sandbox(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    mock_request.return_value = {
+        "success": True,
+        "dir_path": "/skills/my-skill",
+    }
+
+    result = await async_client.skills.download_to_sandbox(
+        skill_id="skill-1",
+        sandbox_id="sandbox-1",
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "POST"
+    assert path == "/agent_skills/skill-1/download_to_sandbox"
+    assert kwargs["json_data"]["sandbox_id"] == "sandbox-1"
+    assert result.success is True
+    assert result.dir_path == "/skills/my-skill"
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
 async def test_async_spaces_get_unconfirmed_experiences(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:

@@ -896,9 +896,7 @@ def test_skills_create_uses_multipart_payload(
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_skills_get_hits_id_endpoint(
-    mock_request, client: AcontextClient
-) -> None:
+def test_skills_get_hits_id_endpoint(mock_request, client: AcontextClient) -> None:
     mock_request.return_value = {
         "id": "skill-1",
         "name": "test-skill",
@@ -921,7 +919,9 @@ def test_skills_get_hits_id_endpoint(
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_skills_delete_hits_skills_endpoint(mock_request, client: AcontextClient) -> None:
+def test_skills_delete_hits_skills_endpoint(
+    mock_request, client: AcontextClient
+) -> None:
     mock_request.return_value = None
 
     client.skills.delete("skill-1")
@@ -934,9 +934,7 @@ def test_skills_delete_hits_skills_endpoint(mock_request, client: AcontextClient
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_skills_list_returns_catalog_dict(
-    mock_request, client: AcontextClient
-) -> None:
+def test_skills_list_returns_catalog_dict(mock_request, client: AcontextClient) -> None:
     mock_request.return_value = {
         "items": [
             {
@@ -984,9 +982,7 @@ def test_skills_list_returns_catalog_dict(
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_skills_get_file_hits_id_endpoint(
-    mock_request, client: AcontextClient
-) -> None:
+def test_skills_get_file_hits_id_endpoint(mock_request, client: AcontextClient) -> None:
     mock_request.return_value = {
         "path": "scripts/main.py",
         "mime": "text/x-python",
@@ -1010,6 +1006,28 @@ def test_skills_get_file_hits_id_endpoint(
     assert result.mime == "text/x-python"
     assert result.content is not None
     assert result.content.raw == "print('Hello, World!')"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_skills_download_to_sandbox(mock_request, client: AcontextClient) -> None:
+    mock_request.return_value = {
+        "success": True,
+        "dir_path": "/skills/my-skill",
+    }
+
+    result = client.skills.download_to_sandbox(
+        skill_id="skill-1",
+        sandbox_id="sandbox-1",
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "POST"
+    assert path == "/agent_skills/skill-1/download_to_sandbox"
+    assert kwargs["json_data"]["sandbox_id"] == "sandbox-1"
+    assert result.success is True
+    assert result.dir_path == "/skills/my-skill"
 
 
 @patch("acontext.client.AcontextClient.request")
@@ -1270,7 +1288,11 @@ def test_users_list_with_filters(mock_request, client: AcontextClient) -> None:
     method, path = args
     assert method == "GET"
     assert path == "/user/ls"
-    assert kwargs["params"] == {"limit": 10, "cursor": "cursor-456", "time_desc": "true"}
+    assert kwargs["params"] == {
+        "limit": 10,
+        "cursor": "cursor-456",
+        "time_desc": "true",
+    }
     # Verify it returns a Pydantic model
     assert hasattr(result, "items")
     assert hasattr(result, "has_more")
@@ -1417,7 +1439,9 @@ def test_sandboxes_exec_command(mock_request, client: AcontextClient) -> None:
 
 
 @patch("acontext.client.AcontextClient.request")
-def test_sandboxes_exec_command_with_error(mock_request, client: AcontextClient) -> None:
+def test_sandboxes_exec_command_with_error(
+    mock_request, client: AcontextClient
+) -> None:
     mock_request.return_value = {
         "stdout": "",
         "stderr": "command not found: invalid_cmd",

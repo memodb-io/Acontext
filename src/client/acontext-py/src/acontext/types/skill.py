@@ -63,3 +63,12 @@ class GetSkillFileResp(BaseModel):
         None,
         description="Parsed file content if available (present if file is parseable)",
     )
+
+
+class DownloadSkillToSandboxResp(BaseModel):
+    """Response model for downloading a skill to sandbox."""
+
+    success: bool = Field(..., description="Whether the download was successful")
+    dir_path: str = Field(
+        ..., description="Full path to the skill directory in sandbox"
+    )

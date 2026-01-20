@@ -155,6 +155,7 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			agentSkills.GET("/:id", d.AgentSkillsHandler.GetAgentSkill)
 			agentSkills.DELETE("/:id", d.AgentSkillsHandler.DeleteAgentSkill)
 			agentSkills.GET("/:id/file", d.AgentSkillsHandler.GetAgentSkillFile)
+			agentSkills.POST("/:id/download_to_sandbox", d.AgentSkillsHandler.DownloadToSandbox)
 		}
 
 		user := v1.Group("/user")
