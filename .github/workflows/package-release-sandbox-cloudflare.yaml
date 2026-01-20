@@ -1,0 +1,119 @@
+name: Package Sandbox Cloudflare Release
+
+on:
+  push:
+    tags:
+      - 'package-sandbox-cloudflare/v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/packages/sandbox-cloudflare
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+          cache-dependency-path: src/packages/sandbox-cloudflare/package.json
+
+      - name: Update npm
+        run: npm install -g npm@latest
+
+      - name: Extract version from package.json
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Package version: $VERSION"
+
+      - name: Extract version from tag
+        id: tag_version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG_NAME=${GITHUB_REF#refs/tags/package-sandbox-cloudflare/v}
+            echo "tag_version=$TAG_NAME" >> $GITHUB_OUTPUT
+            echo "Tag version: $TAG_NAME"
+          else
+            echo "tag_version=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Verify version matches tag
+        if: steps.tag_version.outputs.tag_version != ''
+        run: |
+          PKG_VERSION="${{ steps.version.outputs.version }}"
+          TAG_VERSION="${{ steps.tag_version.outputs.tag_version }}"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "❌ Error: Package version ($PKG_VERSION) does not match tag version ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "✅ Version match: $PKG_VERSION"
+
+      - name: Check if version exists on npm
+        id: check_version
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if npm view @acontext/sandbox-cloudflare@$VERSION version > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Version $VERSION already exists on npm"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Version $VERSION does not exist on npm"
+          fi
+
+      - name: Publish to npm
+        if: steps.check_version.outputs.exists == 'false'
+        run: npm publish --access public
+        # Note: prepublishOnly script in package.json will automatically:
+        # 1. Copy template files from src/server/sandbox/cloudflare to template/
+        # 2. Replace template variables in package.json and wrangler.jsonc
+
+      - name: Publish skipped (version exists)
+        if: steps.check_version.outputs.exists == 'true'
+        run: |
+          echo "⏭️  Publishing skipped - version ${{ steps.version.outputs.version }} already exists on npm"
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: publish
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/package-sandbox-cloudflare/v}
+          echo "version=$TAG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Generate Changelog
+        run: |
+          echo "# Package Sandbox Cloudflare v${{ steps.version.outputs.version }}" > ${{ github.workspace }}-CHANGELOG.txt
+          echo "" >> ${{ github.workspace }}-CHANGELOG.txt
+          echo "Published to npm as @acontext/sandbox-cloudflare@${{ steps.version.outputs.version }}" >> ${{ github.workspace }}-CHANGELOG.txt
+          echo "" >> ${{ github.workspace }}-CHANGELOG.txt
+          echo "## Usage" >> ${{ github.workspace }}-CHANGELOG.txt
+          echo "" >> ${{ github.workspace }}-CHANGELOG.txt
+          echo "\`\`\`bash" >> ${{ github.workspace }}-CHANGELOG.txt
+          echo "npx @acontext/sandbox-cloudflare@${{ steps.version.outputs.version }} my-app" >> ${{ github.workspace }}-CHANGELOG.txt
+          echo "# or" >> ${{ github.workspace }}-CHANGELOG.txt
+          echo "npm create @acontext/sandbox-cloudflare@${{ steps.version.outputs.version }} my-app" >> ${{ github.workspace }}-CHANGELOG.txt
+          echo "\`\`\`" >> ${{ github.workspace }}-CHANGELOG.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: ${{ github.workspace }}-CHANGELOG.txt

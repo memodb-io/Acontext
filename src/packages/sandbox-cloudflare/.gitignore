@@ -1,0 +1,11 @@
+node_modules/
+*.log
+.DS_Store
+.env
+.env.local
+dist/
+build/
+coverage/
+.vscode-test/
+# Template directory is auto-generated from src/server/sandbox/cloudflare
+template/

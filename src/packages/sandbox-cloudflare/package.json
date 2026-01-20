@@ -1,0 +1,40 @@
+{
+	"name": "@acontext/sandbox-cloudflare",
+	"version": "0.1.0",
+	"description": "Create a new Acontext Cloudflare Sandbox Worker project",
+	"type": "module",
+	"bin": {
+		"create-sandbox-cloudflare": "./bin/create.js"
+	},
+	"files": [
+		"bin",
+		"template"
+	],
+	"keywords": [
+		"acontext",
+		"cloudflare",
+		"sandbox",
+		"worker",
+		"scaffold",
+		"template"
+	],
+	"author": "",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/memodb-io/Acontext"
+	},
+	"homepage": "https://github.com/memodb-io/Acontext",
+	"bugs": {
+		"url": "https://github.com/memodb-io/Acontext/issues"
+	},
+	"engines": {
+		"node": ">=18.0.0"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"prepublishOnly": "node scripts/prepublish.js"
+	}
+}
