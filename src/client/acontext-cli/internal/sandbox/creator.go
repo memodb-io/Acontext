@@ -18,6 +18,14 @@ func CreateSandboxProject(sandboxType, packageManager, baseDir string) error {
 		return fmt.Errorf("invalid sandbox type: %w", err)
 	}
 
+	// Ensure sandbox directory exists
+	sandboxDir := filepath.Join(baseDir, "sandbox")
+	if _, err := os.Stat(sandboxDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(sandboxDir, 0755); err != nil {
+			return fmt.Errorf("failed to create sandbox directory: %w", err)
+		}
+	}
+
 	projectPath := filepath.Join("sandbox", sandboxType)
 	fullPath := filepath.Join(baseDir, projectPath)
 
@@ -26,8 +34,8 @@ func CreateSandboxProject(sandboxType, packageManager, baseDir string) error {
 		return fmt.Errorf("project directory already exists: %s", projectPath)
 	}
 
-	// Get the create command
-	createCmd := pkgmgr.GetCreateCommand(packageManager, sandboxTypeInfo.NpmPackage, projectPath)
+	// Get the create command - only pass project name, not full path
+	createCmd := pkgmgr.GetCreateCommand(packageManager, sandboxTypeInfo.NpmPackage, sandboxType)
 
 	fmt.Printf("🚀 Creating %s project...\n", sandboxTypeInfo.DisplayName)
 	fmt.Printf("   Executing: %s\n", createCmd)
@@ -39,9 +47,9 @@ func CreateSandboxProject(sandboxType, packageManager, baseDir string) error {
 		return fmt.Errorf("invalid create command")
 	}
 
-	// Execute the command
+	// Execute the command in sandbox directory
 	cmd := exec.Command(parts[0], parts[1:]...)
-	cmd.Dir = baseDir
+	cmd.Dir = sandboxDir
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

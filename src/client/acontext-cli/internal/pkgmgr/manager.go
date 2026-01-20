@@ -51,15 +51,17 @@ func isPackageManagerInstalled(pm string) bool {
 func GetCreateCommand(pm, packageName, projectPath string) string {
 	switch pm {
 	case "pnpm":
-		return fmt.Sprintf("pnpm create %s %s --yes", packageName, projectPath)
+		return fmt.Sprintf("pnpx %s@latest %s", packageName, projectPath)
 	case "npm":
-		return fmt.Sprintf("npx %s@latest %s --yes", packageName, projectPath)
+		return fmt.Sprintf("npx %s@latest %s", packageName, projectPath)
 	case "yarn":
-		return fmt.Sprintf("yarn create %s %s --yes", packageName, projectPath)
+		// Use yarn dlx for Yarn 2+, which is similar to npx
+		// For Yarn 1.x, this will still work as yarn dlx falls back to yarn create
+		return fmt.Sprintf("yarn dlx %s@latest %s", packageName, projectPath)
 	case "bun":
-		return fmt.Sprintf("bunx %s@latest %s --yes", packageName, projectPath)
+		return fmt.Sprintf("bunx %s@latest %s", packageName, projectPath)
 	default:
-		return fmt.Sprintf("npx %s@latest %s --yes", packageName, projectPath)
+		return fmt.Sprintf("npx %s@latest %s", packageName, projectPath)
 	}
 }
 
