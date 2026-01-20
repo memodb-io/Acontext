@@ -5,7 +5,7 @@ import os
 import uuid
 import hmac
 import hashlib
-import time
+import json
 
 API_URL = os.getenv("API_URL", "http://api:8029")
 CORE_URL = os.getenv("CORE_URL", "http://core:8000")
@@ -37,9 +37,14 @@ async def wait_for_services():
 async def seed_project(conn, project_id, secret):
     print(f"Seeding project {project_id}...")
     token_hmac = generate_hmac(secret, PEPPER)
+    # Configure project for immediate message processing (no buffer wait)
+    configs = {
+        "project_session_message_buffer_max_turns": 1,
+        "project_session_message_buffer_ttl_seconds": 2
+    }
     await conn.execute(
         "INSERT INTO projects (id, secret_key_hmac, secret_key_hash_phc, configs) VALUES ($1, $2, $3, $4)",
-        project_id, token_hmac, "dummy-phc", "{}"
+        project_id, token_hmac, "dummy-phc", json.dumps(configs)
     )
 
 async def run_test():
