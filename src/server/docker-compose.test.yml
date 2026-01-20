@@ -1,0 +1,154 @@
+name: acontext-e2e-test
+services:
+  # --- PostgreSQL ---
+  pg:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: acontext
+      POSTGRES_PASSWORD: helloworld
+      POSTGRES_DB: acontext_test
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U acontext -d acontext_test" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # --- Redis ---
+  redis:
+    image: redis:7.4
+    command: [ "redis-server", "--requirepass", "helloworld" ]
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "helloworld", "ping" ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # --- RabbitMQ ---
+  rabbitmq:
+    image: rabbitmq:4-management
+    environment:
+      RABBITMQ_DEFAULT_USER: acontext
+      RABBITMQ_DEFAULT_PASS: helloworld
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- SeaweedFS ---
+  seaweedfs:
+    image: chrislusf/seaweedfs:4.02
+    environment:
+      WEED_S3_ACCESS_KEY: acontext
+      WEED_S3_SECRET_KEY: helloworld
+    command: server -s3 -s3.port=9000 -dir=/data -volume.max=100 -volume.publicUrl=http://seaweedfs:9000 -ip=seaweedfs -ip.bind=0.0.0.0
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q -O- http://localhost:9000 >/dev/null 2>&1 || exit 1" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # --- SeaweedFS Setup ---
+  seaweedfs-setup:
+    image: amazon/aws-cli:2.32.6
+    depends_on:
+      seaweedfs:
+        condition: service_healthy
+    environment:
+      AWS_ACCESS_KEY_ID: acontext
+      AWS_SECRET_ACCESS_KEY: helloworld
+      AWS_DEFAULT_REGION: us-east-1
+    # Note: 'sleep infinity' prevents race condition with --exit-code-from tests.
+    # If this container exits immediately, Docker Compose shuts down the entire stack
+    # prematurely, causing Core to crash during startup. The bucket is still created
+    # before Core needs it, so this approach works reliably in the test environment.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - 'set -e; BUCKET_NAME=acontext-assets; echo "Checking bucket: $$BUCKET_NAME"; for i in 1 2 3 4 5; do if aws --endpoint-url=http://seaweedfs:9000 s3 ls s3://$$BUCKET_NAME >/dev/null 2>&1; then echo "Bucket exists"; break; fi; echo "Creating bucket (attempt $$i)..."; aws --endpoint-url=http://seaweedfs:9000 s3 mb s3://$$BUCKET_NAME 2>/dev/null && break || sleep 2; done; echo "S3 ready"; sleep infinity'
+
+  # --- Python Core ---
+  core:
+    build:
+      context: ./core
+    environment:
+      DATABASE_URL: postgresql://acontext:helloworld@pg:5432/acontext_test
+      MQ_URL: amqp://acontext:helloworld@rabbitmq:5672/
+      REDIS_URL: redis://:helloworld@redis:6379
+      S3_ENDPOINT: http://seaweedfs:9000
+      LLM_SIMPLE_MODEL: gpt-4o # Mock/Stub if possible, or dummy
+      LLM_API_KEY: fake-key
+      OTEL_ENABLED: "false"
+      LOGGING_LEVEL: DEBUG
+    depends_on:
+      pg: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      seaweedfs: { condition: service_healthy }
+      seaweedfs-setup: { condition: service_started }
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q -O- http://localhost:8000/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Go API ---
+  api:
+    build:
+      context: ./api/go
+    environment:
+      DATABASE_HOST: pg
+      DATABASE_USER: acontext
+      DATABASE_PASSWORD: helloworld
+      DATABASE_NAME: acontext_test
+      DATABASE_EXPORT_PORT: 5432
+      DATABASE_ENABLE_TLS: "false"
+      REDIS_HOST: redis
+      REDIS_PASSWORD: helloworld
+      REDIS_EXPORT_PORT: 6379
+      REDIS_ENABLE_TLS: "false"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: acontext
+      RABBITMQ_PASSWORD: helloworld
+      RABBITMQ_VHOST: /
+      RABBITMQ_VHOST_ENCODED: "%2F"
+      RABBITMQ_EXPORT_PORT: 5672
+      RABBITMQ_ENABLE_TLS: "false"
+      S3_ENDPOINT: http://seaweedfs:9000
+      S3_INTERNAL_ENDPOINT: http://seaweedfs:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: acontext
+      S3_SECRET_KEY: helloworld
+      S3_BUCKET: acontext-assets
+      CORE_BASE_URL: http://core:8000
+      APP_TELEMETRY_ENABLED: "false"
+      ENABLE_ARGON2_VERIFICATION: "false"
+      ARTIFACT_MAX_UPLOAD_SIZE_BYTES: 16777216
+      ROOT_API_BEARER_TOKEN: test-token
+      APP_ROOT_SECRETPEPPER: test-pepper
+    depends_on:
+      core: { condition: service_healthy }
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q -O- http://localhost:8029/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --- Test Runner ---
+  tests:
+    image: python:3.12-slim
+    environment:
+      API_URL: http://api:8029
+      CORE_URL: http://core:8000
+      DB_URL: postgresql://acontext:helloworld@pg:5432/acontext_test
+      TEST_TOKEN: test-token
+    volumes:
+      - ./tests:/app/tests
+    working_dir: /app
+    depends_on:
+      api: { condition: service_healthy }
+    command: [ "sh", "-c", "pip install httpx asyncpg pydantic && python tests/e2e/handshake_test.py" ]
+
+networks:
+  default:
+    name: acontext-e2e-test
