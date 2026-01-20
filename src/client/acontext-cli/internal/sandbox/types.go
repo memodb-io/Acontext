@@ -15,7 +15,7 @@ func GetAvailableSandboxTypes() []SandboxType {
 		{
 			Name:        "cloudflare",
 			DisplayName: "Cloudflare Sandbox",
-			NpmPackage:  "@acontext/sandbox-cloudflare",
+			NpmPackage:  "@acontext/create-sandbox-cloudflare",
 		},
 	}
 }
