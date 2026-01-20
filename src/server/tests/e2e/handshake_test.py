@@ -88,10 +88,16 @@ async def run_test():
 
             # 3. Poll for processing
             print("Polling for message processing (Python Core handshake)...")
+            try:
+                msg_uuid = uuid.UUID(message_id)
+            except (ValueError, AttributeError) as e:
+                print(f"Invalid message ID format: {message_id}")
+                return False
+            
             for i in range(30):
                 status = await conn.fetchval(
                     "SELECT session_task_process_status FROM messages WHERE id = $1",
-                    uuid.UUID(message_id)
+                    msg_uuid
                 )
                 print(f"Current status: {status}")
                 if status in ("success", "failed"):

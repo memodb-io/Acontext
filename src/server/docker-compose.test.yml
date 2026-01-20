@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: helloworld
       POSTGRES_DB: acontext_test
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U acontext -d acontext_test"]
+      test: [ "CMD-SHELL", "pg_isready -U acontext -d acontext_test" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -16,9 +16,9 @@ services:
   # --- Redis ---
   redis:
     image: redis:7.4
-    command: ["redis-server", "--requirepass", "helloworld"]
+    command: [ "redis-server", "--requirepass", "helloworld" ]
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "helloworld", "ping"]
+      test: [ "CMD", "redis-cli", "-a", "helloworld", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -30,7 +30,7 @@ services:
       RABBITMQ_DEFAULT_USER: acontext
       RABBITMQ_DEFAULT_PASS: helloworld
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -43,7 +43,7 @@ services:
       WEED_S3_SECRET_KEY: helloworld
     command: server -s3 -s3.port=9000 -dir=/data -volume.max=100 -volume.publicUrl=http://seaweedfs:9000 -ip=seaweedfs -ip.bind=0.0.0.0
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://localhost:9000 >/dev/null 2>&1 || exit 1"]
+      test: [ "CMD-SHELL", "wget -q -O- http://localhost:9000 >/dev/null 2>&1 || exit 1" ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -58,6 +58,10 @@ services:
       AWS_ACCESS_KEY_ID: acontext
       AWS_SECRET_ACCESS_KEY: helloworld
       AWS_DEFAULT_REGION: us-east-1
+    # Note: 'sleep infinity' prevents race condition with --exit-code-from tests.
+    # If this container exits immediately, Docker Compose shuts down the entire stack
+    # prematurely, causing Core to crash during startup. The bucket is still created
+    # before Core needs it, so this approach works reliably in the test environment.
     entrypoint:
       - /bin/sh
       - -c
@@ -83,7 +87,7 @@ services:
       seaweedfs: { condition: service_healthy }
       seaweedfs-setup: { condition: service_started }
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://localhost:8000/health || exit 1"]
+      test: [ "CMD-SHELL", "wget -q -O- http://localhost:8000/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -117,17 +121,15 @@ services:
       S3_SECRET_KEY: helloworld
       S3_BUCKET: acontext-assets
       CORE_BASE_URL: http://core:8000
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4317
       APP_TELEMETRY_ENABLED: "false"
       ENABLE_ARGON2_VERIFICATION: "false"
       ARTIFACT_MAX_UPLOAD_SIZE_BYTES: 16777216
       ROOT_API_BEARER_TOKEN: test-token
       APP_ROOT_SECRETPEPPER: test-pepper
-      APP_ROOT_ENABLEARGON2VERIFICATION: "false"
     depends_on:
       core: { condition: service_healthy }
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O- http://localhost:8029/health || exit 1"]
+      test: [ "CMD-SHELL", "wget -q -O- http://localhost:8029/health || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -145,4 +147,8 @@ services:
     working_dir: /app
     depends_on:
       api: { condition: service_healthy }
-    command: ["sh", "-c", "pip install httpx asyncpg pydantic && python tests/e2e/handshake_test.py"]
+    command: [ "sh", "-c", "pip install httpx asyncpg pydantic && python tests/e2e/handshake_test.py" ]
+
+networks:
+  default:
+    name: acontext-e2e-test
