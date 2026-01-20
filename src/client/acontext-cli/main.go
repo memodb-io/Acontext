@@ -48,7 +48,7 @@ func main() {
 			shouldSkipLogo = true
 		}
 		// Skip logo if executing root command (first arg is not a known subcommand)
-		knownSubcommands := []string{"create", "docker", "version", "upgrade", "help"}
+		knownSubcommands := []string{"create", "docker", "version", "upgrade", "help", "sandbox"}
 		isSubcommand := false
 		for _, subcmd := range knownSubcommands {
 			if firstArg == subcmd {
@@ -179,6 +179,7 @@ Get started by running: acontext create
 		fmt.Println("Quick Commands:")
 		fmt.Println("  acontext create     Create a new project")
 		fmt.Println("  acontext docker     Manage Docker services (up/down/status/logs/env)")
+		fmt.Println("  acontext sandbox    Manage sandbox projects")
 		fmt.Println("  acontext version    Show version information")
 		fmt.Println("  acontext upgrade    Upgrade to the latest version")
 		fmt.Println("  acontext help       Show help information")
@@ -192,6 +193,7 @@ func init() {
 	rootCmd.AddCommand(cmd.CreateCmd)
 	rootCmd.AddCommand(cmd.DockerCmd)
 	rootCmd.AddCommand(cmd.UpgradeCmd)
+	rootCmd.AddCommand(cmd.SandboxCmd)
 }
 
 var versionCmd = &cobra.Command{

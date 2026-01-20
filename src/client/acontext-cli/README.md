@@ -7,6 +7,7 @@ A lightweight command-line tool for quickly creating Acontext projects with temp
 - 🚀 **Quick Setup**: Create projects in seconds with interactive templates
 - 🌐 **Multi-Language**: Support for Python and TypeScript
 - 🐳 **Docker Ready**: One-command Docker Compose deployment
+- 🏖️ **Sandbox Management**: Create and manage sandbox projects (Cloudflare, etc.)
 - 🔧 **Auto Git**: Automatic Git repository initialization
 - 🔄 **Auto Update**: Automatic version checking and one-command upgrade
 - 🎯 **Simple**: Minimal configuration, maximum productivity
@@ -81,6 +82,29 @@ acontext docker logs
 acontext docker down
 ```
 
+### Sandbox Management
+
+```bash
+# List available sandbox commands
+acontext sandbox
+
+# Start or create a sandbox project
+acontext sandbox start
+```
+
+The `sandbox start` command will:
+- Scan for existing sandbox projects in `sandbox/` directory
+- List available sandbox types to create (e.g., Cloudflare)
+- Allow you to select an existing project to start or create a new one
+- Automatically detect and use the appropriate package manager (pnpm, npm, yarn, bun)
+- Start the development server automatically
+
+**Example workflow:**
+1. Run `acontext sandbox start`
+2. Select from existing projects (e.g., `cloudflare (Local)`) or create new (`cloudflare (Create)`)
+3. If creating, choose a package manager
+4. The project will be created in `sandbox/cloudflare` and the dev server will start
+
 ### Version Management
 
 ```bash
@@ -103,6 +127,8 @@ The CLI automatically checks for updates after each command execution. If a new 
 - ✅ Git repository initialization
 - ✅ Docker Compose integration
 - ✅ One-command deployment
+- ✅ Sandbox project management (Cloudflare)
+- ✅ Package manager auto-detection (pnpm, npm, yarn, bun)
 - ✅ Version checking and auto-update
 - ✅ CI/CD with GitHub Actions
 - ✅ Automated releases with GoReleaser

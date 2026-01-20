@@ -29,6 +29,30 @@ In this quickstart, you'll learn how to:
 Before you begin, ensure you have:
 - An Acontext API key from [Acontext Dashboard](https://dash.acontext.io), or [local deployment](/settings/local)
 
+## CLI Setup
+
+You can quickly set up a Cloudflare Sandbox Worker using the Acontext CLI:
+
+```bash
+# Start or create a sandbox project
+acontext sandbox start
+```
+
+The CLI will:
+- Scan for existing sandbox projects in `sandbox/` directory
+- List available sandbox types to create (e.g., Cloudflare)
+- Allow you to select an existing project to start or create a new one
+- Automatically detect and use the appropriate package manager (pnpm, npm, yarn, bun)
+- Start the development server automatically
+
+**Example workflow:**
+1. Run `acontext sandbox start`
+2. Select from existing projects (e.g., `cloudflare (Local)`) or create new (`cloudflare (Create)`)
+3. If creating, choose a package manager
+4. The project will be created in `sandbox/cloudflare` and the dev server will start
+
+For more details, see the [CLI documentation](/settings/local).
+
 ## Initialize the client
 
 First, create a client instance with your API key.

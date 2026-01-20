@@ -69,3 +69,5 @@ acontext_data/
 .docker-compose-*.yaml
 
 config.yaml
+
+sandbox/** */
