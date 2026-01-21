@@ -49,16 +49,16 @@ func TestSandboxLogService_GetSandboxLogs(t *testing.T) {
 			setup: func(repo *MockSandboxLogRepo) {
 				expectedLogs := []model.SandboxLog{
 					{
-						ID:             uuid.New(),
-						ProjectID:      projectID,
-						BackendType:    "e2b",
+						ID:              uuid.New(),
+						ProjectID:       projectID,
+						BackendType:     "e2b",
 						HistoryCommands: datatypes.NewJSONType([]model.HistoryCommand{}),
 						GeneratedFiles:  datatypes.NewJSONType([]model.GeneratedFile{}),
 					},
 					{
-						ID:             uuid.New(),
-						ProjectID:      projectID,
-						BackendType:    "cloudflare",
+						ID:              uuid.New(),
+						ProjectID:       projectID,
+						BackendType:     "cloudflare",
 						HistoryCommands: datatypes.NewJSONType([]model.HistoryCommand{}),
 						GeneratedFiles:  datatypes.NewJSONType([]model.GeneratedFile{}),
 					},
@@ -111,9 +111,9 @@ func TestSandboxLogService_GetSandboxLogs(t *testing.T) {
 			setup: func(repo *MockSandboxLogRepo) {
 				expectedLogs := []model.SandboxLog{
 					{
-						ID:             uuid.New(),
-						ProjectID:      projectID,
-						BackendType:    "e2b",
+						ID:              uuid.New(),
+						ProjectID:       projectID,
+						BackendType:     "e2b",
 						HistoryCommands: datatypes.NewJSONType([]model.HistoryCommand{}),
 						GeneratedFiles:  datatypes.NewJSONType([]model.GeneratedFile{}),
 					},
