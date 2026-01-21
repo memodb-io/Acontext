@@ -76,7 +76,8 @@ services:
       MQ_URL: amqp://acontext:helloworld@rabbitmq:5672/
       REDIS_URL: redis://:helloworld@redis:6379
       S3_ENDPOINT: http://seaweedfs:9000
-      LLM_SIMPLE_MODEL: gpt-4o # Mock/Stub if possible, or dummy
+      LLM_SDK: mock
+      LLM_SIMPLE_MODEL: mock-model
       LLM_API_KEY: fake-key
       OTEL_ENABLED: "false"
       LOGGING_LEVEL: DEBUG
@@ -144,10 +145,11 @@ services:
       TEST_TOKEN: test-token
     volumes:
       - ./tests:/app/tests
+      - ./pytest.ini:/app/pytest.ini
     working_dir: /app
     depends_on:
       api: { condition: service_healthy }
-    command: [ "sh", "-c", "pip install httpx asyncpg pydantic && python tests/e2e/handshake_test.py" ]
+    command: [ "sh", "-c", "pip install httpx asyncpg pydantic pytest pytest-asyncio==0.21.* && pytest tests/e2e/test_simple.py -v --asyncio-mode=auto" ]
 
 networks:
   default:
