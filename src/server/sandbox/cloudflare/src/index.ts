@@ -318,7 +318,10 @@ async function handleUploadFile(sandboxId: string, request: Request, env: Env): 
 		const lastSlashIndex = file_path.lastIndexOf('/');
 		if (lastSlashIndex > 0) {
 			const parentDir = file_path.substring(0, lastSlashIndex);
-			await sandbox.exec(`mkdir -p ${parentDir}`);
+			const dirResult = await sandbox.exists(parentDir);
+			if (!dirResult.exists) {
+				await sandbox.mkdir(parentDir, { recursive: true });
+			}
 		}
 
 		// Write file with specified encoding (SDK handles base64 decoding)
