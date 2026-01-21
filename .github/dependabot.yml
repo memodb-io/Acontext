@@ -5,51 +5,122 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    target-branch: "dev"
+    base-branch: "main"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
 
   - package-ecosystem: "pip"
     directory: "/src/server/core"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    target-branch: "dev"
+    base-branch: "main"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
 
   - package-ecosystem: "pip"
     directory: "/src/client/acontext-py"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    target-branch: "dev"
+    base-branch: "main"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
 
   - package-ecosystem: "npm"
     directory: "/src/client/acontext-ts"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    target-branch: "dev"
+    base-branch: "main"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    groups:
+      production-dependencies:
+        dependency-type: "production"
+      development-dependencies:
+        dependency-type: "development"
 
   - package-ecosystem: "npm"
     directory: "/src/server/ui"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    target-branch: "dev"
+    base-branch: "main"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    groups:
+      production-dependencies:
+        dependency-type: "production"
+      development-dependencies:
+        dependency-type: "development"
+
+  - package-ecosystem: "npm"
+    directory: "/src/packages/sandbox-cloudflare"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    target-branch: "dev"
+    base-branch: "main"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
+    groups:
+      production-dependencies:
+        dependency-type: "production"
+      development-dependencies:
+        dependency-type: "development"
 
   - package-ecosystem: "docker"
     directory: "/src/server/api/go"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    target-branch: "dev"
+    base-branch: "main"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
 
   - package-ecosystem: "docker"
     directory: "/src/server/core"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    target-branch: "dev"
+    base-branch: "main"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
 
   - package-ecosystem: "docker"
     directory: "/src/server/ui"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    target-branch: "dev"
+    base-branch: "main"
+    commit-message:
+      prefix: "chore(deps):"
+      include: "scope"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
+    target-branch: "dev"
+    base-branch: "main"
+    commit-message:
+      prefix: "chore(ci):"
+      include: "scope"
