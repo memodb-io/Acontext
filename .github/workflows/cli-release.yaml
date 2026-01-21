@@ -32,7 +32,7 @@ jobs:
           echo "Binary artifacts are available in this release." >> ${{ github.workspace }}-CHANGELOG.txt
 
       - name: Create Release with Notes
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           body_path: ${{ github.workspace }}-CHANGELOG.txt
 

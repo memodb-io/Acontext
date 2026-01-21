@@ -62,7 +62,7 @@ jobs:
           echo "Published to https://github.com/memodb-io/Acontext/pkgs/container/acontext-ui" >> ${{ github.workspace }}-CHANGELOG.txt
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           body_path: ${{ github.workspace }}-CHANGELOG.txt
 
