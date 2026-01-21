@@ -13,9 +13,9 @@
 		"@cloudflare/sandbox": "^0.7.0"
 	},
 	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20260117.0",
+		"@cloudflare/workers-types": "^4.20260120.0",
 		"typescript": "^5.9.3",
-		"wrangler": "^4.59.2"
+		"wrangler": "^4.59.3"
 	},
 	"engines": {
 		"node": ">=18.0.0"
