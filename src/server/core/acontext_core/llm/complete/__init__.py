@@ -21,7 +21,7 @@ async def llm_complete(
     prompt=None,
     model=None,
     system_prompt=None,
-    history_messages=[],
+    history_messages=None,
     json_mode=False,
     max_tokens=1024,
     prompt_kwargs: Optional[dict] = None,
@@ -30,6 +30,8 @@ async def llm_complete(
 ) -> Result[LLMResponse]:
     use_model = model or DEFAULT_CORE_CONFIG.llm_simple_model
     use_complete_func = FACTORIES[DEFAULT_CORE_CONFIG.llm_sdk]
+
+    history_messages = history_messages or []
 
     try:
         response = await use_complete_func(

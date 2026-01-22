@@ -42,23 +42,28 @@ async def wait_for_services():
     return False
 
 
-async def poll_message_status(conn, message_id: str, timeout_seconds: int = 60) -> str:
+async def poll_message_status(conn, message_id: str) -> str:
     """Poll database for message processing status"""
     try:
         msg_uuid = uuid.UUID(message_id)
     except (ValueError, AttributeError):
         raise ValueError(f"Invalid message ID format: {message_id}")
-    
-    for i in range(timeout_seconds // 2):
+
+    max_iterations = 30
+    poll_interval = 2
+
+    for i in range(max_iterations):
         status = await conn.fetchval(
             "SELECT session_task_process_status FROM messages WHERE id = $1",
             msg_uuid
         )
         if status in ("success", "failed"):
             return status
-        await asyncio.sleep(2)
-    
-    raise TimeoutError(f"Message processing timed out after {timeout_seconds}s")
+        await asyncio.sleep(poll_interval)
+
+    raise TimeoutError(
+        f"Message processing timed out after {max_iterations * poll_interval}s"
+    )
 
 
 @pytest.mark.asyncio
@@ -119,7 +124,7 @@ async def test_basic_handshake_with_mock():
             message_id = msg_resp.json()["data"]["id"]
             
             # Poll for completion
-            status = await poll_message_status(conn, message_id, timeout_seconds=30)
+            status = await poll_message_status(conn, message_id)
             assert status == "success", f"Expected success, got {status}"
             
             print("Basic handshake with mock LLM passed")
@@ -180,7 +185,7 @@ async def test_mock_tool_call():
             message_id = msg_resp.json()["data"]["id"]
             
             # Poll for completion
-            status = await poll_message_status(conn, message_id, timeout_seconds=30)
+            status = await poll_message_status(conn, message_id)
             assert status == "success", f"Expected success, got {status}"
             
             # Check for assistant message with tool calls
@@ -273,7 +278,7 @@ async def test_concurrent_sessions():
                 
                 # Wait for processing (shorter timeout for load test)
                 try:
-                    status = await poll_message_status(conn, message_id, timeout_seconds=20)
+                    status = await poll_message_status(conn, message_id)
                     if status == "success":
                         return True, f"Session {session_num}: Success"
                     else:

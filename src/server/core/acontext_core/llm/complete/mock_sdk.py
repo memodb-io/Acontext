@@ -55,7 +55,7 @@ async def mock_complete(
                 "type": "function",
                 "function": {
                     "name": "disk.list",
-                    "arguments": {"path": "/tmp"}
+                    "arguments": json.dumps({"path": "/tmp"})
                 }
             }
         ]
