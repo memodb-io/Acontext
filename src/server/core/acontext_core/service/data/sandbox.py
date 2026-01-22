@@ -25,21 +25,14 @@ async def _update_will_total_alive_seconds(
     """
     Update the will_total_alive_seconds field based on how long the sandbox has been alive.
     Formula: DEFAULT_KEEPALIVE_SECONDS + (current_time - created_at)
-    
-    Args:
-        db_session: Database session.
-        sandbox_id: The unified sandbox ID (UUID).
-        reset_alive_seconds: The reset alive seconds value.
     """
-    # Get the old value and project_id for metric recording
     sandbox_log = await db_session.get(SandboxLog, sandbox_id)
     if not sandbox_log:
         return
-    
+
     old_will_total_alive_seconds = sandbox_log.will_total_alive_seconds
     project_id = sandbox_log.project_id
 
-    # Calculate and update the new value
     stmt = (
         update(SandboxLog)
         .where(SandboxLog.id == sandbox_id)
@@ -49,24 +42,18 @@ async def _update_will_total_alive_seconds(
         )
     )
     await db_session.execute(stmt)
-
-    # Record metric for the change
     await db_session.flush()
-    updated_sandbox_log = await db_session.get(SandboxLog, sandbox_id)
-    if updated_sandbox_log:
-        new_will_total_alive_seconds = updated_sandbox_log.will_total_alive_seconds
-        # Calculate the difference (can be negative for kill, positive for keepalive)
-        increment_seconds = new_will_total_alive_seconds - old_will_total_alive_seconds
-        
-        # Only record if there's a meaningful change
-        if increment_seconds != 0:
-            asyncio.create_task(
-                capture_increment(
-                    project_id=project_id,
-                    tag=MetricTags.new_sandbox_alive,
-                    increment=increment_seconds,
-                )
+    await db_session.refresh(sandbox_log)
+
+    increment_seconds = sandbox_log.will_total_alive_seconds - old_will_total_alive_seconds
+    if increment_seconds != 0:
+        asyncio.create_task(
+            capture_increment(
+                project_id=project_id,
+                tag=MetricTags.new_sandbox_alive,
+                increment=increment_seconds,
             )
+        )
 
 
 async def _get_backend_sandbox_id(
