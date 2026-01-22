@@ -172,6 +172,8 @@ services:
       REDIS_URL: redis://:${REDIS_PASSWORD:-helloworld}@acontext-server-redis:6379
       S3_ENDPOINT: http://acontext-server-seaweedfs:9000
       OTEL_EXPORTER_OTLP_ENDPOINT: acontext-server-jaeger:4317
+      SANDBOX_TYPE: cloudflare
+      CLOUDFLARE_WORKER_URL: http://localhost:8787
     ports:
       - "${CORE_EXPORT_PORT:-8019}:8000"
     volumes:

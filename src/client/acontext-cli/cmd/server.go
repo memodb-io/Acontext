@@ -1,0 +1,799 @@
+package cmd
+
+import (
+	"bufio"
+	"fmt"
+	"os"
+	"os/exec"
+	"os/signal"
+	"path/filepath"
+	"runtime"
+	"strings"
+	"sync"
+	"syscall"
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/memodb-io/Acontext/acontext-cli/internal/docker"
+	"github.com/memodb-io/Acontext/acontext-cli/internal/pkgmgr"
+	"github.com/memodb-io/Acontext/acontext-cli/internal/sandbox"
+	"github.com/spf13/cobra"
+)
+
+const (
+	// Default sandbox type
+	defaultSandboxType = "cloudflare"
+	// Default buffer size for output lines
+	defaultBufferSize = 500
+)
+
+var ServerCmd = &cobra.Command{
+	Use:   "server",
+	Short: "Start Acontext server with sandbox and docker",
+	Long: `Start Acontext server with both sandbox and docker services running concurrently.
+
+This command will:
+  1. Check if sandbox/cloudflare exists, create it if missing
+  2. Start sandbox development server
+  3. Start docker services
+  4. Display both outputs in a split-screen terminal UI`,
+}
+
+var serverUpCmd = &cobra.Command{
+	Use:   "up",
+	Short: "Start server with sandbox and docker",
+	Long:  "Start both sandbox and docker services in a split-screen view",
+	RunE:  runServerUp,
+}
+
+func init() {
+	ServerCmd.AddCommand(serverUpCmd)
+}
+
+// OutputBuffer is a thread-safe buffer for storing output lines
+type OutputBuffer struct {
+	mu        sync.RWMutex
+	lines     []string
+	maxLen    int
+	onNewLine func() // Callback when a new line is added
+}
+
+func NewOutputBuffer(maxLen int) *OutputBuffer {
+	return &OutputBuffer{
+		lines:  make([]string, 0),
+		maxLen: maxLen,
+	}
+}
+
+func (b *OutputBuffer) SetOnNewLine(callback func()) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.onNewLine = callback
+}
+
+func (b *OutputBuffer) AddLine(line string) {
+	var callback func()
+	b.mu.Lock()
+	b.lines = append(b.lines, line)
+	if len(b.lines) > b.maxLen {
+		b.lines = b.lines[1:]
+	}
+	callback = b.onNewLine
+	b.mu.Unlock()
+
+	// Call callback outside of lock to avoid deadlock
+	if callback != nil {
+		callback()
+	}
+}
+
+func (b *OutputBuffer) GetLines() []string {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	return append([]string(nil), b.lines...)
+}
+
+func (b *OutputBuffer) Clear() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.lines = make([]string, 0)
+}
+
+// Model represents the TUI model
+type model struct {
+	sandboxBuffer *OutputBuffer
+	dockerBuffer  *OutputBuffer
+	width         int
+	height        int
+	sandboxScroll int
+	dockerScroll  int
+	quitting      bool
+	autoScroll    bool // Whether to auto-scroll to bottom
+	mu            sync.RWMutex // Protects model state for concurrent access
+}
+
+func initialModel() *model {
+	m := &model{
+		sandboxBuffer: NewOutputBuffer(defaultBufferSize),
+		dockerBuffer:  NewOutputBuffer(defaultBufferSize),
+		sandboxScroll: 0,
+		dockerScroll:  0,
+		autoScroll:    true, // Enable auto-scroll by default
+	}
+
+	// Set up callbacks to auto-scroll when new lines are added
+	// Use a closure that safely accesses the model
+	m.sandboxBuffer.SetOnNewLine(func() {
+		m.mu.RLock()
+		shouldAutoScroll := m.autoScroll
+		m.mu.RUnlock()
+		if shouldAutoScroll {
+			m.autoScrollSandbox()
+		}
+	})
+	m.dockerBuffer.SetOnNewLine(func() {
+		m.mu.RLock()
+		shouldAutoScroll := m.autoScroll
+		m.mu.RUnlock()
+		if shouldAutoScroll {
+			m.autoScrollDocker()
+		}
+	})
+
+	return m
+}
+
+// autoScrollSandbox scrolls sandbox panel to bottom
+func (m *model) autoScrollSandbox() {
+	m.mu.RLock()
+	height := m.height
+	m.mu.RUnlock()
+	
+	if height == 0 {
+		return // Window not initialized yet
+	}
+	sandboxLines := m.sandboxBuffer.GetLines()
+	panelHeight := (height - 3) / 2
+	if panelHeight <= 0 {
+		panelHeight = 1 // Minimum height
+	}
+	maxScroll := 0
+	if len(sandboxLines) > panelHeight {
+		maxScroll = len(sandboxLines) - panelHeight
+	}
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	m.mu.Lock()
+	m.sandboxScroll = maxScroll
+	m.mu.Unlock()
+}
+
+// autoScrollDocker scrolls docker panel to bottom
+func (m *model) autoScrollDocker() {
+	m.mu.RLock()
+	height := m.height
+	m.mu.RUnlock()
+	
+	if height == 0 {
+		return // Window not initialized yet
+	}
+	dockerLines := m.dockerBuffer.GetLines()
+	panelHeight := (height - 3) / 2
+	if panelHeight <= 0 {
+		panelHeight = 1 // Minimum height
+	}
+	maxScroll := 0
+	if len(dockerLines) > panelHeight {
+		maxScroll = len(dockerLines) - panelHeight
+	}
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	m.mu.Lock()
+	m.dockerScroll = maxScroll
+	m.mu.Unlock()
+}
+
+func (m *model) Init() tea.Cmd {
+	return tea.Batch(
+		tea.EnterAltScreen,
+		tickCmd(),
+	)
+}
+
+func tickCmd() tea.Cmd {
+	return tea.Tick(time.Millisecond*100, func(time.Time) tea.Msg {
+		return tickMsg{}
+	})
+}
+
+type tickMsg struct{}
+
+func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.mu.Lock()
+		m.width = msg.Width
+		m.height = msg.Height
+		autoScroll := m.autoScroll
+		m.mu.Unlock()
+		// Auto-scroll to bottom when window is resized
+		if autoScroll {
+			m.autoScrollSandbox()
+			m.autoScrollDocker()
+		}
+		return m, nil
+	case tea.KeyMsg:
+		switch msg.String() {
+		case "ctrl+c", "q":
+			m.mu.Lock()
+			m.quitting = true
+			m.mu.Unlock()
+			return m, tea.Quit
+		}
+	case tea.MouseMsg:
+		// Handle mouse wheel scrolling
+		m.mu.RLock()
+		height := m.height
+		m.mu.RUnlock()
+		
+		panelHeight := (height - 3) / 2
+		if panelHeight <= 0 {
+			panelHeight = 1
+		}
+
+		// Determine which panel the mouse is over based on Y position
+		// Top half is sandbox, bottom half is docker
+		if msg.Button == tea.MouseButtonWheelUp || msg.Button == tea.MouseButtonWheelDown {
+			// Determine which panel based on mouse Y position
+			// Top half is sandbox, bottom half is docker
+			isSandboxPanel := msg.Y < height/2
+
+			if isSandboxPanel {
+				// Sandbox panel
+				m.mu.Lock()
+				m.autoScroll = false // Disable auto-scroll when user manually scrolls
+				m.mu.Unlock()
+				
+				if msg.Button == tea.MouseButtonWheelUp {
+					m.mu.Lock()
+					if m.sandboxScroll > 0 {
+						m.sandboxScroll--
+					}
+					m.mu.Unlock()
+				} else if msg.Button == tea.MouseButtonWheelDown {
+					sandboxLines := m.sandboxBuffer.GetLines()
+					maxScroll := 0
+					if len(sandboxLines) > panelHeight {
+						maxScroll = len(sandboxLines) - panelHeight
+					}
+					m.mu.Lock()
+					if m.sandboxScroll < maxScroll {
+						m.sandboxScroll++
+					} else {
+						// If already at bottom, re-enable auto-scroll
+						m.autoScroll = true
+					}
+					m.mu.Unlock()
+				}
+			} else {
+				// Docker panel
+				m.mu.Lock()
+				m.autoScroll = false // Disable auto-scroll when user manually scrolls
+				m.mu.Unlock()
+				
+				if msg.Button == tea.MouseButtonWheelUp {
+					m.mu.Lock()
+					if m.dockerScroll > 0 {
+						m.dockerScroll--
+					}
+					m.mu.Unlock()
+				} else if msg.Button == tea.MouseButtonWheelDown {
+					dockerLines := m.dockerBuffer.GetLines()
+					maxScroll := 0
+					if len(dockerLines) > panelHeight {
+						maxScroll = len(dockerLines) - panelHeight
+					}
+					m.mu.Lock()
+					if m.dockerScroll < maxScroll {
+						m.dockerScroll++
+					} else {
+						// If already at bottom, re-enable auto-scroll
+						m.autoScroll = true
+					}
+					m.mu.Unlock()
+				}
+			}
+			return m, nil
+		}
+	case tickMsg:
+		// Auto-refresh for new output and ensure auto-scroll if enabled
+		// Always check and update scroll position on tick to ensure we're at bottom when auto-scroll is enabled
+		m.mu.RLock()
+		autoScroll := m.autoScroll
+		m.mu.RUnlock()
+		if autoScroll {
+			m.autoScrollSandbox()
+			m.autoScrollDocker()
+		}
+		return m, tickCmd()
+	}
+	return m, nil
+}
+
+func (m *model) View() string {
+	m.mu.RLock()
+	quitting := m.quitting
+	width := m.width
+	height := m.height
+	sandboxScroll := m.sandboxScroll
+	dockerScroll := m.dockerScroll
+	autoScroll := m.autoScroll
+	m.mu.RUnlock()
+	
+	if quitting {
+		return ""
+	}
+
+	if width == 0 {
+		return "Initializing..."
+	}
+
+	// Calculate panel dimensions for vertical split
+	// Leave space for separator line (1 line) and footer (1 line)
+	panelWidth := width
+	panelHeight := (height - 3) / 2 // -3 for separator and footer, divided by 2 for each panel
+
+	// Styles - no borders, just headers
+	sandboxHeaderStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("205")).
+		Padding(0, 1)
+
+	dockerHeaderStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("39")).
+		Padding(0, 1)
+
+	// Get lines from buffers
+	sandboxBufferLines := m.sandboxBuffer.GetLines()
+	dockerBufferLines := m.dockerBuffer.GetLines()
+
+	// Calculate max scroll positions
+	maxSandboxScroll := 0
+	if len(sandboxBufferLines) > panelHeight {
+		maxSandboxScroll = len(sandboxBufferLines) - panelHeight
+	}
+	maxDockerScroll := 0
+	if len(dockerBufferLines) > panelHeight {
+		maxDockerScroll = len(dockerBufferLines) - panelHeight
+	}
+
+	// Auto-scroll to bottom if enabled
+	if autoScroll {
+		sandboxScroll = maxSandboxScroll
+		dockerScroll = maxDockerScroll
+		m.mu.Lock()
+		m.sandboxScroll = maxSandboxScroll
+		m.dockerScroll = maxDockerScroll
+		m.mu.Unlock()
+	}
+
+	// Calculate visible lines for sandbox (top panel)
+	sandboxStart := sandboxScroll
+	if sandboxStart < 0 {
+		sandboxStart = 0
+		m.mu.Lock()
+		m.sandboxScroll = 0
+		m.mu.Unlock()
+	}
+	if sandboxStart > maxSandboxScroll {
+		sandboxStart = maxSandboxScroll
+		m.mu.Lock()
+		m.sandboxScroll = maxSandboxScroll
+		m.mu.Unlock()
+	}
+	sandboxEnd := sandboxStart + panelHeight
+	if sandboxEnd > len(sandboxBufferLines) {
+		sandboxEnd = len(sandboxBufferLines)
+	}
+
+	// Calculate visible lines for docker (bottom panel)
+	dockerStart := dockerScroll
+	if dockerStart < 0 {
+		dockerStart = 0
+		m.mu.Lock()
+		m.dockerScroll = 0
+		m.mu.Unlock()
+	}
+	if dockerStart > maxDockerScroll {
+		dockerStart = maxDockerScroll
+		m.mu.Lock()
+		m.dockerScroll = maxDockerScroll
+		m.mu.Unlock()
+	}
+	dockerEnd := dockerStart + panelHeight
+	if dockerEnd > len(dockerBufferLines) {
+		dockerEnd = len(dockerBufferLines)
+	}
+
+	// Build panel content - pad with empty lines to fixed height
+	var sandboxContentLines []string
+	if sandboxStart < len(sandboxBufferLines) && sandboxEnd > sandboxStart {
+		sandboxContentLines = sandboxBufferLines[sandboxStart:sandboxEnd]
+	}
+	// Pad with empty lines to fixed height
+	for len(sandboxContentLines) < panelHeight {
+		sandboxContentLines = append(sandboxContentLines, "")
+	}
+	sandboxContent := strings.Join(sandboxContentLines, "\n")
+
+	var dockerContentLines []string
+	if dockerStart < len(dockerBufferLines) && dockerEnd > dockerStart {
+		dockerContentLines = dockerBufferLines[dockerStart:dockerEnd]
+	}
+	// Pad with empty lines to fixed height
+	for len(dockerContentLines) < panelHeight {
+		dockerContentLines = append(dockerContentLines, "")
+	}
+	dockerContent := strings.Join(dockerContentLines, "\n")
+
+	// Create headers
+	sandboxHeader := sandboxHeaderStyle.Render("SANDBOX")
+	dockerHeader := dockerHeaderStyle.Render("DOCKER")
+
+	// Build panel content with header - just concatenate, no optimization
+	sandboxFullContent := sandboxHeader
+	if sandboxContent != "" {
+		sandboxFullContent += "\n" + sandboxContent
+	}
+
+	dockerFullContent := dockerHeader
+	if dockerContent != "" {
+		dockerFullContent += "\n" + dockerContent
+	}
+
+	// Combine vertically: sandbox on top, separator line, docker on bottom
+	separator := strings.Repeat("─", panelWidth)
+	combined := sandboxFullContent + "\n" + separator + "\n" + dockerFullContent
+
+	// Add footer
+	footerText := "Press 'q' or Ctrl+C to quit | Use mouse wheel to scroll"
+	if !autoScroll {
+		footerText += " | Auto-scroll disabled"
+	}
+	footer := lipgloss.NewStyle().
+		Width(width).
+		Foreground(lipgloss.Color("240")).
+		Render(footerText)
+
+	return combined + "\n" + footer
+}
+
+func runServerUp(cmd *cobra.Command, args []string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	// Check and create sandbox if needed
+	sandboxPath := filepath.Join(cwd, "sandbox", defaultSandboxType)
+	if _, err := os.Stat(sandboxPath); os.IsNotExist(err) {
+		fmt.Printf("📦 sandbox/%s not found. Creating...\n", defaultSandboxType)
+
+		// Auto-detect package manager
+		pm, err := pkgmgr.PromptPackageManager()
+		if err != nil {
+			return fmt.Errorf("failed to detect package manager: %w", err)
+		}
+
+		// Create sandbox
+		if err := sandbox.CreateSandboxProject(defaultSandboxType, pm, cwd); err != nil {
+			return fmt.Errorf("failed to create sandbox: %w", err)
+		}
+		fmt.Println("✅ Sandbox created successfully")
+	}
+
+	// Initialize TUI model
+	m := initialModel()
+
+	// Create TUI program with mouse support
+	p := tea.NewProgram(m, tea.WithAltScreen(), tea.WithMouseCellMotion())
+
+	// Start processes in goroutines
+	var sandboxCmd *exec.Cmd
+	var dockerComposeFile string
+	var dockerLogsCmd *exec.Cmd
+	var mu sync.Mutex
+	done := make(chan error, 2)
+	
+	// Track if cleanup has been called
+	var cleanupOnce sync.Once
+	cleanupFunc := func() {
+		cleanup(cwd, &mu, sandboxCmd, dockerLogsCmd, dockerComposeFile)
+		// Close done channel to allow error listener to exit
+		close(done)
+	}
+	
+	// Ensure cleanup happens on exit
+	defer cleanupOnce.Do(cleanupFunc)
+
+	// Start error listener (non-blocking, just logs errors to TUI)
+	go func() {
+		for err := range done {
+			if err != nil {
+				// Log error but don't exit immediately - let user see it in TUI
+				m.sandboxBuffer.AddLine(fmt.Sprintf("⚠️  Process error: %v", err))
+			}
+		}
+	}()
+
+	// Start sandbox
+	go func() {
+		projectDir, err := sandbox.GetProjectDir(cwd, filepath.Join("sandbox", defaultSandboxType))
+		if err != nil {
+			m.sandboxBuffer.AddLine(fmt.Sprintf("❌ Failed to get sandbox directory: %v", err))
+			done <- fmt.Errorf("failed to get sandbox directory: %w", err)
+			return
+		}
+
+		m.sandboxBuffer.AddLine(fmt.Sprintf("📦 Project directory: %s", projectDir))
+
+		pm, err := pkgmgr.DetectPackageManager(projectDir)
+		if err != nil {
+			m.sandboxBuffer.AddLine(fmt.Sprintf("❌ Failed to detect package manager: %v", err))
+			done <- fmt.Errorf("failed to detect package manager: %w", err)
+			return
+		}
+
+		m.sandboxBuffer.AddLine(fmt.Sprintf("📦 Using package manager: %s", pm))
+
+		devCmd := pkgmgr.GetDevCommand(pm)
+		parts := strings.Fields(devCmd)
+		if len(parts) == 0 {
+			m.sandboxBuffer.AddLine("❌ Invalid dev command")
+			done <- fmt.Errorf("invalid dev command")
+			return
+		}
+
+		m.sandboxBuffer.AddLine(fmt.Sprintf("🚀 Starting: %s", devCmd))
+
+		mu.Lock()
+		sandboxCmd = exec.Command(parts[0], parts[1:]...)
+		sandboxCmd.Dir = projectDir
+		// Set process group to ensure we can kill all child processes (Unix only)
+		if runtime.GOOS != "windows" {
+			sandboxCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+		}
+		mu.Unlock()
+
+		// Capture output
+		sandboxStdout, err := sandboxCmd.StdoutPipe()
+		if err != nil {
+			m.sandboxBuffer.AddLine(fmt.Sprintf("❌ Failed to create stdout pipe: %v", err))
+			done <- fmt.Errorf("failed to create sandbox stdout pipe: %w", err)
+			return
+		}
+		sandboxStderr, err := sandboxCmd.StderrPipe()
+		if err != nil {
+			m.sandboxBuffer.AddLine(fmt.Sprintf("❌ Failed to create stderr pipe: %v", err))
+			done <- fmt.Errorf("failed to create sandbox stderr pipe: %w", err)
+			return
+		}
+
+		// Start the command first
+		if err := sandboxCmd.Start(); err != nil {
+			m.sandboxBuffer.AddLine(fmt.Sprintf("❌ Failed to start sandbox: %v", err))
+			done <- fmt.Errorf("failed to start sandbox: %w", err)
+			return
+		}
+
+		m.sandboxBuffer.AddLine("✅ Sandbox process started")
+
+		// Read from both stdout and stderr
+		go func() {
+			scanner := bufio.NewScanner(sandboxStdout)
+			for scanner.Scan() {
+				line := scanner.Text()
+				if line != "" {
+					m.sandboxBuffer.AddLine(line)
+				}
+			}
+			if err := scanner.Err(); err != nil {
+				m.sandboxBuffer.AddLine(fmt.Sprintf("⚠️  Error reading stdout: %v", err))
+			}
+		}()
+		go func() {
+			scanner := bufio.NewScanner(sandboxStderr)
+			for scanner.Scan() {
+				line := scanner.Text()
+				if line != "" {
+					m.sandboxBuffer.AddLine(line)
+				}
+			}
+			if err := scanner.Err(); err != nil {
+				m.sandboxBuffer.AddLine(fmt.Sprintf("⚠️  Error reading stderr: %v", err))
+			}
+		}()
+
+		if err := sandboxCmd.Wait(); err != nil {
+			m.sandboxBuffer.AddLine(fmt.Sprintf("❌ Sandbox exited with error: %v", err))
+			done <- fmt.Errorf("sandbox exited with error: %w", err)
+			return
+		}
+
+		m.sandboxBuffer.AddLine("📴 Sandbox process ended")
+	}()
+
+	// Start docker
+	go func() {
+		// Check Docker
+		if err := docker.CheckDockerInstalled(); err != nil {
+			m.dockerBuffer.AddLine(fmt.Sprintf("❌ Docker check failed: %v", err))
+			done <- fmt.Errorf("docker check failed: %w", err)
+			return
+		}
+
+		// Create temporary docker-compose file
+		composeFile, err := docker.CreateTempDockerCompose(cwd)
+		if err != nil {
+			m.dockerBuffer.AddLine(fmt.Sprintf("❌ Failed to create docker-compose file: %v", err))
+			done <- fmt.Errorf("failed to create docker-compose file: %w", err)
+			return
+		}
+		mu.Lock()
+		dockerComposeFile = composeFile
+		mu.Unlock()
+
+		// Check if .env file exists
+		envFile := filepath.Join(cwd, ".env")
+		if _, err := os.Stat(envFile); os.IsNotExist(err) {
+			// Create .env file with defaults (non-interactive)
+			envConfig := &docker.EnvConfig{
+				LLMConfig: &docker.LLMConfig{
+					APIKey:  "your-api-key",
+					BaseURL: "https://api.openai.com/v1",
+					SDK:     "openai",
+				},
+				RootAPIBearerToken: "your-root-api-bearer-token",
+				CoreConfigYAMLFile: "./config.yaml",
+			}
+			if err := docker.GenerateEnvFile(envFile, envConfig); err != nil {
+				done <- fmt.Errorf("failed to generate .env file: %w", err)
+				return
+			}
+		}
+
+		// Start docker in detached mode
+		upCmd := exec.Command("docker", "compose", "-f", composeFile, "up", "-d")
+		upCmd.Dir = cwd
+		if err := upCmd.Run(); err != nil {
+			done <- fmt.Errorf("failed to start docker services: %w", err)
+			return
+		}
+
+		// Stream docker logs with follow
+		mu.Lock()
+		dockerLogsCmd = exec.Command("docker", "compose", "-f", composeFile, "logs", "-f", "--tail", "0")
+		dockerLogsCmd.Dir = cwd
+		mu.Unlock()
+
+		logsStdout, err := dockerLogsCmd.StdoutPipe()
+		if err != nil {
+			done <- fmt.Errorf("failed to create docker logs stdout pipe: %w", err)
+			return
+		}
+		logsStderr, err := dockerLogsCmd.StderrPipe()
+		if err != nil {
+			done <- fmt.Errorf("failed to create docker logs stderr pipe: %w", err)
+			return
+		}
+
+		// Start the command first
+		if err := dockerLogsCmd.Start(); err != nil {
+			done <- fmt.Errorf("failed to start docker logs: %w", err)
+			return
+		}
+
+		// Read from both stdout and stderr
+		go func() {
+			scanner := bufio.NewScanner(logsStdout)
+			for scanner.Scan() {
+				line := scanner.Text()
+				if line != "" {
+					m.dockerBuffer.AddLine(line)
+				}
+			}
+			if err := scanner.Err(); err != nil {
+				m.dockerBuffer.AddLine(fmt.Sprintf("⚠️  Error reading docker stdout: %v", err))
+			}
+		}()
+		go func() {
+			scanner := bufio.NewScanner(logsStderr)
+			for scanner.Scan() {
+				line := scanner.Text()
+				if line != "" {
+					m.dockerBuffer.AddLine(line)
+				}
+			}
+			if err := scanner.Err(); err != nil {
+				m.dockerBuffer.AddLine(fmt.Sprintf("⚠️  Error reading docker stderr: %v", err))
+			}
+		}()
+
+		// Wait for the command to finish
+		dockerLogsCmd.Wait()
+	}()
+
+	// Set up signal handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	// Run TUI in main goroutine
+	go func() {
+		<-sigChan
+		p.Quit()
+	}()
+
+	// Run TUI
+	if _, err := p.Run(); err != nil {
+		// If TUI exits with error, cleanup will be handled by defer
+		return fmt.Errorf("TUI error: %w", err)
+	}
+
+	// Cleanup on exit (defer will handle it)
+	fmt.Println("\n🛑 Stopping services...")
+	fmt.Println("✅ Services stopped successfully")
+
+	return nil
+}
+
+// cleanup stops all running processes
+func cleanup(cwd string, mu *sync.Mutex, sandboxCmd, dockerLogsCmd *exec.Cmd, dockerComposeFile string) {
+	// Stop sandbox
+	mu.Lock()
+	if sandboxCmd != nil && sandboxCmd.Process != nil {
+		if runtime.GOOS != "windows" {
+			// On Unix systems, kill the process group to ensure all child processes are terminated
+			// Use negative PID to kill the entire process group
+			pgid, err := syscall.Getpgid(sandboxCmd.Process.Pid)
+			if err == nil {
+				// Kill the entire process group
+				syscall.Kill(-pgid, syscall.SIGTERM)
+				// Wait a bit, then force kill if still running
+				time.Sleep(500 * time.Millisecond)
+				syscall.Kill(-pgid, syscall.SIGKILL)
+			} else {
+				// Fallback to killing just the process
+				sandboxCmd.Process.Kill()
+			}
+		} else {
+			// On Windows, just kill the process
+			sandboxCmd.Process.Kill()
+		}
+		sandboxCmd.Wait()
+	}
+	mu.Unlock()
+
+	// Stop docker logs
+	mu.Lock()
+	if dockerLogsCmd != nil && dockerLogsCmd.Process != nil {
+		dockerLogsCmd.Process.Kill()
+		dockerLogsCmd.Wait()
+	}
+	mu.Unlock()
+
+	// Stop docker compose services and remove temporary file
+	if dockerComposeFile != "" {
+		downCmd := exec.Command("docker", "compose", "-f", dockerComposeFile, "down")
+		downCmd.Dir = cwd
+		downCmd.Run()
+		// Ensure temporary file is removed even if docker compose fails
+		if err := os.Remove(dockerComposeFile); err != nil {
+			// Log but don't fail - file might already be removed
+			fmt.Printf("⚠️  Warning: failed to remove temporary docker-compose file: %v\n", err)
+		}
+	}
+}
