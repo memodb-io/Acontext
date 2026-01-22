@@ -28,7 +28,7 @@ func TestGenerateEnvFile(t *testing.T) {
 		},
 	}
 
-		for _, tt := range tests {
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create directory if needed
 			dir := filepath.Dir(tt.filePath)
@@ -44,7 +44,7 @@ func TestGenerateEnvFile(t *testing.T) {
 				},
 				RootAPIBearerToken: "test-root-token",
 			}
-			
+
 			err = GenerateEnvFile(tt.filePath, envConfig)
 			if tt.wantErr {
 				assert.Error(t, err)
@@ -95,4 +95,3 @@ func TestGenerateEnvFile(t *testing.T) {
 		})
 	}
 }
-

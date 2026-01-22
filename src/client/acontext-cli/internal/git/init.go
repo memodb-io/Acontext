@@ -107,4 +107,3 @@ temp/
 
 	return os.WriteFile(gitignorePath, []byte(content), 0644)
 }
-

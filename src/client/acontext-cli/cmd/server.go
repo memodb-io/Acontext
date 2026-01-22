@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 	"syscall"
@@ -17,6 +16,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/memodb-io/Acontext/acontext-cli/internal/docker"
 	"github.com/memodb-io/Acontext/acontext-cli/internal/pkgmgr"
+	"github.com/memodb-io/Acontext/acontext-cli/internal/platform"
 	"github.com/memodb-io/Acontext/acontext-cli/internal/sandbox"
 	"github.com/spf13/cobra"
 )
@@ -516,9 +516,7 @@ func runServerUp(cmd *cobra.Command, args []string) error {
 		mu.Lock()
 		sandboxCmd = exec.Command(parts[0], parts[1:]...)
 		sandboxCmd.Dir = projectDir
-		if runtime.GOOS != "windows" {
-			sandboxCmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-		}
+		platform.SetProcessGroup(sandboxCmd)
 		mu.Unlock()
 
 		sandboxStdout, err := sandboxCmd.StdoutPipe()
@@ -689,25 +687,12 @@ func runServerUp(cmd *cobra.Command, args []string) error {
 func cleanup(cwd string, mu *sync.Mutex, sandboxCmd, dockerLogsCmd *exec.Cmd, dockerComposeFile string) {
 	mu.Lock()
 	if sandboxCmd != nil && sandboxCmd.Process != nil {
-		if runtime.GOOS != "windows" {
-			pgid, err := syscall.Getpgid(sandboxCmd.Process.Pid)
-			if err == nil {
-				if err := syscall.Kill(-pgid, syscall.SIGTERM); err != nil {
-					fmt.Printf("⚠️  Warning: failed to send SIGTERM to process group: %v\n", err)
-				}
-				time.Sleep(500 * time.Millisecond)
-				if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil {
-					fmt.Printf("⚠️  Warning: failed to send SIGKILL to process group: %v\n", err)
-				}
-			} else {
-				if err := sandboxCmd.Process.Kill(); err != nil {
-					fmt.Printf("⚠️  Warning: failed to kill sandbox process: %v\n", err)
-				}
-			}
-		} else {
-			if err := sandboxCmd.Process.Kill(); err != nil {
-				fmt.Printf("⚠️  Warning: failed to kill sandbox process: %v\n", err)
-			}
+		if err := platform.KillProcessGroup(sandboxCmd); err != nil {
+			fmt.Printf("⚠️  Warning: failed to send SIGTERM to process group: %v\n", err)
+		}
+		time.Sleep(500 * time.Millisecond)
+		if err := platform.KillProcessGroupForce(sandboxCmd); err != nil {
+			fmt.Printf("⚠️  Warning: failed to send SIGKILL to process group: %v\n", err)
 		}
 		if err := sandboxCmd.Wait(); err != nil {
 			fmt.Printf("⚠️  Warning: sandbox process wait error: %v\n", err)
