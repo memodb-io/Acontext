@@ -4,6 +4,8 @@
 package platform
 
 import (
+	"errors"
+	"os"
 	"os/exec"
 	"syscall"
 )
@@ -13,6 +15,11 @@ func SetProcessGroup(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 }
 
+// processAlreadyFinished returns true if the error indicates the process has already exited.
+func processAlreadyFinished(err error) bool {
+	return errors.Is(err, os.ErrProcessDone) || errors.Is(err, syscall.ESRCH)
+}
+
 // KillProcessGroup kills a process group on Unix systems
 func KillProcessGroup(cmd *exec.Cmd) error {
 	if cmd == nil || cmd.Process == nil {
@@ -20,11 +27,15 @@ func KillProcessGroup(cmd *exec.Cmd) error {
 	}
 	pgid, err := syscall.Getpgid(cmd.Process.Pid)
 	if err != nil {
-		// If we can't get the process group, just kill the process
-		return cmd.Process.Kill()
+		if processAlreadyFinished(err) {
+			return nil
+		}
+		if killErr := cmd.Process.Kill(); killErr != nil && !processAlreadyFinished(killErr) {
+			return killErr
+		}
+		return nil
 	}
-	// Send SIGTERM to the process group
-	if err := syscall.Kill(-pgid, syscall.SIGTERM); err != nil {
+	if err := syscall.Kill(-pgid, syscall.SIGTERM); err != nil && !processAlreadyFinished(err) {
 		return err
 	}
 	return nil
@@ -37,9 +48,16 @@ func KillProcessGroupForce(cmd *exec.Cmd) error {
 	}
 	pgid, err := syscall.Getpgid(cmd.Process.Pid)
 	if err != nil {
-		// If we can't get the process group, just kill the process
-		return cmd.Process.Kill()
+		if processAlreadyFinished(err) {
+			return nil
+		}
+		if killErr := cmd.Process.Kill(); killErr != nil && !processAlreadyFinished(killErr) {
+			return killErr
+		}
+		return nil
 	}
-	// Send SIGKILL to the process group
-	return syscall.Kill(-pgid, syscall.SIGKILL)
+	if err := syscall.Kill(-pgid, syscall.SIGKILL); err != nil && !processAlreadyFinished(err) {
+		return err
+	}
+	return nil
 }
