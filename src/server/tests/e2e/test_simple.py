@@ -218,73 +218,74 @@ async def test_concurrent_sessions():
     
     async def create_concurrent_session(session_num: int):
         """Create a session and send a message concurrently"""
+        # Open fresh connection per task to avoid asyncpg concurrency issues
+        conn = None
         try:
             conn = await asyncpg.connect(DB_URL)
             
-            try:
-                # Create project for this session
-                project_id = uuid.uuid4()
-                secret = str(uuid.uuid4())
-                bearer_token = f"{TEST_TOKEN_PREFIX}{secret}"
-                token_hmac = generate_hmac(secret, PEPPER)
+            # Create project for this session
+            project_id = uuid.uuid4()
+            secret = str(uuid.uuid4())
+            bearer_token = f"{TEST_TOKEN_PREFIX}{secret}"
+            token_hmac = generate_hmac(secret, PEPPER)
+            
+            configs = {
+                "project_session_message_buffer_max_turns": 1,
+                "project_session_message_buffer_ttl_seconds": 2
+            }
+            
+            await conn.execute(
+                "INSERT INTO projects (id, secret_key_hmac, secret_key_hash_phc, configs) VALUES ($1, $2, $3, $4)",
+                project_id, token_hmac, "dummy-phc", json.dumps(configs)
+            )
+            
+            headers = {"Authorization": f"Bearer {bearer_token}"}
+            
+            async with httpx.AsyncClient() as client:
+                # Create session
+                session_resp = await client.post(
+                    f"{API_URL}/api/v1/session",
+                    json={},
+                    headers=headers
+                )
+                if session_resp.status_code not in (200, 201):
+                    return False, f"Session {session_num}: Failed to create session"
                 
-                configs = {
-                    "project_session_message_buffer_max_turns": 1,
-                    "project_session_message_buffer_ttl_seconds": 2
-                }
+                session_id = session_resp.json()["data"]["id"]
                 
-                await conn.execute(
-                    "INSERT INTO projects (id, secret_key_hmac, secret_key_hash_phc, configs) VALUES ($1, $2, $3, $4)",
-                    project_id, token_hmac, "dummy-phc", json.dumps(configs)
+                # Send message
+                msg_resp = await client.post(
+                    f"{API_URL}/api/v1/session/{session_id}/messages",
+                    json={
+                        "format": "acontext",
+                        "blob": {
+                            "role": "user",
+                            "parts": [{"type": "text", "text": f"Simple Hello from concurrent session {session_num}"}]
+                        }
+                    },
+                    headers=headers
                 )
                 
-                headers = {"Authorization": f"Bearer {bearer_token}"}
+                if msg_resp.status_code not in (200, 201):
+                    return False, f"Session {session_num}: Failed to send message"
                 
-                async with httpx.AsyncClient() as client:
-                    # Create session
-                    session_resp = await client.post(
-                        f"{API_URL}/api/v1/session",
-                        json={},
-                        headers=headers
-                    )
-                    if session_resp.status_code not in (200, 201):
-                        return False, f"Session {session_num}: Failed to create session"
-                    
-                    session_id = session_resp.json()["data"]["id"]
-                    
-                    # Send message
-                    msg_resp = await client.post(
-                        f"{API_URL}/api/v1/session/{session_id}/messages",
-                        json={
-                            "format": "acontext",
-                            "blob": {
-                                "role": "user",
-                                "parts": [{"type": "text", "text": f"Simple Hello from concurrent session {session_num}"}]
-                            }
-                        },
-                        headers=headers
-                    )
-                    
-                    if msg_resp.status_code not in (200, 201):
-                        return False, f"Session {session_num}: Failed to send message"
-                    
-                    message_id = msg_resp.json()["data"]["id"]
-                    
-                    # Wait for processing (shorter timeout for load test)
-                    try:
-                        status = await poll_message_status(conn, message_id, timeout_seconds=20)
-                        if status == "success":
-                            return True, f"Session {session_num}: Success"
-                        else:
-                            return False, f"Session {session_num}: Processing failed with status {status}"
-                    except TimeoutError:
-                        return False, f"Session {session_num}: Timeout"
-            
-            finally:
-                await conn.close()
-                        
+                message_id = msg_resp.json()["data"]["id"]
+                
+                # Wait for processing (shorter timeout for load test)
+                try:
+                    status = await poll_message_status(conn, message_id, timeout_seconds=20)
+                    if status == "success":
+                        return True, f"Session {session_num}: Success"
+                    else:
+                        return False, f"Session {session_num}: Processing failed with status {status}"
+                except TimeoutError:
+                    return False, f"Session {session_num}: Timeout"
+        
         except Exception as e:
             return False, f"Session {session_num}: Exception {str(e)}"
+        finally:
+            if conn:
+                await conn.close()
     
     # Run concurrent sessions
     tasks = [create_concurrent_session(i) for i in range(num_concurrent)]

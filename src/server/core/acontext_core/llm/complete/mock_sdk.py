@@ -9,7 +9,7 @@ async def mock_complete(
     prompt=None,
     model=None,
     system_prompt=None,
-    history_messages=[],
+    history_messages=None,
     json_mode=False,
     max_tokens=1024,
     prompt_kwargs: Optional[dict] = None,
@@ -24,6 +24,8 @@ async def mock_complete(
     - If prompt contains "CALL_TOOL_DISK_LIST" -> Return structured tool call JSON for disk.list
     - Otherwise return a generic response
     """
+    # Safe handling of mutable default arguments
+    history_messages = history_messages or []
     prompt_kwargs = prompt_kwargs or {}
     prompt_id = prompt_kwargs.get("prompt_id", "mock-prompt")
     

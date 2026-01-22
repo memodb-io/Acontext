@@ -1,5 +1,6 @@
 import asyncio
 import pytest
+import pytest_asyncio
 import httpx
 import asyncpg
 import os
@@ -22,7 +23,7 @@ def generate_hmac(secret, pepper):
     return h.hexdigest()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def db_connection():
     """Database connection fixture"""
     conn = await asyncpg.connect(DB_URL)
@@ -30,14 +31,14 @@ async def db_connection():
     await conn.close()
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def http_client():
     """HTTP client fixture"""
     async with httpx.AsyncClient() as client:
         yield client
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_project(db_connection):
     """Create a test project with mock LLM configuration"""
     project_id = uuid.uuid4()
@@ -64,7 +65,7 @@ async def test_project(db_connection):
     }
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_session(http_client, test_project):
     """Create a test session"""
     headers = {"Authorization": f"Bearer {test_project['bearer_token']}"}
@@ -231,13 +232,17 @@ class TestE2EHandshake:
         print("Tool call flow test passed")
     
     @pytest.mark.asyncio
-    async def test_concurrency(self, http_client, db_connection):
+    async def test_concurrency(self, http_client):
         """Test 3: Concurrency/Load testing - spawn multiple concurrent sessions"""
         num_concurrent = 10  # Reduced from 50 for faster testing
         
         async def create_concurrent_session(session_num: int) -> Tuple[bool, str]:
             """Create a session and send a message concurrently"""
+            # Open fresh connection per task to avoid concurrency issues
+            conn = None
             try:
+                conn = await asyncpg.connect(DB_URL)
+                
                 # Create project for this session
                 project_id = uuid.uuid4()
                 secret = str(uuid.uuid4())
@@ -250,7 +255,7 @@ class TestE2EHandshake:
                     "llm_sdk": "mock"
                 }
                 
-                await db_connection.execute(
+                await conn.execute(
                     "INSERT INTO projects (id, secret_key_hmac, secret_key_hash_phc, configs) VALUES ($1, $2, $3, $4)",
                     project_id, token_hmac, "dummy-phc", json.dumps(configs)
                 )
@@ -288,7 +293,7 @@ class TestE2EHandshake:
                 
                 # Wait for processing (shorter timeout for load test)
                 try:
-                    status = await poll_message_status(db_connection, message_id, timeout_seconds=30)
+                    status = await poll_message_status(conn, message_id, timeout_seconds=30)
                     if status == "success":
                         return True, f"Session {session_num}: Success"
                     else:
@@ -298,6 +303,9 @@ class TestE2EHandshake:
                     
             except Exception as e:
                 return False, f"Session {session_num}: Exception {str(e)}"
+            finally:
+                if conn:
+                    await conn.close()
         
         # Run concurrent sessions
         tasks = [create_concurrent_session(i) for i in range(num_concurrent)]
