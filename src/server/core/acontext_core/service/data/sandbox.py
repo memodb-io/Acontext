@@ -1,3 +1,4 @@
+import asyncio
 from sqlalchemy import select, update, type_coerce, func, extract, Integer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import JSONB
@@ -12,6 +13,8 @@ from ...schema.orm import SandboxLog
 from ...schema.utils import asUUID
 from ...infra.sandbox.client import SANDBOX_CLIENT
 from ...env import LOG, DEFAULT_CORE_CONFIG
+from ...constants import MetricTags
+from ...telemetry.capture_metrics import capture_increment
 
 
 async def _update_will_total_alive_seconds(
@@ -23,6 +26,13 @@ async def _update_will_total_alive_seconds(
     Update the will_total_alive_seconds field based on how long the sandbox has been alive.
     Formula: DEFAULT_KEEPALIVE_SECONDS + (current_time - created_at)
     """
+    sandbox_log = await db_session.get(SandboxLog, sandbox_id)
+    if not sandbox_log:
+        return
+
+    old_will_total_alive_seconds = sandbox_log.will_total_alive_seconds
+    project_id = sandbox_log.project_id
+
     stmt = (
         update(SandboxLog)
         .where(SandboxLog.id == sandbox_id)
@@ -32,6 +42,18 @@ async def _update_will_total_alive_seconds(
         )
     )
     await db_session.execute(stmt)
+    await db_session.flush()
+    await db_session.refresh(sandbox_log)
+
+    increment_seconds = sandbox_log.will_total_alive_seconds - old_will_total_alive_seconds
+    if increment_seconds != 0:
+        asyncio.create_task(
+            capture_increment(
+                project_id=project_id,
+                tag=MetricTags.new_sandbox_alive,
+                increment=increment_seconds,
+            )
+        )
 
 
 async def _get_backend_sandbox_id(
@@ -213,6 +235,7 @@ async def update_sandbox(
 
         # Replace the backend sandbox ID with the unified ID
         info.sandbox_id = str(sandbox_id)
+
         return Result.resolve(info)
     except ValueError as e:
         return Result.reject(f"Sandbox not found or backend not available: {e}")

@@ -3,6 +3,7 @@ class MetricTags:
     new_skill_learned = "space.learned"
     new_experience_agentic_search = "search.experience.agentic"
     new_experience_embedding_search = "search.experience.embedding"
+    new_sandbox_alive = "sandbox.alive"
 
 
 class ExcessMetricTags:
