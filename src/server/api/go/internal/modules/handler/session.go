@@ -490,8 +490,8 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 	c.JSON(http.StatusCreated, serializer.Response{Data: out})
 }
 
-// AutoTrimReq defines the optional auto-trim input in get-messages.
-type AutoTrimReq struct {
+// AutoTrim defines the optional auto-trim input in get-messages.
+type AutoTrim struct {
 	TokenThreshold int    `form:"token_threshold" json:"token_threshold"`
 	Strategy       string `form:"strategy" json:"strategy"`
 }
@@ -505,6 +505,22 @@ type AutoTrimInfo struct {
 	SkipReason             *string `json:"skip_reason,omitempty"`
 }
 
+// GetMessagesResp defines a typed response shape for get-messages auto-trim metadata.
+type GetMessagesResp struct {
+	// Messages holds the returned messages list.
+	Messages []model.Message `json:"messages"`
+	// AutoTrimApplied is true when auto-trim ran.
+	AutoTrimApplied bool `json:"auto_trim_applied"`
+	// AutoTrimStrategy is the strategy name used by auto-trim.
+	AutoTrimStrategy *string `json:"auto_trim_strategy,omitempty"`
+	// EstimatedTokensRemoved is the estimated tokens removed by auto-trim.
+	EstimatedTokensRemoved int `json:"estimated_tokens_removed"`
+	// AutoTrimSkipped is true when auto-trim was skipped.
+	AutoTrimSkipped bool `json:"auto_trim_skipped,omitempty"`
+	// SkipReason explains why auto-trim was skipped.
+	SkipReason *string `json:"skip_reason,omitempty"`
+}
+
 type GetMessagesReq struct {
 	Limit                         *int   `form:"limit" json:"limit" binding:"omitempty,min=0,max=200" example:"20"`
 	Cursor                        string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
@@ -514,7 +530,7 @@ type GetMessagesReq struct {
 	EditStrategies                string `form:"edit_strategies" json:"edit_strategies" example:"[{\"type\":\"remove_tool_result\",\"params\":{\"keep_recent_n_tool_results\":3}}]"`
 	PinEditingStrategiesAtMessage string `form:"pin_editing_strategies_at_message" json:"pin_editing_strategies_at_message" example:""`
 	// AutoTrim holds optional auto-trim parameters.
-	AutoTrim *AutoTrimReq `form:"auto_trim" json:"auto_trim"`
+	AutoTrim *AutoTrim `form:"auto_trim" json:"auto_trim"`
 }
 
 // GetMessages godoc
