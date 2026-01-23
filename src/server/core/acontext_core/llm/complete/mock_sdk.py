@@ -1,8 +1,15 @@
 import json
 from typing import Optional
 from time import perf_counter
+from pydantic import BaseModel
 from ...env import LOG
-from ...schema.llm import LLMResponse
+from ...schema.llm import LLMResponse, LLMToolCall, LLMFunction
+
+
+class MockRawResponse(BaseModel):
+    mock: bool = True
+    content: Optional[str] = None
+    tool_calls: Optional[list] = None
 
 
 async def mock_complete(
@@ -50,14 +57,14 @@ async def mock_complete(
     elif "CALL_TOOL_DISK_LIST" in full_text:
         content = None
         tool_calls = [
-            {
-                "id": "call_mock_disk_list",
-                "type": "function",
-                "function": {
-                    "name": "disk.list",
-                    "arguments": {"path": "/tmp"}
-                }
-            }
+            LLMToolCall(
+                id="call_mock_disk_list",
+                type="function",
+                function=LLMFunction(
+                    name="disk.list",
+                    arguments={"path": "/tmp"}
+                )
+            )
         ]
     else:
         content = "This is a mock response for testing purposes."
@@ -78,7 +85,7 @@ async def mock_complete(
     
     return LLMResponse(
         role="assistant",  # Required field
-        raw_response={"mock": True, "content": content, "tool_calls": tool_calls},  # Required field
+        raw_response=MockRawResponse(mock=True, content=content, tool_calls=tool_calls),  # Required field
         content=content,
         tool_calls=tool_calls,
     )
