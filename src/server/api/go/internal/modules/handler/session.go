@@ -602,6 +602,20 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		return
 	}
 
+	// Include auto-trim fields in the response only when auto-trim was requested.
+	if req.AutoTrim != nil {
+		// auto_trim_applied shows whether auto-trim ran.
+		convertedOut["auto_trim_applied"] = out.AutoTrimApplied
+		// auto_trim_strategy shows which strategy ran.
+		convertedOut["auto_trim_strategy"] = out.AutoTrimStrategy
+		// estimated_tokens_removed shows the estimated token reduction.
+		convertedOut["estimated_tokens_removed"] = out.EstimatedTokensRemoved
+		// auto_trim_skipped shows whether auto-trim was skipped.
+		convertedOut["auto_trim_skipped"] = out.AutoTrimSkipped
+		// skip_reason explains why auto-trim was skipped.
+		convertedOut["skip_reason"] = out.AutoTrimSkipReason
+	}
+
 	c.JSON(http.StatusOK, serializer.Response{Data: convertedOut})
 }
 
