@@ -138,7 +138,7 @@ async function handleGetSandbox(sandboxId: string, request: Request, env: Env): 
 		const sandbox = getSandbox(env.Sandbox, sandboxId, {
 			sleepAfter: keepalive_seconds ? `${keepalive_seconds}s` : undefined,
 		});
-		const checkResult = await sandbox.exec('echo "alive"');
+		const checkResult = await sandbox.exec('echo "alive and well"');
 		const status = checkResult.success ? 'running' : 'error';
 
 		const now = new Date();
