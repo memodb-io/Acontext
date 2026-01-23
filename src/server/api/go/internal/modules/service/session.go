@@ -488,7 +488,7 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 			return nil, fmt.Errorf("failed to count tokens for auto-trim: %w", err)
 		}
 		// Trigger auto-trim when tokens meet or exceed the threshold.
-		if originalTokens >= in.AutoTrim.TokenThreshold {
+		if checkTokensGte(originalTokens, in.AutoTrim.TokenThreshold) {
 			autoTrimTriggered = true
 		}
 		// TODO: message_count_gte
