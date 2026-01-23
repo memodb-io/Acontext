@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	// strconv is used to parse the auto_trim_token_threshold query value.
+	"strconv"
 	"strings"
 	"time"
 
@@ -499,6 +501,28 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		return
 	}
 
+	// Read auto-trim threshold from query params.
+	thrStr := c.Query("auto_trim_token_threshold")
+	// Read auto-trim strategy from query params.
+	strat := c.Query("auto_trim_strategy")
+	// Build auto-trim config only when any auto-trim param is present.
+	if thrStr != "" || strat != "" {
+		// Parse threshold to int.
+		thr, err := strconv.Atoi(thrStr)
+		// Return 400 when threshold is missing, non-numeric, or non-positive.
+		if err != nil || thr <= 0 {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid auto_trim_token_threshold", err))
+			return
+		}
+		// Return 400 when strategy is not the only allowed value.
+		if strat != "remove_tool_result" {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid auto_trim_strategy", errors.New("strategy must be remove_tool_result")))
+			return
+		}
+		// Attach parsed auto-trim config to the request object.
+		req.AutoTrim = &AutoTrim{TokenThreshold: thr, Strategy: strat}
+	}
+
 	sessionID, err := uuid.Parse(c.Param("session_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
@@ -520,6 +544,14 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		}
 	}
 
+	// Map handler auto-trim to service auto-trim.
+	var autoTrim *service.AutoTrim
+	// Build service auto-trim only when request auto-trim exists.
+	if req.AutoTrim != nil {
+		// Copy threshold and strategy into service input.
+		autoTrim = &service.AutoTrim{TokenThreshold: req.AutoTrim.TokenThreshold, Strategy: req.AutoTrim.Strategy}
+	}
+
 	out, err := h.svc.GetMessages(c.Request.Context(), service.GetMessagesInput{
 		SessionID:                     sessionID,
 		Limit:                         limit,
@@ -529,6 +561,8 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		TimeDesc:                      req.TimeDesc,
 		EditStrategies:                editStrategies,
 		PinEditingStrategiesAtMessage: req.PinEditingStrategiesAtMessage,
+		// Pass auto-trim config to service.
+		AutoTrim: autoTrim,
 	})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.DBErr("", err))

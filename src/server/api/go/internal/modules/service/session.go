@@ -18,6 +18,9 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/pkg/editor"
 	"github.com/memodb-io/Acontext/internal/pkg/paging"
+
+	// tokenizer is used to count tokens for auto-trim trigger checks.
+	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/datatypes"
@@ -384,6 +387,16 @@ type GetMessagesInput struct {
 	TimeDesc                      bool                    `json:"time_desc"`
 	EditStrategies                []editor.StrategyConfig `json:"edit_strategies,omitempty"`
 	PinEditingStrategiesAtMessage string                  `json:"pin_editing_strategies_at_message,omitempty"`
+	// AutoTrim holds optional auto-trim config for get-messages.
+	AutoTrim *AutoTrim `json:"auto_trim,omitempty"`
+}
+
+// AutoTrim defines auto-trim configuration for get-messages.
+type AutoTrim struct {
+	// TokenThreshold triggers trimming when token count is >= this value.
+	TokenThreshold int `json:"token_threshold"`
+	// Strategy is the trimming strategy name (v0 only remove_tool_result).
+	Strategy string `json:"strategy"`
 }
 
 type PublicURL struct {
@@ -457,6 +470,30 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 		out.Items = msgs[:in.Limit]
 		last := out.Items[len(out.Items)-1]
 		out.NextCursor = paging.EncodeCursor(last.CreatedAt, last.ID)
+	}
+
+	// Track original token count for auto-trim checks.
+	originalTokens := 0
+	// Track whether auto-trim should run.
+	autoTrimTriggered := false
+	// Count tokens only when auto-trim config is present.
+	if in.AutoTrim != nil {
+		// Count tokens on the loaded messages.
+		originalTokens, err = tokenizer.CountMessagePartsTokens(ctx, out.Items)
+		// Return error if token counting fails.
+		if err != nil {
+			return nil, fmt.Errorf("failed to count tokens for auto-trim: %w", err)
+		}
+		// Trigger auto-trim when tokens meet or exceed the threshold.
+		if originalTokens >= in.AutoTrim.TokenThreshold {
+			autoTrimTriggered = true
+		}
+		// TODO: message_count_gte
+		// TODO: tool_use_count_gte
+	}
+	// Placeholder for auto-trim execution (implemented in a later milestone).
+	if autoTrimTriggered {
+		// No-op in milestone 3.
 	}
 
 	// Apply edit strategies if provided (before format conversion)
