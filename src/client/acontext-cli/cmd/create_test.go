@@ -90,4 +90,3 @@ func TestValidateProjectName(t *testing.T) {
 		})
 	}
 }
-

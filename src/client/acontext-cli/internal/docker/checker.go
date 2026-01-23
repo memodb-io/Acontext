@@ -29,4 +29,3 @@ func CheckDockerInstalled() error {
 
 	return nil
 }
-

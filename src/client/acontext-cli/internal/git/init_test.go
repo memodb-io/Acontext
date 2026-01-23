@@ -11,19 +11,19 @@ import (
 
 func TestEnsureGitignore(t *testing.T) {
 	tests := []struct {
-		name      string
+		name       string
 		fileExists bool
-		wantErr   bool
+		wantErr    bool
 	}{
 		{
-			name:      "create new gitignore",
+			name:       "create new gitignore",
 			fileExists: false,
-			wantErr:   false,
+			wantErr:    false,
 		},
 		{
-			name:      "skip if gitignore exists",
+			name:       "skip if gitignore exists",
 			fileExists: true,
-			wantErr:   false,
+			wantErr:    false,
 		},
 	}
 
@@ -62,4 +62,3 @@ func TestEnsureGitignore(t *testing.T) {
 		})
 	}
 }
-

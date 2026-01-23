@@ -39,7 +39,6 @@ func init() {
 }
 
 func runSandboxStart(cmd *cobra.Command, args []string) error {
-	// Get current working directory
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
@@ -48,23 +47,19 @@ func runSandboxStart(cmd *cobra.Command, args []string) error {
 	fmt.Println("📦 Scanning for existing sandbox projects...")
 	fmt.Println()
 
-	// Scan for existing projects
 	existingProjects, err := sandbox.ScanSandboxProjects(cwd)
 	if err != nil {
 		return fmt.Errorf("failed to scan sandbox projects: %w", err)
 	}
 
-	// Get available create options
 	createOptions, err := sandbox.GetAvailableCreateOptions(cwd)
 	if err != nil {
 		return fmt.Errorf("failed to get available create options: %w", err)
 	}
 
-	// Build options list for user selection
 	var options []string
 	var optionMap = make(map[string]sandboxOption)
 
-	// Add existing projects
 	for _, p := range existingProjects {
 		label := fmt.Sprintf("%s (Local) - %s", p.Name, p.Path)
 		options = append(options, label)
@@ -74,9 +69,7 @@ func runSandboxStart(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Add create options
 	for _, p := range createOptions {
-		// Capitalize first letter
 		name := p.Name
 		if len(name) > 0 {
 			name = strings.ToUpper(string(name[0])) + name[1:]
@@ -93,7 +86,6 @@ func runSandboxStart(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no sandbox options available")
 	}
 
-	// Prompt user to select
 	var selected string
 	prompt := &survey.Select{
 		Message: "Select a sandbox project:",
@@ -110,7 +102,6 @@ func runSandboxStart(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("selected option not found")
 	}
 
-	// Handle the selection
 	if option.isCreate {
 		return handleCreate(option.project, cwd)
 	} else {
@@ -124,7 +115,6 @@ type sandboxOption struct {
 }
 
 func handleCreate(project sandbox.SandboxProject, baseDir string) error {
-	// Check if project already exists and prompt for overwrite
 	if project.Exists {
 		var overwrite bool
 		prompt := &survey.Confirm{
@@ -143,7 +133,6 @@ func handleCreate(project sandbox.SandboxProject, baseDir string) error {
 		}
 	}
 
-	// Prompt for package manager
 	fmt.Println()
 	fmt.Println("📦 Select package manager:")
 	pmOptions := []string{"pnpm", "npm", "yarn", "bun"}
@@ -158,12 +147,6 @@ func handleCreate(project sandbox.SandboxProject, baseDir string) error {
 		return fmt.Errorf("failed to get package manager selection: %w", err)
 	}
 
-	// Check if package manager is installed
-	if !isPackageManagerInstalled(selectedPM) {
-		return fmt.Errorf("package manager '%s' is not installed. Please install it first", selectedPM)
-	}
-
-	// Create the project
 	if project.Exists {
 		if err := sandbox.CreateSandboxProjectWithOverwrite(project.Name, selectedPM, baseDir); err != nil {
 			return fmt.Errorf("failed to create project: %w", err)
@@ -176,29 +159,19 @@ func handleCreate(project sandbox.SandboxProject, baseDir string) error {
 
 	fmt.Println()
 
-	// Get the project directory
 	projectDir, err := sandbox.GetProjectDir(baseDir, project.Path)
 	if err != nil {
 		return fmt.Errorf("failed to get project directory: %w", err)
 	}
 
-	// Start the project
 	return sandbox.StartProject(projectDir)
 }
 
 func handleStart(project sandbox.SandboxProject, baseDir string) error {
-	// Get the project directory
 	projectDir, err := sandbox.GetProjectDir(baseDir, project.Path)
 	if err != nil {
 		return fmt.Errorf("failed to get project directory: %w", err)
 	}
 
-	// Start the project
 	return sandbox.StartProject(projectDir)
-}
-
-func isPackageManagerInstalled(pm string) bool {
-	// This is a simple check - we'll let the actual command execution handle errors
-	// For now, just return true and let the create command fail if not installed
-	return true
 }
