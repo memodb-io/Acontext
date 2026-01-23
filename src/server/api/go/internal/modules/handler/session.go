@@ -430,6 +430,21 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 	c.JSON(http.StatusCreated, serializer.Response{Data: out})
 }
 
+// AutoTrimReq defines the optional auto-trim input in get-messages.
+type AutoTrimReq struct {
+	TokenThreshold int    `form:"token_threshold" json:"token_threshold"`
+	Strategy       string `form:"strategy" json:"strategy"`
+}
+
+// AutoTrimInfo defines the auto-trim metadata returned in responses.
+type AutoTrimInfo struct {
+	Applied                bool    `json:"auto_trim_applied"`
+	Strategy               *string `json:"auto_trim_strategy,omitempty"`
+	EstimatedTokensRemoved int     `json:"estimated_tokens_removed"`
+	Skipped                bool    `json:"auto_trim_skipped,omitempty"`
+	SkipReason             *string `json:"skip_reason,omitempty"`
+}
+
 type GetMessagesReq struct {
 	Limit                         *int   `form:"limit" json:"limit" binding:"omitempty,min=0,max=200" example:"20"`
 	Cursor                        string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
@@ -438,6 +453,8 @@ type GetMessagesReq struct {
 	TimeDesc                      bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
 	EditStrategies                string `form:"edit_strategies" json:"edit_strategies" example:"[{\"type\":\"remove_tool_result\",\"params\":{\"keep_recent_n_tool_results\":3}}]"`
 	PinEditingStrategiesAtMessage string `form:"pin_editing_strategies_at_message" json:"pin_editing_strategies_at_message" example:""`
+	// AutoTrim holds optional auto-trim parameters.
+	AutoTrim *AutoTrimReq `form:"auto_trim" json:"auto_trim"`
 }
 
 // GetMessages godoc
