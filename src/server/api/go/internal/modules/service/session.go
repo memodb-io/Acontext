@@ -413,6 +413,16 @@ type GetMessagesOutput struct {
 	HasMore         bool                 `json:"has_more"`
 	PublicURLs      map[string]PublicURL `json:"public_urls,omitempty"` // file_name -> url
 	EditAtMessageID string               `json:"edit_at_message_id,omitempty"`
+	// AutoTrimApplied is true when auto-trim ran.
+	AutoTrimApplied bool `json:"auto_trim_applied"`
+	// AutoTrimStrategy is the auto-trim strategy name used.
+	AutoTrimStrategy *string `json:"auto_trim_strategy,omitempty"`
+	// EstimatedTokensRemoved is the estimated tokens removed by auto-trim.
+	EstimatedTokensRemoved int `json:"estimated_tokens_removed"`
+	// AutoTrimSkipped is true when auto-trim was skipped.
+	AutoTrimSkipped bool `json:"auto_trim_skipped,omitempty"`
+	// AutoTrimSkipReason explains why auto-trim was skipped.
+	AutoTrimSkipReason *string `json:"skip_reason,omitempty"`
 }
 
 func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (*GetMessagesOutput, error) {
@@ -494,9 +504,45 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 		// TODO: message_count_gte
 		// TODO: tool_use_count_gte
 	}
-	// Placeholder for auto-trim execution (implemented in a later milestone).
+	// Apply auto-trim when the trigger is true.
 	if autoTrimTriggered {
-		// No-op in milestone 3.
+		// Skip auto-trim when strategy is not supported in v0.
+		if in.AutoTrim.Strategy != "remove_tool_result" {
+			// Record skip reason for unsupported strategy.
+			reason := "unsupported_strategy"
+			out.AutoTrimSkipped = true
+			out.AutoTrimSkipReason = &reason
+		} else {
+			// Build remove_tool_result strategy config with default params.
+			strategyConfig := editor.StrategyConfig{Type: "remove_tool_result", Params: map[string]interface{}{}}
+			// Apply the remove_tool_result strategy to messages.
+			editedMessages, err := editor.ApplyStrategies(out.Items, []editor.StrategyConfig{strategyConfig})
+			if err != nil {
+				// Record skip reason when auto-trim apply fails.
+				reason := "apply_failed"
+				out.AutoTrimSkipped = true
+				out.AutoTrimSkipReason = &reason
+			} else {
+				// Replace messages with auto-trimmed messages.
+				out.Items = editedMessages
+				// Mark auto-trim as applied.
+				out.AutoTrimApplied = true
+				// Store the applied strategy name for the response.
+				strategyName := in.AutoTrim.Strategy
+				out.AutoTrimStrategy = &strategyName
+				// Count tokens after auto-trim to estimate removed tokens.
+				editedTokens, err := tokenizer.CountMessagePartsTokens(ctx, out.Items)
+				if err != nil {
+					return nil, fmt.Errorf("failed to count tokens after auto-trim: %w", err)
+				}
+				// Compute estimated token savings from auto-trim.
+				out.EstimatedTokensRemoved = originalTokens - editedTokens
+				// Clamp negative values to zero.
+				if out.EstimatedTokensRemoved < 0 {
+					out.EstimatedTokensRemoved = 0
+				}
+			}
+		}
 	}
 
 	// Apply edit strategies if provided (before format conversion)
