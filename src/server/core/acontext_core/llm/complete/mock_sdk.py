@@ -55,7 +55,7 @@ async def mock_complete(
                 "type": "function",
                 "function": {
                     "name": "disk.list",
-                    "arguments": json.dumps({"path": "/tmp"})
+                    "arguments": {"path": "/tmp"}
                 }
             }
         ]
@@ -77,14 +77,8 @@ async def mock_complete(
     LOG.info(f"Mock LLM completed: duration={duration:.3f}s, has_tools={tool_calls is not None}")
     
     return LLMResponse(
-        id=f"mock-{prompt_id}-{int(start_time)}",
+        role="assistant",  # Required field
+        raw_response={"mock": True, "content": content, "tool_calls": tool_calls},  # Required field
         content=content,
         tool_calls=tool_calls,
-        model=model or "mock-model",
-        prompt_tokens=len(full_text.split()) if full_text else 0,
-        completion_tokens=len(content.split()) if content else 0,
-        total_tokens=len(full_text.split()) + (len(content.split()) if content else 0),
-        duration_seconds=duration,
-        role="assistant",  # Required field
-        raw_response={"mock": True, "content": content, "tool_calls": tool_calls}  # Required field
     )
