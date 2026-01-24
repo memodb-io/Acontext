@@ -1,6 +1,7 @@
 from typing import Callable, Awaitable, Mapping, Optional
 from .openai_sdk import openai_complete
 from .anthropic_sdk import anthropic_complete
+from .mock_sdk import mock_complete
 from ...schema.llm import LLMResponse
 from ...schema.result import Result
 from ...env import LOG, DEFAULT_CORE_CONFIG
@@ -12,6 +13,7 @@ COMPLETE_FUNC = Callable[..., Awaitable[LLMResponse]]
 FACTORIES: Mapping[str, COMPLETE_FUNC] = {
     "openai": openai_complete,
     "anthropic": anthropic_complete,
+    "mock": mock_complete,
 }
 
 
@@ -19,7 +21,7 @@ async def llm_complete(
     prompt=None,
     model=None,
     system_prompt=None,
-    history_messages=[],
+    history_messages=None,
     json_mode=False,
     max_tokens=1024,
     prompt_kwargs: Optional[dict] = None,
@@ -28,6 +30,8 @@ async def llm_complete(
 ) -> Result[LLMResponse]:
     use_model = model or DEFAULT_CORE_CONFIG.llm_simple_model
     use_complete_func = FACTORIES[DEFAULT_CORE_CONFIG.llm_sdk]
+
+    history_messages = history_messages or []
 
     try:
         response = await use_complete_func(
@@ -74,6 +78,21 @@ def response_to_sendable_message(message: LLMResponse) -> dict:
                     "input": tool_call.function.arguments,
                 }
             )
+        return dp
+    elif DEFAULT_CORE_CONFIG.llm_sdk == "mock":
+        # For mock LLM, return a simple message format similar to OpenAI
+        dp = {"role": message.role, "content": message.content}
+        if message.tool_calls:
+            dp["tool_calls"] = []
+            for tool_call in message.tool_calls:
+                dp["tool_calls"].append({
+                    "id": tool_call.id,
+                    "type": "function",
+                    "function": {
+                        "name": tool_call.function.name,
+                        "arguments": tool_call.function.arguments,
+                    }
+                })
         return dp
     else:
         raise ValueError(f"Unsupported LLM SDK: {DEFAULT_CORE_CONFIG.llm_sdk}")
