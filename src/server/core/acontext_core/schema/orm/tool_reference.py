@@ -2,13 +2,12 @@ from dataclasses import dataclass, field
 from sqlalchemy import ForeignKey, Index, Column, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from typing import TYPE_CHECKING, Optional, List
+from typing import TYPE_CHECKING, Optional
 from .base import ORM_BASE, CommonMixin
 from ..utils import asUUID
 
 if TYPE_CHECKING:
     from .project import Project
-    from .tool_sop import ToolSOP
 
 
 @ORM_BASE.mapped
@@ -44,13 +43,4 @@ class ToolReference(CommonMixin):
     project: "Project" = field(
         init=False,
         metadata={"db": relationship("Project", back_populates="tool_references")},
-    )
-
-    tool_sops: List["ToolSOP"] = field(
-        default_factory=list,
-        metadata={
-            "db": relationship(
-                "ToolSOP", back_populates="tool_reference", cascade="all, delete-orphan"
-            )
-        },
     )

@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Literal, Any, Optional
-from ..utils import asUUID
+from typing import Literal
 
 
 SearchMode = Literal["fast", "agentic"]
@@ -13,15 +12,6 @@ class ToolRename(BaseModel):
 
 class ToolRenameRequest(BaseModel):
     rename: list[ToolRename] = Field(..., description="List of tool renames")
-
-
-class InsertBlockRequest(BaseModel):
-    parent_id: Optional[asUUID] = Field(
-        None, description="Parent block ID (optional for page/folder types)"
-    )
-    props: dict[str, Any] = Field(..., description="Block properties")
-    title: str = Field(..., description="Block title")
-    type: str = Field(..., description="Block type")
 
 
 class SandboxExecRequest(BaseModel):

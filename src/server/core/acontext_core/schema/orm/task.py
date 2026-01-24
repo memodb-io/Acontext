@@ -86,13 +86,6 @@ class Task(CommonMixin):
         },
     )
 
-    space_digested: bool = field(
-        default=False,
-        metadata={
-            "db": Column(Boolean, nullable=False, default=False, server_default="false")
-        },
-    )
-
     # Relationships
     messages: List["Message"] = field(
         default_factory=list,

@@ -8,7 +8,6 @@ from ..utils import asUUID
 
 if TYPE_CHECKING:
     from .project import Project
-    from .space import Space
     from .message import Message
     from .task import Task
 
@@ -20,7 +19,6 @@ class Session(CommonMixin):
 
     __table_args__ = (
         Index("ix_session_project_id", "project_id"),
-        Index("ix_session_space_id", "space_id"),
         Index("ix_session_session_project_id", "id", "project_id"),
     )
 
@@ -41,17 +39,6 @@ class Session(CommonMixin):
         },
     )
 
-    space_id: Optional[asUUID] = field(
-        default=None,
-        metadata={
-            "db": Column(
-                UUID(as_uuid=True),
-                ForeignKey("spaces.id", ondelete="SET NULL"),
-                nullable=True,
-            )
-        },
-    )
-
     configs: Optional[dict] = field(
         default=None, metadata={"db": Column(JSONB, nullable=True)}
     )
@@ -59,12 +46,6 @@ class Session(CommonMixin):
     # Relationships
     project: "Project" = field(
         init=False, metadata={"db": relationship("Project", back_populates="sessions")}
-    )
-
-    space: Optional["Space"] = field(
-        default=None,
-        init=False,
-        metadata={"db": relationship("Space", back_populates="sessions")},
     )
 
     messages: List["Message"] = field(

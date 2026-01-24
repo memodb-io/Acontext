@@ -1,14 +1,7 @@
 import os
 import yaml
 from pydantic import BaseModel
-from typing import Literal, Mapping, Optional, Any, Type, List
-
-
-class CustomScoringRule(BaseModel):
-    """User-defined scoring rule for task complexity evaluation"""
-
-    description: str  # User-friendly rule description
-    level: Literal["normal", "critical"]  # Rule importance level
+from typing import Literal, Mapping, Optional, Any, Type
 
 
 class ProjectConfig(BaseModel):
@@ -16,15 +9,8 @@ class ProjectConfig(BaseModel):
     project_session_message_buffer_max_turns: int = 16
     project_session_message_buffer_max_overflow: int = 16
     project_session_message_buffer_ttl_seconds: int = 8  # 4 seconds
-    project_enable_user_confirmation_on_new_experiences: bool = False
     default_task_agent_max_iterations: int = 6
     default_task_agent_previous_progress_num: int = 6
-    default_sop_agent_max_iterations: int = 4
-    default_space_construct_agent_max_iterations: int = 16
-    default_space_construct_agent_previous_tasks_limit: int = 5
-
-    # SOP Agent Customization (extensible for future features)
-    sop_agent_custom_scoring_rules: List[CustomScoringRule] = []
 
 
 class CoreConfig(BaseModel):
@@ -38,19 +24,11 @@ class CoreConfig(BaseModel):
 
     llm_simple_model: str = "gpt-4.1"
 
-    block_embedding_provider: Literal["openai", "jina"] = "openai"
-    block_embedding_model: str = "text-embedding-3-small"
-    block_embedding_dim: int = 1536
-    block_embedding_api_key: Optional[str] = None
-    block_embedding_base_url: Optional[str] = None
-    block_embedding_search_cosine_distance_threshold: float = 0.8
-
     # Core Configuration
     logging_format: str = "text"
     logging_level: str = "INFO"
     session_message_session_lock_wait_seconds: int = 1
     session_message_processing_timeout_seconds: int = 60
-    space_task_sop_lock_wait_seconds: int = 1
 
     # MQ Configuration
     mq_url: str = "amqp://acontext:helloworld@127.0.0.1:15672/"

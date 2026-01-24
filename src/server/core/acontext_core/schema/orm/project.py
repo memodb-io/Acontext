@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, List, Optional
 from .base import ORM_BASE, CommonMixin
 
 if TYPE_CHECKING:
-    from .space import Space
     from .session import Session
     from .task import Task
     from .tool_reference import ToolReference
@@ -33,15 +32,6 @@ class Project(CommonMixin):
     )
 
     # Relationships
-    spaces: List["Space"] = field(
-        default_factory=list,
-        metadata={
-            "db": relationship(
-                "Space", back_populates="project", cascade="all, delete-orphan"
-            )
-        },
-    )
-
     sessions: List["Session"] = field(
         default_factory=list,
         metadata={
