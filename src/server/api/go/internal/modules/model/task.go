@@ -14,11 +14,10 @@ type Task struct {
 	SessionID uuid.UUID `gorm:"type:uuid;not null;index:ix_task_session_id;index:ix_task_session_id_task_id,priority:1;index:ix_task_session_id_status,priority:1;uniqueIndex:uq_session_id_order,priority:1" json:"session_id"`
 	ProjectID uuid.UUID `gorm:"type:uuid;not null;index:ix_task_project_id" json:"project_id"`
 
-	Order         int      `gorm:"not null;uniqueIndex:uq_session_id_order,priority:2" json:"order"`
-	Data          TaskData `gorm:"type:jsonb;not null;serializer:json" json:"data"`
-	Status        string   `gorm:"type:text;not null;default:'pending';check:status IN ('success','failed','running','pending');index:ix_task_session_id_status,priority:2" json:"status"`
-	IsPlanning    bool     `gorm:"not null;default:false" json:"is_planning"`
-	SpaceDigested bool     `gorm:"not null;default:false" json:"space_digested"`
+	Order      int      `gorm:"not null;uniqueIndex:uq_session_id_order,priority:2" json:"order"`
+	Data       TaskData `gorm:"type:jsonb;not null;serializer:json" json:"data"`
+	Status     string   `gorm:"type:text;not null;default:'pending';check:status IN ('success','failed','running','pending');index:ix_task_session_id_status,priority:2" json:"status"`
+	IsPlanning bool     `gorm:"not null;default:false" json:"is_planning"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime;not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime;not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
@@ -39,7 +38,6 @@ type TaskData struct {
 	TaskDescription string   `json:"task_description"`
 	Progresses      []string `json:"progresses,omitempty"`
 	UserPreferences []string `json:"user_preferences,omitempty"`
-	SOPThinking     string   `json:"sop_thinking,omitempty"`
 }
 
 // Scan implements the sql.Scanner interface for TaskData

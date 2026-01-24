@@ -9,37 +9,6 @@ definitions:
         description: '"text", "json", "csv", "code"'
         type: string
     type: object
-  handler.ConfirmExperienceReq:
-    properties:
-      save:
-        type: boolean
-    required:
-    - save
-    type: object
-  handler.ConnectToSpaceReq:
-    properties:
-      space_id:
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        type: string
-    required:
-    - space_id
-    type: object
-  handler.CreateBlockReq:
-    properties:
-      parent_id:
-        type: string
-      props:
-        additionalProperties: {}
-        type: object
-      title:
-        type: string
-      type:
-        example: page
-        type: string
-    required:
-    - type
-    type: object
   handler.CreateDiskReq:
     properties:
       user:
@@ -54,19 +23,6 @@ definitions:
       disable_task_tracking:
         example: false
         type: boolean
-      space_id:
-        example: 123e4567-e89b-12d3-a456-42661417
-        format: uuid
-        type: string
-      user:
-        example: alice@acontext.io
-        type: string
-    type: object
-  handler.CreateSpaceReq:
-    properties:
-      configs:
-        additionalProperties: true
-        type: object
       user:
         example: alice@acontext.io
         type: string
@@ -122,13 +78,6 @@ definitions:
         items:
           type: string
         type: array
-    type: object
-  handler.MoveBlockReq:
-    properties:
-      parent_id:
-        type: string
-      sort:
-        type: integer
     type: object
   handler.RenameToolNameReq:
     properties:
@@ -186,32 +135,11 @@ definitions:
       artifact:
         $ref: '#/definitions/model.Artifact'
     type: object
-  handler.UpdateBlockPropertiesReq:
-    properties:
-      props:
-        additionalProperties: {}
-        type: object
-      title:
-        type: string
-    type: object
-  handler.UpdateBlockSortReq:
-    properties:
-      sort:
-        type: integer
-    type: object
   handler.UpdateSessionConfigsReq:
     properties:
       configs:
         additionalProperties: true
         type: object
-    type: object
-  handler.UpdateSpaceConfigsReq:
-    properties:
-      configs:
-        additionalProperties: true
-        type: object
-    required:
-    - configs
     type: object
   handler.UploadFromSandboxReq:
     properties:
@@ -240,18 +168,6 @@ definitions:
       status:
         type: integer
     type: object
-  httpclient.InsertBlockResponse:
-    properties:
-      id:
-        type: string
-    type: object
-  httpclient.LearningStatusResponse:
-    properties:
-      not_space_digested_count:
-        type: integer
-      space_digested_count:
-        type: integer
-    type: object
   httpclient.SandboxCommandOutput:
     properties:
       exit_code:
@@ -271,27 +187,6 @@ definitions:
         type: string
       sandbox_status:
         type: string
-    type: object
-  httpclient.SearchResultBlockItem:
-    properties:
-      block_id:
-        type: string
-      distance:
-        type: number
-      props:
-        additionalProperties: true
-        type: object
-      title:
-        type: string
-      type:
-        type: string
-    type: object
-  httpclient.SpaceSearchResult:
-    properties:
-      cited_blocks:
-        items:
-          $ref: '#/definitions/httpclient.SearchResultBlockItem'
-        type: array
     type: object
   httpclient.ToolReferenceData:
     properties:
@@ -342,29 +237,6 @@ definitions:
       updated_at:
         type: string
     type: object
-  model.Block:
-    properties:
-      created_at:
-        type: string
-      id:
-        type: string
-      is_archived:
-        type: boolean
-      parent_id:
-        type: string
-      props:
-        type: object
-      sort:
-        type: integer
-      space_id:
-        type: string
-      title:
-        type: string
-      type:
-        type: string
-      updated_at:
-        type: string
-    type: object
   model.Disk:
     properties:
       created_at:
@@ -376,21 +248,6 @@ definitions:
       updated_at:
         type: string
       user_id:
-        type: string
-    type: object
-  model.ExperienceConfirmation:
-    properties:
-      created_at:
-        type: string
-      experience_data:
-        type: object
-      id:
-        type: string
-      space_id:
-        type: string
-      task_id:
-        type: string
-      updated_at:
         type: string
     type: object
   model.Message:
@@ -466,23 +323,6 @@ definitions:
         type: string
       project_id:
         type: string
-      space_id:
-        type: string
-      updated_at:
-        type: string
-      user_id:
-        type: string
-    type: object
-  model.Space:
-    properties:
-      configs:
-        type: object
-      created_at:
-        type: string
-      id:
-        type: string
-      project_id:
-        type: string
       updated_at:
         type: string
       user_id:
@@ -504,8 +344,6 @@ definitions:
         type: string
       session_id:
         type: string
-      space_digested:
-        type: boolean
       status:
         type: string
       updated_at:
@@ -517,8 +355,6 @@ definitions:
         items:
           type: string
         type: array
-      sop_thinking:
-        type: string
       task_description:
         type: string
       user_preferences:
@@ -546,8 +382,6 @@ definitions:
       sessions_count:
         type: integer
       skills_count:
-        type: integer
-      spaces_count:
         type: integer
     type: object
   serializer.Response:
@@ -658,17 +492,6 @@ definitions:
       next_cursor:
         type: string
     type: object
-  service.ListExperienceConfirmationsOutput:
-    properties:
-      has_more:
-        type: boolean
-      items:
-        items:
-          $ref: '#/definitions/model.ExperienceConfirmation'
-        type: array
-      next_cursor:
-        type: string
-    type: object
   service.ListSessionsOutput:
     properties:
       has_more:
@@ -676,17 +499,6 @@ definitions:
       items:
         items:
           $ref: '#/definitions/model.Session'
-        type: array
-      next_cursor:
-        type: string
-    type: object
-  service.ListSpacesOutput:
-    properties:
-      has_more:
-        type: boolean
-      items:
-        items:
-          $ref: '#/definitions/model.Space'
         type: array
       next_cursor:
         type: string
@@ -2033,24 +1845,13 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get all sessions under a project, optionally filtered by space_id
-        or user
+      description: Get all sessions under a project, optionally filtered by user
       parameters:
       - description: User identifier to filter sessions
         example: alice@acontext.io
         in: query
         name: user
         type: string
-      - description: Space ID to filter sessions
-        format: uuid
-        in: query
-        name: space_id
-        type: string
-      - description: Filter sessions not connected to any space (default false)
-        example: false
-        in: query
-        name: not_connected
-        type: boolean
       - description: Limit of sessions to return, default 20. Max 200.
         in: query
         name: limit
@@ -2093,12 +1894,11 @@ paths:
 
           # List sessions
           sessions = client.sessions.list(
-              space_id='space-uuid',
               limit=20,
               time_desc=True
           )
           for session in sessions.items:
-              print(f"{session.id}: {session.space_id}")
+              print(f"{session.id}")
 
           # List sessions for a specific user
           sessions = client.sessions.list(user='alice@acontext.io', limit=20)
@@ -2111,12 +1911,11 @@ paths:
 
           // List sessions
           const sessions = await client.sessions.list({
-            spaceId: 'space-uuid',
             limit: 20,
             timeDesc: true
           });
           for (const session of sessions.items) {
-            console.log(`${session.id}: ${session.space_id}`);
+            console.log(`${session.id}`);
           }
 
           // List sessions for a specific user
@@ -2124,8 +1923,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new session under a space. Optionally associate with a
-        user identifier.
+      description: Create a new session. Optionally associate with a user identifier.
       parameters:
       - description: CreateSession payload
         in: body
@@ -2159,13 +1957,11 @@ paths:
           client = AcontextClient(api_key='sk_project_token')
 
           # Create a session
-          session = client.sessions.create(
-              space_id='space-uuid'
-          )
+          session = client.sessions.create()
           print(f"Created session: {session.id}")
 
           # Create a session for a specific user
-          session = client.sessions.create(user='alice@acontext.io', space_id='space-uuid')
+          session = client.sessions.create(user='alice@acontext.io')
       - label: JavaScript
         lang: javascript
         source: |
@@ -2174,13 +1970,11 @@ paths:
           const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
           // Create a session
-          const session = await client.sessions.create({
-            spaceId: 'space-uuid'
-          });
+          const session = await client.sessions.create();
           console.log(`Created session: ${session.id}`);
 
           // Create a session for a specific user
-          const userSession = await client.sessions.create({ user: 'alice@acontext.io', spaceId: 'space-uuid' });
+          const userSession = await client.sessions.create({ user: 'alice@acontext.io' });
   /session/{session_id}:
     delete:
       consumes:
@@ -2324,60 +2118,6 @@ paths:
 
           // Update session configs
           await client.sessions.updateConfigs('session-uuid');
-  /session/{session_id}/connect_to_space:
-    post:
-      consumes:
-      - application/json
-      description: Connect a session to a space by id
-      parameters:
-      - description: Session ID
-        format: uuid
-        in: path
-        name: session_id
-        required: true
-        type: string
-      - description: ConnectToSpace payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.ConnectToSpaceReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/serializer.Response'
-      security:
-      - BearerAuth: []
-      summary: Connect session to space
-      tags:
-      - session
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # Connect session to space
-          client.sessions.connect_to_space(
-              session_id='session-uuid',
-              space_id='space-uuid'
-          )
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // Connect session to space
-          await client.sessions.connectToSpace('session-uuid', {
-            spaceId: 'space-uuid'
-          });
   /session/{session_id}/flush:
     post:
       consumes:
@@ -2428,58 +2168,6 @@ paths:
           // Flush session buffer
           const result = await client.sessions.flush('session-uuid');
           console.log(result.status);
-  /session/{session_id}/get_learning_status:
-    get:
-      consumes:
-      - application/json
-      description: Get learning status for a session. Returns the count of space digested
-        tasks and not space digested tasks. If the session is not connected to a space,
-        returns 0 and 0.
-      parameters:
-      - description: Session ID
-        format: uuid
-        in: path
-        name: session_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/httpclient.LearningStatusResponse'
-              type: object
-      security:
-      - BearerAuth: []
-      summary: Get learning status
-      tags:
-      - session
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # Get learning status
-          result = client.sessions.get_learning_status(session_id='session-uuid')
-          print(f"Space digested: {result.space_digested_count}, Not digested: {result.not_space_digested_count}")
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // Get learning status
-          const result = await client.sessions.getLearningStatus('session-uuid');
-          console.log(`Space digested: ${result.space_digested_count}, Not digested: ${result.not_space_digested_count}`);
   /session/{session_id}/messages:
     get:
       consumes:
@@ -2884,998 +2572,6 @@ paths:
           // Get token counts
           const result = await client.sessions.getTokenCounts('session-uuid');
           console.log(`Total tokens: ${result.total_tokens}`);
-  /space:
-    get:
-      consumes:
-      - application/json
-      description: Get all spaces under a project
-      parameters:
-      - description: User identifier to filter spaces
-        example: alice@acontext.io
-        in: query
-        name: user
-        type: string
-      - description: Limit of spaces to return, default 20. Max 200.
-        in: query
-        name: limit
-        type: integer
-      - description: Cursor for pagination. Use the cursor from the previous response
-          to get the next page.
-        in: query
-        name: cursor
-        type: string
-      - description: Order by created_at descending if true, ascending if false (default
-          false)
-        example: "false"
-        in: query
-        name: time_desc
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/service.ListSpacesOutput'
-              type: object
-      security:
-      - BearerAuth: []
-      summary: Get spaces
-      tags:
-      - space
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # List spaces
-          spaces = client.spaces.list(limit=20, time_desc=True)
-          for space in spaces.items:
-              print(f"{space.id}: {space.configs}")
-
-          # List spaces for a specific user
-          spaces = client.spaces.list(user='alice@acontext.io', limit=20)
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // List spaces
-          const spaces = await client.spaces.list({ limit: 20, timeDesc: true });
-          for (const space of spaces.items) {
-            console.log(`${space.id}: ${JSON.stringify(space.configs)}`);
-          }
-
-          // List spaces for a specific user
-          const userSpaces = await client.spaces.list({ user: 'alice@acontext.io', limit: 20 });
-    post:
-      consumes:
-      - application/json
-      description: Create a new space under a project. Optionally associate with a
-        user identifier.
-      parameters:
-      - description: CreateSpace payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.CreateSpaceReq'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.Space'
-              type: object
-      security:
-      - BearerAuth: []
-      summary: Create space
-      tags:
-      - space
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # Create a space
-          space = client.spaces.create()
-          print(f"Created space: {space.id}")
-
-          # Create a space for a specific user
-          space = client.spaces.create(user='alice@acontext.io')
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // Create a space
-          const space = await client.spaces.create();
-          console.log(`Created space: ${space.id}`);
-
-          // Create a space for a specific user
-          const userSpace = await client.spaces.create({ user: 'alice@acontext.io' });
-  /space/{space_id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a space by its ID
-      parameters:
-      - description: Space ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/serializer.Response'
-      security:
-      - BearerAuth: []
-      summary: Delete space
-      tags:
-      - space
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # Delete a space
-          client.spaces.delete(space_id='space-uuid')
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // Delete a space
-          await client.spaces.delete('space-uuid');
-  /space/{space_id}/block:
-    get:
-      consumes:
-      - application/json
-      description: List blocks in a space. Use type query parameter to filter by block
-        type (page, folder, sop). Use parent_id query parameter to filter by parent.
-        If both type and parent_id are empty, returns top-level pages and folders.
-      parameters:
-      - description: Space ID
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Block type
-        enum:
-        - page
-        - folder
-        - sop
-        in: query
-        name: type
-        type: string
-      - description: Parent ID
-        format: uuid
-        in: query
-        name: parent_id
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/model.Block'
-                  type: array
-              type: object
-      security:
-      - BearerAuth: []
-      summary: List blocks
-      tags:
-      - block
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # List blocks
-          blocks = client.blocks.list(
-              space_id='space-uuid',
-              parent_id='parent-uuid',
-              block_type='page'
-          )
-          for block in blocks:
-              print(f"{block.id}: {block.title}")
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // List blocks
-          const blocks = await client.blocks.list('space-uuid', {
-            parentId: 'parent-uuid',
-            type: 'page'
-          });
-          for (const block of blocks) {
-            console.log(`${block.id}: ${block.title}`);
-          }
-    post:
-      consumes:
-      - application/json
-      description: 'Create a new block (supports types: page, folder, sop). For page
-        and folder types, parent_id is optional. For sop type, parent_id is required.'
-      parameters:
-      - description: Space ID
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: CreateBlock payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.CreateBlockReq'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/httpclient.InsertBlockResponse'
-              type: object
-      security:
-      - BearerAuth: []
-      summary: Create block
-      tags:
-      - block
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # Create a folder
-          folder = client.blocks.create(
-              space_id='space-uuid',
-              block_type='folder',
-              title='My Folder'
-          )
-
-          # Create a page under the folder
-          page = client.blocks.create(
-              space_id='space-uuid',
-              parent_id=folder['id'],
-              block_type='page',
-              title='My Page',
-              props={"description": "Page content here"}
-          )
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // Create a folder
-          const folder = await client.blocks.create('space-uuid', {
-            blockType: 'folder',
-            title: 'My Folder'
-          });
-
-          // Create a page under the folder
-          const page = await client.blocks.create('space-uuid', {
-            parentId: folder.id,
-            blockType: 'page',
-            title: 'My Page',
-            props: { description: 'Page content here' }
-          });
-  /space/{space_id}/block/{block_id}:
-    delete:
-      consumes:
-      - application/json
-      description: 'Delete a block by its ID (works for block types: page, folder,
-        sop)'
-      parameters:
-      - description: Space ID
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Block ID
-        format: uuid
-        in: path
-        name: block_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/serializer.Response'
-      security:
-      - BearerAuth: []
-      summary: Delete block
-      tags:
-      - block
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # Delete a block
-          client.blocks.delete(space_id='space-uuid', block_id='block-uuid')
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // Delete a block
-          await client.blocks.delete('space-uuid', 'block-uuid');
-  /space/{space_id}/block/{block_id}/move:
-    put:
-      consumes:
-      - application/json
-      description: 'Move block by updating its parent_id. Works for block types: page,
-        folder, sop. For page and folder types, parent_id can be null (root level).'
-      parameters:
-      - description: Space ID
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Block ID
-        format: uuid
-        in: path
-        name: block_id
-        required: true
-        type: string
-      - description: MoveBlock payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.MoveBlockReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/serializer.Response'
-      security:
-      - BearerAuth: []
-      summary: Move block
-      tags:
-      - block
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # Move block to a different parent
-          client.blocks.move(
-              space_id='space-uuid',
-              block_id='block-uuid',
-              parent_id='new-parent-uuid'
-          )
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // Move block to a different parent
-          await client.blocks.move('space-uuid', 'block-uuid', {
-            parentId: 'new-parent-uuid'
-          });
-  /space/{space_id}/block/{block_id}/properties:
-    get:
-      consumes:
-      - application/json
-      description: 'Get a block''s properties by its ID (works for block types: page,
-        folder, sop)'
-      parameters:
-      - description: Space ID
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Block ID
-        format: uuid
-        in: path
-        name: block_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.Block'
-              type: object
-      security:
-      - BearerAuth: []
-      summary: Get block properties
-      tags:
-      - block
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # Get block properties
-          block = client.blocks.get_properties(
-              space_id='space-uuid',
-              block_id='block-uuid'
-          )
-          print(f"{block.title}: {block.props}")
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // Get block properties
-          const block = await client.blocks.getProperties('space-uuid', 'block-uuid');
-          console.log(`${block.title}: ${JSON.stringify(block.props)}`);
-    put:
-      consumes:
-      - application/json
-      description: 'Update a block''s title and properties by its ID (works for block
-        types: page, folder, sop)'
-      parameters:
-      - description: Space ID
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Block ID
-        format: uuid
-        in: path
-        name: block_id
-        required: true
-        type: string
-      - description: UpdateBlockProperties payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.UpdateBlockPropertiesReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/serializer.Response'
-      security:
-      - BearerAuth: []
-      summary: Update block properties
-      tags:
-      - block
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # Update block properties
-          client.blocks.update_properties(
-              space_id='space-uuid',
-              block_id='block-uuid',
-              title='Updated Title',
-              props={"text": "Updated content"}
-          )
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // Update block properties
-          await client.blocks.updateProperties('space-uuid', 'block-uuid', {
-            title: 'Updated Title',
-            props: { text: 'Updated content' }
-          });
-  /space/{space_id}/block/{block_id}/sort:
-    put:
-      consumes:
-      - application/json
-      description: 'Update block sort value (works for block types: page, folder,
-        sop)'
-      parameters:
-      - description: Space ID
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Block ID
-        format: uuid
-        in: path
-        name: block_id
-        required: true
-        type: string
-      - description: UpdateBlockSort payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.UpdateBlockSortReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/serializer.Response'
-      security:
-      - BearerAuth: []
-      summary: Update block sort
-      tags:
-      - block
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # Update block sort order
-          client.blocks.update_sort(
-              space_id='space-uuid',
-              block_id='block-uuid',
-              sort=5
-          )
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // Update block sort order
-          await client.blocks.updateSort('space-uuid', 'block-uuid', {
-            sort: 5
-          });
-  /space/{space_id}/configs:
-    get:
-      consumes:
-      - application/json
-      description: Retrieve the configurations of a space by its ID
-      parameters:
-      - description: Space ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.Space'
-              type: object
-      security:
-      - BearerAuth: []
-      summary: Get space configs
-      tags:
-      - space
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # Get space configs
-          space = client.spaces.get_configs(space_id='space-uuid')
-          print(space.configs)
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // Get space configs
-          const space = await client.spaces.getConfigs('space-uuid');
-          console.log(space.configs);
-    put:
-      consumes:
-      - application/json
-      description: Update the configurations of a space by its ID
-      parameters:
-      - description: Space ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: UpdateConfigs payload
-        in: body
-        name: payload
-        required: true
-        schema:
-          $ref: '#/definitions/handler.UpdateSpaceConfigsReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/serializer.Response'
-      security:
-      - BearerAuth: []
-      summary: Update space configs
-      tags:
-      - space
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # Update space configs
-          client.spaces.update_configs(
-              space_id='space-uuid'
-          )
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // Update space configs
-          await client.spaces.updateConfigs('space-uuid');
-  /space/{space_id}/experience_confirmations:
-    get:
-      consumes:
-      - application/json
-      description: Get all experience confirmations in a space with cursor-based pagination
-      parameters:
-      - description: Space ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Limit of confirmations to return, default 20. Max 200.
-        in: query
-        name: limit
-        type: integer
-      - description: Cursor for pagination. Use the cursor from the previous response
-          to get the next page.
-        in: query
-        name: cursor
-        type: string
-      - description: Order by created_at descending if true, ascending if false (default
-          false)
-        example: false
-        in: query
-        name: time_desc
-        type: boolean
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/service.ListExperienceConfirmationsOutput'
-              type: object
-      security:
-      - BearerAuth: []
-      summary: Get experience confirmations
-      tags:
-      - space
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # Get unconfirmed experiences
-          experiences = client.spaces.get_unconfirmed_experiences(
-              space_id='space-uuid',
-              limit=20,
-              time_desc=True
-          )
-          for experience in experiences.items:
-              print(f"{experience.id}: {experience.experience_data}")
-
-          # If there are more, use the cursor for pagination
-          if experiences.has_more:
-              next_experiences = client.spaces.get_unconfirmed_experiences(
-                  space_id='space-uuid',
-                  limit=20,
-                  cursor=experiences.next_cursor
-              )
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // Get unconfirmed experiences
-          const experiences = await client.spaces.getUnconfirmedExperiences('space-uuid', {
-            limit: 20,
-            timeDesc: true
-          });
-          for (const experience of experiences.items) {
-            console.log(`${experience.id}: ${JSON.stringify(experience.experience_data)}`);
-          }
-
-          // If there are more, use the cursor for pagination
-          if (experiences.hasMore) {
-            const nextExperiences = await client.spaces.getUnconfirmedExperiences('space-uuid', {
-              limit: 20,
-              cursor: experiences.nextCursor
-            });
-          }
-  /space/{space_id}/experience_confirmations/{experience_id}:
-    put:
-      consumes:
-      - application/json
-      description: 'Confirm an experience confirmation. If save is false, delete the
-        row. If save is true, get the data first (TODO: process data), then delete
-        the row.'
-      parameters:
-      - description: Space ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Experience Confirmation ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: experience_id
-        required: true
-        type: string
-      - description: Confirmation request with save flag
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/handler.ConfirmExperienceReq'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/model.ExperienceConfirmation'
-              type: object
-      security:
-      - BearerAuth: []
-      summary: Confirm experience
-      tags:
-      - space
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # Confirm experience and save data
-          confirmation = client.spaces.confirm_experience(
-              space_id='space-uuid',
-              experience_id='experience-uuid',
-              save=True
-          )
-          print(f"Saved confirmation: {confirmation.experience_data}")
-
-          # Confirm experience without saving (just delete)
-          client.spaces.confirm_experience(
-              space_id='space-uuid',
-              experience_id='experience-uuid',
-              save=False
-          )
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // Confirm experience and save data
-          const confirmation = await client.spaces.confirmExperience('space-uuid', 'experience-uuid', {
-            save: true
-          });
-          console.log(`Saved confirmation: ${JSON.stringify(confirmation.experience_data)}`);
-
-          // Confirm experience without saving (just delete)
-          await client.spaces.confirmExperience('space-uuid', 'experience-uuid', {
-            save: false
-          });
-  /space/{space_id}/experience_search:
-    get:
-      consumes:
-      - application/json
-      description: Retrieve the experience search results for a given query within
-        a space by its ID
-      parameters:
-      - description: Space ID
-        example: 123e4567-e89b-12d3-a456-426614174000
-        format: uuid
-        in: path
-        name: space_id
-        required: true
-        type: string
-      - description: Search query for page/folder titles
-        in: query
-        name: query
-        required: true
-        type: string
-      - description: Maximum number of results to return (1-50, default 10)
-        in: query
-        name: limit
-        type: integer
-      - description: 'Search mode: fast or agentic (default fast)'
-        in: query
-        name: mode
-        type: string
-      - description: Cosine distance threshold (0=identical, 2=opposite)
-        format: float64
-        in: query
-        name: semantic_threshold
-        type: number
-      - description: Maximum number of iterations for agentic search (1-100, default
-          16)
-        in: query
-        name: max_iterations
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/serializer.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/httpclient.SpaceSearchResult'
-              type: object
-      security:
-      - BearerAuth: []
-      summary: Get experience search
-      tags:
-      - space
-      x-code-samples:
-      - label: Python
-        lang: python
-        source: |
-          from acontext import AcontextClient
-
-          client = AcontextClient(api_key='sk_project_token')
-
-          # Experience search
-          result = client.spaces.experience_search(
-              space_id='space-uuid',
-              query='How to implement authentication?',
-              limit=10,
-              mode='agentic',
-              max_iterations=20
-          )
-          for block in result.cited_blocks:
-              print(f"{block.title} (distance: {block.distance})")
-      - label: JavaScript
-        lang: javascript
-        source: |
-          import { AcontextClient } from '@acontext/acontext';
-
-          const client = new AcontextClient({ apiKey: 'sk_project_token' });
-
-          // Experience search
-          const result = await client.spaces.experienceSearch('space-uuid', {
-            query: 'How to implement authentication?',
-            limit: 10,
-            mode: 'agentic',
-            maxIterations: 20
-          });
-          for (const block of result.cited_blocks) {
-            console.log(`${block.title} (distance: ${block.distance})`);
-          }
   /tool/name:
     get:
       consumes:
@@ -3982,7 +2678,7 @@ paths:
       consumes:
       - application/json
       description: Delete a user by identifier and cascade delete all associated resources
-        (Space, Session, Disk, Skill)
+        (Session, Disk, Skill)
       parameters:
       - description: User identifier string
         in: path
@@ -4024,8 +2720,8 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get the resource counts (Spaces, Sessions, Disks, Skills) associated
-        with a user
+      description: Get the resource counts (Sessions, Disks, Skills) associated with
+        a user
       parameters:
       - description: User identifier string
         in: path
@@ -4059,7 +2755,6 @@ paths:
 
           # Get user resource counts
           resources = client.users.get_resources('alice@acontext.io')
-          print(f"Spaces: {resources.spaces_count}")
           print(f"Sessions: {resources.sessions_count}")
           print(f"Disks: {resources.disks_count}")
           print(f"Skills: {resources.skills_count}")
@@ -4072,7 +2767,6 @@ paths:
 
           // Get user resource counts
           const resources = await client.users.getResources('alice@acontext.io');
-          console.log(`Spaces: ${resources.spaces_count}`);
           console.log(`Sessions: ${resources.sessions_count}`);
           console.log(`Disks: ${resources.disks_count}`);
           console.log(`Skills: ${resources.skills_count}`);

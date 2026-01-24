@@ -37,7 +37,7 @@ func (s *userService) Delete(ctx context.Context, projectID uuid.UUID, identifie
 	if identifier == "" {
 		return errors.New("user identifier is empty")
 	}
-	// The cascade deletion of associated resources (Space, Session, Disk, AgentSkills)
+	// The cascade deletion of associated resources (Session, Disk, AgentSkills)
 	// is handled by the database foreign key constraints (ON DELETE CASCADE)
 	return s.r.Delete(ctx, projectID, identifier)
 }

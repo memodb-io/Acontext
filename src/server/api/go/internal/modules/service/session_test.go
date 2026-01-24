@@ -61,8 +61,8 @@ func (m *MockSessionRepo) ListBySessionWithCursor(ctx context.Context, sessionID
 	return args.Get(0).([]model.Message), args.Error(1)
 }
 
-func (m *MockSessionRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, spaceID *uuid.UUID, notConnected bool, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Session, error) {
-	args := m.Called(ctx, projectID, userIdentifier, spaceID, notConnected, afterCreatedAt, afterID, limit, timeDesc)
+func (m *MockSessionRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Session, error) {
+	args := m.Called(ctx, projectID, userIdentifier, afterCreatedAt, afterID, limit, timeDesc)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -463,7 +463,6 @@ func TestSessionService_UpdateByID(t *testing.T) {
 func TestSessionService_List(t *testing.T) {
 	ctx := context.Background()
 	projectID := uuid.New()
-	spaceID := uuid.New()
 
 	tests := []struct {
 		name    string
@@ -475,10 +474,8 @@ func TestSessionService_List(t *testing.T) {
 		{
 			name: "successful sessions retrieval - all sessions",
 			input: ListSessionsInput{
-				ProjectID:    projectID,
-				SpaceID:      nil,
-				NotConnected: false,
-				Limit:        10,
+				ProjectID: projectID,
+				Limit:     10,
 			},
 			setup: func(repo *MockSessionRepo) {
 				expectedSessions := []model.Session{
@@ -491,73 +488,29 @@ func TestSessionService_List(t *testing.T) {
 						ProjectID: projectID,
 					},
 				}
-				repo.On("ListWithCursor", ctx, projectID, "", (*uuid.UUID)(nil), false, time.Time{}, uuid.UUID{}, 11, false).Return(expectedSessions, nil)
-			},
-			wantErr: false,
-		},
-		{
-			name: "successful sessions retrieval - filter by space_id",
-			input: ListSessionsInput{
-				ProjectID:    projectID,
-				SpaceID:      &spaceID,
-				NotConnected: false,
-				Limit:        10,
-			},
-			setup: func(repo *MockSessionRepo) {
-				expectedSessions := []model.Session{
-					{
-						ID:        uuid.New(),
-						ProjectID: projectID,
-						SpaceID:   &spaceID,
-					},
-				}
-				repo.On("ListWithCursor", ctx, projectID, "", &spaceID, false, time.Time{}, uuid.UUID{}, 11, false).Return(expectedSessions, nil)
-			},
-			wantErr: false,
-		},
-		{
-			name: "successful sessions retrieval - not connected",
-			input: ListSessionsInput{
-				ProjectID:    projectID,
-				SpaceID:      nil,
-				NotConnected: true,
-				Limit:        10,
-			},
-			setup: func(repo *MockSessionRepo) {
-				expectedSessions := []model.Session{
-					{
-						ID:        uuid.New(),
-						ProjectID: projectID,
-						SpaceID:   nil,
-					},
-				}
-				repo.On("ListWithCursor", ctx, projectID, "", (*uuid.UUID)(nil), true, time.Time{}, uuid.UUID{}, 11, false).Return(expectedSessions, nil)
+				repo.On("ListWithCursor", ctx, projectID, "", time.Time{}, uuid.UUID{}, 11, false).Return(expectedSessions, nil)
 			},
 			wantErr: false,
 		},
 		{
 			name: "empty sessions list",
 			input: ListSessionsInput{
-				ProjectID:    projectID,
-				SpaceID:      nil,
-				NotConnected: false,
-				Limit:        10,
+				ProjectID: projectID,
+				Limit:     10,
 			},
 			setup: func(repo *MockSessionRepo) {
-				repo.On("ListWithCursor", ctx, projectID, "", (*uuid.UUID)(nil), false, time.Time{}, uuid.UUID{}, 11, false).Return([]model.Session{}, nil)
+				repo.On("ListWithCursor", ctx, projectID, "", time.Time{}, uuid.UUID{}, 11, false).Return([]model.Session{}, nil)
 			},
 			wantErr: false,
 		},
 		{
 			name: "list failure",
 			input: ListSessionsInput{
-				ProjectID:    projectID,
-				SpaceID:      nil,
-				NotConnected: false,
-				Limit:        10,
+				ProjectID: projectID,
+				Limit:     10,
 			},
 			setup: func(repo *MockSessionRepo) {
-				repo.On("ListWithCursor", ctx, projectID, "", (*uuid.UUID)(nil), false, time.Time{}, uuid.UUID{}, 11, false).Return(nil, errors.New("database error"))
+				repo.On("ListWithCursor", ctx, projectID, "", time.Time{}, uuid.UUID{}, 11, false).Return(nil, errors.New("database error"))
 			},
 			wantErr: true,
 		},

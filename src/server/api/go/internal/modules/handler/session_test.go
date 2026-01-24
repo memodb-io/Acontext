@@ -108,7 +108,6 @@ func getMockSessionCoreClient() *httpclient.CoreClient {
 
 func TestSessionHandler_GetSessions(t *testing.T) {
 	projectID := uuid.New()
-	spaceID := uuid.New()
 
 	tests := []struct {
 		name           string
@@ -140,58 +139,12 @@ func TestSessionHandler_GetSessions(t *testing.T) {
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:        "successful sessions retrieval - filter by space_id",
-			queryParams: "?space_id=" + spaceID.String(),
-			setup: func(svc *MockSessionService) {
-				expectedOutput := &service.ListSessionsOutput{
-					Items: []model.Session{
-						{
-							ID:        uuid.New(),
-							ProjectID: projectID,
-							SpaceID:   &spaceID,
-							Configs:   datatypes.JSONMap{},
-						},
-					},
-					HasMore: false,
-				}
-				svc.On("List", mock.Anything, mock.Anything).Return(expectedOutput, nil)
-			},
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name:        "successful sessions retrieval - not connected",
-			queryParams: "?not_connected=true",
-			setup: func(svc *MockSessionService) {
-				expectedOutput := &service.ListSessionsOutput{
-					Items: []model.Session{
-						{
-							ID:        uuid.New(),
-							ProjectID: projectID,
-							SpaceID:   nil,
-							Configs:   datatypes.JSONMap{},
-						},
-					},
-					HasMore: false,
-				}
-				svc.On("List", mock.Anything, mock.Anything).Return(expectedOutput, nil)
-			},
-			expectedStatus: http.StatusOK,
-		},
-		{
 			name:        "empty sessions list",
 			queryParams: "",
 			setup: func(svc *MockSessionService) {
 				svc.On("List", mock.Anything, mock.Anything).Return(&service.ListSessionsOutput{Items: []model.Session{}, HasMore: false}, nil)
 			},
 			expectedStatus: http.StatusOK,
-		},
-		{
-			name:        "invalid space_id",
-			queryParams: "?space_id=invalid-uuid",
-			setup: func(svc *MockSessionService) {
-				// No service call expected
-			},
-			expectedStatus: http.StatusBadRequest,
 		},
 		{
 			name:        "service layer error",
@@ -252,32 +205,6 @@ func TestSessionHandler_CreateSession(t *testing.T) {
 			},
 			expectedStatus: http.StatusCreated,
 			expectedError:  false,
-		},
-		{
-			name: "session creation with space ID",
-			requestBody: CreateSessionReq{
-				SpaceID: uuid.New().String(),
-				Configs: map[string]interface{}{
-					"model": "gpt-4",
-				},
-			},
-			setup: func(svc *MockSessionService) {
-				svc.On("Create", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
-					return s.ProjectID == projectID && s.SpaceID != nil
-				})).Return(nil)
-			},
-			expectedStatus: http.StatusCreated,
-			expectedError:  false,
-		},
-		{
-			name: "invalid space ID",
-			requestBody: CreateSessionReq{
-				SpaceID: "invalid-uuid",
-				Configs: map[string]interface{}{},
-			},
-			setup:          func(svc *MockSessionService) {},
-			expectedStatus: http.StatusBadRequest,
-			expectedError:  true,
 		},
 		{
 			name: "service layer error",
@@ -496,83 +423,6 @@ func TestSessionHandler_GetConfigs(t *testing.T) {
 			router.GET("/session/:session_id/configs", handler.GetConfigs)
 
 			req := httptest.NewRequest("GET", "/session/"+tt.sessionIDParam+"/configs", nil)
-			w := httptest.NewRecorder()
-
-			router.ServeHTTP(w, req)
-
-			assert.Equal(t, tt.expectedStatus, w.Code)
-			mockService.AssertExpectations(t)
-		})
-	}
-}
-
-func TestSessionHandler_ConnectToSpace(t *testing.T) {
-	sessionID := uuid.New()
-	spaceID := uuid.New()
-
-	tests := []struct {
-		name           string
-		sessionIDParam string
-		requestBody    ConnectToSpaceReq
-		setup          func(*MockSessionService)
-		expectedStatus int
-	}{
-		{
-			name:           "successful space connection",
-			sessionIDParam: sessionID.String(),
-			requestBody: ConnectToSpaceReq{
-				SpaceID: spaceID.String(),
-			},
-			setup: func(svc *MockSessionService) {
-				svc.On("UpdateByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
-					return s.ID == sessionID && s.SpaceID != nil && *s.SpaceID == spaceID
-				})).Return(nil)
-			},
-			expectedStatus: http.StatusOK,
-		},
-		{
-			name:           "invalid session ID",
-			sessionIDParam: "invalid-uuid",
-			requestBody: ConnectToSpaceReq{
-				SpaceID: spaceID.String(),
-			},
-			setup:          func(svc *MockSessionService) {},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name:           "invalid space ID",
-			sessionIDParam: sessionID.String(),
-			requestBody: ConnectToSpaceReq{
-				SpaceID: "invalid-uuid",
-			},
-			setup:          func(svc *MockSessionService) {},
-			expectedStatus: http.StatusBadRequest,
-		},
-		{
-			name:           "service layer error",
-			sessionIDParam: sessionID.String(),
-			requestBody: ConnectToSpaceReq{
-				SpaceID: spaceID.String(),
-			},
-			setup: func(svc *MockSessionService) {
-				svc.On("UpdateByID", mock.Anything, mock.Anything).Return(errors.New("connection failed"))
-			},
-			expectedStatus: http.StatusInternalServerError,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockService := &MockSessionService{}
-			tt.setup(mockService)
-
-			handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
-			router := setupSessionRouter()
-			router.POST("/session/:session_id/connect_to_space", handler.ConnectToSpace)
-
-			body, _ := sonic.Marshal(tt.requestBody)
-			req := httptest.NewRequest("POST", "/session/"+tt.sessionIDParam+"/connect_to_space", bytes.NewBuffer(body))
-			req.Header.Set("Content-Type", "application/json")
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)

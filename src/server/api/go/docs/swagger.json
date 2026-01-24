@@ -1450,7 +1450,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get all sessions under a project, optionally filtered by space_id or user",
+                "description": "Get all sessions under a project, optionally filtered by user",
                 "consumes": [
                     "application/json"
                 ],
@@ -1467,20 +1467,6 @@
                         "example": "alice@acontext.io",
                         "description": "User identifier to filter sessions",
                         "name": "user",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Space ID to filter sessions",
-                        "name": "space_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "example": false,
-                        "description": "Filter sessions not connected to any space (default false)",
-                        "name": "not_connected",
                         "in": "query"
                     },
                     {
@@ -1527,12 +1513,12 @@
                     {
                         "label": "Python",
                         "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List sessions\nsessions = client.sessions.list(\n    space_id='space-uuid',\n    limit=20,\n    time_desc=True\n)\nfor session in sessions.items:\n    print(f\"{session.id}: {session.space_id}\")\n\n# List sessions for a specific user\nsessions = client.sessions.list(user='alice@acontext.io', limit=20)\n"
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List sessions\nsessions = client.sessions.list(\n    limit=20,\n    time_desc=True\n)\nfor session in sessions.items:\n    print(f\"{session.id}\")\n\n# List sessions for a specific user\nsessions = client.sessions.list(user='alice@acontext.io', limit=20)\n"
                     },
                     {
                         "label": "JavaScript",
                         "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List sessions\nconst sessions = await client.sessions.list({\n  spaceId: 'space-uuid',\n  limit: 20,\n  timeDesc: true\n});\nfor (const session of sessions.items) {\n  console.log(`${session.id}: ${session.space_id}`);\n}\n\n// List sessions for a specific user\nconst userSessions = await client.sessions.list({ user: 'alice@acontext.io', limit: 20 });\n"
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List sessions\nconst sessions = await client.sessions.list({\n  limit: 20,\n  timeDesc: true\n});\nfor (const session of sessions.items) {\n  console.log(`${session.id}`);\n}\n\n// List sessions for a specific user\nconst userSessions = await client.sessions.list({ user: 'alice@acontext.io', limit: 20 });\n"
                     }
                 ]
             },
@@ -1542,7 +1528,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a new session under a space. Optionally associate with a user identifier.",
+                "description": "Create a new session. Optionally associate with a user identifier.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1588,12 +1574,12 @@
                     {
                         "label": "Python",
                         "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a session\nsession = client.sessions.create(\n    space_id='space-uuid'\n)\nprint(f\"Created session: {session.id}\")\n\n# Create a session for a specific user\nsession = client.sessions.create(user='alice@acontext.io', space_id='space-uuid')\n"
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a session\nsession = client.sessions.create()\nprint(f\"Created session: {session.id}\")\n\n# Create a session for a specific user\nsession = client.sessions.create(user='alice@acontext.io')\n"
                     },
                     {
                         "label": "JavaScript",
                         "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a session\nconst session = await client.sessions.create({\n  spaceId: 'space-uuid'\n});\nconsole.log(`Created session: ${session.id}`);\n\n// Create a session for a specific user\nconst userSession = await client.sessions.create({ user: 'alice@acontext.io', spaceId: 'space-uuid' });\n"
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a session\nconst session = await client.sessions.create();\nconsole.log(`Created session: ${session.id}`);\n\n// Create a session for a specific user\nconst userSession = await client.sessions.create({ user: 'alice@acontext.io' });\n"
                     }
                 ]
             }
@@ -1767,65 +1753,6 @@
                 ]
             }
         },
-        "/session/{session_id}/connect_to_space": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Connect a session to a space by id",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "session"
-                ],
-                "summary": "Connect session to space",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Session ID",
-                        "name": "session_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "ConnectToSpace payload",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.ConnectToSpaceReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/serializer.Response"
-                        }
-                    }
-                },
-                "x-code-samples": [
-                    {
-                        "label": "Python",
-                        "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Connect session to space\nclient.sessions.connect_to_space(\n    session_id='session-uuid',\n    space_id='space-uuid'\n)\n"
-                    },
-                    {
-                        "label": "JavaScript",
-                        "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Connect session to space\nawait client.sessions.connectToSpace('session-uuid', {\n  spaceId: 'space-uuid'\n});\n"
-                    }
-                ]
-            }
-        },
         "/session/{session_id}/flush": {
             "post": {
                 "security": [
@@ -1884,68 +1811,6 @@
                         "label": "JavaScript",
                         "lang": "javascript",
                         "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Flush session buffer\nconst result = await client.sessions.flush('session-uuid');\nconsole.log(result.status);\n"
-                    }
-                ]
-            }
-        },
-        "/session/{session_id}/get_learning_status": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get learning status for a session. Returns the count of space digested tasks and not space digested tasks. If the session is not connected to a space, returns 0 and 0.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "session"
-                ],
-                "summary": "Get learning status",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Session ID",
-                        "name": "session_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/serializer.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/httpclient.LearningStatusResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                },
-                "x-code-samples": [
-                    {
-                        "label": "Python",
-                        "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get learning status\nresult = client.sessions.get_learning_status(session_id='session-uuid')\nprint(f\"Space digested: {result.space_digested_count}, Not digested: {result.not_space_digested_count}\")\n"
-                    },
-                    {
-                        "label": "JavaScript",
-                        "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get learning status\nconst result = await client.sessions.getLearningStatus('session-uuid');\nconsole.log(`Space digested: ${result.space_digested_count}, Not digested: ${result.not_space_digested_count}`);\n"
                     }
                 ]
             }
@@ -2351,1056 +2216,6 @@
                 ]
             }
         },
-        "/space": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get all spaces under a project",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "space"
-                ],
-                "summary": "Get spaces",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "example": "alice@acontext.io",
-                        "description": "User identifier to filter spaces",
-                        "name": "user",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Limit of spaces to return, default 20. Max 200.",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Cursor for pagination. Use the cursor from the previous response to get the next page.",
-                        "name": "cursor",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "example": "false",
-                        "description": "Order by created_at descending if true, ascending if false (default false)",
-                        "name": "time_desc",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/serializer.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/service.ListSpacesOutput"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                },
-                "x-code-samples": [
-                    {
-                        "label": "Python",
-                        "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List spaces\nspaces = client.spaces.list(limit=20, time_desc=True)\nfor space in spaces.items:\n    print(f\"{space.id}: {space.configs}\")\n\n# List spaces for a specific user\nspaces = client.spaces.list(user='alice@acontext.io', limit=20)\n"
-                    },
-                    {
-                        "label": "JavaScript",
-                        "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List spaces\nconst spaces = await client.spaces.list({ limit: 20, timeDesc: true });\nfor (const space of spaces.items) {\n  console.log(`${space.id}: ${JSON.stringify(space.configs)}`);\n}\n\n// List spaces for a specific user\nconst userSpaces = await client.spaces.list({ user: 'alice@acontext.io', limit: 20 });\n"
-                    }
-                ]
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Create a new space under a project. Optionally associate with a user identifier.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "space"
-                ],
-                "summary": "Create space",
-                "parameters": [
-                    {
-                        "description": "CreateSpace payload",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.CreateSpaceReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/serializer.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/model.Space"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                },
-                "x-code-samples": [
-                    {
-                        "label": "Python",
-                        "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a space\nspace = client.spaces.create()\nprint(f\"Created space: {space.id}\")\n\n# Create a space for a specific user\nspace = client.spaces.create(user='alice@acontext.io')\n"
-                    },
-                    {
-                        "label": "JavaScript",
-                        "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a space\nconst space = await client.spaces.create();\nconsole.log(`Created space: ${space.id}`);\n\n// Create a space for a specific user\nconst userSpace = await client.spaces.create({ user: 'alice@acontext.io' });\n"
-                    }
-                ]
-            }
-        },
-        "/space/{space_id}": {
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Delete a space by its ID",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "space"
-                ],
-                "summary": "Delete space",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "example": "123e4567-e89b-12d3-a456-426614174000",
-                        "description": "Space ID",
-                        "name": "space_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/serializer.Response"
-                        }
-                    }
-                },
-                "x-code-samples": [
-                    {
-                        "label": "Python",
-                        "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Delete a space\nclient.spaces.delete(space_id='space-uuid')\n"
-                    },
-                    {
-                        "label": "JavaScript",
-                        "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Delete a space\nawait client.spaces.delete('space-uuid');\n"
-                    }
-                ]
-            }
-        },
-        "/space/{space_id}/block": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "List blocks in a space. Use type query parameter to filter by block type (page, folder, sop). Use parent_id query parameter to filter by parent. If both type and parent_id are empty, returns top-level pages and folders.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "block"
-                ],
-                "summary": "List blocks",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Space ID",
-                        "name": "space_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "enum": [
-                            "page",
-                            "folder",
-                            "sop"
-                        ],
-                        "type": "string",
-                        "description": "Block type",
-                        "name": "type",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Parent ID",
-                        "name": "parent_id",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/serializer.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/definitions/model.Block"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                },
-                "x-code-samples": [
-                    {
-                        "label": "Python",
-                        "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List blocks\nblocks = client.blocks.list(\n    space_id='space-uuid',\n    parent_id='parent-uuid',\n    block_type='page'\n)\nfor block in blocks:\n    print(f\"{block.id}: {block.title}\")\n"
-                    },
-                    {
-                        "label": "JavaScript",
-                        "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List blocks\nconst blocks = await client.blocks.list('space-uuid', {\n  parentId: 'parent-uuid',\n  type: 'page'\n});\nfor (const block of blocks) {\n  console.log(`${block.id}: ${block.title}`);\n}\n"
-                    }
-                ]
-            },
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Create a new block (supports types: page, folder, sop). For page and folder types, parent_id is optional. For sop type, parent_id is required.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "block"
-                ],
-                "summary": "Create block",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Space ID",
-                        "name": "space_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "CreateBlock payload",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.CreateBlockReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/serializer.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/httpclient.InsertBlockResponse"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                },
-                "x-code-samples": [
-                    {
-                        "label": "Python",
-                        "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a folder\nfolder = client.blocks.create(\n    space_id='space-uuid',\n    block_type='folder',\n    title='My Folder'\n)\n\n# Create a page under the folder\npage = client.blocks.create(\n    space_id='space-uuid',\n    parent_id=folder['id'],\n    block_type='page',\n    title='My Page',\n    props={\"description\": \"Page content here\"}\n)\n"
-                    },
-                    {
-                        "label": "JavaScript",
-                        "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a folder\nconst folder = await client.blocks.create('space-uuid', {\n  blockType: 'folder',\n  title: 'My Folder'\n});\n\n// Create a page under the folder\nconst page = await client.blocks.create('space-uuid', {\n  parentId: folder.id,\n  blockType: 'page',\n  title: 'My Page',\n  props: { description: 'Page content here' }\n});\n"
-                    }
-                ]
-            }
-        },
-        "/space/{space_id}/block/{block_id}": {
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Delete a block by its ID (works for block types: page, folder, sop)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "block"
-                ],
-                "summary": "Delete block",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Space ID",
-                        "name": "space_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Block ID",
-                        "name": "block_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/serializer.Response"
-                        }
-                    }
-                },
-                "x-code-samples": [
-                    {
-                        "label": "Python",
-                        "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Delete a block\nclient.blocks.delete(space_id='space-uuid', block_id='block-uuid')\n"
-                    },
-                    {
-                        "label": "JavaScript",
-                        "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Delete a block\nawait client.blocks.delete('space-uuid', 'block-uuid');\n"
-                    }
-                ]
-            }
-        },
-        "/space/{space_id}/block/{block_id}/move": {
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Move block by updating its parent_id. Works for block types: page, folder, sop. For page and folder types, parent_id can be null (root level).",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "block"
-                ],
-                "summary": "Move block",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Space ID",
-                        "name": "space_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Block ID",
-                        "name": "block_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "MoveBlock payload",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.MoveBlockReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/serializer.Response"
-                        }
-                    }
-                },
-                "x-code-samples": [
-                    {
-                        "label": "Python",
-                        "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Move block to a different parent\nclient.blocks.move(\n    space_id='space-uuid',\n    block_id='block-uuid',\n    parent_id='new-parent-uuid'\n)\n"
-                    },
-                    {
-                        "label": "JavaScript",
-                        "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Move block to a different parent\nawait client.blocks.move('space-uuid', 'block-uuid', {\n  parentId: 'new-parent-uuid'\n});\n"
-                    }
-                ]
-            }
-        },
-        "/space/{space_id}/block/{block_id}/properties": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get a block's properties by its ID (works for block types: page, folder, sop)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "block"
-                ],
-                "summary": "Get block properties",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Space ID",
-                        "name": "space_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Block ID",
-                        "name": "block_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/serializer.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/model.Block"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                },
-                "x-code-samples": [
-                    {
-                        "label": "Python",
-                        "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get block properties\nblock = client.blocks.get_properties(\n    space_id='space-uuid',\n    block_id='block-uuid'\n)\nprint(f\"{block.title}: {block.props}\")\n"
-                    },
-                    {
-                        "label": "JavaScript",
-                        "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get block properties\nconst block = await client.blocks.getProperties('space-uuid', 'block-uuid');\nconsole.log(`${block.title}: ${JSON.stringify(block.props)}`);\n"
-                    }
-                ]
-            },
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Update a block's title and properties by its ID (works for block types: page, folder, sop)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "block"
-                ],
-                "summary": "Update block properties",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Space ID",
-                        "name": "space_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Block ID",
-                        "name": "block_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "UpdateBlockProperties payload",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.UpdateBlockPropertiesReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/serializer.Response"
-                        }
-                    }
-                },
-                "x-code-samples": [
-                    {
-                        "label": "Python",
-                        "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Update block properties\nclient.blocks.update_properties(\n    space_id='space-uuid',\n    block_id='block-uuid',\n    title='Updated Title',\n    props={\"text\": \"Updated content\"}\n)\n"
-                    },
-                    {
-                        "label": "JavaScript",
-                        "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Update block properties\nawait client.blocks.updateProperties('space-uuid', 'block-uuid', {\n  title: 'Updated Title',\n  props: { text: 'Updated content' }\n});\n"
-                    }
-                ]
-            }
-        },
-        "/space/{space_id}/block/{block_id}/sort": {
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Update block sort value (works for block types: page, folder, sop)",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "block"
-                ],
-                "summary": "Update block sort",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Space ID",
-                        "name": "space_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "description": "Block ID",
-                        "name": "block_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "UpdateBlockSort payload",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.UpdateBlockSortReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/serializer.Response"
-                        }
-                    }
-                },
-                "x-code-samples": [
-                    {
-                        "label": "Python",
-                        "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Update block sort order\nclient.blocks.update_sort(\n    space_id='space-uuid',\n    block_id='block-uuid',\n    sort=5\n)\n"
-                    },
-                    {
-                        "label": "JavaScript",
-                        "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Update block sort order\nawait client.blocks.updateSort('space-uuid', 'block-uuid', {\n  sort: 5\n});\n"
-                    }
-                ]
-            }
-        },
-        "/space/{space_id}/configs": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Retrieve the configurations of a space by its ID",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "space"
-                ],
-                "summary": "Get space configs",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "example": "123e4567-e89b-12d3-a456-426614174000",
-                        "description": "Space ID",
-                        "name": "space_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/serializer.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/model.Space"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                },
-                "x-code-samples": [
-                    {
-                        "label": "Python",
-                        "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get space configs\nspace = client.spaces.get_configs(space_id='space-uuid')\nprint(space.configs)\n"
-                    },
-                    {
-                        "label": "JavaScript",
-                        "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get space configs\nconst space = await client.spaces.getConfigs('space-uuid');\nconsole.log(space.configs);\n"
-                    }
-                ]
-            },
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Update the configurations of a space by its ID",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "space"
-                ],
-                "summary": "Update space configs",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "example": "123e4567-e89b-12d3-a456-426614174000",
-                        "description": "Space ID",
-                        "name": "space_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "UpdateConfigs payload",
-                        "name": "payload",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.UpdateSpaceConfigsReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/serializer.Response"
-                        }
-                    }
-                },
-                "x-code-samples": [
-                    {
-                        "label": "Python",
-                        "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Update space configs\nclient.spaces.update_configs(\n    space_id='space-uuid'\n)\n"
-                    },
-                    {
-                        "label": "JavaScript",
-                        "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Update space configs\nawait client.spaces.updateConfigs('space-uuid');\n"
-                    }
-                ]
-            }
-        },
-        "/space/{space_id}/experience_confirmations": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get all experience confirmations in a space with cursor-based pagination",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "space"
-                ],
-                "summary": "Get experience confirmations",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "example": "123e4567-e89b-12d3-a456-426614174000",
-                        "description": "Space ID",
-                        "name": "space_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Limit of confirmations to return, default 20. Max 200.",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Cursor for pagination. Use the cursor from the previous response to get the next page.",
-                        "name": "cursor",
-                        "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "example": false,
-                        "description": "Order by created_at descending if true, ascending if false (default false)",
-                        "name": "time_desc",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/serializer.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/service.ListExperienceConfirmationsOutput"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                },
-                "x-code-samples": [
-                    {
-                        "label": "Python",
-                        "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get unconfirmed experiences\nexperiences = client.spaces.get_unconfirmed_experiences(\n    space_id='space-uuid',\n    limit=20,\n    time_desc=True\n)\nfor experience in experiences.items:\n    print(f\"{experience.id}: {experience.experience_data}\")\n\n# If there are more, use the cursor for pagination\nif experiences.has_more:\n    next_experiences = client.spaces.get_unconfirmed_experiences(\n        space_id='space-uuid',\n        limit=20,\n        cursor=experiences.next_cursor\n    )\n"
-                    },
-                    {
-                        "label": "JavaScript",
-                        "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get unconfirmed experiences\nconst experiences = await client.spaces.getUnconfirmedExperiences('space-uuid', {\n  limit: 20,\n  timeDesc: true\n});\nfor (const experience of experiences.items) {\n  console.log(`${experience.id}: ${JSON.stringify(experience.experience_data)}`);\n}\n\n// If there are more, use the cursor for pagination\nif (experiences.hasMore) {\n  const nextExperiences = await client.spaces.getUnconfirmedExperiences('space-uuid', {\n    limit: 20,\n    cursor: experiences.nextCursor\n  });\n}\n"
-                    }
-                ]
-            }
-        },
-        "/space/{space_id}/experience_confirmations/{experience_id}": {
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Confirm an experience confirmation. If save is false, delete the row. If save is true, get the data first (TODO: process data), then delete the row.",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "space"
-                ],
-                "summary": "Confirm experience",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "example": "123e4567-e89b-12d3-a456-426614174000",
-                        "description": "Space ID",
-                        "name": "space_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "example": "123e4567-e89b-12d3-a456-426614174000",
-                        "description": "Experience Confirmation ID",
-                        "name": "experience_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Confirmation request with save flag",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/handler.ConfirmExperienceReq"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/serializer.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/model.ExperienceConfirmation"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                },
-                "x-code-samples": [
-                    {
-                        "label": "Python",
-                        "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Confirm experience and save data\nconfirmation = client.spaces.confirm_experience(\n    space_id='space-uuid',\n    experience_id='experience-uuid',\n    save=True\n)\nprint(f\"Saved confirmation: {confirmation.experience_data}\")\n\n# Confirm experience without saving (just delete)\nclient.spaces.confirm_experience(\n    space_id='space-uuid',\n    experience_id='experience-uuid',\n    save=False\n)\n"
-                    },
-                    {
-                        "label": "JavaScript",
-                        "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Confirm experience and save data\nconst confirmation = await client.spaces.confirmExperience('space-uuid', 'experience-uuid', {\n  save: true\n});\nconsole.log(`Saved confirmation: ${JSON.stringify(confirmation.experience_data)}`);\n\n// Confirm experience without saving (just delete)\nawait client.spaces.confirmExperience('space-uuid', 'experience-uuid', {\n  save: false\n});\n"
-                    }
-                ]
-            }
-        },
-        "/space/{space_id}/experience_search": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Retrieve the experience search results for a given query within a space by its ID",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "space"
-                ],
-                "summary": "Get experience search",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "format": "uuid",
-                        "example": "123e4567-e89b-12d3-a456-426614174000",
-                        "description": "Space ID",
-                        "name": "space_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Search query for page/folder titles",
-                        "name": "query",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Maximum number of results to return (1-50, default 10)",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Search mode: fast or agentic (default fast)",
-                        "name": "mode",
-                        "in": "query"
-                    },
-                    {
-                        "type": "number",
-                        "format": "float64",
-                        "description": "Cosine distance threshold (0=identical, 2=opposite)",
-                        "name": "semantic_threshold",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Maximum number of iterations for agentic search (1-100, default 16)",
-                        "name": "max_iterations",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "allOf": [
-                                {
-                                    "$ref": "#/definitions/serializer.Response"
-                                },
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "data": {
-                                            "$ref": "#/definitions/httpclient.SpaceSearchResult"
-                                        }
-                                    }
-                                }
-                            ]
-                        }
-                    }
-                },
-                "x-code-samples": [
-                    {
-                        "label": "Python",
-                        "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Experience search\nresult = client.spaces.experience_search(\n    space_id='space-uuid',\n    query='How to implement authentication?',\n    limit=10,\n    mode='agentic',\n    max_iterations=20\n)\nfor block in result.cited_blocks:\n    print(f\"{block.title} (distance: {block.distance})\")\n"
-                    },
-                    {
-                        "label": "JavaScript",
-                        "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Experience search\nconst result = await client.spaces.experienceSearch('space-uuid', {\n  query: 'How to implement authentication?',\n  limit: 10,\n  mode: 'agentic',\n  maxIterations: 20\n});\nfor (const block of result.cited_blocks) {\n  console.log(`${block.title} (distance: ${block.distance})`);\n}\n"
-                    }
-                ]
-            }
-        },
         "/tool/name": {
             "get": {
                 "security": [
@@ -3597,7 +2412,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Delete a user by identifier and cascade delete all associated resources (Space, Session, Disk, Skill)",
+                "description": "Delete a user by identifier and cascade delete all associated resources (Session, Disk, Skill)",
                 "consumes": [
                     "application/json"
                 ],
@@ -3646,7 +2461,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get the resource counts (Spaces, Sessions, Disks, Skills) associated with a user",
+                "description": "Get the resource counts (Sessions, Disks, Skills) associated with a user",
                 "consumes": [
                     "application/json"
                 ],
@@ -3690,12 +2505,12 @@
                     {
                         "label": "Python",
                         "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get user resource counts\nresources = client.users.get_resources('alice@acontext.io')\nprint(f\"Spaces: {resources.spaces_count}\")\nprint(f\"Sessions: {resources.sessions_count}\")\nprint(f\"Disks: {resources.disks_count}\")\nprint(f\"Skills: {resources.skills_count}\")\n"
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get user resource counts\nresources = client.users.get_resources('alice@acontext.io')\nprint(f\"Sessions: {resources.sessions_count}\")\nprint(f\"Disks: {resources.disks_count}\")\nprint(f\"Skills: {resources.skills_count}\")\n"
                     },
                     {
                         "label": "JavaScript",
                         "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get user resource counts\nconst resources = await client.users.getResources('alice@acontext.io');\nconsole.log(`Spaces: ${resources.spaces_count}`);\nconsole.log(`Sessions: ${resources.sessions_count}`);\nconsole.log(`Disks: ${resources.disks_count}`);\nconsole.log(`Skills: ${resources.skills_count}`);\n"
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get user resource counts\nconst resources = await client.users.getResources('alice@acontext.io');\nconsole.log(`Sessions: ${resources.sessions_count}`);\nconsole.log(`Disks: ${resources.disks_count}`);\nconsole.log(`Skills: ${resources.skills_count}`);\n"
                     }
                 ]
             }
@@ -3712,52 +2527,6 @@
                 "type": {
                     "description": "\"text\", \"json\", \"csv\", \"code\"",
                     "type": "string"
-                }
-            }
-        },
-        "handler.ConfirmExperienceReq": {
-            "type": "object",
-            "required": [
-                "save"
-            ],
-            "properties": {
-                "save": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "handler.ConnectToSpaceReq": {
-            "type": "object",
-            "required": [
-                "space_id"
-            ],
-            "properties": {
-                "space_id": {
-                    "type": "string",
-                    "format": "uuid",
-                    "example": "123e4567-e89b-12d3-a456-426614174000"
-                }
-            }
-        },
-        "handler.CreateBlockReq": {
-            "type": "object",
-            "required": [
-                "type"
-            ],
-            "properties": {
-                "parent_id": {
-                    "type": "string"
-                },
-                "props": {
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "title": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string",
-                    "example": "page"
                 }
             }
         },
@@ -3780,24 +2549,6 @@
                 "disable_task_tracking": {
                     "type": "boolean",
                     "example": false
-                },
-                "space_id": {
-                    "type": "string",
-                    "format": "uuid",
-                    "example": "123e4567-e89b-12d3-a456-42661417"
-                },
-                "user": {
-                    "type": "string",
-                    "example": "alice@acontext.io"
-                }
-            }
-        },
-        "handler.CreateSpaceReq": {
-            "type": "object",
-            "properties": {
-                "configs": {
-                    "type": "object",
-                    "additionalProperties": true
                 },
                 "user": {
                     "type": "string",
@@ -3879,17 +2630,6 @@
                     "items": {
                         "type": "string"
                     }
-                }
-            }
-        },
-        "handler.MoveBlockReq": {
-            "type": "object",
-            "properties": {
-                "parent_id": {
-                    "type": "string"
-                },
-                "sort": {
-                    "type": "integer"
                 }
             }
         },
@@ -3975,40 +2715,8 @@
                 }
             }
         },
-        "handler.UpdateBlockPropertiesReq": {
-            "type": "object",
-            "properties": {
-                "props": {
-                    "type": "object",
-                    "additionalProperties": {}
-                },
-                "title": {
-                    "type": "string"
-                }
-            }
-        },
-        "handler.UpdateBlockSortReq": {
-            "type": "object",
-            "properties": {
-                "sort": {
-                    "type": "integer"
-                }
-            }
-        },
         "handler.UpdateSessionConfigsReq": {
             "type": "object",
-            "properties": {
-                "configs": {
-                    "type": "object",
-                    "additionalProperties": true
-                }
-            }
-        },
-        "handler.UpdateSpaceConfigsReq": {
-            "type": "object",
-            "required": [
-                "configs"
-            ],
             "properties": {
                 "configs": {
                     "type": "object",
@@ -4054,25 +2762,6 @@
                 }
             }
         },
-        "httpclient.InsertBlockResponse": {
-            "type": "object",
-            "properties": {
-                "id": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpclient.LearningStatusResponse": {
-            "type": "object",
-            "properties": {
-                "not_space_digested_count": {
-                    "type": "integer"
-                },
-                "space_digested_count": {
-                    "type": "integer"
-                }
-            }
-        },
         "httpclient.SandboxCommandOutput": {
             "type": "object",
             "properties": {
@@ -4101,38 +2790,6 @@
                 },
                 "sandbox_status": {
                     "type": "string"
-                }
-            }
-        },
-        "httpclient.SearchResultBlockItem": {
-            "type": "object",
-            "properties": {
-                "block_id": {
-                    "type": "string"
-                },
-                "distance": {
-                    "type": "number"
-                },
-                "props": {
-                    "type": "object",
-                    "additionalProperties": true
-                },
-                "title": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                }
-            }
-        },
-        "httpclient.SpaceSearchResult": {
-            "type": "object",
-            "properties": {
-                "cited_blocks": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/httpclient.SearchResultBlockItem"
-                    }
                 }
             }
         },
@@ -4204,41 +2861,6 @@
                 }
             }
         },
-        "model.Block": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "is_archived": {
-                    "type": "boolean"
-                },
-                "parent_id": {
-                    "type": "string"
-                },
-                "props": {
-                    "type": "object"
-                },
-                "sort": {
-                    "type": "integer"
-                },
-                "space_id": {
-                    "type": "string"
-                },
-                "title": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
         "model.Disk": {
             "type": "object",
             "properties": {
@@ -4255,29 +2877,6 @@
                     "type": "string"
                 },
                 "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.ExperienceConfirmation": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "experience_data": {
-                    "type": "object"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "space_id": {
-                    "type": "string"
-                },
-                "task_id": {
-                    "type": "string"
-                },
-                "updated_at": {
                     "type": "string"
                 }
             }
@@ -4393,32 +2992,6 @@
                 "project_id": {
                     "type": "string"
                 },
-                "space_id": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "model.Space": {
-            "type": "object",
-            "properties": {
-                "configs": {
-                    "type": "object"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "project_id": {
-                    "type": "string"
-                },
                 "updated_at": {
                     "type": "string"
                 },
@@ -4451,9 +3024,6 @@
                 "session_id": {
                     "type": "string"
                 },
-                "space_digested": {
-                    "type": "boolean"
-                },
                 "status": {
                     "type": "string"
                 },
@@ -4470,9 +3040,6 @@
                     "items": {
                         "type": "string"
                     }
-                },
-                "sop_thinking": {
-                    "type": "string"
                 },
                 "task_description": {
                     "type": "string"
@@ -4515,9 +3082,6 @@
                     "type": "integer"
                 },
                 "skills_count": {
-                    "type": "integer"
-                },
-                "spaces_count": {
                     "type": "integer"
                 }
             }
@@ -4689,23 +3253,6 @@
                 }
             }
         },
-        "service.ListExperienceConfirmationsOutput": {
-            "type": "object",
-            "properties": {
-                "has_more": {
-                    "type": "boolean"
-                },
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.ExperienceConfirmation"
-                    }
-                },
-                "next_cursor": {
-                    "type": "string"
-                }
-            }
-        },
         "service.ListSessionsOutput": {
             "type": "object",
             "properties": {
@@ -4716,23 +3263,6 @@
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/model.Session"
-                    }
-                },
-                "next_cursor": {
-                    "type": "string"
-                }
-            }
-        },
-        "service.ListSpacesOutput": {
-            "type": "object",
-            "properties": {
-                "has_more": {
-                    "type": "boolean"
-                },
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.Space"
                     }
                 },
                 "next_cursor": {

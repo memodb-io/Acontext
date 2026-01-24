@@ -371,7 +371,6 @@ func TestUserService_GetResourceCounts(t *testing.T) {
 				mockRepo.On("GetByIdentifier", ctx, projectID, "alice@acontext.io").Return(expectedUser, nil)
 
 				expectedCounts := &repo.UserResourceCounts{
-					SpacesCount:   5,
 					SessionsCount: 10,
 					DisksCount:    3,
 					SkillsCount:   2,
@@ -392,7 +391,6 @@ func TestUserService_GetResourceCounts(t *testing.T) {
 				mockRepo.On("GetByIdentifier", ctx, projectID, "newuser@acontext.io").Return(expectedUser, nil)
 
 				expectedCounts := &repo.UserResourceCounts{
-					SpacesCount:   0,
 					SessionsCount: 0,
 					DisksCount:    0,
 					SkillsCount:   0,

@@ -21,7 +21,7 @@ func NewUserHandler(s service.UserService) *UserHandler {
 // DeleteUser godoc
 //
 //	@Summary		Delete user
-//	@Description	Delete a user by identifier and cascade delete all associated resources (Space, Session, Disk, Skill)
+//	@Description	Delete a user by identifier and cascade delete all associated resources (Session, Disk, Skill)
 //	@Tags			user
 //	@Accept			json
 //	@Produce		json
@@ -107,7 +107,7 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 // GetUserResources godoc
 //
 //	@Summary		Get user resources
-//	@Description	Get the resource counts (Spaces, Sessions, Disks, Skills) associated with a user
+//	@Description	Get the resource counts (Sessions, Disks, Skills) associated with a user
 //	@Tags			user
 //	@Accept			json
 //	@Produce		json
@@ -115,7 +115,7 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.GetUserResourcesOutput}
 //	@Router			/user/{identifier}/resources [get]
-//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get user resource counts\nresources = client.users.get_resources('alice@acontext.io')\nprint(f\"Spaces: {resources.spaces_count}\")\nprint(f\"Sessions: {resources.sessions_count}\")\nprint(f\"Disks: {resources.disks_count}\")\nprint(f\"Skills: {resources.skills_count}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get user resource counts\nconst resources = await client.users.getResources('alice@acontext.io');\nconsole.log(`Spaces: ${resources.spaces_count}`);\nconsole.log(`Sessions: ${resources.sessions_count}`);\nconsole.log(`Disks: ${resources.disks_count}`);\nconsole.log(`Skills: ${resources.skills_count}`);\n","label":"JavaScript"}]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get user resource counts\nresources = client.users.get_resources('alice@acontext.io')\nprint(f\"Sessions: {resources.sessions_count}\")\nprint(f\"Disks: {resources.disks_count}\")\nprint(f\"Skills: {resources.skills_count}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get user resource counts\nconst resources = await client.users.getResources('alice@acontext.io');\nconsole.log(`Sessions: ${resources.sessions_count}`);\nconsole.log(`Disks: ${resources.disks_count}`);\nconsole.log(`Skills: ${resources.skills_count}`);\n","label":"JavaScript"}]
 func (h *UserHandler) GetUserResources(c *gin.Context) {
 	identifier := c.Param("identifier")
 	if identifier == "" {

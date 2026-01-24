@@ -51,17 +51,13 @@ func BuildContainer() *do.Injector {
 			_ = d.AutoMigrate(
 				&model.Project{},
 				&model.User{},
-				&model.Space{},
 				&model.Session{},
 				&model.Task{},
 				&model.Message{},
-				&model.Block{},
 				&model.Disk{},
 				&model.Artifact{},
 				&model.AssetReference{},
 				&model.ToolReference{},
-				&model.ToolSOP{},
-				&model.ExperienceConfirmation{},
 				&model.Metric{},
 				&model.AgentSkills{},
 				&model.SandboxLog{},
@@ -154,9 +150,6 @@ func BuildContainer() *do.Injector {
 			do.MustInvoke[*blob.S3Deps](i),
 		), nil
 	})
-	do.Provide(inj, func(i *do.Injector) (repo.SpaceRepo, error) {
-		return repo.NewSpaceRepo(do.MustInvoke[*gorm.DB](i)), nil
-	})
 	do.Provide(inj, func(i *do.Injector) (repo.SessionRepo, error) {
 		return repo.NewSessionRepo(
 			do.MustInvoke[*gorm.DB](i),
@@ -164,9 +157,6 @@ func BuildContainer() *do.Injector {
 			do.MustInvoke[*blob.S3Deps](i),
 			do.MustInvoke[*zap.Logger](i),
 		), nil
-	})
-	do.Provide(inj, func(i *do.Injector) (repo.BlockRepo, error) {
-		return repo.NewBlockRepo(do.MustInvoke[*gorm.DB](i)), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (repo.DiskRepo, error) {
 		return repo.NewDiskRepo(
@@ -197,14 +187,6 @@ func BuildContainer() *do.Injector {
 	})
 
 	// Service
-	do.Provide(inj, func(i *do.Injector) (service.SpaceService, error) {
-		return service.NewSpaceService(
-			do.MustInvoke[repo.SpaceRepo](i),
-			do.MustInvoke[*mq.Publisher](i),
-			do.MustInvoke[*config.Config](i),
-			do.MustInvoke[*zap.Logger](i),
-		), nil
-	})
 	do.Provide(inj, func(i *do.Injector) (service.SessionService, error) {
 		return service.NewSessionService(
 			do.MustInvoke[repo.SessionRepo](i),
@@ -215,9 +197,6 @@ func BuildContainer() *do.Injector {
 			do.MustInvoke[*config.Config](i),
 			do.MustInvoke[*redis.Client](i),
 		), nil
-	})
-	do.Provide(inj, func(i *do.Injector) (service.BlockService, error) {
-		return service.NewBlockService(do.MustInvoke[repo.BlockRepo](i)), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (service.DiskService, error) {
 		return service.NewDiskService(do.MustInvoke[repo.DiskRepo](i)), nil
@@ -248,23 +227,10 @@ func BuildContainer() *do.Injector {
 	})
 
 	// Handler
-	do.Provide(inj, func(i *do.Injector) (*handler.SpaceHandler, error) {
-		return handler.NewSpaceHandler(
-			do.MustInvoke[service.SpaceService](i),
-			do.MustInvoke[service.UserService](i),
-			do.MustInvoke[*httpclient.CoreClient](i),
-		), nil
-	})
 	do.Provide(inj, func(i *do.Injector) (*handler.SessionHandler, error) {
 		return handler.NewSessionHandler(
 			do.MustInvoke[service.SessionService](i),
 			do.MustInvoke[service.UserService](i),
-			do.MustInvoke[*httpclient.CoreClient](i),
-		), nil
-	})
-	do.Provide(inj, func(i *do.Injector) (*handler.BlockHandler, error) {
-		return handler.NewBlockHandler(
-			do.MustInvoke[service.BlockService](i),
 			do.MustInvoke[*httpclient.CoreClient](i),
 		), nil
 	})
