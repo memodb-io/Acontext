@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import pytest
 import httpx
 import asyncpg
@@ -7,9 +8,13 @@ import uuid
 import hmac
 import hashlib
 import json
-from typing import AsyncGenerator, Dict
-from dataclasses import dataclass
+from typing import AsyncGenerator, Dict, Tuple
+from pydantic import BaseModel
 
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Configuration from environment variables
 API_URL = os.getenv("API_URL", "http://api:8029")
@@ -23,13 +28,15 @@ POLL_MAX_ITERATIONS = int(os.getenv("POLL_MAX_ITERATIONS", "30"))
 POLL_INTERVAL_SECONDS = int(os.getenv("POLL_INTERVAL_SECONDS", "2"))
 
 
-@dataclass
-class ProjectCredentials:
+class ProjectCredentials(BaseModel):
     """Project credentials and metadata for testing"""
     project_id: uuid.UUID
     secret: str
     bearer_token: str
     headers: Dict[str, str]
+    
+    class Config:
+        arbitrary_types_allowed = True
 
 
 def generate_hmac(secret: str, pepper: str) -> str:
@@ -77,7 +84,7 @@ async def cleanup_test_project(conn, project_id: uuid.UUID) -> None:
         await conn.execute("DELETE FROM projects WHERE id = $1", project_id)
     except Exception as e:
         # Log but don't fail - cleanup is best effort
-        print(f"Warning: cleanup failed for project {project_id}: {e}")
+        logger.warning(f"Cleanup failed for project {project_id}: {e}")
 
 
 @pytest.fixture
@@ -100,23 +107,26 @@ async def test_project(db_conn) -> AsyncGenerator[ProjectCredentials, None]:
         await cleanup_test_project(db_conn, project.project_id)
 
 
-async def wait_for_services() -> bool:
+async def wait_for_services(
+    max_iterations: int = POLL_MAX_ITERATIONS,
+    poll_interval: int = POLL_INTERVAL_SECONDS
+) -> bool:
     """Wait for API and Core services to be healthy"""
-    print("Waiting for API and Core health checks...")
+    logger.info("Waiting for API and Core health checks...")
     async with httpx.AsyncClient() as client:
-        for i in range(30):
+        for _ in range(max_iterations):
             try:
                 api_resp = await client.get(f"{API_URL}/health", timeout=2.0)
                 core_resp = await client.get(f"{CORE_URL}/health", timeout=2.0)
                 if api_resp.status_code == 200 and core_resp.status_code == 200:
-                    print("Both services are healthy!")
+                    logger.info("Both services are healthy!")
                     return True
-                print(f"Waiting... API: {api_resp.status_code}, Core: {core_resp.status_code}")
-            except Exception as e:
-                print(f"Waiting... Error: {e}")
-            await asyncio.sleep(2)
+                logger.info(f"Waiting... API: {api_resp.status_code}, Core: {core_resp.status_code}")
+            except (httpx.RequestError, httpx.TimeoutException) as e:
+                logger.info(f"Waiting... Connection error: {e}")
+            await asyncio.sleep(poll_interval)
     
-    print("Timeout waiting for services")
+    logger.warning("Timeout waiting for services")
     return False
 
 
@@ -132,7 +142,7 @@ async def poll_message_status(
     except (ValueError, AttributeError):
         raise ValueError(f"Invalid message ID format: {message_id}")
 
-    for i in range(max_iterations):
+    for _ in range(max_iterations):
         status = await conn.fetchval(
             "SELECT session_task_process_status FROM messages WHERE id = $1",
             msg_uuid
@@ -202,7 +212,45 @@ async def test_basic_handshake_with_mock(db_conn, test_project):
         status = await poll_message_status(db_conn, message_id)
         assert status == "success", f"Expected success, got {status}"
         
-        print("Basic handshake with mock LLM passed")
+        logger.info("Basic handshake with mock LLM passed")
+
+
+# Known mock tool names for testing
+MOCK_TOOL_NAMES = frozenset({'disk.list', 'call_mock_disk_list'})
+
+
+def check_tool_calls_in_parts_meta(parts_meta) -> bool:
+    """Check if tool calls exist in parts_asset_meta with proper parsing"""
+    if parts_meta is None:
+        return False
+    
+    # Handle JSON string
+    if isinstance(parts_meta, str):
+        try:
+            parts_meta = json.loads(parts_meta)
+        except json.JSONDecodeError:
+            return False
+    
+    # Check for tool call indicators in parsed structure
+    if isinstance(parts_meta, list):
+        for part in parts_meta:
+            if isinstance(part, dict):
+                # Check for explicit tool_call type
+                if part.get('type') == 'tool_call':
+                    return True
+                # Check for function call structure
+                if 'function' in part or 'tool_calls' in part:
+                    return True
+                # Check for known tool names
+                if part.get('name') in MOCK_TOOL_NAMES:
+                    return True
+    elif isinstance(parts_meta, dict):
+        if parts_meta.get('type') == 'tool_call':
+            return True
+        if 'function' in parts_meta or 'tool_calls' in parts_meta:
+            return True
+    
+    return False
 
 
 @pytest.mark.asyncio
@@ -227,7 +275,7 @@ async def test_mock_tool_call(db_conn, test_project):
         status = await poll_message_status(db_conn, message_id)
         assert status == "success", f"Expected success, got {status}"
         
-        # Debug: Check all messages in the session
+        # Check all messages in the session
         session_uuid = uuid.UUID(session_id)
         all_messages = await db_conn.fetch(
             """
@@ -239,37 +287,36 @@ async def test_mock_tool_call(db_conn, test_project):
             session_uuid
         )
         
-        print(f"Total messages in session: {len(all_messages)}")
+        logger.info(f"Total messages in session: {len(all_messages)}")
         for i, msg in enumerate(all_messages):
-            print(f"  Message {i+1}: role={msg['role']}, status={msg['session_task_process_status']}")
+            logger.info(f"  Message {i+1}: role={msg['role']}, status={msg['session_task_process_status']}")
         
-        # Check for assistant message (optional - tool calls may not create one immediately)
+        # Verify we have at least the user message
+        assert len(all_messages) >= 1, "Expected at least one message in session"
+        
+        # Check for assistant message
         assistant_messages = [m for m in all_messages if m['role'] == 'assistant']
         
         if assistant_messages:
             assistant_msg = assistant_messages[-1]
-            print(f"Found assistant message with role: {assistant_msg['role']}")
+            logger.info(f"Found assistant message with role: {assistant_msg['role']}")
             
             # Verify tool calls exist in the message structure
             parts_meta = assistant_msg.get('parts_asset_meta')
             if parts_meta:
-                print(f"Assistant message has parts_asset_meta: {parts_meta}")
-                
-                # Check if tool calls are present in the message structure
-                if isinstance(parts_meta, (list, dict)):
-                    meta_str = str(parts_meta)
-                    has_tool_calls = any(
-                        indicator in meta_str 
-                        for indicator in ["tool", "disk.list", "function", "call_mock_disk_list"]
-                    )
-                    if has_tool_calls:
-                        print("Tool call detected in message metadata")
+                logger.info(f"Assistant message has parts_asset_meta: {parts_meta}")
+                has_tool_calls = check_tool_calls_in_parts_meta(parts_meta)
+                if has_tool_calls:
+                    logger.info("Tool call detected in message metadata")
         else:
-            # No assistant message - this might be expected for tool call flows
-            # The key assertion is that message processing succeeded
-            print("No assistant message found - tool call may have different storage behavior")
+            # No assistant message - log for debugging but don't fail
+            # Tool call flows may have different storage behavior depending on implementation
+            logger.warning(
+                "No assistant message found - tool call may have different storage behavior. "
+                "This is acceptable if message processing succeeded."
+            )
         
-        print("Mock tool call test passed - message processing completed successfully")
+        logger.info("Mock tool call test passed - message processing completed successfully")
 
 
 @pytest.mark.asyncio
@@ -277,7 +324,7 @@ async def test_concurrent_sessions():
     """Test concurrent session handling"""
     num_concurrent = 5  # Small number for quick testing
     
-    async def create_concurrent_session(session_num: int) -> tuple[bool, str]:
+    async def create_concurrent_session(session_num: int) -> Tuple[bool, str]:
         """Create a session and send a message concurrently"""
         conn = None
         project = None
@@ -351,14 +398,103 @@ async def test_concurrent_sessions():
             else:
                 failures.append(message)
     
-    print(f"Concurrency test: {successes}/{num_concurrent} sessions successful")
+    logger.info(f"Concurrency test: {successes}/{num_concurrent} sessions successful")
     if failures:
-        print("Failures:")
-        for failure in failures[:3]:  # Show first 3 failures
-            print(f"  - {failure}")
+        logger.warning("Failures:")
+        for failure in failures:
+            logger.warning(f"  - {failure}")
     
-    # We expect at least 80% success rate
-    success_rate = successes / num_concurrent
-    assert success_rate >= 0.8, f"Success rate {success_rate:.2%} below 80% threshold"
+    # We expect at least 80% success rate to account for CI environment variability
+    min_required = int(num_concurrent * 0.8)
+    assert successes >= min_required, (
+        f"Expected at least {min_required}/{num_concurrent} (80%) sessions to succeed, "
+        f"but only {successes} succeeded. Failures: {failures}"
+    )
     
-    print("Concurrency test passed")
+    logger.info("Concurrency test passed")
+
+
+# ============================================================================
+# Error Scenario Tests
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_invalid_session_id(db_conn, test_project):
+    """Test that accessing a non-existent session ID returns 404 error"""
+    async with httpx.AsyncClient() as client:
+        # Use a random UUID that doesn't exist
+        fake_session_id = str(uuid.uuid4())
+        
+        # Try to send message to non-existent session with valid auth
+        msg_resp = await client.post(
+            f"{API_URL}/api/v1/session/{fake_session_id}/messages",
+            json={
+                "format": "acontext",
+                "blob": {
+                    "role": "user",
+                    "parts": [{"type": "text", "text": "Hello"}]
+                }
+            },
+            headers=test_project.headers
+        )
+        
+        # Should fail with 400 (bad request) or 404 (not found) for non-existent session
+        # API may return 400 when session doesn't belong to the project
+        assert msg_resp.status_code in (400, 404), (
+            f"Expected 400/404 for non-existent session, got {msg_resp.status_code}"
+        )
+        
+        logger.info("Invalid session ID test passed")
+
+
+@pytest.mark.asyncio
+async def test_unauthorized_access():
+    """Test that requests without valid auth token are rejected"""
+    async with httpx.AsyncClient() as client:
+        # Try to create session without auth
+        session_resp = await client.post(
+            f"{API_URL}/api/v1/session",
+            json={}
+        )
+        
+        assert session_resp.status_code in (401, 403), (
+            f"Expected 401/403 for unauthorized request, got {session_resp.status_code}"
+        )
+        
+        # Try with invalid token
+        session_resp = await client.post(
+            f"{API_URL}/api/v1/session",
+            json={},
+            headers={"Authorization": "Bearer invalid-token-12345"}
+        )
+        
+        assert session_resp.status_code in (401, 403), (
+            f"Expected 401/403 for invalid token, got {session_resp.status_code}"
+        )
+        
+        logger.info("Unauthorized access test passed")
+
+
+@pytest.mark.asyncio
+async def test_invalid_message_format(db_conn, test_project):
+    """Test that invalid message format is properly rejected"""
+    async with httpx.AsyncClient() as client:
+        # Create session first
+        session_id = await create_session(client, test_project.headers)
+        
+        # Send message with invalid format
+        msg_resp = await client.post(
+            f"{API_URL}/api/v1/session/{session_id}/messages",
+            json={
+                "format": "invalid_format",
+                "blob": {"invalid": "structure"}
+            },
+            headers=test_project.headers
+        )
+        
+        # Should fail with 400 (bad request) or similar client error
+        assert msg_resp.status_code in (400, 422), (
+            f"Expected 400/422 for invalid format, got {msg_resp.status_code}"
+        )
+        
+        logger.info("Invalid message format test passed")
