@@ -163,7 +163,7 @@ export default function TasksPage() {
 
   return (
     <div className="h-full bg-background p-6 flex flex-col overflow-hidden space-y-2">
-      <div className="flex-shrink-0 space-y-4">
+      <div className="shrink-0 space-y-4">
         <div className="flex items-stretch gap-2">
           <Button
             variant="outline"
@@ -362,7 +362,7 @@ export default function TasksPage() {
         }}
       >
         <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-          <DialogHeader className="flex-shrink-0">
+          <DialogHeader className="shrink-0">
             <DialogTitle>
               {t("taskDetail") || "Task Detail"}
             </DialogTitle>
@@ -511,7 +511,7 @@ export default function TasksPage() {
               </div>
             </div>
           )}
-          <DialogFooter className="flex-shrink-0">
+          <DialogFooter className="shrink-0">
             <Button
               variant="outline"
               onClick={() => {

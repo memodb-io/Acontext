@@ -140,7 +140,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
         <NavMain />
       </SidebarHeader>
-      <Separator className="!w-2/3 mx-auto" />
+      <Separator className="w-2/3! mx-auto" />
       <SidebarContent>
         <SidebarGroup>
           <SidebarMenu>
