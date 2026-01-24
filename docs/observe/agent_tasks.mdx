@@ -125,13 +125,8 @@ const client = new AcontextClient({
 // });
 
 async function demonstrateTasks() {
-    // Create a project and session
-    const project = await client.spaces.createProject({
-        name: 'iPhone Landing Page Project'
-    });
-    const session = await client.sessions.create({
-        projectId: project.id
-    });
+    // Create a session
+    const session = await client.sessions.create();
 
     // Conversation messages
     const messages = [
@@ -423,8 +418,5 @@ Track the ratio of `success` to `failed` tasks across sessions to measure and im
 <CardGroup cols={2}>
 <Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
 View Context, Artifacts and Tasks in one place.
-</Card>
-<Card title="Tasks Self-learning" icon="database" href="/learn/skill-space">
-Learn how to enable your agent to self-learn skills and SOPs.
 </Card>
 </CardGroup>

@@ -150,8 +150,7 @@ const acontextClient = new AcontextClient({
 });
 
 // Create session
-const space = await acontextClient.spaces.create();
-const session = await acontextClient.sessions.create({ spaceId: space.id });
+const session = await acontextClient.sessions.create();
 
 // Build conversation
 let conversation: any[] = [];
@@ -451,9 +450,8 @@ async function appendMessage(
 }
 
 async function main(): Promise<void> {
-  // Create space and session
-  const space = await acontextClient.spaces.create();
-  const session = await acontextClient.sessions.create({ spaceId: space.id });
+  // Create session
+  const session = await acontextClient.sessions.create();
 
   let conversation: any[] = [];
 
@@ -618,10 +616,6 @@ Message content must be a string, not an array. Array content needs to be conver
 <CardGroup cols={2}>
 <Card title="Observability" icon="eye" href="/observe/agent_tasks">
 Monitor what your agent plans vs. what it executes
-</Card>
-
-<Card title="Skill Learning" icon="sparkles" href="/learn/skill-space">
-Enable your agent to learn from completed tasks
 </Card>
 
 <Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">

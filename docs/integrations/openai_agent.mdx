@@ -156,8 +156,7 @@ acontext_client = AcontextClient(
 )
 
 # Create session
-space = acontext_client.spaces.create()
-session = acontext_client.sessions.create(space_id=space.id)
+session = acontext_client.sessions.create()
 
 # Run agent
 result = await Runner.run(agent, "What's the weather in Helsinki?")
@@ -284,8 +283,7 @@ async def session_1(session_id: str):
         print(f"Status: {task.status}")
 
 async def main():
-    space = acontext_client.spaces.create()
-    session = acontext_client.sessions.create(space_id=space.id)
+    session = acontext_client.sessions.create()
 
     await session_1(session.id)
 
@@ -463,10 +461,6 @@ Tools are defined using the `@function_tool` decorator, which automatically regi
 <CardGroup cols={2}>
 <Card title="Observability" icon="eye" href="/observe/agent_tasks">
 Monitor what your agent plans vs. what it executes
-</Card>
-
-<Card title="Skill Learning" icon="sparkles" href="/learn/skill-space">
-Enable your agent to learn from completed tasks
 </Card>
 
 <Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">

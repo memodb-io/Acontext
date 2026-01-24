@@ -84,24 +84,6 @@
             ]
           },
           {
-            "group": "Self-learning(beta)",
-            "icon": "sparkles",
-            "pages": [
-              "learn/warning",
-              "learn/skill-space",
-              "learn/search-skills",
-              {
-                "group": "Advance",
-                "pages": [
-                  "learn/tool",
-                  "learn/advance/wait-user",
-                  "learn/advance/design-complex",
-                  "learn/advance/experience-agent"
-                ]
-              }
-            ]
-          },
-          {
             "group": "Miscellaneous",
             "icon": "ellipsis",
             "pages": [

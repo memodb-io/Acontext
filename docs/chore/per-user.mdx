@@ -3,13 +3,13 @@ title: Per-user Resources
 description: "Manage resources per user with Acontext's user-based resource management feature"
 ---
 
-User-based resource management allows you to associate Acontext resources (Spaces, Sessions, Disks, and Skills) with user identifiers. This enables multi-tenant scenarios, per-user resource isolation, and simplified resource cleanup.
+User-based resource management allows you to associate Acontext resources (Sessions, Disks, and Skills) with user identifiers. This enables multi-tenant scenarios, per-user resource isolation, and simplified resource cleanup.
 
 ## What you'll learn
 
 In this guide, you'll learn how to:
 
-- Associate resources (Spaces, Sessions, Disks, Skills) with user identifiers
+- Associate resources (Sessions, Disks, Skills) with user identifiers
 - Filter resources by user
 - Delete a user and cascade delete all associated resources
 - Build multi-tenant applications with per-user resource isolation
@@ -68,17 +68,9 @@ Associate resources with a user by passing the `user` parameter when creating th
 
 <CodeGroup>
 ```python Python
-# Create a space for a user
-space = client.spaces.create(
-    user="alice@acontext.io",
-    configs={"name": "Alice's Workspace"}
-)
-print(f"Created space: {space.id}")
-
-# Create a session for the same user
+# Create a session for the user
 session = client.sessions.create(
     user="alice@acontext.io",
-    space_id=space.id,
     configs={"mode": "chat"}
 )
 print(f"Created session: {session.id}")
@@ -89,17 +81,9 @@ print(f"Created disk: {disk.id}")
 ```
 
 ```typescript TypeScript
-// Create a space for a user
-const space = await client.spaces.create({
-  user: 'alice@acontext.io',
-  configs: { name: "Alice's Workspace" }
-});
-console.log(`Created space: ${space.id}`);
-
-// Create a session for the same user
+// Create a session for the user
 const session = await client.sessions.create({
   user: 'alice@acontext.io',
-  spaceId: space.id,
   configs: { mode: 'chat' }
 });
 console.log(`Created session: ${session.id}`);
@@ -120,10 +104,6 @@ All list operations support filtering by user identifier to retrieve only resour
 
 <CodeGroup>
 ```python Python
-# List spaces for a specific user
-spaces = client.spaces.list(user="alice@acontext.io", limit=20)
-print(f"Found {len(spaces.items)} spaces")
-
 # List sessions for a specific user
 sessions = client.sessions.list(user="alice@acontext.io", limit=20)
 print(f"Found {len(sessions.items)} sessions")
@@ -138,13 +118,6 @@ print(f"Found {len(skills.items)} skills")
 ```
 
 ```typescript TypeScript
-// List spaces for a specific user
-const spaces = await client.spaces.list({ 
-  user: 'alice@acontext.io', 
-  limit: 20 
-});
-console.log(`Found ${spaces.items.length} spaces`);
-
 // List sessions for a specific user
 const sessions = await client.sessions.list({ 
   user: 'alice@acontext.io', 
@@ -174,7 +147,7 @@ Use user filtering to build user-specific dashboards and views.
 </Step>
 
 <Step title="Delete a user and all resources">
-Deleting a user removes the user record and cascades to delete all associated resources (Spaces, Sessions, Disks, and Skills).
+Deleting a user removes the user record and cascades to delete all associated resources (Sessions, Disks, and Skills).
 
 <CodeGroup>
 ```python Python
@@ -191,7 +164,7 @@ console.log("User and all resources deleted");
 </CodeGroup>
 
 <Warning>
-Deleting a user is a destructive operation that cannot be undone. All Spaces, Sessions, Disks, and Skills associated with the user will be permanently deleted.
+Deleting a user is a destructive operation that cannot be undone. All Sessions, Disks, and Skills associated with the user will be permanently deleted.
 </Warning>
 </Step>
 </Steps>
@@ -215,15 +188,9 @@ def main():
     
     try:
         # Create resources for a user
-        space = client.spaces.create(
-            user=user_id,
-            configs={"name": "Demo Workspace"}
-        )
-        print(f"✓ Created space: {space.id}")
-        
         session = client.sessions.create(
             user=user_id,
-            space_id=space.id
+            configs={"mode": "chat"}
         )
         print(f"✓ Created session: {session.id}")
         
@@ -231,10 +198,9 @@ def main():
         print(f"✓ Created disk: {disk.id}")
         
         # List all resources for the user
-        spaces = client.spaces.list(user=user_id)
         sessions = client.sessions.list(user=user_id)
         disks = client.disks.list(user=user_id)
-        print(f"✓ User has {len(spaces.items)} space(s), {len(sessions.items)} session(s), {len(disks.items)} disk(s)")
+        print(f"✓ User has {len(sessions.items)} session(s), {len(disks.items)} disk(s)")
         
         # Cleanup: Delete user and all resources
         client.users.delete(user_id)
@@ -260,15 +226,9 @@ async function main() {
     
     try {
         // Create resources for a user
-        const space = await client.spaces.create({
-            user: userId,
-            configs: { name: "Demo Workspace" }
-        });
-        console.log(`✓ Created space: ${space.id}`);
-        
         const session = await client.sessions.create({
             user: userId,
-            spaceId: space.id
+            configs: { mode: 'chat' }
         });
         console.log(`✓ Created session: ${session.id}`);
         
@@ -276,10 +236,9 @@ async function main() {
         console.log(`✓ Created disk: ${disk.id}`);
         
         // List all resources for the user
-        const spaces = await client.spaces.list({ user: userId });
         const sessions = await client.sessions.list({ user: userId });
         const disks = await client.disks.list({ user: userId });
-        console.log(`✓ User has ${spaces.items.length} space(s), ${sessions.items.length} session(s), ${disks.items.length} disk(s)`);
+        console.log(`✓ User has ${sessions.items.length} session(s), ${disks.items.length} disk(s)`);
         
         // Cleanup: Delete user and all resources
         await client.users.delete(userId);
@@ -338,7 +297,6 @@ User identifiers are:
 <Accordion title="Cascade deletion">
 When you delete a user, the database's foreign key constraints ensure that all associated resources are automatically deleted:
 
-- All Spaces associated with the user
 - All Sessions associated with the user
 - All Disks associated with the user
 - All Skills associated with the user
@@ -358,8 +316,8 @@ async def main():
         api_key=os.getenv("ACONTEXT_API_KEY"),
     ) as client:
         # All methods are async
-        space = await client.spaces.create(user="alice@acontext.io")
-        spaces = await client.spaces.list(user="alice@acontext.io")
+        session = await client.sessions.create(user="alice@acontext.io")
+        sessions = await client.sessions.list(user="alice@acontext.io")
         await client.users.delete("alice@acontext.io")
 
 asyncio.run(main())
@@ -375,12 +333,12 @@ Use consistent identifier formats across your application (e.g., always use emai
 
 ```python
 # Good: Consistent email format
-client.spaces.create(user="alice@acontext.io")
 client.sessions.create(user="alice@acontext.io")
+client.disks.create(user="alice@acontext.io")
 
 # Avoid: Inconsistent formats
-client.spaces.create(user="alice@acontext.io")
-client.sessions.create(user="user_123")  # Different format for same user
+client.sessions.create(user="alice@acontext.io")
+client.disks.create(user="user_123")  # Different format for same user
 ```
 
 <Note>
@@ -408,7 +366,6 @@ curl -X DELETE "https://api.acontext.io/api/v1/user/alice%40example.com" \
 </Endpoint>
 
 For details on creating and listing resources with user parameters, see the API reference for:
-- [Spaces API](/api-reference/introduction#/space)
 - [Sessions API](/api-reference/introduction#/session)
 - [Disks API](/api-reference/introduction#/disk)
 - [Skills API](/api-reference/introduction#/agent_skills)

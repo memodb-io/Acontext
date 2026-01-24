@@ -124,8 +124,7 @@ acontext_client = AcontextClient(
 )
 
 # Create Acontext session
-space = acontext_client.spaces.create()
-session = acontext_client.sessions.create(space_id=space.id)
+session = acontext_client.sessions.create()
 
 # Build conversation
 conversation = []
@@ -312,9 +311,8 @@ def append_message(message: dict, conversation: list[dict], session_id: str):
     return conversation
 
 async def main():
-    # Create space and session
-    space = acontext_client.spaces.create()
-    session = acontext_client.sessions.create(space_id=space.id)
+    # Create session
+    session = acontext_client.sessions.create()
     
     conversation = []
     
@@ -442,10 +440,6 @@ Acontext will automatically flush the buffer when the buffer is full or IDLE. To
 <CardGroup cols={2}>
 <Card title="Observability" icon="eye" href="/observe/agent_tasks">
 Monitor what your agent plans vs. what it executes
-</Card>
-
-<Card title="Skill Learning" icon="sparkles" href="/learn/skill-space">
-Enable your agent to learn from completed tasks
 </Card>
 
 <Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
