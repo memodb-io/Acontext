@@ -12,7 +12,6 @@ from ..types.session import (
     EditStrategy,
     GetMessagesOutput,
     GetTasksOutput,
-    LearningStatus,
     ListSessionsOutput,
     Message,
     MessageObservingStatus,
@@ -38,8 +37,6 @@ class SessionsAPI:
         self,
         *,
         user: str | None = None,
-        space_id: str | None = None,
-        not_connected: bool | None = None,
         limit: int | None = None,
         cursor: str | None = None,
         time_desc: bool | None = None,
@@ -48,8 +45,6 @@ class SessionsAPI:
 
         Args:
             user: Filter by user identifier. Defaults to None.
-            space_id: Filter sessions by space ID. Defaults to None.
-            not_connected: Filter sessions that are not connected to a space. Defaults to None.
             limit: Maximum number of sessions to return. Defaults to None.
             cursor: Cursor for pagination. Defaults to None.
             time_desc: Order by created_at descending if True, ascending if False. Defaults to None.
@@ -60,11 +55,8 @@ class SessionsAPI:
         params: dict[str, Any] = {}
         if user:
             params["user"] = user
-        if space_id:
-            params["space_id"] = space_id
         params.update(
             build_params(
-                not_connected=not_connected,
                 limit=limit,
                 cursor=cursor,
                 time_desc=time_desc,
@@ -77,7 +69,6 @@ class SessionsAPI:
         self,
         *,
         user: str | None = None,
-        space_id: str | None = None,
         disable_task_tracking: bool | None = None,
         configs: Mapping[str, Any] | None = None,
     ) -> Session:
@@ -85,7 +76,6 @@ class SessionsAPI:
 
         Args:
             user: Optional user identifier string. Defaults to None.
-            space_id: Optional space ID to associate with the session. Defaults to None.
             disable_task_tracking: Whether to disable task tracking for this session. Defaults to None (server default: False).
             configs: Optional session configuration dictionary. Defaults to None.
 
@@ -95,8 +85,6 @@ class SessionsAPI:
         payload: dict[str, Any] = {}
         if user:
             payload["user"] = user
-        if space_id:
-            payload["space_id"] = space_id
         if disable_task_tracking is not None:
             payload["disable_task_tracking"] = disable_task_tracking
         if configs is not None:
@@ -140,18 +128,6 @@ class SessionsAPI:
         """
         data = self._requester.request("GET", f"/session/{session_id}/configs")
         return Session.model_validate(data)
-
-    def connect_to_space(self, session_id: str, *, space_id: str) -> None:
-        """Connect a session to a space.
-
-        Args:
-            session_id: The UUID of the session.
-            space_id: The UUID of the space to connect to.
-        """
-        payload = {"space_id": space_id}
-        self._requester.request(
-            "POST", f"/session/{session_id}/connect_to_space", json_data=payload
-        )
 
     def get_tasks(
         self,
@@ -381,23 +357,6 @@ class SessionsAPI:
         """
         data = self._requester.request("POST", f"/session/{session_id}/flush")
         return data  # type: ignore
-
-    def get_learning_status(self, session_id: str) -> LearningStatus:
-        """Get learning status for a session.
-
-        Returns the count of space digested tasks and not space digested tasks.
-        If the session is not connected to a space, returns 0 and 0.
-
-        Args:
-            session_id: The UUID of the session.
-
-        Returns:
-            LearningStatus object containing space_digested_count and not_space_digested_count.
-        """
-        data = self._requester.request(
-            "GET", f"/session/{session_id}/get_learning_status"
-        )
-        return LearningStatus.model_validate(data)
 
     def get_token_counts(self, session_id: str) -> TokenCounts:
         """Get total token counts for all text and tool-call parts in a session.

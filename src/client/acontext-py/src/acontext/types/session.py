@@ -171,7 +171,6 @@ class Session(BaseModel):
     disable_task_tracking: bool = Field(
         False, description="Whether task tracking is disabled for this session"
     )
-    space_id: str | None = Field(None, description="Space UUID, optional")
     configs: dict[str, Any] | None = Field(
         None, description="Session configuration dictionary"
     )
@@ -193,9 +192,6 @@ class TaskData(BaseModel):
     user_preferences: list[str] | None = Field(
         None, description="List of user preferences related to the task"
     )
-    sop_thinking: str | None = Field(
-        None, description="Standard Operating Procedure thinking notes"
-    )
 
 
 class Task(BaseModel):
@@ -211,7 +207,6 @@ class Task(BaseModel):
         description="Task status: 'success', 'failed', 'running', or 'pending'",
     )
     is_planning: bool = Field(..., description="Whether the task is in planning phase")
-    space_digested: bool = Field(..., description="Whether the space has been digested")
     created_at: str = Field(..., description="ISO 8601 formatted creation timestamp")
     updated_at: str = Field(..., description="ISO 8601 formatted update timestamp")
 
@@ -278,17 +273,6 @@ class GetTasksOutput(BaseModel):
     items: list[Task] = Field(..., description="List of tasks")
     next_cursor: str | None = Field(None, description="Cursor for pagination")
     has_more: bool = Field(..., description="Whether there are more items")
-
-
-class LearningStatus(BaseModel):
-    """Response model for learning status."""
-
-    space_digested_count: int = Field(
-        ..., description="Number of tasks that are space digested"
-    )
-    not_space_digested_count: int = Field(
-        ..., description="Number of tasks that are not space digested"
-    )
 
 
 class TokenCounts(BaseModel):

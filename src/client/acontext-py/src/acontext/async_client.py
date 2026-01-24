@@ -13,10 +13,8 @@ from .errors import APIError, TransportError
 from .messages import MessagePart as MessagePart
 from .uploads import FileUpload as FileUpload
 from .resources.async_disks import AsyncDisksAPI as AsyncDisksAPI
-from .resources.async_blocks import AsyncBlocksAPI as AsyncBlocksAPI
 from .resources.async_sandboxes import AsyncSandboxesAPI as AsyncSandboxesAPI
 from .resources.async_sessions import AsyncSessionsAPI as AsyncSessionsAPI
-from .resources.async_spaces import AsyncSpacesAPI as AsyncSpacesAPI
 from .resources.async_tools import AsyncToolsAPI as AsyncToolsAPI
 from .resources.async_skills import AsyncSkillsAPI as AsyncSkillsAPI
 from .resources.async_users import AsyncUsersAPI as AsyncUsersAPI
@@ -106,11 +104,9 @@ class AcontextAsyncClient:
 
         self._timeout = actual_timeout
 
-        self.spaces = AsyncSpacesAPI(self)
         self.sessions = AsyncSessionsAPI(self)
         self.disks = AsyncDisksAPI(self)
         self.artifacts = self.disks.artifacts
-        self.blocks = AsyncBlocksAPI(self)
         self.tools = AsyncToolsAPI(self)
         self.skills = AsyncSkillsAPI(self)
         self.users = AsyncUsersAPI(self)

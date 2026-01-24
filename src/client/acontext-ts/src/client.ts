@@ -3,11 +3,9 @@
  */
 
 import { APIError, TransportError } from './errors';
-import { BlocksAPI } from './resources/blocks';
 import { DisksAPI } from './resources/disks';
 import { SandboxesAPI } from './resources/sandboxes';
 import { SessionsAPI } from './resources/sessions';
-import { SpacesAPI } from './resources/spaces';
 import { ToolsAPI } from './resources/tools';
 import { SkillsAPI } from './resources/skills';
 import { UsersAPI } from './resources/users';
@@ -27,11 +25,9 @@ export class AcontextClient implements RequesterProtocol {
   private _timeout: number;
   private _userAgent: string;
 
-  public spaces: SpacesAPI;
   public sessions: SessionsAPI;
   public disks: DisksAPI;
   public artifacts: DisksAPI['artifacts'];
-  public blocks: BlocksAPI;
   public tools: ToolsAPI;
   public skills: SkillsAPI;
   public users: UsersAPI;
@@ -69,11 +65,9 @@ export class AcontextClient implements RequesterProtocol {
         ? parseFloat(process.env.ACONTEXT_TIMEOUT)
         : 320000);
 
-    this.spaces = new SpacesAPI(this);
     this.sessions = new SessionsAPI(this);
     this.disks = new DisksAPI(this);
     this.artifacts = this.disks.artifacts;
-    this.blocks = new BlocksAPI(this);
     this.tools = new ToolsAPI(this);
     this.skills = new SkillsAPI(this);
     this.users = new UsersAPI(this);

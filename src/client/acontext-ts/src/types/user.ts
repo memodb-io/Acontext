@@ -23,7 +23,6 @@ export const ListUsersOutputSchema = z.object({
 export type ListUsersOutput = z.infer<typeof ListUsersOutputSchema>;
 
 export const UserResourceCountsSchema = z.object({
-  spaces_count: z.number(),
   sessions_count: z.number(),
   disks_count: z.number(),
   skills_count: z.number(),

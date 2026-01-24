@@ -45,7 +45,6 @@ export const SessionSchema = z.object({
   project_id: z.string(),
   user_id: z.string().nullable().optional(),
   disable_task_tracking: z.boolean(),
-  space_id: z.string().nullable(),
   configs: z.record(z.string(), z.unknown()).nullable(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -62,7 +61,6 @@ export const TaskDataSchema = z.object({
   task_description: z.string(),
   progresses: z.array(z.string()).nullable().optional(),
   user_preferences: z.array(z.string()).nullable().optional(),
-  sop_thinking: z.string().nullable().optional(),
 });
 
 export type TaskData = z.infer<typeof TaskDataSchema>;
@@ -75,7 +73,6 @@ export const TaskSchema = z.object({
   data: TaskDataSchema,
   status: z.string(),
   is_planning: z.boolean(),
-  space_digested: z.boolean(),
   created_at: z.string(),
   updated_at: z.string(),
 });
@@ -124,13 +121,6 @@ export const GetTasksOutputSchema = z.object({
 });
 
 export type GetTasksOutput = z.infer<typeof GetTasksOutputSchema>;
-
-export const LearningStatusSchema = z.object({
-  space_digested_count: z.number(),
-  not_space_digested_count: z.number(),
-});
-
-export type LearningStatus = z.infer<typeof LearningStatusSchema>;
 
 export const TokenCountsSchema = z.object({
   total_tokens: z.number(),

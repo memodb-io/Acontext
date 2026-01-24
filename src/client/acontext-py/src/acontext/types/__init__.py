@@ -13,7 +13,6 @@ from .session import (
     Asset,
     GetMessagesOutput,
     GetTasksOutput,
-    LearningStatus,
     ListSessionsOutput,
     Message,
     Part,
@@ -23,18 +22,8 @@ from .session import (
     TaskData,
     TokenCounts,
 )
-from .block import Block
-from .space import (
-    ExperienceConfirmation,
-    ListExperienceConfirmationsOutput,
-    ListSpacesOutput,
-    SearchResultBlockItem,
-    Space,
-    SpaceSearchResult,
-)
 from .tool import (
     FlagResponse,
-    InsertBlockResponse,
     ToolReferenceData,
     ToolRenameItem,
 )
@@ -73,7 +62,6 @@ __all__ = [
     "Asset",
     "GetMessagesOutput",
     "GetTasksOutput",
-    "LearningStatus",
     "ListSessionsOutput",
     "Message",
     "Part",
@@ -82,18 +70,8 @@ __all__ = [
     "Task",
     "TaskData",
     "TokenCounts",
-    # Space types
-    "ExperienceConfirmation",
-    "ListExperienceConfirmationsOutput",
-    "ListSpacesOutput",
-    "SearchResultBlockItem",
-    "Space",
-    "SpaceSearchResult",
-    # Block types
-    "Block",
     # Tool types
     "FlagResponse",
-    "InsertBlockResponse",
     "ToolReferenceData",
     "ToolRenameItem",
     # Skill types

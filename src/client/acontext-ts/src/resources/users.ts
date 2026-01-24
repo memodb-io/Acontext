@@ -43,7 +43,7 @@ export class UsersAPI {
    * Get resource counts for a user.
    *
    * @param identifier - The user identifier string
-   * @returns GetUserResourcesOutput containing counts for Spaces, Sessions, Disks, and Skills
+   * @returns GetUserResourcesOutput containing counts for Sessions, Disks, and Skills
    */
   async getResources(identifier: string): Promise<GetUserResourcesOutput> {
     const data = await this.requester.request(
@@ -54,7 +54,7 @@ export class UsersAPI {
   }
 
   /**
-   * Delete a user and cascade delete all associated resources (Space, Session, Disk, Skill).
+   * Delete a user and cascade delete all associated resources (Session, Disk, Skill).
    *
    * @param identifier - The user identifier string
    */
