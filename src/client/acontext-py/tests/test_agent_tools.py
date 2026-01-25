@@ -31,16 +31,16 @@ class TestDiskTools:
         assert isinstance(schemas, list)
         assert (
             len(schemas) == 7
-        )  # write_file, read_file, replace_string, list, grep, glob, download_file
+        )  # write_file_disk, read_file_disk, replace_string_disk, list_disk, grep_disk, glob_disk, download_file_disk
 
         tool_names = [s["function"]["name"] for s in schemas]
-        assert "write_file" in tool_names
-        assert "read_file" in tool_names
-        assert "replace_string" in tool_names
-        assert "list" in tool_names
-        assert "grep" in tool_names
-        assert "glob" in tool_names
-        assert "download_file" in tool_names
+        assert "write_file_disk" in tool_names
+        assert "read_file_disk" in tool_names
+        assert "replace_string_disk" in tool_names
+        assert "list_disk" in tool_names
+        assert "grep_disk" in tool_names
+        assert "glob_disk" in tool_names
+        assert "download_file_disk" in tool_names
 
     def test_disk_tools_anthropic_schema(self) -> None:
         """Test Anthropic tool schema generation."""
@@ -50,15 +50,15 @@ class TestDiskTools:
 
     def test_disk_tools_tool_exists(self) -> None:
         """Test tool_exists method."""
-        assert DISK_TOOLS.tool_exists("write_file")
-        assert DISK_TOOLS.tool_exists("read_file")
+        assert DISK_TOOLS.tool_exists("write_file_disk")
+        assert DISK_TOOLS.tool_exists("read_file_disk")
         assert not DISK_TOOLS.tool_exists("nonexistent_tool")
 
     @patch("acontext.client.AcontextClient.request")
     def test_write_file_tool(
         self, mock_request: MagicMock, disk_ctx: DiskContext
     ) -> None:
-        """Test write_file tool execution."""
+        """Test write_file_disk tool execution."""
         mock_request.return_value = {
             "disk_id": "disk-123",
             "path": "/test.txt",
@@ -70,7 +70,7 @@ class TestDiskTools:
 
         result = DISK_TOOLS.execute_tool(
             disk_ctx,
-            "write_file",
+            "write_file_disk",
             {"filename": "test.txt", "content": "Hello, world!"},
         )
 
@@ -84,7 +84,7 @@ class TestDiskTools:
     def test_read_file_tool(
         self, mock_request: MagicMock, disk_ctx: DiskContext
     ) -> None:
-        """Test read_file tool execution."""
+        """Test read_file_disk tool execution."""
         mock_request.return_value = {
             "artifact": {
                 "disk_id": "disk-123",
@@ -102,7 +102,7 @@ class TestDiskTools:
 
         result = DISK_TOOLS.execute_tool(
             disk_ctx,
-            "read_file",
+            "read_file_disk",
             {"filename": "test.txt", "line_offset": 1, "line_limit": 2},
         )
 
@@ -114,7 +114,7 @@ class TestDiskTools:
     def test_replace_string_tool(
         self, mock_request: MagicMock, disk_ctx: DiskContext
     ) -> None:
-        """Test replace_string tool execution."""
+        """Test replace_string_disk tool execution."""
         # Mock read response
         read_response = {
             "artifact": {
@@ -144,7 +144,7 @@ class TestDiskTools:
 
         result = DISK_TOOLS.execute_tool(
             disk_ctx,
-            "replace_string",
+            "replace_string_disk",
             {
                 "filename": "test.txt",
                 "old_string": "Hello",
@@ -157,7 +157,7 @@ class TestDiskTools:
 
     @patch("acontext.client.AcontextClient.request")
     def test_list_tool(self, mock_request: MagicMock, disk_ctx: DiskContext) -> None:
-        """Test list tool execution."""
+        """Test list_disk tool execution."""
         mock_request.return_value = {
             "artifacts": [
                 {
@@ -174,7 +174,7 @@ class TestDiskTools:
 
         result = DISK_TOOLS.execute_tool(
             disk_ctx,
-            "list",
+            "list_disk",
             {"file_path": "/"},
         )
 
@@ -183,12 +183,12 @@ class TestDiskTools:
         mock_request.assert_called_once()
 
     def test_write_file_tool_validation(self, disk_ctx: DiskContext) -> None:
-        """Test write_file tool parameter validation."""
+        """Test write_file_disk tool parameter validation."""
         with pytest.raises(ValueError, match="filename is required"):
-            DISK_TOOLS.execute_tool(disk_ctx, "write_file", {"content": "test"})
+            DISK_TOOLS.execute_tool(disk_ctx, "write_file_disk", {"content": "test"})
 
         with pytest.raises(ValueError, match="content is required"):
-            DISK_TOOLS.execute_tool(disk_ctx, "write_file", {"filename": "test.txt"})
+            DISK_TOOLS.execute_tool(disk_ctx, "write_file_disk", {"filename": "test.txt"})
 
 
 class TestSkillTools:
