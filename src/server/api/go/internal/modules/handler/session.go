@@ -514,9 +514,9 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid auto_trim_token_threshold", err))
 			return
 		}
-		// Return 400 when strategy is not the only allowed value.
-		if strat != "remove_tool_result" {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid auto_trim_strategy", errors.New("strategy must be remove_tool_result")))
+		// Return 400 when strategy is not supported by the registry.
+		if !service.IsAutoTrimStrategySupported(strat) {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid auto_trim_strategy", errors.New("strategy not supported")))
 			return
 		}
 		// Attach parsed auto-trim config to the request object.

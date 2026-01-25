@@ -503,17 +503,15 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	}
 	// Apply auto-trim when the trigger is true.
 	if autoTrimTriggered {
-		// Skip auto-trim when strategy is not supported in v0.
-		if in.AutoTrim.Strategy != "remove_tool_result" {
+		// Skip auto-trim when strategy is not supported by the registry.
+		if !IsAutoTrimStrategySupported(in.AutoTrim.Strategy) {
 			// Record skip reason for unsupported strategy.
 			reason := "unsupported_strategy"
 			out.AutoTrimSkipped = true
 			out.AutoTrimSkipReason = &reason
 		} else {
-			// Build remove_tool_result strategy config with default params.
-			strategyConfig := editor.StrategyConfig{Type: "remove_tool_result", Params: map[string]interface{}{}}
-			// Apply the remove_tool_result strategy to messages.
-			editedMessages, err := editor.ApplyStrategies(out.Items, []editor.StrategyConfig{strategyConfig})
+			// Apply the auto-trim strategy via the registry.
+			editedMessages, err := ApplyAutoTrimStrategy(ctx, in.AutoTrim.Strategy, out.Items)
 			if err != nil {
 				// Record skip reason when auto-trim apply fails.
 				reason := "apply_failed"
