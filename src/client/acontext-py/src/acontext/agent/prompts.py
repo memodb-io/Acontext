@@ -88,7 +88,6 @@ Never write blocking script:
 - python codes like `plt.show()` or `input()`... will block the execution of the script, don't use them. write non-blocking code instead.
 
 Container environment:
-- NO internet access available
 - Filesystem persists across multiple executions within the same container
 - Standard Unix utilities available (grep, sed, awk, etc.)
 - Archive tools: tar, unzip, zip
