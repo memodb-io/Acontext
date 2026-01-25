@@ -328,6 +328,12 @@ const docTemplate = `{
                                 }
                             ]
                         }
+                    },
+                    "409": {
+                        "description": "Skill directory already exists in sandbox",
+                        "schema": {
+                            "$ref": "#/definitions/serializer.Response"
+                        }
                     }
                 },
                 "x-code-samples": [
@@ -3893,8 +3899,16 @@ const docTemplate = `{
         "handler.DownloadSkillToSandboxResp": {
             "type": "object",
             "properties": {
+                "description": {
+                    "description": "Skill description",
+                    "type": "string"
+                },
                 "dir_path": {
                     "description": "Full path to the skill directory in sandbox",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Skill name",
                     "type": "string"
                 },
                 "success": {

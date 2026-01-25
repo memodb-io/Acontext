@@ -310,6 +310,7 @@ type DownloadSkillToSandboxResp struct {
 //	@Param			request	body	handler.DownloadSkillToSandboxReq	true	"Download to sandbox request"
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=handler.DownloadSkillToSandboxResp}
+//	@Failure		409	{object}	serializer.Response	"Skill directory already exists in sandbox"
 //	@Router			/agent_skills/{id}/download_to_sandbox [post]
 //	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Download skill to sandbox\nresult = client.skills.download_to_sandbox(\n    skill_id='skill-uuid',\n    sandbox_id='sandbox-uuid'\n)\nprint(f\"Success: {result.success}\")\nprint(f\"Skill installed at: {result.dir_path}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Download skill to sandbox\nconst result = await client.skills.downloadToSandbox('skill-uuid', {\n  sandboxId: 'sandbox-uuid'\n});\nconsole.log(`Success: ${result.success}`);\nconsole.log(`Skill installed at: ${result.dir_path}`);\n","label":"JavaScript"}]
 func (h *AgentSkillsHandler) DownloadToSandbox(c *gin.Context) {
@@ -350,6 +351,18 @@ func (h *AgentSkillsHandler) DownloadToSandbox(c *gin.Context) {
 	// Build the base destination path: /skills/skill_name
 	// Note: agentSkill.Name is already sanitized at upload time
 	baseDirPath := "/skills/" + agentSkill.Name
+
+	// Check if the skill directory already exists in the sandbox
+	checkResult, err := h.coreClient.ExecSandboxCommand(c.Request.Context(), project.ID, sandboxID, fmt.Sprintf("test -d %s", baseDirPath))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "failed to check skill directory", err))
+		return
+	}
+	if checkResult.ExitCode == 0 {
+		c.JSON(http.StatusConflict, serializer.Err(http.StatusConflict,
+			fmt.Sprintf("skill directory '%s' already exists in sandbox, please make sure you don't download the same skill again", baseDirPath), nil))
+		return
+	}
 
 	// Get file index from skill
 	fileIndex := agentSkill.FileIndex.Data()
