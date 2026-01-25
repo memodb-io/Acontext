@@ -43,7 +43,7 @@ class WriteFileTool(BaseTool):
     def arguments(self) -> dict:
         return {
             "file_path": {
-                "type": "string",
+                "type": ["string", "null"],
                 "description": "Optional folder path to organize files, e.g. '/notes/' or '/documents/'. Defaults to root '/' if not specified.",
             },
             "filename": {
@@ -116,7 +116,7 @@ class ReadFileTool(BaseTool):
     def arguments(self) -> dict:
         return {
             "file_path": {
-                "type": "string",
+                "type": ["string", "null"],
                 "description": "Optional directory path where the file is located, e.g. '/notes/'. Defaults to root '/' if not specified.",
             },
             "filename": {
@@ -124,11 +124,11 @@ class ReadFileTool(BaseTool):
                 "description": "Filename to read.",
             },
             "line_offset": {
-                "type": "integer",
+                "type": ["integer", "null"],
                 "description": "The line number to start reading from. Default to 0",
             },
             "line_limit": {
-                "type": "integer",
+                "type": ["integer", "null"],
                 "description": "The maximum number of lines to return. Default to 100",
             },
         }
@@ -209,7 +209,7 @@ class ReplaceStringTool(BaseTool):
     def arguments(self) -> dict:
         return {
             "file_path": {
-                "type": "string",
+                "type": ["string", "null"],
                 "description": "Optional directory path where the file is located, e.g. '/notes/'. Defaults to root '/' if not specified.",
             },
             "filename": {
@@ -413,7 +413,7 @@ class DownloadFileTool(BaseTool):
     def arguments(self) -> dict:
         return {
             "file_path": {
-                "type": "string",
+                "type": ["string", "null"],
                 "description": "Optional directory path where the file is located, e.g. '/notes/'. Defaults to root '/' if not specified.",
             },
             "filename": {
@@ -421,7 +421,7 @@ class DownloadFileTool(BaseTool):
                 "description": "Filename to get the download URL for.",
             },
             "expire": {
-                "type": "integer",
+                "type": ["integer", "null"],
                 "description": "URL expiration time in seconds. Defaults to 3600 (1 hour).",
             },
         }
@@ -496,7 +496,7 @@ class GrepArtifactsTool(BaseTool):
                 "description": "Regex pattern to search for (e.g., 'TODO.*', 'function.*calculate', 'import.*pandas')",
             },
             "limit": {
-                "type": "integer",
+                "type": ["integer", "null"],
                 "description": "Maximum number of results to return (default 100)",
             },
         }
@@ -575,7 +575,7 @@ class GlobArtifactsTool(BaseTool):
                 "description": "Glob pattern (e.g., '**/*.py' for all Python files, '*.txt' for text files in root, '/docs/**/*.md' for markdown in docs)",
             },
             "limit": {
-                "type": "integer",
+                "type": ["integer", "null"],
                 "description": "Maximum number of results to return (default 100)",
             },
         }

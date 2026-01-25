@@ -12,6 +12,7 @@ export interface RequesterProtocol {
       data?: Record<string, string>;
       files?: Record<string, { filename: string; content: Buffer | NodeJS.ReadableStream; contentType: string }>;
       unwrap?: boolean;
+      timeout?: number;
     }
   ): Promise<T>;
 }

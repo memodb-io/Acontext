@@ -34,17 +34,21 @@ export class SandboxesAPI {
    * @param options - Command execution options
    * @param options.sandboxId - The UUID of the sandbox
    * @param options.command - The shell command to execute
+   * @param options.timeout - Optional timeout in milliseconds for this command.
+   *                          If not provided, uses the client's default timeout.
    * @returns SandboxCommandOutput containing stdout, stderr, and exit code
    */
   async execCommand(options: {
     sandboxId: string;
     command: string;
+    timeout?: number;
   }): Promise<SandboxCommandOutput> {
     const data = await this.requester.request(
       'POST',
       `/sandbox/${options.sandboxId}/exec`,
       {
         jsonData: { command: options.command },
+        timeout: options.timeout,
       }
     );
     return SandboxCommandOutputSchema.parse(data);

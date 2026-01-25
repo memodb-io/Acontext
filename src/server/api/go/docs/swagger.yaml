@@ -71,6 +71,23 @@ definitions:
         example: alice@acontext.io
         type: string
     type: object
+  handler.DownloadSkillToSandboxReq:
+    properties:
+      sandbox_id:
+        description: Target sandbox ID
+        type: string
+    required:
+    - sandbox_id
+    type: object
+  handler.DownloadSkillToSandboxResp:
+    properties:
+      dir_path:
+        description: Full path to the skill directory in sandbox
+        type: string
+      success:
+        description: Whether the download was successful
+        type: boolean
+    type: object
   handler.DownloadToSandboxReq:
     properties:
       file_path:
@@ -961,6 +978,69 @@ paths:
           console.log(`Description: ${skill.description}`);
           console.log(`Files: ${skill.file_index.length} file(s)`);
           skill.file_index.forEach(f => console.log(`  - ${f.path} (${f.mime})`));
+  /agent_skills/{id}/download_to_sandbox:
+    post:
+      consumes:
+      - application/json
+      description: Download all files from an agent skill to a sandbox environment.
+        Files are placed at /skills/{skill_name}/.
+      parameters:
+      - description: Agent skill UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Download to sandbox request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/handler.DownloadSkillToSandboxReq'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.DownloadSkillToSandboxResp'
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Download skill to sandbox
+      tags:
+      - agent_skills
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Download skill to sandbox
+          result = client.skills.download_to_sandbox(
+              skill_id='skill-uuid',
+              sandbox_id='sandbox-uuid'
+          )
+          print(f"Success: {result.success}")
+          print(f"Skill installed at: {result.dir_path}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Download skill to sandbox
+          const result = await client.skills.downloadToSandbox('skill-uuid', {
+            sandboxId: 'sandbox-uuid'
+          });
+          console.log(`Success: ${result.success}`);
+          console.log(`Skill installed at: ${result.dir_path}`);
   /agent_skills/{id}/file:
     get:
       consumes:

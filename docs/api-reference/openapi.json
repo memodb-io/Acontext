@@ -187,6 +187,58 @@
         } ]
       }
     },
+    "/agent_skills/{id}/download_to_sandbox" : {
+      "post" : {
+        "description" : "Download all files from an agent skill to a sandbox environment. Files are placed at /skills/{skill_name}/.",
+        "parameters" : [ {
+          "description" : "Agent skill UUID",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/handler.DownloadSkillToSandboxReq"
+              }
+            }
+          },
+          "description" : "Download to sandbox request",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_agent_skills__id__download_to_sandbox_post_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Download skill to sandbox",
+        "tags" : [ "agent_skills" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Download skill to sandbox\nresult = client.skills.download_to_sandbox(\n    skill_id='skill-uuid',\n    sandbox_id='sandbox-uuid'\n)\nprint(f\"Success: {result.success}\")\nprint(f\"Skill installed at: {result.dir_path}\")\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Download skill to sandbox\nconst result = await client.skills.downloadToSandbox('skill-uuid', {\n  sandboxId: 'sandbox-uuid'\n});\nconsole.log(`Success: ${result.success}`);\nconsole.log(`Skill installed at: ${result.dir_path}`);\n"
+        } ],
+        "x-codegen-request-body-name" : "request"
+      }
+    },
     "/agent_skills/{id}/file" : {
       "get" : {
         "description" : "Get file content or download URL from agent skill. If the file is text-based (parseable), returns parsed content. Otherwise, returns a presigned download URL.",
@@ -2843,6 +2895,29 @@
         },
         "type" : "object"
       },
+      "handler.DownloadSkillToSandboxReq" : {
+        "properties" : {
+          "sandbox_id" : {
+            "description" : "Target sandbox ID",
+            "type" : "string"
+          }
+        },
+        "required" : [ "sandbox_id" ],
+        "type" : "object"
+      },
+      "handler.DownloadSkillToSandboxResp" : {
+        "properties" : {
+          "dir_path" : {
+            "description" : "Full path to the skill directory in sandbox",
+            "type" : "string"
+          },
+          "success" : {
+            "description" : "Whether the download was successful",
+            "type" : "boolean"
+          }
+        },
+        "type" : "object"
+      },
       "handler.DownloadToSandboxReq" : {
         "properties" : {
           "file_path" : {
@@ -3829,6 +3904,18 @@
           "properties" : {
             "data" : {
               "$ref" : "#/components/schemas/model.AgentSkills"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_agent_skills__id__download_to_sandbox_post_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/handler.DownloadSkillToSandboxResp"
             }
           },
           "type" : "object"

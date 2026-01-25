@@ -265,7 +265,7 @@ class GetSkillFileTool(BaseTool):
                 "description": "Relative path to the file within the skill (e.g., 'scripts/extract_text.json').",
             },
             "expire": {
-                "type": "integer",
+                "type": ["integer", "null"],
                 "description": "URL expiration time in seconds (only used for non-parseable files). Defaults to 900 (15 minutes).",
             },
         }
