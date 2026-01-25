@@ -352,6 +352,19 @@ func (h *AgentSkillsHandler) DownloadToSandbox(c *gin.Context) {
 	// Note: agentSkill.Name is already sanitized at upload time
 	baseDirPath := "/skills/" + agentSkill.Name
 
+	// Get file index from skill - check early to avoid unnecessary sandbox operations
+	fileIndex := agentSkill.FileIndex.Data()
+	if len(fileIndex) == 0 {
+		// No files to download, just return success with the expected path
+		c.JSON(http.StatusOK, serializer.Response{Data: DownloadSkillToSandboxResp{
+			Success:     true,
+			DirPath:     baseDirPath,
+			Name:        agentSkill.Name,
+			Description: agentSkill.Description,
+		}})
+		return
+	}
+
 	// Check if the skill directory already exists in the sandbox
 	checkResult, err := h.coreClient.ExecSandboxCommand(c.Request.Context(), project.ID, sandboxID, fmt.Sprintf("test -d %s", baseDirPath))
 	if err != nil {
@@ -361,18 +374,6 @@ func (h *AgentSkillsHandler) DownloadToSandbox(c *gin.Context) {
 	if checkResult.ExitCode == 0 {
 		c.JSON(http.StatusConflict, serializer.Err(http.StatusConflict,
 			fmt.Sprintf("skill directory '%s' already exists in sandbox, please make sure you don't download the same skill again", baseDirPath), nil))
-		return
-	}
-
-	// Get file index from skill
-	fileIndex := agentSkill.FileIndex.Data()
-	if len(fileIndex) == 0 {
-		c.JSON(http.StatusOK, serializer.Response{Data: DownloadSkillToSandboxResp{
-			Success:     true,
-			DirPath:     baseDirPath,
-			Name:        agentSkill.Name,
-			Description: agentSkill.Description,
-		}})
 		return
 	}
 

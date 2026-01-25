@@ -220,6 +220,16 @@
               }
             },
             "description" : "OK"
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/serializer.Response"
+                }
+              }
+            },
+            "description" : "Skill directory already exists in sandbox"
           }
         },
         "security" : [ {
@@ -2907,8 +2917,16 @@
       },
       "handler.DownloadSkillToSandboxResp" : {
         "properties" : {
+          "description" : {
+            "description" : "Skill description",
+            "type" : "string"
+          },
           "dir_path" : {
             "description" : "Full path to the skill directory in sandbox",
+            "type" : "string"
+          },
+          "name" : {
+            "description" : "Skill name",
             "type" : "string"
           },
           "success" : {
