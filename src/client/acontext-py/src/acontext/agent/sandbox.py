@@ -1,12 +1,20 @@
 """Agent tools for sandbox operations using the Acontext Sandbox API."""
 
 import json
+import posixpath
 from dataclasses import dataclass, field
+from typing import TypedDict
 
 from .base import BaseContext, BaseTool, BaseToolPool
-from .prompts import SANDBOX_TEXT_EDITOR_REMINDER, SANDBOX_BASH_REMINDER
+from .prompts import SANDBOX_TEXT_EDITOR_REMINDER, SANDBOX_BASH_REMINDER, SKILL_REMINDER
 from ..client import AcontextClient
 from ..async_client import AcontextAsyncClient
+
+
+class MountedSkill(TypedDict):
+    name: str
+    description: str
+    base_path: str
 
 
 @dataclass
@@ -16,7 +24,35 @@ class SandboxContext(BaseContext):
     client: AcontextClient
     sandbox_id: str
     disk_id: str
-    mounted_skill_paths: dict[str, str] = field(default_factory=dict)
+    mounted_skill_paths: dict[str, MountedSkill] = field(default_factory=dict)
+
+    def format_mounted_skills(self) -> str:
+        """Format mounted skills as XML for prompt injection.
+
+        Returns:
+            XML-formatted string of all mounted skills, sorted by name.
+        """
+        if not self.mounted_skill_paths:
+            return ""
+
+        # Sort by skill name
+        sorted_skills = sorted(
+            self.mounted_skill_paths.values(),
+            key=lambda s: s["name"],
+        )
+
+        skill_entries = []
+        for skill in sorted_skills:
+            location = posixpath.join(skill["base_path"], "SKILL.md")
+
+            skill_xml = f"""<skill>
+<name>{skill["name"]}</name>
+<description>{skill["description"]}</description>
+<location>{location}</location>
+</skill>"""
+            skill_entries.append(skill_xml)
+
+        return "\n".join(skill_entries)
 
     def mount_skills(self, skill_ids: list[str]) -> None:
         """Download skills to the sandbox.
@@ -36,17 +72,31 @@ class SandboxContext(BaseContext):
                 sandbox_id=self.sandbox_id,
             )
             if result.success:
-                self.mounted_skill_paths[skill_id] = result.dir_path
+                self.mounted_skill_paths[skill_id] = {
+                    "base_path": result.dir_path,
+                    "name": result.name,
+                    "description": result.description,
+                }
 
     def get_context_prompt(self) -> str:
-        return f"""<sandbox>
-By default, you are in `/workspace`.
-<text_editor_sandbox>
+        base_body = f"""<text_editor_sandbox>
 {SANDBOX_TEXT_EDITOR_REMINDER}
 </text_editor_sandbox>
-<bash_execution_sandbox>        
+<bash_execution_sandbox>
 {SANDBOX_BASH_REMINDER}
-</bash_execution_sandbox>
+</bash_execution_sandbox>"""
+        if len(self.mounted_skill_paths) > 0:
+            formatted_skills = self.format_mounted_skills()
+            base_body += f"""
+<skills>
+{SKILL_REMINDER}
+<available_skills>
+{formatted_skills}
+</available_skills>
+</skills>"""
+        return f"""<sandbox>
+By default, you are in `/workspace`.
+{base_body}
 </sandbox>
 """
 
@@ -75,7 +125,11 @@ class AsyncSandboxContext(SandboxContext):
                 sandbox_id=self.sandbox_id,
             )
             if result.success:
-                self.mounted_skill_paths[skill_id] = result.dir_path
+                self.mounted_skill_paths[skill_id] = {
+                    "base_path": result.dir_path,
+                    "name": result.name,
+                    "description": result.description,
+                }
 
 
 class BashTool(BaseTool):

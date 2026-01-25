@@ -1,11 +1,12 @@
 SKILL_REMINDER = """MANDATORY SKILL READING AND EXECUTION PROTOCOL:
-BEFORE writing ANY code or using ANY execution tools, Claude MUST complete ALL of
+BEFORE writing ANY code or using ANY execution tools, You MUST complete ALL of
 these steps:
 
 STEP 1 - IDENTIFY ALL RELEVANT SKILLS:
 - Scan the user message for ALL trigger words from ALL skills
 - Identify EVERY skill that matches ANY trigger word
 - If multiple skills match, ALL must be processed
+- If no skills match, you can skip the following steps
 
 STEP 2 - READ ALL SKILL FILES:
 - Use the text_editor_sandbox tool to view EACH identified skill's SKILL.md file
@@ -81,9 +82,7 @@ Script guidelines:
 - Use proper error handling and exit codes
 - Quote variables appropriately to handle spaces in filenames
 - Keep scripts clean and well-organized
-- Only use single-line Bash command (Never use any heredoc syntax!)
-    - wrong: cat > random_plot.py << 'EOF'\ncontent\nEOF
-    - right: `echo "content" > random_plot.py && head random_plot.py`
+- For file operations, use text_editor_sandbox tool instead of bash commands.
 
 Never write blocking script:
 - python codes like `plt.show()` or `input()`... will block the execution of the script, don't use them. write non-blocking code instead.

@@ -2,30 +2,72 @@
  * Agent tools for sandbox operations using the Acontext Sandbox API.
  */
 
+import * as path from 'path';
 import { AcontextClient } from '../client';
 import { AbstractBaseTool, BaseContext, BaseToolPool } from './base';
-import { SANDBOX_TEXT_EDITOR_REMINDER, SANDBOX_BASH_REMINDER } from './prompts';
+import { SANDBOX_TEXT_EDITOR_REMINDER, SANDBOX_BASH_REMINDER, SKILL_REMINDER } from './prompts';
 import { viewFile, createFile, strReplace } from './text-editor';
+
+export interface MountedSkill {
+  name: string;
+  description: string;
+  basePath: string;
+}
 
 export interface SandboxContext extends BaseContext {
   client: AcontextClient;
   sandboxId: string;
   diskId: string;
-  mountedSkillIds: string[];
-  mountedSkillPaths: Map<string, string>;
+  mountedSkillPaths: Map<string, MountedSkill>;
   getContextPrompt(): string;
+  formatMountedSkills(): string;
   mountSkills(skillIds: string[]): Promise<void>;
 }
 
-function getSandboxContextPrompt(): string {
-  return `<sandbox>
-By default, you are in \`/workspace\`.
-<text_editor_sandbox>
+function formatMountedSkills(mountedSkillPaths: Map<string, MountedSkill>): string {
+  if (mountedSkillPaths.size === 0) {
+    return '';
+  }
+
+  // Sort by skill name
+  const sortedSkills = Array.from(mountedSkillPaths.values()).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+
+  const skillEntries = sortedSkills.map((skill) => {
+    const location = path.posix.join(skill.basePath, 'SKILL.md');
+    return `<skill>
+<name>${skill.name}</name>
+<description>${skill.description}</description>
+<location>${location}</location>
+</skill>`;
+  });
+
+  return skillEntries.join('\n');
+}
+
+function getSandboxContextPrompt(mountedSkillPaths: Map<string, MountedSkill>): string {
+  let baseBody = `<text_editor_sandbox>
 ${SANDBOX_TEXT_EDITOR_REMINDER}
 </text_editor_sandbox>
-<bash_execution_sandbox>        
+<bash_execution_sandbox>
 ${SANDBOX_BASH_REMINDER}
-</bash_execution_sandbox>
+</bash_execution_sandbox>`;
+
+  if (mountedSkillPaths.size > 0) {
+    const formattedSkills = formatMountedSkills(mountedSkillPaths);
+    baseBody += `
+<skills>
+${SKILL_REMINDER}
+<available_skills>
+${formattedSkills}
+</available_skills>
+</skills>`;
+  }
+
+  return `<sandbox>
+By default, you are in \`/workspace\`.
+${baseBody}
 </sandbox>
 `;
 }
@@ -237,17 +279,18 @@ export class SandboxToolPool extends BaseToolPool {
     diskId: string,
     mountSkills?: string[]
   ): Promise<SandboxContext> {
-    const mountedSkillIds: string[] = [];
-    const mountedSkillPaths = new Map<string, string>();
+    const mountedSkillPaths = new Map<string, MountedSkill>();
 
     const ctx: SandboxContext = {
       client,
       sandboxId,
       diskId,
-      mountedSkillIds,
       mountedSkillPaths,
       getContextPrompt(): string {
-        return getSandboxContextPrompt();
+        return getSandboxContextPrompt(mountedSkillPaths);
+      },
+      formatMountedSkills(): string {
+        return formatMountedSkills(mountedSkillPaths);
       },
       async mountSkills(skillIds: string[]): Promise<void> {
         for (const skillId of skillIds) {
@@ -259,8 +302,11 @@ export class SandboxToolPool extends BaseToolPool {
             sandboxId,
           });
           if (result.success) {
-            mountedSkillIds.push(skillId);
-            mountedSkillPaths.set(skillId, result.dir_path);
+            mountedSkillPaths.set(skillId, {
+              basePath: result.dir_path,
+              name: result.name,
+              description: result.description,
+            });
           }
         }
       },
