@@ -813,6 +813,8 @@ func TestAgentSkillsHandler_DownloadToSandbox(t *testing.T) {
 				data := response["data"].(map[string]interface{})
 				assert.True(t, data["success"].(bool))
 				assert.Equal(t, "/skills/empty-skill", data["dir_path"].(string))
+				assert.Equal(t, "empty-skill", data["name"].(string))
+				assert.Equal(t, "Test skill with no files", data["description"].(string))
 			},
 		},
 	}

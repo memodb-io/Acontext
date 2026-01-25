@@ -293,8 +293,10 @@ type DownloadSkillToSandboxReq struct {
 }
 
 type DownloadSkillToSandboxResp struct {
-	Success bool   `json:"success"`  // Whether the download was successful
-	DirPath string `json:"dir_path"` // Full path to the skill directory in sandbox
+	Success     bool   `json:"success"`     // Whether the download was successful
+	DirPath     string `json:"dir_path"`    // Full path to the skill directory in sandbox
+	Name        string `json:"name"`        // Skill name
+	Description string `json:"description"` // Skill description
 }
 
 // DownloadToSandbox godoc
@@ -353,8 +355,10 @@ func (h *AgentSkillsHandler) DownloadToSandbox(c *gin.Context) {
 	fileIndex := agentSkill.FileIndex.Data()
 	if len(fileIndex) == 0 {
 		c.JSON(http.StatusOK, serializer.Response{Data: DownloadSkillToSandboxResp{
-			Success: true,
-			DirPath: baseDirPath,
+			Success:     true,
+			DirPath:     baseDirPath,
+			Name:        agentSkill.Name,
+			Description: agentSkill.Description,
 		}})
 		return
 	}
@@ -390,7 +394,9 @@ func (h *AgentSkillsHandler) DownloadToSandbox(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, serializer.Response{Data: DownloadSkillToSandboxResp{
-		Success: true,
-		DirPath: baseDirPath,
+		Success:     true,
+		DirPath:     baseDirPath,
+		Name:        agentSkill.Name,
+		Description: agentSkill.Description,
 	}})
 }

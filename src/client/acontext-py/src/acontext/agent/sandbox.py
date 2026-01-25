@@ -16,7 +16,6 @@ class SandboxContext(BaseContext):
     client: AcontextClient
     sandbox_id: str
     disk_id: str
-    mounted_skill_ids: list[str] = field(default_factory=list)
     mounted_skill_paths: dict[str, str] = field(default_factory=dict)
 
     def mount_skills(self, skill_ids: list[str]) -> None:
@@ -37,7 +36,6 @@ class SandboxContext(BaseContext):
                 sandbox_id=self.sandbox_id,
             )
             if result.success:
-                self.mounted_skill_ids.append(skill_id)
                 self.mounted_skill_paths[skill_id] = result.dir_path
 
     def get_context_prompt(self) -> str:
@@ -77,7 +75,6 @@ class AsyncSandboxContext(SandboxContext):
                 sandbox_id=self.sandbox_id,
             )
             if result.success:
-                self.mounted_skill_ids.append(skill_id)
                 self.mounted_skill_paths[skill_id] = result.dir_path
 
 

@@ -1013,6 +1013,8 @@ def test_skills_download_to_sandbox(mock_request, client: AcontextClient) -> Non
     mock_request.return_value = {
         "success": True,
         "dir_path": "/skills/my-skill",
+        "name": "my-skill",
+        "description": "A test skill",
     }
 
     result = client.skills.download_to_sandbox(
@@ -1028,6 +1030,8 @@ def test_skills_download_to_sandbox(mock_request, client: AcontextClient) -> Non
     assert kwargs["json_data"]["sandbox_id"] == "sandbox-1"
     assert result.success is True
     assert result.dir_path == "/skills/my-skill"
+    assert result.name == "my-skill"
+    assert result.description == "A test skill"
 
 
 @patch("acontext.client.AcontextClient.request")

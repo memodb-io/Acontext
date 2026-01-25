@@ -133,7 +133,7 @@ export class SkillsAPI {
    * @param skillId - The UUID of the skill to download
    * @param options - Download options
    * @param options.sandboxId - The UUID of the target sandbox
-   * @returns DownloadSkillToSandboxResp containing success status and the directory path
+   * @returns DownloadSkillToSandboxResp containing success status, directory path, skill name and description
    */
   async downloadToSandbox(
     skillId: string,

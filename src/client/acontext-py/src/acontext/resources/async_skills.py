@@ -150,8 +150,8 @@ class AsyncSkillsAPI:
             sandbox_id: The UUID of the target sandbox.
 
         Returns:
-            DownloadSkillToSandboxResp containing success status and the directory path
-            where the skill was installed in the sandbox.
+            DownloadSkillToSandboxResp containing success status, the directory path
+            where the skill was installed, and the skill's name and description.
 
         Example:
         ```python
@@ -161,6 +161,8 @@ class AsyncSkillsAPI:
             )
             print(f"Success: {result.success}")
             print(f"Skill installed at: {result.dir_path}")
+            print(f"Skill name: {result.name}")
+            print(f"Description: {result.description}")
         ```
         """
         payload: dict[str, Any] = {"sandbox_id": sandbox_id}

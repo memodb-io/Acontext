@@ -627,6 +627,8 @@ describe('AcontextClient Unit Tests', () => {
       const response = {
         success: true,
         dir_path: '/skills/my-skill',
+        name: 'my-skill',
+        description: 'A test skill',
       };
 
       client.mock().onPost(`/agent_skills/${skillId}/download_to_sandbox`, (options) => {
@@ -641,6 +643,8 @@ describe('AcontextClient Unit Tests', () => {
       expect(result).toBeDefined();
       expect(result.success).toBe(true);
       expect(result.dir_path).toBe('/skills/my-skill');
+      expect(result.name).toBe('my-skill');
+      expect(result.description).toBe('A test skill');
       expect(client.requester.calls).toHaveLength(1);
       expect(client.requester.calls[0].method).toBe('POST');
       expect(client.requester.calls[0].path).toBe(`/agent_skills/${skillId}/download_to_sandbox`);

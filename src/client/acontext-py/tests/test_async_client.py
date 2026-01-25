@@ -935,6 +935,8 @@ async def test_async_skills_download_to_sandbox(
     mock_request.return_value = {
         "success": True,
         "dir_path": "/skills/my-skill",
+        "name": "my-skill",
+        "description": "A test skill",
     }
 
     result = await async_client.skills.download_to_sandbox(
@@ -950,6 +952,8 @@ async def test_async_skills_download_to_sandbox(
     assert kwargs["json_data"]["sandbox_id"] == "sandbox-1"
     assert result.success is True
     assert result.dir_path == "/skills/my-skill"
+    assert result.name == "my-skill"
+    assert result.description == "A test skill"
 
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)

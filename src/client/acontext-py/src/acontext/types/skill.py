@@ -72,3 +72,5 @@ class DownloadSkillToSandboxResp(BaseModel):
     dir_path: str = Field(
         ..., description="Full path to the skill directory in sandbox"
     )
+    name: str = Field(..., description="Skill name")
+    description: str = Field(..., description="Skill description")
