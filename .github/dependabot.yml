@@ -6,7 +6,6 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     target-branch: "deps"
-    base-branch: "dev"
     commit-message:
       prefix: "chore(deps):"
       include: "scope"
@@ -17,7 +16,6 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     target-branch: "deps"
-    base-branch: "dev"
     commit-message:
       prefix: "chore(deps):"
       include: "scope"
@@ -28,7 +26,6 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     target-branch: "deps"
-    base-branch: "dev"
     commit-message:
       prefix: "chore(deps):"
       include: "scope"
@@ -39,7 +36,6 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     target-branch: "deps"
-    base-branch: "dev"
     commit-message:
       prefix: "chore(deps):"
       include: "scope"
@@ -55,7 +51,6 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     target-branch: "deps"
-    base-branch: "dev"
     commit-message:
       prefix: "chore(deps):"
       include: "scope"
@@ -71,7 +66,6 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     target-branch: "deps"
-    base-branch: "dev"
     commit-message:
       prefix: "chore(deps):"
       include: "scope"
@@ -87,7 +81,6 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     target-branch: "deps"
-    base-branch: "dev"
     commit-message:
       prefix: "chore(deps):"
       include: "scope"
@@ -98,7 +91,6 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     target-branch: "deps"
-    base-branch: "dev"
     commit-message:
       prefix: "chore(deps):"
       include: "scope"
@@ -109,7 +101,6 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     target-branch: "deps"
-    base-branch: "dev"
     commit-message:
       prefix: "chore(deps):"
       include: "scope"
@@ -120,7 +111,6 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 5
     target-branch: "deps"
-    base-branch: "dev"
     commit-message:
       prefix: "chore(ci):"
       include: "scope"
