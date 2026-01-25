@@ -18,9 +18,6 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/pkg/editor"
 	"github.com/memodb-io/Acontext/internal/pkg/paging"
-
-	// tokenizer is used to count tokens for auto-trim trigger checks.
-	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/datatypes"
@@ -484,32 +481,37 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 
 	// Track original token count for auto-trim checks.
 	originalTokens := 0
+	// Cache per-message token counts for auto-trim estimation.
+	var originalPerMessageTokens []int
 	// Track whether auto-trim should run.
 	autoTrimTriggered := false
 	// Count tokens only when auto-trim config is present.
 	if in.AutoTrim != nil {
-		// Count tokens on the loaded messages.
-		originalTokens, err = tokenizer.CountMessagePartsTokens(ctx, out.Items)
-		// Return error if token counting fails.
-		if err != nil {
-			return nil, fmt.Errorf("failed to count tokens for auto-trim: %w", err)
-		}
-		// Trigger auto-trim when tokens meet or exceed the threshold.
-		if checkTokensGte(originalTokens, in.AutoTrim.TokenThreshold) {
-			autoTrimTriggered = true
-		}
-		// TODO: message_count_gte
-		// TODO: tool_use_count_gte
-	}
-	// Apply auto-trim when the trigger is true.
-	if autoTrimTriggered {
-		// Skip auto-trim when strategy is not supported by the registry.
+		// Skip token counting when strategy is not supported.
 		if !IsAutoTrimStrategySupported(in.AutoTrim.Strategy) {
-			// Record skip reason for unsupported strategy.
+			// Record skip reason for unsupported strategy before counting.
 			reason := "unsupported_strategy"
 			out.AutoTrimSkipped = true
 			out.AutoTrimSkipReason = &reason
-		} else {
+		} else if len(out.Items) > 0 {
+			// Count tokens on the loaded messages with a per-message cache.
+			originalTokens, originalPerMessageTokens, err = countMessageTokensWithCache(ctx, out.Items)
+			// Return error if token counting fails.
+			if err != nil {
+				return nil, fmt.Errorf("failed to count tokens for auto-trim: %w", err)
+			}
+			// Trigger auto-trim when tokens meet or exceed the threshold.
+			if checkTokensGte(originalTokens, in.AutoTrim.TokenThreshold) {
+				autoTrimTriggered = true
+			}
+			// TODO: message_count_gte
+			// TODO: tool_use_count_gte
+		}
+	}
+	// Apply auto-trim when the trigger is true.
+	if autoTrimTriggered {
+		// Apply auto-trim using the registry for supported strategies.
+		if IsAutoTrimStrategySupported(in.AutoTrim.Strategy) {
 			// Apply the auto-trim strategy via the registry.
 			editedMessages, err := ApplyAutoTrimStrategy(ctx, in.AutoTrim.Strategy, out.Items)
 			if err != nil {
@@ -525,16 +527,16 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 				// Store the applied strategy name for the response.
 				strategyName := in.AutoTrim.Strategy
 				out.AutoTrimStrategy = &strategyName
-				// Count tokens after auto-trim to estimate removed tokens.
-				editedTokens, err := tokenizer.CountMessagePartsTokens(ctx, out.Items)
+				// Estimate tokens removed using cached per-message counts.
+				out.EstimatedTokensRemoved, err = estimateTokensRemovedAfterAutoTrim(
+					ctx,
+					originalTokens,
+					originalPerMessageTokens,
+					out.Items,
+				)
+				// Return error if token estimation fails.
 				if err != nil {
-					return nil, fmt.Errorf("failed to count tokens after auto-trim: %w", err)
-				}
-				// Compute estimated token savings from auto-trim.
-				out.EstimatedTokensRemoved = originalTokens - editedTokens
-				// Clamp negative values to zero.
-				if out.EstimatedTokensRemoved < 0 {
-					out.EstimatedTokensRemoved = 0
+					return nil, fmt.Errorf("failed to estimate tokens after auto-trim: %w", err)
 				}
 			}
 		}
