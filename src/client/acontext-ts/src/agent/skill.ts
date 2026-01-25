@@ -57,7 +57,13 @@ export async function createSkillContext(
         lines.push('</skill>');
       }
       lines.push('</available_skills>');
-      return lines.join('\n');
+      const skillSection = lines.join('\n');
+      return `<skill_view>
+Use get_skill and get_skill_file to view the available skills and their contexts.
+Below is the list of available skills:
+${skillSection}        
+</skill_view>
+`;
     },
   };
 }
@@ -150,7 +156,7 @@ export class GetSkillFileTool extends AbstractBaseTool {
         "Relative path to the file within the skill (e.g., 'scripts/extract_text.json').",
     },
     expire: {
-      type: 'number',
+      type: ['integer', 'null'],
       description:
         'URL expiration time in seconds (only used for non-parseable files). Defaults to 900 (15 minutes).',
     },

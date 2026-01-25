@@ -99,7 +99,13 @@ class AsyncSkillContext(BaseContext):
             lines.append(f"<description>{skill.description}</description>")
             lines.append("</skill>")
         lines.append("</available_skills>")
-        return "\n".join(lines)
+        skill_section = "\n".join(lines)
+        return f"""<skill_view>
+Use get_skill and get_skill_file to view the available skills and their contexts.
+Below is the list of available skills:
+{skill_section}        
+</skill_view>
+"""
 
     @classmethod
     async def create(

@@ -8,7 +8,7 @@ STEP 1 - IDENTIFY ALL RELEVANT SKILLS:
 - If multiple skills match, ALL must be processed
 
 STEP 2 - READ ALL SKILL FILES:
-- Use the view tool to read EACH identified skill's SKILL.md file
+- Use the text_editor_sandbox tool to view EACH identified skill's SKILL.md file
 - READ COMPLETELY - do not skim or skip sections
 - This step is MANDATORY even if multiple skills are involved
 - DO NOT proceed until ALL relevant skill files have been read
