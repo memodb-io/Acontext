@@ -4,7 +4,7 @@ Example demonstrating how to use the Sandbox Agent Tools.
 This script shows how to:
 1. Create a sandbox and disk
 2. Use SANDBOX_TOOLS to execute bash commands via LLM tool calling
-3. Export files from sandbox to disk using export_sandbox_file tool
+3. Export files from sandbox to disk using export_file_sandbox tool
 4. Clean up resources when done
 """
 
@@ -110,7 +110,7 @@ def main() -> None:
             print("\n4. Export file from sandbox to disk:")
             result = SANDBOX_TOOLS.execute_tool(
                 ctx=ctx,
-                tool_name="export_sandbox_file",
+                tool_name="export_file_sandbox",
                 llm_arguments={
                     "sandbox_path": "/workspace/",
                     "sandbox_filename": "output.txt",
@@ -127,7 +127,9 @@ def main() -> None:
                 filename="output.txt",
                 with_content=True,
             )
-            print(f"Artifact: {artifact_info.artifact.path}{artifact_info.artifact.filename}")
+            print(
+                f"Artifact: {artifact_info.artifact.path}{artifact_info.artifact.filename}"
+            )
             if artifact_info.content:
                 print(f"Content: {artifact_info.content.raw}")
 

@@ -352,7 +352,7 @@ class ExportSandboxFileTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "export_sandbox_file"
+        return "export_file_sandbox"
 
     @property
     def description(self) -> str:

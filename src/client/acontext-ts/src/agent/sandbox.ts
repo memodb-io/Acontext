@@ -209,7 +209,7 @@ export class TextEditorTool extends AbstractBaseTool {
 }
 
 export class ExportSandboxFileTool extends AbstractBaseTool {
-  readonly name = 'export_sandbox_file';
+  readonly name = 'export_file_sandbox';
   readonly description = `Export a file from the sandbox to persistent, shared disk storage, and return you a public download URL.
 If the sandbox file is changed, the disk file won't be updated unless you export the file again.`;
   readonly arguments = {

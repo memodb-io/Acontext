@@ -9,13 +9,13 @@ Acontext provides pre-built filesystem tools that allow LLMs to read, write, and
 
 The SDK includes seven disk operation tools:
 
-- **`write_file`** - Create or overwrite text files
-- **`read_file`** - Read file contents with optional line offset and limit
-- **`replace_string`** - Find and replace text in files  
-- **`list`** - List files and directories in a path
-- **`download_file`** - Get a public URL to download a file
-- **`grep`** - Search file contents using regex patterns
-- **`glob`** - Find files by path pattern using glob syntax
+- **`write_file_disk`** - Create or overwrite text files
+- **`read_file_disk`** - Read file contents with optional line offset and limit
+- **`replace_string_disk`** - Find and replace text in files  
+- **`list_disk`** - List files and directories in a path
+- **`download_file_disk`** - Get a public URL to download a file
+- **`grep_disk`** - Search file contents using regex patterns
+- **`glob_disk`** - Find files by path pattern using glob syntax
 
 <Tip>
 These tools handle path normalization automatically and support nested directory structures like `/notes/`, `/documents/2024/`, etc.
@@ -154,7 +154,7 @@ while (true) {
 </CodeGroup>
 
 <Info>
-The agent will automatically call the appropriate tools (`write_file`, `read_file`, etc.) to complete your request, creating a fully autonomous file management system.
+The agent will automatically call the appropriate tools (`write_file_disk`, `read_file_disk`, etc.) to complete your request, creating a fully autonomous file management system.
 </Info>
 
 ## How It Works
@@ -242,7 +242,7 @@ The agent will automatically call the appropriate tools (`write_file`, `read_fil
   for tool_call in message.tool_calls:
       result = DISK_TOOLS.execute_tool(
           ctx,                                      # Tool context with disk ID
-          tool_call.function.name,                  # Tool name (e.g., "write_file")
+          tool_call.function.name,                  # Tool name (e.g., "write_file_disk")
           json.loads(tool_call.function.arguments)  # Parse arguments
       )
       # Add tool result back to message history
@@ -258,7 +258,7 @@ The agent will automatically call the appropriate tools (`write_file`, `read_fil
   for (const toolCall of message.tool_calls) {
       const result = await DISK_TOOLS.executeTool(
           ctx,                                      // Tool context with disk ID
-          toolCall.function.name,                   // Tool name (e.g., "write_file")
+          toolCall.function.name,                   // Tool name (e.g., "write_file_disk")
           JSON.parse(toolCall.function.arguments)   // Parse arguments
       );
       // Add tool result back to message history
@@ -279,7 +279,7 @@ The agent will automatically call the appropriate tools (`write_file`, `read_fil
 
 ## Tool Reference
 
-### write_file
+### write_file_disk
 
 Create or overwrite a text file on the disk.
 
@@ -290,7 +290,7 @@ Create or overwrite a text file on the disk.
 
 **Returns:** Success message with file path
 
-### read_file
+### read_file_disk
 
 Read the contents of a text file from the disk.
 
@@ -302,7 +302,7 @@ Read the contents of a text file from the disk.
 
 **Returns:** File content with line range information
 
-### replace_string
+### replace_string_disk
 
 Replace all occurrences of a string in a file.
 
@@ -314,7 +314,7 @@ Replace all occurrences of a string in a file.
 
 **Returns:** Number of replacements made
 
-### list
+### list_disk
 
 List all files and directories at a specified path.
 
@@ -323,7 +323,7 @@ List all files and directories at a specified path.
 
 **Returns:** List of files and directories
 
-### download_file
+### download_file_disk
 
 Get a public presigned URL to download a file.
 
@@ -334,7 +334,7 @@ Get a public presigned URL to download a file.
 
 **Returns:** Presigned public URL for downloading the file
 
-### grep
+### grep_disk
 
 Search for text patterns within file contents using **regex**. Only searches text-based files (code, markdown, JSON, CSV, etc.).
 
@@ -356,7 +356,7 @@ For example, `"test*"` matches "tes", "test", "testt" — NOT "test-file". Use `
 Common patterns: `"TODO.*"` (TODO comments), `"#.*Summary"` (markdown headers), `"error"` (case-sensitive match), `"(?i)error"` (case-insensitive).
 </Tip>
 
-### glob
+### glob_disk
 
 Find files by **path pattern** using glob syntax. Use `*` for any characters, `?` for single character, `**` for recursive directories.
 
@@ -367,7 +367,7 @@ Find files by **path pattern** using glob syntax. Use `*` for any characters, `?
 **Returns:** List of files matching the glob pattern
 
 <Tip>
-Use `glob` to find files by extension or location, perfect for discovering files without knowing exact names.
+Use `glob_disk` to find files by extension or location, perfect for discovering files without knowing exact names.
 </Tip>
 
 <Warning>

@@ -77,7 +77,7 @@ File Operations (CRITICAL - READ CAREFULLY):
 
 Export Your Result:
 - All the files you created kept in the sandbox, which user can't see or access.
-- If you want to export them to user, use \`export_sandbox_file\` tool.
+- If you want to export them to user, use \`export_file_sandbox\` tool.
 - If too many files to export(>= 6 files), zip those files and export the zip file.
 - Result files' names should be unique and descriptive, (wrong: result.md, output.md... right: 2026_us_market_trending.png)
 

@@ -49,7 +49,8 @@
             "icon": "wand-magic-sparkles",
             "pages": [
               "tool/disk_tools",
-              "tool/skill_tools"
+              "tool/skill_tools",
+              "tool/bash_tools"
             ]
           },
           {
