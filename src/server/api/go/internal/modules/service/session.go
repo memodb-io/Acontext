@@ -499,9 +499,9 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 		} else if len(out.Items) > 0 {
 			// Count tokens on the loaded messages with a per-message cache.
 			originalTokens, originalPerMessageTokens, err = countMessageTokensWithCache(ctx, out.Items)
-			// Return error if token counting fails.
+			// Return error if token counting fails with session context.
 			if err != nil {
-				return nil, fmt.Errorf("failed to count tokens for auto-trim: %w", err)
+				return nil, fmt.Errorf("failed to count tokens for auto-trim session_id=%s: %w", in.SessionID, err)
 			}
 			// Trigger auto-trim when tokens meet or exceed the threshold.
 			if checkTokensGte(originalTokens, in.AutoTrim.TokenThreshold) {
@@ -537,9 +537,9 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 					originalPerMessageTokens,
 					out.Items,
 				)
-				// Return error if token estimation fails.
+				// Return error if token estimation fails with session context.
 				if err != nil {
-					return nil, fmt.Errorf("failed to estimate tokens after auto-trim: %w", err)
+					return nil, fmt.Errorf("failed to estimate tokens after auto-trim session_id=%s: %w", in.SessionID, err)
 				}
 			}
 		}
