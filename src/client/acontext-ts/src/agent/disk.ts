@@ -12,6 +12,13 @@ export interface DiskContext extends BaseContext {
   getContextPrompt(): string;
 }
 
+const DISK_CONTEXT_PROMPT = `<disk>
+Consider Disk as the google drive for you and user to store and share files.
+You can use tool ends with \`*_disk\` to read, write, edit, and share files with users.
+Disk is only a sharable file storage, you can't use it to execute code or run commands.
+</disk>
+`;
+
 function normalizePath(path: string | null | undefined): string {
   if (!path) {
     return '/';
@@ -24,7 +31,7 @@ function normalizePath(path: string | null | undefined): string {
 }
 
 export class WriteFileTool extends AbstractBaseTool {
-  readonly name = 'write_file';
+  readonly name = 'write_file_disk';
   readonly description =
     "Write text content to a file in the file system. Creates the file if it doesn't exist, overwrites if it does.";
   readonly arguments = {
@@ -71,7 +78,7 @@ export class WriteFileTool extends AbstractBaseTool {
 }
 
 export class ReadFileTool extends AbstractBaseTool {
-  readonly name = 'read_file';
+  readonly name = 'read_file_disk';
   readonly description = 'Read a text file from the file system and return its content.';
   readonly arguments = {
     file_path: {
@@ -125,7 +132,7 @@ export class ReadFileTool extends AbstractBaseTool {
 }
 
 export class ReplaceStringTool extends AbstractBaseTool {
-  readonly name = 'replace_string';
+  readonly name = 'replace_string_disk';
   readonly description =
     'Replace an old string with a new string in a file. Reads the file, performs the replacement, and writes it back.';
   readonly arguments = {
@@ -215,7 +222,7 @@ export class ReplaceStringTool extends AbstractBaseTool {
 }
 
 export class ListTool extends AbstractBaseTool {
-  readonly name = 'list';
+  readonly name = 'list_disk';
   readonly description = 'List all files and directories in a specified path on the disk.';
   readonly arguments = {
     file_path: {
@@ -246,7 +253,7 @@ export class ListTool extends AbstractBaseTool {
 }
 
 export class DownloadFileTool extends AbstractBaseTool {
-  readonly name = 'download_file';
+  readonly name = 'download_file_disk';
   readonly description =
     'Get a public URL to download a file. Returns a presigned URL that can be shared or used to access the file.';
   readonly arguments = {
@@ -292,7 +299,7 @@ export class DownloadFileTool extends AbstractBaseTool {
 }
 
 export class GrepArtifactsTool extends AbstractBaseTool {
-  readonly name = 'grep';
+  readonly name = 'grep_disk';
   readonly description =
     'Search for text patterns within file contents using regex. Only searches text-based files (code, markdown, json, csv, etc.). Use this to find specific code patterns, TODO comments, function definitions, or any text content.';
   readonly arguments = {
@@ -332,7 +339,7 @@ export class GrepArtifactsTool extends AbstractBaseTool {
 }
 
 export class GlobArtifactsTool extends AbstractBaseTool {
-  readonly name = 'glob';
+  readonly name = 'glob_disk';
   readonly description =
     'Find files by path pattern using glob syntax. Use * for any characters, ? for single character, ** for recursive directories. Perfect for finding files by extension or location.';
   readonly arguments = {
@@ -377,7 +384,7 @@ export class DiskToolPool extends BaseToolPool {
       client,
       diskId,
       getContextPrompt(): string {
-        return '';
+        return DISK_CONTEXT_PROMPT;
       },
     };
   }

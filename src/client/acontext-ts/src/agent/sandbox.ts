@@ -4,87 +4,31 @@
 
 import { AcontextClient } from '../client';
 import { AbstractBaseTool, BaseContext, BaseToolPool } from './base';
+import { SANDBOX_TEXT_EDITOR_REMINDER, SANDBOX_BASH_REMINDER } from './prompts';
 import { viewFile, createFile, strReplace } from './text-editor';
 
 export interface SandboxContext extends BaseContext {
   client: AcontextClient;
   sandboxId: string;
   diskId: string;
+  mountedSkillIds: string[];
+  mountedSkillPaths: Map<string, string>;
   getContextPrompt(): string;
+  mountSkills(skillIds: string[]): Promise<void>;
 }
 
-const SANDBOX_CONTEXT_PROMPT = `<sandbox>
+function getSandboxContextPrompt(): string {
+  return `<sandbox>
 By default, you are in \`/workspace\`.
 <text_editor_sandbox>
-The text_editor_sandbox tool enables viewing, creating, and modifying text files within
-the secure sandboxed container environment.
-
-How it works:
-- All file operations occur within the sandboxed container filesystem
-
-Command guidelines:
-- Always use view before editing to understand file structure
-- For str_replace commands, ensure search strings are unique and exact
-- Include sufficient context in str_replace for accurate placement
-- Use proper escaping for special characters in search/replace strings
+${SANDBOX_TEXT_EDITOR_REMINDER}
 </text_editor_sandbox>
 <bash_execution_sandbox>        
-When to use the bash_execution_sandbox tool directly:
-- File system operations requiring shell commands (moving, copying, renaming, organizing files)
-- Text processing and manipulation using standard Unix tools (grep, sed, awk, cut, sort, etc.) that
-should not be done by the text editor tool
-- Batch processing of multiple files using shell loops and wildcards
-- System inspection tasks (checking file sizes, permissions, directory structures)
-- Combining multiple command-line tools in pipelines for complex data processing
-- Archive operations (tar, unzip) and file compression/decompression
-- Converting between file formats using command-line utilities
-
-When you should write Python file and use bash tool to run it:
-- Complex data analysis or numerical computation (use file operations to write a Python script instead, and
-then the bash to run the script)
-- Tasks requiring advanced programming logic or data structures
-
-When NOT to use the bash_execution_sandbox tool:
-- Simple questions that can be answered without executing commands
-- Tasks that only require explaining shell concepts without actual execution
-
-How it works:
-- Scripts are saved to a temporary sandbox and executed with bash
-- Tool results will include stdout, stderr, and return code
-- User-uploaded files are accessible in the directory specified by the INPUT_DIR environment variable. If
-you know the file path and don't need to open the full INPUT_DIR, then just open the file directly
-
-File Operations (CRITICAL - READ CAREFULLY):
-- use text_editor_sandbox tool to view, create, and edit files.
-
-Export Your Result:
-- All the files you created kept in the sandbox, which user can't see or access.
-- If you want to export them to user, use \`export_sandbox_file\` tool.
-- If too many files to export(>= 6 files), zip those files and export the zip file.
-- Result files' names should be unique and descriptive, (wrong: result.md, output.md... right: 2026_us_market_trending.png)
-
-Script guidelines:
-- Write POSIX-compliant bash scripts
-- Use proper error handling and exit codes
-- Quote variables appropriately to handle spaces in filenames
-- Keep scripts clean and well-organized
-- Only use single-line Bash command (Never use any heredoc syntax!)
-    - wrong: cat > random_plot.py << 'EOF'\\ncontent\\nEOF
-    - right: \`echo "content" > random_plot.py && head random_plot.py\`
-
-Never write blocking script:
-- python codes like \`plt.show()\` or \`input()\`... will block the execution of the script, don't use them. write non-blocking code instead.
-
-Container environment:
-- NO internet access available
-- Filesystem persists across multiple executions within the same container
-- Standard Unix utilities available (grep, sed, awk, etc.)
-- Archive tools: tar, unzip, zip
-- Additional tools: ripgrep, fd, sqlite3, jq, imagemagick
-- Do not try to install new packages and libraries with pip as there is no internet access
+${SANDBOX_BASH_REMINDER}
 </bash_execution_sandbox>
 </sandbox>
 `;
+}
 
 function normalizePath(path: string | null | undefined): string {
   if (!path) {
@@ -277,15 +221,56 @@ If the sandbox file is changed, the disk file won't be updated unless you export
 }
 
 export class SandboxToolPool extends BaseToolPool {
-  formatContext(client: AcontextClient, sandboxId: string, diskId: string): SandboxContext {
-    return {
+  /**
+   * Create a sandbox context.
+   *
+   * @param client - The Acontext client instance.
+   * @param sandboxId - The UUID of the sandbox.
+   * @param diskId - The UUID of the disk for file exports.
+   * @param mountSkills - Optional list of skill IDs to download to the sandbox.
+   *                     Skills are downloaded to /skills/{skill_name}/ in the sandbox.
+   * @returns Promise resolving to SandboxContext for use with sandbox tools.
+   */
+  async formatContext(
+    client: AcontextClient,
+    sandboxId: string,
+    diskId: string,
+    mountSkills?: string[]
+  ): Promise<SandboxContext> {
+    const mountedSkillIds: string[] = [];
+    const mountedSkillPaths = new Map<string, string>();
+
+    const ctx: SandboxContext = {
       client,
       sandboxId,
       diskId,
+      mountedSkillIds,
+      mountedSkillPaths,
       getContextPrompt(): string {
-        return SANDBOX_CONTEXT_PROMPT;
+        return getSandboxContextPrompt();
+      },
+      async mountSkills(skillIds: string[]): Promise<void> {
+        for (const skillId of skillIds) {
+          if (mountedSkillPaths.has(skillId)) {
+            // Skip already mounted skills
+            continue;
+          }
+          const result = await client.skills.downloadToSandbox(skillId, {
+            sandboxId,
+          });
+          if (result.success) {
+            mountedSkillIds.push(skillId);
+            mountedSkillPaths.set(skillId, result.dir_path);
+          }
+        }
       },
     };
+
+    if (mountSkills && mountSkills.length > 0) {
+      await ctx.mountSkills(mountSkills);
+    }
+
+    return ctx;
   }
 }
 

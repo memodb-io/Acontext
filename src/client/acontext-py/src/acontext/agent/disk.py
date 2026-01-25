@@ -11,11 +11,18 @@ class DiskContext(BaseContext):
     client: AcontextClient
     disk_id: str
 
+    def get_context_prompt(self) -> str:
+        return """<disk>
+Consider Disk as the google drive for you and user to store and share files.
+You can use tool ends with `*_disk` to read, write, edit, and share files with users.
+Disk is only a sharable file storage, you can't use it to execute code or run commands.
+</disk>
+"""
+
 
 @dataclass
-class AsyncDiskContext(BaseContext):
+class AsyncDiskContext(DiskContext):
     client: AcontextAsyncClient
-    disk_id: str
 
 
 def _normalize_path(path: str | None) -> str:
@@ -33,7 +40,7 @@ class WriteFileTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "write_file"
+        return "write_file_disk"
 
     @property
     def description(self) -> str:
@@ -106,7 +113,7 @@ class ReadFileTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "read_file"
+        return "read_file_disk"
 
     @property
     def description(self) -> str:
@@ -199,7 +206,7 @@ class ReplaceStringTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "replace_string"
+        return "replace_string_disk"
 
     @property
     def description(self) -> str:
@@ -328,7 +335,7 @@ class ListTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "list"
+        return "list_disk"
 
     @property
     def description(self) -> str:
@@ -403,7 +410,7 @@ class DownloadFileTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "download_file"
+        return "download_file_disk"
 
     @property
     def description(self) -> str:
@@ -482,7 +489,7 @@ class GrepArtifactsTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "grep"
+        return "grep_disk"
 
     @property
     def description(self) -> str:
@@ -561,7 +568,7 @@ class GlobArtifactsTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "glob"
+        return "glob_disk"
 
     @property
     def description(self) -> str:
