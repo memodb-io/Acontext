@@ -331,6 +331,86 @@ const editedSession = await client.sessions.getMessages('session-uuid', {
 ```
 </CodeGroup>
 
+### Middle Out
+
+This strategy reduces prompt size by removing messages from the **middle** of your session, preserving both the **head (oldest)** and **tail (most recent)** messages. This approach maintains context coherence by keeping the initial conversation setup and the most recent exchanges.
+
+**Parameters:**
+- `token_reduce_to` (required): Target token count to reduce the session to
+
+**How it works:**
+- Removes messages from the middle of the session (`len(messages) / 2`)
+- Preserves both the earliest messages (conversation setup) and the most recent messages (current context)
+- When only 2 or fewer messages remain, switches to removing from the front to preserve the most recent message
+- Maintains tool-call/tool-result pairing (when removing a tool-call, its corresponding tool-result is also removed)
+
+<Tip>
+Use the Middle Out strategy when you want to preserve both the initial context (system prompts, early instructions) and the most recent conversation. This is particularly useful for long-running agent sessions where the beginning and end are more important than the middle.
+</Tip>
+
+**Example Output:**
+
+<CodeGroup>
+```json Before (30 messages, ~50,000 tokens)
+[
+  {"role": "user", "content": "msg-0: Initialize the project..."},
+  {"role": "assistant", "content": "msg-1: Project initialized..."},
+  {"role": "user", "content": "msg-2: ..."},
+  ...
+  {"role": "user", "content": "msg-15: Middle message with large content..."},
+  ...
+  {"role": "user", "content": "msg-28: Almost done..."},
+  {"role": "assistant", "content": "msg-29: Final response..."}
+]
+```
+
+```json After (token_reduce_to: 5000)
+[
+  {"role": "user", "content": "msg-0: Initialize the project..."},
+  {"role": "assistant", "content": "msg-1: Project initialized..."},
+  {"role": "user", "content": "msg-28: Almost done..."},
+  {"role": "assistant", "content": "msg-29: Final response..."}
+]
+```
+</CodeGroup>
+
+**Usage:**
+<CodeGroup>
+```python Python
+# Reduce session to 5,000 tokens by removing middle messages
+edited_session = client.sessions.get_messages(
+  session_id="session-uuid",
+  edit_strategies=[
+    {
+      "type": "middle_out",
+      "params": {
+        "token_reduce_to": 5000
+      }
+    }
+  ],
+)
+```
+```typescript TypeScript
+// Reduce session to 5,000 tokens by removing middle messages
+const editedSession = await client.sessions.getMessages('session-uuid', {
+  editStrategies: [
+    {
+      type: 'middle_out' as const,
+      params: {
+        token_reduce_to: 5000
+      }
+    }
+  ],
+});
+```
+</CodeGroup>
+
+<Warning>
+The `token_reduce_to` parameter is required and must be a positive integer. The strategy will return an error if:
+- The parameter is missing
+- The value is not an integer
+- The value is 0 or negative
+</Warning>
 
 ## Count the Session Raw Messages Tokens
 
