@@ -544,6 +544,13 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 			}
 		}
 	}
+	// Mark auto-trim as skipped when it was requested but not triggered.
+	if in.AutoTrim != nil && !autoTrimTriggered && !out.AutoTrimSkipped {
+		// Record skip reason for a non-triggered auto-trim.
+		reason := "not_triggered"
+		out.AutoTrimSkipped = true
+		out.AutoTrimSkipReason = &reason
+	}
 
 	// Apply edit strategies if provided (before format conversion)
 	if len(in.EditStrategies) > 0 {
