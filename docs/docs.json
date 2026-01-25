@@ -48,9 +48,8 @@
             "group": "Agent Tools",
             "icon": "wand-magic-sparkles",
             "pages": [
-              "tool/disk_tools",
-              "tool/skill_tools",
-              "tool/bash_tools"
+              "tool/bash_tools",
+              "tool/disk_tools"
             ]
           },
           {
@@ -108,7 +107,8 @@
             "pages": [
               "chore/per-user",
               "chore/async_python",
-              "chore/badge"
+              "chore/badge",
+              "tool/skill_tools"
             ]
           },
           {
