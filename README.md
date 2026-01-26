@@ -3,7 +3,14 @@
       <img alt="Show Acontext header banner" src="./assets/Acontext-header-banner.png">
   </a>
   <p>
-    <h4>Context Data Platform for Building Cloud-native AI Agents</h4>
+    <h2>Acontext</h2>
+ 	  <strong>Context Data Platform for Building Cloud-native AI Agents</strong>
+ 	  <p align="center">
+ 	  	<a href="https://acontext.io">🌐 Website</a>
+      |
+ 	  	<a href="https://docs.acontext.io">📚 Document</a>
+ 	  </p>
+ 	  </p>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
@@ -12,11 +19,10 @@
     <a href="https://github.com/memodb-io/acontext/actions/workflows/api-test.yaml"><img src="https://github.com/memodb-io/acontext/actions/workflows/api-test.yaml/badge.svg"></a>
     <a href="https://github.com/memodb-io/acontext/actions/workflows/cli-test.yaml"><img src="https://github.com/memodb-io/acontext/actions/workflows/cli-test.yaml/badge.svg"></a>
   </p>
-  <p align="center">
-    <a href="https://x.com/acontext_io"><img src="https://img.shields.io/twitter/follow/acontext_io?style=social" alt="Twitter Follow"></a>
+<p align="center">
+ 	  	<a href="https://x.com/acontext_io"><img src="https://img.shields.io/twitter/follow/acontext_io?style=social" alt="Twitter Follow"></a>
     <a href="https://discord.acontext.io"><img src="https://img.shields.io/badge/dynamic/json?label=Acontext&style=flat&query=approximate_member_count&url=https%3A%2F%2Fdiscord.com%2Fapi%2Fv10%2Finvites%2FSG9xJcqVBu%3Fwith_counts%3Dtrue&logo=discord&logoColor=white&suffix=+members&color=36393f&labelColor=5765F2" alt="Acontext Discord"></a>
   </p>
-  <br/>
 </div>
 
 
@@ -25,14 +31,13 @@
 
 **📦 Problem 1: 99% of your DB is just LLM messages.** 
 
-> Acontext handles context storage and retrieval via PG, Redis, and S3 for you. TWO SDKs cover everything
->
+> Acontext handles context storage and retrieval via PG, Redis, and S3 for you. 
 
 **✂️ Problem 1-1: Manage the context window is tricky** 
 
 > Acontext providers many context editing methods to help you limit the context window
 
-**⏰ Problem 2: Long-running agents are a nightmare.** 
+**⏰ Problem 2: Observe long-running agents are a nightmare.** 
 
 > Acontext has a background agent to track your session state (*i.e.* task, user feedback, progress..)
 
@@ -44,14 +49,18 @@
 
 > Store sessions here, then Acontext tells you the agent daily success rate.
 
+**...**
 
+That's why you need:
 
 <div align="center">
-  	<p>Acontext is the Context Data Platform</p>
+  	<strong>Acontext: Context Data Platform</strong>
     <picture>
       <img alt="Acontext Learning" src="./assets/acontext-components.png" width="100%">
     </picture>
 </div>
+
+
 
 
 
@@ -66,7 +75,8 @@
 
 
 - **Observe agent tasks and user feedback**
-  - [Task](https://docs.acontext.io/observe/agent_tasks): collect agent's working status, progress and preferences in near real-time.
+  - [Session Summary](https://docs.acontext.io/observe/agent_tasks): asynchronously summarize agent's progress and user feedback.
+  - [State Tracking](https://docs.acontext.io/observe/agent_tasks): collect agent's working status in near real-time.
 - **View everything in one [dashboard](https://docs.acontext.io/observe/dashboard)**
 
 <div align="center">
@@ -130,6 +140,171 @@ Once it's done, you can access the following endpoints:
 
 
 
+## Step-by-step Quickstart
+
+We're maintaining Python [![pypi](https://img.shields.io/pypi/v/acontext.svg)](https://pypi.org/project/acontext/) and Typescript [![npm](https://img.shields.io/npm/v/@acontext/acontext.svg?logo=npm&logoColor=fff&style=flat&labelColor=2C2C2C&color=28CF8D)](https://www.npmjs.com/package/@acontext/acontext) SDKs. The snippets below are using Python.
+
+## Install SDKs
+
+```
+pip install acontext # for Python
+npm i @acontext/acontext # for Typescript
+```
+
+
+### Initialize Client
+
+```python
+import os
+from acontext import AcontextClient
+
+# For cloud:
+client = AcontextClient(
+    api_key=os.getenv("ACONTEXT_API_KEY"),
+)
+
+# For self-hosted:
+client = AcontextClient(
+    base_url="http://localhost:8029/api/v1",
+    api_key="sk-ac-your-root-api-bearer-token",
+)
+```
+
+
+
+### Store & Get Messages
+
+> [Docs](https://docs.acontext.io/store/messages/multi-provider)
+
+Store messages in OpenAI, Anthropic, or Gemini format. Auto-converts on retrieval.
+
+```python
+# Create session and store messages
+session = client.sessions.create()
+
+# Store text, image, file, etc.
+client.sessions.store_message(
+    session_id=session.id,
+    blob={"role": "user", "content": "Hello!"},
+    format="openai"
+)
+
+# Retrieve in any format (auto-converts)
+result = client.sessions.get_messages(session_id=session.id, format="anthropic")
+```
+
+#### Context Engineering
+
+> [Session Summary](https://docs.acontext.io/engineering/session_summary) | [Context Editing](https://docs.acontext.io/engineering/editing)
+
+Compress context with summaries and edit strategies. Original messages unchanged.
+
+```python
+# Session summary for prompt injection
+summary = client.sessions.get_session_summary(session_id)
+system_prompt = f"Previous tasks:\n{summary}\n\nContinue helping."
+
+# Context editing - limit tokens on retrieval
+result = client.sessions.get_messages(
+    session_id=session_id,
+    edit_strategies=[
+        {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}},
+        {"type": "token_limit", "params": {"limit_tokens": 30000}}
+    ]
+)
+```
+
+### Agent Tools & Skills
+
+#### Disk Tool
+
+> [Tool Docs](https://docs.acontext.io/tool/disk_tools) | [SDK Docs](https://docs.acontext.io/store/disk)
+
+Persistent file storage for agents. Supports read, write, grep, glob.
+
+<details>
+<summary>Code Example</summary>
+
+```python
+from acontext.agent.disk import DISK_TOOLS
+from openai import OpenAI
+
+disk = client.disks.create()
+ctx = DISK_TOOLS.format_context(client, disk.id)
+
+# Pass to LLM
+response = OpenAI().chat.completions.create(
+    model="gpt-4.1",
+    messages=[
+        {"role": "system", "content": f"You have disk access.\n\n{ctx.get_context_prompt()}"},
+        {"role": "user", "content": "Create a todo.md with 3 tasks"}
+    ],
+    tools=DISK_TOOLS.to_openai_tool_schema()
+)
+
+# Execute tool calls
+for tc in response.choices[0].message.tool_calls:
+    result = DISK_TOOLS.execute_tool(ctx, tc.function.name, json.loads(tc.function.arguments))
+```
+
+</details>
+
+#### Sandbox Tool
+
+> [Tool Docs](https://docs.acontext.io/tool/bash_tools) | [SDK Docs](https://docs.acontext.io/store/sandbox)
+
+Isolated code execution environment with bash, Python, and common tools.
+
+<details>
+<summary>Code Example</summary>
+
+```python
+from acontext.agent.sandbox import SANDBOX_TOOLS
+from openai import OpenAI
+
+sandbox = client.sandboxes.create()
+disk = client.disks.create()
+ctx = SANDBOX_TOOLS.format_context(client, sandbox.sandbox_id, disk.id)
+
+# Pass to LLM
+response = OpenAI().chat.completions.create(
+    model="gpt-4.1",
+    messages=[
+        {"role": "system", "content": f"You have sandbox access.\n\n{ctx.get_context_prompt()}"},
+        {"role": "user", "content": "Run a Python hello world script"}
+    ],
+    tools=SANDBOX_TOOLS.to_openai_tool_schema()
+)
+
+# Execute tool calls
+for tc in response.choices[0].message.tool_calls:
+    result = SANDBOX_TOOLS.execute_tool(ctx, tc.function.name, json.loads(tc.function.arguments))
+```
+
+</details>
+
+#### Sandbox with Skills
+
+> [Tool Docs](https://docs.acontext.io/tool/skill_tools) | [SDK Docs](https://docs.acontext.io/store/skill)
+
+Mount reusable Agent Skills into sandbox at `/skills/{name}/`.
+
+<details>
+<summary>Code Example</summary>
+
+```python
+ctx = SANDBOX_TOOLS.format_context(
+    client, sandbox.sandbox_id, disk.id,
+    mount_skills=["skill-uuid"]  # Skills available at /skills/{name}/
+)
+
+# tool prompt will contain the skill instructions
+print(ctx.get_context_prompt())
+```
+
+</details>
+
+
 
 # 🧐 Use Acontext to build Agent
 
@@ -165,250 +340,6 @@ acontext create my-proj --template-path "typescript/openai-basic"
 >
 > We're cooking more full-stack Agent Applications! [Tell us what you want!](https://discord.acontext.io)
 
-
-
-## Step-by-step Quickstart
-
-<details>
-<summary>click to open</summary>
-
-
-We're maintaining Python [![pypi](https://img.shields.io/pypi/v/acontext.svg)](https://pypi.org/project/acontext/) and Typescript [![npm](https://img.shields.io/npm/v/@acontext/acontext.svg?logo=npm&logoColor=fff&style=flat&labelColor=2C2C2C&color=28CF8D)](https://www.npmjs.com/package/@acontext/acontext) SDKs. The snippets below are using Python.
-
-## Install SDKs
-
-```
-pip install acontext # for Python
-npm i @acontext/acontext # for Typescript
-```
-
-
-
-## Initialize Client
-
-```python
-import os
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# If you're using self-hosted Acontext:
-# client = AcontextClient(
-#     base_url="http://localhost:8029/api/v1",
-#     api_key="sk-ac-your-root-api-bearer-token",
-# )
-```
-
-> [📖 async client doc](https://docs.acontext.io/settings/core)
-
-
-
-## Store
-
-Acontext can manage agent sessions and artifacts.
-
-### Save Messages [📖](https://docs.acontext.io/api-reference/session/store-message-to-session)
-
-Acontext offers persistent storage for message data. When you call `session.store_message`, Acontext will persist the message and start to monitor this session:
-
-<details>
-<summary>Code Snippet</summary>
-
-```python
-session = client.sessions.create()
-
-messages = [
-    {"role": "user", "content": "I need to write a landing page of iPhone 15 pro max"},
-    {
-        "role": "assistant",
-        "content": "Sure, my plan is below:\n1. Search for the latest news about iPhone 15 pro max\n2. Init Next.js project for the landing page\n3. Deploy the landing page to the website",
-    }
-]
-
-# Save messages
-for msg in messages:
-    client.sessions.store_message(session_id=session.id, blob=msg, format="openai")
-```
-
-> [📖](https://docs.acontext.io/store/messages/multi-modal) We also support multi-modal message storage and anthropic SDK.
-
-
-</details>
-
-### Load Messages [📖](https://docs.acontext.io/api-reference/session/get-messages-from-session)
-
-Obtain your session messages using `sessions.get_messages`
-
-<details>
-<summary>Code Snippet</summary>
-
-```python
-r = client.sessions.get_messages(session.id)
-new_msg = r.items
-
-new_msg.append({"role": "user", "content": "How are you doing?"})
-r = openai_client.chat.completions.create(model="gpt-4.1", messages=new_msg)
-print(r.choices[0].message.content)
-client.sessions.store_message(session_id=session.id, blob=r.choices[0].message)
-```
-
-</details>
-
-<div align="center">
-    <picture>
-      <img alt="Session" src="./docs/images/dashboard/message_viewer.png" width="100%">
-    </picture>
-  <p>You can view sessions in your local Dashboard</p>
-</div>
-
-
-### Artifacts [📖](https://docs.acontext.io/store/disk)
-
-Create a disk for your agent to store and read artifacts using file paths:
-
-<details>
-<summary>Code Snippet</summary>
-
-```python
-from acontext import FileUpload
-
-disk = client.disks.create()
-
-file = FileUpload(
-    filename="todo.md",
-    content=b"# Sprint Plan\n\n## Goals\n- Complete user authentication\n- Fix critical bugs"
-)
-artifact = client.disks.artifacts.upsert(
-    disk.id,
-    file=file,
-    file_path="/todo/"
-)
-
-
-print(client.disks.artifacts.list(
-    disk.id,
-    path="/todo/"
-))
-
-result = client.disks.artifacts.get(
-    disk.id,
-    file_path="/todo/",
-    filename="todo.md",
-    with_public_url=True,
-    with_content=True
-)
-print(f"✓ File content: {result.content.raw}")
-print(f"✓ Download URL: {result.public_url}")        
-```
-</details>
-
-
-
-<div align="center">
-    <picture>
-      <img alt="Artifacts" src="./docs/images/dashboard/artifact_viewer.png" width="100%">
-    </picture>
-  <p>You can view artifacts in your local Dashboard</p>
-</div>
-
-
-
-## Observe [📖](https://docs.acontext.io/observe)
-
-For every session, Acontext will **automatically** launch a background agent to track the task progress and user feedback. **It's like a background TODO agent**. Acontext will use it to observe your daily agent success rate.
-
-You can use the SDK to retrieve the current state of the agent session, for Context Engineering like Reduction and Compression. 
-
-<details>
-<summary>Full Script</summary>
-
-```python
-from acontext import AcontextClient
-
-# Initialize client
-client = AcontextClient(
-    base_url="http://localhost:8029/api/v1", api_key="sk-ac-your-root-api-bearer-token"
-)
-
-# Create a project and session
-session = client.sessions.create()
-
-# Conversation messages
-messages = [
-    {"role": "user", "content": "I need to write a landing page of iPhone 15 pro max"},
-    {
-        "role": "assistant",
-        "content": "Sure, my plan is below:\n1. Search for the latest news about iPhone 15 pro max\n2. Init Next.js project for the landing page\n3. Deploy the landing page to the website",
-    },
-    {
-        "role": "user",
-        "content": "That sounds good. Let's first collect the message and report to me before any landing page coding.",
-    },
-    {
-        "role": "assistant",
-        "content": "Sure, I will first collect the message then report to you before any landing page coding.",
-      	"tool_calls": [
-            {
-                "id": "call_001",
-                "type": "function",
-                "function": {
-                    "name": "search_news",
-                    "arguments": "{\"query\": \"iPhone news\"}"
-                }
-            }
-        ]
-    },
-]
-
-# Store messages in a loop
-for msg in messages:
-    client.sessions.store_message(session_id=session.id, blob=msg, format="openai")
-
-# Wait for task extraction to complete
-client.sessions.flush(session.id)
-
-# Display extracted tasks
-summary = client.sessions.get_session_summary(session_id)
-
-print("Agent previous tasks:", summary)
-```
-> `flush` is a blocking call, it will wait for the task extraction to complete.
-> You don't need to call it in production, Acontext has a [buffer mechanism](https://docs.acontext.io/observe/buffer) to ensure the task extraction is completed right on time.
-
-</details>
-
-Example Task Return:
-
-```txt
-<task id="1" description="Search for the latest news about iPhone 15 pro max">
-<progress>
-1. Searched and found key specifications
-2. Compiled feature comparison
-</progress>
-<user_preference>
-1. Focus on camera capabilities
-2. Make it mobile-responsive
-</user_preference>
-</task>
-<task id="2" description="Initialize Next.js project">
-<progress>
-1. Created project with latest template
-</progress>
-</task>
-```
-
-
-
-You can view the session tasks' statuses in the Dashboard:
-
-<div align="center">
-    <picture>
-      <img alt="Acontext Learning" src="./docs/images/dashboard/session_task_viewer.png" width="100%">
-    </picture>
-  <p>A Task Demo</p>
-</div>
 
 
 
