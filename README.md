@@ -3,14 +3,14 @@
       <img alt="Show Acontext header banner" src="./assets/Acontext-header-banner.png">
   </a>
   <p>
-    <h2>Acontext</h2>
+    <h1>Acontext</h1>
  	  <strong>Context Data Platform for Building Cloud-native AI Agents</strong>
- 	  <p align="center">
+ 	</p>
+	</br>
+ 	<p align="center">
  	  	<a href="https://acontext.io">🌐 Website</a>
       |
  	  	<a href="https://docs.acontext.io">📚 Document</a>
- 	  </p>
- 	  </p>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
@@ -56,9 +56,10 @@ That's why you need:
 <div align="center">
   	<strong>Acontext: Context Data Platform</strong>
     <picture>
-      <img alt="Acontext Learning" src="./assets/acontext-components.png" width="100%">
+      <img alt="Acontext Learning" src="./assets/acontext-components.png" width="80%">
     </picture>
 </div>
+
 
 
 
