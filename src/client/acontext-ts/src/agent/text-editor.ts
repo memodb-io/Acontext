@@ -4,6 +4,18 @@
 
 import type { SandboxContext } from './sandbox';
 
+const MAX_CONTENT_CHARS = 20000;
+
+/**
+ * Truncate text to maxChars, appending a truncation flag if needed.
+ */
+function truncateContent(text: string, maxChars: number = MAX_CONTENT_CHARS): string {
+  if (text.length > maxChars) {
+    return text.slice(0, maxChars) + '...[truncated]';
+  }
+  return text;
+}
+
 /**
  * Escape a string for safe use in shell commands.
  */
@@ -76,7 +88,9 @@ export async function viewFile(
     cmd = `sed -n '${rangeStart},${rangeEnd}p' ${escapeForShell(path)} | nl -ba -v ${rangeStart}`;
     startLine = rangeStart;
   } else {
-    cmd = `nl -ba ${escapeForShell(path)}`;
+    // Default to first 200 lines if no range specified
+    const maxLines = 200;
+    cmd = `head -n ${maxLines} ${escapeForShell(path)} | nl -ba`;
     startLine = 1;
   }
 
@@ -101,7 +115,7 @@ export async function viewFile(
 
   return {
     file_type: 'text',
-    content: result.stdout,
+    content: truncateContent(result.stdout),
     numLines,
     startLine: viewRange ? startLine : 1,
     totalLines: totalLines + 1, // wc -l doesn't count last line without newline

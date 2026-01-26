@@ -6,6 +6,15 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .sandbox import AsyncSandboxContext, SandboxContext
 
+MAX_CONTENT_CHARS = 20000
+
+
+def truncate_content(text: str, max_chars: int = MAX_CONTENT_CHARS) -> str:
+    """Truncate text to max_chars, appending a truncation flag if needed."""
+    if len(text) > max_chars:
+        return text[:max_chars] + "...[truncated]"
+    return text
+
 
 def escape_for_shell(s: str) -> str:
     """Escape a string for safe use in shell commands."""
@@ -53,7 +62,9 @@ def view_file(
         start_line, end_line = view_range
         cmd = f"sed -n '{start_line},{end_line}p' {escape_for_shell(path)} | nl -ba -v {start_line}"
     else:
-        cmd = f"nl -ba {escape_for_shell(path)}"
+        # Default to first 200 lines if no range specified
+        max_lines = 200
+        cmd = f"head -n {max_lines} {escape_for_shell(path)} | nl -ba"
         start_line = 1
 
     result = ctx.client.sandboxes.exec_command(
@@ -76,7 +87,7 @@ def view_file(
 
     return {
         "file_type": "text",
-        "content": result.stdout,
+        "content": truncate_content(result.stdout),
         "numLines": num_lines,
         "startLine": start_line if view_range else 1,
         "totalLines": total_lines + 1,  # wc -l doesn't count last line without newline
@@ -270,7 +281,9 @@ async def async_view_file(
         start_line, end_line = view_range
         cmd = f"sed -n '{start_line},{end_line}p' {escape_for_shell(path)} | nl -ba -v {start_line}"
     else:
-        cmd = f"nl -ba {escape_for_shell(path)}"
+        # Default to first 200 lines if no range specified
+        max_lines = 200
+        cmd = f"head -n {max_lines} {escape_for_shell(path)} | nl -ba"
         start_line = 1
 
     result = await ctx.client.sandboxes.exec_command(
@@ -292,7 +305,7 @@ async def async_view_file(
 
     return {
         "file_type": "text",
-        "content": result.stdout,
+        "content": truncate_content(result.stdout),
         "numLines": num_lines,
         "startLine": start_line if view_range else 1,
         "totalLines": total_lines + 1,

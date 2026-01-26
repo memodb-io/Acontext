@@ -92,5 +92,8 @@ Container environment:
 - Standard Unix utilities available (grep, sed, awk, etc.)
 - Archive tools: tar, unzip, zip
 - Additional tools: ripgrep, fd, sqlite3, jq, imagemagick
-- Do not try to install new packages and libraries with pip as there is no internet access
+- You can install new packages with pip if needed (internet access is available)
+
+
+Remember to always export your artifacts at the end of your task so that the user can view them.
 """

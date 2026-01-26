@@ -10,6 +10,15 @@ from .prompts import SANDBOX_TEXT_EDITOR_REMINDER, SANDBOX_BASH_REMINDER, SKILL_
 from ..client import AcontextClient
 from ..async_client import AcontextAsyncClient
 
+MAX_OUTPUT_CHARS = 20000
+
+
+def truncate_output(text: str, max_chars: int = MAX_OUTPUT_CHARS) -> str:
+    """Truncate text to max_chars, appending a truncation flag if needed."""
+    if len(text) > max_chars:
+        return text[:max_chars] + "...[truncated]"
+    return text
+
 
 class MountedSkill(TypedDict):
     name: str
@@ -191,8 +200,8 @@ class BashTool(BaseTool):
 
         return json.dumps(
             {
-                "stdout": result.stdout,
-                "stderr": result.stderr,
+                "stdout": truncate_output(result.stdout),
+                "stderr": truncate_output(result.stderr),
                 "exit_code": result.exit_code,
             }
         )
@@ -213,8 +222,8 @@ class BashTool(BaseTool):
 
         return json.dumps(
             {
-                "stdout": result.stdout,
-                "stderr": result.stderr,
+                "stdout": truncate_output(result.stdout),
+                "stderr": truncate_output(result.stderr),
                 "exit_code": result.exit_code,
             }
         )
@@ -248,27 +257,33 @@ class TextEditorTool(BaseTool):
             "command": {
                 "type": "string",
                 "enum": ["view", "create", "str_replace"],
-                "description": "The operation to perform: 'view', 'create', or 'str_replace'",
+                "description": (
+                    "Perform only text operations: 'view', 'create', or 'str_replace'. "
+                    "Required parameters per command: "
+                    "'view' requires path (view_range is optional); "
+                    "'create' requires path and file_text; "
+                    "'str_replace' requires path, old_str, and new_str."
+                ),
             },
             "path": {
                 "type": "string",
-                "description": "The file path in the sandbox (e.g., '/workspace/script.py')",
+                "description": "Required for all commands. The file path in the sandbox (e.g., '/workspace/script.py')",
             },
             "file_text": {
                 "type": ["string", "null"],
-                "description": "For 'create' command: the content to write to the file",
+                "description": "Required for 'create' command. The content to write to the file.",
             },
             "old_str": {
                 "type": ["string", "null"],
-                "description": "For 'str_replace' command: the exact string to find and replace",
+                "description": "Required for 'str_replace' command. The exact string to find and replace.",
             },
             "new_str": {
                 "type": ["string", "null"],
-                "description": "For 'str_replace' command: the string to replace old_str with",
+                "description": "Required for 'str_replace' command. The string to replace old_str with.",
             },
             "view_range": {
                 "type": ["array", "null"],
-                "description": "For 'view' command: optional [start_line, end_line] to view specific lines",
+                "description": "Optional for 'view' command. An array [start_line, end_line] to view specific lines. If not provided, shows the first 200 lines.",
             },
         }
 

@@ -8,6 +8,15 @@ import { AbstractBaseTool, BaseContext, BaseToolPool } from './base';
 import { SANDBOX_TEXT_EDITOR_REMINDER, SANDBOX_BASH_REMINDER, SKILL_REMINDER } from './prompts';
 import { viewFile, createFile, strReplace } from './text-editor';
 
+const MAX_OUTPUT_CHARS = 20000;
+
+function truncateOutput(text: string, maxChars: number = MAX_OUTPUT_CHARS): string {
+  if (text.length > maxChars) {
+    return text.slice(0, maxChars) + '...[truncated]';
+  }
+  return text;
+}
+
 export interface MountedSkill {
   name: string;
   description: string;
@@ -123,8 +132,8 @@ export class BashTool extends AbstractBaseTool {
     });
 
     return JSON.stringify({
-      stdout: result.stdout,
-      stderr: result.stderr,
+      stdout: truncateOutput(result.stdout),
+      stderr: truncateOutput(result.stderr),
       exit_code: result.exit_code,
     });
   }
@@ -144,27 +153,33 @@ export class TextEditorTool extends AbstractBaseTool {
     command: {
       type: 'string',
       enum: ['view', 'create', 'str_replace'],
-      description: "The operation to perform: 'view', 'create', or 'str_replace'",
+      description:
+        "The operation to perform: 'view', 'create', or 'str_replace'. " +
+        "Required parameters per command: " +
+        "'view' requires path (view_range is optional); " +
+        "'create' requires path and file_text; " +
+        "'str_replace' requires path, old_str, and new_str.",
     },
     path: {
       type: 'string',
-      description: "The file path in the sandbox (e.g., '/workspace/script.py')",
+      description: "Required for all commands. The file path in the sandbox (e.g., '/workspace/script.py')",
     },
     file_text: {
       type: ['string', 'null'],
-      description: "For 'create' command: the content to write to the file",
+      description: "Required for 'create' command. The content to write to the file.",
     },
     old_str: {
       type: ['string', 'null'],
-      description: "For 'str_replace' command: the exact string to find and replace",
+      description: "Required for 'str_replace' command. The exact string to find and replace.",
     },
     new_str: {
       type: ['string', 'null'],
-      description: "For 'str_replace' command: the string to replace old_str with",
+      description: "Required for 'str_replace' command. The string to replace old_str with.",
     },
     view_range: {
       type: ['array', 'null'],
-      description: "For 'view' command: optional [start_line, end_line] to view specific lines",
+      description:
+        "Optional for 'view' command. An array [start_line, end_line] to view specific lines. If not provided, shows the first 200 lines.",
     },
   };
   readonly requiredArguments = ['command', 'path'];
