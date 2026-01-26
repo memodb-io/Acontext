@@ -41,13 +41,15 @@
               },
               "store/disk",
               "store/skill",
-              "store/sandbox"
+              "store/sandbox",
+              "store/per-user"
             ]
           },
           {
             "group": "Agent Tools",
             "icon": "wand-magic-sparkles",
             "pages": [
+              "tool/whatis",
               "tool/bash_tools",
               "tool/disk_tools"
             ]
@@ -88,7 +90,6 @@
             "group": "Miscellaneous",
             "icon": "ellipsis",
             "pages": [
-              "chore/per-user",
               "chore/async_python",
               "chore/badge",
               "tool/skill_tools"

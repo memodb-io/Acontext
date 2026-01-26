@@ -1,634 +1,167 @@
 ---
 title: Agent Skill
-description: "Store and manage reusable agent skills for AI-powered workflows"
+description: "Store reusable agent skills"
 ---
 
-The Skills API provides storage and management for [Agent Skills](https://agentskills.io/home) - a simple, open format for giving agents new capabilities and expertise. Skills are folders of instructions, scripts, and resources that agents can discover and use to perform tasks more accurately and efficiently.
-
-## Setup Skills for your Agent
+Skills are folders of instructions, scripts, and resources that agents can discover and use. Upload skills as ZIP files containing a `SKILL.md` with name and description.
 
 <CardGroup cols={2}>
 <Card title="Sandbox with Skills" icon="terminal" href="/tool/bash_tools#mounting-skills-in-sandbox">
-Mount skills in a sandbox to execute skill scripts and access skill files.
+Mount skills in sandbox
 </Card>
-
 <Card title="Skill Content Tools" icon="wand-magic-sparkles" href="/tool/skill_tools">
-Enable your agent to read skill files with pre-built tools. No sandbox required.
+Read skill files without sandbox
 </Card>
 </CardGroup>
 
-If you'd like to know the details of Skills APIs, please read the following documentation.
+## Where to Find Skills
 
-## What you'll build
+<CardGroup cols={2}>
+<Card title="Agent Skills Directory" icon="sparkles" href="https://agentskills.io/home">
+Browse community skills in the open format
+</Card>
+<Card title="Anthropic Skills" icon="github" href="https://github.com/anthropics/skills/tree/main/skills">
+Pre-built skills from Anthropic
+</Card>
+</CardGroup>
 
-In this quickstart, you'll learn how to:
-
-- Upload a skill from a ZIP file
-- Browse the skill catalog
-- Retrieve skill metadata and file index
-- Read files from a skill
-- Delete skills when no longer needed
-
-## Prerequisites
-
-Before you begin, ensure you have:
-- An Acontext API key from [Acontext Dashboard](https://dash.acontext.io), or [local deployment](/settings/local)
-- A skill ZIP file to upload
-
-<Tip>
-Don't have a skill ZIP file? You can download pre-built skills from the [Anthropic Skills Repository](https://github.com/anthropics/skills/tree/main/skills). Each folder contains a skill you can zip and upload.
-</Tip>
 
 ## Skill ZIP Structure
 
-A valid skill ZIP file must contain a `SKILL.md` file at the root with YAML frontmatter containing `name` and `description`:
+```
+my-skill.zip
+├── SKILL.md          # Required: name, description, instructions
+├── scripts/          # Optional: executable scripts
+│   └── extract.py
+└── resources/        # Optional: data files, templates
+    └── template.json
+```
+
+The `SKILL.md` file must include frontmatter with name and description:
 
 ```markdown
 ---
 name: data-extraction
-description: Extract structured data from documents using various techniques
+description: Extract structured data from documents
 ---
 
 # Data Extraction Skill
-
-This skill helps agents extract structured data from unstructured documents...
+Instructions for the agent...
 ```
 
-The ZIP can contain any additional files the skill needs: scripts, templates, examples, configuration files, etc.
-
-## Initialize the client
-
-First, create a client instance with your API key and base URL.
-
-<CodeGroup>
-```python Python
-import os
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# If you're using self-hosted Acontext:
-# client = AcontextClient(
-#     base_url="http://localhost:8029/api/v1",
-#     api_key="sk-ac-your-root-api-bearer-token",
-# )
-
-client.ping()
-```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-// If you're using self-hosted Acontext:
-// const client = new AcontextClient({
-//     baseUrl: 'http://localhost:8029/api/v1',
-//     apiKey: 'sk-ac-your-root-api-bearer-token',
-// });
-```
-</CodeGroup>
-
-<Warning>
-Never hardcode API keys in production code. Use environment variables instead.
-</Warning>
-
-## Step-by-step tutorial
+## Quick Start
 
 <Steps>
 <Step title="Upload a skill">
-Create a new skill by uploading a ZIP file. The skill name and description are extracted from the `SKILL.md` file inside the ZIP.
-
-<CodeGroup>
-```python Python
-from acontext import FileUpload
-
-# Read your skill ZIP file
-with open("data-extraction-skill.zip", "rb") as f:
-    zip_content = f.read()
-
-# Upload the skill
-skill = client.skills.create(
-    file=FileUpload(
-        filename="data-extraction-skill.zip",
-        content=zip_content
-    ),
-    user="user@example.com",
-    meta={"category": "data-processing", "version": "1.0"}
-)
-
-print(f"Created skill: {skill.name}")
-print(f"Skill ID: {skill.id}")
-print(f"Description: {skill.description}")
-```
-
-```typescript TypeScript
-import { FileUpload } from '@acontext/acontext';
-import * as fs from 'fs';
-
-// Read your skill ZIP file
-const zipContent = fs.readFileSync('data-extraction-skill.zip');
-
-// Upload the skill
-const skill = await client.skills.create({
-    file: new FileUpload({
-        filename: 'data-extraction-skill.zip',
-        content: zipContent,
-        contentType: 'application/zip'
-    }),
-    user: 'user@example.com',
-    meta: { category: 'data-processing', version: '1.0' }
-});
-
-console.log(`Created skill: ${skill.name}`);
-console.log(`Skill ID: ${skill.id}`);
-console.log(`Description: ${skill.description}`);
-```
-</CodeGroup>
-
-The skill object contains:
-- `id`: Unique skill identifier (UUID)
-- `name`: Skill name from SKILL.md
-- `description`: Skill description from SKILL.md
-- `file_index`: List of files with paths and MIME types
-- `meta`: Your custom metadata
-- `created_at`: ISO 8601 timestamp
-- `updated_at`: ISO 8601 timestamp
-
-<Check>
-Save the skill ID - you'll need it to retrieve files and manage the skill.
-</Check>
-</Step>
-
-<Step title="Browse the skill catalog">
-List all available skills with their names and descriptions. This is useful for discovering what skills are available.
-
-<CodeGroup>
-```python Python
-# List skills in the catalog
-catalog = client.skills.list_catalog(limit=20)
-
-print("Available skills:")
-for item in catalog.items:
-    print(f"  - {item.name}: {item.description}")
-
-# Check if more skills are available
-if catalog.has_more:
-    print(f"\nMore skills available (cursor: {catalog.next_cursor})")
-```
-
-```typescript TypeScript
-// List skills in the catalog
-const catalog = await client.skills.listCatalog({ limit: 20 });
-
-console.log('Available skills:');
-catalog.items.forEach(item => {
-    console.log(`  - ${item.name}: ${item.description}`);
-});
-
-// Check if more skills are available
-if (catalog.has_more) {
-    console.log(`\nMore skills available (cursor: ${catalog.next_cursor})`);
-}
-```
-</CodeGroup>
-
-<Note>
-The catalog only returns names and descriptions for efficient browsing. Use `get()` to retrieve full skill details including the file index.
-</Note>
-</Step>
-
-<Step title="Get skill details">
-Retrieve full information about a skill, including its file index.
-
-<CodeGroup>
-```python Python
-# Get skill by ID
-skill = client.skills.get(skill.id)
-
-print(f"Skill: {skill.name}")
-print(f"Description: {skill.description}")
-print(f"\nFiles ({len(skill.file_index)}):")
-for file_info in skill.file_index:
-    print(f"  - {file_info.path} ({file_info.mime})")
-```
-
-```typescript TypeScript
-// Get skill by ID
-const skillDetails = await client.skills.get(skill.id);
-
-console.log(`Skill: ${skillDetails.name}`);
-console.log(`Description: ${skillDetails.description}`);
-console.log(`\nFiles (${skillDetails.file_index.length}):`);
-skillDetails.file_index.forEach(fileInfo => {
-    console.log(`  - ${fileInfo.path} (${fileInfo.mime})`);
-});
-```
-</CodeGroup>
-
-<Info>
-The `file_index` contains all files in the skill with their relative paths and MIME types. Use this to understand the skill's structure before reading specific files.
-</Info>
-</Step>
-
-<Step title="Read a file from the skill">
-Retrieve the contents of a specific file from the skill. Text files return parsed content, while binary files return a presigned download URL.
-
-<CodeGroup>
-```python Python
-# Read the SKILL.md file (always start here!)
-result = client.skills.get_file(
-    skill_id=skill.id,
-    file_path="SKILL.md"
-)
-
-print(f"File: {result.path}")
-print(f"MIME: {result.mime}")
-
-if result.content:
-    print(f"\nContent ({result.content.type}):")
-    print(result.content.raw)
-
-if result.url:
-    print(f"\nDownload URL: {result.url}")
-```
-
-```typescript TypeScript
-// Read the SKILL.md file (always start here!)
-const result = await client.skills.getFile({
-    skillId: skill.id,
-    filePath: 'SKILL.md'
-});
-
-console.log(`File: ${result.path}`);
-console.log(`MIME: ${result.mime}`);
-
-if (result.content) {
-    console.log(`\nContent (${result.content.type}):`);
-    console.log(result.content.raw);
-}
-
-if (result.url) {
-    console.log(`\nDownload URL: ${result.url}`);
-}
-```
-</CodeGroup>
-
-<Tip>
-Always start by reading `SKILL.md` - it contains the skill's purpose, capabilities, and usage instructions that help agents understand how to use the skill effectively.
-</Tip>
-
-The response includes:
-- `path`: File path within the skill
-- `mime`: MIME type of the file
-- `content`: Parsed content for text files (markdown, code, JSON, etc.)
-- `url`: Presigned download URL for binary files (images, PDFs, etc.)
-</Step>
-
-<Step title="Read additional files">
-Read other files from the skill as needed, such as scripts, templates, or configuration files.
-
-<CodeGroup>
-```python Python
-# Read a Python script from the skill
-script = client.skills.get_file(
-    skill_id=skill.id,
-    file_path="scripts/extract.py"
-)
-
-if script.content:
-    print(f"Script content:\n{script.content.raw}")
-
-# Read a JSON template
-template = client.skills.get_file(
-    skill_id=skill.id,
-    file_path="templates/output.json"
-)
-
-if template.content:
-    print(f"Template:\n{template.content.raw}")
-```
-
-```typescript TypeScript
-// Read a Python script from the skill
-const script = await client.skills.getFile({
-    skillId: skill.id,
-    filePath: 'scripts/extract.py'
-});
-
-if (script.content) {
-    console.log(`Script content:\n${script.content.raw}`);
-}
-
-// Read a JSON template
-const template = await client.skills.getFile({
-    skillId: skill.id,
-    filePath: 'templates/output.json'
-});
-
-if (template.content) {
-    console.log(`Template:\n${template.content.raw}`);
-}
-```
-</CodeGroup>
-
-<Note>
-For binary files like images, the API returns a presigned URL instead of content. You can customize the URL expiration with the `expire` parameter (in seconds, default 900).
-</Note>
-</Step>
-
-<Step title="Delete a skill">
-Remove a skill when it's no longer needed.
-
-<CodeGroup>
-```python Python
-# Delete the skill
-client.skills.delete(skill.id)
-print("Skill deleted")
-```
-
-```typescript TypeScript
-// Delete the skill
-await client.skills.delete(skill.id);
-console.log('Skill deleted');
-```
-</CodeGroup>
-
-<Warning>
-Deleting a skill removes all its files permanently. This action cannot be undone.
-</Warning>
-</Step>
-</Steps>
-
-## Complete example
-
-Here's a complete working example that demonstrates the full workflow:
-
 <CodeGroup>
 ```python Python
 import os
 from acontext import AcontextClient, FileUpload
 
-def main():
-    # Initialize client
-    client = AcontextClient(
-        api_key=os.getenv("ACONTEXT_API_KEY"),
-    )
-    
-    # If you're using self-hosted Acontext:
-    # client = AcontextClient(
-    #     base_url="http://localhost:8029/api/v1",
-    #     api_key="sk-ac-your-root-api-bearer-token",
-    # )
-    
-    try:
-        # Upload a skill
-        with open("my-skill.zip", "rb") as f:
-            skill = client.skills.create(
-                file=FileUpload(filename="my-skill.zip", content=f.read()),
-                meta={"version": "1.0"}
-            )
-        print(f"✓ Created skill: {skill.name} ({skill.id})")
-        
-        # List skill catalog
-        catalog = client.skills.list_catalog()
-        print(f"✓ Found {len(catalog.items)} skill(s) in catalog")
-        
-        # Get skill details
-        skill_details = client.skills.get(skill.id)
-        print(f"✓ Skill has {len(skill_details.file_index)} file(s)")
-        
-        # Read the SKILL.md
-        readme = client.skills.get_file(
-            skill_id=skill.id,
-            file_path="SKILL.md"
-        )
-        print(f"✓ Read SKILL.md ({len(readme.content.raw)} chars)")
-        
-        # Clean up
-        client.skills.delete(skill.id)
-        print("✓ Deleted skill")
-        
-    except Exception as e:
-        print(f"✗ Error: {e}")
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
 
-if __name__ == "__main__":
-    main()
+with open("my-skill.zip", "rb") as f:
+    skill = client.skills.create(
+        file=FileUpload(filename="my-skill.zip", content=f.read()),
+        meta={"version": "1.0"}
+    )
+print(f"Created: {skill.name} ({skill.id})")
 ```
 
 ```typescript TypeScript
 import { AcontextClient, FileUpload } from '@acontext/acontext';
 import * as fs from 'fs';
 
-async function main() {
-    // Initialize client
-    const client = new AcontextClient({
-        apiKey: process.env.ACONTEXT_API_KEY,
-    });
-    
-    // If you're using self-hosted Acontext:
-    // const client = new AcontextClient({
-    //     baseUrl: 'http://localhost:8029/api/v1',
-    //     apiKey: 'sk-ac-your-root-api-bearer-token',
-    // });
-    
-    try {
-        // Upload a skill
-        const zipContent = fs.readFileSync('my-skill.zip');
-        const skill = await client.skills.create({
-            file: new FileUpload({
-                filename: 'my-skill.zip',
-                content: zipContent,
-                contentType: 'application/zip'
-            }),
-            meta: { version: '1.0' }
-        });
-        console.log(`✓ Created skill: ${skill.name} (${skill.id})`);
-        
-        // List skill catalog
-        const catalog = await client.skills.listCatalog();
-        console.log(`✓ Found ${catalog.items.length} skill(s) in catalog`);
-        
-        // Get skill details
-        const skillDetails = await client.skills.get(skill.id);
-        console.log(`✓ Skill has ${skillDetails.file_index.length} file(s)`);
-        
-        // Read the SKILL.md
-        const readme = await client.skills.getFile({
-            skillId: skill.id,
-            filePath: 'SKILL.md'
-        });
-        console.log(`✓ Read SKILL.md (${readme.content?.raw.length} chars)`);
-        
-        // Clean up
-        await client.skills.delete(skill.id);
-        console.log('✓ Deleted skill');
-        
-    } catch (error) {
-        console.error(`✗ Error: ${error}`);
-    }
-}
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
 
-main();
+const fileContent = fs.readFileSync("my-skill.zip");
+const skill = await client.skills.create({
+    file: new FileUpload({ filename: "my-skill.zip", content: fileContent }),
+    meta: { version: "1.0" },
+});
+console.log(`Created: ${skill.name} (${skill.id})`);
 ```
 </CodeGroup>
+</Step>
 
-## Advanced features
-
-<AccordionGroup>
-<Accordion title="Pagination for skill catalog">
-When you have many skills, use pagination to retrieve them in batches:
-
+<Step title="Browse catalog">
 <CodeGroup>
 ```python Python
-# List skills with pagination
-result = client.skills.list_catalog(limit=10, time_desc=True)
-
-for skill in result.items:
-    print(f"Skill: {skill.name}")
-
-# Get next page if available
-if result.has_more:
-    next_result = client.skills.list_catalog(
-        limit=10,
-        cursor=result.next_cursor,
-        time_desc=True
-    )
+catalog = client.skills.list_catalog()
+for item in catalog.items:
+    print(f"{item.name}: {item.description}")
 ```
 
 ```typescript TypeScript
-// List skills with pagination
-const result = await client.skills.listCatalog({
-    limit: 10,
-    timeDesc: true
-});
-
-result.items.forEach(skill => {
-    console.log(`Skill: ${skill.name}`);
-});
-
-// Get next page if available
-if (result.has_more) {
-    const nextResult = await client.skills.listCatalog({
-        limit: 10,
-        cursor: result.next_cursor,
-        timeDesc: true
-    });
+const catalog = await client.skills.listCatalog();
+for (const item of catalog.items) {
+    console.log(`${item.name}: ${item.description}`);
 }
 ```
 </CodeGroup>
-</Accordion>
+</Step>
 
-<Accordion title="Filter skills by user">
-Filter skills by the user who created them:
-
+<Step title="Get skill details">
 <CodeGroup>
 ```python Python
-# List skills for a specific user
-user_skills = client.skills.list_catalog(user="alice@example.com")
-
-for skill in user_skills.items:
-    print(f"  - {skill.name}: {skill.description}")
+skill = client.skills.get(skill_id)
+for file_info in skill.file_index:
+    print(f"{file_info.path} ({file_info.mime})")
 ```
 
 ```typescript TypeScript
-// List skills for a specific user
-const userSkills = await client.skills.listCatalog({
-    user: 'alice@example.com'
-});
-
-userSkills.items.forEach(skill => {
-    console.log(`  - ${skill.name}: ${skill.description}`);
-});
+const skillDetails = await client.skills.get(skillId);
+for (const fileInfo of skillDetails.fileIndex || []) {
+    console.log(`${fileInfo.path} (${fileInfo.mime})`);
+}
 ```
 </CodeGroup>
-</Accordion>
+</Step>
 
-<Accordion title="Custom URL expiration">
-Control how long presigned URLs remain valid for binary files:
-
+<Step title="Read files">
 <CodeGroup>
 ```python Python
-# Get file with custom expiration (1 hour)
-result = client.skills.get_file(
-    skill_id=skill.id,
-    file_path="images/diagram.png",
-    expire=3600  # 1 hour in seconds
-)
+result = client.skills.get_file(skill_id=skill.id, file_path="SKILL.md")
+print(result.content.raw)
 
-print(f"Download URL (valid for 1 hour): {result.url}")
+# Binary files return a URL instead
+result = client.skills.get_file(skill_id=skill.id, file_path="images/diagram.png")
+print(result.url)
 ```
 
 ```typescript TypeScript
-// Get file with custom expiration (1 hour)
-const result = await client.skills.getFile({
-    skillId: skill.id,
-    filePath: 'images/diagram.png',
-    expire: 3600  // 1 hour in seconds
-});
+const fileResult = await client.skills.getFile({ skillId: skill.id, filePath: "SKILL.md" });
+console.log(fileResult.content?.raw);
 
-console.log(`Download URL (valid for 1 hour): ${result.url}`);
+// Binary files return a URL instead
+const imageResult = await client.skills.getFile({ skillId: skill.id, filePath: "images/diagram.png" });
+console.log(imageResult.url);
 ```
 </CodeGroup>
-</Accordion>
-</AccordionGroup>
+</Step>
 
-## Common use cases
+<Step title="Delete skill">
+<CodeGroup>
+```python Python
+client.skills.delete(skill.id)
+```
+
+```typescript TypeScript
+await client.skills.delete(skill.id);
+```
+</CodeGroup>
+</Step>
+</Steps>
+
+## Next Steps
 
 <CardGroup cols={2}>
-<Card title="Knowledge bases" icon="book">
-Store domain-specific knowledge, best practices, and reference materials that agents can access when performing specialized tasks.
+<Card title="Sandbox" icon="terminal" href="/store/sandbox">
+Execute skill scripts
 </Card>
-
-<Card title="Code templates" icon="code">
-Provide reusable code snippets, scripts, and templates that agents can adapt for specific use cases.
-</Card>
-
-<Card title="Workflow instructions" icon="diagram-project">
-Define step-by-step procedures and decision trees that guide agents through complex processes.
-</Card>
-
-<Card title="Tool configurations" icon="gear">
-Store API schemas, configuration files, and integration guides that help agents interact with external services.
+<Card title="Skill Tools" icon="wand-magic-sparkles" href="/tool/skill_tools">
+Agent skill reading tools
 </Card>
 </CardGroup>
-
-## Where to find skills
-
-<Card title="Anthropic Skills Repository" icon="github" href="https://github.com/anthropics/skills/tree/main/skills">
-Browse and download pre-built skills from Anthropic's open-source skills repository. Each folder is a skill you can zip and upload.
-</Card>
-
-## Troubleshooting
-
-<AccordionGroup>
-<Accordion title="Invalid ZIP file error">
-**Problem**: Getting an error when uploading a skill ZIP.
-
-**Solution**: 
-- Ensure the ZIP contains a `SKILL.md` file at the root level
-- Check that `SKILL.md` has valid YAML frontmatter with `name` and `description`
-- Verify the ZIP is not corrupted
-</Accordion>
-
-<Accordion title="File not found in skill">
-**Problem**: Getting a 404 error when reading a file from a skill.
-
-**Solution**: 
-- Use `client.skills.get(skill_id)` to see the `file_index` and verify the file exists
-- Ensure the `file_path` matches exactly (case-sensitive)
-- Check for leading slashes - paths should be relative (e.g., `scripts/main.py`, not `/scripts/main.py`)
-</Accordion>
-
-<Accordion title="Duplicate skill name">
-**Problem**: Error when uploading a skill with a name that already exists.
-
-**Solution**: 
-- Skill names must be unique within your project
-- Either delete the existing skill first, or use a different name in your `SKILL.md`
-</Accordion>
-</AccordionGroup>

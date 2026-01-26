@@ -1,0 +1,169 @@
+---
+title: Store with User
+description: "Associate Sessions, Disks, and Skills with user identifiers"
+---
+
+Associate resources with user identifiers for multi-tenant apps, per-user isolation, and simplified cleanup.
+
+## Supported Resources
+
+| Resource | Create | List | Cascade Delete |
+|----------|--------|------|----------------|
+| Sessions | `user="alice@example.com"` | `user="alice@example.com"` | ✓ |
+| Disks | `user="alice@example.com"` | `user="alice@example.com"` | ✓ |
+| Skills | `user="alice@example.com"` | `user="alice@example.com"` | ✓ |
+
+## Create Resources with User
+
+<CodeGroup>
+```python Python
+import os
+from acontext import AcontextClient, FileUpload
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+
+# Session
+session = client.sessions.create(user="alice@example.com")
+
+# Disk
+disk = client.disks.create(user="alice@example.com")
+
+# Skill
+with open("skill.zip", "rb") as f:
+    skill = client.skills.create(
+        file=FileUpload(filename="skill.zip", content=f.read()),
+        user="alice@example.com"
+    )
+```
+
+```typescript TypeScript
+import { AcontextClient, FileUpload } from '@acontext/acontext';
+import * as fs from 'fs';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+// Session
+const session = await client.sessions.create({ user: "alice@example.com" });
+
+// Disk
+const disk = await client.disks.create({ user: "alice@example.com" });
+
+// Skill
+const fileContent = fs.readFileSync("skill.zip");
+const skill = await client.skills.create({
+    file: new FileUpload({ filename: "skill.zip", content: fileContent }),
+    user: "alice@example.com",
+});
+```
+</CodeGroup>
+
+<Note>
+Users are created automatically when first referenced. No explicit user creation needed.
+</Note>
+
+## Filter by User
+
+<CodeGroup>
+```python Python
+# Sessions
+sessions = client.sessions.list(user="alice@example.com")
+
+# Disks
+disks = client.disks.list(user="alice@example.com")
+
+# Skills
+skills = client.skills.list_catalog(user="alice@example.com")
+```
+
+```typescript TypeScript
+// Sessions
+const sessions = await client.sessions.list({ user: "alice@example.com" });
+
+// Disks
+const disks = await client.disks.list({ user: "alice@example.com" });
+
+// Skills
+const skills = await client.skills.listCatalog({ user: "alice@example.com" });
+```
+</CodeGroup>
+
+## Delete User (Cascade)
+
+Deleting a user removes all associated Sessions, Disks, and Skills:
+
+<CodeGroup>
+```python Python
+client.users.delete("alice@example.com")
+```
+
+```typescript TypeScript
+await client.users.delete("alice@example.com");
+```
+</CodeGroup>
+
+<Warning>
+This permanently deletes all resources associated with the user.
+</Warning>
+
+## Complete Example
+
+<Accordion title="Full workflow">
+<CodeGroup>
+```python Python
+import os
+from acontext import AcontextClient
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+user_id = "demo@example.com"
+
+# Create resources
+session = client.sessions.create(user=user_id)
+disk = client.disks.create(user=user_id)
+
+# List resources
+sessions = client.sessions.list(user=user_id)
+disks = client.disks.list(user=user_id)
+print(f"User has {len(sessions.items)} sessions, {len(disks.items)} disks")
+
+# Delete user and all resources
+client.users.delete(user_id)
+```
+
+```typescript TypeScript
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+const userId = "demo@example.com";
+
+// Create resources
+const session = await client.sessions.create({ user: userId });
+const disk = await client.disks.create({ user: userId });
+
+// List resources
+const sessions = await client.sessions.list({ user: userId });
+const disks = await client.disks.list({ user: userId });
+console.log(`User has ${sessions.items.length} sessions, ${disks.items.length} disks`);
+
+// Delete user and all resources
+await client.users.delete(userId);
+```
+</CodeGroup>
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Disk Storage" icon="database" href="/store/disk">
+File storage API
+</Card>
+<Card title="Sessions" icon="folder" href="/store/messages/multi-provider">
+Message storage API
+</Card>
+<Card title="Skills" icon="wand-magic-sparkles" href="/store/skill">
+Skills storage API
+</Card>
+</CardGroup>

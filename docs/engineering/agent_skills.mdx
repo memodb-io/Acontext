@@ -1,167 +1,34 @@
 ---
 title: "Using Agent Skills"
-description: "Upload skills and build an LLM agent that reads skill content using sandbox tools"
+description: "Upload skills and build agents that use them"
 ---
 
-This guide walks you through the complete workflow of uploading an agent skill and building a simple LLM-powered agent that uses sandbox tools to read and utilize the skill content.
+[Agent Skills](https://agentskills.io/home) are folders of instructions and resources that agents can use. This guide shows how to upload a skill and build an agent that reads it.
 
-<Tip>
-[Agent Skills](https://agentskills.io/home) is a simple, open format for giving agents new capabilities and expertise. Skills are folders of instructions, scripts, and resources that agents can discover and use to perform tasks more accurately and efficiently.
-</Tip>
+## Step 1: Get a Skill
 
-## What you'll learn
-
-By the end of this guide, you will be able to:
-
-- Get a skill from Anthropic's repository (or create your own)
-- Upload a skill to Acontext
-- Build an agentic loop that uses sandbox tools to read skill files
-- Clean up resources when finished
-
-## Prerequisites
-
-Before you begin, ensure you have:
-
-- An Acontext API key from [Acontext Dashboard](https://dash.acontext.io) or a [local deployment](/settings/local)
-- OpenAI API key (or Anthropic API key for Claude)
-- Python 3.10+ or Node.js 18+ installed
-
-## Step 1: Get a skill
-
-The easiest way to get started is to download a pre-built skill from Anthropic's open-source repository.
-
-<Steps>
-<Step title="Download a skill">
-Visit the [Anthropic Skills Repository](https://github.com/anthropics/skills/tree/main/skills) and download one of the available skills. 
-Each folder in the repository is a complete skill.
-
-For simplicity, we recommend the `internal-comms` skill which contains company context and communication guidelines.
+Download from [Anthropic Skills Repository](https://github.com/anthropics/skills/tree/main/skills):
 
 ```bash
-# Clone the repository
 git clone https://github.com/anthropics/skills.git
-
-# Navigate to a skill folder
 cd skills/skills/internal-comms
-```
-</Step>
-
-<Step title="Create the ZIP file">
-Zip the skill folder with `SKILL.md` at the root:
-
-```bash
 zip -r internal-comms.zip .
 ```
 
-<Check>
-Verify that `SKILL.md` is at the root level of the ZIP, not inside a subfolder.
-</Check>
-</Step>
-</Steps>
-
-<AccordionGroup>
-<Accordion title="Want to create your own skill?">
-You can create a custom skill with a `SKILL.md` file that contains YAML frontmatter with `name` and `description`.
-
-**1. Create the SKILL.md file**
-
-```markdown SKILL.md
----
-name: greeting-assistant
-description: A simple skill that teaches the agent how to greet users in different styles
----
-
-# Greeting Assistant Skill
-
-This skill helps agents create personalized greetings for users.
-
-## Available Greeting Styles
-
-1. **Formal**: Professional greetings suitable for business contexts
-2. **Casual**: Friendly, relaxed greetings for informal situations
-3. **Enthusiastic**: High-energy greetings that convey excitement
-
-## Usage Instructions
-
-When asked to greet someone:
-1. Determine the appropriate style based on context
-2. Use the templates in `templates/greetings.json`
-3. Personalize the greeting with the user's name if provided
-```
-
-**2. Add supporting files**
-
-Create a `templates` folder with a `greetings.json` file:
-
-```json templates/greetings.json
-{
-  "formal": [
-    "Good morning, {name}. I hope this message finds you well.",
-    "Dear {name}, thank you for reaching out."
-  ],
-  "casual": [
-    "Hey {name}! What's up?",
-    "Hi there, {name}! Good to see you."
-  ],
-  "enthusiastic": [
-    "Wow, {name}! So great to hear from you!",
-    "Hey {name}! This is awesome!"
-  ]
-}
-```
-
-**3. Create the ZIP**
-
-```bash
-zip -r greeting-skill.zip SKILL.md templates/
-```
-
-Your ZIP structure should look like:
-```
-greeting-skill.zip
-├── SKILL.md
-└── templates/
-    └── greetings.json
-```
-</Accordion>
-</AccordionGroup>
-
-
-<Tip>
-Agent skills have a very prosperous ecosystem, and you can download skills in many different ways：
-- [skills.sh](skills.sh) by Vercel
-- [awesome-agent-skills](https://github.com/heilcheng/awesome-agent-skills) by heilcheng
-</Tip>
-
-## Step 2: Upload the skill
-
-Upload the skill to Acontext using the SDK.
+## Step 2: Upload the Skill
 
 <CodeGroup>
 ```python Python
 import os
 from acontext import AcontextClient, FileUpload
 
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
 
-# If you're using self-hosted Acontext:
-# client = AcontextClient(
-#     base_url="http://localhost:8029/api/v1",
-#     api_key="sk-ac-your-root-api-bearer-token",
-# )
-
-# Read and upload the skill ZIP
 with open("internal-comms.zip", "rb") as f:
     skill = client.skills.create(
-        file=FileUpload(filename="internal-comms.zip", content=f.read()),
-        meta={"category": "assistant", "version": "1.0"}
+        file=FileUpload(filename="internal-comms.zip", content=f.read())
     )
-
-print(f"Skill uploaded: {skill.name}")
 print(f"Skill ID: {skill.id}")
-print(f"Files: {[f.path for f in skill.file_index]}")
 ```
 
 ```typescript TypeScript
@@ -172,37 +39,17 @@ const client = new AcontextClient({
     apiKey: process.env.ACONTEXT_API_KEY,
 });
 
-// If you're using self-hosted Acontext:
-// const client = new AcontextClient({
-//     baseUrl: 'http://localhost:8029/api/v1',
-//     apiKey: 'sk-ac-your-root-api-bearer-token',
-// });
-
-// Read and upload the skill ZIP
-const zipContent = fs.readFileSync('internal-comms.zip');
+const fileContent = fs.readFileSync("internal-comms.zip");
 const skill = await client.skills.create({
-    file: new FileUpload({
-        filename: 'internal-comms.zip',
-        content: zipContent,
-        contentType: 'application/zip'
-    }),
-    meta: { category: 'assistant', version: '1.0' }
+    file: new FileUpload({ filename: "internal-comms.zip", content: fileContent }),
 });
-
-console.log(`Skill uploaded: ${skill.name}`);
 console.log(`Skill ID: ${skill.id}`);
-console.log(`Files: ${skill.file_index.map(f => f.path)}`);
 ```
 </CodeGroup>
 
-<Info>
-Save the `skill.id` value - you'll need it in the next step to mount the skill in a sandbox.
-</Info>
+## Step 3: Build an Agent with Sandbox Tools
 
-## Step 3: Build an agent with sandbox tools
-
-Now create an agent that mounts the skill in a sandbox and reads the skill files to generate a response.
-
+<Accordion title="Complete example with sandbox tools">
 <CodeGroup>
 ```python Python
 import json
@@ -211,226 +58,116 @@ from acontext import AcontextClient
 from acontext.agent.sandbox import SANDBOX_TOOLS
 from openai import OpenAI
 
-# Initialize clients
-acontext_client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# If you're using self-hosted Acontext:
-# acontext_client = AcontextClient(
-#     base_url="http://localhost:8029/api/v1",
-#     api_key="sk-ac-your-root-api-bearer-token",
-# )
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
 openai_client = OpenAI()
 
-# Use the skill ID from Step 2
-skill_id = "your-skill-id-here"
+skill_id = "your-skill-id"
 
 # Create sandbox and disk
-sandbox = acontext_client.sandboxes.create()
-disk = acontext_client.disks.create()
+sandbox = client.sandboxes.create()
+disk = client.disks.create()
 
-# Create sandbox context with the skill mounted
+# Mount skill in sandbox
 ctx = SANDBOX_TOOLS.format_context(
-    acontext_client,
+    client,
     sandbox_id=sandbox.sandbox_id,
     disk_id=disk.id,
-    mount_skills=[skill_id]  # Mount the skill
+    mount_skills=[skill_id]
 )
 
-# Get tool schemas and context prompt
 tools = SANDBOX_TOOLS.to_openai_tool_schema()
 context_prompt = ctx.get_context_prompt()
 
-# Build messages with the task
 messages = [
-    {
-        "role": "system",
-        "content": f"You are a helpful assistant with access to sandbox tools.\n\n{context_prompt}",
-    },
-    {
-        "role": "user",
-        "content": "What communication guidelines should I follow? First read the skill files to learn.",
-    }
+    {"role": "system", "content": f"You have sandbox tools.\n\n{context_prompt}"},
+    {"role": "user", "content": "What communication guidelines should I follow?"}
 ]
 
-# Agentic loop
-print("Starting agent loop...")
+# Agent loop
 while True:
     response = openai_client.chat.completions.create(
-        model="gpt-4.1",
-        messages=messages,
-        tools=tools,
+        model="gpt-4.1", messages=messages, tools=tools
     )
-
     message = response.choices[0].message
     messages.append(message)
 
-    # Break if no tool calls - agent is done
     if not message.tool_calls:
-        print(f"\n🤖 Assistant: {message.content}")
+        print(f"Assistant: {message.content}")
         break
 
-    # Execute each tool call
-    for tool_call in message.tool_calls:
-        print(f"⚙️ Calling: {tool_call.function.name}")
-        result = SANDBOX_TOOLS.execute_tool(
-            ctx, 
-            tool_call.function.name, 
-            json.loads(tool_call.function.arguments)
-        )
-        print(f"📄 Result preview: {result[:200]}..." if len(result) > 200 else f"📄 Result: {result}")
-        messages.append({
-            "role": "tool",
-            "tool_call_id": tool_call.id,
-            "content": result
-        })
+    for tc in message.tool_calls:
+        result = SANDBOX_TOOLS.execute_tool(ctx, tc.function.name, json.loads(tc.function.arguments))
+        messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
 
-# Clean up resources
-acontext_client.sandboxes.kill(sandbox.sandbox_id)
-acontext_client.disks.delete(disk.id)
-acontext_client.skills.delete(skill_id)
-print("\n✓ Resources cleaned up")
+# Cleanup
+client.sandboxes.kill(sandbox.sandbox_id)
+client.disks.delete(disk.id)
 ```
 
 ```typescript TypeScript
 import { AcontextClient, SANDBOX_TOOLS } from '@acontext/acontext';
 import OpenAI from 'openai';
 
-// Initialize clients
-const acontextClient = new AcontextClient({
+const client = new AcontextClient({
     apiKey: process.env.ACONTEXT_API_KEY,
 });
+const openai = new OpenAI();
 
-// If you're using self-hosted Acontext:
-// const acontextClient = new AcontextClient({
-//     baseUrl: 'http://localhost:8029/api/v1',
-//     apiKey: 'sk-ac-your-root-api-bearer-token',
-// });
-const openaiClient = new OpenAI();
+const skillId = "your-skill-id";
 
-async function main() {
-    // Use the skill ID from Step 2
-    const skillId = 'your-skill-id-here';
+// Create sandbox and disk
+const sandbox = await client.sandboxes.create();
+const disk = await client.disks.create();
 
-    // Create sandbox and disk
-    const sandbox = await acontextClient.sandboxes.create();
-    const disk = await acontextClient.disks.create();
+// Mount skill in sandbox
+const ctx = await SANDBOX_TOOLS.formatContext(
+    client,
+    sandbox.sandbox_id,
+    disk.id,
+    [skillId]
+);
 
-    // Create sandbox context with the skill mounted
-    const ctx = await SANDBOX_TOOLS.formatContext(
-        acontextClient,
-        sandbox.sandbox_id,
-        disk.id,
-        [skillId]  // Mount the skill
-    );
+const tools = SANDBOX_TOOLS.toOpenAIToolSchema();
+const contextPrompt = ctx.getContextPrompt();
 
-    // Get tool schemas and context prompt
-    const tools = SANDBOX_TOOLS.toOpenAIToolSchema();
-    const contextPrompt = ctx.getContextPrompt();
+const messages: OpenAI.ChatCompletionMessageParam[] = [
+    { role: "system", content: `You have sandbox tools.\n\n${contextPrompt}` },
+    { role: "user", content: "What communication guidelines should I follow?" },
+];
 
-    // Build messages with the task
-    const messages: any[] = [
-        {
-            role: 'system',
-            content: `You are a helpful assistant with access to sandbox tools.\n\n${contextPrompt}`,
-        },
-        {
-            role: 'user',
-            content: 'What communication guidelines should I follow? First read the skill files to learn.',
-        },
-    ];
+// Agent loop
+while (true) {
+    const response = await openai.chat.completions.create({
+        model: "gpt-4.1",
+        messages,
+        tools,
+    });
+    const message = response.choices[0].message;
+    messages.push(message);
 
-    // Agentic loop
-    console.log('Starting agent loop...');
-    while (true) {
-        const response = await openaiClient.chat.completions.create({
-            model: 'gpt-4.1',
-            messages,
-            tools,
-        });
-
-        const message = response.choices[0].message;
-        messages.push(message);
-
-        // Break if no tool calls - agent is done
-        if (!message.tool_calls) {
-            console.log(`\n🤖 Assistant: ${message.content}`);
-            break;
-        }
-
-        // Execute each tool call
-        for (const toolCall of message.tool_calls) {
-            console.log(`⚙️ Calling: ${toolCall.function.name}`);
-            const result = await SANDBOX_TOOLS.executeTool(
-                ctx,
-                toolCall.function.name,
-                JSON.parse(toolCall.function.arguments)
-            );
-            console.log(result.length > 200 
-                ? `📄 Result preview: ${result.slice(0, 200)}...` 
-                : `📄 Result: ${result}`);
-            messages.push({
-                role: 'tool',
-                tool_call_id: toolCall.id,
-                content: result,
-            });
-        }
+    if (!message.tool_calls) {
+        console.log(`Assistant: ${message.content}`);
+        break;
     }
 
-    // Clean up resources
-    await acontextClient.sandboxes.kill(sandbox.sandbox_id);
-    await acontextClient.disks.delete(disk.id);
-    await acontextClient.skills.delete(skillId);
-    console.log('\n✓ Resources cleaned up');
+    for (const tc of message.tool_calls) {
+        const result = await SANDBOX_TOOLS.executeTool(ctx, tc.function.name, JSON.parse(tc.function.arguments));
+        messages.push({ role: "tool", tool_call_id: tc.id, content: result });
+    }
 }
 
-main();
+// Cleanup
+await client.sandboxes.kill(sandbox.sandbox_id);
+await client.disks.delete(disk.id);
 ```
 </CodeGroup>
+</Accordion>
 
-## How the agent works
+## Alternative: Skill Content Tools
 
-When you run the code above, the agent follows this flow:
+For read-only skills (no scripts to execute):
 
-<Steps>
-<Step title="Skill mounting">
-The skill is automatically downloaded to `/skills/internal-comms/` in the sandbox when the context is created with `mount_skills`.
-</Step>
-
-<Step title="Reading SKILL.md">
-The agent uses `text_editor_sandbox` with the `view` command to read `/skills/internal-comms/SKILL.md` and understand the skill's purpose and instructions.
-</Step>
-
-<Step title="Reading additional files">
-The agent reads other files in the skill folder to get specific guidelines and context.
-</Step>
-
-<Step title="Generating response">
-Based on the skill content, the agent provides relevant communication guidelines.
-</Step>
-</Steps>
-
-**Example output:**
-
-```
-Starting agent loop...
-⚙️ Calling: text_editor_sandbox
-📄 Result: # Internal Communications Skill...
-⚙️ Calling: text_editor_sandbox
-📄 Result: [Additional context files...]
-
-🤖 Assistant: Based on the internal communications guidelines, here are the key points to follow:
-
-1. Use clear, concise language in all communications
-2. Follow the company's tone and voice guidelines
-3. ...
-```
-
-## Alternative: Using skill content tools
-
-If your skill doesn't require running scripts and only contains reference content, you can use the lightweight [Skill Content Tools](/tool/skill_tools) instead of sandbox tools. This approach doesn't require creating a sandbox.
-
+<Accordion title="Complete example with skill tools">
 <CodeGroup>
 ```python Python
 import json
@@ -439,164 +176,87 @@ from acontext import AcontextClient
 from acontext.agent.skill import SKILL_TOOLS
 from openai import OpenAI
 
-# Initialize clients
-acontext_client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# If you're using self-hosted Acontext:
-# acontext_client = AcontextClient(
-#     base_url="http://localhost:8029/api/v1",
-#     api_key="sk-ac-your-root-api-bearer-token",
-# )
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
 openai_client = OpenAI()
 
-# Preload skills by UUID
-skill_ids = ["your-skill-id-here"]
-ctx = SKILL_TOOLS.format_context(acontext_client, skill_ids)
-
-# Get tools and context
+ctx = SKILL_TOOLS.format_context(client, ["your-skill-id"])
 tools = SKILL_TOOLS.to_openai_tool_schema()
-skills_context = ctx.get_context_prompt()
 
 messages = [
-    {
-        "role": "system",
-        "content": f"You are a helpful assistant with access to skills.\n\n{skills_context}",
-    },
-    {
-        "role": "user",
-        "content": "What are the internal communication guidelines?",
-    }
+    {"role": "system", "content": f"You have skill access.\n\n{ctx.get_context_prompt()}"},
+    {"role": "user", "content": "What are the guidelines?"}
 ]
 
-# Agentic loop
 while True:
     response = openai_client.chat.completions.create(
-        model="gpt-4.1",
-        messages=messages,
-        tools=tools,
+        model="gpt-4.1", messages=messages, tools=tools
     )
-
     message = response.choices[0].message
     messages.append(message)
 
     if not message.tool_calls:
-        print(f"🤖 Assistant: {message.content}")
+        print(f"Assistant: {message.content}")
         break
 
-    for tool_call in message.tool_calls:
-        print(f"⚙️ Called: {tool_call.function.name}")
-        result = SKILL_TOOLS.execute_tool(
-            ctx, 
-            tool_call.function.name, 
-            json.loads(tool_call.function.arguments)
-        )
-        messages.append({
-            "role": "tool",
-            "tool_call_id": tool_call.id,
-            "content": result
-        })
+    for tc in message.tool_calls:
+        result = SKILL_TOOLS.execute_tool(ctx, tc.function.name, json.loads(tc.function.arguments))
+        messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
 ```
 
 ```typescript TypeScript
 import { AcontextClient, SKILL_TOOLS } from '@acontext/acontext';
 import OpenAI from 'openai';
 
-const acontextClient = new AcontextClient({
+const client = new AcontextClient({
     apiKey: process.env.ACONTEXT_API_KEY,
 });
+const openai = new OpenAI();
 
-// If you're using self-hosted Acontext:
-// const acontextClient = new AcontextClient({
-//     baseUrl: 'http://localhost:8029/api/v1',
-//     apiKey: 'sk-ac-your-root-api-bearer-token',
-// });
-const openaiClient = new OpenAI();
+const ctx = await SKILL_TOOLS.formatContext(client, ["your-skill-id"]);
+const tools = SKILL_TOOLS.toOpenAIToolSchema();
 
-async function main() {
-    // Preload skills by UUID
-    const skillIds = ['your-skill-id-here'];
-    const ctx = await SKILL_TOOLS.formatContext(acontextClient, skillIds);
+const messages: OpenAI.ChatCompletionMessageParam[] = [
+    { role: "system", content: `You have skill access.\n\n${ctx.getContextPrompt()}` },
+    { role: "user", content: "What are the guidelines?" },
+];
 
-    // Get tools and context
-    const tools = SKILL_TOOLS.toOpenAIToolSchema();
-    const skillsContext = ctx.getContextPrompt();
+while (true) {
+    const response = await openai.chat.completions.create({
+        model: "gpt-4.1",
+        messages,
+        tools,
+    });
+    const message = response.choices[0].message;
+    messages.push(message);
 
-    const messages: any[] = [
-        {
-            role: 'system',
-            content: `You are a helpful assistant with access to skills.\n\n${skillsContext}`,
-        },
-        {
-            role: 'user',
-            content: 'What are the internal communication guidelines?',
-        },
-    ];
+    if (!message.tool_calls) {
+        console.log(`Assistant: ${message.content}`);
+        break;
+    }
 
-    // Agentic loop
-    while (true) {
-        const response = await openaiClient.chat.completions.create({
-            model: 'gpt-4.1',
-            messages,
-            tools,
-        });
-
-        const message = response.choices[0].message;
-        messages.push(message);
-
-        if (!message.tool_calls) {
-            console.log(`🤖 Assistant: ${message.content}`);
-            break;
-        }
-
-        for (const toolCall of message.tool_calls) {
-            console.log(`⚙️ Called: ${toolCall.function.name}`);
-            const result = await SKILL_TOOLS.executeTool(
-                ctx,
-                toolCall.function.name,
-                JSON.parse(toolCall.function.arguments)
-            );
-            messages.push({
-                role: 'tool',
-                tool_call_id: toolCall.id,
-                content: result,
-            });
-        }
+    for (const tc of message.tool_calls) {
+        const result = await SKILL_TOOLS.executeTool(ctx, tc.function.name, JSON.parse(tc.function.arguments));
+        messages.push({ role: "tool", tool_call_id: tc.id, content: result });
     }
 }
-
-main();
 ```
 </CodeGroup>
+</Accordion>
 
-## Choosing the right approach
+## When to Use Each
 
-| Approach | Use When | Pros | Cons |
-|----------|----------|------|------|
-| **Sandbox Tools** | Skill contains executable scripts | Can run code, full filesystem access | Requires sandbox resource |
-| **Skill Content Tools** | Skill contains only reference content | Lightweight, no sandbox needed | Cannot execute scripts |
+| Approach | Use When |
+|----------|----------|
+| **Sandbox Tools** | Skill has executable scripts |
+| **Skill Content Tools** | Skill is read-only reference |
 
-<Tip>
-Use **Sandbox Tools** when your skill includes Python scripts, shell commands, or any code that needs to be executed. Use **Skill Content Tools** when your skill only contains documentation, templates, or reference data.
-</Tip>
-
-## Next steps
+## Next Steps
 
 <CardGroup cols={2}>
-<Card title="Skill API Reference" icon="book" href="/store/skill">
-Learn more about the Skills API including advanced features like pagination and filtering.
+<Card title="Skill API" icon="book" href="/store/skill">
+Skills storage API
 </Card>
-
 <Card title="Sandbox Tools" icon="terminal" href="/tool/bash_tools">
-Explore the full sandbox tools API including bash execution and file editing.
-</Card>
-
-<Card title="Skill Content Tools" icon="wand-magic-sparkles" href="/tool/skill_tools">
-Learn about the lightweight skill content tools for read-only skill access.
-</Card>
-
-<Card title="Anthropic Skills Repository" icon="github" href="https://github.com/anthropics/skills/tree/main/skills">
-Browse pre-built skills from Anthropic's open-source repository.
+Full sandbox API
 </Card>
 </CardGroup>

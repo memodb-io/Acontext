@@ -1,742 +1,243 @@
 ---
 title: Disk
-description: "Acontext offers a filesystem-like disk for storing artifacts."
+description: "S3-backed file storage for your agent"
 ---
 
-The Disk API provides persistent, S3-backed storage for file artifacts in your Acontext projects. 
+Disk provides persistent file storage with paths, metadata, and secure download URLs.
 
-You can organize files using a filesystem-like structure with paths, store custom metadata, and generate secure download URLs.
-
-
-<Tip>
-Consider Acontext Disk as the google drive for your agent.
-</Tip>
-
-## Setup Filesystem for your Agent
 <Card title="Agentic Disk SDK" icon="box" href="/tool/disk_tools">
-Bring filesystem to your Agent with one-line code.
+Bring filesystem to your agent with one-line code.
 </Card>
-If you like to know the details of Disk APIs, please read the following documentation.
 
-## What you'll build
-
-In this quickstart, you'll learn how to:
-
-- Create a disk for storing files
-- Upload files with custom metadata
-- Retrieve files with presigned URLs
-- Organize files using paths
-- Update metadata and manage artifacts
-
-## Prerequisites
-
-Before you begin, ensure you have:
-- An Acontext API key from [Acontext Dashboard](https://dash.acontext.io), or [local deployment](/settings/local)
-
-## Initialize the client
-
-First, create a client instance with your API key and base URL.
-
-<CodeGroup>
-```python Python
-import os
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# If you're using self-hosted Acontext:
-# client = AcontextClient(
-#     base_url="http://localhost:8029/api/v1",
-#     api_key="sk-ac-your-root-api-bearer-token",
-# )
-
-client.ping()
-```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-// If you're using self-hosted Acontext:
-// const client = new AcontextClient({
-//     baseUrl: "http://localhost:8029/api/v1",
-//     apiKey: "sk-ac-your-root-api-bearer-token",
-// });
-```
-</CodeGroup>
-
-<Warning>
-Never hardcode API keys in production code. Use environment variables instead.
-</Warning>
-
-## Step-by-step tutorial
+## Quick Start
 
 <Steps>
 <Step title="Create a disk">
-Create a new disk to store your artifacts. Each disk is an isolated storage container with a unique ID.
-
 <CodeGroup>
 ```python Python
-# Create a new disk (optionally associate with a user)
-disk = client.disks.create(user="user@example.com")
-print(f"Created disk: {disk.id}")
-```
-
-```typescript TypeScript
-// Create a new disk (optionally associate with a user)
-const disk = await client.disks.create({ user: 'user@example.com' });
-console.log(`Created disk: ${disk.id}`);
-```
-</CodeGroup>
-
-The disk object contains:
-- `id`: Unique disk identifier
-- `project_id`: Your project ID
-- `created_at`: ISO 8601 timestamp
-- `updated_at`: ISO 8601 timestamp
-
-<Check>
-Save the disk ID - you'll need it to upload and retrieve files.
-</Check>
-
-<Tip>
-You can associate a disk with a specific user by passing the `user` parameter when creating it. 
-This enables per-user resource management and cleanup. 
-See [Per-user Resources](/chore/per-user) for details.
-</Tip>
-</Step>
-
-<Step title="Upload a file">
-Upload your first file to the disk. You can specify a path to organize files and add custom metadata.
-
-<CodeGroup>
-```python Python
-from acontext import FileUpload
-
-# Create a file upload
-file = FileUpload(
-    filename="sprint-plan.md",
-    content=b"# Sprint Plan\n\n## Goals\n- Complete user authentication\n- Fix critical bugs"
-)
-
-# Upload to disk with path and metadata
-artifact = client.disks.artifacts.upsert(
-    disk.id,
-    file=file,
-    file_path="/documents/2024/",
-    meta={
-        "department": "engineering",
-        "author": "alice",
-        "version": "1.0"
-    }
-)
-
-print(f"Uploaded: {artifact.filename}")
-print(f"Path: {artifact.path}")
-```
-
-```typescript TypeScript
-import { FileUpload } from '@acontext/acontext';
-
-// Create a file upload
-const file = new FileUpload({
-    filename: "sprint-plan.md",
-    content: Buffer.from("# Sprint Plan\n\n## Goals\n- Complete user authentication\n- Fix critical bugs"),
-    contentType: "text/markdown"
-});
-
-// Upload to disk with path and metadata
-const artifact = await client.disks.artifacts.upsert(disk.id, {
-    file: file,
-    filePath: "/documents/2024/",
-    meta: {
-        department: "engineering",
-        author: "alice",
-        version: "1.0"
-    }
-});
-
-console.log(`Uploaded: ${artifact.filename}`);
-console.log(`Path: ${artifact.path}`);
-```
-</CodeGroup>
-
-<Note>
-The `upsert` method creates a new artifact or updates an existing one if a file with the same path and filename already exists.
-</Note>
-
-<Tip>
-Use meaningful paths like `/images/`, `/documents/`, or `/reports/2024/` to organize your files logically.
-</Tip>
-</Step>
-
-<Step title="Retrieve a file with URL">
-Get an artifact and generate a presigned URL for secure downloading. You can also retrieve the file content directly.
-
-<CodeGroup>
-```python Python
-# Get artifact with public URL and content
-result = client.disks.artifacts.get(
-    disk.id,
-    file_path="/documents/2024/",
-    filename="sprint-plan.md",
-    with_public_url=True,
-    with_content=True
-)
-
-print(f"Public URL: {result.public_url}")
-print(f"Metadata: {result.artifact.meta}")
-
-# Access file content if available
-if result.content:
-    print(f"Content type: {result.content.type}")
-    print(f"Content: {result.content.raw[:100]}...")  # First 100 chars
-```
-
-```typescript TypeScript
-// Get artifact with public URL and content
-const result = await client.disks.artifacts.get(disk.id, {
-    filePath: "/documents/2024/",
-    filename: "sprint-plan.md",
-    withPublicUrl: true,
-    withContent: true
-});
-
-console.log(`Public URL: ${result.public_url}`);
-console.log(`Metadata: ${result.artifact.meta}`);
-
-// Access file content if available
-if (result.content) {
-    console.log(`Content type: ${result.content.type}`);
-    console.log(`Content: ${result.content.raw.substring(0, 100)}...`);
-}
-```
-</CodeGroup>
-
-The response includes:
-- `artifact`: Full artifact object with metadata
-- `public_url`: Presigned URL for downloading (if requested)
-- `content`: Parsed file content for text, JSON, CSV, or code files (if requested)
-
-<Info>
-Presigned URLs are temporary and expire after a default duration. You can customize expiration using the `expire` parameter (in seconds).
-</Info>
-</Step>
-
-<Step title="List artifacts in a path">
-View all files and subdirectories at a specific path.
-
-<CodeGroup>
-```python Python
-# List artifacts in the documents folder
-result = client.disks.artifacts.list(
-    disk.id,
-    path="/documents/2024/"
-)
-
-print("Files:")
-for artifact in result.artifacts:
-    print(f"  - {artifact.filename} ({artifact.meta.get('author', 'unknown')})")
-
-print("\nDirectories:")
-for directory in result.directories:
-    print(f"  - {directory}")
-```
-
-```typescript TypeScript
-// List artifacts in the documents folder
-const result = await client.disks.artifacts.list(disk.id, {
-    path: "/documents/2024/"
-});
-
-console.log("Files:");
-result.artifacts.forEach(artifact => {
-    console.log(`  - ${artifact.filename} (${artifact.meta.author || 'unknown'})`);
-});
-
-console.log("\nDirectories:");
-result.directories.forEach(directory => {
-    console.log(`  - ${directory}`);
-});
-```
-</CodeGroup>
-
-<Check>
-Use this to browse your file structure and discover what's stored in each directory.
-</Check>
-</Step>
-
-<Step title="Search file contents with grep">
-Search for text patterns within file contents using regex. This only searches text-based files (code, markdown, JSON, CSV, etc.).
-
-<CodeGroup>
-```python Python
-# Search for files containing "authentication" in content
-results = client.disks.artifacts.grep_artifacts(
-    disk.id,
-    query="authentication",
-    limit=50
-)
-
-print(f"Found {len(results)} file(s) matching pattern:")
-for artifact in results:
-    print(f"  - {artifact.path}{artifact.filename}")
-```
-
-```typescript TypeScript
-// Search for files containing "authentication" in content
-const results = await client.disks.artifacts.grepArtifacts(disk.id, {
-    query: "authentication",
-    limit: 50
-});
-
-console.log(`Found ${results.length} file(s) matching pattern:`);
-results.forEach(artifact => {
-    console.log(`  - ${artifact.path}${artifact.filename}`);
-});
-```
-</CodeGroup>
-
-<Tip>
-Use regex patterns like `"Goals.*"` to find sections, `"#.*Plan"` to find markdown headers, or `"TODO.*"` to find TODO comments. Remember: in regex, `.*` means "any characters" while `*` alone means "zero or more of the preceding character".
-</Tip>
-</Step>
-
-<Step title="Find files with glob patterns">
-Find files by path pattern using glob syntax. Use `*` for any characters, `?` for single character, `**` for recursive directories.
-
-<CodeGroup>
-```python Python
-# Find all markdown files
-results = client.disks.artifacts.glob_artifacts(
-    disk.id,
-    query="**/*.md",
-    limit=100
-)
-
-print(f"Found {len(results)} markdown file(s):")
-for artifact in results:
-    print(f"  - {artifact.path}{artifact.filename}")
-
-# Find files in documents/2024 folder
-docs = client.disks.artifacts.glob_artifacts(
-    disk.id,
-    query="/documents/2024/*"
-)
-```
-
-```typescript TypeScript
-// Find all markdown files
-const results = await client.disks.artifacts.globArtifacts(disk.id, {
-    query: "**/*.md",
-    limit: 100
-});
-
-console.log(`Found ${results.length} markdown file(s):`);
-results.forEach(artifact => {
-    console.log(`  - ${artifact.path}${artifact.filename}`);
-});
-
-// Find files in documents/2024 folder
-const docs = await client.disks.artifacts.globArtifacts(disk.id, {
-    query: "/documents/2024/*"
-});
-```
-</CodeGroup>
-
-<Info>
-Glob patterns are perfect for discovering files by extension or location without knowing exact filenames.
-</Info>
-</Step>
-
-<Step title="Update file metadata">
-Modify an artifact's metadata without re-uploading the file.
-
-<CodeGroup>
-```python Python
-# Update metadata
-result = client.disks.artifacts.update(
-    disk.id,
-    file_path="/documents/2024/",
-    filename="sprint-plan.md",
-    meta={
-        "department": "engineering",
-        "author": "alice",
-        "version": "1.1",
-        "reviewed": True,
-        "reviewed_by": "bob"
-    }
-)
-
-print(f"Updated metadata: {result.artifact.meta}")
-```
-
-```typescript TypeScript
-// Update metadata
-const result = await client.disks.artifacts.update(disk.id, {
-    filePath: "/documents/2024/",
-    filename: "sprint-plan.md",
-    meta: {
-        department: "engineering",
-        author: "alice",
-        version: "1.1",
-        reviewed: true,
-        reviewed_by: "bob"
-    }
-});
-
-console.log(`Updated metadata: ${result.artifact.meta}`);
-```
-</CodeGroup>
-
-<Note>
-Metadata updates are efficient - you don't need to re-upload the entire file.
-</Note>
-</Step>
-
-<Step title="Clean up">
-Delete artifacts and disks when you're done.
-
-<CodeGroup>
-```python Python
-# Delete an artifact
-client.disks.artifacts.delete(
-    disk.id,
-    file_path="/documents/2024/",
-    filename="sprint-plan.md"
-)
-print("Artifact deleted")
-
-# Delete the entire disk
-client.disks.delete(disk.id)
-print("Disk deleted")
-```
-
-```typescript TypeScript
-// Delete an artifact
-await client.disks.artifacts.delete(disk.id, {
-    filePath: "/documents/2024/",
-    filename: "sprint-plan.md"
-});
-console.log("Artifact deleted");
-
-// Delete the entire disk
-await client.disks.delete(disk.id);
-console.log("Disk deleted");
-```
-</CodeGroup>
-
-<Warning>
-Deleting a disk removes all artifacts stored within it. This action cannot be undone.
-</Warning>
-<Note>
-You can skip this clean-up step and goto dashboard to view the artifacts ([screenshot](/observe/dashboard#artifact-viewer)).
-</Note>
-</Step>
-</Steps>
-
-## Complete example
-
-Here's a complete working example that demonstrates the full workflow:
-
-<CodeGroup>
-```python Python
+import os
 from acontext import AcontextClient, FileUpload
 
-def main():
-    # Initialize client
-    client = AcontextClient(
-        api_key=os.getenv("ACONTEXT_API_KEY"),
-    )
-    
-    try:
-        # Create disk
-        disk = client.disks.create()
-        print(f"✓ Created disk: {disk.id}")
-        
-        # Upload file
-        artifact = client.disks.artifacts.upsert(
-            disk.id,
-            file=FileUpload(
-                filename="notes.md",
-                content=b"# Meeting Notes\nDiscussed Q4 goals."
-            ),
-            file_path="/meetings/",
-            meta={"date": "2024-01-15", "attendees": 5}
-        )
-        print(f"✓ Uploaded: {artifact.filename}")
-        
-        # Retrieve with URL
-        result = client.disks.artifacts.get(
-            disk.id,
-            file_path="/meetings/",
-            filename="notes.md",
-            with_public_url=True
-        )
-        print(f"✓ Download URL: {result.public_url}")
-        
-        # List files
-        files = client.disks.artifacts.list(disk.id, path="/meetings/")
-        print(f"✓ Found {len(files.artifacts)} file(s)")
-        
-        # Update metadata
-        client.disks.artifacts.update(
-            disk.id,
-            file_path="/meetings/",
-            filename="notes.md",
-            meta={"date": "2024-01-15", "attendees": 5, "status": "completed"}
-        )
-        print("✓ Updated metadata")
-        
-        # Cleanup
-        client.disks.artifacts.delete(disk.id, file_path="/meetings/", filename="notes.md")
-        client.disks.delete(disk.id)
-        print("✓ Cleaned up resources")
-        
-    except Exception as e:
-        print(f"✗ Error: {e}")
-
-if __name__ == "__main__":
-    main()
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+disk = client.disks.create()
 ```
 
 ```typescript TypeScript
 import { AcontextClient, FileUpload } from '@acontext/acontext';
 
-async function main() {
-    // Initialize client
-    const client = new AcontextClient({
-        apiKey: process.env.ACONTEXT_API_KEY,
-    });
-    
-    try {
-        // Create disk
-        const disk = await client.disks.create();
-        console.log(`✓ Created disk: ${disk.id}`);
-        
-        // Upload file
-        const artifact = await client.disks.artifacts.upsert(disk.id, {
-            file: new FileUpload({
-                filename: "notes.md",
-                content: Buffer.from("# Meeting Notes\nDiscussed Q4 goals."),
-                contentType: "text/markdown"
-            }),
-            filePath: "/meetings/",
-            meta: { date: "2024-01-15", attendees: 5 }
-        });
-        console.log(`✓ Uploaded: ${artifact.filename}`);
-        
-        // Retrieve with URL
-        const result = await client.disks.artifacts.get(disk.id, {
-            filePath: "/meetings/",
-            filename: "notes.md",
-            withPublicUrl: true
-        });
-        console.log(`✓ Download URL: ${result.public_url}`);
-        
-        // List files
-        const files = await client.disks.artifacts.list(disk.id, {
-            path: "/meetings/"
-        });
-        console.log(`✓ Found ${files.artifacts.length} file(s)`);
-        
-        // Update metadata
-        await client.disks.artifacts.update(disk.id, {
-            filePath: "/meetings/",
-            filename: "notes.md",
-            meta: { date: "2024-01-15", attendees: 5, status: "completed" }
-        });
-        console.log("✓ Updated metadata");
-        
-        // Cleanup
-        await client.disks.artifacts.delete(disk.id, {
-            filePath: "/meetings/",
-            filename: "notes.md"
-        });
-        await client.disks.delete(disk.id);
-        console.log("✓ Cleaned up resources");
-        
-    } catch (error) {
-        console.error(`✗ Error: ${error}`);
-    }
-}
-
-main();
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+const disk = await client.disks.create();
 ```
 </CodeGroup>
+</Step>
 
-## Advanced features
-
-<AccordionGroup>
-<Accordion title="File upload formats">
-Both SDKs support multiple file upload formats for convenience:
-
+<Step title="Upload a file">
 <CodeGroup>
 ```python Python
-# Using FileUpload object (recommended)
-file = FileUpload(filename="doc.txt", content=b"data")
-
-# Using tuple with bytes
-file = ("doc.txt", b"data")
-
-# Using tuple with file handle
-file = ("doc.txt", open("file.txt", "rb"))
-
-# Using tuple with content type
-file = ("doc.txt", b"data", "text/plain")
+artifact = client.disks.artifacts.upsert(
+    disk.id,
+    file=FileUpload(filename="notes.md", content=b"# Meeting Notes"),
+    file_path="/documents/",
+    meta={"author": "alice"}
+)
 ```
 
 ```typescript TypeScript
-// Using FileUpload object (recommended)
-const file = new FileUpload({
-    filename: "doc.txt",
-    content: Buffer.from("data"),
-    contentType: "text/plain"
+const artifact = await client.disks.artifacts.upsert(disk.id, {
+    file: new FileUpload({
+        filename: "notes.md",
+        content: Buffer.from("# Meeting Notes"),
+    }),
+    filePath: "/documents/",
+    meta: { author: "alice" },
 });
-
-// Using tuple with Buffer
-const file = ["doc.txt", Buffer.from("data")];
-
-// Using tuple with stream
-const file = ["doc.txt", fs.createReadStream("file.txt")];
-
-// Using tuple with content type
-const file = ["doc.txt", Buffer.from("data"), "text/plain"];
 ```
 </CodeGroup>
-</Accordion>
+</Step>
 
-<Accordion title="Pagination for listing disks">
-When you have many disks, use pagination to retrieve them in batches:
-
+<Step title="Get file with URL">
 <CodeGroup>
 ```python Python
-# List disks with pagination
-result = client.disks.list(limit=10, time_desc=True)
-
-for disk in result.items:
-    print(f"Disk: {disk.id}")
-
-# Get next page if available
-if result.has_more:
-    next_result = client.disks.list(
-        limit=10,
-        cursor=result.next_cursor,
-        time_desc=True
-    )
+result = client.disks.artifacts.get(
+    disk.id,
+    file_path="/documents/",
+    filename="notes.md",
+    with_public_url=True,
+    with_content=True
+)
+print(result.public_url)
+print(result.content.raw)
 ```
 
 ```typescript TypeScript
-// List disks with pagination
-const result = await client.disks.list({
-    limit: 10,
-    timeDesc: true
+const result = await client.disks.artifacts.get(disk.id, {
+    filePath: "/documents/",
+    filename: "notes.md",
+    withPublicUrl: true,
+    withContent: true,
 });
+console.log(result.publicUrl);
+console.log(result.content?.raw);
+```
+</CodeGroup>
+</Step>
 
-result.items.forEach(disk => {
-    console.log(`Disk: ${disk.id}`);
-});
+<Step title="List files">
+<CodeGroup>
+```python Python
+result = client.disks.artifacts.list(disk.id, path="/documents/")
+for artifact in result.artifacts:
+    print(f"{artifact.filename} - {artifact.meta}")
+```
 
-// Get next page if available
-if (result.has_more) {
-    const nextResult = await client.disks.list({
-        limit: 10,
-        cursor: result.next_cursor,
-        timeDesc: true
-    });
+```typescript TypeScript
+const listResult = await client.disks.artifacts.list(disk.id, { path: "/documents/" });
+for (const artifact of listResult.artifacts) {
+    console.log(`${artifact.filename} - ${JSON.stringify(artifact.meta)}`);
 }
+```
+</CodeGroup>
+</Step>
+
+<Step title="Search files">
+<CodeGroup>
+```python Python
+# Search content with regex
+results = client.disks.artifacts.grep_artifacts(disk.id, query="TODO.*")
+
+# Find by path pattern
+results = client.disks.artifacts.glob_artifacts(disk.id, query="**/*.md")
+```
+
+```typescript TypeScript
+// Search content with regex
+const grepResults = await client.disks.artifacts.grepArtifacts(disk.id, { query: "TODO.*" });
+
+// Find by path pattern
+const globResults = await client.disks.artifacts.globArtifacts(disk.id, { query: "**/*.md" });
+```
+</CodeGroup>
+</Step>
+
+<Step title="Update metadata">
+<CodeGroup>
+```python Python
+client.disks.artifacts.update(
+    disk.id,
+    file_path="/documents/",
+    filename="notes.md",
+    meta={"author": "alice", "reviewed": True}
+)
+```
+
+```typescript TypeScript
+await client.disks.artifacts.update(disk.id, {
+    filePath: "/documents/",
+    filename: "notes.md",
+    meta: { author: "alice", reviewed: true },
+});
+```
+</CodeGroup>
+</Step>
+
+<Step title="Clean up">
+<CodeGroup>
+```python Python
+client.disks.artifacts.delete(disk.id, file_path="/documents/", filename="notes.md")
+client.disks.delete(disk.id)
+```
+
+```typescript TypeScript
+await client.disks.artifacts.delete(disk.id, { filePath: "/documents/", filename: "notes.md" });
+await client.disks.delete(disk.id);
+```
+</CodeGroup>
+</Step>
+</Steps>
+
+## Complete Example
+
+<Accordion title="Full workflow">
+<CodeGroup>
+```python Python
+import os
+from acontext import AcontextClient, FileUpload
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+
+# Create disk
+disk = client.disks.create()
+
+# Upload file
+artifact = client.disks.artifacts.upsert(
+    disk.id,
+    file=FileUpload(filename="notes.md", content=b"# Meeting Notes\nQ4 goals discussed."),
+    file_path="/meetings/",
+    meta={"date": "2024-01-15"}
+)
+
+# Get with URL
+result = client.disks.artifacts.get(
+    disk.id, file_path="/meetings/", filename="notes.md",
+    with_public_url=True
+)
+print(f"URL: {result.public_url}")
+
+# List files
+files = client.disks.artifacts.list(disk.id, path="/meetings/")
+print(f"Found {len(files.artifacts)} files")
+
+# Cleanup
+client.disks.delete(disk.id)
+```
+
+```typescript TypeScript
+import { AcontextClient, FileUpload } from '@acontext/acontext';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+// Create disk
+const disk = await client.disks.create();
+
+// Upload file
+const artifact = await client.disks.artifacts.upsert(disk.id, {
+    file: new FileUpload({
+        filename: "notes.md",
+        content: Buffer.from("# Meeting Notes\nQ4 goals discussed."),
+    }),
+    filePath: "/meetings/",
+    meta: { date: "2024-01-15" },
+});
+
+// Get with URL
+const result = await client.disks.artifacts.get(disk.id, {
+    filePath: "/meetings/",
+    filename: "notes.md",
+    withPublicUrl: true,
+});
+console.log(`URL: ${result.publicUrl}`);
+
+// List files
+const files = await client.disks.artifacts.list(disk.id, { path: "/meetings/" });
+console.log(`Found ${files.artifacts.length} files`);
+
+// Cleanup
+await client.disks.delete(disk.id);
 ```
 </CodeGroup>
 </Accordion>
 
-<Accordion title="Async/await in Python">
-The Python SDK includes full async support for non-blocking operations:
-
-```python
-import asyncio
-from acontext import AsyncAcontextClient, FileUpload
-
-async def main():
-    async with AsyncAcontextClient(
-        api_key=os.getenv("ACONTEXT_API_KEY"),
-    ) as client:
-        # All methods are async
-        disk = await client.disks.create()
-        
-        artifact = await client.disks.artifacts.upsert(
-            disk.id,
-            file=FileUpload(
-                filename="async.txt",
-                content=b"Async content"
-            )
-        )
-        
-        result = await client.disks.artifacts.get(
-            disk.id,
-            file_path="/",
-            filename="async.txt"
-        )
-        
-        await client.disks.delete(disk.id)
-
-asyncio.run(main())
-```
-</Accordion>
-
-<Accordion title="System metadata in artifacts">
-Each artifact includes system-generated metadata in the `__artifact_info__` key:
-
-```json
-{
-  "__artifact_info__": {
-    "size_bytes": 512,
-    "content_type": "text/markdown",
-    "last_modified": "2024-01-15T10:30:00Z"
-  },
-  "department": "engineering",
-  "author": "alice"
-}
-```
-
-You can access this information alongside your custom metadata.
-</Accordion>
-</AccordionGroup>
-
-## Common use cases
+## Next Steps
 
 <CardGroup cols={2}>
-<Card title="Agent artifacts" icon="robot">
-Store files generated by AI agents, such as reports, diagrams, or code snippets, with metadata tracking generation parameters.
+<Card title="Sandbox" icon="terminal" href="/store/sandbox">
+Execute code with disk file transfer
 </Card>
-
-<Card title="User uploads" icon="upload">
-Handle user-uploaded files with custom metadata for categorization, access control, and searchability.
-</Card>
-
-<Card title="Document management" icon="file-lines">
-Build a document repository with version tracking, metadata tagging, and organized folder structures.
-</Card>
-
-<Card title="Build artifacts" icon="box">
-Store build outputs, logs, and assets from CI/CD pipelines with metadata for traceability.
+<Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
+View artifacts in the dashboard
 </Card>
 </CardGroup>
-
-## Troubleshooting
-
-<AccordionGroup>
-<Accordion title="File not found error">
-**Problem**: Getting a 404 error when retrieving an artifact.
-
-**Solution**: 
-- Verify the disk ID is correct
-- Ensure the file path exactly matches (including leading/trailing slashes)
-- Check that the filename is spelled correctly
-- Use `artifacts.list()` to see what files actually exist
-</Accordion>
-</AccordionGroup>

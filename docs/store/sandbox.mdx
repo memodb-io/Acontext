@@ -1,76 +1,25 @@
 ---
 title: Sandbox
-description: "Execute code in isolated, ephemeral sandbox environments"
+description: "Execute code in isolated environments"
 ---
 
-The Sandbox API provides secure, isolated environments for executing shell commands. 
-Each sandbox is a temporary container that runs independently, perfect for running untrusted code or testing scripts.
-
-## Setup Sandbox for your Agent
+Sandbox provides secure, isolated containers for executing shell commands.
 
 <Card title="Agentic Sandbox Tools" icon="terminal" href="/tool/bash_tools">
-Give your agent the ability to execute commands, edit files, and export results with pre-built tools.
+Give your agent command execution with pre-built tools.
 </Card>
 
-If you'd like to know the details of Sandbox APIs, please read the following documentation.
+## Quick Start
 
-## What you'll build
-
-In this quickstart, you'll learn how to:
-
-- Create a sandbox environment
-- Execute shell commands
-- Capture output and exit codes
-- Transfer files between disk and sandbox
-- Clean up when finished
-
-## Prerequisites
-
-Before you begin, ensure you have:
-- An Acontext API key from [Acontext Dashboard](https://dash.acontext.io), or [local deployment](/settings/local)
-
-## CLI Setup
-
-You can quickly set up a Cloudflare Sandbox Worker using the Acontext CLI:
-
-```bash
-# Start or create a sandbox project
-acontext sandbox start
-```
-
-The CLI will:
-- Scan for existing sandbox projects in `sandbox/` directory
-- List available sandbox types to create (e.g., Cloudflare)
-- Allow you to select an existing project to start or create a new one
-- Automatically detect and use the appropriate package manager (pnpm, npm, yarn, bun)
-- Start the development server automatically
-
-**Example workflow:**
-1. Run `acontext sandbox start`
-2. Select from existing projects (e.g., `cloudflare (Local)`) or create new (`cloudflare (Create)`)
-3. If creating, choose a package manager
-4. The project will be created in `sandbox/cloudflare` and the dev server will start
-
-For more details, see the [CLI documentation](/settings/local).
-
-## Initialize the client
-
-First, create a client instance with your API key.
-
+<Steps>
+<Step title="Create a sandbox">
 <CodeGroup>
 ```python Python
 import os
 from acontext import AcontextClient
 
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# If you're using self-hosted Acontext:
-# client = AcontextClient(
-#     base_url="http://localhost:8029/api/v1",
-#     api_key="sk-ac-your-root-api-bearer-token",
-# )
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+sandbox = client.sandboxes.create()
 ```
 
 ```typescript TypeScript
@@ -79,625 +28,179 @@ import { AcontextClient } from '@acontext/acontext';
 const client = new AcontextClient({
     apiKey: process.env.ACONTEXT_API_KEY,
 });
-
-// If you're using self-hosted Acontext:
-// const client = new AcontextClient({
-//     baseUrl: "http://localhost:8029/api/v1",
-//     apiKey: "sk-ac-your-root-api-bearer-token",
-// });
-```
-</CodeGroup>
-
-<Warning>
-Never hardcode API keys in production code. Use environment variables instead.
-</Warning>
-
-## Step-by-step tutorial
-
-<Steps>
-<Step title="Create a sandbox">
-Create a new isolated sandbox environment.
-
-<CodeGroup>
-```python Python
-# Create a new sandbox
-sandbox = client.sandboxes.create()
-
-print(f"Sandbox ID: {sandbox.sandbox_id}")
-print(f"Status: {sandbox.sandbox_status}")
-print(f"Expires at: {sandbox.sandbox_expires_at}")
-```
-
-```typescript TypeScript
-// Create a new sandbox
 const sandbox = await client.sandboxes.create();
-
-console.log(`Sandbox ID: ${sandbox.sandbox_id}`);
-console.log(`Status: ${sandbox.sandbox_status}`);
-console.log(`Expires at: ${sandbox.sandbox_expires_at}`);
 ```
 </CodeGroup>
-
-The sandbox object contains:
-- `sandbox_id`: Unique sandbox identifier
-- `sandbox_status`: Current status (running, killed, paused, error)
-- `sandbox_created_at`: ISO 8601 creation timestamp
-- `sandbox_expires_at`: ISO 8601 expiration timestamp
-
-<Check>
-Save the sandbox ID - you'll need it to execute commands.
-</Check>
 </Step>
 
-<Step title="Execute a command">
-Run a shell command inside the sandbox and capture the output.
-
+<Step title="Execute commands">
 <CodeGroup>
 ```python Python
-# Execute a command
 result = client.sandboxes.exec_command(
     sandbox_id=sandbox.sandbox_id,
-    command="echo 'Hello from sandbox!' && pwd"
+    command="echo 'Hello!' && python3 --version"
 )
-
 print(f"stdout: {result.stdout}")
-print(f"stderr: {result.stderr}")
 print(f"exit_code: {result.exit_code}")
 ```
 
 ```typescript TypeScript
-// Execute a command
 const result = await client.sandboxes.execCommand({
     sandboxId: sandbox.sandbox_id,
-    command: "echo 'Hello from sandbox!' && pwd"
+    command: "echo 'Hello!' && python3 --version",
 });
-
 console.log(`stdout: ${result.stdout}`);
-console.log(`stderr: ${result.stderr}`);
 console.log(`exit_code: ${result.exit_code}`);
 ```
 </CodeGroup>
-
-The response includes:
-- `stdout`: Standard output from the command
-- `stderr`: Standard error from the command
-- `exit_code`: Exit code (0 for success)
-
-<Tip>
-Chain multiple commands with `&&` or `;` to run them sequentially in a single call.
-</Tip>
 </Step>
 
-<Step title="Kill the sandbox">
-Terminate the sandbox when you're done.
-
+<Step title="Kill sandbox">
 <CodeGroup>
 ```python Python
-# Kill the sandbox
 client.sandboxes.kill(sandbox.sandbox_id)
-print("Sandbox terminated")
 ```
 
 ```typescript TypeScript
-// Kill the sandbox
 await client.sandboxes.kill(sandbox.sandbox_id);
-console.log("Sandbox terminated");
 ```
 </CodeGroup>
-
-<Warning>
-Sandboxes automatically expire after a timeout(default 30 minutes). 
-Always kill sandboxes when finished to free up resources.
-</Warning>
 </Step>
 </Steps>
 
-### Complete example
+## Disk Integration
 
-Here's a complete working example that demonstrates the full workflow:
-
-<CodeGroup>
-```python Python
-import os
-from acontext import AcontextClient
-
-def main():
-    # Initialize client
-    client = AcontextClient(
-        api_key=os.getenv("ACONTEXT_API_KEY"),
-    )
-    
-    try:
-        # Create sandbox
-        sandbox = client.sandboxes.create()
-        print(f"✓ Created sandbox: {sandbox.sandbox_id}")
-        
-        # Execute commands
-        result = client.sandboxes.exec_command(
-            sandbox_id=sandbox.sandbox_id,
-            command="python3 --version"
-        )
-        print(f"✓ Python version: {result.stdout.strip()}")
-        
-        # Run a Python script
-        result = client.sandboxes.exec_command(
-            sandbox_id=sandbox.sandbox_id,
-            command="python3 -c 'print(sum(range(10)))'"
-        )
-        print(f"✓ Script output: {result.stdout.strip()}")
-        
-        # Clean up
-        client.sandboxes.kill(sandbox.sandbox_id)
-        print("✓ Sandbox terminated")
-        
-    except Exception as e:
-        print(f"✗ Error: {e}")
-
-if __name__ == "__main__":
-    main()
-```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-async function main() {
-    // Initialize client
-    const client = new AcontextClient({
-        apiKey: process.env.ACONTEXT_API_KEY,
-    });
-    
-    try {
-        // Create sandbox
-        const sandbox = await client.sandboxes.create();
-        console.log(`✓ Created sandbox: ${sandbox.sandbox_id}`);
-        
-        // Execute commands
-        let result = await client.sandboxes.execCommand({
-            sandboxId: sandbox.sandbox_id,
-            command: "python3 --version"
-        });
-        console.log(`✓ Python version: ${result.stdout.trim()}`);
-        
-        // Run a Python script
-        result = await client.sandboxes.execCommand({
-            sandboxId: sandbox.sandbox_id,
-            command: "python3 -c 'print(sum(range(10)))'"
-        });
-        console.log(`✓ Script output: ${result.stdout.trim()}`);
-        
-        // Clean up
-        await client.sandboxes.kill(sandbox.sandbox_id);
-        console.log("✓ Sandbox terminated");
-        
-    } catch (error) {
-        console.error(`✗ Error: ${error}`);
-    }
-}
-
-main();
-```
-</CodeGroup>
-
-## Filesystem
-
-Use the [Disk API](/store/disk) to persist files and transfer them to/from sandboxes. This enables workflows where you prepare files, process them in a sandbox, and save the results.
+Transfer files between disk and sandbox:
 
 <Steps>
-<Step title="Create a disk and sandbox">
-Set up both a disk for persistent storage and a sandbox for execution.
-
-<CodeGroup>
-```python Python
-# Create a disk for file storage
-disk = client.disks.create()
-print(f"Disk ID: {disk.id}")
-
-# Create a sandbox for execution
-sandbox = client.sandboxes.create()
-print(f"Sandbox ID: {sandbox.sandbox_id}")
-```
-
-```typescript TypeScript
-// Create a disk for file storage
-const disk = await client.disks.create();
-console.log(`Disk ID: ${disk.id}`);
-
-// Create a sandbox for execution
-const sandbox = await client.sandboxes.create();
-console.log(`Sandbox ID: ${sandbox.sandbox_id}`);
-```
-</CodeGroup>
-</Step>
-
-<Step title="Upload a file to disk">
-Upload a file to your disk that you want to process in the sandbox.
-
+<Step title="Setup">
 <CodeGroup>
 ```python Python
 from acontext import FileUpload
 
-# Upload a script to the disk
-artifact = client.disks.artifacts.upsert(
+disk = client.disks.create()
+sandbox = client.sandboxes.create()
+
+# Upload file to disk
+client.disks.artifacts.upsert(
     disk.id,
-    file=FileUpload(
-        filename="data.txt",
-        content=b"Hello from disk!\nProcess this in sandbox."
-    ),
+    file=FileUpload(filename="input.txt", content=b"Line 1\nLine 2"),
     file_path="/input/"
 )
-print(f"Uploaded: {artifact.path}{artifact.filename}")
 ```
 
 ```typescript TypeScript
 import { FileUpload } from '@acontext/acontext';
 
-// Upload a script to the disk
-const artifact = await client.disks.artifacts.upsert(disk.id, {
+const disk = await client.disks.create();
+const sandbox = await client.sandboxes.create();
+
+// Upload file to disk
+await client.disks.artifacts.upsert(disk.id, {
     file: new FileUpload({
-        filename: "data.txt",
-        content: Buffer.from("Hello from disk!\nProcess this in sandbox."),
-        contentType: "text/plain"
+        filename: "input.txt",
+        content: Buffer.from("Line 1\nLine 2"),
     }),
-    filePath: "/input/"
+    filePath: "/input/",
 });
-console.log(`Uploaded: ${artifact.path}${artifact.filename}`);
 ```
 </CodeGroup>
 </Step>
 
-<Step title="Download file to sandbox">
-Transfer the file from disk to the sandbox filesystem.
-
+<Step title="Download to sandbox">
 <CodeGroup>
 ```python Python
-# Download artifact to sandbox
-success = client.disks.artifacts.download_to_sandbox(
+client.disks.artifacts.download_to_sandbox(
     disk_id=disk.id,
     file_path="/input/",
-    filename="data.txt",
+    filename="input.txt",
     sandbox_id=sandbox.sandbox_id,
     sandbox_path="/workspace/"
 )
-print(f"Download success: {success}")
-
-# Verify the file exists in sandbox
-result = client.sandboxes.exec_command(
-    sandbox_id=sandbox.sandbox_id,
-    command="cat /workspace/data.txt"
-)
-print(f"File content: {result.stdout}")
 ```
 
 ```typescript TypeScript
-// Download artifact to sandbox
-const success = await client.disks.artifacts.downloadToSandbox(disk.id, {
+await client.disks.artifacts.downloadToSandbox(disk.id, {
     filePath: "/input/",
-    filename: "data.txt",
+    filename: "input.txt",
     sandboxId: sandbox.sandbox_id,
-    sandboxPath: "/workspace/"
+    sandboxPath: "/workspace/",
 });
-console.log(`Download success: ${success}`);
-
-// Verify the file exists in sandbox
-const result = await client.sandboxes.execCommand({
-    sandboxId: sandbox.sandbox_id,
-    command: "cat /workspace/data.txt"
-});
-console.log(`File content: ${result.stdout}`);
 ```
 </CodeGroup>
-
-<Note>
-The file is copied to the sandbox at the specified path. The original filename is preserved.
-</Note>
 </Step>
 
-<Step title="Process and create output">
-Run commands in the sandbox to process files and generate output.
-
+<Step title="Process in sandbox">
 <CodeGroup>
 ```python Python
-# Process the file and create output
 client.sandboxes.exec_command(
     sandbox_id=sandbox.sandbox_id,
-    command="wc -l /workspace/data.txt > /workspace/result.txt"
+    command="wc -l /workspace/input.txt > /workspace/output.txt"
 )
-
-# Verify the output
-result = client.sandboxes.exec_command(
-    sandbox_id=sandbox.sandbox_id,
-    command="cat /workspace/result.txt"
-)
-print(f"Result: {result.stdout}")
 ```
 
 ```typescript TypeScript
-// Process the file and create output
 await client.sandboxes.execCommand({
     sandboxId: sandbox.sandbox_id,
-    command: "wc -l /workspace/data.txt > /workspace/result.txt"
+    command: "wc -l /workspace/input.txt > /workspace/output.txt",
 });
-
-// Verify the output
-const output = await client.sandboxes.execCommand({
-    sandboxId: sandbox.sandbox_id,
-    command: "cat /workspace/result.txt"
-});
-console.log(`Result: ${output.stdout}`);
 ```
 </CodeGroup>
 </Step>
 
 <Step title="Upload result to disk">
-Save the processed output from the sandbox back to persistent disk storage.
-
 <CodeGroup>
 ```python Python
-# Upload the result from sandbox to disk
-uploaded = client.disks.artifacts.upload_from_sandbox(
+client.disks.artifacts.upload_from_sandbox(
     disk_id=disk.id,
     sandbox_id=sandbox.sandbox_id,
     sandbox_path="/workspace/",
-    sandbox_filename="result.txt",
+    sandbox_filename="output.txt",
     file_path="/output/"
 )
-print(f"Saved: {uploaded.path}{uploaded.filename}")
-
-# Verify by reading from disk
-artifact_info = client.disks.artifacts.get(
-    disk.id,
-    file_path="/output/",
-    filename="result.txt",
-    with_content=True
-)
-print(f"Persisted content: {artifact_info.content.raw}")
 ```
 
 ```typescript TypeScript
-// Upload the result from sandbox to disk
-const uploaded = await client.disks.artifacts.uploadFromSandbox(disk.id, {
+await client.disks.artifacts.uploadFromSandbox(disk.id, {
     sandboxId: sandbox.sandbox_id,
     sandboxPath: "/workspace/",
-    sandboxFilename: "result.txt",
-    filePath: "/output/"
-});
-console.log(`Saved: ${uploaded.path}${uploaded.filename}`);
-
-// Verify by reading from disk
-const artifactInfo = await client.disks.artifacts.get(disk.id, {
+    sandboxFilename: "output.txt",
     filePath: "/output/",
-    filename: "result.txt",
-    withContent: true
 });
-console.log(`Persisted content: ${artifactInfo.content?.raw}`);
 ```
 </CodeGroup>
-
-<Check>
-Your processed file is now safely stored on the disk and will persist after the sandbox is terminated.
-</Check>
 </Step>
 
 <Step title="Clean up">
-Terminate the sandbox when processing is complete.
-
 <CodeGroup>
 ```python Python
-# Kill the sandbox (disk persists)
 client.sandboxes.kill(sandbox.sandbox_id)
-print("Sandbox terminated, files preserved on disk")
+# Disk persists after sandbox is killed
 ```
 
 ```typescript TypeScript
-// Kill the sandbox (disk persists)
 await client.sandboxes.kill(sandbox.sandbox_id);
-console.log("Sandbox terminated, files preserved on disk");
+// Disk persists after sandbox is killed
 ```
 </CodeGroup>
-
-<Tip>
-The disk and its files remain available after the sandbox is killed. You can download them later or transfer to a new sandbox.
-</Tip>
 </Step>
 </Steps>
 
-### Complete example
+## CLI Setup
 
-Here's a complete working example that demonstrates the full disk-sandbox file transfer workflow:
-
-<CodeGroup>
-```python Python
-import os
-from acontext import AcontextClient, FileUpload
-
-def main():
-    client = AcontextClient(
-        api_key=os.getenv("ACONTEXT_API_KEY"),
-    )
-    
-    try:
-        # Create disk and sandbox
-        disk = client.disks.create()
-        sandbox = client.sandboxes.create()
-        print(f"✓ Created disk: {disk.id}")
-        print(f"✓ Created sandbox: {sandbox.sandbox_id}")
-        
-        # Upload input file to disk
-        client.disks.artifacts.upsert(
-            disk.id,
-            file=FileUpload(filename="input.txt", content=b"Line 1\nLine 2\nLine 3"),
-            file_path="/input/"
-        )
-        print("✓ Uploaded input file to disk")
-        
-        # Download to sandbox
-        client.disks.artifacts.download_to_sandbox(
-            disk_id=disk.id,
-            file_path="/input/",
-            filename="input.txt",
-            sandbox_id=sandbox.sandbox_id,
-            sandbox_path="/workspace/"
-        )
-        print("✓ Downloaded file to sandbox")
-        
-        # Process in sandbox
-        client.sandboxes.exec_command(
-            sandbox_id=sandbox.sandbox_id,
-            command="wc -l /workspace/input.txt > /workspace/output.txt"
-        )
-        print("✓ Processed file in sandbox")
-        
-        # Upload result back to disk
-        client.disks.artifacts.upload_from_sandbox(
-            disk_id=disk.id,
-            sandbox_id=sandbox.sandbox_id,
-            sandbox_path="/workspace/",
-            sandbox_filename="output.txt",
-            file_path="/output/"
-        )
-        print("✓ Uploaded result to disk")
-        
-        # Verify result
-        result = client.disks.artifacts.get(
-            disk.id,
-            file_path="/output/",
-            filename="output.txt",
-            with_content=True
-        )
-        print(f"✓ Result: {result.content.raw.strip()}")
-        
-        # Cleanup
-        client.sandboxes.kill(sandbox.sandbox_id)
-        client.disks.delete(disk.id)
-        print("✓ Cleaned up resources")
-        
-    except Exception as e:
-        print(f"✗ Error: {e}")
-
-if __name__ == "__main__":
-    main()
+```bash
+acontext sandbox start
 ```
 
-```typescript TypeScript
-import { AcontextClient, FileUpload } from '@acontext/acontext';
+Creates and starts a Cloudflare Sandbox Worker in `sandbox/cloudflare`.
 
-async function main() {
-    const client = new AcontextClient({
-        apiKey: process.env.ACONTEXT_API_KEY,
-    });
-    
-    try {
-        // Create disk and sandbox
-        const disk = await client.disks.create();
-        const sandbox = await client.sandboxes.create();
-        console.log(`✓ Created disk: ${disk.id}`);
-        console.log(`✓ Created sandbox: ${sandbox.sandbox_id}`);
-        
-        // Upload input file to disk
-        await client.disks.artifacts.upsert(disk.id, {
-            file: new FileUpload({
-                filename: "input.txt",
-                content: Buffer.from("Line 1\nLine 2\nLine 3"),
-                contentType: "text/plain"
-            }),
-            filePath: "/input/"
-        });
-        console.log("✓ Uploaded input file to disk");
-        
-        // Download to sandbox
-        await client.disks.artifacts.downloadToSandbox(disk.id, {
-            filePath: "/input/",
-            filename: "input.txt",
-            sandboxId: sandbox.sandbox_id,
-            sandboxPath: "/workspace/"
-        });
-        console.log("✓ Downloaded file to sandbox");
-        
-        // Process in sandbox
-        await client.sandboxes.execCommand({
-            sandboxId: sandbox.sandbox_id,
-            command: "wc -l /workspace/input.txt > /workspace/output.txt"
-        });
-        console.log("✓ Processed file in sandbox");
-        
-        // Upload result back to disk
-        await client.disks.artifacts.uploadFromSandbox(disk.id, {
-            sandboxId: sandbox.sandbox_id,
-            sandboxPath: "/workspace/",
-            sandboxFilename: "output.txt",
-            filePath: "/output/"
-        });
-        console.log("✓ Uploaded result to disk");
-        
-        // Verify result
-        const result = await client.disks.artifacts.get(disk.id, {
-            filePath: "/output/",
-            filename: "output.txt",
-            withContent: true
-        });
-        console.log(`✓ Result: ${result.content?.raw.trim()}`);
-        
-        // Cleanup
-        await client.sandboxes.kill(sandbox.sandbox_id);
-        await client.disks.delete(disk.id);
-        console.log("✓ Cleaned up resources");
-        
-    } catch (error) {
-        console.error(`✗ Error: ${error}`);
-    }
-}
-
-main();
-```
-</CodeGroup>
-
-## Common use cases
+## Next Steps
 
 <CardGroup cols={2}>
-<Card title="Code execution" icon="play">
-Run user-submitted code safely in an isolated environment without risking your host system.
+<Card title="Disk" icon="hard-drive" href="/store/disk">
+Persistent file storage
 </Card>
-
-<Card title="Script testing" icon="flask">
-Test shell scripts, installation procedures, or build processes in a clean environment.
-</Card>
-
-<Card title="Agent tools" icon="robot">
-Give AI agents the ability to execute commands and interact with a file system safely.
-</Card>
-
-<Card title="Data processing" icon="gears">
-Run data transformation scripts or command-line tools on files without affecting your main system.
+<Card title="Bash Tools" icon="terminal" href="/tool/bash_tools">
+Agent sandbox tools
 </Card>
 </CardGroup>
-
-## Troubleshooting
-
-<AccordionGroup>
-<Accordion title="Command timeout">
-**Problem**: Command takes too long and times out.
-
-**Solution**: 
-- Break long-running commands into smaller steps
-- Check if the command is waiting for input (use non-interactive flags)
-- Consider running background processes if needed
-</Accordion>
-
-<Accordion title="Sandbox not found">
-**Problem**: Getting a 404 error when executing commands.
-
-**Solution**: 
-- Verify the sandbox ID is correct
-- Check if the sandbox has expired or been killed
-- Create a new sandbox if the previous one is no longer available
-</Accordion>
-
-<Accordion title="Command fails with non-zero exit code">
-**Problem**: Command returns a non-zero exit code.
-
-**Solution**: 
-- Check `stderr` for error messages
-- Verify the command syntax is correct
-- Ensure required tools are available in the sandbox environment
-</Accordion>
-</AccordionGroup>

@@ -1,16 +1,9 @@
 ---
 title: Session Summary
-description: "Get a compact summary of session tasks for use in prompts"
+description: "Compact task summary for prompts"
 ---
 
-Session summary provides a token-efficient way to include task context in your agent's prompts. Instead of manually iterating through tasks and formatting them, use `get_session_summary` to get a pre-formatted string ready for prompt injection.
-
-## Why Use Session Summary?
-
-When building agents that need awareness of their previous work, you often want to include task history in the system prompt or context. The session summary method:
-
-- **Saves tokens**: Compact format optimized for LLM consumption
-- **Let your agent run longer**: Consider this summary is a automatic TODO list, your agent can use it to track its work and progress.
+Get a token-efficient summary of session tasks for prompt injection.
 
 ## Usage
 
@@ -20,16 +13,14 @@ from acontext import AcontextClient
 
 client = AcontextClient()
 
-# Get session summary
 summary = client.sessions.get_session_summary(session_id)
 
-# Use in your prompt
 system_prompt = f"""You are a helpful assistant.
 
-Previous tasks in this session:
+Previous tasks:
 {summary}
 
-Continue helping the user with their request.
+Continue helping the user.
 """
 ```
 
@@ -38,93 +29,57 @@ import { AcontextClient } from '@acontext/acontext';
 
 const client = new AcontextClient();
 
-// Get session summary
 const summary = await client.sessions.getSessionSummary(sessionId);
 
-// Use in your prompt
 const systemPrompt = `You are a helpful assistant.
 
-Previous tasks in this session:
+Previous tasks:
 ${summary}
 
-Continue helping the user with their request.
+Continue helping the user.
 `;
 ```
 </CodeGroup>
 
-<Tip>
-Task extraction runs asynchronously, so the session summary may lag behind by 1-6 messages. If you're using session summary as a compression method, keep at least the 4-6 most recent messages in full to maintain consistency between the summary and the conversation context.
-</Tip>
-
-
-
 ## Output Format
 
-The summary returns an XML-formatted string optimized for LLM parsing:
-
 ```xml
-<task id="1" description="Search for the latest news about iPhone 15 pro max">
+<task id="1" description="Search for iPhone 15 news">
 <progress>
-1. Searched and found key specifications
+1. Searched and found key specs
 2. Compiled feature comparison
 </progress>
 <user_preference>
 1. Focus on camera capabilities
-2. Make it mobile-responsive
 </user_preference>
-</task>
-<task id="2" description="Initialize Next.js project">
-<progress>
-1. Created project with latest template
-</progress>
 </task>
 ```
 
-Each task element includes:
-- `id` attribute - Task order number
-- `description` attribute - Task description
-- `<progress>` element with numbered steps (if any)
-- `<user_preference>` element with numbered items (if any)
-
-
-## How It Works
-
-Session summary leverages Acontext's [automatic task extraction](/observe/agent_tasks) which runs in the background as your agent converses. The extracted tasks include:
-
-- **Task description**: What the agent planned to do
-- **Progress updates**: Steps the agent completed
-- **User preferences**: Requirements mentioned by the user
-
-The `get_session_summary` method fetches these tasks and formats them into a compact string.
-
-
 ## Options
-
-You can limit the number of tasks returned:
 
 <CodeGroup>
 ```python Python
-# Get only the last 5 tasks
+# Limit to last 5 tasks
 summary = client.sessions.get_session_summary(session_id, limit=5)
 ```
 
 ```typescript TypeScript
-// Get only the last 5 tasks
+// Limit to last 5 tasks
 const summary = await client.sessions.getSessionSummary(sessionId, { limit: 5 });
 ```
 </CodeGroup>
 
-<Note>
-If no tasks have been extracted yet, the method returns an empty string. Task extraction happens asynchronously - see [Session Buffer](/observe/buffer) for details on timing.
-</Note>
+<Tip>
+Task extraction is async and may lag 1-6 messages. Keep the 4-6 most recent messages in full when using summary as compression.
+</Tip>
 
 ## Next Steps
 
 <CardGroup cols={2}>
 <Card title="Task Extraction" icon="list-check" href="/observe/agent_tasks">
-Learn how Acontext automatically extracts tasks from conversations.
+How tasks are extracted
 </Card>
 <Card title="Context Editing" icon="scissors" href="/engineering/editing">
-Apply editing strategies to manage context window size.
+Manage context window size
 </Card>
 </CardGroup>
