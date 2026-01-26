@@ -156,7 +156,10 @@ class AcontextAsyncClient:
         data: Mapping[str, Any] | None = None,
         files: Mapping[str, tuple[str, BinaryIO, str | None]] | None = None,
         unwrap: bool = True,
+        timeout: float | None = None,
     ) -> Any:
+        # Use per-request timeout if provided, otherwise use client default
+        effective_timeout = timeout if timeout is not None else self._timeout
         try:
             response = await self._client.request(
                 method=method,
@@ -165,7 +168,7 @@ class AcontextAsyncClient:
                 json=json_data,
                 data=data,
                 files=files,
-                timeout=self._timeout,
+                timeout=effective_timeout,
             )
         except httpx.HTTPError as exc:  # pragma: no cover - passthrough to caller
             raise TransportError(str(exc)) from exc

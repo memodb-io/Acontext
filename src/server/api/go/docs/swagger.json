@@ -271,6 +271,82 @@
                 ]
             }
         },
+        "/agent_skills/{id}/download_to_sandbox": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Download all files from an agent skill to a sandbox environment. Files are placed at /skills/{skill_name}/.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "agent_skills"
+                ],
+                "summary": "Download skill to sandbox",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Agent skill UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Download to sandbox request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.DownloadSkillToSandboxReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handler.DownloadSkillToSandboxResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "409": {
+                        "description": "Skill directory already exists in sandbox",
+                        "schema": {
+                            "$ref": "#/definitions/serializer.Response"
+                        }
+                    }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Download skill to sandbox\nresult = client.skills.download_to_sandbox(\n    skill_id='skill-uuid',\n    sandbox_id='sandbox-uuid'\n)\nprint(f\"Success: {result.success}\")\nprint(f\"Skill installed at: {result.dir_path}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Download skill to sandbox\nconst result = await client.skills.downloadToSandbox('skill-uuid', {\n  sandboxId: 'sandbox-uuid'\n});\nconsole.log(`Success: ${result.success}`);\nconsole.log(`Skill installed at: ${result.dir_path}`);\n"
+                    }
+                ]
+            }
+        },
         "/agent_skills/{id}/file": {
             "get": {
                 "security": [
@@ -2553,6 +2629,39 @@
                 "user": {
                     "type": "string",
                     "example": "alice@acontext.io"
+                }
+            }
+        },
+        "handler.DownloadSkillToSandboxReq": {
+            "type": "object",
+            "required": [
+                "sandbox_id"
+            ],
+            "properties": {
+                "sandbox_id": {
+                    "description": "Target sandbox ID",
+                    "type": "string"
+                }
+            }
+        },
+        "handler.DownloadSkillToSandboxResp": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "description": "Skill description",
+                    "type": "string"
+                },
+                "dir_path": {
+                    "description": "Full path to the skill directory in sandbox",
+                    "type": "string"
+                },
+                "name": {
+                    "description": "Skill name",
+                    "type": "string"
+                },
+                "success": {
+                    "description": "Whether the download was successful",
+                    "type": "boolean"
                 }
             }
         },

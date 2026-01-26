@@ -17,6 +17,7 @@ class RequesterProtocol(Protocol):
         data: Mapping[str, Any] | None = None,
         files: Mapping[str, tuple[str, BinaryIO, str | None]] | None = None,
         unwrap: bool = True,
+        timeout: float | None = None,
     ) -> Any:
         ...
 
@@ -32,5 +33,6 @@ class AsyncRequesterProtocol(Protocol):
         data: Mapping[str, Any] | None = None,
         files: Mapping[str, tuple[str, BinaryIO, str | None]] | None = None,
         unwrap: bool = True,
+        timeout: float | None = None,
     ) -> Awaitable[Any]:
         ...

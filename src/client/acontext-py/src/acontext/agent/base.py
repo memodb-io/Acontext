@@ -1,5 +1,6 @@
 class BaseContext:
-    pass
+    def get_context_prompt(self, *args, **kwargs) -> str:
+        return ""
 
 
 class BaseConverter:

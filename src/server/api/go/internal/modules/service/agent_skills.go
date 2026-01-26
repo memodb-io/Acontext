@@ -221,10 +221,13 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 		fileData.mimeType = mime.DetectMimeType(fileData.content, fileData.name)
 	}
 
+	// Sanitize skill name for both DB storage and S3 path
+	sanitizedName := sanitizeS3Key(skillName)
+
 	agentSkills := &model.AgentSkills{
 		ProjectID:   in.ProjectID,
 		UserID:      in.UserID,
-		Name:        skillName,
+		Name:        sanitizedName,
 		Description: skillDescription,
 		Meta:        in.Meta,
 	}
@@ -247,7 +250,6 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 		}
 	}()
 
-	sanitizedName := sanitizeS3Key(skillName)
 	baseS3Key := fmt.Sprintf("agent_skills/%s/%s/%s", in.ProjectID.String(), dbID.String(), sanitizedName)
 
 	fileIndex := make([]model.FileInfo, len(filesToUpload))

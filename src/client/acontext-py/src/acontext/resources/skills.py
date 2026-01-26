@@ -9,6 +9,7 @@ from typing import Any, BinaryIO, cast
 from .._utils import build_params
 from ..client_types import RequesterProtocol
 from ..types.skill import (
+    DownloadSkillToSandboxResp,
     GetSkillFileResp,
     ListSkillsOutput,
     Skill,
@@ -135,3 +136,42 @@ class SkillsAPI:
 
         data = self._requester.request("GET", endpoint, params=params)
         return GetSkillFileResp.model_validate(data)
+
+    def download_to_sandbox(
+        self,
+        *,
+        skill_id: str,
+        sandbox_id: str,
+    ) -> DownloadSkillToSandboxResp:
+        """Download all files from a skill to a sandbox environment.
+
+        Files are placed at /skills/{skill_name}/.
+
+        Args:
+            skill_id: The UUID of the skill to download.
+            sandbox_id: The UUID of the target sandbox.
+
+        Returns:
+            DownloadSkillToSandboxResp containing success status, the directory path
+            where the skill was installed, and the skill's name and description.
+
+        Example:
+        ```python
+            result = client.skills.download_to_sandbox(
+                skill_id="skill-uuid",
+                sandbox_id="sandbox-uuid"
+            )
+            print(f"Success: {result.success}")
+            print(f"Skill installed at: {result.dir_path}")
+            print(f"Skill name: {result.name}")
+            print(f"Description: {result.description}")
+        ```
+        """
+        payload: dict[str, Any] = {"sandbox_id": sandbox_id}
+
+        data = self._requester.request(
+            "POST",
+            f"/agent_skills/{skill_id}/download_to_sandbox",
+            json_data=payload,
+        )
+        return DownloadSkillToSandboxResp.model_validate(data)

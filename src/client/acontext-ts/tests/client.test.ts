@@ -473,6 +473,37 @@ describe('AcontextClient Unit Tests', () => {
     });
   });
 
+  describe('Skills API', () => {
+    test('should download skill to sandbox', async () => {
+      const skillId = 'skill-123';
+      const sandboxId = 'sandbox-456';
+      const response = {
+        success: true,
+        dir_path: '/skills/my-skill',
+        name: 'my-skill',
+        description: 'A test skill',
+      };
+
+      client.mock().onPost(`/agent_skills/${skillId}/download_to_sandbox`, (options) => {
+        expect(options?.jsonData).toEqual({ sandbox_id: sandboxId });
+        return response;
+      });
+
+      const result = await client.skills.downloadToSandbox(skillId, {
+        sandboxId: sandboxId,
+      });
+
+      expect(result).toBeDefined();
+      expect(result.success).toBe(true);
+      expect(result.dir_path).toBe('/skills/my-skill');
+      expect(result.name).toBe('my-skill');
+      expect(result.description).toBe('A test skill');
+      expect(client.requester.calls).toHaveLength(1);
+      expect(client.requester.calls[0].method).toBe('POST');
+      expect(client.requester.calls[0].path).toBe(`/agent_skills/${skillId}/download_to_sandbox`);
+    });
+  });
+
   describe('Message Building Utilities', () => {
     test('should create text parts correctly', () => {
       const part = MessagePart.textPart('Hello, World!');

@@ -1,23 +1,35 @@
 ---
-title: "Skill Tools"
-description: "Enable LLMs to access and utilize agent skills through function calling"
+title: "Skill Content Tools"
+description: "Enable LLMs to read the Skills Content"
 ---
 
 
-
+<Tip>
 [Agent skills](https://agentskills.io/home) is a simple, open format for giving agents new capabilities and expertise.
 Agent Skills are folders of instructions, scripts, and resources that agents can discover and use to do things more accurately and efficiently
+</Tip>
 
 
-Acontext provides pre-built skill tools that allow LLMs to access reusable knowledge bundles (skills) through function calling. Skills contain files, scripts, and instructions that help agents perform specialized tasks.
+Generally speaking, agent skills contain executable code files, so you often need to start a [sandbox](/store/sandbox) to fully use skills.
+However, some skills don't require running code and only contain domain-specific context.
+
+For example, the [internal-comms](https://github.com/anthropics/skills/tree/main/skills/internal-comms) skill only contains domain-specific context such as company organizational structure, product information, customer information, market information, etc.
+
+In this case, you don't need to start a sandbox and incur additional costs. Instead, you can directly attach Acontext's Skill content tool to the Agent to load skills in a lightweight manner.
+
+
+
+Acontext provides pre-built skill content tools that allow LLMs to access reusable knowledge bundles (skills) through function calling. 
+Skills contain files, scripts, and instructions that help agents perform specialized tasks.
 
 ## Available Tools
 
-The SDK includes three skill operation tools:
+The SDK includes two skill operation tools:
 
-- **`list_skills`** - List all available skills in the current context
 - **`get_skill`** - Get skill metadata including file index
 - **`get_skill_file`** - Read a specific file from a skill
+
+Available skills are exposed through the context's `getContextPrompt()` method, which returns an XML-formatted list of skill names and descriptions. This should be included in the system prompt.
 
 <Tip>
 Skills are preloaded by UUID when creating the context, then accessed by human-readable name. This allows LLMs to work with meaningful skill names instead of UUIDs.
@@ -55,11 +67,18 @@ ctx = SKILL_TOOLS.format_context(acontext_client, skill_ids)
 # Get tool schemas for OpenAI
 tools = SKILL_TOOLS.to_openai_tool_schema()
 
+# Get available skills context to include in system prompt
+skills_context = ctx.get_context_prompt()
+
 # Simple agentic loop
 messages = [
     {
+        "role": "system",
+        "content": f"You are a helpful assistant with access to skills.\n\n{skills_context}",
+    },
+    {
         "role": "user",
-        "content": "List the available skills, then read the SKILL.md from the data-extraction skill",
+        "content": "Read the SKILL.md from the data-extraction skill",
     }
 ]
 
@@ -114,11 +133,18 @@ const ctx = await SKILL_TOOLS.formatContext(acontextClient, skillIds);
 // Get tool schemas for OpenAI
 const tools = SKILL_TOOLS.toOpenAIToolSchema();
 
+// Get available skills context to include in system prompt
+const skillsContext = ctx.getContextPrompt();
+
 // Simple agentic loop
 const messages = [
   {
+    role: 'system',
+    content: `You are a helpful assistant with access to skills.\n\n${skillsContext}`,
+  },
+  {
     role: 'user',
-    content: 'List the available skills, then read the SKILL.md from the data-extraction skill',
+    content: 'Read the SKILL.md from the data-extraction skill',
   },
 ];
 
@@ -158,7 +184,7 @@ while (true) {
 </CodeGroup>
 
 <Info>
-The agent will automatically call the appropriate tools (`list_skills`, `get_skill`, `get_skill_file`) to explore and retrieve knowledge from skills.
+The agent will automatically call the appropriate tools (`get_skill`, `get_skill_file`) to explore and retrieve knowledge from skills. Available skills are provided in the system prompt via `getContextPrompt()`.
 </Info>
 
 ## How It Works
@@ -212,26 +238,84 @@ The agent will automatically call the appropriate tools (`list_skills`, `get_ski
   </Note>
 </Step>
 
-<Step title="Get tool schemas for your LLM">
-  Convert the skill tools to the schema format your LLM provider expects.
+<Step title="Pass tools to LLM">
+  Convert the skill tools to the schema format your LLM provider expects and pass them when calling the LLM.
 
   <CodeGroup>
   ```python Python
   # For OpenAI
   tools = SKILL_TOOLS.to_openai_tool_schema()
+  response = openai_client.chat.completions.create(
+      model="gpt-4.1",
+      messages=messages,
+      tools=tools,  # Pass tools here
+  )
 
   # For Anthropic
   tools = SKILL_TOOLS.to_anthropic_tool_schema()
+  response = anthropic_client.messages.create(
+      model="claude-sonnet-4-20250514",
+      messages=messages,
+      tools=tools,  # Pass tools here
+  )
   ```
 
   ```typescript TypeScript
   // For OpenAI
   const tools = SKILL_TOOLS.toOpenAIToolSchema();
+  const response = await openaiClient.chat.completions.create({
+      model: 'gpt-4.1',
+      messages,
+      tools,  // Pass tools here
+  });
 
   // For Anthropic
   const tools = SKILL_TOOLS.toAnthropicToolSchema();
+  const response = await anthropicClient.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      messages,
+      tools,  // Pass tools here
+  });
   ```
   </CodeGroup>
+</Step>
+
+<Step title="Inject skill context into system prompt">
+  Get the available skills as XML and include it in your system prompt. This tells the LLM which skills are available.
+
+  <CodeGroup>
+  ```python Python
+  # Get available skills formatted as XML
+  skills_context = ctx.get_context_prompt()
+
+  # Include in your system message
+  messages = [
+      {
+          "role": "system",
+          "content": f"You are a helpful assistant with access to skills.\n\n{skills_context}",
+      },
+      # ... user messages
+  ]
+  ```
+
+  ```typescript TypeScript
+  // Get available skills formatted as XML
+  const skillsContext = ctx.getContextPrompt();
+
+  // Include in your system message
+  const messages = [
+      {
+          role: 'system',
+          content: `You are a helpful assistant with access to skills.\n\n${skillsContext}`,
+      },
+      // ... user messages
+  ];
+  ```
+  </CodeGroup>
+
+  <Tip>
+  The skill context is formatted as XML with skill names and descriptions, allowing the LLM to understand which skills are available before making tool calls.
+  </Tip>
 </Step>
 
 <Step title="Implement the agentic loop">
@@ -284,19 +368,36 @@ The agent will automatically call the appropriate tools (`list_skills`, `get_ski
 
 ## Tool Reference
 
-### list_skills
+### Skill Prompt
 
-List all available skills in the current context with their names and descriptions.
+Returns available skills formatted as XML for inclusion in the system prompt. This is a method on the context object, not a tool.
 
-**Parameters:** None
+<CodeGroup>
+```python Python
+ctx = SKILL_TOOLS.format_context(client, skill_ids)
+skills_context = ctx.get_context_prompt()
+# Include skills_context in your system prompt
+```
 
-**Returns:** List of skill names and descriptions
+```typescript TypeScript
+const ctx = await SKILL_TOOLS.formatContext(client, skillIds);
+const skillsContext = ctx.getContextPrompt();
+// Include skillsContext in your system prompt
+```
+</CodeGroup>
 
 **Example Output:**
-```
-Available skills (2):
-- data-extraction: Extract structured data from documents
-- code-review: Review code for best practices and security issues
+```xml
+<available_skills>
+<skill>
+<name>data-extraction</name>
+<description>Extract structured data from documents</description>
+</skill>
+<skill>
+<name>code-review</name>
+<description>Review code for best practices and security issues</description>
+</skill>
+</available_skills>
 ```
 
 ### get_skill
@@ -357,7 +458,9 @@ Each skill must have a unique name within the context. If you preload two skills
 
 <Warning>
 **Read-Only Access:** These skill tools can only **load and read** skill content (text-based file like markdown, code...). 
-They cannot execute code scripts or run any executable files contained within a skill. 
+They cannot execute code scripts or run any executable files contained within a skill.
+
+To execute skill scripts, use [Sandbox Execution Tools](/tool/bash_tools#mounting-skills-in-sandbox) which allows mounting skills directly into a sandbox filesystem.
 </Warning>
 
 <Note>

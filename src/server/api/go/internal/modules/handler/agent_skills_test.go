@@ -329,7 +329,7 @@ description: Test with SKILL.md in subdirectory`,
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := &MockAgentSkillsService{}
 			tt.setup(mockService)
-			handler := NewAgentSkillsHandler(mockService, &MockUserService{})
+			handler := NewAgentSkillsHandler(mockService, &MockUserService{}, nil)
 
 			router := setupAgentSkillsRouter()
 			router.POST("/agent_skills", func(c *gin.Context) {
@@ -431,7 +431,7 @@ func TestAgentSkillsHandler_GetAgentSkill(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := &MockAgentSkillsService{}
 			tt.setup(mockService)
-			handler := NewAgentSkillsHandler(mockService, &MockUserService{})
+			handler := NewAgentSkillsHandler(mockService, &MockUserService{}, nil)
 
 			router := setupAgentSkillsRouter()
 			router.GET("/agent_skills/:id", func(c *gin.Context) {
@@ -505,7 +505,7 @@ func TestAgentSkillsHandler_DeleteAgentSkill(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := &MockAgentSkillsService{}
 			tt.setup(mockService)
-			handler := NewAgentSkillsHandler(mockService, &MockUserService{})
+			handler := NewAgentSkillsHandler(mockService, &MockUserService{}, nil)
 
 			router := setupAgentSkillsRouter()
 			router.DELETE("/agent_skills/:id", func(c *gin.Context) {
@@ -600,7 +600,7 @@ func TestAgentSkillsHandler_ListAgentSkills(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := &MockAgentSkillsService{}
 			tt.setup(mockService)
-			handler := NewAgentSkillsHandler(mockService, &MockUserService{})
+			handler := NewAgentSkillsHandler(mockService, &MockUserService{}, nil)
 
 			router := setupAgentSkillsRouter()
 			router.GET("/agent_skills", func(c *gin.Context) {
@@ -695,7 +695,7 @@ func TestAgentSkillsHandler_GetAgentSkillFile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mockService := &MockAgentSkillsService{}
 			tt.setup(mockService)
-			handler := NewAgentSkillsHandler(mockService, &MockUserService{})
+			handler := NewAgentSkillsHandler(mockService, &MockUserService{}, nil)
 
 			router := setupAgentSkillsRouter()
 			router.GET("/agent_skills/:id/file", func(c *gin.Context) {
@@ -726,6 +726,143 @@ func TestAgentSkillsHandler_GetAgentSkillFile(t *testing.T) {
 				err := sonic.Unmarshal(w.Body.Bytes(), &response)
 				assert.NoError(t, err)
 				assert.NotNil(t, response["data"])
+			}
+
+			mockService.AssertExpectations(t)
+		})
+	}
+}
+
+func TestAgentSkillsHandler_DownloadToSandbox(t *testing.T) {
+	projectID := uuid.New()
+	sandboxID := uuid.New()
+
+	// Create skill with empty file index for testing the "no files" case
+	createEmptySkill := func() *model.AgentSkills {
+		agentSkillsID := uuid.New()
+		baseAsset := &model.Asset{
+			Bucket: "test-bucket",
+			S3Key:  "agent_skills/" + projectID.String() + "/" + agentSkillsID.String() + "/empty-skill/",
+		}
+		return &model.AgentSkills{
+			ID:          agentSkillsID,
+			ProjectID:   projectID,
+			Name:        "empty-skill",
+			Description: "Test skill with no files",
+			AssetMeta:   datatypes.NewJSONType(*baseAsset),
+			FileIndex:   datatypes.NewJSONType([]model.FileInfo{}),
+			Meta:        map[string]interface{}{},
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		}
+	}
+
+	tests := []struct {
+		name           string
+		skillID        string
+		requestBody    string
+		setup          func(*MockAgentSkillsService)
+		expectedStatus int
+		expectedError  string
+		checkResponse  func(*testing.T, map[string]interface{})
+	}{
+		{
+			name:           "invalid skill ID",
+			skillID:        "invalid-uuid",
+			requestBody:    `{"sandbox_id": "` + sandboxID.String() + `"}`,
+			setup:          func(svc *MockAgentSkillsService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "invalid skill id",
+		},
+		{
+			name:           "missing sandbox_id",
+			skillID:        uuid.New().String(),
+			requestBody:    `{}`,
+			setup:          func(svc *MockAgentSkillsService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "sandbox_id",
+		},
+		{
+			name:           "invalid sandbox_id",
+			skillID:        uuid.New().String(),
+			requestBody:    `{"sandbox_id": "invalid-uuid"}`,
+			setup:          func(svc *MockAgentSkillsService) {},
+			expectedStatus: http.StatusBadRequest,
+			expectedError:  "invalid sandbox_id",
+		},
+		{
+			name:        "skill not found",
+			skillID:     uuid.New().String(),
+			requestBody: `{"sandbox_id": "` + sandboxID.String() + `"}`,
+			setup: func(svc *MockAgentSkillsService) {
+				svc.On("GetByID", mock.Anything, projectID, mock.Anything).Return(nil, errors.New("not found"))
+			},
+			expectedStatus: http.StatusNotFound,
+			expectedError:  "skill not found",
+		},
+		{
+			name:        "successful download with empty file index",
+			skillID:     "", // Will be set in test
+			requestBody: `{"sandbox_id": "` + sandboxID.String() + `"}`,
+			setup: func(svc *MockAgentSkillsService) {
+				skill := createEmptySkill()
+				svc.On("GetByID", mock.Anything, projectID, skill.ID).Return(skill, nil)
+			},
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, response map[string]interface{}) {
+				data := response["data"].(map[string]interface{})
+				assert.True(t, data["success"].(bool))
+				assert.Equal(t, "/skills/empty-skill", data["dir_path"].(string))
+				assert.Equal(t, "empty-skill", data["name"].(string))
+				assert.Equal(t, "Test skill with no files", data["description"].(string))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := &MockAgentSkillsService{}
+
+			// For tests that need the skill ID from the mock
+			var skillID string
+			if tt.skillID == "" {
+				skill := createEmptySkill()
+				skillID = skill.ID.String()
+				// Update the mock setup with the correct skill
+				mockService.On("GetByID", mock.Anything, projectID, skill.ID).Return(skill, nil)
+			} else {
+				skillID = tt.skillID
+				tt.setup(mockService)
+			}
+
+			handler := NewAgentSkillsHandler(mockService, &MockUserService{}, nil)
+
+			router := setupAgentSkillsRouter()
+			router.POST("/agent_skills/:id/download_to_sandbox", func(c *gin.Context) {
+				c.Set("project", &model.Project{ID: projectID})
+				handler.DownloadToSandbox(c)
+			})
+
+			req := httptest.NewRequest("POST", "/agent_skills/"+skillID+"/download_to_sandbox", bytes.NewBufferString(tt.requestBody))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+
+			var response map[string]interface{}
+			err := sonic.Unmarshal(w.Body.Bytes(), &response)
+			assert.NoError(t, err)
+
+			if tt.expectedError != "" {
+				if response["message"] != nil {
+					assert.Contains(t, response["message"].(string), tt.expectedError)
+				}
+			}
+
+			if tt.checkResponse != nil {
+				tt.checkResponse(t, response)
 			}
 
 			mockService.AssertExpectations(t)

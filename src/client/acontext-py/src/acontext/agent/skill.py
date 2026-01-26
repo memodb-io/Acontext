@@ -17,6 +17,20 @@ class SkillContext(BaseContext):
     client: AcontextClient
     skills: dict[str, Skill] = field(default_factory=dict)
 
+    def get_context_prompt(self) -> str:
+        """Return available skills formatted as XML."""
+        if not self.skills:
+            return ""
+
+        lines = ["<available_skills>"]
+        for skill_name, skill in self.skills.items():
+            lines.append("<skill>")
+            lines.append(f"<name>{skill_name}</name>")
+            lines.append(f"<description>{skill.description}</description>")
+            lines.append("</skill>")
+        lines.append("</available_skills>")
+        return "\n".join(lines)
+
     @classmethod
     def create(cls, client: AcontextClient, skill_ids: list[str]) -> "SkillContext":
         """Create a SkillContext by preloading skills from a list of skill IDs.
@@ -72,6 +86,26 @@ class AsyncSkillContext(BaseContext):
 
     client: AcontextAsyncClient
     skills: dict[str, Skill] = field(default_factory=dict)
+
+    def get_context_prompt(self) -> str:
+        """Return available skills formatted as XML."""
+        if not self.skills:
+            return ""
+
+        lines = ["<available_skills>"]
+        for skill_name, skill in self.skills.items():
+            lines.append("<skill>")
+            lines.append(f"<name>{skill_name}</name>")
+            lines.append(f"<description>{skill.description}</description>")
+            lines.append("</skill>")
+        lines.append("</available_skills>")
+        skill_section = "\n".join(lines)
+        return f"""<skill_view>
+Use get_skill and get_skill_file to view the available skills and their contexts.
+Below is the list of available skills:
+{skill_section}        
+</skill_view>
+"""
 
     @classmethod
     async def create(
@@ -237,7 +271,7 @@ class GetSkillFileTool(BaseTool):
                 "description": "Relative path to the file within the skill (e.g., 'scripts/extract_text.json').",
             },
             "expire": {
-                "type": "integer",
+                "type": ["integer", "null"],
                 "description": "URL expiration time in seconds (only used for non-parseable files). Defaults to 900 (15 minutes).",
             },
         }
@@ -325,48 +359,6 @@ class GetSkillFileTool(BaseTool):
         return "\n".join(output_parts)
 
 
-class ListSkillsTool(BaseTool):
-    """Tool for listing available skills in the context."""
-
-    @property
-    def name(self) -> str:
-        return "list_skills"
-
-    @property
-    def description(self) -> str:
-        return "List all available skills in the current context with their names and descriptions."
-
-    @property
-    def arguments(self) -> dict:
-        return {}
-
-    @property
-    def required_arguments(self) -> list[str]:
-        return []
-
-    def execute(self, ctx: SkillContext, llm_arguments: dict) -> str:
-        """List all available skills."""
-        if not ctx.skills:
-            return "No skills available in the current context."
-
-        skill_list = []
-        for skill_name, skill in ctx.skills.items():
-            skill_list.append(f"- {skill_name}: {skill.description}")
-
-        return f"Available skills ({len(ctx.skills)}):\n" + "\n".join(skill_list)
-
-    async def async_execute(self, ctx: AsyncSkillContext, llm_arguments: dict) -> str:
-        """List all available skills (async)."""
-        if not ctx.skills:
-            return "No skills available in the current context."
-
-        skill_list = []
-        for skill_name, skill in ctx.skills.items():
-            skill_list.append(f"- {skill_name}: {skill.description}")
-
-        return f"Available skills ({len(ctx.skills)}):\n" + "\n".join(skill_list)
-
-
 class SkillToolPool(BaseToolPool):
     """Tool pool for skill operations on Acontext skills."""
 
@@ -400,6 +392,5 @@ class SkillToolPool(BaseToolPool):
 
 
 SKILL_TOOLS = SkillToolPool()
-SKILL_TOOLS.add_tool(ListSkillsTool())
 SKILL_TOOLS.add_tool(GetSkillTool())
 SKILL_TOOLS.add_tool(GetSkillFileTool())

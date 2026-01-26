@@ -101,10 +101,13 @@ export class AcontextClient implements RequesterProtocol {
       data?: Record<string, string>;
       files?: Record<string, { filename: string; content: Buffer | NodeJS.ReadableStream; contentType: string }>;
       unwrap?: boolean;
+      timeout?: number;
     }
   ): Promise<T> {
     const unwrap = options?.unwrap !== false;
     const url = `${this._baseUrl}${path}`;
+    // Use per-request timeout if provided, otherwise use client default
+    const effectiveTimeout = options?.timeout ?? this._timeout;
 
     try {
       // Build headers
@@ -194,7 +197,7 @@ export class AcontextClient implements RequesterProtocol {
       // Make the request
       const fetchImpl = await this.getFetch();
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this._timeout);
+      const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout);
 
       try {
         const response = await fetchImpl(finalUrl, {
@@ -210,7 +213,7 @@ export class AcontextClient implements RequesterProtocol {
       } catch (error) {
         clearTimeout(timeoutId);
         if (error instanceof Error && error.name === 'AbortError') {
-          throw new TransportError(`Request timeout after ${this._timeout}ms`);
+          throw new TransportError(`Request timeout after ${effectiveTimeout}ms`);
         }
         throw error;
       }

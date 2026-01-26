@@ -258,6 +258,7 @@ func BuildContainer() *do.Injector {
 		return handler.NewAgentSkillsHandler(
 			do.MustInvoke[service.AgentSkillsService](i),
 			do.MustInvoke[service.UserService](i),
+			do.MustInvoke[*httpclient.CoreClient](i),
 		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.UserHandler, error) {

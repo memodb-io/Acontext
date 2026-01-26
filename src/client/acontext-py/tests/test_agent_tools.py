@@ -31,16 +31,16 @@ class TestDiskTools:
         assert isinstance(schemas, list)
         assert (
             len(schemas) == 7
-        )  # write_file, read_file, replace_string, list_artifacts, grep_artifacts, glob_artifacts, download_file
+        )  # write_file_disk, read_file_disk, replace_string_disk, list_disk, grep_disk, glob_disk, download_file_disk
 
         tool_names = [s["function"]["name"] for s in schemas]
-        assert "write_file" in tool_names
-        assert "read_file" in tool_names
-        assert "replace_string" in tool_names
-        assert "list_artifacts" in tool_names
-        assert "grep_artifacts" in tool_names
-        assert "glob_artifacts" in tool_names
-        assert "download_file" in tool_names
+        assert "write_file_disk" in tool_names
+        assert "read_file_disk" in tool_names
+        assert "replace_string_disk" in tool_names
+        assert "list_disk" in tool_names
+        assert "grep_disk" in tool_names
+        assert "glob_disk" in tool_names
+        assert "download_file_disk" in tool_names
 
     def test_disk_tools_anthropic_schema(self) -> None:
         """Test Anthropic tool schema generation."""
@@ -50,15 +50,15 @@ class TestDiskTools:
 
     def test_disk_tools_tool_exists(self) -> None:
         """Test tool_exists method."""
-        assert DISK_TOOLS.tool_exists("write_file")
-        assert DISK_TOOLS.tool_exists("read_file")
+        assert DISK_TOOLS.tool_exists("write_file_disk")
+        assert DISK_TOOLS.tool_exists("read_file_disk")
         assert not DISK_TOOLS.tool_exists("nonexistent_tool")
 
     @patch("acontext.client.AcontextClient.request")
     def test_write_file_tool(
         self, mock_request: MagicMock, disk_ctx: DiskContext
     ) -> None:
-        """Test write_file tool execution."""
+        """Test write_file_disk tool execution."""
         mock_request.return_value = {
             "disk_id": "disk-123",
             "path": "/test.txt",
@@ -70,7 +70,7 @@ class TestDiskTools:
 
         result = DISK_TOOLS.execute_tool(
             disk_ctx,
-            "write_file",
+            "write_file_disk",
             {"filename": "test.txt", "content": "Hello, world!"},
         )
 
@@ -84,7 +84,7 @@ class TestDiskTools:
     def test_read_file_tool(
         self, mock_request: MagicMock, disk_ctx: DiskContext
     ) -> None:
-        """Test read_file tool execution."""
+        """Test read_file_disk tool execution."""
         mock_request.return_value = {
             "artifact": {
                 "disk_id": "disk-123",
@@ -102,7 +102,7 @@ class TestDiskTools:
 
         result = DISK_TOOLS.execute_tool(
             disk_ctx,
-            "read_file",
+            "read_file_disk",
             {"filename": "test.txt", "line_offset": 1, "line_limit": 2},
         )
 
@@ -114,7 +114,7 @@ class TestDiskTools:
     def test_replace_string_tool(
         self, mock_request: MagicMock, disk_ctx: DiskContext
     ) -> None:
-        """Test replace_string tool execution."""
+        """Test replace_string_disk tool execution."""
         # Mock read response
         read_response = {
             "artifact": {
@@ -144,7 +144,7 @@ class TestDiskTools:
 
         result = DISK_TOOLS.execute_tool(
             disk_ctx,
-            "replace_string",
+            "replace_string_disk",
             {
                 "filename": "test.txt",
                 "old_string": "Hello",
@@ -156,10 +156,8 @@ class TestDiskTools:
         assert mock_request.call_count == 2  # One read, one write
 
     @patch("acontext.client.AcontextClient.request")
-    def test_list_artifacts_tool(
-        self, mock_request: MagicMock, disk_ctx: DiskContext
-    ) -> None:
-        """Test list_artifacts tool execution."""
+    def test_list_tool(self, mock_request: MagicMock, disk_ctx: DiskContext) -> None:
+        """Test list_disk tool execution."""
         mock_request.return_value = {
             "artifacts": [
                 {
@@ -176,7 +174,7 @@ class TestDiskTools:
 
         result = DISK_TOOLS.execute_tool(
             disk_ctx,
-            "list_artifacts",
+            "list_disk",
             {"file_path": "/"},
         )
 
@@ -185,12 +183,12 @@ class TestDiskTools:
         mock_request.assert_called_once()
 
     def test_write_file_tool_validation(self, disk_ctx: DiskContext) -> None:
-        """Test write_file tool parameter validation."""
+        """Test write_file_disk tool parameter validation."""
         with pytest.raises(ValueError, match="filename is required"):
-            DISK_TOOLS.execute_tool(disk_ctx, "write_file", {"content": "test"})
+            DISK_TOOLS.execute_tool(disk_ctx, "write_file_disk", {"content": "test"})
 
         with pytest.raises(ValueError, match="content is required"):
-            DISK_TOOLS.execute_tool(disk_ctx, "write_file", {"filename": "test.txt"})
+            DISK_TOOLS.execute_tool(disk_ctx, "write_file_disk", {"filename": "test.txt"})
 
 
 class TestSkillTools:
@@ -200,10 +198,9 @@ class TestSkillTools:
         """Test that tools can generate OpenAI tool schemas."""
         schemas = SKILL_TOOLS.to_openai_tool_schema()
         assert isinstance(schemas, list)
-        assert len(schemas) == 3  # list_skills, get_skill, get_skill_file
+        assert len(schemas) == 2  # get_skill, get_skill_file
 
         tool_names = [s["function"]["name"] for s in schemas]
-        assert "list_skills" in tool_names
         assert "get_skill" in tool_names
         assert "get_skill_file" in tool_names
 
@@ -211,11 +208,10 @@ class TestSkillTools:
         """Test Anthropic tool schema generation."""
         schemas = SKILL_TOOLS.to_anthropic_tool_schema()
         assert isinstance(schemas, list)
-        assert len(schemas) == 3
+        assert len(schemas) == 2
 
     def test_skill_tools_tool_exists(self) -> None:
         """Test tool_exists method."""
-        assert SKILL_TOOLS.tool_exists("list_skills")
         assert SKILL_TOOLS.tool_exists("get_skill")
         assert SKILL_TOOLS.tool_exists("get_skill_file")
         assert not SKILL_TOOLS.tool_exists("nonexistent_tool")
@@ -283,28 +279,6 @@ class TestSkillTools:
 
         with pytest.raises(ValueError, match="Duplicate skill name"):
             SkillContext.create(mock_client, ["skill-1", "skill-2"])
-
-    @patch("acontext.client.AcontextClient.request")
-    def test_list_skills_tool(
-        self, mock_request: MagicMock, mock_client: AcontextClient
-    ) -> None:
-        """Test list_skills tool execution."""
-        mock_request.return_value = {
-            "id": "skill-1",
-            "name": "test-skill",
-            "description": "Test skill description",
-            "file_index": [],
-            "meta": {},
-            "created_at": "2024-01-01T00:00:00Z",
-            "updated_at": "2024-01-01T00:00:00Z",
-        }
-
-        ctx = SKILL_TOOLS.format_context(mock_client, ["skill-1"])
-        result = SKILL_TOOLS.execute_tool(ctx, "list_skills", {})
-
-        assert "test-skill" in result
-        assert "Test skill description" in result
-        assert "Available skills (1)" in result
 
     @patch("acontext.client.AcontextClient.request")
     def test_get_skill_tool(

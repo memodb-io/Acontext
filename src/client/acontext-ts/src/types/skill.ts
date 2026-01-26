@@ -50,3 +50,12 @@ export const GetSkillFileRespSchema = z.object({
 
 export type GetSkillFileResp = z.infer<typeof GetSkillFileRespSchema>;
 
+export const DownloadSkillToSandboxRespSchema = z.object({
+  success: z.boolean(),
+  dir_path: z.string(),
+  name: z.string(),
+  description: z.string(),
+});
+
+export type DownloadSkillToSandboxResp = z.infer<typeof DownloadSkillToSandboxRespSchema>;
+

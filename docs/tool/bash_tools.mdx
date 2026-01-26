@@ -1,0 +1,519 @@
+---
+title: "Sandbox Tools"
+description: "Enable LLMs to execute code and manage files in secure sandbox environments"
+---
+
+Acontext provides pre-built sandbox tools that allow LLMs to execute bash commands, edit files, and export results through function calling. These tools run in isolated container environments, making them safe for executing untrusted code.
+
+## Available Tools
+
+The SDK includes three sandbox operation tools:
+
+- **`bash_execution_sandbox`** - Execute bash commands in the sandbox
+- **`text_editor_sandbox`** - View, create, and edit text files
+- **`export_file_sandbox`** - Export files from sandbox to persistent disk storage
+
+<Tip>
+Sandbox tools also support mounting [Agent Skills](/store/skill) directly into the sandbox filesystem, allowing LLMs to access skill files and execute skill scripts.
+</Tip>
+
+## Building an Agent with Sandbox
+
+You can build an agentic loop where the LLM autonomously executes commands and manages files in a secure sandbox. Here's a complete example:
+
+<CodeGroup>
+```python Python
+import json
+import os
+from acontext import AcontextClient
+from acontext.agent.sandbox import SANDBOX_TOOLS
+from openai import OpenAI
+
+# Initialize clients
+acontext_client = AcontextClient(
+    api_key=os.getenv("ACONTEXT_API_KEY"),
+)
+
+# If you're using self-hosted Acontext:
+# acontext_client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
+openai_client = OpenAI()
+
+# Create sandbox and disk
+sandbox = acontext_client.sandboxes.create()
+disk = acontext_client.disks.create()
+
+# Create sandbox context (optionally mount skills)
+ctx = SANDBOX_TOOLS.format_context(
+    acontext_client,
+    sandbox_id=sandbox.sandbox_id,
+    disk_id=disk.id,
+    # mount_skills=["skill-uuid-1", "skill-uuid-2"]  # Optional: mount skills
+)
+
+# Get tool schemas for OpenAI
+tools = SANDBOX_TOOLS.to_openai_tool_schema()
+
+# Get context prompt to include in system message
+context_prompt = ctx.get_context_prompt()
+
+# Simple agentic loop
+messages = [
+    {
+        "role": "system",
+        "content": f"You are a helpful coding assistant with sandbox access.\n\n{context_prompt}",
+    },
+    {
+        "role": "user",
+        "content": "Create a Python script that prints 'Hello World', run it, and export the script file.",
+    }
+]
+
+while True:
+    response = openai_client.chat.completions.create(
+        model="gpt-4.1",
+        messages=messages,
+        tools=tools,
+    )
+
+    message = response.choices[0].message
+    messages.append(message)
+
+    # Break if no tool calls
+    if not message.tool_calls:
+        print(f"🤖 Assistant: {message.content}")
+        break
+
+    # Execute each tool call
+    for tool_call in message.tool_calls:
+        print(f"⚙️ Called {tool_call.function.name}")
+        result = SANDBOX_TOOLS.execute_tool(
+            ctx, tool_call.function.name, json.loads(tool_call.function.arguments)
+        )
+        print(f"🔍 Result: {result}")
+        messages.append(
+            {"role": "tool", "tool_call_id": tool_call.id, "content": result}
+        )
+
+# Clean up
+acontext_client.sandboxes.kill(sandbox.sandbox_id)
+```
+
+```typescript TypeScript
+import { AcontextClient, SANDBOX_TOOLS } from '@acontext/acontext';
+import OpenAI from 'openai';
+
+// Initialize clients
+const acontextClient = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+// If you're using self-hosted Acontext:
+// const acontextClient = new AcontextClient({
+//     baseUrl: 'http://localhost:8029/api/v1',
+//     apiKey: 'sk-ac-your-root-api-bearer-token',
+// });
+const openaiClient = new OpenAI();
+
+async function main() {
+    // Create sandbox and disk
+    const sandbox = await acontextClient.sandboxes.create();
+    const disk = await acontextClient.disks.create();
+
+    // Create sandbox context (optionally mount skills)
+    const ctx = await SANDBOX_TOOLS.formatContext(
+        acontextClient,
+        sandbox.sandbox_id,
+        disk.id,
+        // ['skill-uuid-1', 'skill-uuid-2']  // Optional: mount skills
+    );
+
+    // Get tool schemas for OpenAI
+    const tools = SANDBOX_TOOLS.toOpenAIToolSchema();
+
+    // Get context prompt to include in system message
+    const contextPrompt = ctx.getContextPrompt();
+
+    // Simple agentic loop
+    const messages = [
+        {
+            role: 'system',
+            content: `You are a helpful coding assistant with sandbox access.\n\n${contextPrompt}`,
+        },
+        {
+            role: 'user',
+            content: 'Create a Python script that prints "Hello World", run it, and export the script file.',
+        },
+    ];
+
+    while (true) {
+        const response = await openaiClient.chat.completions.create({
+            model: 'gpt-4.1',
+            messages,
+            tools,
+        });
+
+        const message = response.choices[0].message;
+        messages.push(message);
+
+        // Break if no tool calls
+        if (!message.tool_calls) {
+            console.log(`🤖 Assistant: ${message.content}`);
+            break;
+        }
+
+        // Execute each tool call
+        for (const toolCall of message.tool_calls) {
+            console.log(`⚙️ Called ${toolCall.function.name}`);
+            const result = await SANDBOX_TOOLS.executeTool(
+                ctx,
+                toolCall.function.name,
+                JSON.parse(toolCall.function.arguments)
+            );
+            console.log(`🔍 Result: ${result}`);
+            messages.push({
+                role: 'tool',
+                tool_call_id: toolCall.id,
+                content: result,
+            });
+        }
+    }
+
+    // Clean up
+    await acontextClient.sandboxes.kill(sandbox.sandbox_id);
+}
+
+main();
+```
+</CodeGroup>
+
+<Info>
+The agent will automatically call the appropriate tools (`text_editor_sandbox`, `bash_execution_sandbox`, `export_file_sandbox`) to complete your request. The context prompt provides guidelines for using each tool effectively.
+</Info>
+
+## How It Works
+
+<Steps>
+<Step title="Initialize clients and create resources">
+  Set up the Acontext client and create a sandbox and disk for the agent to use.
+
+  <CodeGroup>
+  ```python Python
+  import os
+  from acontext import AcontextClient
+  from acontext.agent.sandbox import SANDBOX_TOOLS
+
+  client = AcontextClient(
+      api_key=os.getenv("ACONTEXT_API_KEY"),
+  )
+
+  # If you're using self-hosted Acontext:
+  # client = AcontextClient(
+  #     base_url="http://localhost:8029/api/v1",
+  #     api_key="sk-ac-your-root-api-bearer-token",
+  # )
+
+  sandbox = client.sandboxes.create()
+  disk = client.disks.create()
+  ctx = SANDBOX_TOOLS.format_context(client, sandbox.sandbox_id, disk.id)
+  ```
+
+  ```typescript TypeScript
+  import { AcontextClient, SANDBOX_TOOLS } from '@acontext/acontext';
+
+  const client = new AcontextClient({
+      apiKey: process.env.ACONTEXT_API_KEY,
+  });
+
+  // If you're using self-hosted Acontext:
+  // const client = new AcontextClient({
+  //     baseUrl: 'http://localhost:8029/api/v1',
+  //     apiKey: 'sk-ac-your-root-api-bearer-token',
+  // });
+
+  const sandbox = await client.sandboxes.create();
+  const disk = await client.disks.create();
+  const ctx = await SANDBOX_TOOLS.formatContext(client, sandbox.sandbox_id, disk.id);
+  ```
+  </CodeGroup>
+</Step>
+
+<Step title="Include context prompt in system message">
+  The context provides detailed guidelines for using each tool. Include it in your system prompt.
+
+  <CodeGroup>
+  ```python Python
+  # Get context prompt with tool usage guidelines
+  context_prompt = ctx.get_context_prompt()
+
+  messages = [
+      {
+          "role": "system",
+          "content": f"You are a helpful assistant.\n\n{context_prompt}",
+      },
+      # ... user messages
+  ]
+  ```
+
+  ```typescript TypeScript
+  // Get context prompt with tool usage guidelines
+  const contextPrompt = ctx.getContextPrompt();
+
+  const messages = [
+      {
+          role: 'system',
+          content: `You are a helpful assistant.\n\n${contextPrompt}`,
+      },
+      // ... user messages
+  ];
+  ```
+  </CodeGroup>
+
+  <Tip>
+  The context prompt includes guidelines for text editing, bash execution, and when to use each tool. It also lists any mounted skills if you've provided skill IDs.
+  </Tip>
+</Step>
+
+<Step title="Pass tools to LLM">
+  Convert the sandbox tools to the schema format your LLM provider expects.
+
+  <CodeGroup>
+  ```python Python
+  # For OpenAI
+  tools = SANDBOX_TOOLS.to_openai_tool_schema()
+  response = openai_client.chat.completions.create(
+      model="gpt-4.1",
+      messages=messages,
+      tools=tools,
+  )
+
+  # For Anthropic
+  tools = SANDBOX_TOOLS.to_anthropic_tool_schema()
+  response = anthropic_client.messages.create(
+      model="claude-sonnet-4-20250514",
+      messages=messages,
+      tools=tools,
+  )
+  ```
+
+  ```typescript TypeScript
+  // For OpenAI
+  const tools = SANDBOX_TOOLS.toOpenAIToolSchema();
+  const response = await openaiClient.chat.completions.create({
+      model: 'gpt-4.1',
+      messages,
+      tools,
+  });
+
+  // For Anthropic
+  const tools = SANDBOX_TOOLS.toAnthropicToolSchema();
+  const response = await anthropicClient.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      messages,
+      tools,
+  });
+  ```
+  </CodeGroup>
+</Step>
+
+<Step title="Implement the agentic loop">
+  Create a loop that executes tool calls and feeds results back until the task is complete.
+
+  <CodeGroup>
+  ```python Python
+  # Execute each tool call from the LLM response
+  for tool_call in message.tool_calls:
+      result = SANDBOX_TOOLS.execute_tool(
+          ctx,                                      # Sandbox context
+          tool_call.function.name,                  # Tool name
+          json.loads(tool_call.function.arguments)  # Parse arguments
+      )
+      messages.append({
+          "role": "tool",
+          "tool_call_id": tool_call.id,
+          "content": result
+      })
+  ```
+
+  ```typescript TypeScript
+  // Execute each tool call from the LLM response
+  for (const toolCall of message.tool_calls) {
+      const result = await SANDBOX_TOOLS.executeTool(
+          ctx,                                      // Sandbox context
+          toolCall.function.name,                   // Tool name
+          JSON.parse(toolCall.function.arguments)   // Parse arguments
+      );
+      messages.push({
+          role: 'tool',
+          tool_call_id: toolCall.id,
+          content: result,
+      });
+  }
+  ```
+  </CodeGroup>
+
+  <Check>
+  The loop continues until the LLM returns a message without tool calls, indicating the task is complete.
+  </Check>
+</Step>
+</Steps>
+
+## Mounting Skills in Sandbox
+
+You can mount [Agent Skills](/store/skill) directly into the sandbox filesystem, giving your agent access to skill files and scripts. Skills are downloaded to `/skills/{skill_name}/` in the sandbox.
+
+<CodeGroup>
+```python Python
+# Mount skills when creating context
+skill_ids = ["uuid-of-skill-1", "uuid-of-skill-2"]
+ctx = SANDBOX_TOOLS.format_context(
+    client,
+    sandbox_id=sandbox.sandbox_id,
+    disk_id=disk.id,
+    mount_skills=skill_ids
+)
+
+# Or mount skills after context creation
+ctx.mount_skills(["uuid-of-skill-3"])
+
+# The context prompt will include mounted skills
+context_prompt = ctx.get_context_prompt()
+# Includes: <available_skills>...</available_skills>
+```
+
+```typescript TypeScript
+// Mount skills when creating context
+const skillIds = ['uuid-of-skill-1', 'uuid-of-skill-2'];
+const ctx = await SANDBOX_TOOLS.formatContext(
+    client,
+    sandbox.sandbox_id,
+    disk.id,
+    skillIds
+);
+
+// Or mount skills after context creation
+await ctx.mountSkills(['uuid-of-skill-3']);
+
+// The context prompt will include mounted skills
+const contextPrompt = ctx.getContextPrompt();
+// Includes: <available_skills>...</available_skills>
+```
+</CodeGroup>
+
+When skills are mounted, the context prompt automatically includes:
+- A list of available skills with their names, descriptions, and SKILL.md locations
+- Instructions for the LLM to read and follow skill instructions
+
+<Note>
+Unlike [Skill Content Tools](/tool/skill_tools) which only allow reading skill files, mounting skills in a sandbox allows the LLM to **execute** skill scripts using bash.
+</Note>
+
+## Tool Reference
+
+### bash_execution_sandbox
+
+Execute bash commands in the secure sandboxed container environment.
+
+**Parameters:**
+- `command` (required) - The bash command to execute (e.g., `"ls -la"`, `"python3 script.py"`)
+- `timeout` (optional) - Timeout in seconds for long-running commands
+
+**Returns:** JSON with `stdout`, `stderr`, and `exit_code`
+
+**Example Output:**
+```json
+{
+  "stdout": "Hello World\n",
+  "stderr": "",
+  "exit_code": 0
+}
+```
+
+### text_editor_sandbox
+
+A tool for viewing, creating, and editing text files in the sandbox.
+
+**Parameters:**
+- `command` (required) - The operation: `"view"`, `"create"`, or `"str_replace"`
+- `path` (required) - File path in the sandbox (e.g., `"/workspace/script.py"`)
+- `file_text` (for create) - Content to write to the file
+- `old_str` (for str_replace) - Exact string to find and replace
+- `new_str` (for str_replace) - Replacement string
+- `view_range` (for view, optional) - Array `[start_line, end_line]` to view specific lines
+
+**Commands:**
+
+| Command | Description | Required Params |
+|---------|-------------|-----------------|
+| `view` | Read file contents | `path` |
+| `create` | Create or overwrite file | `path`, `file_text` |
+| `str_replace` | Find and replace text | `path`, `old_str`, `new_str` |
+
+<Tip>
+Always use `view` before editing to understand the file structure. For `str_replace`, ensure the search string is unique and exact.
+</Tip>
+
+### export_file_sandbox
+
+Export a file from the sandbox to persistent disk storage and return a public download URL.
+
+**Parameters:**
+- `sandbox_path` (required) - Directory path in sandbox (must end with `/`, e.g., `"/workspace/"`)
+- `sandbox_filename` (required) - Name of the file to export
+
+**Returns:** JSON with success message and `public_url`
+
+**Example Output:**
+```json
+{
+  "message": "successfully exported file to disk",
+  "public_url": "https://..."
+}
+```
+
+<Note>
+Files are exported to `/artifacts/` on the disk. The sandbox file and disk file are independent - changes to the sandbox file won't update the exported version.
+</Note>
+
+## Sandbox Environment
+
+The sandbox container includes:
+
+- **Standard Unix utilities**: grep, sed, awk, cut, sort, etc.
+- **Archive tools**: tar, unzip, zip
+- **Additional tools**: ripgrep, fd, sqlite3, jq, imagemagick
+- **Python 3**: Pre-installed with common libraries
+- **Working directory**: `/workspace` (default)
+
+<Warning>
+**Important Limitations:**
+- **No internet access** - Cannot install packages or make network requests
+- **No blocking code** - Avoid `plt.show()`, `input()`, or similar blocking calls
+- **Sandbox expiration** - Sandboxes expire after 30 minutes by default
+</Warning>
+
+## Common Use Cases
+
+<CardGroup cols={2}>
+<Card title="Code execution" icon="play">
+Run user-submitted code safely in an isolated environment without risking your host system.
+</Card>
+
+<Card title="Data processing" icon="gears">
+Process files, run transformations, and generate outputs using Python or shell scripts.
+</Card>
+
+<Card title="Skill execution" icon="wand-magic-sparkles">
+Mount skills and let the LLM execute skill scripts to perform specialized tasks.
+</Card>
+
+<Card title="File generation" icon="file">
+Create documents, code files, or reports and export them for user download.
+</Card>
+</CardGroup>
+
+<Note>
+For async Python usage, see [Async Python Client](/chore/async_python#async-sandbox-tools) which covers `async_format_context()` and `async_execute_tool()` methods for sandbox tools.
+</Note>
