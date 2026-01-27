@@ -283,6 +283,7 @@ class TextEditorTool(BaseTool):
             },
             "view_range": {
                 "type": ["array", "null"],
+                "items": {"type": "integer"},
                 "description": "Optional for 'view' command. An array [start_line, end_line] to view specific lines. If not provided, shows the first 200 lines.",
             },
         }

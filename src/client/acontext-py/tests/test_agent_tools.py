@@ -1,12 +1,46 @@
-"""Tests for agent tools (DISK_TOOLS and SKILL_TOOLS)."""
+"""Tests for agent tools (DISK_TOOLS, SKILL_TOOLS, and SANDBOX_TOOLS)."""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from acontext.agent.disk import DISK_TOOLS, DiskContext
+from acontext.agent.sandbox import SANDBOX_TOOLS
 from acontext.agent.skill import SKILL_TOOLS, SkillContext
 from acontext.client import AcontextClient
+
+
+def _validate_openai_schema_properties(properties: dict, path: str = "") -> None:
+    """Validate that OpenAI tool schema properties are correctly defined.
+
+    OpenAI requires array types to have 'items' defined.
+
+    Args:
+        properties: The properties dict from a JSON schema.
+        path: Current path for error messages.
+
+    Raises:
+        AssertionError: If schema validation fails.
+    """
+    for prop_name, prop_schema in properties.items():
+        current_path = f"{path}.{prop_name}" if path else prop_name
+        prop_type = prop_schema.get("type")
+
+        # Handle type as list (e.g., ["array", "null"])
+        types_to_check = prop_type if isinstance(prop_type, list) else [prop_type]
+
+        for t in types_to_check:
+            if t == "array":
+                assert "items" in prop_schema, (
+                    f"Property '{current_path}' has type 'array' but missing 'items'. "
+                    f"OpenAI requires array schemas to define items."
+                )
+
+        # Recursively check nested properties
+        if "properties" in prop_schema:
+            _validate_openai_schema_properties(
+                prop_schema["properties"], current_path
+            )
 
 
 @pytest.fixture
@@ -416,3 +450,80 @@ class TestSkillTools:
             SKILL_TOOLS.execute_tool(
                 ctx, "get_skill_file", {"skill_name": "test-skill"}
             )
+
+
+class TestSandboxTools:
+    """Tests for SANDBOX_TOOLS."""
+
+    def test_sandbox_tools_schema_generation(self) -> None:
+        """Test that tools can generate OpenAI tool schemas."""
+        schemas = SANDBOX_TOOLS.to_openai_tool_schema()
+        assert isinstance(schemas, list)
+        assert (
+            len(schemas) == 3
+        )  # bash_execution_sandbox, text_editor_sandbox, export_file_sandbox
+
+        tool_names = [s["function"]["name"] for s in schemas]
+        assert "bash_execution_sandbox" in tool_names
+        assert "text_editor_sandbox" in tool_names
+        assert "export_file_sandbox" in tool_names
+
+    def test_sandbox_tools_anthropic_schema(self) -> None:
+        """Test Anthropic tool schema generation."""
+        schemas = SANDBOX_TOOLS.to_anthropic_tool_schema()
+        assert isinstance(schemas, list)
+        assert len(schemas) == 3
+
+    def test_sandbox_tools_tool_exists(self) -> None:
+        """Test tool_exists method."""
+        assert SANDBOX_TOOLS.tool_exists("bash_execution_sandbox")
+        assert SANDBOX_TOOLS.tool_exists("text_editor_sandbox")
+        assert SANDBOX_TOOLS.tool_exists("export_file_sandbox")
+        assert not SANDBOX_TOOLS.tool_exists("nonexistent_tool")
+
+    def test_openai_schema_array_types_have_items(self) -> None:
+        """Test that all array types in OpenAI schema have 'items' defined.
+
+        OpenAI Function Calling requires array types to specify their items schema.
+        This test ensures we don't regress on this requirement.
+        """
+        schemas = SANDBOX_TOOLS.to_openai_tool_schema()
+
+        for schema in schemas:
+            func_name = schema["function"]["name"]
+            properties = schema["function"]["parameters"].get("properties", {})
+            _validate_openai_schema_properties(properties, func_name)
+
+    def test_text_editor_view_range_schema(self) -> None:
+        """Test that text_editor_sandbox view_range has correct schema."""
+        schemas = SANDBOX_TOOLS.to_openai_tool_schema()
+
+        text_editor_schema = next(
+            s for s in schemas if s["function"]["name"] == "text_editor_sandbox"
+        )
+        properties = text_editor_schema["function"]["parameters"]["properties"]
+
+        # view_range should be array|null with items
+        view_range = properties["view_range"]
+        assert view_range["type"] == ["array", "null"]
+        assert "items" in view_range
+        assert view_range["items"]["type"] == "integer"
+
+
+class TestAllToolsSchemaValidation:
+    """Cross-cutting tests for all tool pools."""
+
+    def test_all_tool_pools_openai_schema_valid(self) -> None:
+        """Validate OpenAI schemas for all tool pools have valid array definitions."""
+        tool_pools = [
+            ("DISK_TOOLS", DISK_TOOLS),
+            ("SKILL_TOOLS", SKILL_TOOLS),
+            ("SANDBOX_TOOLS", SANDBOX_TOOLS),
+        ]
+
+        for pool_name, pool in tool_pools:
+            schemas = pool.to_openai_tool_schema()
+            for schema in schemas:
+                func_name = f"{pool_name}.{schema['function']['name']}"
+                properties = schema["function"]["parameters"].get("properties", {})
+                _validate_openai_schema_properties(properties, func_name)
