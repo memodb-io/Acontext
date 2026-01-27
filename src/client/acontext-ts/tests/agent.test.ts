@@ -18,6 +18,10 @@ import {
   GetSkillFileTool,
   createSkillContext,
   getSkillFromContext,
+  SANDBOX_TOOLS,
+  BashTool,
+  TextEditorTool,
+  ExportSandboxFileTool,
 } from '../src/agent';
 import {
   createMockClient,
@@ -524,6 +528,142 @@ describe('Agent Tools Unit Tests', () => {
       const skill = getSkillFromContext(ctx, 'test-skill');
       expect(skill).toBeDefined();
       expect(skill.name).toBe('test-skill');
+    });
+  });
+
+  describe('Sandbox Tools', () => {
+    test('SANDBOX_TOOLS should be pre-configured with all tools', () => {
+      expect(SANDBOX_TOOLS.toolExists('bash_execution_sandbox')).toBe(true);
+      expect(SANDBOX_TOOLS.toolExists('text_editor_sandbox')).toBe(true);
+      expect(SANDBOX_TOOLS.toolExists('export_file_sandbox')).toBe(true);
+    });
+
+    test('BashTool should have correct properties', () => {
+      const tool = new BashTool();
+      expect(tool.name).toBe('bash_execution_sandbox');
+      expect(tool.description).toBeTruthy();
+      expect(tool.requiredArguments).toContain('command');
+      expect(tool.arguments).toHaveProperty('command');
+      expect(tool.arguments).toHaveProperty('timeout');
+    });
+
+    test('TextEditorTool should have correct properties', () => {
+      const tool = new TextEditorTool();
+      expect(tool.name).toBe('text_editor_sandbox');
+      expect(tool.description).toBeTruthy();
+      expect(tool.requiredArguments).toContain('command');
+      expect(tool.requiredArguments).toContain('path');
+      expect(tool.arguments).toHaveProperty('command');
+      expect(tool.arguments).toHaveProperty('path');
+      expect(tool.arguments).toHaveProperty('file_text');
+      expect(tool.arguments).toHaveProperty('old_str');
+      expect(tool.arguments).toHaveProperty('new_str');
+      expect(tool.arguments).toHaveProperty('view_range');
+    });
+
+    test('ExportSandboxFileTool should have correct properties', () => {
+      const tool = new ExportSandboxFileTool();
+      expect(tool.name).toBe('export_file_sandbox');
+      expect(tool.description).toBeTruthy();
+      expect(tool.requiredArguments).toContain('sandbox_path');
+      expect(tool.requiredArguments).toContain('sandbox_filename');
+    });
+
+    test('SANDBOX_TOOLS should generate OpenAI tool schemas', () => {
+      const schemas = SANDBOX_TOOLS.toOpenAIToolSchema();
+      expect(Array.isArray(schemas)).toBe(true);
+      expect(schemas.length).toBe(3);
+      expect(schemas.every((s) => s.type === 'function')).toBe(true);
+    });
+
+    test('SANDBOX_TOOLS should generate Anthropic tool schemas', () => {
+      const schemas = SANDBOX_TOOLS.toAnthropicToolSchema();
+      expect(Array.isArray(schemas)).toBe(true);
+      expect(schemas.length).toBe(3);
+      expect(schemas.every((s) => s.name && s.input_schema)).toBe(true);
+    });
+  });
+
+  describe('OpenAI Schema Array Validation', () => {
+    /**
+     * Validates that all array types in schema properties have 'items' defined.
+     * OpenAI Function Calling requires array types to specify their items schema.
+     */
+    function validateArrayTypesHaveItems(
+      properties: Record<string, unknown>,
+      path: string = ''
+    ): void {
+      for (const [propName, propSchema] of Object.entries(properties)) {
+        const currentPath = path ? `${path}.${propName}` : propName;
+        const schema = propSchema as Record<string, unknown>;
+        const propType = schema.type;
+
+        // Handle type as array (e.g., ["array", "null"])
+        const typesToCheck = Array.isArray(propType) ? propType : [propType];
+
+        for (const t of typesToCheck) {
+          if (t === 'array') {
+            if (!('items' in schema)) {
+              throw new Error(
+                `Property '${currentPath}' has type 'array' but missing 'items'. OpenAI requires array schemas to define items.`
+              );
+            }
+          }
+        }
+
+        // Recursively check nested properties
+        if (schema.properties) {
+          validateArrayTypesHaveItems(
+            schema.properties as Record<string, unknown>,
+            currentPath
+          );
+        }
+      }
+    }
+
+    test('SANDBOX_TOOLS OpenAI schemas should have items for array types', () => {
+      const schemas = SANDBOX_TOOLS.toOpenAIToolSchema();
+
+      for (const schema of schemas) {
+        const funcSchema = schema.function as Record<string, unknown>;
+        const params = funcSchema.parameters as Record<string, unknown>;
+        const properties = (params.properties || {}) as Record<string, unknown>;
+        validateArrayTypesHaveItems(properties, funcSchema.name as string);
+      }
+    });
+
+    test('TextEditorTool view_range should have correct schema with items', () => {
+      const tool = new TextEditorTool();
+      const schema = tool.toOpenAIToolSchema();
+      const funcSchema = schema.function as Record<string, unknown>;
+      const params = funcSchema.parameters as Record<string, unknown>;
+      const properties = params.properties as Record<string, unknown>;
+      const viewRange = properties.view_range as Record<string, unknown>;
+
+      expect(viewRange.type).toEqual(['array', 'null']);
+      expect(viewRange).toHaveProperty('items');
+      expect((viewRange.items as Record<string, unknown>).type).toBe('integer');
+    });
+
+    test('All tool pools should have valid OpenAI array schemas', () => {
+      const toolPools = [
+        { name: 'DISK_TOOLS', pool: DISK_TOOLS },
+        { name: 'SKILL_TOOLS', pool: SKILL_TOOLS },
+        { name: 'SANDBOX_TOOLS', pool: SANDBOX_TOOLS },
+      ];
+
+      for (const { name, pool } of toolPools) {
+        const schemas = pool.toOpenAIToolSchema();
+        for (const schema of schemas) {
+          const funcSchema = schema.function as Record<string, unknown>;
+          const params = funcSchema.parameters as Record<string, unknown>;
+          const properties = (params.properties || {}) as Record<string, unknown>;
+          validateArrayTypesHaveItems(
+            properties,
+            `${name}.${funcSchema.name as string}`
+          );
+        }
+      }
     });
   });
 });
