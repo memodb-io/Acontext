@@ -8,7 +8,6 @@ updates:
     target-branch: "deps"
     commit-message:
       prefix: "chore(deps):"
-      include: "scope"
 
   - package-ecosystem: "pip"
     directory: "/src/server/core"
@@ -18,7 +17,6 @@ updates:
     target-branch: "deps"
     commit-message:
       prefix: "chore(deps):"
-      include: "scope"
 
   - package-ecosystem: "pip"
     directory: "/src/client/acontext-py"
@@ -28,7 +26,6 @@ updates:
     target-branch: "deps"
     commit-message:
       prefix: "chore(deps):"
-      include: "scope"
 
   - package-ecosystem: "npm"
     directory: "/src/client/acontext-ts"
@@ -38,7 +35,6 @@ updates:
     target-branch: "deps"
     commit-message:
       prefix: "chore(deps):"
-      include: "scope"
     groups:
       production-dependencies:
         dependency-type: "production"
@@ -53,7 +49,6 @@ updates:
     target-branch: "deps"
     commit-message:
       prefix: "chore(deps):"
-      include: "scope"
     groups:
       production-dependencies:
         dependency-type: "production"
@@ -68,7 +63,6 @@ updates:
     target-branch: "deps"
     commit-message:
       prefix: "chore(deps):"
-      include: "scope"
     groups:
       production-dependencies:
         dependency-type: "production"
@@ -83,7 +77,6 @@ updates:
     target-branch: "deps"
     commit-message:
       prefix: "chore(deps):"
-      include: "scope"
 
   - package-ecosystem: "docker"
     directory: "/src/server/core"
@@ -93,7 +86,6 @@ updates:
     target-branch: "deps"
     commit-message:
       prefix: "chore(deps):"
-      include: "scope"
 
   - package-ecosystem: "docker"
     directory: "/src/server/ui"
@@ -103,7 +95,6 @@ updates:
     target-branch: "deps"
     commit-message:
       prefix: "chore(deps):"
-      include: "scope"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -113,4 +104,3 @@ updates:
     target-branch: "deps"
     commit-message:
       prefix: "chore(ci):"
-      include: "scope"
