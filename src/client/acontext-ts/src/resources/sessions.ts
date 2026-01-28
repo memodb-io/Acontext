@@ -230,6 +230,7 @@ export class SessionsAPI {
    * @param options.format - The format of the messages ('acontext', 'openai', 'anthropic', or 'gemini').
    * @param options.timeDesc - Order by created_at descending if true, ascending if false.
    * @param options.editStrategies - Optional list of edit strategies to apply before format conversion.
+   * @param options.editingTrigger - Optional trigger config for editStrategies (v0 supports { token_gte: number }).
    *   Examples:
    *   - Remove tool results: [{ type: 'remove_tool_result', params: { keep_recent_n_tool_results: 3 } }]
    *   - Middle out: [{ type: 'middle_out', params: { token_reduce_to: 5000 } }]
@@ -250,6 +251,7 @@ export class SessionsAPI {
       format?: 'acontext' | 'openai' | 'anthropic' | 'gemini';
       timeDesc?: boolean | null;
       editStrategies?: Array<EditStrategy> | null;
+      editingTrigger?: Record<string, unknown> | null;
       pinEditingStrategiesAtMessage?: string | null;
     }
   ): Promise<GetMessagesOutput> {
@@ -268,6 +270,9 @@ export class SessionsAPI {
     );
     if (options?.editStrategies !== undefined && options?.editStrategies !== null) {
       params.edit_strategies = JSON.stringify(options.editStrategies);
+    }
+    if (options?.editingTrigger !== undefined && options?.editingTrigger !== null) {
+      params.editing_trigger = JSON.stringify(options.editingTrigger);
     }
     if (options?.pinEditingStrategiesAtMessage !== undefined && options?.pinEditingStrategiesAtMessage !== null) {
       params.pin_editing_strategies_at_message = options.pinEditingStrategiesAtMessage;
