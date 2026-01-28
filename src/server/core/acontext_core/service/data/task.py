@@ -30,7 +30,6 @@ async def fetch_planning_task(
             order=planning.order,
             status=planning.status,
             data=planning.data,
-            space_digested=planning.space_digested,
             raw_message_ids=[
                 msg.id for msg in sorted(planning.messages, key=lambda m: m.created_at)
             ],
@@ -51,7 +50,6 @@ async def fetch_task(db_session: AsyncSession, task_id: asUUID) -> Result[TaskSc
             order=task.order,
             status=task.status,
             data=task.data,
-            space_digested=task.space_digested,
             raw_message_ids=[
                 msg.id for msg in sorted(task.messages, key=lambda m: m.created_at)
             ],
@@ -80,7 +78,6 @@ async def fetch_current_tasks(
             order=t.order,
             status=t.status,
             data=t.data,
-            space_digested=t.space_digested,
             raw_message_ids=[
                 msg.id for msg in sorted(t.messages, key=lambda m: m.created_at)
             ],
@@ -121,18 +118,6 @@ async def update_task(
     await db_session.flush()
     # Changes will be committed when the session context exits
     return Result.resolve(task)
-
-
-async def set_task_space_digested(
-    db_session: AsyncSession,
-    task_id: asUUID,
-) -> Result[None]:
-    # Fetch the task to check current space_digested status
-    stmt = update(Task).where(Task.id == task_id).values(space_digested=True)
-    LOG.info(f"Setting task {task_id} space digested to True")
-    await db_session.execute(stmt)
-    await db_session.flush()
-    return Result.resolve(None)
 
 
 async def insert_task(
@@ -271,25 +256,6 @@ async def append_messages_to_planning_section(
     return r
 
 
-async def append_sop_thinking_to_task(
-    db_session: AsyncSession,
-    task_id: asUUID,
-    thinking: str,
-) -> Result[None]:
-    stmt = (
-        update(Task)
-        .where(Task.id == task_id)
-        .values(data=Task.data.op("||")({"sop_thinking": thinking}))
-    )
-    result = await db_session.execute(stmt)
-
-    if result.rowcount == 0:
-        return Result.reject(f"Task {task_id} not found")
-
-    await db_session.flush()
-    return Result.resolve(None)
-
-
 async def fetch_previous_tasks_without_message_ids(
     db_session: AsyncSession, session_id: asUUID, st_order: int, limit: int = 10
 ) -> Result[List[TaskSchema]]:
@@ -312,7 +278,6 @@ async def fetch_previous_tasks_without_message_ids(
                 order=t.order,
                 status=t.status,
                 data=t.data,
-                space_digested=t.space_digested,
                 raw_message_ids=[],
             )
             for t in tasks

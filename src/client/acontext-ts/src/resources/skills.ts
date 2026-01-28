@@ -6,6 +6,8 @@ import { RequesterProtocol } from '../client-types';
 import { FileUpload, normalizeFileUpload } from '../uploads';
 import { buildParams } from '../utils';
 import {
+  DownloadSkillToSandboxResp,
+  DownloadSkillToSandboxRespSchema,
   GetSkillFileResp,
   GetSkillFileRespSchema,
   ListSkillsOutput,
@@ -121,6 +123,35 @@ export class SkillsAPI {
     });
 
     return GetSkillFileRespSchema.parse(data);
+  }
+
+  /**
+   * Download all files from a skill to a sandbox environment.
+   *
+   * Files are placed at /skills/{skillName}/.
+   *
+   * @param skillId - The UUID of the skill to download
+   * @param options - Download options
+   * @param options.sandboxId - The UUID of the target sandbox
+   * @returns DownloadSkillToSandboxResp containing success status, directory path, skill name and description
+   */
+  async downloadToSandbox(
+    skillId: string,
+    options: {
+      sandboxId: string;
+    }
+  ): Promise<DownloadSkillToSandboxResp> {
+    const payload: Record<string, string> = {
+      sandbox_id: options.sandboxId,
+    };
+
+    const data = await this.requester.request(
+      'POST',
+      `/agent_skills/${skillId}/download_to_sandbox`,
+      { jsonData: payload }
+    );
+
+    return DownloadSkillToSandboxRespSchema.parse(data);
   }
 }
 

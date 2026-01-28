@@ -1,31 +1,22 @@
 ---
-title: "Skill Tools"
-description: "Enable LLMs to access and utilize agent skills through function calling"
+title: "Skill Content Tools"
+description: "Enable LLMs to read skill files without sandbox"
 ---
 
+Lightweight tools for LLMs to access skill content through function calling. Use when skills contain only reference content (no scripts to execute).
 
-
-[Agent skills](https://agentskills.io/home) is a simple, open format for giving agents new capabilities and expertise.
-Agent Skills are folders of instructions, scripts, and resources that agents can discover and use to do things more accurately and efficiently
-
-
-Acontext provides pre-built skill tools that allow LLMs to access reusable knowledge bundles (skills) through function calling. Skills contain files, scripts, and instructions that help agents perform specialized tasks.
+<Note>
+For skills with executable scripts, use [Sandbox Tools with mounted skills](/tool/bash_tools#mounting-skills) instead.
+</Note>
 
 ## Available Tools
 
-The SDK includes three skill operation tools:
+| Tool | Description |
+|------|-------------|
+| `get_skill` | Get skill metadata and file index |
+| `get_skill_file` | Read a file from a skill |
 
-- **`list_skills`** - List all available skills in the current context
-- **`get_skill`** - Get skill metadata including file index
-- **`get_skill_file`** - Read a specific file from a skill
-
-<Tip>
-Skills are preloaded by UUID when creating the context, then accessed by human-readable name. This allows LLMs to work with meaningful skill names instead of UUIDs.
-</Tip>
-
-## Building an Agent with Skills
-
-You can build an agentic loop where the LLM autonomously accesses skills to retrieve knowledge and instructions. Here's a complete example:
+## Quick Start
 
 <CodeGroup>
 ```python Python
@@ -35,331 +26,124 @@ from acontext import AcontextClient
 from acontext.agent.skill import SKILL_TOOLS
 from openai import OpenAI
 
-# Initialize clients
-acontext_client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# If you're using self-hosted Acontext:
-# acontext_client = AcontextClient(
-#     base_url="http://localhost:8029/api/v1",
-#     api_key="sk-ac-your-root-api-bearer-token",
-# )
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
 openai_client = OpenAI()
 
-# Preload skills by UUID and create tool context
-# The context maps skill names to skill objects for easy lookup
+# Preload skills by UUID
 skill_ids = ["uuid-of-skill-1", "uuid-of-skill-2"]
-ctx = SKILL_TOOLS.format_context(acontext_client, skill_ids)
+ctx = SKILL_TOOLS.format_context(client, skill_ids)
 
-# Get tool schemas for OpenAI
 tools = SKILL_TOOLS.to_openai_tool_schema()
+skills_context = ctx.get_context_prompt()
 
-# Simple agentic loop
 messages = [
-    {
-        "role": "user",
-        "content": "List the available skills, then read the SKILL.md from the data-extraction skill",
-    }
+    {"role": "system", "content": f"You have skill access.\n\n{skills_context}"},
+    {"role": "user", "content": "What guidelines are in the internal-comms skill?"}
 ]
 
+# Agent loop
 while True:
     response = openai_client.chat.completions.create(
-        model="gpt-4.1",
-        messages=messages,
-        tools=tools,
+        model="gpt-4.1", messages=messages, tools=tools
     )
-
     message = response.choices[0].message
     messages.append(message)
 
-    # Break if no tool calls
     if not message.tool_calls:
-        print(f"🤖 Assistant: {message.content}")
+        print(f"Assistant: {message.content}")
         break
 
-    # Execute each tool call
-    for tool_call in message.tool_calls:
-        print(f"⚙️ Called {tool_call.function.name}")
-        result = SKILL_TOOLS.execute_tool(
-            ctx, tool_call.function.name, json.loads(tool_call.function.arguments)
-        )
-        print(f"🔍 Result: {result}")
-        messages.append(
-            {"role": "tool", "tool_call_id": tool_call.id, "content": result}
-        )
+    for tc in message.tool_calls:
+        result = SKILL_TOOLS.execute_tool(ctx, tc.function.name, json.loads(tc.function.arguments))
+        messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
 ```
 
 ```typescript TypeScript
 import { AcontextClient, SKILL_TOOLS } from '@acontext/acontext';
 import OpenAI from 'openai';
 
-// Initialize clients
-const acontextClient = new AcontextClient({
+const client = new AcontextClient({
     apiKey: process.env.ACONTEXT_API_KEY,
 });
+const openai = new OpenAI();
 
-// If you're using self-hosted Acontext:
-// const acontextClient = new AcontextClient({
-//     baseUrl: 'http://localhost:8029/api/v1',
-//     apiKey: 'sk-ac-your-root-api-bearer-token',
-// });
-const openaiClient = new OpenAI();
+// Preload skills by UUID
+const skillIds = ["uuid-of-skill-1", "uuid-of-skill-2"];
+const ctx = await SKILL_TOOLS.formatContext(client, skillIds);
 
-// Preload skills by UUID and create tool context
-// The context maps skill names to skill objects for easy lookup
-const skillIds = ['uuid-of-skill-1', 'uuid-of-skill-2'];
-const ctx = await SKILL_TOOLS.formatContext(acontextClient, skillIds);
-
-// Get tool schemas for OpenAI
 const tools = SKILL_TOOLS.toOpenAIToolSchema();
+const skillsContext = ctx.getContextPrompt();
 
-// Simple agentic loop
-const messages = [
-  {
-    role: 'user',
-    content: 'List the available skills, then read the SKILL.md from the data-extraction skill',
-  },
+const messages: OpenAI.ChatCompletionMessageParam[] = [
+    { role: "system", content: `You have skill access.\n\n${skillsContext}` },
+    { role: "user", content: "What guidelines are in the internal-comms skill?" },
 ];
 
+// Agent loop
 while (true) {
-  const response = await openaiClient.chat.completions.create({
-    model: 'gpt-4.1',
-    messages,
-    tools,
-  });
-
-  const message = response.choices[0].message;
-  messages.push(message);
-
-  // Break if no tool calls
-  if (!message.tool_calls) {
-    console.log(`🤖 Assistant: ${message.content}`);
-    break;
-  }
-
-  // Execute each tool call
-  for (const toolCall of message.tool_calls) {
-    console.log(`⚙️ Called ${toolCall.function.name}`);
-    const result = await SKILL_TOOLS.executeTool(
-      ctx,
-      toolCall.function.name,
-      JSON.parse(toolCall.function.arguments)
-    );
-    console.log(`🔍 Result: ${result}`);
-    messages.push({
-      role: 'tool',
-      tool_call_id: toolCall.id,
-      content: result,
+    const response = await openai.chat.completions.create({
+        model: "gpt-4.1",
+        messages,
+        tools,
     });
-  }
+    const message = response.choices[0].message;
+    messages.push(message);
+
+    if (!message.tool_calls) {
+        console.log(`Assistant: ${message.content}`);
+        break;
+    }
+
+    for (const tc of message.tool_calls) {
+        const result = await SKILL_TOOLS.executeTool(ctx, tc.function.name, JSON.parse(tc.function.arguments));
+        messages.push({ role: "tool", tool_call_id: tc.id, content: result });
+    }
 }
 ```
 </CodeGroup>
 
-<Info>
-The agent will automatically call the appropriate tools (`list_skills`, `get_skill`, `get_skill_file`) to explore and retrieve knowledge from skills.
-</Info>
+## Context Prompt
 
-## How It Works
+The context includes available skills as XML:
 
-<Steps>
-<Step title="Initialize clients and preload skills">
-  Set up both the Acontext client and your LLM client (OpenAI or Anthropic). Preload skills by their UUIDs to create the context.
-
-  <CodeGroup>
-  ```python Python
-  import os
-  from acontext import AcontextClient
-  from acontext.agent.skill import SKILL_TOOLS
-
-  client = AcontextClient(
-      api_key=os.getenv("ACONTEXT_API_KEY"),
-  )
-
-  # If you're using self-hosted Acontext:
-  # client = AcontextClient(
-  #     base_url="http://localhost:8029/api/v1",
-  #     api_key="sk-ac-your-root-api-bearer-token",
-  # )
-
-  # Preload skills by UUID - they'll be accessible by name
-  skill_ids = ["uuid-of-skill-1", "uuid-of-skill-2"]
-  ctx = SKILL_TOOLS.format_context(client, skill_ids)
-  ```
-
-  ```typescript TypeScript
-  import { AcontextClient, SKILL_TOOLS } from '@acontext/acontext';
-
-  const client = new AcontextClient({
-      apiKey: process.env.ACONTEXT_API_KEY,
-  });
-
-  // If you're using self-hosted Acontext:
-  // const client = new AcontextClient({
-  //     baseUrl: 'http://localhost:8029/api/v1',
-  //     apiKey: 'sk-ac-your-root-api-bearer-token',
-  // });
-
-  // Preload skills by UUID - they'll be accessible by name
-  const skillIds = ['uuid-of-skill-1', 'uuid-of-skill-2'];
-  const ctx = await SKILL_TOOLS.formatContext(client, skillIds);
-  ```
-  </CodeGroup>
-
-  <Note>
-  The context preloads skill metadata and creates a name-to-skill mapping. This allows LLMs to reference skills by their human-readable names instead of UUIDs.
-  </Note>
-</Step>
-
-<Step title="Get tool schemas for your LLM">
-  Convert the skill tools to the schema format your LLM provider expects.
-
-  <CodeGroup>
-  ```python Python
-  # For OpenAI
-  tools = SKILL_TOOLS.to_openai_tool_schema()
-
-  # For Anthropic
-  tools = SKILL_TOOLS.to_anthropic_tool_schema()
-  ```
-
-  ```typescript TypeScript
-  // For OpenAI
-  const tools = SKILL_TOOLS.toOpenAIToolSchema();
-
-  // For Anthropic
-  const tools = SKILL_TOOLS.toAnthropicToolSchema();
-  ```
-  </CodeGroup>
-</Step>
-
-<Step title="Implement the agentic loop">
-  Create a loop that executes tool calls and feeds results back until the task is complete.
-
-  **Executing Tools After LLM Response:**
-
-  When the LLM responds with tool calls, iterate through each one and execute them using `SKILL_TOOLS.execute_tool()` (Python) or `SKILL_TOOLS.executeTool()` (TypeScript):
-
-  <CodeGroup>
-  ```python Python
-  # Execute each tool call from the LLM response
-  for tool_call in message.tool_calls:
-      result = SKILL_TOOLS.execute_tool(
-          ctx,                                      # Tool context with preloaded skills
-          tool_call.function.name,                  # Tool name (e.g., "get_skill")
-          json.loads(tool_call.function.arguments)  # Parse arguments
-      )
-      # Add tool result back to message history
-      messages.append({
-          "role": "tool",
-          "tool_call_id": tool_call.id,
-          "content": result
-      })
-  ```
-
-  ```typescript TypeScript
-  // Execute each tool call from the LLM response
-  for (const toolCall of message.tool_calls) {
-      const result = await SKILL_TOOLS.executeTool(
-          ctx,                                      // Tool context with preloaded skills
-          toolCall.function.name,                   // Tool name (e.g., "get_skill")
-          JSON.parse(toolCall.function.arguments)   // Parse arguments
-      );
-      // Add tool result back to message history
-      messages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: result,
-      });
-  }
-  ```
-  </CodeGroup>
-
-  <Check>
-  The loop continues until the LLM returns a message without tool calls, indicating the task is complete.
-  </Check>
-</Step>
-</Steps>
+```xml
+<available_skills>
+<skill>
+<name>data-extraction</name>
+<description>Extract structured data from documents</description>
+</skill>
+</available_skills>
+```
 
 ## Tool Reference
 
-### list_skills
-
-List all available skills in the current context with their names and descriptions.
-
-**Parameters:** None
-
-**Returns:** List of skill names and descriptions
-
-**Example Output:**
-```
-Available skills (2):
-- data-extraction: Extract structured data from documents
-- code-review: Review code for best practices and security issues
-```
-
 ### get_skill
 
-Get detailed information about a skill by its name.
-
-**Parameters:**
-- `skill_name` (required) - The name of the skill
-
-**Returns:** Skill metadata including ID, description, and file index with MIME types
-
-**Example Output:**
+```python
+{"skill_name": "data-extraction"}
 ```
-Skill: data-extraction (ID: abc123-...)
-Description: Extract structured data from documents
-Files: 3 file(s)
-  - SKILL.md (text/markdown)
-  - scripts/extract.py (text/x-python)
-  - templates/output.json (application/json)
-```
+
+Returns: Skill ID, description, and file index with MIME types.
 
 ### get_skill_file
 
-Read the contents of a specific file from a skill.
+```python
+{"skill_name": "data-extraction", "file_path": "SKILL.md"}
+```
 
-**Parameters:**
-- `skill_name` (required) - The name of the skill
-- `file_path` (required) - Relative path to the file within the skill (e.g., `"SKILL.md"` or `"scripts/extract.py"`)
-- `expire` (optional) - URL expiration time in seconds for non-parseable files (defaults to `900`)
-
-**Returns:** File content for text files, or a presigned download URL for binary files
-
-<Tip>
-Start by reading `SKILL.md` - this file contains an overview of the skill's purpose, capabilities, and usage instructions.
-</Tip>
-
-## Skill Context Architecture
-
-The skill tools use a preloading pattern that differs from disk tools:
-
-<Steps>
-<Step title="Preload by UUID">
-  When creating the context, you provide a list of skill UUIDs. The SDK fetches each skill's metadata from the API.
-</Step>
-
-<Step title="Map by Name">
-  Skills are stored in a name-to-skill mapping. This allows LLMs to reference skills using meaningful names like `"data-extraction"` instead of UUIDs.
-</Step>
-
-<Step title="Access by Name">
-  All tool calls use `skill_name` parameter. The context automatically resolves names to the full skill objects.
-</Step>
-</Steps>
+Returns: File content (text) or presigned URL (binary).
 
 <Warning>
-Each skill must have a unique name within the context. If you preload two skills with the same name, a `ValueError` (Python) or `Error` (TypeScript) will be thrown.
+**Read-only:** These tools can only read skill content. To execute skill scripts, use [Sandbox Tools](/tool/bash_tools#mounting-skills).
 </Warning>
 
-<Warning>
-**Read-Only Access:** These skill tools can only **load and read** skill content (text-based file like markdown, code...). 
-They cannot execute code scripts or run any executable files contained within a skill. 
-</Warning>
+## Next Steps
 
-<Note>
-For async Python usage, see [Async Python Client](/chore/async_python#async-agentic-tools) which covers `async_format_context()` and `async_execute_tool()` methods.
-</Note>
+<CardGroup cols={2}>
+<Card title="Skills API" icon="wand-magic-sparkles" href="/store/skill">
+Upload and manage skills
+</Card>
+<Card title="Sandbox Tools" icon="terminal" href="/tool/bash_tools">
+Execute skill scripts
+</Card>
+</CardGroup>

@@ -1,21 +1,8 @@
-import asyncio
-from ....infra.async_mq import publish_mq
 from ..base import Tool
 from ....schema.llm import ToolSchema
 from ....schema.result import Result
-from ....schema.mq.space import NewTaskComplete
-from ....schema.session.task import TaskStatus
 from ....service.data import task as TD
-from ....service.constants import EX, RK
 from .ctx import TaskCtx
-
-
-async def send_complete_new_task(body: NewTaskComplete):
-    await publish_mq(
-        exchange_name=EX.space_task,
-        routing_key=RK.space_task_new_complete,
-        body=body.model_dump_json(),
-    )
 
 
 async def update_task_handler(
@@ -49,16 +36,6 @@ async def update_task_handler(
     t, eil = r.unpack()
     if eil:
         return r
-    if task_status is not None and task_status == TaskStatus.SUCCESS.value:
-        asyncio.create_task(
-            send_complete_new_task(
-                NewTaskComplete(
-                    project_id=ctx.project_id,
-                    session_id=ctx.session_id,
-                    task_id=actually_task_id,
-                )
-            )
-        )
     return Result.resolve(f"Task {t.order} updated")
 
 

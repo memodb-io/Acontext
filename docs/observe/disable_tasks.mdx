@@ -1,92 +1,32 @@
 ---
 title: "Disable Task Tracking"
-description: "Learn how to disable automatic task tracking for specific sessions"
+description: "Skip automatic task extraction for specific sessions"
 ---
 
-## Overview
-
-Task tracking may not always be desirable. For example, when you're launching a new sub-agent with simple tasks, or running test conversations, the session may not need to track tasks.
-
-By default, all sessions have task tracking **enabled**.
-When enabled, every message sent to a session will be monitored on agent planning and user feedback.
-
-## When to Disable Task Tracking
-
-Consider disabling task tracking in these scenarios:
-
-- **Testing and Development**: When you're testing your agent and don't want to clutter your task logs
-- **Simple Conversations**: For basic Q&A sessions that don't require task analysis
-- **Sub-agents**: When running lightweight sub-agents for simple operations
-
-## How to Disable Task Tracking
-
-You can disable task tracking by setting the `disable_task_tracking` parameter to `true` when creating a session.
+Disable task tracking for testing, simple Q&A, or lightweight sub-agents.
 
 <CodeGroup>
-
 ```python Python
-import os
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# If you're using self-hosted Acontext:
-# client = AcontextClient(
-#     base_url="http://localhost:8029/api/v1",
-#     api_key="sk-ac-your-root-api-bearer-token",
-# )
-
-# Create a session with task tracking disabled
-session = client.sessions.create(
-    disable_task_tracking=True
-)
-
-print(f"Session ID: {session.id}")
-print(f"Task tracking disabled: {session.disable_task_tracking}")
+session = client.sessions.create(disable_task_tracking=True)
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-// If you're using self-hosted Acontext:
-// const client = new AcontextClient({
-//     baseUrl: "http://localhost:8029/api/v1",
-//     apiKey: "sk-ac-your-root-api-bearer-token",
-// });
-
-// Create a session with task tracking disabled
-const session = await client.sessions.create({
-  disableTaskTracking: true
-});
-
-console.log(`Session ID: ${session.id}`);
-console.log(`Task tracking disabled: ${session.disable_task_tracking}`);
+const session = await client.sessions.create({ disableTaskTracking: true });
 ```
-
 </CodeGroup>
 
-## What Happens When Task Tracking is Disabled
+**What happens:**
+- Messages are still saved
+- No automatic task extraction
+- Session won't appear in task analytics
 
-When `disable_task_tracking` is set to `true`:
+## Next Steps
 
-- ✅ **Messages are saved**: Messages sent to the session are still saved to the database normally
-- ❌ **No automatic tasks**: No automatic task extraction.
-- ❌ **No task analysis**: The session won't appear in task-based analytics
-
-## Best Practices
-
-1. **Use selectively**: Only disable task tracking when you specifically don't need it
-2. **Document your decision**: Make it clear in your code why task tracking is disabled
-3. **Testing environments**: Consider disabling task tracking in test/development environments
-
-## Related
-
-- [Understanding Tasks](/observe/agent_tasks)
-- [Task Analytics](/observe/dashboard)
-- [Session Management](/learn/skill-space)
+<CardGroup cols={2}>
+<Card title="Agent Tasks" icon="list-check" href="/observe/agent_tasks">
+How task extraction works
+</Card>
+<Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
+View analytics
+</Card>
+</CardGroup>

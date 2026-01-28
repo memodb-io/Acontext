@@ -1,0 +1,262 @@
+---
+title: "Using Agent Skills"
+description: "Upload skills and build agents that use them"
+---
+
+[Agent Skills](https://agentskills.io/home) are folders of instructions and resources that agents can use. This guide shows how to upload a skill and build an agent that reads it.
+
+## Step 1: Get a Skill
+
+Download from [Anthropic Skills Repository](https://github.com/anthropics/skills/tree/main/skills):
+
+```bash
+git clone https://github.com/anthropics/skills.git
+cd skills/skills/internal-comms
+zip -r internal-comms.zip .
+```
+
+## Step 2: Upload the Skill
+
+<CodeGroup>
+```python Python
+import os
+from acontext import AcontextClient, FileUpload
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+
+with open("internal-comms.zip", "rb") as f:
+    skill = client.skills.create(
+        file=FileUpload(filename="internal-comms.zip", content=f.read())
+    )
+print(f"Skill ID: {skill.id}")
+```
+
+```typescript TypeScript
+import { AcontextClient, FileUpload } from '@acontext/acontext';
+import * as fs from 'fs';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+const fileContent = fs.readFileSync("internal-comms.zip");
+const skill = await client.skills.create({
+    file: new FileUpload({ filename: "internal-comms.zip", content: fileContent }),
+});
+console.log(`Skill ID: ${skill.id}`);
+```
+</CodeGroup>
+
+## Step 3: Build an Agent with Sandbox Tools
+
+<Accordion title="Complete example with sandbox tools">
+<CodeGroup>
+```python Python
+import json
+import os
+from acontext import AcontextClient
+from acontext.agent.sandbox import SANDBOX_TOOLS
+from openai import OpenAI
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+openai_client = OpenAI()
+
+skill_id = "your-skill-id"
+
+# Create sandbox and disk
+sandbox = client.sandboxes.create()
+disk = client.disks.create()
+
+# Mount skill in sandbox
+ctx = SANDBOX_TOOLS.format_context(
+    client,
+    sandbox_id=sandbox.sandbox_id,
+    disk_id=disk.id,
+    mount_skills=[skill_id]
+)
+
+tools = SANDBOX_TOOLS.to_openai_tool_schema()
+context_prompt = ctx.get_context_prompt()
+
+messages = [
+    {"role": "system", "content": f"You have sandbox tools.\n\n{context_prompt}"},
+    {"role": "user", "content": "What communication guidelines should I follow?"}
+]
+
+# Agent loop
+while True:
+    response = openai_client.chat.completions.create(
+        model="gpt-4.1", messages=messages, tools=tools
+    )
+    message = response.choices[0].message
+    messages.append(message)
+
+    if not message.tool_calls:
+        print(f"Assistant: {message.content}")
+        break
+
+    for tc in message.tool_calls:
+        result = SANDBOX_TOOLS.execute_tool(ctx, tc.function.name, json.loads(tc.function.arguments))
+        messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+
+# Cleanup
+client.sandboxes.kill(sandbox.sandbox_id)
+client.disks.delete(disk.id)
+```
+
+```typescript TypeScript
+import { AcontextClient, SANDBOX_TOOLS } from '@acontext/acontext';
+import OpenAI from 'openai';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+const openai = new OpenAI();
+
+const skillId = "your-skill-id";
+
+// Create sandbox and disk
+const sandbox = await client.sandboxes.create();
+const disk = await client.disks.create();
+
+// Mount skill in sandbox
+const ctx = await SANDBOX_TOOLS.formatContext(
+    client,
+    sandbox.sandbox_id,
+    disk.id,
+    [skillId]
+);
+
+const tools = SANDBOX_TOOLS.toOpenAIToolSchema();
+const contextPrompt = ctx.getContextPrompt();
+
+const messages: OpenAI.ChatCompletionMessageParam[] = [
+    { role: "system", content: `You have sandbox tools.\n\n${contextPrompt}` },
+    { role: "user", content: "What communication guidelines should I follow?" },
+];
+
+// Agent loop
+while (true) {
+    const response = await openai.chat.completions.create({
+        model: "gpt-4.1",
+        messages,
+        tools,
+    });
+    const message = response.choices[0].message;
+    messages.push(message);
+
+    if (!message.tool_calls) {
+        console.log(`Assistant: ${message.content}`);
+        break;
+    }
+
+    for (const tc of message.tool_calls) {
+        const result = await SANDBOX_TOOLS.executeTool(ctx, tc.function.name, JSON.parse(tc.function.arguments));
+        messages.push({ role: "tool", tool_call_id: tc.id, content: result });
+    }
+}
+
+// Cleanup
+await client.sandboxes.kill(sandbox.sandbox_id);
+await client.disks.delete(disk.id);
+```
+</CodeGroup>
+</Accordion>
+
+## Alternative: Skill Content Tools
+
+For read-only skills (no scripts to execute):
+
+<Accordion title="Complete example with skill tools">
+<CodeGroup>
+```python Python
+import json
+import os
+from acontext import AcontextClient
+from acontext.agent.skill import SKILL_TOOLS
+from openai import OpenAI
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+openai_client = OpenAI()
+
+ctx = SKILL_TOOLS.format_context(client, ["your-skill-id"])
+tools = SKILL_TOOLS.to_openai_tool_schema()
+
+messages = [
+    {"role": "system", "content": f"You have skill access.\n\n{ctx.get_context_prompt()}"},
+    {"role": "user", "content": "What are the guidelines?"}
+]
+
+while True:
+    response = openai_client.chat.completions.create(
+        model="gpt-4.1", messages=messages, tools=tools
+    )
+    message = response.choices[0].message
+    messages.append(message)
+
+    if not message.tool_calls:
+        print(f"Assistant: {message.content}")
+        break
+
+    for tc in message.tool_calls:
+        result = SKILL_TOOLS.execute_tool(ctx, tc.function.name, json.loads(tc.function.arguments))
+        messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+```
+
+```typescript TypeScript
+import { AcontextClient, SKILL_TOOLS } from '@acontext/acontext';
+import OpenAI from 'openai';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+const openai = new OpenAI();
+
+const ctx = await SKILL_TOOLS.formatContext(client, ["your-skill-id"]);
+const tools = SKILL_TOOLS.toOpenAIToolSchema();
+
+const messages: OpenAI.ChatCompletionMessageParam[] = [
+    { role: "system", content: `You have skill access.\n\n${ctx.getContextPrompt()}` },
+    { role: "user", content: "What are the guidelines?" },
+];
+
+while (true) {
+    const response = await openai.chat.completions.create({
+        model: "gpt-4.1",
+        messages,
+        tools,
+    });
+    const message = response.choices[0].message;
+    messages.push(message);
+
+    if (!message.tool_calls) {
+        console.log(`Assistant: ${message.content}`);
+        break;
+    }
+
+    for (const tc of message.tool_calls) {
+        const result = await SKILL_TOOLS.executeTool(ctx, tc.function.name, JSON.parse(tc.function.arguments));
+        messages.push({ role: "tool", tool_call_id: tc.id, content: result });
+    }
+}
+```
+</CodeGroup>
+</Accordion>
+
+## When to Use Each
+
+| Approach | Use When |
+|----------|----------|
+| **Sandbox Tools** | Skill has executable scripts |
+| **Skill Content Tools** | Skill is read-only reference |
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Skill API" icon="book" href="/store/skill">
+Skills storage API
+</Card>
+<Card title="Sandbox Tools" icon="terminal" href="/tool/bash_tools">
+Full sandbox API
+</Card>
+</CardGroup>

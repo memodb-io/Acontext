@@ -7,7 +7,6 @@ import { MessagePart, FileUpload, buildAcontextMessage } from '../src/index';
 import {
   createMockClient,
   MockAcontextClient,
-  mockSpace,
   mockSession,
   mockMessage,
   mockGetMessagesOutput,
@@ -40,131 +39,6 @@ describe('AcontextClient Unit Tests', () => {
     });
   });
 
-  describe('Spaces API', () => {
-    test('should list spaces', async () => {
-      const spaces = [mockSpace({ configs: { name: 'Space 1' } }), mockSpace({ configs: { name: 'Space 2' } })];
-      client.mock().onGet('/space', () => mockPaginatedList(spaces, false));
-
-      const result = await client.spaces.list();
-      expect(result).toBeDefined();
-      expect(result.items).toBeInstanceOf(Array);
-      expect(result.items.length).toBe(2);
-      expect(result.has_more).toBe(false);
-    });
-
-    test('should list spaces with pagination options', async () => {
-      const spaces = [mockSpace()];
-      client.mock().onGet('/space', (options) => {
-        expect(options?.params?.limit).toBe(10);
-        expect(options?.params?.time_desc).toBe('true');
-        return mockPaginatedList(spaces, true, 'next-cursor');
-      });
-
-      const result = await client.spaces.list({ limit: 10, timeDesc: true });
-      expect(result.items.length).toBe(1);
-      expect(result.has_more).toBe(true);
-      expect(result.next_cursor).toBe('next-cursor');
-    });
-
-    test('should create a space', async () => {
-      const createdSpace = mockSpace({ configs: { name: 'Test Space' } });
-      client.mock().onPost('/space', (options) => {
-        expect(options?.jsonData).toEqual({ configs: { name: 'Test Space' } });
-        return createdSpace;
-      });
-
-      const space = await client.spaces.create({
-        configs: { name: 'Test Space' },
-      });
-      expect(space).toBeDefined();
-      expect(space.id).toBeDefined();
-      expect(space.project_id).toBeDefined();
-      expect(space.configs).toEqual({ name: 'Test Space' });
-    });
-
-    test('should create a space with user identifier', async () => {
-      const createdSpace = mockSpace({
-        configs: { name: 'User Space' },
-      });
-      // Set user_id directly
-      (createdSpace as Record<string, unknown>).user_id = 'user@test.com';
-      client.mock().onPost('/space', (options) => {
-        const data = options?.jsonData as Record<string, unknown>;
-        expect(data?.configs).toEqual({ name: 'User Space' });
-        expect(data?.user).toBe('user@test.com');
-        return createdSpace;
-      });
-
-      const space = await client.spaces.create({
-        configs: { name: 'User Space' },
-        user: 'user@test.com',
-      });
-      expect(space.user_id).toBe('user@test.com');
-    });
-
-    test('should get space configs', async () => {
-      const spaceId = 'test-space-id';
-      const space = mockSpace({ id: spaceId, configs: { name: 'Test Space' } });
-      client.mock().onGet(`/space/${spaceId}/configs`, () => space);
-
-      const result = await client.spaces.getConfigs(spaceId);
-      expect(result).toBeDefined();
-      expect(result.id).toBe(spaceId);
-      expect(result.configs).toEqual({ name: 'Test Space' });
-    });
-
-    test('should update space configs', async () => {
-      const spaceId = 'test-space-id';
-      client.mock().onPut(`/space/${spaceId}/configs`, (options) => {
-        expect(options?.jsonData).toEqual({
-          configs: { name: 'Updated Test Space', test: true },
-        });
-        return undefined;
-      });
-
-      await client.spaces.updateConfigs(spaceId, {
-        configs: { name: 'Updated Test Space', test: true },
-      });
-
-      // Verify the call was made
-      expect(client.requester.calls).toHaveLength(1);
-      expect(client.requester.calls[0].method).toBe('PUT');
-    });
-
-    test('should delete a space', async () => {
-      const spaceId = 'test-space-id';
-      client.mock().onDelete(`/space/${spaceId}`, () => undefined);
-
-      await client.spaces.delete(spaceId);
-      expect(client.requester.calls).toHaveLength(1);
-      expect(client.requester.calls[0].method).toBe('DELETE');
-      expect(client.requester.calls[0].path).toBe(`/space/${spaceId}`);
-    });
-
-    test('should perform experience search', async () => {
-      const spaceId = 'test-space-id';
-      const searchResult = {
-        cited_blocks: [],
-        final_answer: 'Test answer',
-      };
-      client.mock().onGet(/^\/space\/.*\/experience_search$/, (options) => {
-        expect(options?.params?.query).toBe('test query');
-        expect(options?.params?.limit).toBe(5);
-        expect(options?.params?.mode).toBe('fast');
-        return searchResult;
-      });
-
-      const result = await client.spaces.experienceSearch(spaceId, {
-        query: 'test query',
-        limit: 5,
-        mode: 'fast',
-      });
-      expect(result).toBeDefined();
-      expect(result.cited_blocks).toBeInstanceOf(Array);
-      expect(result.final_answer).toBe('Test answer');
-    });
-  });
-
   describe('Sessions API', () => {
     test('should list sessions', async () => {
       const sessions = [mockSession(), mockSession()];
@@ -178,26 +52,21 @@ describe('AcontextClient Unit Tests', () => {
     });
 
     test('should create a session', async () => {
-      const spaceId = 'test-space-id';
       const createdSession = mockSession({
-        space_id: spaceId,
         configs: { mode: 'test' },
       });
       client.mock().onPost('/session', (options) => {
         expect(options?.jsonData).toEqual({
-          space_id: spaceId,
           configs: { mode: 'test' },
         });
         return createdSession;
       });
 
       const session = await client.sessions.create({
-        spaceId: spaceId,
         configs: { mode: 'test' },
       });
       expect(session).toBeDefined();
       expect(session.id).toBeDefined();
-      expect(session.space_id).toBe(spaceId);
     });
 
     test('should store a message in acontext format', async () => {
@@ -336,20 +205,6 @@ describe('AcontextClient Unit Tests', () => {
       expect(result).toBeDefined();
       expect(result.items).toBeInstanceOf(Array);
       expect(result.has_more).toBeDefined();
-    });
-
-    test('should get learning status', async () => {
-      const sessionId = 'test-session-id';
-      const learningStatus = {
-        space_digested_count: 5,
-        not_space_digested_count: 3,
-      };
-      client.mock().onGet(`/session/${sessionId}/get_learning_status`, () => learningStatus);
-
-      const result = await client.sessions.getLearningStatus(sessionId);
-      expect(result).toBeDefined();
-      expect(result.space_digested_count).toBe(5);
-      expect(result.not_space_digested_count).toBe(3);
     });
 
     test('should get token counts', async () => {
@@ -591,7 +446,6 @@ describe('AcontextClient Unit Tests', () => {
       const identifier = 'user@test.com';
       const resources = {
         counts: {
-          spaces_count: 5,
           sessions_count: 10,
           disks_count: 3,
           skills_count: 2,
@@ -604,7 +458,6 @@ describe('AcontextClient Unit Tests', () => {
       const result = await client.users.getResources(identifier);
       expect(result).toBeDefined();
       expect(result.counts).toBeDefined();
-      expect(result.counts.spaces_count).toBe(5);
       expect(result.counts.sessions_count).toBe(10);
       expect(result.counts.disks_count).toBe(3);
       expect(result.counts.skills_count).toBe(2);
@@ -617,6 +470,37 @@ describe('AcontextClient Unit Tests', () => {
       await client.users.delete(identifier);
       expect(client.requester.calls).toHaveLength(1);
       expect(client.requester.calls[0].method).toBe('DELETE');
+    });
+  });
+
+  describe('Skills API', () => {
+    test('should download skill to sandbox', async () => {
+      const skillId = 'skill-123';
+      const sandboxId = 'sandbox-456';
+      const response = {
+        success: true,
+        dir_path: '/skills/my-skill',
+        name: 'my-skill',
+        description: 'A test skill',
+      };
+
+      client.mock().onPost(`/agent_skills/${skillId}/download_to_sandbox`, (options) => {
+        expect(options?.jsonData).toEqual({ sandbox_id: sandboxId });
+        return response;
+      });
+
+      const result = await client.skills.downloadToSandbox(skillId, {
+        sandboxId: sandboxId,
+      });
+
+      expect(result).toBeDefined();
+      expect(result.success).toBe(true);
+      expect(result.dir_path).toBe('/skills/my-skill');
+      expect(result.name).toBe('my-skill');
+      expect(result.description).toBe('A test skill');
+      expect(client.requester.calls).toHaveLength(1);
+      expect(client.requester.calls[0].method).toBe('POST');
+      expect(client.requester.calls[0].path).toBe(`/agent_skills/${skillId}/download_to_sandbox`);
     });
   });
 
@@ -646,8 +530,8 @@ describe('AcontextClient Unit Tests', () => {
 
   describe('Error Handling', () => {
     test('should throw error when no mock handler found', async () => {
-      await expect(client.spaces.list()).rejects.toThrow(
-        'No mock handler found for GET /space'
+      await expect(client.sessions.list()).rejects.toThrow(
+        'No mock handler found for GET /session'
       );
     });
   });

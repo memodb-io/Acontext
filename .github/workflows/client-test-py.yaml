@@ -40,27 +40,3 @@ jobs:
         run: |
           uv run ruff check .
           uv run pytest tests/
-
-      - name: Start containers
-        working-directory: src/server
-        run: |
-          cp .env.example .env 
-          cp core/config.yaml.example core/config.yaml 
-
-          if ! docker compose up -d --wait --quiet-pull 2>&1; then
-            echo "❌ Docker compose failed to start, showing logs:"
-            docker compose logs
-            exit 1
-          fi
-          echo "✅ All containers started successfully"
-        
-      - name: e2e test
-        working-directory: src/client/acontext-py 
-        run: |
-          uv run examples/basic_usage.py
-
-      - name: Stop containers
-        working-directory: src/server
-        if: ${{ always() }}
-        run: |
-          docker compose down

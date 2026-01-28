@@ -1,328 +1,113 @@
 ---
 title: "Agno"
-description: "Integrate Agno multi-agent framework with Acontext for session persistence, task extraction, and automatic learning"
+description: "Integrate Agno with Acontext for session persistence and task extraction"
 ---
 
-Agno is a Python framework for building multi-agent systems. 
-When integrated with Acontext, you get persistent session management, automatic task extraction, and the ability for your agents to learn from completed interactions.
-
-## What This Integration Provides
-
-<CardGroup cols={2}>
-<Card title="Session Persistence" icon="database">
-Store conversation history across multiple agent runs and resume sessions seamlessly
-</Card>
-
-<Card title="Task Extraction" icon="list-check">
-Automatically identify and track tasks from agent conversations with progress updates
-</Card>
-
-<Card title="User Preferences" icon="user">
-Capture and learn from user preferences expressed during conversations
-</Card>
-
-<Card title="Experience Learning" icon="sparkles">
-Enable agents to search and reuse learned skills from past successful interactions
-</Card>
-</CardGroup>
+Agno's message format is OpenAI-compatible, so it works directly with Acontext.
 
 ## Quick Start
-
-### Download Template
-
-Use `acontext-cli` to quickly set up an Agno project with Acontext integration:
 
 ```bash
 acontext create my-agno-project --template-path "python/agno-basic"
 ```
 
 <Note>
-If you haven't installed `acontext-cli` yet, install it first:
-```bash
-curl -fsSL https://install.acontext.io | sh
-```
+Install CLI first: `curl -fsSL https://install.acontext.io | sh`
 </Note>
 
-### Manual Setup
-
-If you prefer to set up manually:
+## Manual Setup
 
 <Steps>
 <Step title="Install dependencies">
-Install Agno and Acontext Python packages:
-
-```bash
-uv sync
-```
-
-Or with pip:
 ```bash
 pip install agno acontext python-dotenv
 ```
 </Step>
 
 <Step title="Configure environment">
-Create a `.env` file with your API credentials:
-
 ```env
 OPENAI_API_KEY=your_openai_key_here
-ACONTEXT_API_KEY=sk-ac-your-root-api-bearer-token
-ACONTEXT_BASE_URL=http://localhost:8029/api/v1
+ACONTEXT_API_KEY=sk-ac-your-api-key
 ```
-
-<Warning>
-Never commit API keys to version control. Always use environment variables or secure secret management.
-</Warning>
 </Step>
 
-<Step title="Initialize Acontext client">
-Create an Acontext client instance:
+<Step title="Run agent with Acontext">
 
+<Accordion title="Complete example">
 ```python
-from acontext import AcontextClient
 import os
-
-acontext_client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# If you're using self-hosted Acontext:
-# acontext_client = AcontextClient(
-#     base_url="http://localhost:8029/api/v1",
-#     api_key="sk-ac-your-root-api-bearer-token",
-# )
-```
-</Step>
-</Steps>
-
-## How It Works
-
-The Agno integration works by storing conversation messages to Acontext in OpenAI message format. Agno's message format is compatible with Acontext, so no conversion is needed.
-
-### Message Flow
-
-1. **Create session**: Initialize a new Acontext session for your agent
-2. **Store messages**: Append each message (user and assistant) to Acontext as the conversation progresses
-3. **Extract tasks**: After the conversation, flush the session and retrieve extracted tasks
-4. **Resume sessions**: Load previous conversation history to continue where you left off
-
-### Basic Integration Pattern
-
-Here's the core pattern for integrating Agno with Acontext:
-
-```python
 from agno.agent import Agent
-from agno.models.openai import OpenAIChat
-from acontext import AcontextClient
-
-# Initialize Acontext client
-acontext_client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# Create Agno agent
-agent = Agent(
-    name="Assistant",
-    model=OpenAIChat(id="gpt-4"),
-    instructions="You are a helpful assistant",
-)
-
-# Create Acontext session
-space = acontext_client.spaces.create()
-session = acontext_client.sessions.create(space_id=space.id)
-
-# Build conversation and store to Acontext
-conversation = []
-user_msg = {"role": "user", "content": "Hello!"}
-conversation.append(user_msg)
-acontext_client.sessions.store_message(session_id=session.id, blob=user_msg)
-
-# Run agent
-response = agent.run(conversation)
-
-# Store assistant response to Acontext
-assistant_msg = {"role": "assistant", "content": response.content}
-conversation.append(assistant_msg)
-acontext_client.sessions.store_message(session_id=session.id, blob=assistant_msg)
-```
-
-## Complete Example
-
-This example demonstrates a multi-turn conversation with task extraction:
-
-```python
-import asyncio
-from agno.agent import Agent, RunOutput
 from agno.models.openai import OpenAIChat
 from agno.tools import tool
 from acontext import AcontextClient
 
-acontext_client = AcontextClient(
+client = AcontextClient(
     api_key=os.getenv("ACONTEXT_API_KEY"),
 )
+
+# If you're using self-hosted Acontext:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
 
 @tool
 def get_weather(city: str) -> str:
     """Returns weather info for the specified city."""
     return f"The weather in {city} is sunny"
 
-def create_agno_agent() -> Agent:
-    return Agent(
-        name="Assistant",
-        model=OpenAIChat(id="gpt-4"),
-        instructions="You are a helpful assistant",
-        tools=[get_weather],
-    )
+agent = Agent(
+    name="Assistant",
+    model=OpenAIChat(id="gpt-4"),
+    instructions="You are a helpful assistant",
+    tools=[get_weather],
+)
 
-def append_message(message: dict, conversation: list[dict], session_id: str):
-    conversation.append(message)
-    acontext_client.sessions.store_message(session_id=session_id, blob=message)
-    return conversation
+# Create session
+session = client.sessions.create()
+conversation = []
 
-async def main():
-    # Create space and session
-    space = acontext_client.spaces.create()
-    session = acontext_client.sessions.create(space_id=space.id)
-    
-    agent = create_agno_agent()
-    conversation = []
-    
-    # First interaction
-    user_msg = {"role": "user", "content": "Plan a 3-day trip to Finland"}
-    conversation = append_message(user_msg, conversation, session.id)
-    
-    response: RunOutput = agent.run(conversation)
-    assistant_msg = {"role": "assistant", "content": response.content}
-    conversation = append_message(assistant_msg, conversation, session.id)
-    
-    # Flush and extract tasks
-    acontext_client.sessions.flush(session.id)
-    tasks_response = acontext_client.sessions.get_tasks(session.id)
-    
-    print("Extracted tasks:")
-    for task in tasks_response.items:
-        print(f"Task: {task.data.task_description}")
-        print(f"Status: {task.status}")
+# User message
+user_msg = {"role": "user", "content": "Plan a 3-day trip to Finland"}
+conversation.append(user_msg)
+client.sessions.store_message(session_id=session.id, blob=user_msg)
 
-if __name__ == "__main__":
-    asyncio.run(main())
+# Run agent
+response = agent.run(conversation)
+
+# Store response
+assistant_msg = {"role": "assistant", "content": response.content}
+conversation.append(assistant_msg)
+client.sessions.store_message(session_id=session.id, blob=assistant_msg)
+
+# Extract tasks
+client.sessions.flush(session.id)
+tasks = client.sessions.get_tasks(session.id)
+
+for task in tasks.items:
+    print(f"Task: {task.data.task_description} | Status: {task.status}")
 ```
+</Accordion>
+</Step>
+</Steps>
 
-## Key Features
-
-### Session Persistence
-
-Resume conversations by loading previous messages from Acontext:
+## Resume Sessions
 
 ```python
-# Load previous conversation
-messages = acontext_client.sessions.get_messages(session_id)
+messages = client.sessions.get_messages(session_id)
 conversation = messages.items
 
-# Continue conversation
-conversation.append({"role": "user", "content": "Summarize our conversation"})
+conversation.append({"role": "user", "content": "Continue from where we left off"})
 response = agent.run(conversation)
 ```
-
-### Task Extraction
-
-After completing a conversation, extract tasks with their status and metadata:
-
-```python
-# Flush session to trigger task extraction
-acontext_client.sessions.flush(session_id)
-
-# Retrieve extracted tasks
-tasks_response = acontext_client.sessions.get_tasks(session_id)
-
-for task in tasks_response.items:
-    print(f"Task: {task.data.task_description}")
-    print(f"Status: {task.status}")
-    
-    # Access progress updates if available
-    if task.data.progresses:
-        for progress in task.data.progresses:
-            print(f"  Progress: {progress}")
-    
-    # Access user preferences if available
-    if task.data.user_preferences:
-        for pref in task.data.user_preferences:
-            print(f"  Preference: {pref}")
-```
-
-### Experience Search
-
-Search for learned experiences from past successful interactions:
-
-```python
-# Wait for learning to complete
-while True:
-    status = acontext_client.sessions.get_learning_status(session_id)
-    if status.not_space_digested_count == 0:
-        break
-    sleep(1)
-
-# Search for relevant experiences
-experiences = acontext_client.spaces.experience_search(
-    space_id=space_id,
-    query="travel with flight",
-    mode="fast"
-)
-print(experiences)
-```
-
-## Message Format Compatibility
-
-Agno uses OpenAI-compatible message format, which works seamlessly with Acontext:
-
-```python
-# Agno message format (compatible with Acontext)
-message = {
-    "role": "user",  # or "assistant"
-    "content": "Your message here"
-}
-
-# Store directly to Acontext - no conversion needed
-acontext_client.sessions.store_message(session_id=session_id, blob=message)
-```
-
-<Info>
-Agno's `RunOutput.messages` can be converted to dictionaries using `[m.to_dict() for m in response.messages]`, which produces Acontext-compatible message format.
-</Info>
-
-## Best Practices
-
-<Tip>
-**Batch message storing**: For better performance, you can batch multiple messages before storing them to Acontext, but ensure you store them in chronological order.
-</Tip>
-
-<Tip>
-**Tool execution tracking**: Acontext automatically tracks tool calls and their results when messages are sent, providing full observability of your agent's actions.
-</Tip>
-
-
-<Tip>
-In your production agent, you don't need to call `flush` method after each conversation, 
-Acontext will automatically flush the buffer when the buffer is full or IDLE. To understand the buffer mechanism, please refer to [Session Buffer Mechanism](/observe/buffer).
-</Tip>
 
 ## Next Steps
 
 <CardGroup cols={2}>
 <Card title="Observability" icon="eye" href="/observe/agent_tasks">
-Monitor what your agent plans vs. what it executes
+Monitor agent tasks
 </Card>
-
-<Card title="Skill Learning" icon="sparkles" href="/learn/skill-space">
-Enable your agent to learn from completed tasks
-</Card>
-
 <Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
-View all agent interactions in one place
-</Card>
-
-<Card title="API Reference" icon="book" href="/api-reference/introduction">
-Explore the full Acontext API
+View all interactions
 </Card>
 </CardGroup>
-

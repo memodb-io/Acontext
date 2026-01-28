@@ -10,12 +10,6 @@ class FlagResponse(BaseModel):
     errmsg: str = Field(..., description="Error message")
 
 
-class InsertBlockResponse(BaseModel):
-    """Response from inserting a block."""
-
-    id: str = Field(..., description="Block UUID")
-
-
 class ToolReferenceData(BaseModel):
     """Tool reference data."""
 

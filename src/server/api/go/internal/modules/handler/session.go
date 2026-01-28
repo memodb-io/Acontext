@@ -38,37 +38,32 @@ func NewSessionHandler(s service.SessionService, userSvc service.UserService, co
 
 type CreateSessionReq struct {
 	User                string                 `form:"user" json:"user" example:"alice@acontext.io"`
-	SpaceID             string                 `form:"space_id" json:"space_id" format:"uuid" example:"123e4567-e89b-12d3-a456-42661417"`
 	DisableTaskTracking *bool                  `form:"disable_task_tracking" json:"disable_task_tracking" example:"false"`
 	Configs             map[string]interface{} `form:"configs" json:"configs"`
 }
 
 type GetSessionsReq struct {
-	User         string `form:"user" json:"user" example:"alice@acontext.io"`
-	SpaceID      string `form:"space_id" json:"space_id" format:"uuid" example:"123e4567-e89b-12d3-a456-42661417"`
-	NotConnected bool   `form:"not_connected,default=false" json:"not_connected" example:"false"`
-	Limit        int    `form:"limit,default=20" json:"limit" binding:"required,min=1,max=200" example:"20"`
-	Cursor       string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
-	TimeDesc     bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
+	User     string `form:"user" json:"user" example:"alice@acontext.io"`
+	Limit    int    `form:"limit,default=20" json:"limit" binding:"required,min=1,max=200" example:"20"`
+	Cursor   string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
+	TimeDesc bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
 }
 
 // GetSessions godoc
 //
 //	@Summary		Get sessions
-//	@Description	Get all sessions under a project, optionally filtered by space_id or user
+//	@Description	Get all sessions under a project, optionally filtered by user
 //	@Tags			session
 //	@Accept			json
 //	@Produce		json
-//	@Param			user			query	string	false	"User identifier to filter sessions"							example(alice@acontext.io)
-//	@Param			space_id		query	string	false	"Space ID to filter sessions"									format(uuid)
-//	@Param			not_connected	query	boolean	false	"Filter sessions not connected to any space (default false)"	example(false)
-//	@Param			limit			query	integer	false	"Limit of sessions to return, default 20. Max 200."
-//	@Param			cursor			query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
-//	@Param			time_desc		query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example(false)
+//	@Param			user		query	string	false	"User identifier to filter sessions"	example(alice@acontext.io)
+//	@Param			limit		query	integer	false	"Limit of sessions to return, default 20. Max 200."
+//	@Param			cursor		query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
+//	@Param			time_desc	query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example(false)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.ListSessionsOutput}
 //	@Router			/session [get]
-//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List sessions\nsessions = client.sessions.list(\n    space_id='space-uuid',\n    limit=20,\n    time_desc=True\n)\nfor session in sessions.items:\n    print(f\"{session.id}: {session.space_id}\")\n\n# List sessions for a specific user\nsessions = client.sessions.list(user='alice@acontext.io', limit=20)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List sessions\nconst sessions = await client.sessions.list({\n  spaceId: 'space-uuid',\n  limit: 20,\n  timeDesc: true\n});\nfor (const session of sessions.items) {\n  console.log(`${session.id}: ${session.space_id}`);\n}\n\n// List sessions for a specific user\nconst userSessions = await client.sessions.list({ user: 'alice@acontext.io', limit: 20 });\n","label":"JavaScript"}]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List sessions\nsessions = client.sessions.list(\n    limit=20,\n    time_desc=True\n)\nfor session in sessions.items:\n    print(f\"{session.id}\")\n\n# List sessions for a specific user\nsessions = client.sessions.list(user='alice@acontext.io', limit=20)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List sessions\nconst sessions = await client.sessions.list({\n  limit: 20,\n  timeDesc: true\n});\nfor (const session of sessions.items) {\n  console.log(`${session.id}`);\n}\n\n// List sessions for a specific user\nconst userSessions = await client.sessions.list({ user: 'alice@acontext.io', limit: 20 });\n","label":"JavaScript"}]
 func (h *SessionHandler) GetSessions(c *gin.Context) {
 	req := GetSessionsReq{}
 	if err := c.ShouldBind(&req); err != nil {
@@ -82,25 +77,12 @@ func (h *SessionHandler) GetSessions(c *gin.Context) {
 		return
 	}
 
-	// Parse space_id query parameter
-	var spaceID *uuid.UUID
-	if req.SpaceID != "" {
-		parsed, err := uuid.Parse(req.SpaceID)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid space_id", err))
-			return
-		}
-		spaceID = &parsed
-	}
-
 	out, err := h.svc.List(c.Request.Context(), service.ListSessionsInput{
-		ProjectID:    project.ID,
-		User:         req.User,
-		SpaceID:      spaceID,
-		NotConnected: req.NotConnected,
-		Limit:        req.Limit,
-		Cursor:       req.Cursor,
-		TimeDesc:     req.TimeDesc,
+		ProjectID: project.ID,
+		User:      req.User,
+		Limit:     req.Limit,
+		Cursor:    req.Cursor,
+		TimeDesc:  req.TimeDesc,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
@@ -113,7 +95,7 @@ func (h *SessionHandler) GetSessions(c *gin.Context) {
 // CreateSession godoc
 //
 //	@Summary		Create session
-//	@Description	Create a new session under a space. Optionally associate with a user identifier.
+//	@Description	Create a new session. Optionally associate with a user identifier.
 //	@Tags			session
 //	@Accept			json
 //	@Produce		json
@@ -121,7 +103,7 @@ func (h *SessionHandler) GetSessions(c *gin.Context) {
 //	@Security		BearerAuth
 //	@Success		201	{object}	serializer.Response{data=model.Session}
 //	@Router			/session [post]
-//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a session\nsession = client.sessions.create(\n    space_id='space-uuid'\n)\nprint(f\"Created session: {session.id}\")\n\n# Create a session for a specific user\nsession = client.sessions.create(user='alice@acontext.io', space_id='space-uuid')\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a session\nconst session = await client.sessions.create({\n  spaceId: 'space-uuid'\n});\nconsole.log(`Created session: ${session.id}`);\n\n// Create a session for a specific user\nconst userSession = await client.sessions.create({ user: 'alice@acontext.io', spaceId: 'space-uuid' });\n","label":"JavaScript"}]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a session\nsession = client.sessions.create()\nprint(f\"Created session: {session.id}\")\n\n# Create a session for a specific user\nsession = client.sessions.create(user='alice@acontext.io')\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a session\nconst session = await client.sessions.create();\nconsole.log(`Created session: ${session.id}`);\n\n// Create a session for a specific user\nconst userSession = await client.sessions.create({ user: 'alice@acontext.io' });\n","label":"JavaScript"}]
 func (h *SessionHandler) CreateSession(c *gin.Context) {
 	req := CreateSessionReq{}
 	if err := c.ShouldBind(&req); err != nil {
@@ -151,14 +133,6 @@ func (h *SessionHandler) CreateSession(c *gin.Context) {
 		session.UserID = &user.ID
 	}
 
-	if len(req.SpaceID) != 0 {
-		spaceID, err := uuid.Parse(req.SpaceID)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
-			return
-		}
-		session.SpaceID = &spaceID
-	}
 	if req.DisableTaskTracking != nil {
 		session.DisableTaskTracking = *req.DisableTaskTracking
 	}
@@ -268,52 +242,6 @@ func (h *SessionHandler) GetConfigs(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, serializer.Response{Data: session})
-}
-
-type ConnectToSpaceReq struct {
-	SpaceID string `form:"space_id" json:"space_id" binding:"required,uuid" format:"uuid" example:"123e4567-e89b-12d3-a456-426614174000"`
-}
-
-// ConnectToSpace godoc
-//
-//	@Summary		Connect session to space
-//	@Description	Connect a session to a space by id
-//	@Tags			session
-//	@Accept			json
-//	@Produce		json
-//	@Param			session_id	path	string						true	"Session ID"	format(uuid)
-//	@Param			payload		body	handler.ConnectToSpaceReq	true	"ConnectToSpace payload"
-//	@Security		BearerAuth
-//	@Success		200	{object}	serializer.Response{}
-//	@Router			/session/{session_id}/connect_to_space [post]
-//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Connect session to space\nclient.sessions.connect_to_space(\n    session_id='session-uuid',\n    space_id='space-uuid'\n)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Connect session to space\nawait client.sessions.connectToSpace('session-uuid', {\n  spaceId: 'space-uuid'\n});\n","label":"JavaScript"}]
-func (h *SessionHandler) ConnectToSpace(c *gin.Context) {
-	req := ConnectToSpaceReq{}
-	if err := c.ShouldBind(&req); err != nil {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
-		return
-	}
-
-	sessionID, err := uuid.Parse(c.Param("session_id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
-		return
-	}
-	spaceID, err := uuid.Parse(req.SpaceID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
-		return
-	}
-
-	if err := h.svc.UpdateByID(c.Request.Context(), &model.Session{
-		ID:      sessionID,
-		SpaceID: &spaceID,
-	}); err != nil {
-		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
-		return
-	}
-
-	c.JSON(http.StatusOK, serializer.Response{})
 }
 
 type StoreMessageReq struct {
@@ -638,40 +566,6 @@ func (h *SessionHandler) SessionFlush(c *gin.Context) {
 	result, err := h.coreClient.SessionFlush(c.Request.Context(), project.ID, sessionID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "failed to flush session", err))
-		return
-	}
-
-	c.JSON(http.StatusOK, serializer.Response{Data: result})
-}
-
-// GetLearningStatus godoc
-//
-//	@Summary		Get learning status
-//	@Description	Get learning status for a session. Returns the count of space digested tasks and not space digested tasks. If the session is not connected to a space, returns 0 and 0.
-//	@Tags			session
-//	@Accept			json
-//	@Produce		json
-//	@Param			session_id	path	string	true	"Session ID"	format(uuid)
-//	@Security		BearerAuth
-//	@Success		200	{object}	serializer.Response{data=httpclient.LearningStatusResponse}
-//	@Router			/session/{session_id}/get_learning_status [get]
-//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get learning status\nresult = client.sessions.get_learning_status(session_id='session-uuid')\nprint(f\"Space digested: {result.space_digested_count}, Not digested: {result.not_space_digested_count}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get learning status\nconst result = await client.sessions.getLearningStatus('session-uuid');\nconsole.log(`Space digested: ${result.space_digested_count}, Not digested: ${result.not_space_digested_count}`);\n","label":"JavaScript"}]
-func (h *SessionHandler) GetLearningStatus(c *gin.Context) {
-	project, ok := c.MustGet("project").(*model.Project)
-	if !ok {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
-		return
-	}
-
-	sessionID, err := uuid.Parse(c.Param("session_id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
-		return
-	}
-
-	result, err := h.coreClient.GetLearningStatus(c.Request.Context(), project.ID, sessionID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "failed to get learning status", err))
 		return
 	}
 

@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,40 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
+
+// MockUserService is a mock implementation of service.UserService
+type MockUserService struct {
+	mock.Mock
+}
+
+func (m *MockUserService) GetOrCreate(ctx context.Context, projectID uuid.UUID, identifier string) (*model.User, error) {
+	args := m.Called(ctx, projectID, identifier)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.User), args.Error(1)
+}
+
+func (m *MockUserService) Delete(ctx context.Context, projectID uuid.UUID, identifier string) error {
+	args := m.Called(ctx, projectID, identifier)
+	return args.Error(0)
+}
+
+func (m *MockUserService) List(ctx context.Context, in service.ListUsersInput) (*service.ListUsersOutput, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.ListUsersOutput), args.Error(1)
+}
+
+func (m *MockUserService) GetResourceCounts(ctx context.Context, projectID uuid.UUID, identifier string) (*service.GetUserResourcesOutput, error) {
+	args := m.Called(ctx, projectID, identifier)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.GetUserResourcesOutput), args.Error(1)
+}
 
 func setupUserRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
@@ -232,7 +267,6 @@ func TestUserHandler_GetUserResources(t *testing.T) {
 			setup: func(svc *MockUserService) {
 				expectedOutput := &service.GetUserResourcesOutput{
 					Counts: &repo.UserResourceCounts{
-						SpacesCount:   5,
 						SessionsCount: 10,
 						DisksCount:    3,
 						SkillsCount:   2,
@@ -248,7 +282,6 @@ func TestUserHandler_GetUserResources(t *testing.T) {
 			setup: func(svc *MockUserService) {
 				expectedOutput := &service.GetUserResourcesOutput{
 					Counts: &repo.UserResourceCounts{
-						SpacesCount:   0,
 						SessionsCount: 0,
 						DisksCount:    0,
 						SkillsCount:   0,

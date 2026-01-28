@@ -35,14 +35,6 @@ This parameter + the max turns parameters make sure the session buffer is not to
 Maximum number of iterations a task agent can perform before stopping. Prevents infinite loops in task execution.
 </ParamField>
 
-<ParamField path="DEFAULT_SOP_AGENT_MAX_ITERATIONS" type="integer" default="4">
-Maximum number of iterations for Standard Operating Procedure (SOP) agents. Controls how many steps an SOP agent can take.
-</ParamField>
-
-<ParamField path="DEFAULT_SPACE_CONSTRUCT_AGENT_MAX_ITERATIONS" type="integer" default="16">
-Maximum iterations for space construction agents. These agents typically need more iterations to build complex knowledge spaces.
-</ParamField>
-
 ## `.env` Examples
 
 <CodeGroup>
@@ -55,8 +47,6 @@ PROJECT_SESSION_MESSAGE_BUFFER_TTL_SECONDS=4
 
 # Agent Limits
 DEFAULT_TASK_AGENT_MAX_ITERATIONS=4
-DEFAULT_SOP_AGENT_MAX_ITERATIONS=4
-DEFAULT_SPACE_CONSTRUCT_AGENT_MAX_ITERATIONS=16
 ```
 
 ```bash High-Context Setup
@@ -68,8 +58,6 @@ PROJECT_SESSION_MESSAGE_BUFFER_TTL_SECONDS=10
 
 # More iterations for complex tasks
 DEFAULT_TASK_AGENT_MAX_ITERATIONS=8
-DEFAULT_SOP_AGENT_MAX_ITERATIONS=6
-DEFAULT_SPACE_CONSTRUCT_AGENT_MAX_ITERATIONS=24
 ```
 
 ```bash Performance Optimized
@@ -81,8 +69,6 @@ PROJECT_SESSION_MESSAGE_BUFFER_TTL_SECONDS=2
 
 # Lower iteration limits for speed
 DEFAULT_TASK_AGENT_MAX_ITERATIONS=3
-DEFAULT_SOP_AGENT_MAX_ITERATIONS=3
-DEFAULT_SPACE_CONSTRUCT_AGENT_MAX_ITERATIONS=12
 ```
 </CodeGroup>
 

@@ -19,7 +19,6 @@ type UserRepo interface {
 }
 
 type UserResourceCounts struct {
-	SpacesCount   int64 `json:"spaces_count"`
 	SessionsCount int64 `json:"sessions_count"`
 	DisksCount    int64 `json:"disks_count"`
 	SkillsCount   int64 `json:"skills_count"`
@@ -120,20 +119,9 @@ func (r *userRepo) List(ctx context.Context, projectID uuid.UUID, afterCreatedAt
 func (r *userRepo) GetResourceCounts(ctx context.Context, projectID uuid.UUID, userID uuid.UUID) (*UserResourceCounts, error) {
 	counts := &UserResourceCounts{}
 
-	// Count spaces
-	var spacesCount int64
-	err := r.db.WithContext(ctx).
-		Model(&model.Space{}).
-		Where("project_id = ? AND user_id = ?", projectID, userID).
-		Count(&spacesCount).Error
-	if err != nil {
-		return nil, err
-	}
-	counts.SpacesCount = spacesCount
-
 	// Count sessions
 	var sessionsCount int64
-	err = r.db.WithContext(ctx).
+	err := r.db.WithContext(ctx).
 		Model(&model.Session{}).
 		Where("project_id = ? AND user_id = ?", projectID, userID).
 		Count(&sessionsCount).Error

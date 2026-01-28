@@ -1,113 +1,52 @@
 ---
 title: "Dashboard"
-description: "View Context, Artifacts, Tasks and Skills in one place"
+description: "View Context, Artifacts, Tasks and Skills"
 ---
 
-The Acontext dashboard provides a unified interface for monitoring and analyzing your AI agent's behavior. Access real-time insights into tasks, messages, sessions, and skills to understand how your agent processes information and executes operations.
-
-## Overview
-
-The dashboard gives you complete visibility into your agent's operations through six specialized views. Each view is designed to help you monitor different aspects of your agent's performance and debug issues quickly.
-
-<Tip>
-Use the dashboard filters to narrow down specific time ranges or search for particular operations when troubleshooting issues.
-</Tip>
+The dashboard provides visibility into your agent's operations through specialized views.
 
 ## Metrics
 
-Gain high-level insights into your agent's overall performance through aggregated metrics and visualizations. The BI dashboard helps you identify trends, measure success, and make data-driven decisions about your agent's configuration.
-
-<Frame caption="Business Intelligence dashboard with analytics charts and aggregated performance metrics">
-<img src="/images/dashboard/BI.png" alt="BI dashboard showing multiple charts and graphs including task success rates, execution time trends, and system performance metrics" />
+<Frame caption="Analytics and performance metrics">
+<img src="/images/dashboard/BI.png" alt="BI dashboard" />
 </Frame>
 
-The BI dashboard includes:
-- **Performance trends**: Visualize task completion rates and execution times over time
-- **Success metrics**: Track overall agent success rates and error patterns
-- **Resource utilization**: Monitor system resource consumption
-- **Custom analytics**: Create and save custom views for specific metrics
+## Traces
 
-<Tip>
-Export BI dashboard data to integrate with your existing analytics tools or create custom reports for stakeholders.
-</Tip>
-
-## Traces Viewer
-
-Monitor distributed traces across your entire system using OpenTelemetry integration. 
-The traces viewer provides detailed visibility into request flows, service interactions, and performance bottlenecks across acontext-api and acontext-core services.
-
-<Frame caption="Traces viewer displaying distributed traces with hierarchical span visualization, timing information, and service interactions">
-<img src="/images/dashboard/traces_viewer.png" alt="Traces viewer interface showing a list of traces with expandable span details, color-coded service indicators, HTTP method badges, duration bars, and trace IDs" />
+<Frame caption="Distributed traces across services">
+<img src="/images/dashboard/traces_viewer.png" alt="Traces viewer" />
 </Frame>
 
-The traces viewer includes:
-- **Time range filtering**: Filter traces by time ranges (15 minutes, 1 hour, 6 hours, 24 hours, or 7 days)
-- **Auto-refresh**: Automatically refreshes trace data every 30 seconds to keep information up-to-date
-- **Hierarchical span visualization**: Expand traces to view nested spans showing the complete request flow
-- **Service identification**: Color-coded spans distinguish between acontext-api (teal) and acontext-core (blue) services
-- **HTTP method badges**: Quickly identify request types with color-coded HTTP method indicators
-- **Duration visualization**: Visual timeline bars show relative execution times for each span
-- **Jaeger integration**: Click the external link icon to view detailed trace information in Jaeger UI
-- **Pagination**: Load more traces to explore historical data beyond the initial results
+## Messages
 
-<Tip>
-Use the trace ID to correlate issues across logs and metrics. Click the trace ID to copy it to your clipboard for easy reference.
-</Tip>
-
-<Info>
-Traces are automatically collected when OpenTelemetry is enabled in your Acontext deployment. The traces viewer integrates with Jaeger for trace storage and visualization.
-</Info>
-
-## Message Viewer
-
-Examine all messages exchanged between your agent and external systems. 
-The message viewer provides detailed inspection of message content, enabling you to debug communication issues and verify data flow.
-
-<Frame caption="Message viewer displaying detailed message contents, metadata, and communication history">
-<img src="/images/dashboard/message_viewer.png" alt="Message viewer interface showing message list with expandable details, timestamps, message types, and full content inspection" />
+<Frame caption="Message contents and metadata">
+<img src="/images/dashboard/message_viewer.png" alt="Message viewer" />
 </Frame>
 
-## Artifact Viewer
+## Artifacts
 
-Examine all artifacts in a tree view.
-
-<Frame caption="Artifact viewer displaying detailed artifact contents, metadata.">
-<img src="/images/dashboard/artifact_viewer.png" alt="Artifact viewer displaying detailed artifact contents, metadata." />
+<Frame caption="File artifacts in tree view">
+<img src="/images/dashboard/artifact_viewer.png" alt="Artifact viewer" />
 </Frame>
 
-## Task Viewer
+## Tasks
 
-Track user sessions and their associated tasks to understand the complete interaction flow. 
-This view correlates sessions with individual tasks, helping you analyze how your agent handles multi-step operations.
-
-<Frame caption="Session and task viewer showing the relationship between user sessions and executed tasks">
-<img src="/images/dashboard/session_task_viewer.png" alt="Combined session and task viewer displaying session information alongside related tasks with hierarchical organization" />
+<Frame caption="Session tasks and execution status">
+<img src="/images/dashboard/session_task_viewer.png" alt="Task viewer" />
 </Frame>
 
-Monitor all tasks executed by your agent in real-time. 
-The task viewer displays task status, progresses and user preferences to help you identify bottlenecks and optimize your agent's workflow.
-<Frame caption="Task viewer showing execution status, timing, and metadata for agent operations">
-<img src="/images/dashboard/task_viewer.png" alt="Task viewer dashboard displaying a list of agent tasks with columns for status, timestamps, duration, and task details" />
+<Frame caption="Task details with progress">
+<img src="/images/dashboard/task_viewer.png" alt="Task details" />
 </Frame>
 
-## Skill Viewer
+## Skills
 
-Monitor your agent's available skills and their usage patterns. 
-The skill viewer helps you understand which capabilities your agent have self-learned.
-
-<Frame caption="Skill viewer showing registered agent skills and their execution statistics">
-<img src="/images/dashboard/skill_viewer.png" alt="Skill viewer dashboard displaying a list of agent skills with usage metrics, success rates, and performance data" />
+<Frame caption="Agent skills and usage">
+<img src="/images/dashboard/skill_viewer.png" alt="Skill viewer" />
 </Frame>
-
 
 ## Next Steps
 
-<CardGroup cols={2}>
 <Card title="Agent Tasks" icon="list-check" href="/observe/agent_tasks">
-  Learn how to obtain agent tasks in detail, from SDK.
+Get tasks via SDK
 </Card>
-
-<Card title="Self-learning" icon="sparkles" href="/learn/skill-space">
-  Learn how to enable your agent to self-learn skills and SOPs.
-</Card>
-</CardGroup>

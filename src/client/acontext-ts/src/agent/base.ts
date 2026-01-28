@@ -2,8 +2,9 @@
  * Base classes for agent tools.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface BaseContext {}
+export interface BaseContext {
+  getContextPrompt(): string;
+}
 
 export interface BaseConverter {
   toOpenAIToolSchema(): Record<string, unknown>;
@@ -112,6 +113,6 @@ export abstract class BaseToolPool {
     return Array.from(this.tools.values()).map((tool) => tool.toGeminiToolSchema());
   }
 
-  abstract formatContext(...args: unknown[]): BaseContext;
+  abstract formatContext(...args: unknown[]): BaseContext | Promise<BaseContext>;
 }
 

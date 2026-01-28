@@ -64,23 +64,13 @@ client = AcontextClient(
 #     api_key="sk-ac-your-root-api-bearer-token",
 # )
 
-# Create a knowledge space
-space = client.spaces.create()
-
-# Create a session connected to the space
-session = client.sessions.create(space_id=space.id)
+# Create a session
+session = client.sessions.create()
 
 # Store a message
 client.sessions.store_message(
     session.id,
     blob={'role': 'user', 'content': 'How do I reset my password?'}
-)
-
-# Search the knowledge base
-results = client.spaces.experience_search(
-    space.id,
-    query='password reset process',
-    mode='agentic'
 )
 ```
 
@@ -98,43 +88,26 @@ const client = new AcontextClient({
 //     apiKey: "sk-ac-your-root-api-bearer-token",
 // });
 
-// Create a knowledge space
-const space = await client.spaces.create();
-
-// Create a session connected to the space
-const session = await client.sessions.create({ spaceId: space.id });
+// Create a session
+const session = await client.sessions.create();
 
 // Store a message
 await client.sessions.storeMessage(
   session.id,
   { role: 'user', content: 'How do I reset my password?' }
 );
-
-// Search the knowledge base
-const results = await client.spaces.experienceSearch(space.id, {
-  query: 'password reset process',
-  mode: 'agentic'
-});
 ```
 </CodeGroup>
 
 ## Core Concepts
 
 <AccordionGroup>
-  <Accordion title="Spaces" icon="cube">
-    Knowledge spaces store structured information with semantic search capabilities. Each space can contain pages, folders, and content blocks.
-  </Accordion>
-
   <Accordion title="Sessions" icon="messages">
-    Sessions represent conversation threads with message history. Connect sessions to spaces to leverage stored knowledge.
-  </Accordion>
-
-  <Accordion title="Blocks" icon="block">
-    Building units of knowledge: pages, folders, text blocks, and SOPs. Blocks support rich properties and nested structures.
+    Sessions represent conversation threads with message history.
   </Accordion>
 
   <Accordion title="Disks" icon="hard-drive">
-    Isolated storage groups for organizing multiple knowledge bases within a project.
+    Isolated storage groups for organizing files and artifacts within a project.
   </Accordion>
 
   <Accordion title="Tools" icon="wrench">
@@ -145,23 +118,14 @@ const results = await client.spaces.experienceSearch(space.id, {
 ## API Resources
 
 <CardGroup cols={2}>
-  <Card title="Disks" icon="hard-drive" href="#disk">
-    Manage storage groups
-  </Card>
   <Card title="Sessions" icon="messages" href="#session">
     Handle conversations and messages
   </Card>
-  <Card title="Spaces" icon="cube" href="#space">
-    Create and search knowledge bases
-  </Card>
-  <Card title="Blocks" icon="block" href="#block">
-    Manage content structure
+  <Card title="Disks" icon="hard-drive" href="#disk">
+    Manage storage groups
   </Card>
   <Card title="Tools" icon="wrench" href="#tool">
     Configure agent capabilities
-  </Card>
-  <Card title="Search" icon="magnifying-glass" href="#space">
-    Semantic and agentic search
   </Card>
 </CardGroup>
 

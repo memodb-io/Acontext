@@ -11,11 +11,18 @@ class DiskContext(BaseContext):
     client: AcontextClient
     disk_id: str
 
+    def get_context_prompt(self) -> str:
+        return """<disk>
+Consider Disk as the google drive for you and user to store and share files.
+You can use tool ends with `*_disk` to read, write, edit, and share files with users.
+Disk is only a sharable file storage, you can't use it to execute code or run commands.
+</disk>
+"""
+
 
 @dataclass
-class AsyncDiskContext(BaseContext):
+class AsyncDiskContext(DiskContext):
     client: AcontextAsyncClient
-    disk_id: str
 
 
 def _normalize_path(path: str | None) -> str:
@@ -33,7 +40,7 @@ class WriteFileTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "write_file"
+        return "write_file_disk"
 
     @property
     def description(self) -> str:
@@ -43,7 +50,7 @@ class WriteFileTool(BaseTool):
     def arguments(self) -> dict:
         return {
             "file_path": {
-                "type": "string",
+                "type": ["string", "null"],
                 "description": "Optional folder path to organize files, e.g. '/notes/' or '/documents/'. Defaults to root '/' if not specified.",
             },
             "filename": {
@@ -106,7 +113,7 @@ class ReadFileTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "read_file"
+        return "read_file_disk"
 
     @property
     def description(self) -> str:
@@ -116,7 +123,7 @@ class ReadFileTool(BaseTool):
     def arguments(self) -> dict:
         return {
             "file_path": {
-                "type": "string",
+                "type": ["string", "null"],
                 "description": "Optional directory path where the file is located, e.g. '/notes/'. Defaults to root '/' if not specified.",
             },
             "filename": {
@@ -124,11 +131,11 @@ class ReadFileTool(BaseTool):
                 "description": "Filename to read.",
             },
             "line_offset": {
-                "type": "integer",
+                "type": ["integer", "null"],
                 "description": "The line number to start reading from. Default to 0",
             },
             "line_limit": {
-                "type": "integer",
+                "type": ["integer", "null"],
                 "description": "The maximum number of lines to return. Default to 100",
             },
         }
@@ -199,7 +206,7 @@ class ReplaceStringTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "replace_string"
+        return "replace_string_disk"
 
     @property
     def description(self) -> str:
@@ -209,7 +216,7 @@ class ReplaceStringTool(BaseTool):
     def arguments(self) -> dict:
         return {
             "file_path": {
-                "type": "string",
+                "type": ["string", "null"],
                 "description": "Optional directory path where the file is located, e.g. '/notes/'. Defaults to root '/' if not specified.",
             },
             "filename": {
@@ -328,7 +335,7 @@ class ListTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "list_artifacts"
+        return "list_disk"
 
     @property
     def description(self) -> str:
@@ -403,7 +410,7 @@ class DownloadFileTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "download_file"
+        return "download_file_disk"
 
     @property
     def description(self) -> str:
@@ -413,7 +420,7 @@ class DownloadFileTool(BaseTool):
     def arguments(self) -> dict:
         return {
             "file_path": {
-                "type": "string",
+                "type": ["string", "null"],
                 "description": "Optional directory path where the file is located, e.g. '/notes/'. Defaults to root '/' if not specified.",
             },
             "filename": {
@@ -421,7 +428,7 @@ class DownloadFileTool(BaseTool):
                 "description": "Filename to get the download URL for.",
             },
             "expire": {
-                "type": "integer",
+                "type": ["integer", "null"],
                 "description": "URL expiration time in seconds. Defaults to 3600 (1 hour).",
             },
         }
@@ -482,7 +489,7 @@ class GrepArtifactsTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "grep_artifacts"
+        return "grep_disk"
 
     @property
     def description(self) -> str:
@@ -496,7 +503,7 @@ class GrepArtifactsTool(BaseTool):
                 "description": "Regex pattern to search for (e.g., 'TODO.*', 'function.*calculate', 'import.*pandas')",
             },
             "limit": {
-                "type": "integer",
+                "type": ["integer", "null"],
                 "description": "Maximum number of results to return (default 100)",
             },
         }
@@ -561,7 +568,7 @@ class GlobArtifactsTool(BaseTool):
 
     @property
     def name(self) -> str:
-        return "glob_artifacts"
+        return "glob_disk"
 
     @property
     def description(self) -> str:
@@ -575,7 +582,7 @@ class GlobArtifactsTool(BaseTool):
                 "description": "Glob pattern (e.g., '**/*.py' for all Python files, '*.txt' for text files in root, '/docs/**/*.md' for markdown in docs)",
             },
             "limit": {
-                "type": "integer",
+                "type": ["integer", "null"],
                 "description": "Maximum number of results to return (default 100)",
             },
         }

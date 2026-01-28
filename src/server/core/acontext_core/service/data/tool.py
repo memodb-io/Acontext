@@ -1,8 +1,8 @@
-from sqlalchemy import select, func
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from ...env import LOG
-from ...schema.orm import ToolReference, ToolSOP
+from ...schema.orm import ToolReference
 from ...schema.utils import asUUID
 from ...schema.result import Result
 from ...schema.tool.tool_reference import ToolReferenceData
@@ -30,12 +30,10 @@ async def rename_tool(
 async def get_tool_names(
     db_session: AsyncSession, project_id: asUUID
 ) -> Result[List[ToolReferenceData]]:
-    # Query to get tool references with SOP count
+    # Query to get tool references
     tool_ref_query = (
-        select(ToolReference.name, func.count(ToolSOP.id).label("sop_count"))
-        .outerjoin(ToolSOP, ToolReference.id == ToolSOP.tool_reference_id)
+        select(ToolReference.name)
         .where(ToolReference.project_id == project_id)
-        .group_by(ToolReference.id, ToolReference.name)
     )
 
     result = await db_session.execute(tool_ref_query)
@@ -43,10 +41,7 @@ async def get_tool_names(
 
     return Result.resolve(
         [
-            ToolReferenceData(
-                name=row.name,
-                sop_count=row.sop_count or 0,
-            )
+            ToolReferenceData(name=row.name)
             for row in tool_data
         ]
     )

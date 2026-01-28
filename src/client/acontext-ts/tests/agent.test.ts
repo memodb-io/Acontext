@@ -16,9 +16,12 @@ import {
   SkillContext,
   GetSkillTool,
   GetSkillFileTool,
-  ListSkillsTool,
   createSkillContext,
   getSkillFromContext,
+  SANDBOX_TOOLS,
+  BashTool,
+  TextEditorTool,
+  ExportSandboxFileTool,
 } from '../src/agent';
 import {
   createMockClient,
@@ -50,7 +53,7 @@ describe('Agent Tools Unit Tests', () => {
       expect(schema).toHaveProperty('function');
 
       const functionSchema = schema.function as Record<string, unknown>;
-      expect(functionSchema).toHaveProperty('name', 'write_file');
+      expect(functionSchema).toHaveProperty('name', 'write_file_disk');
       expect(functionSchema).toHaveProperty('description');
       expect(functionSchema).toHaveProperty('parameters');
 
@@ -67,7 +70,7 @@ describe('Agent Tools Unit Tests', () => {
       const tool = new WriteFileTool();
       const schema = tool.toAnthropicToolSchema();
 
-      expect(schema).toHaveProperty('name', 'write_file');
+      expect(schema).toHaveProperty('name', 'write_file_disk');
       expect(schema).toHaveProperty('description');
       expect(schema).toHaveProperty('input_schema');
 
@@ -82,7 +85,7 @@ describe('Agent Tools Unit Tests', () => {
 
     test('ReadFileTool should have correct properties', () => {
       const tool = new ReadFileTool();
-      expect(tool.name).toBe('read_file');
+      expect(tool.name).toBe('read_file_disk');
       expect(tool.description).toBeTruthy();
       expect(tool.requiredArguments).toContain('filename');
       expect(tool.arguments).toHaveProperty('filename');
@@ -93,7 +96,7 @@ describe('Agent Tools Unit Tests', () => {
 
     test('ReplaceStringTool should have correct properties', () => {
       const tool = new ReplaceStringTool();
-      expect(tool.name).toBe('replace_string');
+      expect(tool.name).toBe('replace_string_disk');
       expect(tool.description).toBeTruthy();
       expect(tool.requiredArguments).toContain('filename');
       expect(tool.requiredArguments).toContain('old_string');
@@ -102,7 +105,7 @@ describe('Agent Tools Unit Tests', () => {
 
     test('ListTool should have correct properties', () => {
       const tool = new ListTool();
-      expect(tool.name).toBe('list_artifacts');
+      expect(tool.name).toBe('list_disk');
       expect(tool.description).toBeTruthy();
       expect(tool.requiredArguments).toContain('file_path');
     });
@@ -113,9 +116,9 @@ describe('Agent Tools Unit Tests', () => {
       const pool = new DiskToolPool();
       const tool = new WriteFileTool();
 
-      expect(pool.toolExists('write_file')).toBe(false);
+      expect(pool.toolExists('write_file_disk')).toBe(false);
       pool.addTool(tool);
-      expect(pool.toolExists('write_file')).toBe(true);
+      expect(pool.toolExists('write_file_disk')).toBe(true);
     });
 
     test('should remove tool', () => {
@@ -123,9 +126,9 @@ describe('Agent Tools Unit Tests', () => {
       const tool = new WriteFileTool();
 
       pool.addTool(tool);
-      expect(pool.toolExists('write_file')).toBe(true);
-      pool.removeTool('write_file');
-      expect(pool.toolExists('write_file')).toBe(false);
+      expect(pool.toolExists('write_file_disk')).toBe(true);
+      pool.removeTool('write_file_disk');
+      expect(pool.toolExists('write_file_disk')).toBe(false);
     });
 
     test('should extend tool pool', () => {
@@ -135,13 +138,13 @@ describe('Agent Tools Unit Tests', () => {
       pool1.addTool(new WriteFileTool());
       pool2.addTool(new ReadFileTool());
 
-      expect(pool1.toolExists('write_file')).toBe(true);
-      expect(pool1.toolExists('read_file')).toBe(false);
+      expect(pool1.toolExists('write_file_disk')).toBe(true);
+      expect(pool1.toolExists('read_file_disk')).toBe(false);
 
       pool1.extendToolPool(pool2);
 
-      expect(pool1.toolExists('write_file')).toBe(true);
-      expect(pool1.toolExists('read_file')).toBe(true);
+      expect(pool1.toolExists('write_file_disk')).toBe(true);
+      expect(pool1.toolExists('read_file_disk')).toBe(true);
     });
 
     test('should generate OpenAI tool schemas', () => {
@@ -171,6 +174,7 @@ describe('Agent Tools Unit Tests', () => {
       const ctx: DiskContext = {
         client: mockClient as unknown as import('../src/index').AcontextClient,
         diskId: 'dummy-id',
+        getContextPrompt: () => '',
       };
 
       await expect(
@@ -183,10 +187,10 @@ describe('Agent Tools Unit Tests', () => {
     const diskId = 'test-disk-id';
 
     test('DISK_TOOLS should be pre-configured with all tools', () => {
-      expect(DISK_TOOLS.toolExists('write_file')).toBe(true);
-      expect(DISK_TOOLS.toolExists('read_file')).toBe(true);
-      expect(DISK_TOOLS.toolExists('replace_string')).toBe(true);
-      expect(DISK_TOOLS.toolExists('list_artifacts')).toBe(true);
+      expect(DISK_TOOLS.toolExists('write_file_disk')).toBe(true);
+      expect(DISK_TOOLS.toolExists('read_file_disk')).toBe(true);
+      expect(DISK_TOOLS.toolExists('replace_string_disk')).toBe(true);
+      expect(DISK_TOOLS.toolExists('list_disk')).toBe(true);
     });
 
     test('should write file to disk', async () => {
@@ -201,7 +205,7 @@ describe('Agent Tools Unit Tests', () => {
         mockClient as unknown as import('../src/index').AcontextClient,
         diskId
       );
-      const result = await DISK_TOOLS.executeTool(ctx, 'write_file', {
+      const result = await DISK_TOOLS.executeTool(ctx, 'write_file_disk', {
         filename: 'test.txt',
         file_path: '/test/',
         content: 'Hello, World!',
@@ -228,7 +232,7 @@ describe('Agent Tools Unit Tests', () => {
         mockClient as unknown as import('../src/index').AcontextClient,
         diskId
       );
-      const result = await DISK_TOOLS.executeTool(ctx, 'read_file', {
+      const result = await DISK_TOOLS.executeTool(ctx, 'read_file_disk', {
         filename: 'test.txt',
         file_path: '/test/',
       });
@@ -254,7 +258,7 @@ describe('Agent Tools Unit Tests', () => {
         mockClient as unknown as import('../src/index').AcontextClient,
         diskId
       );
-      const result = await DISK_TOOLS.executeTool(ctx, 'read_file', {
+      const result = await DISK_TOOLS.executeTool(ctx, 'read_file_disk', {
         filename: 'multiline.txt',
         file_path: '/test/',
         line_offset: 1,
@@ -288,7 +292,7 @@ describe('Agent Tools Unit Tests', () => {
         mockClient as unknown as import('../src/index').AcontextClient,
         diskId
       );
-      const result = await DISK_TOOLS.executeTool(ctx, 'replace_string', {
+      const result = await DISK_TOOLS.executeTool(ctx, 'replace_string_disk', {
         filename: 'test.txt',
         file_path: '/test/',
         old_string: 'Hello',
@@ -316,7 +320,7 @@ describe('Agent Tools Unit Tests', () => {
         mockClient as unknown as import('../src/index').AcontextClient,
         diskId
       );
-      const result = await DISK_TOOLS.executeTool(ctx, 'replace_string', {
+      const result = await DISK_TOOLS.executeTool(ctx, 'replace_string_disk', {
         filename: 'test.txt',
         file_path: '/test/',
         old_string: 'NonExistentString',
@@ -340,7 +344,7 @@ describe('Agent Tools Unit Tests', () => {
         mockClient as unknown as import('../src/index').AcontextClient,
         diskId
       );
-      const result = await DISK_TOOLS.executeTool(ctx, 'list_artifacts', {
+      const result = await DISK_TOOLS.executeTool(ctx, 'list_disk', {
         file_path: '/test/',
       });
 
@@ -361,7 +365,7 @@ describe('Agent Tools Unit Tests', () => {
         mockClient as unknown as import('../src/index').AcontextClient,
         diskId
       );
-      const result = await DISK_TOOLS.executeTool(ctx, 'write_file', {
+      const result = await DISK_TOOLS.executeTool(ctx, 'write_file_disk', {
         filename: 'root_file.txt',
         content: 'Content in root',
       });
@@ -377,14 +381,14 @@ describe('Agent Tools Unit Tests', () => {
       );
 
       await expect(
-        DISK_TOOLS.executeTool(ctx, 'write_file', {
+        DISK_TOOLS.executeTool(ctx, 'write_file_disk', {
           filename: 'test.txt',
           // Missing content
         })
       ).rejects.toThrow('content is required');
 
       await expect(
-        DISK_TOOLS.executeTool(ctx, 'read_file', {
+        DISK_TOOLS.executeTool(ctx, 'read_file_disk', {
           // Missing filename
         })
       ).rejects.toThrow('filename is required');
@@ -393,7 +397,6 @@ describe('Agent Tools Unit Tests', () => {
 
   describe('Skill Tools', () => {
     test('SKILL_TOOLS should be pre-configured with all tools', () => {
-      expect(SKILL_TOOLS.toolExists('list_skills')).toBe(true);
       expect(SKILL_TOOLS.toolExists('get_skill')).toBe(true);
       expect(SKILL_TOOLS.toolExists('get_skill_file')).toBe(true);
     });
@@ -402,6 +405,7 @@ describe('Agent Tools Unit Tests', () => {
       const ctx: SkillContext = {
         client: mockClient as unknown as import('../src/index').AcontextClient,
         skills: new Map(),
+        getContextPrompt: () => '',
       };
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill', {})
@@ -412,6 +416,7 @@ describe('Agent Tools Unit Tests', () => {
       const ctx: SkillContext = {
         client: mockClient as unknown as import('../src/index').AcontextClient,
         skills: new Map(),
+        getContextPrompt: () => '',
       };
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill_file', {
@@ -424,6 +429,7 @@ describe('Agent Tools Unit Tests', () => {
       const ctx: SkillContext = {
         client: mockClient as unknown as import('../src/index').AcontextClient,
         skills: new Map(),
+        getContextPrompt: () => '',
       };
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill_file', {
@@ -436,31 +442,15 @@ describe('Agent Tools Unit Tests', () => {
       const ctx: SkillContext = {
         client: mockClient as unknown as import('../src/index').AcontextClient,
         skills: new Map(),
+        getContextPrompt: () => '',
       };
       await expect(
         SKILL_TOOLS.executeTool(ctx, 'get_skill', { skill_name: 'unknown-skill' })
       ).rejects.toThrow("Skill 'unknown-skill' not found in context");
     });
-
-    test('list_skills should return empty message when no skills', async () => {
-      const ctx: SkillContext = {
-        client: mockClient as unknown as import('../src/index').AcontextClient,
-        skills: new Map(),
-      };
-      const result = await SKILL_TOOLS.executeTool(ctx, 'list_skills', {});
-      expect(result).toBe('No skills available in the current context.');
-    });
   });
 
   describe('Skill Tool Schema Conversion', () => {
-    test('ListSkillsTool should have correct properties', () => {
-      const tool = new ListSkillsTool();
-      expect(tool.name).toBe('list_skills');
-      expect(tool.description).toBeTruthy();
-      expect(tool.requiredArguments).toEqual([]);
-      expect(tool.arguments).toEqual({});
-    });
-
     test('GetSkillTool should have correct properties', () => {
       const tool = new GetSkillTool();
       expect(tool.name).toBe('get_skill');
@@ -485,14 +475,14 @@ describe('Agent Tools Unit Tests', () => {
     test('SKILL_TOOLS should generate OpenAI tool schemas', () => {
       const schemas = SKILL_TOOLS.toOpenAIToolSchema();
       expect(Array.isArray(schemas)).toBe(true);
-      expect(schemas.length).toBe(3);
+      expect(schemas.length).toBe(2);
       expect(schemas.every((s) => s.type === 'function')).toBe(true);
     });
 
     test('SKILL_TOOLS should generate Anthropic tool schemas', () => {
       const schemas = SKILL_TOOLS.toAnthropicToolSchema();
       expect(Array.isArray(schemas)).toBe(true);
-      expect(schemas.length).toBe(3);
+      expect(schemas.length).toBe(2);
       expect(schemas.every((s) => s.name && s.input_schema)).toBe(true);
     });
   });
@@ -512,6 +502,7 @@ describe('Agent Tools Unit Tests', () => {
       const ctx: SkillContext = {
         client: mockClient as unknown as import('../src/index').AcontextClient,
         skills: new Map(),
+        getContextPrompt: () => '',
       };
       expect(() => getSkillFromContext(ctx, 'non-existent')).toThrow(
         "Skill 'non-existent' not found in context"
@@ -532,10 +523,147 @@ describe('Agent Tools Unit Tests', () => {
       const ctx: SkillContext = {
         client: mockClient as unknown as import('../src/index').AcontextClient,
         skills: new Map([['test-skill', skillData as import('../src/types').Skill]]),
+        getContextPrompt: () => '',
       };
       const skill = getSkillFromContext(ctx, 'test-skill');
       expect(skill).toBeDefined();
       expect(skill.name).toBe('test-skill');
+    });
+  });
+
+  describe('Sandbox Tools', () => {
+    test('SANDBOX_TOOLS should be pre-configured with all tools', () => {
+      expect(SANDBOX_TOOLS.toolExists('bash_execution_sandbox')).toBe(true);
+      expect(SANDBOX_TOOLS.toolExists('text_editor_sandbox')).toBe(true);
+      expect(SANDBOX_TOOLS.toolExists('export_file_sandbox')).toBe(true);
+    });
+
+    test('BashTool should have correct properties', () => {
+      const tool = new BashTool();
+      expect(tool.name).toBe('bash_execution_sandbox');
+      expect(tool.description).toBeTruthy();
+      expect(tool.requiredArguments).toContain('command');
+      expect(tool.arguments).toHaveProperty('command');
+      expect(tool.arguments).toHaveProperty('timeout');
+    });
+
+    test('TextEditorTool should have correct properties', () => {
+      const tool = new TextEditorTool();
+      expect(tool.name).toBe('text_editor_sandbox');
+      expect(tool.description).toBeTruthy();
+      expect(tool.requiredArguments).toContain('command');
+      expect(tool.requiredArguments).toContain('path');
+      expect(tool.arguments).toHaveProperty('command');
+      expect(tool.arguments).toHaveProperty('path');
+      expect(tool.arguments).toHaveProperty('file_text');
+      expect(tool.arguments).toHaveProperty('old_str');
+      expect(tool.arguments).toHaveProperty('new_str');
+      expect(tool.arguments).toHaveProperty('view_range');
+    });
+
+    test('ExportSandboxFileTool should have correct properties', () => {
+      const tool = new ExportSandboxFileTool();
+      expect(tool.name).toBe('export_file_sandbox');
+      expect(tool.description).toBeTruthy();
+      expect(tool.requiredArguments).toContain('sandbox_path');
+      expect(tool.requiredArguments).toContain('sandbox_filename');
+    });
+
+    test('SANDBOX_TOOLS should generate OpenAI tool schemas', () => {
+      const schemas = SANDBOX_TOOLS.toOpenAIToolSchema();
+      expect(Array.isArray(schemas)).toBe(true);
+      expect(schemas.length).toBe(3);
+      expect(schemas.every((s) => s.type === 'function')).toBe(true);
+    });
+
+    test('SANDBOX_TOOLS should generate Anthropic tool schemas', () => {
+      const schemas = SANDBOX_TOOLS.toAnthropicToolSchema();
+      expect(Array.isArray(schemas)).toBe(true);
+      expect(schemas.length).toBe(3);
+      expect(schemas.every((s) => s.name && s.input_schema)).toBe(true);
+    });
+  });
+
+  describe('OpenAI Schema Array Validation', () => {
+    /**
+     * Validates that all array types in schema properties have 'items' defined.
+     * OpenAI Function Calling requires array types to specify their items schema.
+     */
+    function validateArrayTypesHaveItems(
+      properties: Record<string, unknown>,
+      path: string = ''
+    ): void {
+      for (const [propName, propSchema] of Object.entries(properties)) {
+        const currentPath = path ? `${path}.${propName}` : propName;
+        const schema = propSchema as Record<string, unknown>;
+        const propType = schema.type;
+
+        // Handle type as array (e.g., ["array", "null"])
+        const typesToCheck = Array.isArray(propType) ? propType : [propType];
+
+        for (const t of typesToCheck) {
+          if (t === 'array') {
+            if (!('items' in schema)) {
+              throw new Error(
+                `Property '${currentPath}' has type 'array' but missing 'items'. OpenAI requires array schemas to define items.`
+              );
+            }
+          }
+        }
+
+        // Recursively check nested properties
+        if (schema.properties) {
+          validateArrayTypesHaveItems(
+            schema.properties as Record<string, unknown>,
+            currentPath
+          );
+        }
+      }
+    }
+
+    test('SANDBOX_TOOLS OpenAI schemas should have items for array types', () => {
+      const schemas = SANDBOX_TOOLS.toOpenAIToolSchema();
+
+      for (const schema of schemas) {
+        const funcSchema = schema.function as Record<string, unknown>;
+        const params = funcSchema.parameters as Record<string, unknown>;
+        const properties = (params.properties || {}) as Record<string, unknown>;
+        validateArrayTypesHaveItems(properties, funcSchema.name as string);
+      }
+    });
+
+    test('TextEditorTool view_range should have correct schema with items', () => {
+      const tool = new TextEditorTool();
+      const schema = tool.toOpenAIToolSchema();
+      const funcSchema = schema.function as Record<string, unknown>;
+      const params = funcSchema.parameters as Record<string, unknown>;
+      const properties = params.properties as Record<string, unknown>;
+      const viewRange = properties.view_range as Record<string, unknown>;
+
+      expect(viewRange.type).toEqual(['array', 'null']);
+      expect(viewRange).toHaveProperty('items');
+      expect((viewRange.items as Record<string, unknown>).type).toBe('integer');
+    });
+
+    test('All tool pools should have valid OpenAI array schemas', () => {
+      const toolPools = [
+        { name: 'DISK_TOOLS', pool: DISK_TOOLS },
+        { name: 'SKILL_TOOLS', pool: SKILL_TOOLS },
+        { name: 'SANDBOX_TOOLS', pool: SANDBOX_TOOLS },
+      ];
+
+      for (const { name, pool } of toolPools) {
+        const schemas = pool.toOpenAIToolSchema();
+        for (const schema of schemas) {
+          const funcSchema = schema.function as Record<string, unknown>;
+          const params = funcSchema.parameters as Record<string, unknown>;
+          const properties = (params.properties || {}) as Record<string, unknown>;
+          validateArrayTypesHaveItems(
+            properties,
+            `${name}.${funcSchema.name as string}`
+          );
+        }
+      }
     });
   });
 });

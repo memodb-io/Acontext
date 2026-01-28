@@ -52,7 +52,7 @@ async def test_async_request_transport_error(mock_request) -> None:
     mock_request.side_effect = exc
     async with AcontextAsyncClient(api_key="token") as client:
         with pytest.raises(TransportError):
-            await client.spaces.list()
+            await client.ping()
 
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
@@ -447,30 +447,6 @@ async def test_async_sessions_get_tasks_with_filters(
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
 @pytest.mark.asyncio
-async def test_async_sessions_get_learning_status(
-    mock_request, async_client: AcontextAsyncClient
-) -> None:
-    mock_request.return_value = {
-        "space_digested_count": 5,
-        "not_space_digested_count": 3,
-    }
-
-    result = await async_client.sessions.get_learning_status("session-id")
-
-    mock_request.assert_called_once()
-    args, kwargs = mock_request.call_args
-    method, path = args
-    assert method == "GET"
-    assert path == "/session/session-id/get_learning_status"
-    # Verify it returns a Pydantic model
-    assert hasattr(result, "space_digested_count")
-    assert hasattr(result, "not_space_digested_count")
-    assert result.space_digested_count == 5
-    assert result.not_space_digested_count == 3
-
-
-@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
-@pytest.mark.asyncio
 async def test_async_sessions_get_token_counts(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
@@ -488,173 +464,6 @@ async def test_async_sessions_get_token_counts(
     # Verify it returns a Pydantic model
     assert hasattr(result, "total_tokens")
     assert result.total_tokens == 1234
-
-
-@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
-@pytest.mark.asyncio
-async def test_async_blocks_list_without_filters(
-    mock_request, async_client: AcontextAsyncClient
-) -> None:
-    mock_request.return_value = []
-
-    result = await async_client.blocks.list("space-id")
-
-    mock_request.assert_called_once()
-    args, kwargs = mock_request.call_args
-    method, path = args
-    assert method == "GET"
-    assert path == "/space/space-id/block"
-    assert kwargs["params"] is None
-    # Verify it returns a list of Pydantic models
-    assert isinstance(result, list)
-
-
-@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
-@pytest.mark.asyncio
-async def test_async_blocks_list_with_filters(
-    mock_request, async_client: AcontextAsyncClient
-) -> None:
-    mock_request.return_value = []
-
-    result = await async_client.blocks.list(
-        "space-id", parent_id="parent-id", block_type="page"
-    )
-
-    mock_request.assert_called_once()
-    args, kwargs = mock_request.call_args
-    method, path = args
-    assert method == "GET"
-    assert path == "/space/space-id/block"
-    assert kwargs["params"] == {"parent_id": "parent-id", "type": "page"}
-    # Verify it returns a list of Pydantic models
-    assert isinstance(result, list)
-
-
-# NOTE: Block creation tests are commented out because API passes through to core
-# @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
-# @pytest.mark.asyncio
-# async def test_async_blocks_create_root_payload(mock_request, async_client: AcontextAsyncClient) -> None:
-#     mock_request.return_value = {
-#         "id": "block",
-#         "space_id": "space-id",
-#         "type": "folder",
-#         "title": "Folder Title",
-#         "props": {},
-#         "sort": 0,
-#         "is_archived": False,
-#         "created_at": "2024-01-01T00:00:00Z",
-#         "updated_at": "2024-01-01T00:00:00Z",
-#     }
-#
-#     result = await async_client.blocks.create(
-#         "space-id",
-#         block_type="folder",
-#         title="Folder Title",
-#     )
-#
-#     mock_request.assert_called_once()
-#     args, kwargs = mock_request.call_args
-#     method, path = args
-#     assert method == "POST"
-#     assert path == "/space/space-id/block"
-#     assert kwargs["json_data"] == {
-#         "type": "folder",
-#         "title": "Folder Title",
-#     }
-#     # Verify it returns a Pydantic model
-#     assert hasattr(result, "id")
-#     assert result.id == "block"
-
-
-# NOTE: Block creation tests are commented out because API passes through to core
-# @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
-# @pytest.mark.asyncio
-# async def test_async_blocks_create_with_parent_payload(mock_request, async_client: AcontextAsyncClient) -> None:
-#     mock_request.return_value = {
-#         "id": "block",
-#         "space_id": "space-id",
-#         "type": "text",
-#         "parent_id": "parent-id",
-#         "title": "Block Title",
-#         "props": {"key": "value"},
-#         "sort": 0,
-#         "is_archived": False,
-#         "created_at": "2024-01-01T00:00:00Z",
-#         "updated_at": "2024-01-01T00:00:00Z",
-#     }
-#
-#     result = await async_client.blocks.create(
-#         "space-id",
-#         parent_id="parent-id",
-#         block_type="text",
-#         title="Block Title",
-#         props={"key": "value"},
-#     )
-#
-#     mock_request.assert_called_once()
-#     args, kwargs = mock_request.call_args
-#     method, path = args
-#     assert method == "POST"
-#     assert path == "/space/space-id/block"
-#     assert kwargs["json_data"] == {
-#         "parent_id": "parent-id",
-#         "type": "text",
-#         "title": "Block Title",
-#         "props": {"key": "value"},
-#     }
-#     # Verify it returns a Pydantic model
-#     assert hasattr(result, "id")
-#     assert result.id == "block"
-
-
-@pytest.mark.asyncio
-async def test_async_blocks_move_requires_payload(
-    async_client: AcontextAsyncClient,
-) -> None:
-    with pytest.raises(ValueError):
-        await async_client.blocks.move("space-id", "block-id")
-
-
-@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
-@pytest.mark.asyncio
-async def test_async_blocks_move_with_parent(
-    mock_request, async_client: AcontextAsyncClient
-) -> None:
-    mock_request.return_value = {"status": "ok"}
-
-    await async_client.blocks.move("space-id", "block-id", parent_id="parent-id")
-
-    mock_request.assert_called_once()
-    args, kwargs = mock_request.call_args
-    method, path = args
-    assert method == "PUT"
-    assert path == "/space/space-id/block/block-id/move"
-    assert kwargs["json_data"] == {"parent_id": "parent-id"}
-
-
-@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
-@pytest.mark.asyncio
-async def test_async_blocks_move_with_sort(
-    mock_request, async_client: AcontextAsyncClient
-) -> None:
-    mock_request.return_value = {"status": "ok"}
-
-    await async_client.blocks.move("space-id", "block-id", sort=42)
-
-    mock_request.assert_called_once()
-    args, kwargs = mock_request.call_args
-    method, path = args
-    assert method == "PUT"
-    assert path == "/space/space-id/block/block-id/move"
-    assert kwargs["json_data"] == {"sort": 42}
-
-
-@pytest.mark.asyncio
-async def test_async_blocks_update_properties_requires_payload(
-    async_client: AcontextAsyncClient,
-) -> None:
-    with pytest.raises(ValueError):
-        await async_client.blocks.update_properties("space-id", "block-id")
 
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
@@ -929,134 +738,6 @@ async def test_async_skills_get_file_hits_id_endpoint(
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
 @pytest.mark.asyncio
-async def test_async_spaces_get_unconfirmed_experiences(
-    mock_request, async_client: AcontextAsyncClient
-) -> None:
-    mock_request.return_value = {
-        "items": [
-            {
-                "id": "exp-1",
-                "space_id": "space-id",
-                "task_id": "task-id",
-                "experience_data": {"type": "sop", "data": {"action": "test"}},
-                "created_at": "2024-01-01T00:00:00Z",
-                "updated_at": "2024-01-01T00:00:00Z",
-            },
-            {
-                "id": "exp-2",
-                "space_id": "space-id",
-                "task_id": None,
-                "experience_data": {"type": "other", "data": {}},
-                "created_at": "2024-01-02T00:00:00Z",
-                "updated_at": "2024-01-02T00:00:00Z",
-            },
-        ],
-        "next_cursor": "cursor-123",
-        "has_more": True,
-    }
-
-    result = await async_client.spaces.get_unconfirmed_experiences(
-        "space-id", limit=20, cursor="cursor-456", time_desc=True
-    )
-
-    mock_request.assert_called_once()
-    args, kwargs = mock_request.call_args
-    method, path = args
-    assert method == "GET"
-    assert path == "/space/space-id/experience_confirmations"
-    assert kwargs["params"] == {
-        "limit": 20,
-        "cursor": "cursor-456",
-        "time_desc": "true",
-    }
-    # Verify response structure
-    assert hasattr(result, "items")
-    assert hasattr(result, "next_cursor")
-    assert hasattr(result, "has_more")
-    assert len(result.items) == 2
-    assert result.items[0].id == "exp-1"
-    assert result.items[0].task_id == "task-id"
-    assert result.items[1].task_id is None
-    assert result.next_cursor == "cursor-123"
-    assert result.has_more is True
-
-
-@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
-@pytest.mark.asyncio
-async def test_async_spaces_get_unconfirmed_experiences_without_options(
-    mock_request, async_client: AcontextAsyncClient
-) -> None:
-    mock_request.return_value = {
-        "items": [],
-        "has_more": False,
-    }
-
-    result = await async_client.spaces.get_unconfirmed_experiences("space-id")
-
-    mock_request.assert_called_once()
-    args, kwargs = mock_request.call_args
-    method, path = args
-    assert method == "GET"
-    assert path == "/space/space-id/experience_confirmations"
-    assert kwargs["params"] is None
-    assert len(result.items) == 0
-    assert result.has_more is False
-
-
-@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
-@pytest.mark.asyncio
-async def test_async_spaces_confirm_experience_with_save(
-    mock_request, async_client: AcontextAsyncClient
-) -> None:
-    mock_request.return_value = {
-        "id": "exp-1",
-        "space_id": "space-id",
-        "task_id": "task-id",
-        "experience_data": {"type": "sop", "data": {"action": "test"}},
-        "created_at": "2024-01-01T00:00:00Z",
-        "updated_at": "2024-01-01T00:00:00Z",
-    }
-
-    result = await async_client.spaces.confirm_experience(
-        "space-id", "exp-1", save=True
-    )
-
-    mock_request.assert_called_once()
-    args, kwargs = mock_request.call_args
-    method, path = args
-    assert method == "PUT"
-    assert path == "/space/space-id/experience_confirmations/exp-1"
-    assert kwargs["json_data"] == {"save": True}
-    # Verify response structure
-    assert result is not None
-    assert hasattr(result, "id")
-    assert result.id == "exp-1"
-    assert result.space_id == "space-id"
-    assert result.experience_data == {"type": "sop", "data": {"action": "test"}}
-
-
-@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
-@pytest.mark.asyncio
-async def test_async_spaces_confirm_experience_without_save(
-    mock_request, async_client: AcontextAsyncClient
-) -> None:
-    mock_request.return_value = None
-
-    result = await async_client.spaces.confirm_experience(
-        "space-id", "exp-1", save=False
-    )
-
-    mock_request.assert_called_once()
-    args, kwargs = mock_request.call_args
-    method, path = args
-    assert method == "PUT"
-    assert path == "/space/space-id/experience_confirmations/exp-1"
-    assert kwargs["json_data"] == {"save": False}
-    assert result is None
-
-
-@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
-@pytest.mark.asyncio
 async def test_async_users_list_without_filters(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
@@ -1146,7 +827,6 @@ async def test_async_users_get_resources(
 ) -> None:
     mock_request.return_value = {
         "counts": {
-            "spaces_count": 5,
             "sessions_count": 10,
             "disks_count": 3,
             "skills_count": 2,
@@ -1162,7 +842,6 @@ async def test_async_users_get_resources(
     assert path == "/user/alice%40acontext.io/resources"
     # Verify it returns a Pydantic model
     assert hasattr(result, "counts")
-    assert result.counts.spaces_count == 5
     assert result.counts.sessions_count == 10
     assert result.counts.disks_count == 3
     assert result.counts.skills_count == 2

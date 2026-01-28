@@ -1,0 +1,203 @@
+---
+title: "Sandbox Tools"
+description: "Execute code and manage files in secure sandbox environments"
+---
+
+Pre-built tools for LLMs to execute bash commands, edit files, and export results in isolated containers.
+
+## Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `bash_execution_sandbox` | Execute bash commands |
+| `text_editor_sandbox` | View, create, edit text files |
+| `export_file_sandbox` | Export files to disk with download URL |
+
+<Tip>
+Sandbox tools support mounting [Agent Skills](/store/skill) directly into the sandbox filesystem, allowing LLMs to access skill files and execute skill scripts.
+</Tip>
+
+## Quick Start
+
+<CodeGroup>
+```python Python
+import json
+import os
+from acontext import AcontextClient
+from acontext.agent.sandbox import SANDBOX_TOOLS
+from openai import OpenAI
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+openai_client = OpenAI()
+
+# Create sandbox and disk
+sandbox = client.sandboxes.create()
+disk = client.disks.create()
+
+# Create context (optionally mount skills)
+ctx = SANDBOX_TOOLS.format_context(
+    client,
+    sandbox_id=sandbox.sandbox_id,
+    disk_id=disk.id,
+    # mount_skills=["skill-uuid"]
+)
+
+tools = SANDBOX_TOOLS.to_openai_tool_schema()
+context_prompt = ctx.get_context_prompt()
+
+messages = [
+    {"role": "system", "content": f"You have sandbox access.\n\n{context_prompt}"},
+    {"role": "user", "content": "Create and run a Python hello world script"}
+]
+
+# Agent loop
+while True:
+    response = openai_client.chat.completions.create(
+        model="gpt-4.1", messages=messages, tools=tools
+    )
+    message = response.choices[0].message
+    messages.append(message)
+
+    if not message.tool_calls:
+        print(f"Assistant: {message.content}")
+        break
+
+    for tc in message.tool_calls:
+        result = SANDBOX_TOOLS.execute_tool(ctx, tc.function.name, json.loads(tc.function.arguments))
+        messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+
+client.sandboxes.kill(sandbox.sandbox_id)
+```
+
+```typescript TypeScript
+import { AcontextClient, SANDBOX_TOOLS } from '@acontext/acontext';
+import OpenAI from 'openai';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+const openai = new OpenAI();
+
+// Create sandbox and disk
+const sandbox = await client.sandboxes.create();
+const disk = await client.disks.create();
+
+// Create context (optionally mount skills)
+const ctx = await SANDBOX_TOOLS.formatContext(
+    client,
+    sandbox.sandbox_id,
+    disk.id,
+    // ["skill-uuid"]
+);
+
+const tools = SANDBOX_TOOLS.toOpenAIToolSchema();
+const contextPrompt = ctx.getContextPrompt();
+
+const messages: OpenAI.ChatCompletionMessageParam[] = [
+    { role: "system", content: `You have sandbox access.\n\n${contextPrompt}` },
+    { role: "user", content: "Create and run a Python hello world script" },
+];
+
+// Agent loop
+while (true) {
+    const response = await openai.chat.completions.create({
+        model: "gpt-4.1",
+        messages,
+        tools,
+    });
+    const message = response.choices[0].message;
+    messages.push(message);
+
+    if (!message.tool_calls) {
+        console.log(`Assistant: ${message.content}`);
+        break;
+    }
+
+    for (const tc of message.tool_calls) {
+        const result = await SANDBOX_TOOLS.executeTool(ctx, tc.function.name, JSON.parse(tc.function.arguments));
+        messages.push({ role: "tool", tool_call_id: tc.id, content: result });
+    }
+}
+
+await client.sandboxes.kill(sandbox.sandbox_id);
+```
+</CodeGroup>
+
+## Mounting Agent Skills
+
+Mount [Agent Skills](/store/skill) into sandbox at `/skills/{skill_name}/`:
+
+<CodeGroup>
+```python Python
+ctx = SANDBOX_TOOLS.format_context(
+    client,
+    sandbox_id=sandbox.sandbox_id,
+    disk_id=disk.id,
+    mount_skills=["skill-uuid-1", "skill-uuid-2"]
+)
+
+# Or mount after creation
+ctx.mount_skills(["skill-uuid-3"])
+```
+
+```typescript TypeScript
+const ctx = await SANDBOX_TOOLS.formatContext(
+    client,
+    sandbox.sandbox_id,
+    disk.id,
+    ["skill-uuid-1", "skill-uuid-2"]
+);
+
+// Or mount after creation
+await ctx.mountSkills(["skill-uuid-3"]);
+```
+</CodeGroup>
+
+<Note>
+Mounting skills modifies the context prompt. Always call `get_context_prompt()` after mounting to include the updated skill information in your system message.
+</Note>
+
+## Tool Reference
+
+### bash_execution_sandbox
+
+```python
+{"command": "python3 script.py", "timeout": 30}
+```
+
+Returns: `{"stdout": "...", "stderr": "...", "exit_code": 0}`
+
+### text_editor_sandbox
+
+| Command | Parameters | Description |
+|---------|------------|-------------|
+| `view` | `path`, `view_range` (optional) | Read file |
+| `create` | `path`, `file_text` | Create/overwrite file |
+| `str_replace` | `path`, `old_str`, `new_str` | Find and replace |
+
+### export_file_sandbox
+
+```python
+{"sandbox_path": "/workspace/", "sandbox_filename": "output.txt"}
+```
+
+Returns: `{"message": "...", "public_url": "https://..."}`
+
+## Sandbox Environment
+
+Pre-installed: Python 3, ripgrep, fd, sqlite3, jq, imagemagick, standard Unix tools.
+
+<Warning>
+**Limitations:** No blocking calls (`plt.show()`, `input()`), expires after 30 minutes.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Sandbox API" icon="terminal" href="/store/sandbox">
+Low-level sandbox API
+</Card>
+<Card title="Skill Tools" icon="wand-magic-sparkles" href="/tool/skill_tools">
+Read-only skill access
+</Card>
+</CardGroup>

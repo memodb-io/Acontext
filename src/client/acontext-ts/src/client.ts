@@ -3,11 +3,9 @@
  */
 
 import { APIError, TransportError } from './errors';
-import { BlocksAPI } from './resources/blocks';
 import { DisksAPI } from './resources/disks';
 import { SandboxesAPI } from './resources/sandboxes';
 import { SessionsAPI } from './resources/sessions';
-import { SpacesAPI } from './resources/spaces';
 import { ToolsAPI } from './resources/tools';
 import { SkillsAPI } from './resources/skills';
 import { UsersAPI } from './resources/users';
@@ -27,11 +25,9 @@ export class AcontextClient implements RequesterProtocol {
   private _timeout: number;
   private _userAgent: string;
 
-  public spaces: SpacesAPI;
   public sessions: SessionsAPI;
   public disks: DisksAPI;
   public artifacts: DisksAPI['artifacts'];
-  public blocks: BlocksAPI;
   public tools: ToolsAPI;
   public skills: SkillsAPI;
   public users: UsersAPI;
@@ -69,11 +65,9 @@ export class AcontextClient implements RequesterProtocol {
         ? parseFloat(process.env.ACONTEXT_TIMEOUT)
         : 320000);
 
-    this.spaces = new SpacesAPI(this);
     this.sessions = new SessionsAPI(this);
     this.disks = new DisksAPI(this);
     this.artifacts = this.disks.artifacts;
-    this.blocks = new BlocksAPI(this);
     this.tools = new ToolsAPI(this);
     this.skills = new SkillsAPI(this);
     this.users = new UsersAPI(this);
@@ -107,10 +101,13 @@ export class AcontextClient implements RequesterProtocol {
       data?: Record<string, string>;
       files?: Record<string, { filename: string; content: Buffer | NodeJS.ReadableStream; contentType: string }>;
       unwrap?: boolean;
+      timeout?: number;
     }
   ): Promise<T> {
     const unwrap = options?.unwrap !== false;
     const url = `${this._baseUrl}${path}`;
+    // Use per-request timeout if provided, otherwise use client default
+    const effectiveTimeout = options?.timeout ?? this._timeout;
 
     try {
       // Build headers
@@ -200,7 +197,7 @@ export class AcontextClient implements RequesterProtocol {
       // Make the request
       const fetchImpl = await this.getFetch();
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this._timeout);
+      const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout);
 
       try {
         const response = await fetchImpl(finalUrl, {
@@ -216,7 +213,7 @@ export class AcontextClient implements RequesterProtocol {
       } catch (error) {
         clearTimeout(timeoutId);
         if (error instanceof Error && error.name === 'AbortError') {
-          throw new TransportError(`Request timeout after ${this._timeout}ms`);
+          throw new TransportError(`Request timeout after ${effectiveTimeout}ms`);
         }
         throw error;
       }

@@ -1,83 +1,39 @@
 ---
 title: "OpenAI TypeScript SDK"
-description: "Integrate OpenAI TypeScript SDK with Acontext for session persistence, task extraction, and manual tool calling"
+description: "Integrate OpenAI TypeScript SDK with Acontext for session persistence and task extraction"
 ---
 
-The OpenAI TypeScript SDK provides direct access to OpenAI's API for building AI applications in Node.js and TypeScript. When integrated with Acontext, you get persistent session management, automatic task extraction, and full observability of your agent's tool usage and conversations.
-
-## What This Integration Provides
-
-<CardGroup cols={2}>
-<Card title="Session Persistence" icon="database">
-Store conversation history across multiple agent runs and resume sessions seamlessly
-</Card>
-
-<Card title="Manual Tool Calling" icon="wrench">
-Full control over tool execution with explicit handling of function calls
-</Card>
-
-<Card title="Task Extraction" icon="list-check">
-Automatically identify and track tasks from agent conversations with progress updates
-</Card>
-
-<Card title="Tool Observability" icon="eye">
-Track all tool calls and their results for complete visibility into agent behavior
-</Card>
-</CardGroup>
+OpenAI's message format is natively compatible with Acontext. Store messages directly without conversion.
 
 ## Quick Start
-
-### Download Template
-
-Use `acontext-cli` to quickly set up an OpenAI TypeScript SDK project with Acontext integration:
 
 ```bash
 acontext create my-openai-project --template-path "typescript/openai-basic"
 ```
 
 <Note>
-If you haven't installed `acontext-cli` yet, install it first:
-```bash
-curl -fsSL https://install.acontext.io | sh
-```
+Install CLI first: `curl -fsSL https://install.acontext.io | sh`
 </Note>
 
-### Manual Setup
-
-If you prefer to set up manually:
+## Manual Setup
 
 <Steps>
 <Step title="Install dependencies">
-Install OpenAI and Acontext TypeScript packages:
-
 ```bash
 npm install openai @acontext/acontext dotenv
-```
-
-Or with yarn:
-```bash
-yarn add openai @acontext/acontext dotenv
 ```
 </Step>
 
 <Step title="Configure environment">
-Create a `.env` file with your API credentials:
-
 ```env
 OPENAI_API_KEY=your_openai_key_here
-ACONTEXT_API_KEY=sk-ac-your-root-api-bearer-token
-ACONTEXT_BASE_URL=http://localhost:8029/api/v1
-OPENAI_BASE_URL=  # Optional, for custom OpenAI-compatible endpoints
+ACONTEXT_API_KEY=sk-ac-your-api-key
 ```
-
-<Warning>
-Never commit API keys to version control. Always use environment variables or secure secret management.
-</Warning>
 </Step>
 
-<Step title="Initialize clients">
-Create OpenAI and Acontext client instances:
+<Step title="Run agent with Acontext">
 
+<Accordion title="Complete example">
 ```typescript
 import OpenAI from 'openai';
 import { AcontextClient } from '@acontext/acontext';
@@ -89,86 +45,16 @@ const openaiClient = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const acontextClient = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
+const client = new AcontextClient({
+  apiKey: process.env.ACONTEXT_API_KEY,
 });
 
 // If you're using self-hosted Acontext:
-// const acontextClient = new AcontextClient({
+// const client = new AcontextClient({
 //     baseUrl: "http://localhost:8029/api/v1",
 //     apiKey: "sk-ac-your-root-api-bearer-token",
 // });
-```
-</Step>
-</Steps>
 
-## How It Works
-
-The OpenAI TypeScript SDK integration works by storing conversation messages to Acontext in OpenAI message format. Since both use the same format, no conversion is needed.
-
-### Message Flow
-
-1. **Create session**: Initialize a new Acontext session for your agent
-2. **Store messages**: Append each message (user, assistant, and tool) to Acontext as the conversation progresses
-3. **Handle tool calls**: Manually execute tools when OpenAI requests them
-4. **Extract tasks**: After the conversation, flush the session and retrieve extracted tasks
-5. **Resume sessions**: Load previous conversation history to continue where you left off
-
-### Basic Integration Pattern
-
-Here's the core pattern for integrating OpenAI TypeScript SDK with Acontext:
-
-```typescript
-import OpenAI from 'openai';
-import { AcontextClient } from '@acontext/acontext';
-
-// Initialize clients
-const openaiClient = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const acontextClient = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-// Create Acontext session
-const space = await acontextClient.spaces.create();
-const session = await acontextClient.sessions.create({ spaceId: space.id });
-
-// Build conversation
-let conversation: any[] = [];
-const userMsg = { role: 'user', content: 'Hello!' };
-conversation.push(userMsg);
-await acontextClient.sessions.storeMessage(session.id, userMsg, {
-  format: 'openai',
-});
-
-// Call OpenAI API
-const response = await openaiClient.chat.completions.create({
-  model: 'gpt-4o-mini',
-  messages: conversation,
-});
-
-// Store assistant response to Acontext
-const assistantMsg = {
-  role: response.choices[0].message.role,
-  content: response.choices[0].message.content,
-};
-conversation.push(assistantMsg);
-await acontextClient.sessions.storeMessage(session.id, assistantMsg, {
-  format: 'openai',
-});
-```
-
-## Tool Calling
-
-This integration demonstrates manual tool calling, giving you full control over tool execution:
-
-### Define Tools
-
-Define your tools in OpenAI's function calling format:
-
-```typescript
 const tools = [
   {
     type: 'function' as const,
@@ -177,175 +63,7 @@ const tools = [
       description: 'Returns weather info for the specified city.',
       parameters: {
         type: 'object',
-        properties: {
-          city: {
-            type: 'string',
-            description: 'The city to get weather for',
-          },
-        },
-        required: ['city'],
-        additionalProperties: false,
-      },
-    },
-  },
-];
-```
-
-### Execute Tools Manually
-
-Handle tool calls in a loop until the agent provides a final response:
-
-```typescript
-async function runAgent(
-  client: OpenAI,
-  conversation: any[]
-): Promise<[string, any[]]> {
-  const messagesToStore: any[] = [
-    ...conversation,
-  ];
-
-  const newMessages: any[] = [];
-  const maxIterations = 10;
-  let iteration = 0;
-  let finalContent = '';
-
-  while (iteration < maxIterations) {
-    iteration += 1;
-
-    // Call OpenAI API
-    const response = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: messagesToStore,
-      tools: tools,
-      tool_choice: 'auto',
-    });
-
-    const message = response.choices[0].message;
-    const messageDict: any = {
-      role: message.role,
-      content: message.content,
-    };
-
-    // Handle tool calls
-    const toolCallsWithFunction: Array<{
-      id: string;
-      function: { name: string; arguments: string };
-    }> = [];
-
-    if (message.tool_calls) {
-      messageDict.tool_calls = message.tool_calls.map((tc: any) => {
-        toolCallsWithFunction.push({
-          id: tc.id,
-          function: {
-            name: tc.function.name,
-            arguments: tc.function.arguments,
-          },
-        });
-
-        return {
-          id: tc.id,
-          type: 'function',
-          function: {
-            name: tc.function.name,
-            arguments: tc.function.arguments,
-          },
-        };
-      });
-    }
-
-    messagesToStore.push(messageDict);
-    newMessages.push(messageDict);
-
-    // If there are no tool calls, we're done
-    if (!message.tool_calls || message.tool_calls.length === 0) {
-      finalContent = message.content || '';
-      break;
-    }
-
-    // Execute tool calls
-    for (const toolCallInfo of toolCallsWithFunction) {
-      const functionName = toolCallInfo.function.name;
-      const functionArgsStr = toolCallInfo.function.arguments || '{}';
-      const functionArgs = JSON.parse(functionArgsStr);
-      const functionResult = executeTool(functionName, functionArgs);
-
-      // Add tool response
-      const toolMessage = {
-        role: 'tool' as const,
-        tool_call_id: toolCallInfo.id,
-        content: functionResult,
-      };
-      messagesToStore.push(toolMessage);
-      newMessages.push(toolMessage);
-    }
-  }
-
-  return [finalContent, newMessages];
-}
-```
-
-### Store Messages to Acontext
-
-Store all messages (including tool calls and tool responses) to Acontext:
-
-```typescript
-async function appendMessage(
-  message: any,
-  conversation: any[],
-  sessionId: string
-): Promise<any[]> {
-  conversation.push(message);
-  await acontextClient.sessions.storeMessage(sessionId, message, {
-    format: 'openai',
-  });
-  return conversation;
-}
-
-// After running agent
-const [responseContent, newMessages] = await runAgent(openaiClient, conversation);
-for (const msg of newMessages) {
-  conversation = await appendMessage(msg, conversation, session.id);
-}
-```
-
-## Complete Example
-
-This example demonstrates a multi-turn conversation with tool calling and task extraction:
-
-```typescript
-import OpenAI from 'openai';
-import { AcontextClient } from '@acontext/acontext';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-// Initialize clients
-const openaiClient = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const acontextClient = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-// If you're using self-hosted Acontext:
-// const acontextClient = new AcontextClient({
-//     baseUrl: "http://localhost:8029/api/v1",
-//     apiKey: "sk-ac-your-root-api-bearer-token",
-// });
-
-// Tool definitions
-const tools = [
-  {
-    type: 'function' as const,
-    function: {
-      name: 'get_weather',
-      description: 'Returns weather info for the specified city.',
-      parameters: {
-        type: 'object',
-        properties: {
-          city: { type: 'string', description: 'The city to get weather for' },
-        },
+        properties: { city: { type: 'string' } },
         required: ['city'],
       },
     },
@@ -356,192 +74,101 @@ function getWeather(city: string): string {
   return `The weather in ${city} is sunny`;
 }
 
-function executeTool(toolName: string, toolArgs: Record<string, any>): string {
-  if (toolName === 'get_weather') {
-    return getWeather(toolArgs.city);
-  } else {
-    return `Unknown tool: ${toolName}`;
+function executeTool(name: string, args: Record<string, any>): string {
+  if (name === 'get_weather') return getWeather(args.city);
+  return `Unknown tool: ${name}`;
+}
+
+async function runAgent(conversation: any[]): Promise<[string, any[]]> {
+  const messages = [...conversation];
+  const newMessages: any[] = [];
+
+  while (true) {
+    const response = await openaiClient.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages,
+      tools,
+      tool_choice: 'auto',
+    });
+
+    const message = response.choices[0].message;
+    const msgDict: any = { role: message.role, content: message.content };
+
+    if (message.tool_calls) {
+      msgDict.tool_calls = message.tool_calls.map((tc) => ({
+        id: tc.id,
+        type: 'function',
+        function: { name: tc.function.name, arguments: tc.function.arguments },
+      }));
+      messages.push(msgDict);
+      newMessages.push(msgDict);
+
+      for (const tc of message.tool_calls) {
+        const result = executeTool(tc.function.name, JSON.parse(tc.function.arguments));
+        const toolMsg = { role: 'tool' as const, tool_call_id: tc.id, content: result };
+        messages.push(toolMsg);
+        newMessages.push(toolMsg);
+      }
+    } else {
+      newMessages.push(msgDict);
+      return [message.content || '', newMessages];
+    }
   }
 }
 
-async function appendMessage(
-  message: any,
-  conversation: any[],
-  sessionId: string
-): Promise<any[]> {
-  conversation.push(message);
-  await acontextClient.sessions.storeMessage(sessionId, message, {
-    format: 'openai',
-  });
-  return conversation;
-}
-
-async function main(): Promise<void> {
-  // Create space and session
-  const space = await acontextClient.spaces.create();
-  const session = await acontextClient.sessions.create({ spaceId: space.id });
-
+async function main() {
+  const session = await client.sessions.create();
   let conversation: any[] = [];
 
-  // First interaction
+  // User message
   const userMsg = { role: 'user', content: "What's the weather in Helsinki?" };
-  conversation = await appendMessage(userMsg, conversation, session.id);
+  conversation.push(userMsg);
+  await client.sessions.storeMessage(session.id, userMsg, { format: 'openai' });
 
-  // Run agent with tool calling
-  const [responseContent, newMessages] = await runAgent(
-    openaiClient,
-    conversation
-  );
+  // Run agent
+  const [responseContent, newMessages] = await runAgent(conversation);
 
-  // Store all messages to Acontext
+  // Store all messages
   for (const msg of newMessages) {
-    conversation = await appendMessage(msg, conversation, session.id);
+    conversation.push(msg);
+    await client.sessions.storeMessage(session.id, msg, { format: 'openai' });
   }
 
   // Extract tasks
-  await acontextClient.sessions.flush(session.id);
-  const tasksResponse = await acontextClient.sessions.getTasks(session.id);
+  await client.sessions.flush(session.id);
+  const tasks = await client.sessions.getTasks(session.id);
 
-  console.log('Extracted tasks:');
-  for (const task of tasksResponse.items) {
-    console.log(`Task: ${task.data.task_description}`);
-    console.log(`Status: ${task.status}`);
+  for (const task of tasks.items) {
+    console.log(`Task: ${task.data.task_description} | Status: ${task.status}`);
   }
 }
 
 main().catch(console.error);
 ```
+</Accordion>
+</Step>
+</Steps>
 
-## Key Features
-
-### Session Persistence
-
-Resume conversations by loading previous messages from Acontext:
+## Resume Sessions
 
 ```typescript
-// Load previous conversation
-const messages = await acontextClient.sessions.getMessages(sessionId, {
-  format: 'openai',
-});
-const conversation: any[] = messages.items;
+const messages = await client.sessions.getMessages(sessionId, { format: 'openai' });
+const conversation = messages.items;
 
-// Continue conversation
-conversation.push({
-  role: 'user',
-  content: 'Summarize our conversation',
-});
+conversation.push({ role: 'user', content: 'Summarize our conversation' });
 const response = await openaiClient.chat.completions.create({
   model: 'gpt-4o-mini',
   messages: conversation,
 });
 ```
 
-### Task Extraction
-
-After completing a conversation, extract tasks with their status and metadata:
-
-```typescript
-// Flush session to trigger task extraction
-await acontextClient.sessions.flush(sessionId);
-
-// Retrieve extracted tasks
-const tasksResponse = await acontextClient.sessions.getTasks(sessionId);
-
-for (const task of tasksResponse.items) {
-  console.log(`Task: ${task.data.task_description}`);
-  console.log(`Status: ${task.status}`);
-
-  // Access progress updates if available
-  if (task.data.progresses) {
-    for (const progress of task.data.progresses) {
-      console.log(`  Progress: ${progress}`);
-    }
-  }
-
-  // Access user preferences if available
-  if (task.data.user_preferences) {
-    for (const pref of task.data.user_preferences) {
-      console.log(`  Preference: ${pref}`);
-    }
-  }
-}
-```
-
-### Tool Call Tracking
-
-Acontext automatically tracks all tool calls and their results when messages are sent:
-
-```typescript
-// Tool calls are automatically tracked when you store messages
-const messageWithToolCall = {
-  role: 'assistant',
-  content: null,
-  tool_calls: [
-    {
-      id: 'call_123',
-      type: 'function',
-      function: {
-        name: 'get_weather',
-        arguments: '{"city": "Helsinki"}',
-      },
-    },
-  ],
-};
-await acontextClient.sessions.storeMessage(sessionId, messageWithToolCall, {
-  format: 'openai',
-});
-
-// Tool results are also tracked
-const toolResult = {
-  role: 'tool',
-  tool_call_id: 'call_123',
-  content: 'The weather in Helsinki is sunny',
-};
-await acontextClient.sessions.storeMessage(sessionId, toolResult, {
-  format: 'openai',
-});
-```
-
-## Best Practices
-
-<Tip>
-**Message format**: Always specify `format: 'openai'` when storing messages to Acontext to ensure proper message format handling.
-</Tip>
-
-<Tip>
-**Tool execution**: Always execute tools in the order they appear in `tool_calls`, and include the `tool_call_id` in tool response messages for proper tracking.
-</Tip>
-
-<Tip>
-**Iteration limits**: Set a reasonable `maxIterations` limit for tool calling loops to prevent infinite loops if the agent keeps requesting tools.
-</Tip>
-
-<Tip>
-**Async/await**: Use async/await consistently when working with both OpenAI and Acontext APIs, as they both return Promises.
-</Tip>
-
-<Tip>
-In your production agent, you don't need to call `flush` method after each conversation, 
-Acontext will automatically flush the buffer when the buffer is full or IDLE. To understand the buffer mechanism, please refer to [Session Buffer Mechanism](/observe/buffer).
-</Tip>
-
 ## Next Steps
 
 <CardGroup cols={2}>
 <Card title="Observability" icon="eye" href="/observe/agent_tasks">
-Monitor what your agent plans vs. what it executes
+Monitor agent tasks
 </Card>
-
-<Card title="Skill Learning" icon="sparkles" href="/learn/skill-space">
-Enable your agent to learn from completed tasks
-</Card>
-
 <Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
-View all agent interactions in one place
-</Card>
-
-<Card title="API Reference" icon="book" href="/api-reference/introduction">
-Explore the full Acontext API
+View all interactions
 </Card>
 </CardGroup>
-

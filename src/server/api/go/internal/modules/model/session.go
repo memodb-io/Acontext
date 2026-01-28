@@ -12,7 +12,6 @@ type Session struct {
 	ProjectID           uuid.UUID         `gorm:"type:uuid;not null;index" json:"project_id"`
 	UserID              *uuid.UUID        `gorm:"type:uuid;index" json:"user_id"`
 	DisableTaskTracking bool              `gorm:"not null;default:false" json:"disable_task_tracking"`
-	SpaceID             *uuid.UUID        `gorm:"type:uuid;index" json:"space_id"`
 	Configs             datatypes.JSONMap `gorm:"type:jsonb" swaggertype:"object" json:"configs"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime;not null;default:CURRENT_TIMESTAMP" json:"created_at"`
@@ -23,9 +22,6 @@ type Session struct {
 
 	// Session <-> User
 	User *User `gorm:"foreignKey:UserID;references:ID;constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
-
-	// Session <-> Space
-	Space *Space `gorm:"foreignKey:SpaceID;references:ID;constraint:OnDelete:SET NULL,OnUpdate:CASCADE;" json:"-"`
 
 	// Session <-> Message
 	Messages []Message `gorm:"constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`

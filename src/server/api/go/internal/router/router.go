@@ -20,8 +20,6 @@ type RouterDeps struct {
 	Config             *config.Config
 	DB                 *gorm.DB
 	Log                *zap.Logger
-	SpaceHandler       *handler.SpaceHandler
-	BlockHandler       *handler.BlockHandler
 	SessionHandler     *handler.SessionHandler
 	DiskHandler        *handler.DiskHandler
 	ArtifactHandler    *handler.ArtifactHandler
@@ -64,36 +62,6 @@ func NewRouter(d RouterDeps) *gin.Engine {
 		// ping endpoint
 		v1.GET("/ping", func(c *gin.Context) { c.JSON(http.StatusOK, serializer.Response{Msg: "pong"}) })
 
-		space := v1.Group("/space")
-		{
-			space.GET("/status")
-
-			space.GET("", d.SpaceHandler.GetSpaces)
-			space.POST("", d.SpaceHandler.CreateSpace)
-			space.DELETE("/:space_id", d.SpaceHandler.DeleteSpace)
-
-			space.PUT("/:space_id/configs", d.SpaceHandler.UpdateConfigs)
-			space.GET("/:space_id/configs", d.SpaceHandler.GetConfigs)
-
-			space.GET("/:space_id/experience_search", d.SpaceHandler.GetExperienceSearch)
-
-			space.GET("/:space_id/experience_confirmations", d.SpaceHandler.ListExperienceConfirmations)
-			space.PUT("/:space_id/experience_confirmations/:experience_id", d.SpaceHandler.ConfirmExperience)
-
-			block := space.Group("/:space_id/block")
-			{
-				block.GET("", d.BlockHandler.ListBlocks)
-				block.POST("", d.BlockHandler.CreateBlock)
-				block.DELETE("/:block_id", d.BlockHandler.DeleteBlock)
-
-				block.GET("/:block_id/properties", d.BlockHandler.GetBlockProperties)
-				block.PUT("/:block_id/properties", d.BlockHandler.UpdateBlockProperties)
-
-				block.PUT("/:block_id/move", d.BlockHandler.MoveBlock)
-				block.PUT("/:block_id/sort", d.BlockHandler.UpdateBlockSort)
-			}
-		}
-
 		session := v1.Group("/session")
 		{
 			session.GET("", d.SessionHandler.GetSessions)
@@ -103,13 +71,10 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			session.PUT("/:session_id/configs", d.SessionHandler.UpdateConfigs)
 			session.GET("/:session_id/configs", d.SessionHandler.GetConfigs)
 
-			session.POST("/:session_id/connect_to_space", d.SessionHandler.ConnectToSpace)
-
 			session.POST("/:session_id/messages", d.SessionHandler.StoreMessage)
 			session.GET("/:session_id/messages", d.SessionHandler.GetMessages)
 
 			session.POST("/:session_id/flush", d.SessionHandler.SessionFlush)
-			session.GET("/:session_id/get_learning_status", d.SessionHandler.GetLearningStatus)
 
 			session.GET("/:session_id/token_counts", d.SessionHandler.GetTokenCounts)
 
@@ -155,6 +120,7 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			agentSkills.GET("/:id", d.AgentSkillsHandler.GetAgentSkill)
 			agentSkills.DELETE("/:id", d.AgentSkillsHandler.DeleteAgentSkill)
 			agentSkills.GET("/:id/file", d.AgentSkillsHandler.GetAgentSkillFile)
+			agentSkills.POST("/:id/download_to_sandbox", d.AgentSkillsHandler.DownloadToSandbox)
 		}
 
 		user := v1.Group("/user")

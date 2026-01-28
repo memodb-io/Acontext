@@ -1,360 +1,167 @@
 ---
-title: "Filesystem Tools"
-description: "Enable LLMs to autonomously manage files on Acontext disks using function calling"
+title: "Disk Tools"
+description: "Enable LLMs to manage files on Acontext disks"
 ---
 
-Acontext provides pre-built filesystem tools that allow LLMs to read, write, and manage files on disks through function calling. You can integrate these tools with OpenAI or Anthropic APIs to create agents that persist data autonomously.
+Pre-built tools for LLMs to read, write, and search files on disks through function calling.
 
 ## Available Tools
 
-The SDK includes seven disk operation tools:
+| Tool | Description |
+|------|-------------|
+| `write_file_disk` | Create or overwrite text files |
+| `read_file_disk` | Read file contents |
+| `replace_string_disk` | Find and replace text |
+| `list_disk` | List files and directories |
+| `download_file_disk` | Get public download URL |
+| `grep_disk` | Search contents with regex |
+| `glob_disk` | Find files by path pattern |
 
-- **`write_file`** - Create or overwrite text files
-- **`read_file`** - Read file contents with optional line offset and limit
-- **`replace_string`** - Find and replace text in files  
-- **`list_artifacts`** - List files and directories in a path
-- **`download_file`** - Get a public URL to download a file
-- **`grep_artifacts`** - Search file contents using regex patterns
-- **`glob_artifacts`** - Find files by path pattern using glob syntax
-
-<Tip>
-These tools handle path normalization automatically and support nested directory structures like `/notes/`, `/documents/2024/`, etc.
-</Tip>
-
-## Building an Agent with Filesystem
-
-You can build an agentic loop where the LLM autonomously calls disk tools to complete file-related tasks. Here's a complete example:
+## Quick Start
 
 <CodeGroup>
 ```python Python
 import json
+import os
 from acontext import AcontextClient
 from acontext.agent.disk import DISK_TOOLS
 from openai import OpenAI
 
-# Initialize clients
-acontext_client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# If you're using self-hosted Acontext:
-# acontext_client = AcontextClient(
-#     base_url="http://localhost:8029/api/v1",
-#     api_key="sk-ac-your-root-api-bearer-token",
-# )
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
 openai_client = OpenAI()
 
-# Create a disk and tool context
-disk = acontext_client.disks.create()
-ctx = DISK_TOOLS.format_context(acontext_client, disk.id)
+# Create disk and context
+disk = client.disks.create()
+ctx = DISK_TOOLS.format_context(client, disk.id)
 
-# Get tool schemas for OpenAI
 tools = DISK_TOOLS.to_openai_tool_schema()
-print(tools)
-# Simple agentic loop
+context_prompt = ctx.get_context_prompt()
+
 messages = [
-    {
-        "role": "user",
-        "content": "Create a todo.md file with 3 tasks. Then give me the public download URL",
-    }
+    {"role": "system", "content": f"You have disk access.\n\n{context_prompt}"},
+    {"role": "user", "content": "Create a todo.md file with 3 tasks"}
 ]
 
+# Agent loop
 while True:
     response = openai_client.chat.completions.create(
-        model="gpt-4.1",
-        messages=messages,
-        tools=tools,
+        model="gpt-4.1", messages=messages, tools=tools
     )
-
     message = response.choices[0].message
     messages.append(message)
 
-    # Break if no tool calls
     if not message.tool_calls:
-        print(f"🤖 Assistant: {message.content}")
+        print(f"Assistant: {message.content}")
         break
 
-    # Execute each tool call
-    for tool_call in message.tool_calls:
-        print(f"⚙️ Called {tool_call.function.name}")
-        result = DISK_TOOLS.execute_tool(
-            ctx, tool_call.function.name, json.loads(tool_call.function.arguments)
-        )
-        print(f"🔍 Result: {result}")
-        messages.append(
-            {"role": "tool", "tool_call_id": tool_call.id, "content": result}
-        )
-
+    for tc in message.tool_calls:
+        result = DISK_TOOLS.execute_tool(ctx, tc.function.name, json.loads(tc.function.arguments))
+        messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
 ```
 
 ```typescript TypeScript
 import { AcontextClient, DISK_TOOLS } from '@acontext/acontext';
 import OpenAI from 'openai';
 
-// Initialize clients
-const acontextClient = new AcontextClient({
+const client = new AcontextClient({
     apiKey: process.env.ACONTEXT_API_KEY,
 });
+const openai = new OpenAI();
 
-// If you're using self-hosted Acontext:
-// const acontextClient = new AcontextClient({
-//     baseUrl: "http://localhost:8029/api/v1",
-//     apiKey: "sk-ac-your-root-api-bearer-token",
-// });
-const openaiClient = new OpenAI({ apiKey: 'sk-your-openai-key' });
+// Create disk and context
+const disk = await client.disks.create();
+const ctx = DISK_TOOLS.formatContext(client, disk.id);
 
-// Create a disk and tool context
-const disk = await acontextClient.disks.create();
-const ctx = DISK_TOOLS.formatContext(acontextClient, disk.id);
-
-// Get tool schemas for OpenAI
 const tools = DISK_TOOLS.toOpenAIToolSchema();
-console.log(tools);
-// Simple agentic loop
-const messages = [
-  {
-    role: 'user',
-    content: 'Create a todo.md file with 3 tasks. Then check the content in this file',
-  },
+const contextPrompt = ctx.getContextPrompt();
+
+const messages: OpenAI.ChatCompletionMessageParam[] = [
+    { role: "system", content: `You have disk access.\n\n${contextPrompt}` },
+    { role: "user", content: "Create a todo.md file with 3 tasks" },
 ];
 
+// Agent loop
 while (true) {
-  const response = await openaiClient.chat.completions.create({
-    model: 'gpt-4.1',
-    messages,
-    tools,
-  });
-  
-  const message = response.choices[0].message;
-  messages.push(message);
-  
-  // Break if no tool calls
-  if (!message.tool_calls) {
-    console.log(`🤖 Assistant: ${message.content}`);
-    break;
-  }
-  
-  // Execute each tool call
-  for (const toolCall of message.tool_calls) {
-    console.log(`⚙️ Called ${toolCall.function.name}`);
-    const result = await DISK_TOOLS.executeTool(
-      ctx,
-      toolCall.function.name,
-      JSON.parse(toolCall.function.arguments)
-    );
-    console.log(`🔍 Result: ${result}`);
-    messages.push({
-      role: 'tool',
-      tool_call_id: toolCall.id,
-      content: result,
+    const response = await openai.chat.completions.create({
+        model: "gpt-4.1",
+        messages,
+        tools,
     });
-  }
+    const message = response.choices[0].message;
+    messages.push(message);
+
+    if (!message.tool_calls) {
+        console.log(`Assistant: ${message.content}`);
+        break;
+    }
+
+    for (const tc of message.tool_calls) {
+        const result = await DISK_TOOLS.executeTool(ctx, tc.function.name, JSON.parse(tc.function.arguments));
+        messages.push({ role: "tool", tool_call_id: tc.id, content: result });
+    }
 }
 ```
 </CodeGroup>
 
-<Info>
-The agent will automatically call the appropriate tools (`write_file`, `read_file`, etc.) to complete your request, creating a fully autonomous file management system.
-</Info>
-
-## How It Works
-
-<Steps>
-<Step title="Initialize clients and create a disk">
-  Set up both the Acontext client and your LLM client (OpenAI or Anthropic). Create a disk to store files.
-
-  <CodeGroup>
-  ```python Python
-  from acontext import AcontextClient
-  from acontext.agent.disk import DISK_TOOLS
-
-  client = AcontextClient(
-      api_key=os.getenv("ACONTEXT_API_KEY"),
-  )
-  disk = client.disks.create()
-  ctx = DISK_TOOLS.format_context(client, disk.id)
-  ```
-
-  ```typescript TypeScript
-  import { AcontextClient, DISK_TOOLS } from '@acontext/acontext';
-
-  const client = new AcontextClient({
-      apiKey: process.env.ACONTEXT_API_KEY,
-  });
-  const disk = await client.disks.create();
-  const ctx = DISK_TOOLS.formatContext(client, disk.id);
-  ```
-  </CodeGroup>
-</Step>
-
-<Step title="Get tool schemas for your LLM">
-  Convert the disk tools to the schema format your LLM provider expects.
-
-  <CodeGroup>
-  ```python Python
-  # For OpenAI
-  tools = DISK_TOOLS.to_openai_tool_schema()
-
-  # For Anthropic
-  tools = DISK_TOOLS.to_anthropic_tool_schema()
-  ```
-
-  ```typescript TypeScript
-  // For OpenAI
-  const tools = DISK_TOOLS.toOpenAIToolSchema();
-
-  // For Anthropic
-  const tools = DISK_TOOLS.toAnthropicToolSchema();
-  ```
-  </CodeGroup>
-</Step>
-
-<Step title="Implement the agentic loop">
-  Create a loop that stores messages to Acontext, executes tool calls, and feeds results back until the task is complete.
-
-  **Executing Tools After LLM Response:**
-
-  When the LLM responds with tool calls, iterate through each one and execute them using `DISK_TOOLS.execute_tool()` (Python) or `DISK_TOOLS.executeTool()` (TypeScript):
-
-  <CodeGroup>
-  ```python Python
-  # Execute each tool call from the LLM response
-  for tool_call in message.tool_calls:
-      result = DISK_TOOLS.execute_tool(
-          ctx,                                      # Tool context with disk ID
-          tool_call.function.name,                  # Tool name (e.g., "write_file")
-          json.loads(tool_call.function.arguments)  # Parse arguments
-      )
-      # Add tool result back to message history
-      messages.append({
-          "role": "tool",
-          "tool_call_id": tool_call.id,
-          "content": result
-      })
-  ```
-
-  ```typescript TypeScript
-  // Execute each tool call from the LLM response
-  for (const toolCall of message.tool_calls) {
-      const result = await DISK_TOOLS.executeTool(
-          ctx,                                      // Tool context with disk ID
-          toolCall.function.name,                   // Tool name (e.g., "write_file")
-          JSON.parse(toolCall.function.arguments)   // Parse arguments
-      );
-      // Add tool result back to message history
-      messages.push({
-          role: 'tool',
-          tool_call_id: toolCall.id,
-          content: result,
-      });
-  }
-  ```
-  </CodeGroup>
-
-  <Check>
-  The loop continues until the LLM returns a message without tool calls, indicating the task is complete.
-  </Check>
-</Step>
-</Steps>
-
 ## Tool Reference
 
-### write_file
+### write_file_disk
 
-Create or overwrite a text file on the disk.
+```python
+{"filename": "notes.md", "content": "# Notes", "file_path": "/docs/"}
+```
 
-**Parameters:**
-- `filename` (required) - Name of the file, e.g., `"report.md"`
-- `content` (required) - Text content to write to the file
-- `file_path` (optional) - Directory path, e.g., `"/notes/"` (defaults to `"/"`)
+### read_file_disk
 
-**Returns:** Success message with file path
+```python
+{"filename": "notes.md", "file_path": "/docs/", "line_offset": 0, "line_limit": 100}
+```
 
-### read_file
+### replace_string_disk
 
-Read the contents of a text file from the disk.
+```python
+{"filename": "notes.md", "old_string": "TODO", "new_string": "DONE", "file_path": "/"}
+```
 
-**Parameters:**
-- `filename` (required) - Name of the file to read
-- `file_path` (optional) - Directory path where the file is located (defaults to `"/"`)
-- `line_offset` (optional) - Starting line number (defaults to `0`)
-- `line_limit` (optional) - Maximum number of lines to return (defaults to `100`)
+### list_disk
 
-**Returns:** File content with line range information
+```python
+{"file_path": "/docs/"}
+```
 
-### replace_string
+### download_file_disk
 
-Replace all occurrences of a string in a file.
+```python
+{"filename": "report.pdf", "file_path": "/", "expire": 3600}
+```
 
-**Parameters:**
-- `filename` (required) - Name of the file to modify
-- `old_string` (required) - String to be replaced
-- `new_string` (required) - Replacement string
-- `file_path` (optional) - Directory path where the file is located (defaults to `"/"`)
+### grep_disk
 
-**Returns:** Number of replacements made
+Search file contents with regex:
 
-### list_artifacts
-
-List all files and directories at a specified path.
-
-**Parameters:**
-- `file_path` (required) - Directory path to list, e.g., `"/notes/"` or `"/"`
-
-**Returns:** List of files and directories
-
-### download_file
-
-Get a public presigned URL to download a file.
-
-**Parameters:**
-- `filename` (required) - Name of the file to get the download URL for
-- `file_path` (optional) - Directory path where the file is located (defaults to `"/"`)
-- `expire` (optional) - URL expiration time in seconds (defaults to `3600`)
-
-**Returns:** Presigned public URL for downloading the file
-
-### grep_artifacts
-
-Search for text patterns within file contents using **regex**. Only searches text-based files (code, markdown, JSON, CSV, etc.).
-
-**Parameters:**
-- `query` (required) - Regex pattern to search for (e.g., `"TODO.*"`, `"function.*calculate"`, `"import.*pandas"`)
-- `limit` (optional) - Maximum number of results to return (defaults to `100`)
-
-**Returns:** List of files matching the pattern
+```python
+{"query": "TODO.*", "limit": 100}
+```
 
 <Warning>
-This uses **regex syntax**, not glob. In regex:
-- `.*` means "any characters" (zero or more)
-- `*` alone means "zero or more of the preceding character"
-
-For example, `"test*"` matches "tes", "test", "testt" — NOT "test-file". Use `"test.*"` to match "test-file".
+Uses **regex** syntax: `.*` means any characters, `*` alone means zero or more of preceding character.
 </Warning>
 
-<Tip>
-Common patterns: `"TODO.*"` (TODO comments), `"#.*Summary"` (markdown headers), `"error"` (case-sensitive match), `"(?i)error"` (case-insensitive).
-</Tip>
+### glob_disk
 
-### glob_artifacts
+Find files by path pattern:
 
-Find files by **path pattern** using glob syntax. Use `*` for any characters, `?` for single character, `**` for recursive directories.
+```python
+{"query": "**/*.md", "limit": 100}
+```
 
-**Parameters:**
-- `query` (required) - Glob pattern (e.g., `"**/*.md"` for all markdown files, `"*.txt"` for text files in root, `"/docs/**/*.md"` for markdown in docs)
-- `limit` (optional) - Maximum number of results to return (defaults to `100`)
+## Next Steps
 
-**Returns:** List of files matching the glob pattern
-
-<Tip>
-Use `glob_artifacts` to find files by extension or location, perfect for discovering files without knowing exact names.
-</Tip>
-
-<Warning>
-All file operations are scoped to the specific disk. Ensure you create and configure the disk context correctly before executing tools.
-</Warning>
-
-<Note>
-For async Python usage, see [Async Python Client](/chore/async_python#async-agentic-tools) which covers `async_format_context()` and `async_execute_tool()` methods.
-</Note>
-
+<CardGroup cols={2}>
+<Card title="Disk API" icon="hard-drive" href="/store/disk">
+Low-level disk API
+</Card>
+<Card title="Sandbox Tools" icon="terminal" href="/tool/bash_tools">
+Execute code in sandbox
+</Card>
+</CardGroup>

@@ -83,8 +83,6 @@ func main() {
 	gin.SetMode(cfg.App.Env)
 
 	// build handlers
-	spaceHandler := do.MustInvoke[*handler.SpaceHandler](inj)
-	blockHandler := do.MustInvoke[*handler.BlockHandler](inj)
 	sessionHandler := do.MustInvoke[*handler.SessionHandler](inj)
 	diskHandler := do.MustInvoke[*handler.DiskHandler](inj)
 	artifactHandler := do.MustInvoke[*handler.ArtifactHandler](inj)
@@ -98,8 +96,6 @@ func main() {
 		Config:             cfg,
 		DB:                 db,
 		Log:                log,
-		SpaceHandler:       spaceHandler,
-		BlockHandler:       blockHandler,
 		SessionHandler:     sessionHandler,
 		DiskHandler:        diskHandler,
 		ArtifactHandler:    artifactHandler,

@@ -1,390 +1,39 @@
 ---
 title: "Vercel AI SDK"
-description: "Integrate Vercel AI SDK with Acontext for session persistence, tool calling, and task extraction"
+description: "Integrate Vercel AI SDK with Acontext for session persistence and task extraction"
 ---
 
-The Vercel AI SDK provides a unified interface for building AI applications with support for multiple providers. When integrated with Acontext, you get persistent session management, automatic task extraction, and seamless conversation resumption across sessions.
-
-## What This Integration Provides
-
-<CardGroup cols={2}>
-<Card title="Unified AI Interface" icon="layer-group">
-Support for multiple AI providers (OpenAI, Anthropic, etc.) through a single API
-</Card>
-
-<Card title="Session Persistence" icon="database">
-Store conversation history across multiple agent runs and resume sessions seamlessly
-</Card>
-
-<Card title="Tool Calling" icon="wrench">
-Define tools with Zod schemas and handle tool execution with full control
-</Card>
-
-<Card title="Task Extraction" icon="list-check">
-Automatically identify and track tasks from agent conversations with progress updates
-</Card>
-</CardGroup>
+The Vercel AI SDK provides a unified interface for multiple AI providers. Store conversations to Acontext for persistence and task extraction.
 
 ## Quick Start
-
-### Download Template
-
-Use `acontext-cli` to quickly set up a Vercel AI SDK project with Acontext integration:
 
 ```bash
 acontext create my-ai-project --template-path "typescript/vercel-ai-basic"
 ```
 
 <Note>
-If you haven't installed `acontext-cli` yet, install it first:
-```bash
-curl -fsSL https://install.acontext.io | sh
-```
+Install CLI first: `curl -fsSL https://install.acontext.io | sh`
 </Note>
 
-### Manual Setup
-
-If you prefer to set up manually:
+## Manual Setup
 
 <Steps>
 <Step title="Install dependencies">
-Install Vercel AI SDK and Acontext TypeScript packages:
-
 ```bash
 npm install ai @ai-sdk/openai @acontext/acontext dotenv zod
-```
-
-Or with yarn:
-```bash
-yarn add ai @ai-sdk/openai @acontext/acontext dotenv zod
 ```
 </Step>
 
 <Step title="Configure environment">
-Create a `.env` file with your API credentials:
-
 ```env
 OPENAI_API_KEY=your_openai_key_here
-ACONTEXT_API_KEY=sk-ac-your-root-api-bearer-token
-ACONTEXT_BASE_URL=http://localhost:8029/api/v1
-OPENAI_BASE_URL=  # Optional, for custom OpenAI-compatible endpoints
-```
-
-<Warning>
-Never commit API keys to version control. Always use environment variables or secure secret management.
-</Warning>
-</Step>
-
-<Step title="Initialize clients">
-Create Vercel AI SDK provider and Acontext client instances:
-
-```typescript
-import { createOpenAI } from '@ai-sdk/openai';
-import { AcontextClient } from '@acontext/acontext';
-import dotenv from 'dotenv';
-
-dotenv.config();
-
-// Create OpenAI provider
-const openaiProvider = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  baseURL: process.env.OPENAI_BASE_URL,
-});
-
-// Initialize Acontext client
-const acontextClient = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-// If you're using self-hosted Acontext:
-// const acontextClient = new AcontextClient({
-//     baseUrl: "http://localhost:8029/api/v1",
-//     apiKey: "sk-ac-your-root-api-bearer-token",
-// });
+ACONTEXT_API_KEY=sk-ac-your-api-key
 ```
 </Step>
-</Steps>
 
-## How It Works
+<Step title="Run agent with Acontext">
 
-The Vercel AI SDK integration works by storing conversation messages to Acontext in OpenAI message format. The SDK uses `generateText` for text generation and requires manual tool execution.
-
-### Message Flow
-
-1. **Create session**: Initialize a new Acontext session for your agent
-2. **Generate text**: Use `generateText` with tools to get model responses
-3. **Handle tool calls**: Manually execute tools when the model requests them
-4. **Store messages**: Append each message (user, assistant, and tool) to Acontext
-5. **Extract tasks**: After the conversation, flush the session and retrieve extracted tasks
-6. **Resume sessions**: Load previous conversation history to continue where you left off
-
-### Important Notes
-
-<Warning>
-**Message format limitations**: Vercel AI SDK v5 only accepts 'user' and 'assistant' roles in the messages array. Tool results must be converted to user messages for the next iteration, but marked as internal so they aren't sent to Acontext.
-</Warning>
-
-<Info>
-**Tool execution**: Even though tools have `execute` functions defined, you still need to manually handle tool calls and pass results back to the model in a format it can understand.
-</Info>
-
-## Basic Integration Pattern
-
-Here's the core pattern for integrating Vercel AI SDK with Acontext:
-
-```typescript
-import { generateText } from 'ai';
-import { createOpenAI } from '@ai-sdk/openai';
-import { AcontextClient } from '@acontext/acontext';
-
-// Create provider and model
-const openaiProvider = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
-const model = openaiProvider('gpt-4o-mini');
-
-// Initialize Acontext
-const acontextClient = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-// Create session
-const space = await acontextClient.spaces.create();
-const session = await acontextClient.sessions.create({ spaceId: space.id });
-
-// Build conversation
-let conversation: any[] = [];
-const userMsg = { role: 'user', content: 'Hello!' };
-conversation.push(userMsg);
-await acontextClient.sessions.storeMessage(session.id, userMsg, {
-  format: 'openai',
-});
-
-// Generate text
-const result = await generateText({
-  model,
-  messages: conversation,
-});
-
-// Store assistant response to Acontext
-const assistantMsg = {
-  role: 'assistant',
-  content: result.text,
-};
-conversation.push(assistantMsg);
-await acontextClient.sessions.storeMessage(session.id, assistantMsg, {
-  format: 'openai',
-});
-```
-
-## Tool Calling
-
-The Vercel AI SDK uses Zod schemas to define tools. Tools must include an `execute` function, but you still need to manually handle tool calls in a loop.
-
-### Define Tools
-
-Define your tools using the `tool()` function with Zod schemas:
-
-```typescript
-import { tool } from 'ai';
-import { z } from 'zod';
-
-const tools = {
-  get_weather: tool({
-    description: 'Returns weather info for the specified city.',
-    inputSchema: z.object({
-      city: z.string().describe('The city to get weather for'),
-    }),
-    execute: async ({ city }: { city: string }) => {
-      return `The weather in ${city} is sunny`;
-    },
-  }),
-  book_flight: tool({
-    description: 'Book a flight.',
-    inputSchema: z.object({
-      from_city: z.string().describe('The departure city'),
-      to_city: z.string().describe('The destination city'),
-      date: z.string().describe('The date of the flight'),
-    }),
-    execute: async ({ from_city, to_city, date }: { from_city: string; to_city: string; date: string }) => {
-      return `Flight booked successfully for '${from_city}' to '${to_city}' on '${date}'`;
-    },
-  }),
-};
-```
-
-### Execute Tools Manually
-
-Handle tool calls in a loop until the agent provides a final response:
-
-```typescript
-async function runAgent(conversation: any[]): Promise<[string, any[]]> {
-  const model = createModel();
-  const newMessages: any[] = [];
-  const maxIterations = 10;
-  let iteration = 0;
-  let finalContent = '';
-
-  while (iteration < maxIterations) {
-    iteration += 1;
-
-    // Filter messages for Vercel AI SDK (only user and assistant)
-    const messagesToStore = conversation
-      .filter((msg: any) => {
-        const role = msg.role;
-        return (role === 'user' || role === 'assistant') && !msg._internal;
-      })
-      .map((msg: any) => {
-        // Ensure content is a string
-        let content = msg.content;
-        if (Array.isArray(content)) {
-          content = content.map((item: any) => 
-            typeof item === 'string' ? item : item.text || item.content || ''
-          ).join(' ');
-        }
-        if (typeof content !== 'string') {
-          content = String(content || '');
-        }
-        return { role: msg.role, content };
-      });
-
-    const result = await generateText({
-      model,
-      system: 'You are a helpful assistant',
-      messages: messagesToStore,
-      tools,
-    });
-
-    const messageDict: any = {
-      role: 'assistant',
-      content: result.text,
-    };
-
-    // Handle tool calls
-    const toolCallsWithFunction: Array<{
-      id: string;
-      function: { name: string; arguments: string };
-    }> = [];
-
-    if (result.toolCalls && result.toolCalls.length > 0) {
-      messageDict.tool_calls = result.toolCalls.map((tc: any) => {
-        // Get arguments from tool call
-        let args = tc.args || tc.parameters || tc.input || {};
-        if (typeof args === 'string') {
-          try {
-            args = JSON.parse(args);
-          } catch {
-            args = {};
-          }
-        }
-        const argsString = JSON.stringify(args);
-
-        toolCallsWithFunction.push({
-          id: tc.toolCallId,
-          function: {
-            name: tc.toolName,
-            arguments: argsString,
-          },
-        });
-
-        return {
-          id: tc.toolCallId,
-          type: 'function',
-          function: {
-            name: tc.toolName,
-            arguments: argsString,
-          },
-        };
-      });
-    }
-
-    conversation.push(messageDict);
-    newMessages.push(messageDict);
-
-    // If there are no tool calls, we're done
-    if (!result.toolCalls || result.toolCalls.length === 0) {
-      finalContent = result.text || '';
-      break;
-    }
-
-    // Execute tool calls manually
-    const toolResults: Array<{ toolName: string; result: string; toolCallId: string }> = [];
-    
-    for (const toolCallInfo of toolCallsWithFunction) {
-      const functionName = toolCallInfo.function.name;
-      const functionArgs = JSON.parse(toolCallInfo.function.arguments);
-      const functionResult = executeTool(functionName, functionArgs);
-      
-      toolResults.push({
-        toolName: functionName,
-        result: functionResult,
-        toolCallId: toolCallInfo.id,
-      });
-
-      // Create tool message for Acontext
-      const toolMessage = {
-        role: 'tool' as const,
-        tool_call_id: toolCallInfo.id,
-        content: functionResult,
-      };
-      newMessages.push(toolMessage);
-    }
-
-    // Convert tool results to user message for next iteration
-    // Mark as internal so it won't be sent to Acontext
-    if (toolResults.length > 0) {
-      const toolResultsText = toolResults
-        .map(tr => `${tr.toolName} returned: ${tr.result}`)
-        .join('\n');
-      
-      const toolResultUserMessage = {
-        role: 'user' as const,
-        content: `Tool execution results:\n${toolResultsText}`,
-        _internal: true, // Mark as internal
-      };
-      conversation.push(toolResultUserMessage);
-    }
-  }
-
-  return [finalContent, newMessages];
-}
-```
-
-### Store Messages to Acontext
-
-Store all messages (excluding internal ones) to Acontext:
-
-```typescript
-async function appendMessage(
-  message: any,
-  conversation: any[],
-  sessionId: string
-): Promise<any[]> {
-  // Skip internal messages (tool results converted to user messages)
-  if (message._internal) {
-    conversation.push(message);
-    return conversation;
-  }
-
-  conversation.push(message);
-  await acontextClient.sessions.storeMessage(sessionId, message, {
-    format: 'openai',
-  });
-  return conversation;
-}
-
-// After running agent
-const [responseContent, newMessages] = await runAgent(conversation);
-for (const msg of newMessages) {
-  conversation = await appendMessage(msg, conversation, session.id);
-}
-```
-
-## Complete Example
-
-This example demonstrates a multi-turn conversation with tool calling and task extraction:
-
+<Accordion title="Complete example">
 ```typescript
 import { generateText, tool } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
@@ -394,242 +43,85 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// Initialize Acontext
-const acontextClient = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-// Tool implementations
-function getWeather(city: string): string {
-  return `The weather in ${city} is sunny`;
-}
-
-function executeTool(toolName: string, toolArgs: Record<string, any>): string {
-  if (toolName === 'get_weather') {
-    return getWeather(toolArgs.city);
-  } else {
-    return `Unknown tool: ${toolName}`;
-  }
-}
-
-// Tool definitions
-const tools = {
-  get_weather: tool({
-    description: 'Returns weather info for the specified city.',
-    inputSchema: z.object({
-      city: z.string().describe('The city to get weather for'),
-    }),
-    execute: async ({ city }: { city: string }) => {
-      return getWeather(city);
-    },
-  }),
-};
-
-// Create provider
 const openaiProvider = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-function createModel() {
-  return openaiProvider('gpt-4o-mini');
-}
+const client = new AcontextClient({
+  apiKey: process.env.ACONTEXT_API_KEY,
+});
 
-async function appendMessage(
-  message: any,
-  conversation: any[],
-  sessionId: string
-): Promise<any[]> {
-  if (message._internal) {
-    conversation.push(message);
-    return conversation;
-  }
-  conversation.push(message);
-  await acontextClient.sessions.storeMessage(sessionId, message, {
-    format: 'openai',
-  });
-  return conversation;
-}
+// If you're using self-hosted Acontext:
+// const client = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
 
-async function main(): Promise<void> {
-  // Create space and session
-  const space = await acontextClient.spaces.create();
-  const session = await acontextClient.sessions.create({ spaceId: space.id });
+const tools = {
+  get_weather: tool({
+    description: 'Returns weather info for the specified city.',
+    inputSchema: z.object({
+      city: z.string(),
+    }),
+    execute: async ({ city }) => `The weather in ${city} is sunny`,
+  }),
+};
 
-  let conversation: any[] = [];
+async function main() {
+  const session = await client.sessions.create();
+  const model = openaiProvider('gpt-4o-mini');
 
-  // First interaction
+  // User message
   const userMsg = { role: 'user', content: "What's the weather in Helsinki?" };
-  conversation = await appendMessage(userMsg, conversation, session.id);
+  await client.sessions.storeMessage(session.id, userMsg, { format: 'openai' });
 
-  // Run agent with tool calling
-  const [responseContent, newMessages] = await runAgent(conversation);
+  // Generate response
+  const result = await generateText({
+    model,
+    messages: [userMsg],
+    tools,
+  });
 
-  // Store all messages to Acontext
-  for (const msg of newMessages) {
-    conversation = await appendMessage(msg, conversation, session.id);
-  }
+  // Store response
+  const assistantMsg = { role: 'assistant', content: result.text };
+  await client.sessions.storeMessage(session.id, assistantMsg, { format: 'openai' });
 
   // Extract tasks
-  await acontextClient.sessions.flush(session.id);
-  const tasksResponse = await acontextClient.sessions.getTasks(session.id);
+  await client.sessions.flush(session.id);
+  const tasks = await client.sessions.getTasks(session.id);
 
-  console.log('Extracted tasks:');
-  for (const task of tasksResponse.items) {
-    console.log(`Task: ${task.data.task_description}`);
-    console.log(`Status: ${task.status}`);
+  for (const task of tasks.items) {
+    console.log(`Task: ${task.data.task_description} | Status: ${task.status}`);
   }
 }
 
 main().catch(console.error);
 ```
+</Accordion>
+</Step>
+</Steps>
 
-## Key Features
+<Warning>
+Vercel AI SDK v5 only accepts 'user' and 'assistant' roles. Tool results must be converted to user messages marked as internal.
+</Warning>
 
-### Session Persistence
-
-Resume conversations by loading previous messages from Acontext:
+## Resume Sessions
 
 ```typescript
-// Load previous conversation
-const messages = await acontextClient.sessions.getMessages(sessionId, {
-  format: 'openai',
-});
-const conversation: any[] = messages.items;
+const messages = await client.sessions.getMessages(sessionId, { format: 'openai' });
+const conversation = messages.items;
 
-// Continue conversation
-conversation.push({
-  role: 'user',
-  content: 'Summarize our conversation',
-});
-
-const [responseContent] = await runAgent(conversation);
-console.log(responseContent);
+conversation.push({ role: 'user', content: 'Continue' });
+const result = await generateText({ model, messages: conversation, tools });
 ```
-
-### Task Extraction
-
-After completing a conversation, extract tasks with their status and metadata:
-
-```typescript
-// Flush session to trigger task extraction
-await acontextClient.sessions.flush(sessionId);
-
-// Retrieve extracted tasks
-const tasksResponse = await acontextClient.sessions.getTasks(sessionId);
-
-for (const task of tasksResponse.items) {
-  console.log(`Task: ${task.data.task_description}`);
-  console.log(`Status: ${task.status}`);
-
-  // Access progress updates if available
-  if (task.data.progresses) {
-    for (const progress of task.data.progresses) {
-      console.log(`  Progress: ${progress}`);
-    }
-  }
-
-  // Access user preferences if available
-  if (task.data.user_preferences) {
-    for (const pref of task.data.user_preferences) {
-      console.log(`  Preference: ${pref}`);
-    }
-  }
-}
-```
-
-### Message Format Handling
-
-Vercel AI SDK has specific requirements for message formats:
-
-```typescript
-// Filter messages for Vercel AI SDK
-const messagesToStore = conversation
-  .filter((msg: any) => {
-    // Only user and assistant roles, exclude internal messages
-    const role = msg.role;
-    return (role === 'user' || role === 'assistant') && !msg._internal;
-  })
-  .map((msg: any) => {
-    // Ensure content is always a string
-    let content = msg.content;
-    if (Array.isArray(content)) {
-      content = content.map((item: any) => 
-        typeof item === 'string' ? item : item.text || item.content || ''
-      ).join(' ');
-    }
-    if (typeof content !== 'string') {
-      content = String(content || '');
-    }
-    return { role: msg.role, content };
-  });
-```
-
-## Best Practices
-
-<Tip>
-**Internal messages**: Mark tool results converted to user messages with `_internal: true` so they aren't sent to Acontext but are still used for the next model iteration.
-</Tip>
-
-<Tip>
-**Content format**: Always ensure message content is a string. Vercel AI SDK doesn't accept array content for user and assistant messages.
-</Tip>
-
-<Tip>
-**Tool execution**: Even though tools have `execute` functions, you still need to manually handle tool calls in a loop and convert results to the appropriate format for the next iteration.
-</Tip>
-
-<Tip>
-**Message filtering**: Filter out internal messages and ensure only 'user' and 'assistant' roles are sent to `generateText`, as the SDK doesn't support 'tool' role in messages.
-</Tip>
-
-<Tip>
-**Format specification**: Always specify `format: 'openai'` when storing messages to Acontext to ensure proper format handling.
-</Tip>
-
-<Tip>
-In your production agent, you don't need to call `flush` method after each conversation, 
-Acontext will automatically flush the buffer when the buffer is full or IDLE. To understand the buffer mechanism, please refer to [Session Buffer Mechanism](/observe/buffer).
-</Tip>
-
-## Differences from OpenAI SDK
-
-The Vercel AI SDK differs from the basic OpenAI SDK in several key ways:
-
-<AccordionGroup>
-<Accordion title="Unified Provider Interface">
-The Vercel AI SDK provides a unified interface for multiple AI providers (OpenAI, Anthropic, etc.) through a single API, making it easy to switch providers.
-</Accordion>
-
-<Accordion title="Zod Schema Tools">
-Tools are defined using Zod schemas with the `tool()` function, providing type safety and validation.
-</Accordion>
-
-<Accordion title="Message Format Limitations">
-Vercel AI SDK v5 only accepts 'user' and 'assistant' roles in messages. Tool results must be converted to user messages for the next iteration.
-</Accordion>
-
-<Accordion title="Content Type Requirements">
-Message content must be a string, not an array. Array content needs to be converted to a string before passing to the SDK.
-</Accordion>
-</AccordionGroup>
 
 ## Next Steps
 
 <CardGroup cols={2}>
 <Card title="Observability" icon="eye" href="/observe/agent_tasks">
-Monitor what your agent plans vs. what it executes
+Monitor agent tasks
 </Card>
-
-<Card title="Skill Learning" icon="sparkles" href="/learn/skill-space">
-Enable your agent to learn from completed tasks
-</Card>
-
 <Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
-View all agent interactions in one place
-</Card>
-
-<Card title="API Reference" icon="book" href="/api-reference/introduction">
-Explore the full Acontext API
+View all interactions
 </Card>
 </CardGroup>
-

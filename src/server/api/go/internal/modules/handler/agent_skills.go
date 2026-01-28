@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -9,18 +10,21 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/memodb-io/Acontext/internal/infra/httpclient"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
+	"golang.org/x/sync/errgroup"
 )
 
 type AgentSkillsHandler struct {
-	svc     service.AgentSkillsService
-	userSvc service.UserService
+	svc        service.AgentSkillsService
+	userSvc    service.UserService
+	coreClient *httpclient.CoreClient
 }
 
-func NewAgentSkillsHandler(s service.AgentSkillsService, userSvc service.UserService) *AgentSkillsHandler {
-	return &AgentSkillsHandler{svc: s, userSvc: userSvc}
+func NewAgentSkillsHandler(s service.AgentSkillsService, userSvc service.UserService, coreClient *httpclient.CoreClient) *AgentSkillsHandler {
+	return &AgentSkillsHandler{svc: s, userSvc: userSvc, coreClient: coreClient}
 }
 
 type CreateAgentSkillsReq struct {
@@ -282,4 +286,131 @@ func (h *AgentSkillsHandler) GetAgentSkillFile(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, serializer.Response{Data: output})
+}
+
+type DownloadSkillToSandboxReq struct {
+	SandboxID string `json:"sandbox_id" binding:"required"` // Target sandbox ID
+}
+
+type DownloadSkillToSandboxResp struct {
+	Success     bool   `json:"success"`     // Whether the download was successful
+	DirPath     string `json:"dir_path"`    // Full path to the skill directory in sandbox
+	Name        string `json:"name"`        // Skill name
+	Description string `json:"description"` // Skill description
+}
+
+// DownloadToSandbox godoc
+//
+//	@Summary		Download skill to sandbox
+//	@Description	Download all files from an agent skill to a sandbox environment. Files are placed at /skills/{skill_name}/.
+//	@Tags			agent_skills
+//	@Accept			json
+//	@Produce		json
+//	@Param			id		path	string								true	"Agent skill UUID"
+//	@Param			request	body	handler.DownloadSkillToSandboxReq	true	"Download to sandbox request"
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response{data=handler.DownloadSkillToSandboxResp}
+//	@Failure		409	{object}	serializer.Response	"Skill directory already exists in sandbox"
+//	@Router			/agent_skills/{id}/download_to_sandbox [post]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Download skill to sandbox\nresult = client.skills.download_to_sandbox(\n    skill_id='skill-uuid',\n    sandbox_id='sandbox-uuid'\n)\nprint(f\"Success: {result.success}\")\nprint(f\"Skill installed at: {result.dir_path}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Download skill to sandbox\nconst result = await client.skills.downloadToSandbox('skill-uuid', {\n  sandboxId: 'sandbox-uuid'\n});\nconsole.log(`Success: ${result.success}`);\nconsole.log(`Skill installed at: ${result.dir_path}`);\n","label":"JavaScript"}]
+func (h *AgentSkillsHandler) DownloadToSandbox(c *gin.Context) {
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	// Parse skill ID from path
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid skill id", err))
+		return
+	}
+
+	// Bind request body
+	req := DownloadSkillToSandboxReq{}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	// Parse sandbox ID
+	sandboxID, err := uuid.Parse(req.SandboxID)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid sandbox_id", err))
+		return
+	}
+
+	// Get the skill to retrieve file index and S3 keys
+	agentSkill, err := h.svc.GetByID(c.Request.Context(), project.ID, id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, serializer.DBErr("skill not found", err))
+		return
+	}
+
+	// Build the base destination path: /skills/skill_name
+	// Note: agentSkill.Name is already sanitized at upload time
+	baseDirPath := "/skills/" + agentSkill.Name
+
+	// Get file index from skill - check early to avoid unnecessary sandbox operations
+	fileIndex := agentSkill.FileIndex.Data()
+	if len(fileIndex) == 0 {
+		// No files to download, just return success with the expected path
+		c.JSON(http.StatusOK, serializer.Response{Data: DownloadSkillToSandboxResp{
+			Success:     true,
+			DirPath:     baseDirPath,
+			Name:        agentSkill.Name,
+			Description: agentSkill.Description,
+		}})
+		return
+	}
+
+	// Check if the skill directory already exists in the sandbox
+	checkResult, err := h.coreClient.ExecSandboxCommand(c.Request.Context(), project.ID, sandboxID, fmt.Sprintf("test -d %s", baseDirPath))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "failed to check skill directory", err))
+		return
+	}
+	if checkResult.ExitCode == 0 {
+		c.JSON(http.StatusConflict, serializer.Err(http.StatusConflict,
+			fmt.Sprintf("skill directory '%s' already exists in sandbox, please make sure you don't download the same skill again", baseDirPath), nil))
+		return
+	}
+
+	// Upload files to sandbox concurrently
+	g, gctx := errgroup.WithContext(c.Request.Context())
+	g.SetLimit(10)
+
+	for _, fileInfo := range fileIndex {
+		fileInfo := fileInfo // capture loop variable
+		g.Go(func() error {
+			// Get S3 key for this file
+			s3Key := agentSkill.GetFileS3Key(fileInfo.Path)
+
+			// Build destination path in sandbox: baseDirPath/relativePath
+			destPath := baseDirPath + "/" + fileInfo.Path
+
+			// Upload file to sandbox via CORE service
+			result, err := h.coreClient.UploadSandboxFile(gctx, project.ID, sandboxID, s3Key, destPath)
+			if err != nil {
+				return fmt.Errorf("failed to download file to sandbox: %s: %w", fileInfo.Path, err)
+			}
+			if !result.Success {
+				return fmt.Errorf("failed to download file to sandbox: %s", fileInfo.Path)
+			}
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, err.Error(), err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{Data: DownloadSkillToSandboxResp{
+		Success:     true,
+		DirPath:     baseDirPath,
+		Name:        agentSkill.Name,
+		Description: agentSkill.Description,
+	}})
 }

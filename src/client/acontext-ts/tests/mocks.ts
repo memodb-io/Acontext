@@ -4,10 +4,8 @@
  */
 
 import { RequesterProtocol } from '../src/client-types';
-import { SpacesAPI } from '../src/resources/spaces';
 import { SessionsAPI } from '../src/resources/sessions';
 import { DisksAPI } from '../src/resources/disks';
-import { BlocksAPI } from '../src/resources/blocks';
 import { ToolsAPI } from '../src/resources/tools';
 import { SkillsAPI } from '../src/resources/skills';
 import { UsersAPI } from '../src/resources/users';
@@ -114,22 +112,18 @@ export class MockRequester implements RequesterProtocol {
  */
 export class MockAcontextClient {
   public requester: MockRequester;
-  public spaces: SpacesAPI;
   public sessions: SessionsAPI;
   public disks: DisksAPI;
   public artifacts: DisksAPI['artifacts'];
-  public blocks: BlocksAPI;
   public tools: ToolsAPI;
   public skills: SkillsAPI;
   public users: UsersAPI;
 
   constructor() {
     this.requester = new MockRequester();
-    this.spaces = new SpacesAPI(this.requester);
     this.sessions = new SessionsAPI(this.requester);
     this.disks = new DisksAPI(this.requester);
     this.artifacts = this.disks.artifacts;
-    this.blocks = new BlocksAPI(this.requester);
     this.tools = new ToolsAPI(this.requester);
     this.skills = new SkillsAPI(this.requester);
     this.users = new UsersAPI(this.requester);
@@ -193,34 +187,11 @@ export function mockTimestamp(): string {
 }
 
 /**
- * Mock data factory for Space objects.
- */
-export function mockSpace(overrides?: Partial<{
-  id: string;
-  project_id: string;
-  user_id: string | null;
-  configs: Record<string, unknown> | null;
-  created_at: string;
-  updated_at: string;
-}>): Record<string, unknown> {
-  const now = mockTimestamp();
-  return {
-    id: overrides?.id ?? mockId(),
-    project_id: overrides?.project_id ?? mockId(),
-    user_id: overrides?.user_id ?? null,
-    configs: overrides?.configs ?? {},
-    created_at: overrides?.created_at ?? now,
-    updated_at: overrides?.updated_at ?? now,
-  };
-}
-
-/**
  * Mock data factory for Session objects.
  */
 export function mockSession(overrides?: Partial<{
   id: string;
   project_id: string;
-  space_id: string | null;
   user_id: string | null;
   disable_task_tracking: boolean;
   configs: Record<string, unknown> | null;
@@ -231,7 +202,6 @@ export function mockSession(overrides?: Partial<{
   return {
     id: overrides?.id ?? mockId(),
     project_id: overrides?.project_id ?? mockId(),
-    space_id: overrides?.space_id ?? null,
     user_id: overrides?.user_id ?? null,
     disable_task_tracking: overrides?.disable_task_tracking ?? false,
     configs: overrides?.configs ?? {},
@@ -394,7 +364,6 @@ export function mockTask(overrides?: Partial<{
   data: Record<string, unknown>;
   status: string;
   is_planning: boolean;
-  space_digested: boolean;
   created_at: string;
   updated_at: string;
 }>): Record<string, unknown> {
@@ -411,7 +380,6 @@ export function mockTask(overrides?: Partial<{
     },
     status: overrides?.status ?? 'pending',
     is_planning: overrides?.is_planning ?? false,
-    space_digested: overrides?.space_digested ?? false,
     created_at: overrides?.created_at ?? now,
     updated_at: overrides?.updated_at ?? now,
   };

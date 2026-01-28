@@ -1,6 +1,14 @@
 # Acontext code writing rule
 - Don't write the SDK code that passing the default value, make sure the SDK code is clean and short as possible.
 
+### always write the minimum doc
+- Each doc should start with 1-2 straightforward sentences that convey the core value of the doc.
+- Use step components to make your guidance clearer, and always provide a folded, complete code snippet (runnable) at the end of each step.
+- Do not add extra explanations or best practice sections; maintain the clear value of each doc.
+
+### connect the right docs at the end
+always find the related docs. if any, write a next step section to guide the user to those docs.
+
 ### correct way to write acontext client init
 ```py
 import os

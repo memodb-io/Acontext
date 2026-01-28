@@ -41,7 +41,7 @@ class AsyncUsersAPI:
             identifier: The user identifier string.
 
         Returns:
-            GetUserResourcesOutput containing counts for Spaces, Sessions, Disks, and Skills.
+            GetUserResourcesOutput containing counts for Sessions, Disks, and Skills.
         """
         data = await self._requester.request(
             "GET", f"/user/{quote(identifier, safe='')}/resources"
@@ -49,7 +49,7 @@ class AsyncUsersAPI:
         return GetUserResourcesOutput.model_validate(data)
 
     async def delete(self, identifier: str) -> None:
-        """Delete a user and cascade delete all associated resources (Space, Session, Disk, Skill).
+        """Delete a user and cascade delete all associated resources (Session, Disk, Skill).
 
         Args:
             identifier: The user identifier string.

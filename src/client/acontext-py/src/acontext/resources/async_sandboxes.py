@@ -30,12 +30,15 @@ class AsyncSandboxesAPI:
         *,
         sandbox_id: str,
         command: str,
+        timeout: float | None = None,
     ) -> SandboxCommandOutput:
         """Execute a shell command in the sandbox.
 
         Args:
             sandbox_id: The UUID of the sandbox.
             command: The shell command to execute.
+            timeout: Optional timeout in seconds for this command.
+                    If not provided, uses the client's default timeout.
 
         Returns:
             SandboxCommandOutput containing stdout, stderr, and exit code.
@@ -44,6 +47,7 @@ class AsyncSandboxesAPI:
             "POST",
             f"/sandbox/{sandbox_id}/exec",
             json_data={"command": command},
+            timeout=timeout,
         )
         return SandboxCommandOutput.model_validate(data)
 

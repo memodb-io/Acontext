@@ -1,140 +1,56 @@
 ---
 title: "OpenAI Agents SDK"
-description: "Integrate OpenAI Agents SDK with Acontext for session persistence, automatic tool execution, and task extraction"
+description: "Integrate OpenAI Agents SDK with Acontext for session persistence and task extraction"
 ---
 
-The OpenAI Agents SDK provides a high-level framework for building AI agents with automatic tool execution. When integrated with Acontext, you get persistent session management, automatic task extraction, and seamless conversation resumption across sessions.
-
-## What This Integration Provides
-
-<CardGroup cols={2}>
-<Card title="Automatic Tool Execution" icon="robot">
-The Agents SDK handles tool calls automatically - no manual tool execution needed
-</Card>
-
-<Card title="Session Persistence" icon="database">
-Store conversation history across multiple agent runs and resume sessions seamlessly
-</Card>
-
-<Card title="Task Extraction" icon="list-check">
-Automatically identify and track tasks from agent conversations with progress updates
-</Card>
-
-<Card title="Format Conversion" icon="arrows-rotate">
-Automatic conversion between Responses API and Chat Completions API formats
-</Card>
-</CardGroup>
+The OpenAI Agents SDK handles tool execution automatically. Use `Converter.items_to_messages()` to convert to Acontext-compatible format.
 
 ## Quick Start
-
-### Download Template
-
-Use `acontext-cli` to quickly set up an OpenAI Agents SDK project with Acontext integration:
 
 ```bash
 acontext create my-agent-project --template-path "python/openai-agent-basic"
 ```
 
 <Note>
-If you haven't installed `acontext-cli` yet, install it first:
-```bash
-curl -fsSL https://install.acontext.io | sh
-```
+Install CLI first: `curl -fsSL https://install.acontext.io | sh`
 </Note>
 
-### Manual Setup
-
-If you prefer to set up manually:
+## Manual Setup
 
 <Steps>
 <Step title="Install dependencies">
-Install OpenAI Agents SDK and Acontext Python packages:
-
-```bash
-uv sync
-```
-
-Or with pip:
 ```bash
 pip install openai-agents acontext python-dotenv
 ```
 </Step>
 
 <Step title="Configure environment">
-Create a `.env` file with your API credentials:
-
 ```env
 OPENAI_API_KEY=your_openai_key_here
-ACONTEXT_API_KEY=sk-ac-your-root-api-bearer-token
-ACONTEXT_BASE_URL=http://localhost:8029/api/v1
+ACONTEXT_API_KEY=sk-ac-your-api-key
 ```
-
-<Warning>
-Never commit API keys to version control. Always use environment variables or secure secret management.
-</Warning>
 </Step>
 
-<Step title="Initialize clients">
-Create an OpenAI Agents SDK agent and Acontext client:
+<Step title="Run agent with Acontext">
 
+<Accordion title="Complete example">
 ```python
-from agents import Agent, OpenAIChatCompletionsModel, AsyncOpenAI
-from acontext import AcontextClient
+import asyncio
 import os
-
-# Create agent
-agent = Agent(
-    name="Assistant",
-    instructions="You are a helpful assistant",
-    model=OpenAIChatCompletionsModel(
-        model="gpt-4o-mini",
-        openai_client=AsyncOpenAI(),
-    ),
-)
-
-# Initialize Acontext client
-acontext_client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# If you're using self-hosted Acontext:
-# acontext_client = AcontextClient(
-#     base_url="http://localhost:8029/api/v1",
-#     api_key="sk-ac-your-root-api-bearer-token",
-# )
-```
-</Step>
-</Steps>
-
-## How It Works
-
-The OpenAI Agents SDK uses the Responses API format internally, while Acontext uses the Chat Completions API format. The integration handles conversion between these formats automatically.
-
-### Message Flow
-
-1. **Create session**: Initialize a new Acontext session for your agent
-2. **Run agent**: Use `Runner.run()` to execute the agent with automatic tool handling
-3. **Convert and store**: Convert Responses API format to Chat Completions format and store to Acontext
-4. **Extract tasks**: After the conversation, flush the session and retrieve extracted tasks
-5. **Resume sessions**: Load previous conversation history, convert back to Responses API format, and continue
-
-### Format Conversion
-
-The Agents SDK uses Responses API format (with `function_call` and `function_call_output` items), while Acontext uses Chat Completions API format (with `tool_calls` and `tool` messages). The integration provides conversion utilities:
-
-- **To Acontext**: Use `Converter.items_to_messages()` to convert Responses API format to Chat Completions format
-- **From Acontext**: Use `message_to_input_items()` to convert Chat Completions format back to Responses API format
-
-## Basic Integration Pattern
-
-Here's the core pattern for integrating OpenAI Agents SDK with Acontext:
-
-```python
 from agents import Agent, Runner, OpenAIChatCompletionsModel, AsyncOpenAI, function_tool
 from agents.models.chatcmpl_converter import Converter
 from acontext import AcontextClient
 
-# Create agent with tools
+client = AcontextClient(
+    api_key=os.getenv("ACONTEXT_API_KEY"),
+)
+
+# If you're using self-hosted Acontext:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
+
 @function_tool
 def get_weather(city: str) -> str:
     """Returns weather info for the specified city."""
@@ -150,251 +66,42 @@ agent = Agent(
     tools=[get_weather],
 )
 
-# Initialize Acontext
-acontext_client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
+async def main():
+    session = client.sessions.create()
 
-# Create session
-space = acontext_client.spaces.create()
-session = acontext_client.sessions.create(space_id=space.id)
+    # Run agent
+    result = await Runner.run(agent, "Plan a 3-day trip to Finland")
 
-# Run agent
-result = await Runner.run(agent, "What's the weather in Helsinki?")
-
-# Convert to Chat Completions format and store to Acontext
-messages = Converter.items_to_messages(result.to_input_list())
-for msg in messages:
-    acontext_client.sessions.store_message(
-        session_id=session.id,
-        blob=msg,
-        format="openai"
-    )
-```
-
-## Function Tools
-
-The Agents SDK uses the `@function_tool` decorator to define tools. The SDK automatically handles tool calls and execution:
-
-### Define Tools
-
-```python
-from agents import function_tool
-
-@function_tool
-def get_weather(city: str) -> str:
-    """Returns weather info for the specified city."""
-    return f"The weather in {city} is sunny"
-
-@function_tool
-def book_flight(from_city: str, to_city: str, date: str) -> str:
-    """Book a flight."""
-    return f"Flight booked successfully for '{from_city}' to '{to_city}' on '{date}'"
-```
-
-### Register Tools with Agent
-
-```python
-agent = Agent(
-    name="Assistant",
-    instructions="You are a helpful assistant",
-    model=OpenAIChatCompletionsModel(
-        model="gpt-4o-mini",
-        openai_client=AsyncOpenAI(),
-    ),
-    tools=[get_weather, book_flight],
-)
-```
-
-<Info>
-The Agents SDK automatically:
-- Parses tool calls from model responses
-- Executes the appropriate tool functions
-- Injects tool results back into the conversation
-- Handles multi-turn tool calling workflows
-</Info>
-
-## Complete Example
-
-This example demonstrates a multi-turn conversation with automatic tool execution and task extraction:
-
-```python
-import asyncio
-from agents import Agent, Runner, OpenAIChatCompletionsModel, AsyncOpenAI, function_tool
-from agents.models.chatcmpl_converter import Converter
-from acontext import AcontextClient
-from helper import message_to_input_items
-
-# Initialize Acontext
-acontext_client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-@function_tool
-def get_weather(city: str) -> str:
-    """Returns weather info for the specified city."""
-    return f"The weather in {city} is sunny"
-
-@function_tool
-def book_flight(from_city: str, to_city: str, date: str) -> str:
-    """Book a flight."""
-    return f"Flight booked successfully for '{from_city}' to '{to_city}' on '{date}'"
-
-def create_agent():
-    return Agent(
-        name="Assistant",
-        instructions="You are a helpful assistant",
-        model=OpenAIChatCompletionsModel(
-            model="gpt-4o-mini",
-            openai_client=AsyncOpenAI(),
-        ),
-        tools=[get_weather, book_flight],
-    )
-
-async def session_1(session_id: str):
-    agent = create_agent()
-
-    # First interaction
-    result = await Runner.run(
-        agent,
-        "I'd like to have a 3-day trip in Finland. I like to see the nature. Give me the plan"
-    )
-
-    # Second interaction - continue conversation
-    user_msg_2 = {"role": "user", "content": "The plan sounds good, check the weather there"}
+    # Continue conversation
+    user_msg_2 = {"role": "user", "content": "Check the weather there"}
     new_input = result.to_input_list() + [user_msg_2]
     result = await Runner.run(agent, new_input)
 
-    # Convert to Chat Completions format and store to Acontext
+    # Convert and store to Acontext
     messages = Converter.items_to_messages(result.to_input_list())
     for msg in messages:
-        acontext_client.sessions.store_message(
-            session_id=session_id,
-            blob=msg,
-            format="openai"
-        )
+        client.sessions.store_message(session_id=session.id, blob=msg, format="openai")
 
     # Extract tasks
-    acontext_client.sessions.flush(session_id)
-    tasks_response = acontext_client.sessions.get_tasks(session_id)
+    client.sessions.flush(session.id)
+    tasks = client.sessions.get_tasks(session.id)
 
-    print("Extracted tasks:")
-    for task in tasks_response.items:
-        print(f"Task: {task.data.task_description}")
-        print(f"Status: {task.status}")
-
-async def main():
-    space = acontext_client.spaces.create()
-    session = acontext_client.sessions.create(space_id=space.id)
-
-    await session_1(session.id)
+    for task in tasks.items:
+        print(f"Task: {task.data.task_description} | Status: {task.status}")
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+</Accordion>
+</Step>
+</Steps>
 
-## Key Features
-
-### Session Persistence
-
-Resume conversations by loading previous messages from Acontext and converting them back to Responses API format:
-
-```python
-# Load previous conversation
-messages = acontext_client.sessions.get_messages(session_id, format="openai")
-
-# Convert back to Responses API format
-conversation = []
-for msg in messages.items:
-    items = message_to_input_items(msg)
-    conversation.extend(items)
-
-# Continue conversation
-conversation.append({"role": "user", "content": "Summarize our conversation"})
-result = await Runner.run(agent, conversation)
-print(result.final_output)
-```
-
-### Task Extraction
-
-After completing a conversation, extract tasks with their status and metadata:
-
-```python
-# Flush session to trigger task extraction
-acontext_client.sessions.flush(session_id)
-
-# Retrieve extracted tasks
-tasks_response = acontext_client.sessions.get_tasks(session_id)
-
-for task in tasks_response.items:
-    print(f"Task: {task.data.task_description}")
-    print(f"Status: {task.status}")
-    
-    # Access progress updates if available
-    if task.data.progresses:
-        for progress in task.data.progresses:
-            print(f"  Progress: {progress}")
-    
-    # Access user preferences if available
-    if task.data.user_preferences:
-        for pref in task.data.user_preferences:
-            print(f"  Preference: {pref}")
-```
-
-### Multi-turn Conversations
-
-The Agents SDK makes it easy to build multi-turn conversations:
-
-```python
-# First turn
-result = await Runner.run(agent, "Plan a trip to Finland")
-
-# Second turn - continue from previous result
-user_msg = {"role": "user", "content": "Check the weather there"}
-new_input = result.to_input_list() + [user_msg]
-result = await Runner.run(agent, new_input)
-
-# Third turn - continue again
-user_msg_2 = {"role": "user", "content": "Book a flight"}
-new_input = result.to_input_list() + [user_msg_2]
-result = await Runner.run(agent, new_input)
-```
-
-## Message Format Conversion
-
-The integration requires converting between Responses API format (used by Agents SDK) and Chat Completions API format (used by Acontext).
-
-### Converting to Acontext Format
-
-Use `Converter.items_to_messages()` to convert Responses API format to Chat Completions format:
-
-```python
-from agents.models.chatcmpl_converter import Converter
-
-# After running agent
-result = await Runner.run(agent, "Hello!")
-
-# Convert to Chat Completions format
-messages = Converter.items_to_messages(result.to_input_list())
-
-# Store to Acontext
-for msg in messages:
-    acontext_client.sessions.store_message(
-        session_id=session_id,
-        blob=msg,
-        format="openai"
-    )
-```
-
-### Converting from Acontext Format
-
-Use `message_to_input_items()` helper to convert Chat Completions format back to Responses API format:
+## Resume Sessions
 
 ```python
 from helper import message_to_input_items
 
-# Load messages from Acontext
-messages = acontext_client.sessions.get_messages(session_id, format="openai")
+messages = client.sessions.get_messages(session_id, format="openai")
 
 # Convert back to Responses API format
 conversation = []
@@ -402,79 +109,17 @@ for msg in messages.items:
     items = message_to_input_items(msg)
     conversation.extend(items)
 
-# Use with Agents SDK
+conversation.append({"role": "user", "content": "Continue"})
 result = await Runner.run(agent, conversation)
 ```
-
-<Note>
-The `message_to_input_items()` helper function handles conversion of:
-- User/system messages → `EasyInputMessageParam`
-- Assistant messages → `EasyInputMessageParam` or `ResponseOutputMessageParam` with tool calls
-- Tool messages → `FunctionCallOutput`
-</Note>
-
-## Best Practices
-
-<Tip>
-**Batch message storing**: Convert the entire conversation at once using `Converter.items_to_messages(result.to_input_list())` rather than converting individual messages.
-</Tip>
-
-<Tip>
-**Tool execution**: The Agents SDK handles tool execution automatically. You don't need to manually execute tools or handle tool responses.
-</Tip>
-
-<Tip>
-**Conversation continuation**: Use `result.to_input_list()` to get the conversation history in Responses API format, then append new messages to continue the conversation.
-</Tip>
-
-<Tip>
-**Format specification**: Always specify `format="openai"` when storing messages to Acontext to ensure proper format handling.
-</Tip>
-
-<Tip>
-In your production agent, you don't need to call `flush` method after each conversation, 
-Acontext will automatically flush the buffer when the buffer is full or IDLE. To understand the buffer mechanism, please refer to [Session Buffer Mechanism](/observe/buffer).
-</Tip>
-
-## Differences from OpenAI Python SDK
-
-The OpenAI Agents SDK differs from the basic OpenAI Python SDK in several key ways:
-
-<AccordionGroup>
-<Accordion title="Automatic Tool Execution">
-The Agents SDK automatically executes tools when the model requests them. You don't need to manually check for tool calls or execute tools yourself.
-</Accordion>
-
-<Accordion title="Responses API Format">
-The Agents SDK uses OpenAI's Responses API format internally, which uses `function_call` and `function_call_output` items instead of `tool_calls` and `tool` messages.
-</Accordion>
-
-<Accordion title="Higher-Level API">
-The Agents SDK provides a higher-level API with `Runner.run()` and `Agent` class, making it easier to build agents without managing API calls directly.
-</Accordion>
-
-<Accordion title="Function Tool Decorator">
-Tools are defined using the `@function_tool` decorator, which automatically registers them with the agent.
-</Accordion>
-</AccordionGroup>
 
 ## Next Steps
 
 <CardGroup cols={2}>
 <Card title="Observability" icon="eye" href="/observe/agent_tasks">
-Monitor what your agent plans vs. what it executes
+Monitor agent tasks
 </Card>
-
-<Card title="Skill Learning" icon="sparkles" href="/learn/skill-space">
-Enable your agent to learn from completed tasks
-</Card>
-
 <Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
-View all agent interactions in one place
-</Card>
-
-<Card title="API Reference" icon="book" href="/api-reference/introduction">
-Explore the full Acontext API
+View all interactions
 </Card>
 </CardGroup>
-

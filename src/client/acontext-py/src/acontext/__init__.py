@@ -8,16 +8,12 @@ from .async_client import AcontextAsyncClient
 from .client import AcontextClient, FileUpload, MessagePart
 from .messages import AcontextMessage
 from .resources import (
-    AsyncBlocksAPI,
     AsyncDiskArtifactsAPI,
     AsyncDisksAPI,
     AsyncSessionsAPI,
-    AsyncSpacesAPI,
-    BlocksAPI,
     DiskArtifactsAPI,
     DisksAPI,
     SessionsAPI,
-    SpacesAPI,
 )
 from .types import Task, TaskData
 
@@ -29,14 +25,10 @@ __all__ = [
     "AcontextMessage",
     "DisksAPI",
     "DiskArtifactsAPI",
-    "BlocksAPI",
     "SessionsAPI",
-    "SpacesAPI",
     "AsyncDisksAPI",
     "AsyncDiskArtifactsAPI",
-    "AsyncBlocksAPI",
     "AsyncSessionsAPI",
-    "AsyncSpacesAPI",
     "Task",
     "TaskData",
     "__version__",

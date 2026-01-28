@@ -1,976 +1,174 @@
 ---
 title: Multi-modal Messages
-description: "Store and retrieve messages with images, audio, and documents in OpenAI and Anthropic formats"
+description: "Store messages with images, audio, and documents"
 ---
 
-Acontext supports multi-modal messages that include text, images, audio, and PDF documents. You can store and retrieve these messages in both OpenAI and Anthropic formats, with automatic format conversion between providers.
+Acontext stores multi-modal content (images, audio, PDFs) as base64 within message parts. Format conversion between OpenAI and Anthropic is automatic.
 
-## Prerequisites
-
-Before working with multi-modal messages, ensure you have:
-- An Acontext API key from [Acontext Dashboard](https://dash.acontext.io), or [local deployment](/settings/local)
-
-<Note>
-Multi-modal content is stored as assets in S3, while message metadata is stored in PostgreSQL. Acontext automatically handles file uploads and generates presigned URLs for retrieval.
-</Note>
-
-<Tip>
-You can associate a session with a specific user by passing the `user` parameter when creating it. 
-This enables per-user resource management and cleanup. See [Per-user Resources](/chore/per-user) for details.
-</Tip>
-
-## Supported content types
-
-Acontext supports the following multi-modal content types:
-
-<CardGroup cols={3}>
-<Card title="Images" icon="image">
-PNG, JPEG, GIF, WebP formats for visual content
-</Card>
-
-<Card title="Audio" icon="microphone">
-WAV, MP3 formats for voice and sound
-</Card>
-
-<Card title="Documents" icon="file-pdf">
-PDF documents for analysis and summarization
-</Card>
-</CardGroup>
-
-## Storing images
-
-### Images with OpenAI format
-
-OpenAI supports images through the `image_url` content part type, which accepts both external URLs and base64-encoded data URLs:
+## Images
 
 <Tabs>
-<Tab title="Image URL">
-<CodeGroup>
-```python Python
-import os
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# If you're using self-hosted Acontext:
-# client = AcontextClient(
-#     base_url="http://localhost:8029/api/v1",
-#     api_key="sk-ac-your-root-api-bearer-token",
-# )
-
-client.ping()
-# Create a session (optionally associate with a user)
-session = client.sessions.create(user="user@example.com")
-
-# Store a message with an image URL
-message = client.sessions.store_message(
-    session_id=session.id,
-    blob={
-        "role": "user",
-        "content": [
-            {
-                "type": "text",
-                "text": "What's in this image?"
-            },
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": "https://example.com/image.png",
-                    "detail": "high"  # Options: "low", "high", "auto"
-                }
-            }
-        ]
-    },
-    format="openai"
-)
-
-print(f"Message with image sent: {message.id}")
-```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-// If you're using self-hosted Acontext:
-// const client = new AcontextClient({
-//     baseUrl: "http://localhost:8029/api/v1",
-//     apiKey: "sk-ac-your-root-api-bearer-token",
-// });
-
-// Create a session (optionally associate with a user)
-const session = await client.sessions.create({ user: 'user@example.com' });
-
-// Store a message with an image URL
-const message = await client.sessions.storeMessage(session.id, {
-  role: 'user',
-  content: [
-    {
-      type: 'text',
-      text: 'What\'s in this image?'
-    },
-    {
-      type: 'image_url',
-      image_url: {
-        url: 'https://example.com/image.png',
-        detail: 'high'  // Options: "low", "high", "auto"
-      }
-    }
-  ]
-}, { format: 'openai' });
-
-console.log(`Message with image sent: ${message.id}`);
-```
-</CodeGroup>
-</Tab>
-
-<Tab title="Base64-encoded">
-<CodeGroup>
-```python Python
-import base64
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-session = client.sessions.create()
-
-# Read and encode image as base64
-with open("image.png", "rb") as image_file:
-    image_data = base64.b64encode(image_file.read()).decode("utf-8")
-
-# Store message with base64 image (data URL format)
-message = client.sessions.store_message(
-    session_id=session.id,
-    blob={
-        "role": "user",
-        "content": [
-            {
-                "type": "text",
-                "text": "What's in this image?"
-            },
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/png;base64,{image_data}",
-                    "detail": "high"  # Options: "low", "high", "auto"
-                }
-            }
-        ]
-    },
-    format="openai"
-)
-
-print(f"Message with base64 image sent: {message.id}")
-```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-import fs from 'fs';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-const session = await client.sessions.create();
-
-// Read and encode image as base64
-const imageBuffer = fs.readFileSync('image.png');
-const imageData = imageBuffer.toString('base64');
-
-// Store message with base64 image (data URL format)
-const message = await client.sessions.storeMessage(session.id, {
-  role: 'user',
-  content: [
-    {
-      type: 'text',
-      text: 'What\'s in this image?'
-    },
-    {
-      type: 'image_url',
-      image_url: {
-        url: `data:image/png;base64,${imageData}`,
-        detail: 'high'  // Options: "low", "high", "auto"
-      }
-    }
-  ]
-}, { format: 'openai' });
-
-console.log(`Message with base64 image sent: ${message.id}`);
-```
-</CodeGroup>
-</Tab>
-</Tabs>
-
-<Tip>
-The `detail` parameter controls image processing quality. Use `"high"` for detailed analysis, `"low"` for faster processing, or `"auto"` to let the system decide.
-</Tip>
-
-<Note>
-Base64-encoded images in OpenAI format use the data URL scheme: `data:image/[type];base64,[base64-data]`. The image data is stored within the message parts and returned as base64 when retrieved.
-</Note>
-
-### Images with Anthropic format
-
-Anthropic requires images to be base64-encoded:
-
-<CodeGroup>
-```python Python
-import base64
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-session = client.sessions.create()
-
-# Read and encode image as base64
-with open("image.png", "rb") as image_file:
-    image_data = base64.b64encode(image_file.read()).decode("utf-8")
-
-# Store message with base64 image
-message = client.sessions.store_message(
-    session_id=session.id,
-    blob={
-        "role": "user",
-        "content": [
-            {
-                "type": "text",
-                "text": "Describe this image"
-            },
-            {
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": "image/png",
-                    "data": image_data
-                }
-            }
-        ]
-    },
-    format="anthropic"
-)
-
-print(f"Message with image sent: {message.id}")
-```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-import fs from 'fs';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-const session = await client.sessions.create();
-
-// Read and encode image as base64
-const imageBuffer = fs.readFileSync('image.png');
-const imageData = imageBuffer.toString('base64');
-
-// Store message with base64 image
-const message = await client.sessions.storeMessage(session.id, {
-  role: 'user',
-  content: [
-    {
-      type: 'text',
-      text: 'Describe this image'
-    },
-    {
-      type: 'image',
-      source: {
-        type: 'base64',
-        media_type: 'image/png',
-        data: imageData
-      }
-    }
-  ]
-}, { format: 'anthropic' });
-
-console.log(`Message with image sent: ${message.id}`);
-```
-</CodeGroup>
-
-<Note>
-Anthropic format requires images to be base64-encoded. The base64 data is stored within the message parts and returned as base64 when you retrieve the message.
-</Note>
-
-## Storing audio
-
-Audio content can be included in messages for speech-to-text or audio analysis use cases:
-
-<CodeGroup>
-```python Python
-import base64
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-session = client.sessions.create()
-
-# Read and encode audio file
-with open("audio.wav", "rb") as audio_file:
-    audio_data = base64.b64encode(audio_file.read()).decode("utf-8")
-
-# Store message with audio (OpenAI format)
-message = client.sessions.store_message(
-    session_id=session.id,
-    blob={
-        "role": "user",
-        "content": [
-            {
-                "type": "text",
-                "text": "Transcribe this audio"
-            },
-            {
-                "type": "input_audio",
-                "input_audio": {
-                    "data": audio_data,
-                    "format": "wav"
-                }
-            }
-        ]
-    },
-    format="openai"
-)
-
-print(f"Message with audio sent: {message.id}")
-```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-import fs from 'fs';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-const session = await client.sessions.create();
-
-// Read and encode audio file
-const audioBuffer = fs.readFileSync('audio.wav');
-const audioData = audioBuffer.toString('base64');
-
-// Store message with audio (OpenAI format)
-const message = await client.sessions.storeMessage(session.id, {
-  role: 'user',
-  content: [
-    {
-      type: 'text',
-      text: 'Transcribe this audio'
-    },
-    {
-      type: 'input_audio',
-      input_audio: {
-        data: audioData,
-        format: 'wav'
-      }
-    }
-  ]
-}, { format: 'openai' });
-
-console.log(`Message with audio sent: ${message.id}`);
-```
-</CodeGroup>
-
-## Storing Files
-
-You can store files for analysis and understanding using base64-encoded content. Different formats handle files differently:
-
-<Tabs>
-<Tab title="Anthropic Format">
-Anthropic supports storing files using the `document` content type with base64-encoded data:
-
-<CodeGroup>
-```python Python
-import base64
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-session = client.sessions.create()
-
-# Read and encode PDF file as base64
-with open("report.pdf", "rb") as pdf_file:
-    pdf_data = base64.b64encode(pdf_file.read()).decode("utf-8")
-
-# Store message with PDF document (Anthropic format)
-message = client.sessions.store_message(
-    session_id=session.id,
-    blob={
-        "role": "user",
-        "content": [
-            {
-                "type": "document",
-                "source": {
-                    "type": "base64",
-                    "media_type": "application/pdf",
-                    "data": pdf_data
-                }
-            },
-            {
-                "type": "text",
-                "text": "Summarize the key findings in this report"
-            }
-        ]
-    },
-    format="anthropic"
-)
-
-print(f"Message with PDF sent: {message.id}")
-```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-import fs from 'fs';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-const session = await client.sessions.create();
-
-// Read and encode PDF file as base64
-const pdfBuffer = fs.readFileSync('report.pdf');
-const pdfData = pdfBuffer.toString('base64');
-
-// Store message with PDF document (Anthropic format)
-const message = await client.sessions.storeMessage(session.id, {
-  role: 'user',
-  content: [
-    {
-      type: 'document',
-      source: {
-        type: 'base64',
-        media_type: 'application/pdf',
-        data: pdfData
-      }
-    },
-    {
-      type: 'text',
-      text: 'Summarize the key findings in this report'
-    }
-  ]
-}, { format: 'anthropic' });
-
-console.log(`Message with PDF sent: ${message.id}`);
-```
-</CodeGroup>
-</Tab>
-
 <Tab title="OpenAI Format">
-OpenAI format supports base64 file uploads using the `file` content type with embedded `file_data`:
 
-<CodeGroup>
-```python Python
+```python
+import os
 import base64
 from acontext import AcontextClient
 
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
 session = client.sessions.create()
 
-# Read and encode PDF file as base64
-with open("document.pdf", "rb") as pdf_file:
-    pdf_data = base64.b64encode(pdf_file.read()).decode("utf-8")
-
-# Store message with PDF file (OpenAI format)
-message = client.sessions.store_message(
-    session_id=session.id,
-    blob={
-        "role": "user",
-        "content": [
-            {
-                "type": "text",
-                "text": "What's in this PDF document?"
-            },
-            {
-                "type": "file",
-                "file": {
-                    "file_data": pdf_data,
-                    "filename": "document.pdf"
-                }
-            }
-        ]
-    },
-    format="openai"
-)
-
-print(f"Message with PDF sent: {message.id}")
-```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-import fs from 'fs';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-const session = await client.sessions.create();
-
-// Read and encode PDF file as base64
-const pdfBuffer = fs.readFileSync('document.pdf');
-const pdfData = pdfBuffer.toString('base64');
-
-// Store message with PDF file (OpenAI format)
-const message = await client.sessions.storeMessage(session.id, {
-  role: 'user',
-  content: [
-    {
-      type: 'text',
-      text: 'What\'s in this PDF document?'
-    },
-    {
-      type: 'file',
-      file: {
-        file_data: pdfData,
-        filename: 'document.pdf'
-      }
-    }
-  ]
-}, { format: 'openai' });
-
-console.log(`Message with PDF sent: ${message.id}`);
-```
-</CodeGroup>
-</Tab>
-</Tabs>
-
-<Note>
-When you store a PDF with base64 data, the base64 content is stored within the message parts JSON in S3. When you retrieve the message, the PDF is returned as base64 data again—not as a presigned URL. This keeps the PDF data inline with the message content.
-</Note>
-
-### Supported document formats
-Acontext will not limit the document formats in the context, you can store any file type in Acontext.
-However, not every file type is supported by your LLM Provider. You may check their documentations to see if the file type is supported:
-- [OpenAI Files](https://platform.openai.com/docs/guides/pdf-files?api-mode=chat#page-top)
-- [Anthropic Files](https://docs.claude.com/en/docs/build-with-claude/pdf-support)
-
-
-## Retrieving multi-modal messages
-
-When retrieving messages, the content format depends on how the message was originally sent:
-
-<CodeGroup>
-```python Python
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# Retrieve messages
-result = client.sessions.get_messages(
-    session_id="session_uuid",
-    format="anthropic",  # or "openai"
-)
-
-print(f"Retrieved {len(result.items)} messages")
-
-# Access messages
-for msg in result.items:
-    for block in msg.content:
-        if block.get('type') == 'image':
-            # Images sent as base64 are returned as base64
-            print(f"Image source type: {block['source']['type']}")
-```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-// Retrieve messages
-const result = await client.sessions.getMessages('session_uuid', {
-  format: 'anthropic',  // or "openai"
-  limit: 50
-});
-
-console.log(`Retrieved ${result.items.length} messages`);
-
-// Access messages
-result.items.forEach(msg => {
-  msg.content.forEach(block => {
-    if (block.type === 'image') {
-      // Images sent as base64 are returned as base64
-      console.log(`Image source type: ${block.source.type}`);
-    }
-  });
-});
-```
-</CodeGroup>
-
-<Note>
-**How content is returned:**
-- Images/PDFs sent as **base64 data** are returned as **base64 data** (stored within the message parts)
-- Images/PDFs sent as **URLs** in OpenAI format are stored as URLs in metadata
-- Files uploaded via **multipart form-data** are stored as separate S3 assets (not covered in this guide)
-</Note>
-
-## Format conversion
-
-Acontext automatically converts between formats when retrieving messages:
-
-<Note>
-**Format conversion for images:**
-- Images sent as **base64** are stored as base64 and returned as base64 in any format
-- Images sent as **URLs** (in OpenAI format) are stored as URLs and can be:
-  - Retrieved as URLs in OpenAI format (URL is preserved)
-  - Retrieved as base64 in Anthropic format (URL is downloaded and converted on-the-fly)
-</Note>
-
-<Tabs>
-<Tab title="Store OpenAI, Retrieve Anthropic">
-<CodeGroup>
-```python Python
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-session = client.sessions.create()
-
-# Store in OpenAI format
+# From URL
 client.sessions.store_message(
     session_id=session.id,
     blob={
         "role": "user",
         "content": [
-            {"type": "text", "text": "Analyze this image"},
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": "https://example.com/photo.jpg"
-                }
-            }
+            {"type": "text", "text": "What's in this image?"},
+            {"type": "image_url", "image_url": {"url": "https://example.com/image.png"}}
         ]
     },
     format="openai"
 )
 
-# Retrieve in Anthropic format
-result = client.sessions.get_messages(
-    session_id=session.id,
-    format="anthropic"  # Different format!
-)
-
-# Image is automatically converted to Anthropic format
-print("Message retrieved in Anthropic format")
-for msg in result.items:
-    print(f"Role: {msg.role}")
-    for block in msg.content:
-        print(f"  Block type: {block.type}")
-```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-const session = await client.sessions.create();
-
-// Store in OpenAI format
-await client.sessions.storeMessage(session.id, {
-  role: 'user',
-  content: [
-    { type: 'text', text: 'Analyze this image' },
-    {
-      type: 'image_url',
-      image_url: {
-        url: 'https://example.com/photo.jpg'
-      }
-    }
-  ]
-}, { format: 'openai' });
-
-// Retrieve in Anthropic format
-const result = await client.sessions.getMessages(session.id, {
-  format: 'anthropic'  // Different format!
-});
-
-// Image is automatically converted to Anthropic format
-console.log('Message retrieved in Anthropic format');
-result.items.forEach(msg => {
-  console.log(`Role: ${msg.role}`);
-  msg.content.forEach(block => {
-    console.log(`  Block type: ${block.type}`);
-  });
-});
-```
-</CodeGroup>
-</Tab>
-
-<Tab title="Store Anthropic, Retrieve OpenAI">
-<CodeGroup>
-```python Python
-import base64
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-session = client.sessions.create()
-
-# Read image
-with open("chart.png", "rb") as f:
+# From base64
+with open("image.png", "rb") as f:
     image_data = base64.b64encode(f.read()).decode("utf-8")
 
-# Store in Anthropic format
 client.sessions.store_message(
     session_id=session.id,
     blob={
         "role": "user",
         "content": [
-            {"type": "text", "text": "Explain this chart"},
+            {"type": "text", "text": "Describe this"},
+            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_data}"}}
+        ]
+    },
+    format="openai"
+)
+```
+</Tab>
+
+<Tab title="Anthropic Format">
+
+```python
+import os
+import base64
+from acontext import AcontextClient
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+session = client.sessions.create()
+
+with open("image.png", "rb") as f:
+    image_data = base64.b64encode(f.read()).decode("utf-8")
+
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Describe this image"},
             {
                 "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": "image/png",
-                    "data": image_data
-                }
+                "source": {"type": "base64", "media_type": "image/png", "data": image_data}
             }
         ]
     },
     format="anthropic"
 )
-
-# Retrieve in OpenAI format
-result = client.sessions.get_messages(
-    session_id=session.id,
-    format="openai"  # Different format!
-)
-
-# Image is automatically converted to OpenAI format
-print("Message retrieved in OpenAI format")
-for msg in result.items:
-    if hasattr(msg, 'content') and isinstance(msg.content, list):
-        for part in msg.content:
-            print(f"  Part type: {part.get('type')}")
 ```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-import fs from 'fs';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-const session = await client.sessions.create();
-
-// Read image
-const imageBuffer = fs.readFileSync('chart.png');
-const imageData = imageBuffer.toString('base64');
-
-// Store in Anthropic format
-await client.sessions.storeMessage(session.id, {
-  role: 'user',
-  content: [
-    { type: 'text', text: 'Explain this chart' },
-    {
-      type: 'image',
-      source: {
-        type: 'base64',
-        media_type: 'image/png',
-        data: imageData
-      }
-    }
-  ]
-}, { format: 'anthropic' });
-
-// Retrieve in OpenAI format
-const result = await client.sessions.getMessages(session.id, {
-  format: 'openai'  // Different format!
-});
-
-// Image is automatically converted to OpenAI format
-console.log('Message retrieved in OpenAI format');
-result.items.forEach(msg => {
-  if (Array.isArray(msg.content)) {
-    msg.content.forEach(part => {
-      console.log(`  Part type: ${part.type}`);
-    });
-  }
-});
-```
-</CodeGroup>
 </Tab>
 </Tabs>
 
-<Tip>
-Format conversion is bidirectional and lossless for common content types. Use the format that best matches your workflow when retrieving messages.
-</Tip>
+## Audio
 
-## Best practices
-
-<AccordionGroup>
-<Accordion title="Optimize image and PDF sizes before encoding">
-- Compress images and PDFs to reduce storage costs and improve performance
-- Use appropriate resolutions (e.g., 2048px max for most image analysis tasks)
-- Consider using `"detail": "low"` in OpenAI format for simple image understanding tasks
-- Base64-encoded content increases message size by ~33%, so optimization is important
-</Accordion>
-
-<Accordion title="Handle large files efficiently">
-- Base64 encoding works well for files under 10MB
-- For very large files (>10MB), consider using multipart file uploads instead
-- Monitor your storage usage and clean up old sessions regularly
-</Accordion>
-
-<Accordion title="Choose the right format for your use case">
-- Use **OpenAI format** for GPT-4 Vision and similar models
-- Use **Anthropic format** for Claude with vision and document analysis capabilities
-- Format conversion is automatic and lossless for common content types
-</Accordion>
-
-<Accordion title="Understand storage behavior">
-- Base64 data (images, PDFs, audio) is stored within the message parts JSON
-- Message parts are stored in S3, with metadata in PostgreSQL
-- When retrieving, base64 content is returned as-is (not converted to URLs)
-</Accordion>
-</AccordionGroup>
-
-## Complete workflow example
-
-Here's a complete example that demonstrates storing and retrieving multi-modal messages:
-
-<CodeGroup>
-```python Python
+```python
 import base64
-from acontext import AcontextClient
 
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
+with open("audio.wav", "rb") as f:
+    audio_data = base64.b64encode(f.read()).decode("utf-8")
+
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Transcribe this audio"},
+            {"type": "input_audio", "input_audio": {"data": audio_data, "format": "wav"}}
+        ]
+    },
+    format="openai"
 )
-
-try:
-    # Create session
-    session = client.sessions.create()
-    print(f"Session created: {session.id}")
-    
-    # Store text + image message
-    with open("screenshot.png", "rb") as f:
-        image_data = base64.b64encode(f.read()).decode("utf-8")
-    
-    message = client.sessions.store_message(
-        session_id=session.id,
-        blob={
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "What UI improvements would you suggest for this design?"
-                },
-                {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": "image/png",
-                        "data": image_data
-                    }
-                }
-            ]
-        },
-        format="anthropic"
-    )
-    print(f"Message sent: {message.id}")
-    
-    # Retrieve messages
-    result = client.sessions.get_messages(
-        session_id=session.id,
-        format="openai"  # Convert to OpenAI format
-    )
-    
-    print(f"\nRetrieved {len(result.items)} messages:")
-    for msg in result.items:
-        print(f"  Role: {msg.role}")
-        if isinstance(msg.content, list):
-            for part in msg.content:
-                if part.get('type') == 'text':
-                    print(f"  Text: {part.get('text')[:50]}...")
-                    
-finally:
-    client.close()
 ```
 
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-import fs from 'fs';
+## Documents
 
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
+<Tabs>
+<Tab title="OpenAI Format">
 
-async function processMultiModalMessage() {
-  try {
-    // Create session
-    const session = await client.sessions.create();
-    console.log(`Session created: ${session.id}`);
-    
-    // Store text + image message
-    const imageBuffer = fs.readFileSync('screenshot.png');
-    const imageData = imageBuffer.toString('base64');
-    
-    const message = await client.sessions.storeMessage(session.id, {
-      role: 'user',
-      content: [
-        {
-          type: 'text',
-          text: 'What UI improvements would you suggest for this design?'
-        },
-        {
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: 'image/png',
-            data: imageData
-          }
-        }
-      ]
-    }, { format: 'anthropic' });
-    console.log(`Message sent: ${message.id}`);
-    
-    // Retrieve messages
-    const result = await client.sessions.getMessages(session.id, {
-      format: 'openai'  // Convert to OpenAI format
-    });
-    
-    console.log(`\nRetrieved ${result.items.length} messages:`);
-    result.items.forEach(msg => {
-      console.log(`  Role: ${msg.role}`);
-      if (Array.isArray(msg.content)) {
-        msg.content.forEach(part => {
-          if (part.type === 'text') {
-            console.log(`  Text: ${part.text.substring(0, 50)}...`);
-          }
-        });
-      }
-    });
-    
-  } catch (error) {
-    console.error(`Error: ${error}`);
-  }
-}
+```python
+import base64
 
-processMultiModalMessage();
+with open("document.pdf", "rb") as f:
+    pdf_data = base64.b64encode(f.read()).decode("utf-8")
+
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Summarize this PDF"},
+            {"type": "file", "file": {"file_data": pdf_data, "filename": "document.pdf"}}
+        ]
+    },
+    format="openai"
+)
 ```
-</CodeGroup>
+</Tab>
 
-## Next steps
+<Tab title="Anthropic Format">
+
+```python
+import base64
+
+with open("report.pdf", "rb") as f:
+    pdf_data = base64.b64encode(f.read()).decode("utf-8")
+
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "user",
+        "content": [
+            {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": pdf_data}},
+            {"type": "text", "text": "Summarize the key findings"}
+        ]
+    },
+    format="anthropic"
+)
+```
+</Tab>
+</Tabs>
+
+## Retrieve Messages
+
+Base64 content is returned as-is. Format conversion is automatic:
+
+```python
+# Store as Anthropic, retrieve as OpenAI
+result = client.sessions.get_messages(session_id=session.id, format="openai")
+
+for msg in result.items:
+    for part in msg.content:
+        print(f"Type: {part.get('type')}")
+```
+
+## Next Steps
 
 <CardGroup cols={2}>
-
 <Card title="Store Artifacts" icon="box" href="/store/disk">
-Store and manage file artifacts alongside messages
+Store file artifacts alongside messages
 </Card>
-
 <Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
-View your messages in the dashboard
+View messages in the dashboard
 </Card>
 </CardGroup>

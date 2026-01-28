@@ -25,9 +25,3 @@ export const FlagResponseSchema = z.object({
 
 export type FlagResponse = z.infer<typeof FlagResponseSchema>;
 
-export const InsertBlockResponseSchema = z.object({
-  id: z.string(),
-});
-
-export type InsertBlockResponse = z.infer<typeof InsertBlockResponseSchema>;
-

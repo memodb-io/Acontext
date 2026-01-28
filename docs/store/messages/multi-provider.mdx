@@ -1,594 +1,96 @@
 ---
 title: Multi-provider Messages
-description: "Store and retrieve messages from multiple LLM providers"
+description: "Store and retrieve messages from OpenAI, Anthropic, and Gemini formats"
 ---
 
-Acontext provides a flexible message storage system that supports multiple LLM providers (OpenAI, Anthropic, Google Gemini). You can store messages then retrieve them later for analysis, debugging, or continuing conversations.
+Acontext stores messages in OpenAI, Anthropic, or Gemini format and automatically converts between them on retrieval.
 
-## Prerequisites
+## Store Messages
 
-Before storing messages, you need:
-- An Acontext API key from [Acontext Dashboard](https://dash.acontext.io), or [local deployment](/settings/local)
-
-<Note>
-Messages are stored within sessions. Create a session first, then store messages to it.
-</Note>
-
-## Storing messages
-
-### Create a session first
-
-Before storing messages, create a session:
-
-<CodeGroup>
-```python Python
+<Steps>
+<Step title="Create a session">
+```python
 import os
 from acontext import AcontextClient
 
 client = AcontextClient(
     api_key=os.getenv("ACONTEXT_API_KEY"),
 )
-
-# If you're using self-hosted Acontext:
-# client = AcontextClient(
-#     base_url="http://localhost:8029/api/v1",
-#     api_key="sk-ac-your-root-api-bearer-token",
-# )
-
-client.ping()
-# Create a session (optionally associate with a user)
-session = client.sessions.create(user="user@example.com")
-print(f"Session created: {session.id}")
+session = client.sessions.create()
 ```
+</Step>
 
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-// If you're using self-hosted Acontext:
-// const client = new AcontextClient({
-//     baseUrl: "http://localhost:8029/api/v1",
-//     apiKey: "sk-ac-your-root-api-bearer-token",
-// });
-
-// Create a session (optionally associate with a user)
-const session = await client.sessions.create({ user: 'user@example.com' });
-console.log(`Session created: ${session.id}`);
-```
-</CodeGroup>
-
-<Tip>
-You can associate a session with a specific user by passing the `user` parameter when creating it. This enables per-user resource management and cleanup. See [Per-user Resources](/chore/per-user) for details.
-</Tip>
-
-### Store a single message
-
-Store messages in OpenAI, Anthropic, or Gemini format:
+<Step title="Store messages in any format">
 
 <Tabs>
-<Tab title="OpenAI Format">
-<CodeGroup>
-```python Python
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-session = client.sessions.create()
-
-# Store a message in OpenAI format
-message = client.sessions.store_message(
+<Tab title="OpenAI">
+```python
+client.sessions.store_message(
     session_id=session.id,
-    blob={
-        "role": "user",
-        "content": "What is the capital of France?"
-    },
+    blob={"role": "user", "content": "What is the capital of France?"},
     format="openai"
 )
-
-print(f"Message stored: {message.id}")
 ```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-const session = await client.sessions.create();
-
-// Store a message in OpenAI format
-const message = await client.sessions.storeMessage(session.id, {
-  blob: {
-    role: 'user',
-    content: 'What is the capital of France?'
-  },
-  format: 'openai'
-});
-
-console.log(`Message stored: ${message.id}`);
-```
-</CodeGroup>
 </Tab>
 
-<Tab title="Anthropic Format">
-<CodeGroup>
-```python Python
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-session = client.sessions.create()
-
-# Store a message in Anthropic format
-message = client.sessions.store_message(
+<Tab title="Anthropic">
+```python
+client.sessions.store_message(
     session_id=session.id,
     blob={
         "role": "user",
-        "content": [
-            {"type": "text", "text": "Explain quantum computing"}
-        ]
+        "content": [{"type": "text", "text": "Explain quantum computing"}]
     },
     format="anthropic"
 )
-
-print(f"Message stored: {message.id}")
 ```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-const session = await client.sessions.create();
-
-// Store a message in Anthropic format
-const message = await client.sessions.storeMessage(session.id, {
-  blob: {
-    role: 'user',
-    content: [
-      { type: 'text', text: 'Explain quantum computing' }
-    ]
-  },
-  format: 'anthropic'
-});
-
-console.log(`Message stored: ${message.id}`);
-```
-</CodeGroup>
 </Tab>
 
-<Tab title="Gemini Format">
-<CodeGroup>
-```python Python
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-session = client.sessions.create()
-
-# Store a message in Gemini format
-message = client.sessions.store_message(
+<Tab title="Gemini">
+```python
+client.sessions.store_message(
     session_id=session.id,
     blob={
         "role": "user",
-        "parts": [
-            {"text": "Explain quantum computing"}
-        ]
+        "parts": [{"text": "Explain quantum computing"}]
     },
     format="gemini"
 )
-
-print(f"Message stored: {message.id}")
 ```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-const session = await client.sessions.create();
-
-// Store a message in Gemini format
-const message = await client.sessions.storeMessage(session.id, {
-  blob: {
-    role: 'user',
-    parts: [
-      { text: 'Explain quantum computing' }
-    ]
-  },
-  format: 'gemini'
-});
-
-console.log(`Message stored: ${message.id}`);
-```
-</CodeGroup>
 </Tab>
 </Tabs>
+</Step>
+</Steps>
 
-### Store multiple messages
+## Retrieve Messages
 
-You can store multiple messages sequentially to build a conversation:
+Retrieve in any format—Acontext converts automatically:
 
-<CodeGroup>
-```python Python
-from acontext import AcontextClient
+```python
+# Stored as OpenAI, retrieve as Anthropic
+result = client.sessions.get_messages(session_id=session.id, format="anthropic")
 
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-session = client.sessions.create()
-
-# Store multiple messages to build a conversation
-messages_to_store = [
-    {"role": "user", "content": "Hello! Can you help me with Python?"},
-    {"role": "assistant", "content": "Of course! I'd be happy to help with Python. What would you like to know?"},
-    {"role": "user", "content": "How do I read a JSON file?"},
-    {"role": "assistant", "content": "You can use the json module: import json; with open('file.json') as f: data = json.load(f)"}
-]
-
-for msg in messages_to_store:
-    message = client.sessions.store_message(
-        session_id=session.id,
-        blob=msg,
-        format="openai"
-    )
-    print(f"Stored message: {message.id}")
-
-print(f"Total messages stored: {len(messages_to_store)}")
-```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-const session = await client.sessions.create();
-
-// Store multiple messages to build a conversation
-const messagesToStore = [
-  { role: 'user', content: 'Hello! Can you help me with Python?' },
-  { role: 'assistant', content: 'Of course! I'd be happy to help with Python. What would you like to know?' },
-  { role: 'user', content: 'How do I read a JSON file?' },
-  { role: 'assistant', content: 'You can use the json module: import json; with open("file.json") as f: data = json.load(f)' }
-];
-
-for (const msg of messagesToStore) {
-  const message = await client.sessions.storeMessage(session.id, {
-    blob: msg,
-    format: 'openai'
-  });
-  console.log(`Stored message: ${message.id}`);
-}
-
-console.log(`Total messages stored: ${messagesToStore.length}`);
-```
-</CodeGroup>
-
-<Check>
-Each message receives a unique ID upon creation. You can use these IDs to reference specific messages later.
-</Check>
-
-## Retrieving messages
-
-### Get all messages from a session
-
-Retrieve messages from a session:
-
-<CodeGroup>
-```python Python
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# Get messages from a session
-result = client.sessions.get_messages(
-    session_id="session_uuid",
-    format="openai"
-)
-
-print(f"Retrieved {len(result.items)} messages ({result.this_time_tokens} tokens)")
 for msg in result.items:
-    print(f"- {msg.role}: {msg.content[:50]}...")
+    print(f"{msg.role}: {msg.content}")
 ```
 
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
+## Delete Session
 
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-// Get messages from a session
-const result = await client.sessions.getMessages('session_uuid', {
-  format: 'openai'
-});
-
-console.log(`Retrieved ${result.items.length} messages (${result.this_time_tokens} tokens)`);
-result.items.forEach(msg => {
-  console.log(`- ${msg.role}: ${msg.content.substring(0, 50)}...`);
-});
-```
-</CodeGroup>
-
-## Session observability
-
-<Info>
-Acontext provides built-in observability features to help you monitor and analyze your message sessions in real-time.
-</Info>
-
-You can track various metrics and insights about your sessions:
-
-<CardGroup cols={2}>
-<Card title="Message Observing Status" icon="eye" href="/observe/buffer">
-Monitor the processing status of messages in your session: observed, in_process, and pending counts.
-</Card>
-
-<Card title="Session Tasks" icon="list-check" href="/observe/agent_tasks">
-View all tasks and agent operations associated with a session for debugging and analysis.
-</Card>
-
-<Card title="Dashboard Visualization" icon="chart-line" href="/observe/dashboard">
-Access the Acontext dashboard to visualize message flows, traces, and session analytics.
-</Card>
-
-<Card title="Disable Task Tracking" icon="toggle-off" href="/observe/disable_tasks">
-Disable automatic task tracking for sessions that don't need task analysis or monitoring.
-</Card>
-</CardGroup>
-
-## Message format compatibility
-
-Acontext supports three message formats for maximum compatibility:
-
-<CardGroup cols={3}>
-<Card title="OpenAI Format" icon="message">
-Compatible with OpenAI's Chat Completion API format. Use for GPT-3.5, GPT-4, and similar models.
-</Card>
-
-<Card title="Anthropic Format" icon="message">
-Compatible with Anthropic's Messages API format. Use for Claude models.
-</Card>
-
-<Card title="Gemini Format" icon="message">
-Compatible with Google's Gemini API format. Use for Gemini Pro, Gemini Flash, and other Gemini models.
-</Card>
-</CardGroup>
-
-<Tip>
-You can store messages in one format and retrieve them in another. Acontext automatically handles format conversion.
-</Tip>
-
-## Complete workflow example
-
-Here's a complete example showing how to store and retrieve a conversation:
-
-<CodeGroup>
-```python Python
-from acontext import AcontextClient
-
-# Initialize client
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-try:
-    # 1. Create a session
-    session = client.sessions.create()
-    
-    # 2. Store multiple messages
-    conversation = [
-        {"role": "user", "content": "I'm having trouble logging in"},
-        {"role": "assistant", "content": "I can help with that. What error are you seeing?"},
-        {"role": "user", "content": "It says 'Invalid credentials'"},
-        {"role": "assistant", "content": "Try resetting your password using the forgot password link."}
-    ]
-    
-    for msg in conversation:
-        client.sessions.store_message(
-            session_id=session.id,
-            blob=msg,
-            format="openai"
-        )
-    
-    print(f"Stored {len(conversation)} messages in session {session.id}")
-    
-    # 3. Retrieve messages later
-    result = client.sessions.get_messages(
-        session_id=session.id,
-        format="openai"
-    )
-    
-    print(f"\nRetrieved conversation ({len(result.items)} messages):")
-    for msg in result.items:
-        print(f"{msg.role}: {msg.content}")
-        
-finally:
-    client.close()
-```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-// Initialize client
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-async function storeAndRetrieveConversation() {
-  try {
-    // 1. Create a session
-    const session = await client.sessions.create();
-    
-    // 2. Store multiple messages
-    const conversation = [
-      { role: 'user', content: 'I\'m having trouble logging in' },
-      { role: 'assistant', content: 'I can help with that. What error are you seeing?' },
-      { role: 'user', content: 'It says \'Invalid credentials\'' },
-      { role: 'assistant', content: 'Try resetting your password using the forgot password link.' }
-    ];
-    
-    for (const msg of conversation) {
-      await client.sessions.storeMessage(session.id, {
-        blob: msg,
-        format: 'openai'
-      });
-    }
-    
-    console.log(`Stored ${conversation.length} messages in session ${session.id}`);
-    
-    // 3. Retrieve messages later
-    const result = await client.sessions.getMessages(session.id, {
-      format: 'openai'
-    });
-    
-    console.log(`\nRetrieved conversation (${result.items.length} messages):`);
-    result.items.forEach(msg => {
-      console.log(`${msg.role}: ${msg.content}`);
-    });
-    
-  } finally {
-    await client.close();
-  }
-}
-
-storeAndRetrieveConversation();
-```
-</CodeGroup>
-
-## Managing sessions
-
-### Delete a session
-
-When you're done with a conversation or workflow, you can delete the session to clean up storage:
-
-<CodeGroup>
-```python Python
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# Delete a session when you're done with it
-session_id = "session_uuid"
+```python
 client.sessions.delete(session_id)
-
-print(f"Session {session_id} deleted successfully")
 ```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-// Delete a session when you're done with it
-const sessionId = 'session_uuid';
-await client.sessions.delete(sessionId);
-
-console.log(`Session ${sessionId} deleted successfully`);
-```
-</CodeGroup>
 
 <Warning>
-Deleting a session permanently removes all associated messages. This action cannot be undone.
+Deleting a session permanently removes all messages.
 </Warning>
 
-### List and clean up old sessions
-
-You can list sessions and delete the ones you no longer need:
-
-<CodeGroup>
-```python Python
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# List all sessions
-sessions = client.sessions.list(limit=100, time_desc=True)
-
-print(f"Found {len(sessions.items)} sessions")
-
-# Delete old sessions (example: delete all except the most recent 10)
-for session in sessions.items[10:]:
-    client.sessions.delete(session.id)
-    print(f"Deleted session {session.id}")
-```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-// List all sessions
-const sessions = await client.sessions.list({ limit: 100, timeDesc: true });
-
-console.log(`Found ${sessions.items.length} sessions`);
-
-// Delete old sessions (example: delete all except the most recent 10)
-for (const session of sessions.items.slice(10)) {
-  await client.sessions.delete(session.id);
-  console.log(`Deleted session ${session.id}`);
-}
-```
-</CodeGroup>
-
-## Best practices
-
-<AccordionGroup>
-<Accordion title="Organize messages with sessions">
-- Use **sessions** to group related messages (e.g., one conversation, one task)
-- Create a new session for each distinct conversation or workflow
-</Accordion>
-
-<Accordion title="Choose the right message format">
-- Use **OpenAI format** if you're working with OpenAI models or want broad compatibility
-- Use **Anthropic format** if you're primarily using Claude models
-- Use **Gemini format** if you're working with Google Gemini models (Gemini Pro, Gemini Flash, etc.)
-- You can convert between formats when retrieving messages
-</Accordion>
-
-<Accordion title="Monitor session health and performance">
-- Use **message observing status** to track message processing states in real-time
-- Monitor **token counts** to stay within context limits and manage API costs
-- Review **session tasks** to understand agent behavior and debug issues
-- Leverage the **dashboard** for visual insights into message flows and patterns
-</Accordion>
-</AccordionGroup>
-
-## Next steps
+## Next Steps
 
 <CardGroup cols={2}>
-
-<Card title="Store Artifacts" icon="file" href="/store/disk">
-Learn how to store files and documents alongside your messages
+<Card title="Multi-modal Messages" icon="image" href="/store/messages/multi-modal">
+Store images, audio, and documents
 </Card>
-
 <Card title="Dashboard" icon="chart-line" href="/observe/dashboard">
-View and analyze your messages with visual insights and metrics
-</Card>
-
-<Card title="Traces" icon="route" href="/observe/traces">
-Debug and monitor message flows with detailed execution traces
-</Card>
-
-<Card title="Agent Tasks" icon="robot" href="/observe/agent_tasks">
-Track and observe agent operations and task executions
+View messages in the dashboard
 </Card>
 </CardGroup>

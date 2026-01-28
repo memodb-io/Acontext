@@ -41,15 +41,17 @@
               },
               "store/disk",
               "store/skill",
-              "store/sandbox"
+              "store/sandbox",
+              "store/per-user"
             ]
           },
           {
             "group": "Agent Tools",
             "icon": "wand-magic-sparkles",
             "pages": [
-              "tool/disk_tools",
-              "tool/skill_tools"
+              "tool/whatis",
+              "tool/bash_tools",
+              "tool/disk_tools"
             ]
           },
           {
@@ -57,6 +59,7 @@
             "icon": "scissors",
             "pages": [
               "engineering/whatis",
+              "engineering/agent_skills",
               "engineering/session_summary",
               "engineering/editing",
               "engineering/cache"
@@ -84,30 +87,12 @@
             ]
           },
           {
-            "group": "Self-learning(beta)",
-            "icon": "sparkles",
-            "pages": [
-              "learn/warning",
-              "learn/skill-space",
-              "learn/search-skills",
-              {
-                "group": "Advance",
-                "pages": [
-                  "learn/tool",
-                  "learn/advance/wait-user",
-                  "learn/advance/design-complex",
-                  "learn/advance/experience-agent"
-                ]
-              }
-            ]
-          },
-          {
             "group": "Miscellaneous",
             "icon": "ellipsis",
             "pages": [
-              "chore/per-user",
               "chore/async_python",
-              "chore/badge"
+              "chore/badge",
+              "tool/skill_tools"
             ]
           },
           {

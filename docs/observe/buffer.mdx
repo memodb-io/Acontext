@@ -1,210 +1,52 @@
 ---
-title: "Session Buffer Mechanism"
-description: "Acontext will batch process the messages in the session to optimize costs."
+title: "Session Buffer"
+description: "Batch processing for cost-efficient task extraction"
 ---
 
+Acontext batches messages before processing to reduce LLM costs.
 
-## Wait until it's full
-Acontext will start to process the messages once the buffer is full (*i.e.* unprocessed message turns >= `PROJECT_SESSION_MESSAGE_BUFFER_MAX_TURNS`)
+## When Processing Happens
 
-So if your `PROJECT_SESSION_MESSAGE_BUFFER_MAX_TURNS` is 3:
+**Buffer full**: When unprocessed messages reach `PROJECT_SESSION_MESSAGE_BUFFER_MAX_TURNS`
+
+**Idle timeout**: When no new messages for `PROJECT_SESSION_MESSAGE_BUFFER_TTL_SECONDS`
+
+## Force Processing
 
 <CodeGroup>
 ```python Python
-import os
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# If you're using self-hosted Acontext:
-# client = AcontextClient(
-#     base_url="http://localhost:8029/api/v1",
-#     api_key="sk-ac-your-root-api-bearer-token",
-# )
-
-# this storing won't be processed immediately
-client.sessions.store_message(
-    session_id="session-uuid",
-    blob=message1,
-    format="openai"
-)
-
-# this storing won't be processed immediately
-client.sessions.store_message(
-    session_id="session-uuid",
-    blob=message2,
-    format="openai"
-)
-
-# will trigger the processing immediately
-client.sessions.store_message(
-    session_id="session-uuid",
-    blob=message3,
-    format="openai"
-)
+client.sessions.flush(session_id)
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-// this storing won't be processed immediately
-await client.sessions.storeMessage('session-uuid', {
-  blob: message1,
-  format: 'openai'
-});
-
-// this storing won't be processed immediately
-await client.sessions.storeMessage('session-uuid', {
-  blob: message2,
-  format: 'openai'
-});
-
-// will trigger the processing immediately
-await client.sessions.storeMessage('session-uuid', {
-  blob: message3,
-  format: 'openai'
-});
+await client.sessions.flush(sessionId);
 ```
 </CodeGroup>
 
-## Wait until it's IDLE
-Acontext will start to process the messages once the buffer is IDLE for a while (*i.e.* no new messages for `PROJECT_SESSION_MESSAGE_BUFFER_TTL_SECONDS` seconds)
-
-So if your `PROJECT_SESSION_MESSAGE_BUFFER_TTL_SECONDS` is 3:
+## Check Status
 
 <CodeGroup>
 ```python Python
-from acontext import AcontextClient
-import time
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# this storing won't be processed immediately
-client.sessions.store_message(
-    session_id="session-uuid",
-    blob=message1,
-    format="openai"
-)
-
-time.sleep(3)
-# Acontext will start to process the messages in background.
-```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-// this storing won't be processed immediately
-await client.sessions.storeMessage('session-uuid', {
-  blob: message1,
-  format: 'openai'
-});
-
-await new Promise(resolve => setTimeout(resolve, 3000));
-// Acontext will start to process the messages in background.
-```
-</CodeGroup>
-
-
-## Force Buffer Processing
-You can force the buffer processing by calling the `flush` method:
-
-<CodeGroup>
-```python Python
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-client.sessions.flush(session_id="session-uuid")
-```
-
-```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-await client.sessions.flush('session-uuid');
-```
-</CodeGroup>
-
-## Monitor Message Processing Status
-
-You can check the observing status of messages in your session to understand how many are observed, in process, or pending:
-
-<CodeGroup>
-```python Python
-from acontext import AcontextClient
-
-client = AcontextClient(
-    api_key=os.getenv("ACONTEXT_API_KEY"),
-)
-
-# Get message observing status for a session
-status = client.sessions.messages_observing_status(session_id="session-uuid")
-
+status = client.sessions.messages_observing_status(session_id)
 print(f"Observed: {status.observed}")
 print(f"In Process: {status.in_process}")
 print(f"Pending: {status.pending}")
-print(f"Last Updated: {status.updated_at}")
 ```
 
 ```typescript TypeScript
-import { AcontextClient } from '@acontext/acontext';
-
-const client = new AcontextClient({
-    apiKey: process.env.ACONTEXT_API_KEY,
-});
-
-// Get message observing status for a session
-const status = await client.sessions.messagesObservingStatus('session-uuid');
-
+const status = await client.sessions.messagesObservingStatus(sessionId);
 console.log(`Observed: ${status.observed}`);
-console.log(`In Process: ${status.in_process}`);
+console.log(`In Process: ${status.inProcess}`);
 console.log(`Pending: ${status.pending}`);
-console.log(`Last Updated: ${status.updated_at}`);
 ```
 </CodeGroup>
 
-### Status Meanings
+- **Observed**: Fully processed
+- **In Process**: Currently being analyzed
+- **Pending**: Waiting in buffer
 
-<AccordionGroup>
-<Accordion title="Observed">
-Messages that have been fully processed and observed by the system. These messages are complete and available for analysis.
-</Accordion>
-
-<Accordion title="In Process">
-Messages currently being processed by the system. These are actively being analyzed or transformed.
-</Accordion>
-
-<Accordion title="Pending">
-Messages waiting in the buffer to be processed. These will be processed once the buffer conditions are met (full buffer or TTL expired).
-</Accordion>
-</AccordionGroup>
-
-<Tip>
-Use `messages_observing_status()` to monitor buffer health and ensure messages are being processed as expected. A high number of pending messages may indicate you need to adjust buffer settings or call `flush()` manually.
-</Tip>
-
-## Customization
-
-<CardGroup cols={1}>
+## Next Steps
 
 <Card title="Settings" icon="gear" href="/settings/runtime">
-  Customize the behavior of Buffer.
+Customize buffer behavior
 </Card>
-</CardGroup>

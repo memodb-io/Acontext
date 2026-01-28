@@ -26,7 +26,7 @@ Every method is available in async client, just add `await` prefix to the method
 
 ## Async Agentic Tools
 
-The [Filesystem Tools](/tool/disk_tools) and [Skill Tools](/tool/skill_tools) also support async operations. Use `async_format_context()` and `async_execute_tool()` methods with `AcontextAsyncClient`.
+The [Filesystem Tools](/tool/disk_tools), [Skill Tools](/tool/skill_tools), and [Sandbox Tools](/tool/bash_tools) also support async operations. Use `async_format_context()` and `async_execute_tool()` methods with `AcontextAsyncClient`.
 
 ### Async Disk Tools
 
@@ -130,6 +130,76 @@ while True:
         messages.append(
             {"role": "tool", "tool_call_id": tool_call.id, "content": result}
         )
+```
+
+### Async Sandbox Tools
+
+```python Python
+import json
+from acontext import AcontextAsyncClient
+from acontext.agent.sandbox import SANDBOX_TOOLS
+from openai import AsyncOpenAI
+
+# Initialize async clients
+acontext_client = AcontextAsyncClient(
+    api_key=os.getenv("ACONTEXT_API_KEY"),
+)
+openai_client = AsyncOpenAI()
+
+# Create sandbox and disk
+sandbox = await acontext_client.sandboxes.create()
+disk = await acontext_client.disks.create()
+
+# Create async sandbox context (optionally mount skills)
+ctx = await SANDBOX_TOOLS.async_format_context(
+    acontext_client,
+    sandbox_id=sandbox.sandbox_id,
+    disk_id=disk.id,
+    # mount_skills=["skill-uuid-1", "skill-uuid-2"]
+)
+
+# Get tool schemas for OpenAI
+tools = SANDBOX_TOOLS.to_openai_tool_schema()
+
+# Get context prompt to include in system message
+context_prompt = ctx.get_context_prompt()
+
+# Async agentic loop
+messages = [
+    {
+        "role": "system",
+        "content": f"You are a helpful assistant.\n\n{context_prompt}",
+    },
+    {"role": "user", "content": "Create a Python script and run it"}
+]
+
+while True:
+    response = await openai_client.chat.completions.create(
+        model="gpt-4.1",
+        messages=messages,
+        tools=tools,
+    )
+
+    message = response.choices[0].message
+    messages.append(message)
+
+    if not message.tool_calls:
+        print(f"🤖 Assistant: {message.content}")
+        break
+
+    # Execute each tool call asynchronously
+    for tool_call in message.tool_calls:
+        print(f"⚙️ Called {tool_call.function.name}")
+        result = await SANDBOX_TOOLS.async_execute_tool(
+            ctx, tool_call.function.name, json.loads(tool_call.function.arguments)
+        )
+        print(f"🔍 Result: {result}")
+        messages.append(
+            {"role": "tool", "tool_call_id": tool_call.id, "content": result}
+        )
+
+# Clean up
+await acontext_client.sandboxes.kill(sandbox.sandbox_id)
 ```
 
 <Tip>

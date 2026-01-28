@@ -24,7 +24,13 @@ async def _update_will_total_alive_seconds(
 ) -> None:
     """
     Update the will_total_alive_seconds field based on how long the sandbox has been alive.
-    Formula: DEFAULT_KEEPALIVE_SECONDS + (current_time - created_at)
+    Formula: reset_alive_seconds + (current_time - created_at)
+    
+    Args:
+        db_session: Database session.
+        sandbox_id: The sandbox ID.
+        reset_alive_seconds: The seconds to extend from current time (default: DEFAULT_KEEPALIVE_SECONDS).
+                            This is the remaining alive time from now, not a reset value.
     """
     sandbox_log = await db_session.get(SandboxLog, sandbox_id)
     if not sandbox_log:
@@ -110,6 +116,15 @@ async def create_sandbox(
         )
         db_session.add(sandbox_log)
         await db_session.flush()
+
+        # Record the initial alive seconds to Metric
+        asyncio.create_task(
+            capture_increment(
+                project_id=project_id,
+                tag=MetricTags.new_sandbox_alive,
+                increment=DEFAULT_CORE_CONFIG.sandbox_default_keepalive_seconds,
+            )
+        )
 
         LOG.debug(
             f"Created sandbox {sandbox_log.id} -> backend {backend.type}:{info.sandbox_id}"

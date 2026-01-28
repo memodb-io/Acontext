@@ -93,13 +93,11 @@ func (s *sessionService) GetByID(ctx context.Context, ss *model.Session) (*model
 }
 
 type ListSessionsInput struct {
-	ProjectID    uuid.UUID  `json:"project_id"`
-	User         string     `json:"user"`
-	SpaceID      *uuid.UUID `json:"space_id,omitempty"`
-	NotConnected bool       `json:"not_connected"`
-	Limit        int        `json:"limit"`
-	Cursor       string     `json:"cursor"`
-	TimeDesc     bool       `json:"time_desc"`
+	ProjectID uuid.UUID `json:"project_id"`
+	User      string    `json:"user"`
+	Limit     int       `json:"limit"`
+	Cursor    string    `json:"cursor"`
+	TimeDesc  bool      `json:"time_desc"`
 }
 
 type ListSessionsOutput struct {
@@ -121,7 +119,7 @@ func (s *sessionService) List(ctx context.Context, in ListSessionsInput) (*ListS
 	}
 
 	// Query limit+1 is used to determine has_more
-	sessions, err := s.sessionRepo.ListWithCursor(ctx, in.ProjectID, in.User, in.SpaceID, in.NotConnected, afterT, afterID, in.Limit+1, in.TimeDesc)
+	sessions, err := s.sessionRepo.ListWithCursor(ctx, in.ProjectID, in.User, afterT, afterID, in.Limit+1, in.TimeDesc)
 	if err != nil {
 		return nil, err
 	}

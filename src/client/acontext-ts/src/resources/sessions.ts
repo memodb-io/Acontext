@@ -12,8 +12,6 @@ import {
   GetMessagesOutputSchema,
   GetTasksOutput,
   GetTasksOutputSchema,
-  LearningStatus,
-  LearningStatusSchema,
   ListSessionsOutput,
   ListSessionsOutputSchema,
   Message,
@@ -33,8 +31,6 @@ export class SessionsAPI {
 
   async list(options?: {
     user?: string | null;
-    spaceId?: string | null;
-    notConnected?: boolean | null;
     limit?: number | null;
     cursor?: string | null;
     timeDesc?: boolean | null;
@@ -43,13 +39,9 @@ export class SessionsAPI {
     if (options?.user) {
       params.user = options.user;
     }
-    if (options?.spaceId) {
-      params.space_id = options.spaceId;
-    }
     Object.assign(
       params,
       buildParams({
-        not_connected: options?.notConnected ?? null,
         limit: options?.limit ?? null,
         cursor: options?.cursor ?? null,
         time_desc: options?.timeDesc ?? null,
@@ -63,16 +55,12 @@ export class SessionsAPI {
 
   async create(options?: {
     user?: string | null;
-    spaceId?: string | null;
     disableTaskTracking?: boolean | null;
     configs?: Record<string, unknown>;
   }): Promise<Session> {
     const payload: Record<string, unknown> = {};
     if (options?.user !== undefined && options?.user !== null) {
       payload.user = options.user;
-    }
-    if (options?.spaceId) {
-      payload.space_id = options.spaceId;
     }
     if (options?.disableTaskTracking !== undefined && options?.disableTaskTracking !== null) {
       payload.disable_task_tracking = options.disableTaskTracking;
@@ -105,18 +93,6 @@ export class SessionsAPI {
   async getConfigs(sessionId: string): Promise<Session> {
     const data = await this.requester.request('GET', `/session/${sessionId}/configs`);
     return SessionSchema.parse(data);
-  }
-
-  async connectToSpace(
-    sessionId: string,
-    options: {
-      spaceId: string;
-    }
-  ): Promise<void> {
-    const payload = { space_id: options.spaceId };
-    await this.requester.request('POST', `/session/${sessionId}/connect_to_space`, {
-      jsonData: payload,
-    });
   }
 
   async getTasks(
@@ -305,23 +281,6 @@ export class SessionsAPI {
   async flush(sessionId: string): Promise<{ status: number; errmsg: string }> {
     const data = await this.requester.request('POST', `/session/${sessionId}/flush`);
     return data as { status: number; errmsg: string };
-  }
-
-  /**
-   * Get learning status for a session.
-   *
-   * Returns the count of space digested tasks and not space digested tasks.
-   * If the session is not connected to a space, returns 0 and 0.
-   *
-   * @param sessionId - The UUID of the session.
-   * @returns LearningStatus object containing space_digested_count and not_space_digested_count.
-   */
-  async getLearningStatus(sessionId: string): Promise<LearningStatus> {
-    const data = await this.requester.request(
-      'GET',
-      `/session/${sessionId}/get_learning_status`
-    );
-    return LearningStatusSchema.parse(data);
   }
 
   /**

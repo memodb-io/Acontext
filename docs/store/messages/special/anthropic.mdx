@@ -1,17 +1,15 @@
 ---
-title: Store Special Flag of Anthropic Messages
+title: Anthropic Special Flags
+description: "Store Anthropic-specific message flags like prompt caching"
 ---
 
+Acontext preserves Anthropic-specific flags like `cache_control` for [prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching).
 
 ## Prompt Cache
 
-[Prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching) is a powerful feature that optimizes your API usage by allowing resuming from specific prefixes in your prompts. 
-This approach significantly reduces processing time and costs for repetitive tasks or prompts with consistent elements.
-
-Acontext will automatically store the prompt cache flag in the message metadata.
-```python Python
+```python
 client.sessions.store_message(
-    session_id="session-uuid",
+    session_id=session.id,
     blob={
         "role": "user",
         "content": [
@@ -24,9 +22,7 @@ client.sessions.store_message(
     },
     format="anthropic"
 )
-# ...
-messages = client.sessions.get_messages(session_id="session-uuid")
-# has cache_control flag in the message metadata
+
+# Retrieved messages preserve the cache_control flag
+messages = client.sessions.get_messages(session_id=session.id, format="anthropic")
 ```
-
-

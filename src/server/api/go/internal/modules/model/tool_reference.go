@@ -18,9 +18,6 @@ type ToolReference struct {
 
 	CreatedAt time.Time `gorm:"autoCreateTime;not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime;not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
-
-	// ToolReference <-> ToolSOP
-	ToolSOPs []ToolSOP `gorm:"constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
 }
 
 func (ToolReference) TableName() string { return "tool_references" }

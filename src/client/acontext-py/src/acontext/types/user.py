@@ -24,7 +24,6 @@ class ListUsersOutput(BaseModel):
 class UserResourceCounts(BaseModel):
     """Resource counts for a user."""
 
-    spaces_count: int = Field(..., description="Number of spaces")
     sessions_count: int = Field(..., description="Number of sessions")
     disks_count: int = Field(..., description="Number of disks")
     skills_count: int = Field(..., description="Number of skills")

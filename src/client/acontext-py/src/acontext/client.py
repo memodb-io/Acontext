@@ -13,10 +13,8 @@ from .errors import APIError, TransportError
 from .messages import MessagePart as MessagePart
 from .uploads import FileUpload as FileUpload
 from .resources.disks import DisksAPI as DisksAPI
-from .resources.blocks import BlocksAPI as BlocksAPI
 from .resources.sandboxes import SandboxesAPI as SandboxesAPI
 from .resources.sessions import SessionsAPI as SessionsAPI
-from .resources.spaces import SpacesAPI as SpacesAPI
 from .resources.tools import ToolsAPI as ToolsAPI
 from .resources.skills import SkillsAPI as SkillsAPI
 from .resources.users import UsersAPI as UsersAPI
@@ -106,11 +104,9 @@ class AcontextClient:
 
         self._timeout = actual_timeout
 
-        self.spaces = SpacesAPI(self)
         self.sessions = SessionsAPI(self)
         self.disks = DisksAPI(self)
         self.artifacts = self.disks.artifacts
-        self.blocks = BlocksAPI(self)
         self.tools = ToolsAPI(self)
         self.skills = SkillsAPI(self)
         self.users = UsersAPI(self)
@@ -159,7 +155,10 @@ class AcontextClient:
         data: Mapping[str, Any] | None = None,
         files: Mapping[str, tuple[str, BinaryIO, str | None]] | None = None,
         unwrap: bool = True,
+        timeout: float | None = None,
     ) -> Any:
+        # Use per-request timeout if provided, otherwise use client default
+        effective_timeout = timeout if timeout is not None else self._timeout
         try:
             response = self._client.request(
                 method=method,
@@ -168,7 +167,7 @@ class AcontextClient:
                 json=json_data,
                 data=data,
                 files=files,
-                timeout=self._timeout,
+                timeout=effective_timeout,
             )
         except httpx.HTTPError as exc:  # pragma: no cover - passthrough to caller
             raise TransportError(str(exc)) from exc

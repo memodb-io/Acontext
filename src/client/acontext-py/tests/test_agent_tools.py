@@ -1,12 +1,46 @@
-"""Tests for agent tools (DISK_TOOLS and SKILL_TOOLS)."""
+"""Tests for agent tools (DISK_TOOLS, SKILL_TOOLS, and SANDBOX_TOOLS)."""
 
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from acontext.agent.disk import DISK_TOOLS, DiskContext
+from acontext.agent.sandbox import SANDBOX_TOOLS
 from acontext.agent.skill import SKILL_TOOLS, SkillContext
 from acontext.client import AcontextClient
+
+
+def _validate_openai_schema_properties(properties: dict, path: str = "") -> None:
+    """Validate that OpenAI tool schema properties are correctly defined.
+
+    OpenAI requires array types to have 'items' defined.
+
+    Args:
+        properties: The properties dict from a JSON schema.
+        path: Current path for error messages.
+
+    Raises:
+        AssertionError: If schema validation fails.
+    """
+    for prop_name, prop_schema in properties.items():
+        current_path = f"{path}.{prop_name}" if path else prop_name
+        prop_type = prop_schema.get("type")
+
+        # Handle type as list (e.g., ["array", "null"])
+        types_to_check = prop_type if isinstance(prop_type, list) else [prop_type]
+
+        for t in types_to_check:
+            if t == "array":
+                assert "items" in prop_schema, (
+                    f"Property '{current_path}' has type 'array' but missing 'items'. "
+                    f"OpenAI requires array schemas to define items."
+                )
+
+        # Recursively check nested properties
+        if "properties" in prop_schema:
+            _validate_openai_schema_properties(
+                prop_schema["properties"], current_path
+            )
 
 
 @pytest.fixture
@@ -31,16 +65,16 @@ class TestDiskTools:
         assert isinstance(schemas, list)
         assert (
             len(schemas) == 7
-        )  # write_file, read_file, replace_string, list_artifacts, grep_artifacts, glob_artifacts, download_file
+        )  # write_file_disk, read_file_disk, replace_string_disk, list_disk, grep_disk, glob_disk, download_file_disk
 
         tool_names = [s["function"]["name"] for s in schemas]
-        assert "write_file" in tool_names
-        assert "read_file" in tool_names
-        assert "replace_string" in tool_names
-        assert "list_artifacts" in tool_names
-        assert "grep_artifacts" in tool_names
-        assert "glob_artifacts" in tool_names
-        assert "download_file" in tool_names
+        assert "write_file_disk" in tool_names
+        assert "read_file_disk" in tool_names
+        assert "replace_string_disk" in tool_names
+        assert "list_disk" in tool_names
+        assert "grep_disk" in tool_names
+        assert "glob_disk" in tool_names
+        assert "download_file_disk" in tool_names
 
     def test_disk_tools_anthropic_schema(self) -> None:
         """Test Anthropic tool schema generation."""
@@ -50,15 +84,15 @@ class TestDiskTools:
 
     def test_disk_tools_tool_exists(self) -> None:
         """Test tool_exists method."""
-        assert DISK_TOOLS.tool_exists("write_file")
-        assert DISK_TOOLS.tool_exists("read_file")
+        assert DISK_TOOLS.tool_exists("write_file_disk")
+        assert DISK_TOOLS.tool_exists("read_file_disk")
         assert not DISK_TOOLS.tool_exists("nonexistent_tool")
 
     @patch("acontext.client.AcontextClient.request")
     def test_write_file_tool(
         self, mock_request: MagicMock, disk_ctx: DiskContext
     ) -> None:
-        """Test write_file tool execution."""
+        """Test write_file_disk tool execution."""
         mock_request.return_value = {
             "disk_id": "disk-123",
             "path": "/test.txt",
@@ -70,7 +104,7 @@ class TestDiskTools:
 
         result = DISK_TOOLS.execute_tool(
             disk_ctx,
-            "write_file",
+            "write_file_disk",
             {"filename": "test.txt", "content": "Hello, world!"},
         )
 
@@ -84,7 +118,7 @@ class TestDiskTools:
     def test_read_file_tool(
         self, mock_request: MagicMock, disk_ctx: DiskContext
     ) -> None:
-        """Test read_file tool execution."""
+        """Test read_file_disk tool execution."""
         mock_request.return_value = {
             "artifact": {
                 "disk_id": "disk-123",
@@ -102,7 +136,7 @@ class TestDiskTools:
 
         result = DISK_TOOLS.execute_tool(
             disk_ctx,
-            "read_file",
+            "read_file_disk",
             {"filename": "test.txt", "line_offset": 1, "line_limit": 2},
         )
 
@@ -114,7 +148,7 @@ class TestDiskTools:
     def test_replace_string_tool(
         self, mock_request: MagicMock, disk_ctx: DiskContext
     ) -> None:
-        """Test replace_string tool execution."""
+        """Test replace_string_disk tool execution."""
         # Mock read response
         read_response = {
             "artifact": {
@@ -144,7 +178,7 @@ class TestDiskTools:
 
         result = DISK_TOOLS.execute_tool(
             disk_ctx,
-            "replace_string",
+            "replace_string_disk",
             {
                 "filename": "test.txt",
                 "old_string": "Hello",
@@ -156,10 +190,8 @@ class TestDiskTools:
         assert mock_request.call_count == 2  # One read, one write
 
     @patch("acontext.client.AcontextClient.request")
-    def test_list_artifacts_tool(
-        self, mock_request: MagicMock, disk_ctx: DiskContext
-    ) -> None:
-        """Test list_artifacts tool execution."""
+    def test_list_tool(self, mock_request: MagicMock, disk_ctx: DiskContext) -> None:
+        """Test list_disk tool execution."""
         mock_request.return_value = {
             "artifacts": [
                 {
@@ -176,7 +208,7 @@ class TestDiskTools:
 
         result = DISK_TOOLS.execute_tool(
             disk_ctx,
-            "list_artifacts",
+            "list_disk",
             {"file_path": "/"},
         )
 
@@ -185,12 +217,12 @@ class TestDiskTools:
         mock_request.assert_called_once()
 
     def test_write_file_tool_validation(self, disk_ctx: DiskContext) -> None:
-        """Test write_file tool parameter validation."""
+        """Test write_file_disk tool parameter validation."""
         with pytest.raises(ValueError, match="filename is required"):
-            DISK_TOOLS.execute_tool(disk_ctx, "write_file", {"content": "test"})
+            DISK_TOOLS.execute_tool(disk_ctx, "write_file_disk", {"content": "test"})
 
         with pytest.raises(ValueError, match="content is required"):
-            DISK_TOOLS.execute_tool(disk_ctx, "write_file", {"filename": "test.txt"})
+            DISK_TOOLS.execute_tool(disk_ctx, "write_file_disk", {"filename": "test.txt"})
 
 
 class TestSkillTools:
@@ -200,10 +232,9 @@ class TestSkillTools:
         """Test that tools can generate OpenAI tool schemas."""
         schemas = SKILL_TOOLS.to_openai_tool_schema()
         assert isinstance(schemas, list)
-        assert len(schemas) == 3  # list_skills, get_skill, get_skill_file
+        assert len(schemas) == 2  # get_skill, get_skill_file
 
         tool_names = [s["function"]["name"] for s in schemas]
-        assert "list_skills" in tool_names
         assert "get_skill" in tool_names
         assert "get_skill_file" in tool_names
 
@@ -211,11 +242,10 @@ class TestSkillTools:
         """Test Anthropic tool schema generation."""
         schemas = SKILL_TOOLS.to_anthropic_tool_schema()
         assert isinstance(schemas, list)
-        assert len(schemas) == 3
+        assert len(schemas) == 2
 
     def test_skill_tools_tool_exists(self) -> None:
         """Test tool_exists method."""
-        assert SKILL_TOOLS.tool_exists("list_skills")
         assert SKILL_TOOLS.tool_exists("get_skill")
         assert SKILL_TOOLS.tool_exists("get_skill_file")
         assert not SKILL_TOOLS.tool_exists("nonexistent_tool")
@@ -283,28 +313,6 @@ class TestSkillTools:
 
         with pytest.raises(ValueError, match="Duplicate skill name"):
             SkillContext.create(mock_client, ["skill-1", "skill-2"])
-
-    @patch("acontext.client.AcontextClient.request")
-    def test_list_skills_tool(
-        self, mock_request: MagicMock, mock_client: AcontextClient
-    ) -> None:
-        """Test list_skills tool execution."""
-        mock_request.return_value = {
-            "id": "skill-1",
-            "name": "test-skill",
-            "description": "Test skill description",
-            "file_index": [],
-            "meta": {},
-            "created_at": "2024-01-01T00:00:00Z",
-            "updated_at": "2024-01-01T00:00:00Z",
-        }
-
-        ctx = SKILL_TOOLS.format_context(mock_client, ["skill-1"])
-        result = SKILL_TOOLS.execute_tool(ctx, "list_skills", {})
-
-        assert "test-skill" in result
-        assert "Test skill description" in result
-        assert "Available skills (1)" in result
 
     @patch("acontext.client.AcontextClient.request")
     def test_get_skill_tool(
@@ -442,3 +450,80 @@ class TestSkillTools:
             SKILL_TOOLS.execute_tool(
                 ctx, "get_skill_file", {"skill_name": "test-skill"}
             )
+
+
+class TestSandboxTools:
+    """Tests for SANDBOX_TOOLS."""
+
+    def test_sandbox_tools_schema_generation(self) -> None:
+        """Test that tools can generate OpenAI tool schemas."""
+        schemas = SANDBOX_TOOLS.to_openai_tool_schema()
+        assert isinstance(schemas, list)
+        assert (
+            len(schemas) == 3
+        )  # bash_execution_sandbox, text_editor_sandbox, export_file_sandbox
+
+        tool_names = [s["function"]["name"] for s in schemas]
+        assert "bash_execution_sandbox" in tool_names
+        assert "text_editor_sandbox" in tool_names
+        assert "export_file_sandbox" in tool_names
+
+    def test_sandbox_tools_anthropic_schema(self) -> None:
+        """Test Anthropic tool schema generation."""
+        schemas = SANDBOX_TOOLS.to_anthropic_tool_schema()
+        assert isinstance(schemas, list)
+        assert len(schemas) == 3
+
+    def test_sandbox_tools_tool_exists(self) -> None:
+        """Test tool_exists method."""
+        assert SANDBOX_TOOLS.tool_exists("bash_execution_sandbox")
+        assert SANDBOX_TOOLS.tool_exists("text_editor_sandbox")
+        assert SANDBOX_TOOLS.tool_exists("export_file_sandbox")
+        assert not SANDBOX_TOOLS.tool_exists("nonexistent_tool")
+
+    def test_openai_schema_array_types_have_items(self) -> None:
+        """Test that all array types in OpenAI schema have 'items' defined.
+
+        OpenAI Function Calling requires array types to specify their items schema.
+        This test ensures we don't regress on this requirement.
+        """
+        schemas = SANDBOX_TOOLS.to_openai_tool_schema()
+
+        for schema in schemas:
+            func_name = schema["function"]["name"]
+            properties = schema["function"]["parameters"].get("properties", {})
+            _validate_openai_schema_properties(properties, func_name)
+
+    def test_text_editor_view_range_schema(self) -> None:
+        """Test that text_editor_sandbox view_range has correct schema."""
+        schemas = SANDBOX_TOOLS.to_openai_tool_schema()
+
+        text_editor_schema = next(
+            s for s in schemas if s["function"]["name"] == "text_editor_sandbox"
+        )
+        properties = text_editor_schema["function"]["parameters"]["properties"]
+
+        # view_range should be array|null with items
+        view_range = properties["view_range"]
+        assert view_range["type"] == ["array", "null"]
+        assert "items" in view_range
+        assert view_range["items"]["type"] == "integer"
+
+
+class TestAllToolsSchemaValidation:
+    """Cross-cutting tests for all tool pools."""
+
+    def test_all_tool_pools_openai_schema_valid(self) -> None:
+        """Validate OpenAI schemas for all tool pools have valid array definitions."""
+        tool_pools = [
+            ("DISK_TOOLS", DISK_TOOLS),
+            ("SKILL_TOOLS", SKILL_TOOLS),
+            ("SANDBOX_TOOLS", SANDBOX_TOOLS),
+        ]
+
+        for pool_name, pool in tool_pools:
+            schemas = pool.to_openai_tool_schema()
+            for schema in schemas:
+                func_name = f"{pool_name}.{schema['function']['name']}"
+                properties = schema["function"]["parameters"].get("properties", {})
+                _validate_openai_schema_properties(properties, func_name)

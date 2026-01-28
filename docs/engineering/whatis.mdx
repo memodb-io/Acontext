@@ -2,18 +2,24 @@
 title: What is Context Engineering?
 ---
 
-Context Engineering is an emerging discipline focused on designing, managing, and optimizing the information provided to large language models (LLMs) and AI agents to enhance their performance, reliability, and consistency. 
-
-While prompt engineering concentrates on crafting specific inputs, context engineering encompasses the entire spectrum of contextual elements that influence an AI system's behavior and outputs.
+Context Engineering is designing and optimizing the information provided to LLMs and AI agents. While prompt engineering focuses on specific inputs, context engineering covers the entire spectrum of contextual elements.
 
 <Frame caption="https://blog.langchain.com/context-engineering-for-agents/">
-<img src="/images/context_editing.png" alt="Diagram illustrating the context editing process with information flow between user input, context management, and AI agent responses" />
+<img src="/images/context_editing.png" alt="Context editing process" />
 </Frame>
 
-**Context Editing** is the most important part of context engineering that keep your agent running smoothly.
+## Acontext Features
 
+- **[Context Editing](/engineering/editing)**: Manage context window size on-the-fly
+- **[Session Summary](/engineering/session_summary)**: Get compact task summaries for prompts
+- **[Agent Skills](/engineering/agent_skills)**: Empower agents with reusable skills
 
-### Further Reading
+<Frame caption="Acontext Context Editing">
+<img src="/images/acontext-context-editing.png" alt="Context editing diagram" />
+</Frame>
+
+## Further Reading
+
 - [Context Editing by Anthropic](https://platform.claude.com/docs/en/build-with-claude/context-editing)
 - [Context Engineering Handbook](https://github.com/davidkimai/Context-Engineering)
 - [Context Engineering by Langgraph](https://blog.langchain.com/context-engineering-for-agents/)
