@@ -296,7 +296,13 @@ class AsyncSessionsAPI:
         format: Literal["acontext", "openai", "anthropic", "gemini"] = "openai",
         time_desc: bool | None = None,
         edit_strategies: Optional[List[EditStrategy]] = None,
+        # editing_trigger triggers edit_strategies (v0 supports {"token_gte": int}).
+        editing_trigger: dict[str, Any] | None = None,
         pin_editing_strategies_at_message: str | None = None,
+        # auto_trim_token_threshold is the token threshold for auto-trim.
+        auto_trim_token_threshold: int | None = None,
+        # auto_trim_strategy is the auto-trim strategy name (v0 only remove_tool_result).
+        auto_trim_strategy: Literal["remove_tool_result"] | None = None,
     ) -> GetMessagesOutput:
         """Get messages for a session.
 
@@ -314,12 +320,15 @@ class AsyncSessionsAPI:
                     - Middle out: [{"type": "middle_out", "params": {"token_reduce_to": 5000}}]
                     - Token limit: [{"type": "token_limit", "params": {"limit_tokens": 20000}}]
                 Defaults to None.
+            editing_trigger: Trigger config for edit_strategies, e.g. {"token_gte": 30000}. Defaults to None.
             pin_editing_strategies_at_message: Message ID to pin editing strategies at.
                 When provided, strategies are only applied to messages up to and including
                 this message ID, keeping subsequent messages unchanged. This helps maintain
                 prompt cache stability by preserving a stable prefix. The response includes
                 edit_at_message_id indicating where strategies were applied. Pass this value
                 in subsequent requests to maintain cache hits. Defaults to None.
+            auto_trim_token_threshold: Token threshold that triggers auto-trim. Defaults to None.
+            auto_trim_strategy: Auto-trim strategy name (v0 only "remove_tool_result"). Defaults to None.
 
         Returns:
             GetMessagesOutput containing the list of messages and pagination information.
@@ -337,10 +346,20 @@ class AsyncSessionsAPI:
         )
         if edit_strategies is not None:
             params["edit_strategies"] = json.dumps(edit_strategies)
+        if editing_trigger is not None:
+            if isinstance(editing_trigger, BaseModel):
+                editing_trigger = editing_trigger.model_dump()
+            params["editing_trigger"] = json.dumps(editing_trigger)
         if pin_editing_strategies_at_message is not None:
             params["pin_editing_strategies_at_message"] = (
                 pin_editing_strategies_at_message
             )
+        # Add auto-trim token threshold when provided.
+        if auto_trim_token_threshold is not None:
+            params["auto_trim_token_threshold"] = auto_trim_token_threshold
+        # Add auto-trim strategy when provided.
+        if auto_trim_strategy is not None:
+            params["auto_trim_strategy"] = auto_trim_strategy
         data = await self._requester.request(
             "GET", f"/session/{session_id}/messages", params=params or None
         )
