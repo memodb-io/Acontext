@@ -19,7 +19,7 @@ from .utils import check_redis_lock_or_set, release_redis_lock
 
 
 async def waiting_for_message_notify(wait_for_seconds: int, body: InsertNewMessage):
-    LOG.info(
+    LOG.debug(
         f"Session message buffer is not full, wait {wait_for_seconds} seconds for next turn/idle notify"
     )
     await asyncio.sleep(wait_for_seconds)
