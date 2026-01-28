@@ -16,8 +16,8 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/openai/openai-go/v3 v3.16.0
 	github.com/rabbitmq/amqp091-go v1.10.0
-	github.com/redis/go-redis/extra/redisotel/v9 v9.17.2
-	github.com/redis/go-redis/v9 v9.17.2
+	github.com/redis/go-redis/extra/redisotel/v9 v9.17.3
+	github.com/redis/go-redis/v9 v9.17.3
 	github.com/samber/do v1.6.0
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.11.1
@@ -128,7 +128,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/quic-go/qpack v0.6.0 // indirect
 	github.com/quic-go/quic-go v0.59.0 // indirect
-	github.com/redis/go-redis/extra/rediscmd/v9 v9.17.2 // indirect
+	github.com/redis/go-redis/extra/rediscmd/v9 v9.17.3 // indirect
 	github.com/sagikazarmark/locafero v0.12.0 // indirect
 	github.com/segmentio/asm v1.2.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
