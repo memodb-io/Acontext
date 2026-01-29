@@ -118,7 +118,7 @@ importers:
         version: 19.2.4
       react-arborist:
         specifier: ^3.4.3
-        version: 3.4.3(@types/node@25.0.10)(@types/react@19.2.10)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+        version: 3.4.3(@types/node@25.1.0)(@types/react@19.2.10)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       react-dom:
         specifier: 19.2.4
         version: 19.2.4(react@19.2.4)
@@ -149,7 +149,7 @@ importers:
         version: 4.1.18
       '@types/node':
         specifier: ^25
-        version: 25.0.10
+        version: 25.1.0
       '@types/pg':
         specifier: ^8.16.0
         version: 8.16.0
@@ -1421,8 +1421,8 @@ packages:
   '@types/json5@0.0.29':
     resolution: {integrity: sha512-dRLjCWHYg4oaA77cxO64oO+7JwCwnIzkZPdrrC71jQmQtlhM556pwKo5bUzqvZndkVbeFLIIi+9TC40JNF5hNQ==}
 
-  '@types/node@25.0.10':
-    resolution: {integrity: sha512-zWW5KPngR/yvakJgGOmZ5vTBemDoSqF3AcV/LrO5u5wTWyEAVVh+IT39G4gtyAkh3CtTZs8aX/yRM82OfzHJRg==}
+  '@types/node@25.1.0':
+    resolution: {integrity: sha512-t7frlewr6+cbx+9Ohpl0NOTKXZNV9xHRmNOvql47BFJKcEG1CxtxlPEEe+gR9uhVWM4DwhnvTF110mIL4yP9RA==}
 
   '@types/pg@8.16.0':
     resolution: {integrity: sha512-RmhMd/wD+CF8Dfo+cVIy3RR5cl8CyfXQ0tGgW6XBL8L4LM/UTEbNXYRbLwU6w+CgrKBNbrQWt4FUtTfaU5jSYQ==}
@@ -4483,13 +4483,13 @@ snapshots:
 
   '@types/json5@0.0.29': {}
 
-  '@types/node@25.0.10':
+  '@types/node@25.1.0':
     dependencies:
       undici-types: 7.16.0
 
   '@types/pg@8.16.0':
     dependencies:
-      '@types/node': 25.0.10
+      '@types/node': 25.1.0
       pg-protocol: 1.11.0
       pg-types: 2.2.0
 
@@ -5978,10 +5978,10 @@ snapshots:
 
   queue-microtask@1.2.3: {}
 
-  react-arborist@3.4.3(@types/node@25.0.10)(@types/react@19.2.10)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
+  react-arborist@3.4.3(@types/node@25.1.0)(@types/react@19.2.10)(react-dom@19.2.4(react@19.2.4))(react@19.2.4):
     dependencies:
       react: 19.2.4
-      react-dnd: 14.0.5(@types/node@25.0.10)(@types/react@19.2.10)(react@19.2.4)
+      react-dnd: 14.0.5(@types/node@25.1.0)(@types/react@19.2.10)(react@19.2.4)
       react-dnd-html5-backend: 14.1.0
       react-dom: 19.2.4(react@19.2.4)
       react-window: 1.8.11(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -5996,7 +5996,7 @@ snapshots:
     dependencies:
       dnd-core: 14.0.1
 
-  react-dnd@14.0.5(@types/node@25.0.10)(@types/react@19.2.10)(react@19.2.4):
+  react-dnd@14.0.5(@types/node@25.1.0)(@types/react@19.2.10)(react@19.2.4):
     dependencies:
       '@react-dnd/invariant': 2.0.0
       '@react-dnd/shallowequal': 2.0.0
@@ -6005,7 +6005,7 @@ snapshots:
       hoist-non-react-statics: 3.3.2
       react: 19.2.4
     optionalDependencies:
-      '@types/node': 25.0.10
+      '@types/node': 25.1.0
       '@types/react': 19.2.10
 
   react-dom@19.2.4(react@19.2.4):
