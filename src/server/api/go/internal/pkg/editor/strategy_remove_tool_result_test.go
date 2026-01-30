@@ -4,11 +4,76 @@ import (
 	"testing"
 
 	"github.com/memodb-io/Acontext/internal/modules/model"
+	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestRemoveToolResultStrategy_Apply(t *testing.T) {
+	log := zaptest.NewLogger(t)
+	err := tokenizer.Init(log)
+	require.NoError(t, err, "failed to initialize tokenizer")
+
+	t.Run("replaces only tool results above gt_token threshold", func(t *testing.T) {
+		messages := []model.Message{
+			{
+				Role: "user",
+				Parts: []model.Part{
+					{Type: "tool-result", Text: "short result", Meta: map[string]interface{}{"tool_call_id": "call1"}},
+				},
+			},
+			{
+				Role: "user",
+				Parts: []model.Part{
+					{Type: "tool-result", Text: "this is a very long tool result that should exceed the token threshold for replacement", Meta: map[string]interface{}{"tool_call_id": "call2"}},
+				},
+			},
+		}
+
+		params := map[string]interface{}{"keep_recent_n_tool_results": 0, "tool_result_placeholder": "Trimmed", "gt_token": 10}
+		strategy, err := createRemoveToolResultStrategy(params)
+		assert.NoError(t, err)
+		result, err := strategy.Apply(messages)
+		assert.NoError(t, err)
+		assert.Equal(t, "short result", result[0].Parts[0].Text)
+		assert.Equal(t, "Trimmed", result[1].Parts[0].Text)
+	})
+
+	t.Run("keep_recent_n applies before gt_token", func(t *testing.T) {
+		longText := "this is a long tool result that should remain because it is recent"
+		tokCount, err := tokenizer.CountTokens(longText)
+		require.NoError(t, err)
+		require.Greater(t, tokCount, 1)
+
+		messages := []model.Message{
+			{
+				Role: "user",
+				Parts: []model.Part{
+					{Type: "tool-result", Text: longText, Meta: map[string]interface{}{"tool_call_id": "call1"}},
+				},
+			},
+			{
+				Role: "user",
+				Parts: []model.Part{
+					{Type: "tool-result", Text: longText, Meta: map[string]interface{}{"tool_call_id": "call2"}},
+				},
+			},
+		}
+
+		params := map[string]interface{}{
+			"keep_recent_n_tool_results": 1,
+			"tool_result_placeholder":    "Trimmed",
+			"gt_token":                   tokCount - 1,
+		}
+		strategy, err := createRemoveToolResultStrategy(params)
+		require.NoError(t, err)
+		result, err := strategy.Apply(messages)
+		require.NoError(t, err)
+		assert.Equal(t, "Trimmed", result[0].Parts[0].Text)
+		assert.Equal(t, longText, result[1].Parts[0].Text)
+	})
+
 	t.Run("replace oldest tool results", func(t *testing.T) {
 		messages := []model.Message{
 			{
@@ -60,17 +125,11 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Len(t, result, 7)
-
-		// First tool result should be replaced
 		assert.Equal(t, "Done", result[2].Parts[0].Text)
 		assert.Equal(t, "tool-result", result[2].Parts[0].Type)
 		assert.NotNil(t, result[2].Parts[0].Meta)
-
-		// Second tool result should be replaced
 		assert.Equal(t, "Done", result[4].Parts[0].Text)
 		assert.Equal(t, "tool-result", result[4].Parts[0].Type)
-
-		// Most recent tool result should keep original text
 		assert.Equal(t, "Current temp: 75°F", result[6].Parts[0].Text)
 		assert.Equal(t, "tool-result", result[6].Parts[0].Type)
 	})
@@ -95,7 +154,6 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 		result, err := strategy.Apply(messages)
 
 		require.NoError(t, err)
-		// Both should keep original text
 		assert.Equal(t, "Result 1", result[0].Parts[0].Text)
 		assert.Equal(t, "Result 2", result[1].Parts[0].Text)
 	})
@@ -120,7 +178,6 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 		result, err := strategy.Apply(messages)
 
 		require.NoError(t, err)
-		// All should be replaced
 		assert.Equal(t, "Done", result[0].Parts[0].Text)
 		assert.Equal(t, "Done", result[1].Parts[0].Text)
 	})
@@ -172,13 +229,9 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 		result, err := strategy.Apply(messages)
 
 		require.NoError(t, err)
-		// First part should remain unchanged
 		assert.Equal(t, "Question", result[0].Parts[0].Text)
-		// First tool-result should be replaced
 		assert.Equal(t, "Done", result[0].Parts[1].Text)
-		// Second message first part should remain unchanged
 		assert.Equal(t, "Answer", result[1].Parts[0].Text)
-		// Recent tool-result should keep original text
 		assert.Equal(t, "Recent result", result[1].Parts[1].Text)
 	})
 
@@ -219,9 +272,7 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 		result, err := strategy.Apply(messages)
 
 		require.NoError(t, err)
-		// First should be replaced with custom placeholder
 		assert.Equal(t, "Removed", result[0].Parts[0].Text)
-		// Second should keep original
 		assert.Equal(t, "Result 2", result[1].Parts[0].Text)
 	})
 
@@ -286,10 +337,8 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 		result, err := strategy.Apply(messages)
 
 		require.NoError(t, err)
-		// important_tool results should be kept
 		assert.Equal(t, "Important result", result[1].Parts[0].Text)
 		assert.Equal(t, "Another important result", result[5].Parts[0].Text)
-		// regular_tool result should be replaced
 		assert.Equal(t, "Done", result[3].Parts[0].Text)
 	})
 
@@ -333,16 +382,12 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 			},
 		}
 
-		// Keep 1 recent regular tool result + all important_tool results
 		strategy := &RemoveToolResultStrategy{KeepRecentN: 1, KeepTools: []string{"important_tool"}}
 		result, err := strategy.Apply(messages)
 
 		require.NoError(t, err)
-		// Old regular result should be replaced
 		assert.Equal(t, "Done", result[1].Parts[0].Text)
-		// important_tool result should be kept
 		assert.Equal(t, "Important result", result[3].Parts[0].Text)
-		// Recent regular result should be kept (within keep_recent_n)
 		assert.Equal(t, "Recent regular result", result[5].Parts[0].Text)
 	})
 
@@ -390,10 +435,8 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 		result, err := strategy.Apply(messages)
 
 		require.NoError(t, err)
-		// tool_a and tool_c should be kept
 		assert.Equal(t, "Result A", result[1].Parts[0].Text)
 		assert.Equal(t, "Result C", result[5].Parts[0].Text)
-		// tool_b should be replaced
 		assert.Equal(t, "Done", result[3].Parts[0].Text)
 	})
 }
@@ -463,6 +506,34 @@ func TestCreateRemoveToolResultStrategy(t *testing.T) {
 		assert.Contains(t, err.Error(), "must be an integer")
 	})
 
+	t.Run("invalid gt_token type returns error", func(t *testing.T) {
+		config := StrategyConfig{
+			Type: "remove_tool_result",
+			Params: map[string]interface{}{
+				"gt_token": "invalid",
+			},
+		}
+
+		_, err := CreateStrategy(config)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "gt_token must be an integer")
+	})
+
+	t.Run("gt_token must be > 0", func(t *testing.T) {
+		config := StrategyConfig{
+			Type: "remove_tool_result",
+			Params: map[string]interface{}{
+				"gt_token": 0,
+			},
+		}
+
+		_, err := CreateStrategy(config)
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "gt_token must be > 0")
+	})
+
 	t.Run("create with custom placeholder", func(t *testing.T) {
 		config := StrategyConfig{
 			Type: "remove_tool_result",
@@ -485,7 +556,7 @@ func TestCreateRemoveToolResultStrategy(t *testing.T) {
 		config := StrategyConfig{
 			Type: "remove_tool_result",
 			Params: map[string]interface{}{
-				"tool_result_placeholder": 123, // Not a string
+				"tool_result_placeholder": 123,
 			},
 		}
 

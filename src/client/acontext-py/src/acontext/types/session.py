@@ -15,11 +15,14 @@ class RemoveToolResultParams(TypedDict, total=False):
             Defaults to "Done" if not specified.
         keep_tools: List of tool names that should never have their results removed.
             Tool results from these tools are always kept regardless of keep_recent_n_tool_results.
+        gt_token: Only remove tool results whose text has more than this many tokens.
+            If omitted, all tool results are eligible for removal.
     """
 
     keep_recent_n_tool_results: NotRequired[int]
     tool_result_placeholder: NotRequired[str]
     keep_tools: NotRequired[list[str]]
+    gt_token: NotRequired[int]
 
 
 class RemoveToolResultStrategy(TypedDict):
@@ -41,10 +44,13 @@ class RemoveToolCallParamsParams(TypedDict, total=False):
             Defaults to 3 if not specified.
         keep_tools: List of tool names that should never have their parameters removed.
             Tool calls for these tools always keep their full parameters regardless of keep_recent_n_tool_calls.
+        gt_token: Only remove tool call params whose arguments have more than this many tokens.
+            If omitted, all tool calls are eligible for removal.
     """
 
     keep_recent_n_tool_calls: NotRequired[int]
     keep_tools: NotRequired[list[str]]
+    gt_token: NotRequired[int]
 
 
 class RemoveToolCallParamsStrategy(TypedDict):
