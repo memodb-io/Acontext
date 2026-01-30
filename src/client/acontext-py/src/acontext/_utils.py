@@ -54,7 +54,7 @@ def validate_edit_strategies(edit_strategies: Iterable[dict[str, Any]]) -> None:
         if "gt_token" not in params:
             continue
         gt_token = params["gt_token"]
-        if isinstance(gt_token, bool) or not isinstance(gt_token, (int, float)):
-            raise ValueError("gt_token must be a number >= 1")
+        if isinstance(gt_token, bool) or not isinstance(gt_token, int):
+            raise ValueError("gt_token must be an integer >= 1")
         if gt_token < 1:
             raise ValueError("gt_token must be >= 1")

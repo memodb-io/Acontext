@@ -237,6 +237,7 @@ export class SessionsAPI {
    *   - Remove large tool call params: [{ type: 'remove_tool_call_params', params: { gt_token: 100 } }]
    *   - Middle out: [{ type: 'middle_out', params: { token_reduce_to: 5000 } }]
    *   - Token limit: [{ type: 'token_limit', params: { limit_tokens: 20000 } }]
+   *   Throws if editStrategies fail schema validation.
    * @param options.pinEditingStrategiesAtMessage - Message ID to pin editing strategies at.
    *   When provided, strategies are only applied to messages up to and including this message ID,
    *   keeping subsequent messages unchanged. This helps maintain prompt cache stability by
