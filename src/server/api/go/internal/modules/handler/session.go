@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"mime/multipart"
@@ -43,27 +44,29 @@ type CreateSessionReq struct {
 }
 
 type GetSessionsReq struct {
-	User     string `form:"user" json:"user" example:"alice@acontext.io"`
-	Limit    int    `form:"limit,default=20" json:"limit" binding:"required,min=1,max=200" example:"20"`
-	Cursor   string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
-	TimeDesc bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
+	User            string `form:"user" json:"user" example:"alice@acontext.io"`
+	Limit           int    `form:"limit,default=20" json:"limit" binding:"required,min=1,max=200" example:"20"`
+	Cursor          string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
+	TimeDesc        bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
+	FilterByConfigs string `form:"filter_by_configs" json:"filter_by_configs"` // JSON-encoded string for JSONB containment filter
 }
 
 // GetSessions godoc
 //
 //	@Summary		Get sessions
-//	@Description	Get all sessions under a project, optionally filtered by user
+//	@Description	Get all sessions under a project, optionally filtered by user or configs
 //	@Tags			session
 //	@Accept			json
 //	@Produce		json
-//	@Param			user		query	string	false	"User identifier to filter sessions"	example(alice@acontext.io)
-//	@Param			limit		query	integer	false	"Limit of sessions to return, default 20. Max 200."
-//	@Param			cursor		query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
-//	@Param			time_desc	query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example(false)
+//	@Param			user				query	string	false	"User identifier to filter sessions"	example(alice@acontext.io)
+//	@Param			filter_by_configs	query	string	false	"JSON-encoded object for JSONB containment filter. Example: {\"agent\":\"bot1\"}"
+//	@Param			limit				query	integer	false	"Limit of sessions to return, default 20. Max 200."
+//	@Param			cursor				query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
+//	@Param			time_desc			query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example(false)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.ListSessionsOutput}
 //	@Router			/session [get]
-//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List sessions\nsessions = client.sessions.list(\n    limit=20,\n    time_desc=True\n)\nfor session in sessions.items:\n    print(f\"{session.id}\")\n\n# List sessions for a specific user\nsessions = client.sessions.list(user='alice@acontext.io', limit=20)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List sessions\nconst sessions = await client.sessions.list({\n  limit: 20,\n  timeDesc: true\n});\nfor (const session of sessions.items) {\n  console.log(`${session.id}`);\n}\n\n// List sessions for a specific user\nconst userSessions = await client.sessions.list({ user: 'alice@acontext.io', limit: 20 });\n","label":"JavaScript"}]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List sessions\nsessions = client.sessions.list(\n    limit=20,\n    time_desc=True\n)\nfor session in sessions.items:\n    print(f\"{session.id}\")\n\n# List sessions for a specific user\nsessions = client.sessions.list(user='alice@acontext.io', limit=20)\n\n# List sessions filtered by configs\nsessions = client.sessions.list(\n    limit=20,\n    filter_by_configs={\"agent\": \"bot1\"}\n)\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List sessions\nconst sessions = await client.sessions.list({\n  limit: 20,\n  timeDesc: true\n});\nfor (const session of sessions.items) {\n  console.log(`${session.id}`);\n}\n\n// List sessions for a specific user\nconst userSessions = await client.sessions.list({ user: 'alice@acontext.io', limit: 20 });\n\n// List sessions filtered by configs\nconst filteredSessions = await client.sessions.list({\n  limit: 20,\n  filterByConfigs: { agent: 'bot1' }\n});\n","label":"JavaScript"}]
 func (h *SessionHandler) GetSessions(c *gin.Context) {
 	req := GetSessionsReq{}
 	if err := c.ShouldBind(&req); err != nil {
@@ -77,12 +80,26 @@ func (h *SessionHandler) GetSessions(c *gin.Context) {
 		return
 	}
 
+	// Parse filter_by_configs JSON string
+	var filterByConfigs map[string]interface{}
+	if req.FilterByConfigs != "" {
+		if err := json.Unmarshal([]byte(req.FilterByConfigs), &filterByConfigs); err != nil {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid filter_by_configs JSON", err))
+			return
+		}
+		// Skip empty object - treat as no filter
+		if len(filterByConfigs) == 0 {
+			filterByConfigs = nil
+		}
+	}
+
 	out, err := h.svc.List(c.Request.Context(), service.ListSessionsInput{
-		ProjectID: project.ID,
-		User:      req.User,
-		Limit:     req.Limit,
-		Cursor:    req.Cursor,
-		TimeDesc:  req.TimeDesc,
+		ProjectID:       project.ID,
+		User:            req.User,
+		FilterByConfigs: filterByConfigs,
+		Limit:           req.Limit,
+		Cursor:          req.Cursor,
+		TimeDesc:        req.TimeDesc,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))

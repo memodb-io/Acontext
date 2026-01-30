@@ -392,6 +392,72 @@ def test_store_message_rejects_file_field_for_non_acontext_format(
 
 
 @patch("acontext.client.AcontextClient.request")
+def test_sessions_list_filter_by_configs(mock_request, client: AcontextClient) -> None:
+    """Test that filter_by_configs is JSON-encoded and sent to API."""
+    mock_request.return_value = {"items": [], "has_more": False}
+
+    client.sessions.list(filter_by_configs={"agent": "bot1"})
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/session"
+    assert "filter_by_configs" in kwargs["params"]
+    # Verify it's JSON encoded
+    decoded = json.loads(kwargs["params"]["filter_by_configs"])
+    assert decoded == {"agent": "bot1"}
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sessions_list_filter_by_configs_empty_not_sent(
+    mock_request, client: AcontextClient
+) -> None:
+    """Test that empty dict {} filter is not sent to API."""
+    mock_request.return_value = {"items": [], "has_more": False}
+
+    client.sessions.list(filter_by_configs={})
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    # Empty filter should not be included in params
+    assert "filter_by_configs" not in kwargs.get("params", {})
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sessions_list_filter_by_configs_nested(
+    mock_request, client: AcontextClient
+) -> None:
+    """Test that nested objects are properly JSON-encoded."""
+    mock_request.return_value = {"items": [], "has_more": False}
+
+    client.sessions.list(filter_by_configs={"agent": {"name": "bot1", "version": "2.0"}})
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    assert "filter_by_configs" in kwargs["params"]
+    decoded = json.loads(kwargs["params"]["filter_by_configs"])
+    assert decoded == {"agent": {"name": "bot1", "version": "2.0"}}
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sessions_list_filter_by_configs_with_user(
+    mock_request, client: AcontextClient
+) -> None:
+    """Test that filter_by_configs can be combined with user filter."""
+    mock_request.return_value = {"items": [], "has_more": False}
+
+    client.sessions.list(user="alice@example.com", filter_by_configs={"agent": "bot1"})
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    assert kwargs["params"]["user"] == "alice@example.com"
+    assert "filter_by_configs" in kwargs["params"]
+    decoded = json.loads(kwargs["params"]["filter_by_configs"])
+    assert decoded == {"agent": "bot1"}
+
+
+@patch("acontext.client.AcontextClient.request")
 def test_sessions_get_messages_forwards_format(
     mock_request, client: AcontextClient
 ) -> None:

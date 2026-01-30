@@ -29,15 +29,34 @@ export type MessageBlob = AcontextMessage | Record<string, unknown>;
 export class SessionsAPI {
   constructor(private requester: RequesterProtocol) { }
 
+  /**
+   * List all sessions in the project.
+   *
+   * @param options - Options for listing sessions.
+   * @param options.user - Filter by user identifier.
+   * @param options.limit - Maximum number of sessions to return.
+   * @param options.cursor - Cursor for pagination.
+   * @param options.timeDesc - Order by created_at descending if true, ascending if false.
+   * @param options.filterByConfigs - Filter by session configs using JSONB containment.
+   *   Only sessions where configs contains all key-value pairs in this object will be returned.
+   *   Supports nested objects. Note: Matching is case-sensitive and type-sensitive.
+   *   Sessions with NULL configs are excluded from filtered results.
+   * @returns ListSessionsOutput containing the list of sessions and pagination information.
+   */
   async list(options?: {
     user?: string | null;
     limit?: number | null;
     cursor?: string | null;
     timeDesc?: boolean | null;
+    filterByConfigs?: Record<string, unknown> | null;
   }): Promise<ListSessionsOutput> {
     const params: Record<string, string | number> = {};
     if (options?.user) {
       params.user = options.user;
+    }
+    // Handle filterByConfigs - JSON encode, skip empty object
+    if (options?.filterByConfigs && Object.keys(options.filterByConfigs).length > 0) {
+      params.filter_by_configs = JSON.stringify(options.filterByConfigs);
     }
     Object.assign(
       params,

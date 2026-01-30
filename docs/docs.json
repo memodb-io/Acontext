@@ -31,6 +31,7 @@
                 "pages": [
                   "store/messages/multi-provider",
                   "store/messages/multi-modal",
+                  "store/messages/filter-by-configs",
                   {
                     "group": "Message Metadata",
                     "pages": [

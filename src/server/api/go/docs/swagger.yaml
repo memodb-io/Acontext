@@ -1935,12 +1935,17 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get all sessions under a project, optionally filtered by user
+      description: Get all sessions under a project, optionally filtered by user or
+        configs
       parameters:
       - description: User identifier to filter sessions
         example: alice@acontext.io
         in: query
         name: user
+        type: string
+      - description: 'JSON-encoded object for JSONB containment filter. Example: {\'
+        in: query
+        name: filter_by_configs
         type: string
       - description: Limit of sessions to return, default 20. Max 200.
         in: query
@@ -1992,6 +1997,12 @@ paths:
 
           # List sessions for a specific user
           sessions = client.sessions.list(user='alice@acontext.io', limit=20)
+
+          # List sessions filtered by configs
+          sessions = client.sessions.list(
+              limit=20,
+              filter_by_configs={"agent": "bot1"}
+          )
       - label: JavaScript
         lang: javascript
         source: |
@@ -2010,6 +2021,12 @@ paths:
 
           // List sessions for a specific user
           const userSessions = await client.sessions.list({ user: 'alice@acontext.io', limit: 20 });
+
+          // List sessions filtered by configs
+          const filteredSessions = await client.sessions.list({
+            limit: 20,
+            filterByConfigs: { agent: 'bot1' }
+          });
     post:
       consumes:
       - application/json

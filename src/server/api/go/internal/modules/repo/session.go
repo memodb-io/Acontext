@@ -21,7 +21,7 @@ type SessionRepo interface {
 	Update(ctx context.Context, s *model.Session) error
 	Get(ctx context.Context, s *model.Session) (*model.Session, error)
 	GetDisableTaskTracking(ctx context.Context, sessionID uuid.UUID) (bool, error)
-	ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Session, error)
+	ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, filterByConfigs map[string]interface{}, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Session, error)
 	CreateMessageWithAssets(ctx context.Context, msg *model.Message) error
 	ListBySessionWithCursor(ctx context.Context, sessionID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Message, error)
 	ListAllMessagesBySession(ctx context.Context, sessionID uuid.UUID) ([]model.Message, error)
@@ -128,13 +128,24 @@ func (r *sessionRepo) GetDisableTaskTracking(ctx context.Context, sessionID uuid
 	return result.DisableTaskTracking, err
 }
 
-func (r *sessionRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Session, error) {
+func (r *sessionRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, filterByConfigs map[string]interface{}, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Session, error) {
 	q := r.db.WithContext(ctx).Where("sessions.project_id = ?", projectID)
 
 	// Filter by user identifier if provided
 	if userIdentifier != "" {
 		q = q.Joins("JOIN users ON users.id = sessions.user_id").
 			Where("users.identifier = ?", userIdentifier)
+	}
+
+	// Apply configs filter if provided (non-nil and non-empty)
+	// Uses PostgreSQL JSONB containment operator @> for efficient filtering
+	if filterByConfigs != nil && len(filterByConfigs) > 0 {
+		// CRITICAL: Use parameterized query to prevent SQL injection
+		jsonBytes, err := json.Marshal(filterByConfigs)
+		if err != nil {
+			return nil, fmt.Errorf("marshal filter_by_configs: %w", err)
+		}
+		q = q.Where("sessions.configs @> ?", string(jsonBytes))
 	}
 
 	// Apply cursor-based pagination filter if cursor is provided
