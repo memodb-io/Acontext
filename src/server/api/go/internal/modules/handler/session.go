@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	// strconv is used to parse the auto_trim_token_threshold query value.
+	"strconv"
 	"strings"
 	"time"
 
@@ -430,6 +432,37 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 	c.JSON(http.StatusCreated, serializer.Response{Data: out})
 }
 
+// AutoTrim defines the optional auto-trim input in get-messages.
+type AutoTrim struct {
+	TokenThreshold int    `form:"token_threshold" json:"token_threshold"`
+	Strategy       string `form:"strategy" json:"strategy"`
+}
+
+// AutoTrimInfo defines the auto-trim metadata returned in responses.
+type AutoTrimInfo struct {
+	Applied                bool    `json:"auto_trim_applied"`
+	Strategy               *string `json:"auto_trim_strategy,omitempty"`
+	EstimatedTokensRemoved int     `json:"estimated_tokens_removed"`
+	Skipped                bool    `json:"auto_trim_skipped,omitempty"`
+	SkipReason             *string `json:"skip_reason,omitempty"`
+}
+
+// GetMessagesResp defines a typed response shape for get-messages auto-trim metadata.
+type GetMessagesResp struct {
+	// Messages holds the returned messages list.
+	Messages []model.Message `json:"messages"`
+	// AutoTrimApplied is true when auto-trim ran.
+	AutoTrimApplied bool `json:"auto_trim_applied"`
+	// AutoTrimStrategy is the strategy name used by auto-trim.
+	AutoTrimStrategy *string `json:"auto_trim_strategy,omitempty"`
+	// EstimatedTokensRemoved is the estimated tokens removed by auto-trim.
+	EstimatedTokensRemoved int `json:"estimated_tokens_removed"`
+	// AutoTrimSkipped is true when auto-trim was skipped.
+	AutoTrimSkipped bool `json:"auto_trim_skipped,omitempty"`
+	// SkipReason explains why auto-trim was skipped.
+	SkipReason *string `json:"skip_reason,omitempty"`
+}
+
 type GetMessagesReq struct {
 	Limit                         *int   `form:"limit" json:"limit" binding:"omitempty,min=0,max=200" example:"20"`
 	Cursor                        string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
@@ -437,7 +470,10 @@ type GetMessagesReq struct {
 	Format                        string `form:"format,default=openai" json:"format" binding:"omitempty,oneof=acontext openai anthropic gemini" example:"openai" enums:"acontext,openai,anthropic,gemini"`
 	TimeDesc                      bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
 	EditStrategies                string `form:"edit_strategies" json:"edit_strategies" example:"[{\"type\":\"remove_tool_result\",\"params\":{\"keep_recent_n_tool_results\":3}}]"`
+	EditingTrigger                string `form:"editing_trigger" json:"editing_trigger" example:"{\"token_gte\":30000}"`
 	PinEditingStrategiesAtMessage string `form:"pin_editing_strategies_at_message" json:"pin_editing_strategies_at_message" example:""`
+	// AutoTrim holds optional auto-trim parameters.
+	AutoTrim *AutoTrim `form:"auto_trim" json:"auto_trim"`
 }
 
 // GetMessages godoc
@@ -454,6 +490,7 @@ type GetMessagesReq struct {
 //	@Param			format								query	string	false	"Format to convert messages to: acontext (original), openai (default), anthropic, gemini."																																																														enums(acontext,openai,anthropic,gemini)
 //	@Param			time_desc							query	string	false	"Order by created_at descending if true, ascending if false (default false)"																																																																	example(false)
 //	@Param			edit_strategies						query	string	false	"JSON array of edit strategies to apply before format conversion"																																																																				example([{"type":"remove_tool_result","params":{"keep_recent_n_tool_results":3}}])
+//	@Param			editing_trigger						query	string	false	"JSON object trigger for edit_strategies. v0 supports only {\"token_gte\": <int>} (OR semantics when more triggers are added)."																																																	example({"token_gte":30000})
 //	@Param			pin_editing_strategies_at_message	query	string	false	"Message ID to pin editing strategies at. When provided, strategies are only applied to messages up to and including this message ID, keeping subsequent messages unchanged. This helps maintain prompt cache stability by preserving a stable prefix. The response will include edit_at_message_id indicating where strategies were applied."	example()
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.GetMessagesOutput}
@@ -464,6 +501,28 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 	if err := c.ShouldBind(&req); err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
 		return
+	}
+
+	// Read auto-trim threshold from query params.
+	thrStr := c.Query("auto_trim_token_threshold")
+	// Read auto-trim strategy from query params.
+	strat := c.Query("auto_trim_strategy")
+	// Build auto-trim config only when any auto-trim param is present.
+	if thrStr != "" || strat != "" {
+		// Parse threshold to int.
+		thr, err := strconv.Atoi(thrStr)
+		// Return 400 when threshold is missing, non-numeric, or non-positive.
+		if err != nil || thr <= 0 {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid auto_trim_token_threshold", err))
+			return
+		}
+		// Return 400 when strategy is not supported by the registry.
+		if !service.IsAutoTrimStrategySupported(strat) {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid auto_trim_strategy", errors.New("strategy not supported")))
+			return
+		}
+		// Attach parsed auto-trim config to the request object.
+		req.AutoTrim = &AutoTrim{TokenThreshold: thr, Strategy: strat}
 	}
 
 	sessionID, err := uuid.Parse(c.Param("session_id"))
@@ -487,6 +546,66 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		}
 	}
 
+	// Parse editing_trigger if provided (v0 supports only token_gte).
+	var editingTrigger *service.EditingTrigger
+	if req.EditingTrigger != "" {
+		if req.EditStrategies == "" {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("editing_trigger requires edit_strategies", errors.New("missing edit_strategies")))
+			return
+		}
+
+		var raw map[string]interface{}
+		if err := sonic.Unmarshal([]byte(req.EditingTrigger), &raw); err != nil {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger JSON", err))
+			return
+		}
+		allowedTriggerKeys := map[string]struct{}{
+			"token_gte": {},
+		}
+		for k := range raw {
+			if _, ok := allowedTriggerKeys[k]; !ok {
+				c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger", fmt.Errorf("unsupported trigger: %s", k)))
+				return
+			}
+		}
+
+		var trig service.EditingTrigger
+		if err := sonic.Unmarshal([]byte(req.EditingTrigger), &trig); err != nil {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger JSON", err))
+			return
+		}
+
+		triggerValidators := map[string]func(service.EditingTrigger) error{
+			"token_gte": func(t service.EditingTrigger) error {
+				if t.TokenGte == nil || *t.TokenGte <= 0 {
+					return errors.New("token_gte must be > 0")
+				}
+				return nil
+			},
+		}
+		for k := range raw {
+			validate, ok := triggerValidators[k]
+			if !ok {
+				// Should be unreachable due to allowedTriggerKeys check above.
+				c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger", fmt.Errorf("unsupported trigger: %s", k)))
+				return
+			}
+			if err := validate(trig); err != nil {
+				c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger."+k, err))
+				return
+			}
+		}
+		editingTrigger = &trig
+	}
+
+	// Map handler auto-trim to service auto-trim.
+	var autoTrim *service.AutoTrim
+	// Build service auto-trim only when request auto-trim exists.
+	if req.AutoTrim != nil {
+		// Copy threshold and strategy into service input.
+		autoTrim = &service.AutoTrim{TokenThreshold: req.AutoTrim.TokenThreshold, Strategy: req.AutoTrim.Strategy}
+	}
+
 	out, err := h.svc.GetMessages(c.Request.Context(), service.GetMessagesInput{
 		SessionID:                     sessionID,
 		Limit:                         limit,
@@ -495,7 +614,10 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		AssetExpire:                   time.Hour * 24,
 		TimeDesc:                      req.TimeDesc,
 		EditStrategies:                editStrategies,
+		EditingTrigger:                editingTrigger,
 		PinEditingStrategiesAtMessage: req.PinEditingStrategiesAtMessage,
+		// Pass auto-trim config to service.
+		AutoTrim: autoTrim,
 	})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.DBErr("", err))
@@ -533,6 +655,20 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to convert messages", err))
 		return
+	}
+
+	// Include auto-trim fields in the response only when auto-trim was requested.
+	if req.AutoTrim != nil {
+		// auto_trim_applied shows whether auto-trim ran.
+		convertedOut["auto_trim_applied"] = out.AutoTrimApplied
+		// auto_trim_strategy shows which strategy ran.
+		convertedOut["auto_trim_strategy"] = out.AutoTrimStrategy
+		// estimated_tokens_removed shows the estimated token reduction.
+		convertedOut["estimated_tokens_removed"] = out.EstimatedTokensRemoved
+		// auto_trim_skipped shows whether auto-trim was skipped.
+		convertedOut["auto_trim_skipped"] = out.AutoTrimSkipped
+		// skip_reason explains why auto-trim was skipped.
+		convertedOut["skip_reason"] = out.AutoTrimSkipReason
 	}
 
 	c.JSON(http.StatusOK, serializer.Response{Data: convertedOut})

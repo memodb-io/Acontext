@@ -18,6 +18,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/pkg/editor"
 	"github.com/memodb-io/Acontext/internal/pkg/paging"
+	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/datatypes"
@@ -376,14 +377,33 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 }
 
 type GetMessagesInput struct {
-	SessionID                     uuid.UUID               `json:"session_id"`
-	Limit                         int                     `json:"limit"`
-	Cursor                        string                  `json:"cursor"`
-	WithAssetPublicURL            bool                    `json:"with_public_url"`
-	AssetExpire                   time.Duration           `json:"asset_expire"`
-	TimeDesc                      bool                    `json:"time_desc"`
-	EditStrategies                []editor.StrategyConfig `json:"edit_strategies,omitempty"`
-	PinEditingStrategiesAtMessage string                  `json:"pin_editing_strategies_at_message,omitempty"`
+	SessionID          uuid.UUID               `json:"session_id"`
+	Limit              int                     `json:"limit"`
+	Cursor             string                  `json:"cursor"`
+	WithAssetPublicURL bool                    `json:"with_public_url"`
+	AssetExpire        time.Duration           `json:"asset_expire"`
+	TimeDesc           bool                    `json:"time_desc"`
+	EditStrategies     []editor.StrategyConfig `json:"edit_strategies,omitempty"`
+	// EditingTrigger holds optional trigger config for applying edit_strategies.
+	EditingTrigger                *EditingTrigger `json:"editing_trigger,omitempty"`
+	PinEditingStrategiesAtMessage string          `json:"pin_editing_strategies_at_message,omitempty"`
+	// AutoTrim holds optional auto-trim config for get-messages.
+	AutoTrim *AutoTrim `json:"auto_trim,omitempty"`
+}
+
+// EditingTrigger defines trigger configuration for applying edit_strategies.
+// v0 supports only token_gte.
+type EditingTrigger struct {
+	// TokenGte triggers edit strategies when the token count is greater than or equal to this value.
+	TokenGte *int `json:"token_gte,omitempty"`
+}
+
+// AutoTrim defines auto-trim configuration for get-messages.
+type AutoTrim struct {
+	// TokenThreshold triggers trimming when token count is >= this value.
+	TokenThreshold int `json:"token_threshold"`
+	// Strategy is the trimming strategy name (v0 only remove_tool_result).
+	Strategy string `json:"strategy"`
 }
 
 type PublicURL struct {
@@ -397,6 +417,16 @@ type GetMessagesOutput struct {
 	HasMore         bool                 `json:"has_more"`
 	PublicURLs      map[string]PublicURL `json:"public_urls,omitempty"` // file_name -> url
 	EditAtMessageID string               `json:"edit_at_message_id,omitempty"`
+	// AutoTrimApplied is true when auto-trim ran.
+	AutoTrimApplied bool `json:"auto_trim_applied"`
+	// AutoTrimStrategy is the auto-trim strategy name used.
+	AutoTrimStrategy *string `json:"auto_trim_strategy,omitempty"`
+	// EstimatedTokensRemoved is the estimated tokens removed by auto-trim.
+	EstimatedTokensRemoved int `json:"estimated_tokens_removed"`
+	// AutoTrimSkipped is true when auto-trim was skipped.
+	AutoTrimSkipped bool `json:"auto_trim_skipped,omitempty"`
+	// AutoTrimSkipReason explains why auto-trim was skipped.
+	AutoTrimSkipReason *string `json:"skip_reason,omitempty"`
 }
 
 func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (*GetMessagesOutput, error) {
@@ -459,14 +489,123 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 		out.NextCursor = paging.EncodeCursor(last.CreatedAt, last.ID)
 	}
 
+	// Track original token count for auto-trim checks.
+	originalTokens := 0
+	// Cache per-message token counts for auto-trim estimation.
+	var originalPerMessageTokens []int
+	// Track whether auto-trim should run.
+	autoTrimTriggered := false
+	// Count tokens only when auto-trim config is present.
+	if in.AutoTrim != nil {
+		// Skip token counting when strategy is not supported.
+		if !IsAutoTrimStrategySupported(in.AutoTrim.Strategy) {
+			// Record skip reason for unsupported strategy before counting.
+			reason := "unsupported_strategy"
+			out.AutoTrimSkipped = true
+			out.AutoTrimSkipReason = &reason
+		} else if len(out.Items) > 0 {
+			// Count tokens on the loaded messages with a per-message cache.
+			originalTokens, originalPerMessageTokens, err = countMessageTokensWithCache(ctx, out.Items)
+			// Return error if token counting fails with session context.
+			if err != nil {
+				return nil, fmt.Errorf("failed to count tokens for auto-trim session_id=%s: %w", in.SessionID, err)
+			}
+			// Trigger auto-trim when tokens meet or exceed the threshold.
+			if checkTokensGte(originalTokens, in.AutoTrim.TokenThreshold) {
+				autoTrimTriggered = true
+			}
+			// TODO: message_count_gte
+			// TODO: tool_use_count_gte
+		}
+	}
+	// Apply auto-trim when the trigger is true.
+	if autoTrimTriggered {
+		// Apply auto-trim using the registry for supported strategies.
+		if IsAutoTrimStrategySupported(in.AutoTrim.Strategy) {
+			// Apply the auto-trim strategy via the registry.
+			editedMessages, err := ApplyAutoTrimStrategy(ctx, in.AutoTrim.Strategy, out.Items)
+			if err != nil {
+				// Record skip reason when auto-trim apply fails.
+				reason := "apply_failed"
+				out.AutoTrimSkipped = true
+				out.AutoTrimSkipReason = &reason
+			} else {
+				// Replace messages with auto-trimmed messages.
+				out.Items = editedMessages
+				// Mark auto-trim as applied.
+				out.AutoTrimApplied = true
+				// Store the applied strategy name for the response.
+				strategyName := in.AutoTrim.Strategy
+				out.AutoTrimStrategy = &strategyName
+				// Estimate tokens removed using cached per-message counts.
+				out.EstimatedTokensRemoved, err = estimateTokensRemovedAfterAutoTrim(
+					ctx,
+					originalTokens,
+					originalPerMessageTokens,
+					out.Items,
+				)
+				// Return error if token estimation fails with session context.
+				if err != nil {
+					return nil, fmt.Errorf("failed to estimate tokens after auto-trim session_id=%s: %w", in.SessionID, err)
+				}
+			}
+		}
+	}
+	// Mark auto-trim as skipped when it was requested but not triggered.
+	if in.AutoTrim != nil && !autoTrimTriggered && !out.AutoTrimSkipped {
+		// Record skip reason for a non-triggered auto-trim.
+		reason := "not_triggered"
+		out.AutoTrimSkipped = true
+		out.AutoTrimSkipReason = &reason
+	}
+
 	// Apply edit strategies if provided (before format conversion)
 	if len(in.EditStrategies) > 0 {
-		result, err := editor.ApplyStrategiesWithPin(out.Items, in.EditStrategies, in.PinEditingStrategiesAtMessage)
-		if err != nil {
-			return nil, fmt.Errorf("failed to apply edit strategies: %w", err)
+		applyEditStrategies := true
+		if in.EditingTrigger != nil && in.EditingTrigger.TokenGte != nil && *in.EditingTrigger.TokenGte > 0 {
+			// Evaluate trigger on the same editable prefix used by pin_editing_strategies_at_message.
+			triggerMessages := out.Items
+			effectivePin := ""
+			if in.PinEditingStrategiesAtMessage != "" {
+				pinIndex := -1
+				for i := range out.Items {
+					if out.Items[i].ID.String() == in.PinEditingStrategiesAtMessage {
+						pinIndex = i
+						break
+					}
+				}
+				if pinIndex != -1 {
+					effectivePin = in.PinEditingStrategiesAtMessage
+					triggerMessages = out.Items[:pinIndex+1]
+				}
+			}
+
+			triggerTokens, err := tokenizer.CountMessagePartsTokens(ctx, triggerMessages)
+			if err != nil {
+				return nil, fmt.Errorf("failed to count tokens for editing_trigger session_id=%s: %w", in.SessionID, err)
+			}
+
+			// OR semantics: v0 has a single trigger.
+			applyEditStrategies = triggerTokens >= *in.EditingTrigger.TokenGte
+			if !applyEditStrategies && len(out.Items) > 0 {
+				if effectivePin != "" {
+					out.EditAtMessageID = effectivePin
+				} else {
+					out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
+				}
+			}
 		}
-		out.Items = result.Messages
-		out.EditAtMessageID = result.EditAtMessageID
+
+		if applyEditStrategies {
+			result, err := editor.ApplyStrategiesWithPin(out.Items, in.EditStrategies, in.PinEditingStrategiesAtMessage)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply edit strategies: %w", err)
+			}
+			out.Items = result.Messages
+			out.EditAtMessageID = result.EditAtMessageID
+		} else if out.EditAtMessageID == "" && len(out.Items) > 0 {
+			out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
+		}
 	} else if len(out.Items) > 0 {
 		// No strategies, but still set EditAtMessageID to the last message
 		out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
