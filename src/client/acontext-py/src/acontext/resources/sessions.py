@@ -40,6 +40,7 @@ class SessionsAPI:
         limit: int | None = None,
         cursor: str | None = None,
         time_desc: bool | None = None,
+        filter_by_configs: Mapping[str, Any] | None = None,
     ) -> ListSessionsOutput:
         """List all sessions in the project.
 
@@ -48,13 +49,25 @@ class SessionsAPI:
             limit: Maximum number of sessions to return. Defaults to None.
             cursor: Cursor for pagination. Defaults to None.
             time_desc: Order by created_at descending if True, ascending if False. Defaults to None.
+            filter_by_configs: Filter by session configs using JSONB containment.
+                Only sessions where configs contains all key-value pairs in this
+                dict will be returned. Supports nested objects.
+                Note: Matching is case-sensitive and type-sensitive.
+                Sessions with NULL configs are excluded from filtered results.
+                Defaults to None.
 
         Returns:
             ListSessionsOutput containing the list of sessions and pagination information.
+
+        Example:
+            >>> sessions = client.sessions.list(filter_by_configs={"agent": "bot1"})
         """
         params: dict[str, Any] = {}
         if user:
             params["user"] = user
+        # Handle filter_by_configs - JSON encode, skip empty dict
+        if filter_by_configs is not None and len(filter_by_configs) > 0:
+            params["filter_by_configs"] = json.dumps(filter_by_configs)
         params.update(
             build_params(
                 limit=limit,

@@ -154,6 +154,80 @@ func TestSessionHandler_GetSessions(t *testing.T) {
 			},
 			expectedStatus: http.StatusInternalServerError,
 		},
+		{
+			name:        "filter by configs - valid JSON",
+			queryParams: `?filter_by_configs={"agent":"bot1"}`,
+			setup: func(svc *MockSessionService) {
+				expectedOutput := &service.ListSessionsOutput{
+					Items: []model.Session{
+						{
+							ID:        uuid.New(),
+							ProjectID: projectID,
+							Configs:   datatypes.JSONMap{"agent": "bot1"},
+						},
+					},
+					HasMore: false,
+				}
+				svc.On("List", mock.Anything, mock.MatchedBy(func(in service.ListSessionsInput) bool {
+					return in.FilterByConfigs != nil && in.FilterByConfigs["agent"] == "bot1"
+				})).Return(expectedOutput, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:        "filter by configs - empty object treated as no filter",
+			queryParams: `?filter_by_configs={}`,
+			setup: func(svc *MockSessionService) {
+				expectedOutput := &service.ListSessionsOutput{
+					Items:   []model.Session{},
+					HasMore: false,
+				}
+				svc.On("List", mock.Anything, mock.MatchedBy(func(in service.ListSessionsInput) bool {
+					return in.FilterByConfigs == nil
+				})).Return(expectedOutput, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:        "filter by configs - invalid JSON returns 400",
+			queryParams: `?filter_by_configs={invalid}`,
+			setup: func(svc *MockSessionService) {
+				// No mock setup needed - handler should return error before calling service
+			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:        "filter by configs - nested object",
+			queryParams: `?filter_by_configs={"agent":{"name":"bot1","version":"2.0"}}`,
+			setup: func(svc *MockSessionService) {
+				expectedOutput := &service.ListSessionsOutput{
+					Items:   []model.Session{},
+					HasMore: false,
+				}
+				svc.On("List", mock.Anything, mock.MatchedBy(func(in service.ListSessionsInput) bool {
+					if in.FilterByConfigs == nil {
+						return false
+					}
+					agent, ok := in.FilterByConfigs["agent"].(map[string]interface{})
+					return ok && agent["name"] == "bot1" && agent["version"] == "2.0"
+				})).Return(expectedOutput, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:        "filter by configs - combined with user filter",
+			queryParams: `?user=alice@acontext.io&filter_by_configs={"agent":"bot1"}`,
+			setup: func(svc *MockSessionService) {
+				expectedOutput := &service.ListSessionsOutput{
+					Items:   []model.Session{},
+					HasMore: false,
+				}
+				svc.On("List", mock.Anything, mock.MatchedBy(func(in service.ListSessionsInput) bool {
+					return in.User == "alice@acontext.io" && in.FilterByConfigs != nil && in.FilterByConfigs["agent"] == "bot1"
+				})).Return(expectedOutput, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
 	}
 
 	for _, tt := range tests {

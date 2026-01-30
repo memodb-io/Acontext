@@ -239,6 +239,61 @@ describe('AcontextClient Unit Tests', () => {
       expect(client.requester.calls[0].method).toBe('DELETE');
     });
 
+    test('should list sessions with filterByConfigs', async () => {
+      const sessions = [mockSession({ configs: { agent: 'bot1' } })];
+      client.mock().onGet('/session', (options) => {
+        expect(options?.params?.filter_by_configs).toBeDefined();
+        const decoded = JSON.parse(options?.params?.filter_by_configs as string);
+        expect(decoded).toEqual({ agent: 'bot1' });
+        return mockPaginatedList(sessions, false);
+      });
+
+      const result = await client.sessions.list({ filterByConfigs: { agent: 'bot1' } });
+      expect(result).toBeDefined();
+      expect(result.items).toBeInstanceOf(Array);
+    });
+
+    test('should not send empty filterByConfigs', async () => {
+      const sessions = [mockSession()];
+      client.mock().onGet('/session', (options) => {
+        expect(options?.params?.filter_by_configs).toBeUndefined();
+        return mockPaginatedList(sessions, false);
+      });
+
+      const result = await client.sessions.list({ filterByConfigs: {} });
+      expect(result).toBeDefined();
+    });
+
+    test('should list sessions with nested filterByConfigs', async () => {
+      const sessions = [mockSession()];
+      client.mock().onGet('/session', (options) => {
+        const decoded = JSON.parse(options?.params?.filter_by_configs as string);
+        expect(decoded).toEqual({ agent: { name: 'bot1', version: '2.0' } });
+        return mockPaginatedList(sessions, false);
+      });
+
+      const result = await client.sessions.list({
+        filterByConfigs: { agent: { name: 'bot1', version: '2.0' } },
+      });
+      expect(result).toBeDefined();
+    });
+
+    test('should combine filterByConfigs with user filter', async () => {
+      const sessions = [mockSession()];
+      client.mock().onGet('/session', (options) => {
+        expect(options?.params?.user).toBe('alice@example.com');
+        const decoded = JSON.parse(options?.params?.filter_by_configs as string);
+        expect(decoded).toEqual({ agent: 'bot1' });
+        return mockPaginatedList(sessions, false);
+      });
+
+      const result = await client.sessions.list({
+        user: 'alice@example.com',
+        filterByConfigs: { agent: 'bot1' },
+      });
+      expect(result).toBeDefined();
+    });
+
     test('should store Anthropic response format messages', async () => {
       const sessionId = 'test-session-id';
       const storedMessage = mockMessage({
