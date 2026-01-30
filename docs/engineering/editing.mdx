@@ -90,43 +90,61 @@ Remove oldest messages until under token limit:
 
 ### Remove Tool Results
 
-Replace old tool results with placeholder, keep recent N:
+
+Replace old tool results with placeholder, keep recent N, and optionally filter by token count:
 
 <CodeGroup>
 ```python Python
-{"type": "remove_tool_result", "params": {
-    "keep_recent_n_tool_results": 3,
-    "tool_result_placeholder": "Done",
-    "keep_tools": ["important_tool"]  # never remove these
-}}
+{
+    "type": "remove_tool_result",
+    "params": {
+        "keep_recent_n_tool_results": 3,
+        "tool_result_placeholder": "Done",
+        "keep_tools": ["important_tool"],
+        "gt_token": 100  # only remove results with more than 100 tokens
+    }
+}
 ```
 
 ```typescript TypeScript
-{ type: "remove_tool_result", params: {
-    keep_recent_n_tool_results: 3,
-    tool_result_placeholder: "Done",
-    keep_tools: ["important_tool"],  // never remove these
-}}
+{
+    type: "remove_tool_result",
+    params: {
+        keep_recent_n_tool_results: 3,
+        tool_result_placeholder: "Done",
+        keep_tools: ["important_tool"],
+        gt_token: 100 // only remove results with more than 100 tokens
+    }
+}
 ```
 </CodeGroup>
 
 ### Remove Tool Call Params
 
-Remove arguments from old tool calls, keep recent N:
+
+Remove arguments from old tool calls, keep recent N, and optionally filter by token count:
 
 <CodeGroup>
 ```python Python
-{"type": "remove_tool_call_params", "params": {
-    "keep_recent_n_tool_calls": 3,
-    "keep_tools": ["important_tool"]
-}}
+{
+    "type": "remove_tool_call_params",
+    "params": {
+        "keep_recent_n_tool_calls": 3,
+        "keep_tools": ["important_tool"],
+        "gt_token": 100  # only remove params with more than 100 tokens
+    }
+}
 ```
 
 ```typescript TypeScript
-{ type: "remove_tool_call_params", params: {
-    keep_recent_n_tool_calls: 3,
-    keep_tools: ["important_tool"],
-}}
+{
+    type: "remove_tool_call_params",
+    params: {
+        keep_recent_n_tool_calls: 3,
+        keep_tools: ["important_tool"],
+        gt_token: 100 // only remove params with more than 100 tokens
+    }
+}
 ```
 </CodeGroup>
 

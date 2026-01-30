@@ -453,6 +453,22 @@ def test_sessions_get_messages_with_edit_strategies(
 
 
 @patch("acontext.client.AcontextClient.request")
+def test_sessions_get_messages_rejects_non_positive_gt_token(
+    mock_request, client: AcontextClient
+) -> None:
+    edit_strategies = [
+        {"type": "remove_tool_result", "params": {"gt_token": 0}},
+    ]
+
+    with pytest.raises(ValueError, match="gt_token must be >= 1"):
+        client.sessions.get_messages(
+            "session-id", format="openai", edit_strategies=edit_strategies
+        )
+
+    mock_request.assert_not_called()
+
+
+@patch("acontext.client.AcontextClient.request")
 def test_sessions_get_messages_without_edit_strategies(
     mock_request, client: AcontextClient
 ) -> None:

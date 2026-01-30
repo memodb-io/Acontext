@@ -1,15 +1,18 @@
 package editor
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/memodb-io/Acontext/internal/modules/model"
+	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 )
 
 // RemoveToolCallParamsStrategy removes parameters from old tool-call parts
 type RemoveToolCallParamsStrategy struct {
 	KeepRecentN int
 	KeepTools   []string // Tool names that should never have their parameters removed
+	GtToken     int      // Only remove params if token count exceeds this threshold (>0)
 }
 
 // Name returns the strategy name
@@ -31,7 +34,7 @@ func (s *RemoveToolCallParamsStrategy) Apply(messages []model.Message) ([]model.
 		keepToolsSet[toolName] = true
 	}
 
-	// Collect all tool-call parts with their positions, excluding those in KeepTools
+	// Collect tool-call positions to potentially modify
 	type toolCallPosition struct {
 		messageIdx int
 		partIdx    int
@@ -40,40 +43,67 @@ func (s *RemoveToolCallParamsStrategy) Apply(messages []model.Message) ([]model.
 
 	for msgIdx, msg := range messages {
 		for partIdx, part := range msg.Parts {
-			if part.Type == "tool-call" {
-				// Check if this tool call should be kept based on KeepTools
-				if part.Meta != nil {
-					if toolName, ok := part.Meta["name"].(string); ok {
-						if keepToolsSet[toolName] {
-							// Skip this tool call - its parameters should always be kept
-							continue
-						}
+			if part.Type != "tool-call" {
+				continue
+			}
+			// 1. keep_tools exclusion
+			if part.Meta != nil {
+				if toolName, ok := part.Meta["name"].(string); ok {
+					if keepToolsSet[toolName] {
+						continue
 					}
 				}
-				toolCallPositions = append(toolCallPositions, toolCallPosition{
-					messageIdx: msgIdx,
-					partIdx:    partIdx,
-				})
 			}
+			// Add to list for possible removal
+			toolCallPositions = append(toolCallPositions, toolCallPosition{
+				messageIdx: msgIdx,
+				partIdx:    partIdx,
+			})
 		}
 	}
 
-	// Calculate how many to modify
+	// 2. keep_recent_n filter
 	totalToolCalls := len(toolCallPositions)
 	if totalToolCalls <= s.KeepRecentN {
 		return messages, nil
 	}
-
-	numToModify := totalToolCalls - s.KeepRecentN
-
-	// Remove arguments from the oldest tool-call parts
-	for i := range numToModify {
+	cutoff := totalToolCalls - s.KeepRecentN
+	for i := 0; i < cutoff; i++ {
 		pos := toolCallPositions[i]
-		if messages[pos.messageIdx].Parts[pos.partIdx].Meta != nil {
-			messages[pos.messageIdx].Parts[pos.partIdx].Meta["arguments"] = "{}"
+		partMeta := messages[pos.messageIdx].Parts[pos.partIdx].Meta
+		if partMeta == nil {
+			continue
 		}
+		if s.GtToken > 0 {
+			args, ok := partMeta["arguments"]
+			if !ok {
+				// No arguments means zero tokens; don't remove based on gt_token.
+				continue
+			}
+			var tokCount int
+			var err error
+			switch v := args.(type) {
+			case string:
+				tokCount, err = tokenizer.CountTokens(v)
+			default:
+				b, merr := json.Marshal(v)
+				if merr == nil {
+					tokCount, err = tokenizer.CountTokens(string(b))
+				} else {
+					// Skip gt_token check if marshal fails.
+					continue
+				}
+			}
+			if err != nil {
+				// Skip gt_token check if tokenization fails.
+				continue
+			}
+			if tokCount <= s.GtToken {
+				continue
+			}
+		}
+		partMeta["arguments"] = "{}"
 	}
-
 	return messages, nil
 }
 
@@ -110,8 +140,24 @@ func createRemoveToolCallParamsStrategy(params map[string]interface{}) (EditStra
 		}
 	}
 
+	gtToken := 0
+	if gtTokenVal, ok := params["gt_token"]; ok {
+		switch v := gtTokenVal.(type) {
+		case float64:
+			gtToken = int(v)
+		case int:
+			gtToken = v
+		default:
+			return nil, fmt.Errorf("gt_token must be an integer, got %T", gtTokenVal)
+		}
+		if gtToken <= 0 {
+			return nil, fmt.Errorf("gt_token must be > 0, got %d", gtToken)
+		}
+	}
+
 	return &RemoveToolCallParamsStrategy{
 		KeepRecentN: keepRecentNInt,
 		KeepTools:   keepTools,
+		GtToken:     gtToken,
 	}, nil
 }

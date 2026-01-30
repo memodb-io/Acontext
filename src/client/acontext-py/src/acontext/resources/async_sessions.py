@@ -5,7 +5,7 @@ from collections.abc import Mapping
 from dataclasses import asdict
 from typing import Any, BinaryIO, Literal, Optional, List
 
-from .._utils import build_params
+from .._utils import build_params, validate_edit_strategies
 from ..client_types import AsyncRequesterProtocol
 from ..messages import AcontextMessage
 from ..types.session import (
@@ -311,6 +311,8 @@ class AsyncSessionsAPI:
                 Each strategy is a dict with 'type' and 'params' keys.
                 Examples:
                     - Remove tool results: [{"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}]
+                    - Remove large tool results: [{"type": "remove_tool_result", "params": {"gt_token": 100}}]
+                    - Remove large tool call params: [{"type": "remove_tool_call_params", "params": {"gt_token": 100}}]
                     - Middle out: [{"type": "middle_out", "params": {"token_reduce_to": 5000}}]
                     - Token limit: [{"type": "token_limit", "params": {"limit_tokens": 20000}}]
                 Defaults to None.
@@ -336,6 +338,7 @@ class AsyncSessionsAPI:
             )
         )
         if edit_strategies is not None:
+            validate_edit_strategies(edit_strategies)
             params["edit_strategies"] = json.dumps(edit_strategies)
         if pin_editing_strategies_at_message is not None:
             params["pin_editing_strategies_at_message"] = (

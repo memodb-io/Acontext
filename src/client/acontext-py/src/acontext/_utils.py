@@ -1,6 +1,6 @@
 """Utility functions for the acontext Python client."""
 
-from typing import Any
+from typing import Any, Iterable
 
 
 def bool_to_str(value: bool) -> str:
@@ -40,3 +40,21 @@ def build_params(**kwargs: Any) -> dict[str, Any]:
                 params[key] = value
     return params
 
+
+def validate_edit_strategies(edit_strategies: Iterable[dict[str, Any]]) -> None:
+    """Validate edit strategies before sending to the API."""
+    for strategy in edit_strategies:
+        if not isinstance(strategy, dict):
+            continue
+        if strategy.get("type") not in {"remove_tool_result", "remove_tool_call_params"}:
+            continue
+        params = strategy.get("params")
+        if not isinstance(params, dict):
+            continue
+        if "gt_token" not in params:
+            continue
+        gt_token = params["gt_token"]
+        if isinstance(gt_token, bool) or not isinstance(gt_token, (int, float)):
+            raise ValueError("gt_token must be a number >= 1")
+        if gt_token < 1:
+            raise ValueError("gt_token must be >= 1")
