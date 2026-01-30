@@ -25,39 +25,14 @@
 </div>
 
 
-
-
-*Everyone is telling you how to use their agents. But what if YOU need to build an agent for 100,000 users, how would you start?*
-
-**📦 Problem 1: 99% of your DB is just LLM messages.** 
-
-> Acontext handles context storage and retrieval via PG, Redis, and S3 for you. 
-
-**✂️ Problem 1-1: Manage the context window is tricky** 
-
-> Acontext providers many context editing methods to help you limit the context window
-
-**⏰ Problem 2: Observe long-running agents are a nightmare.** 
-
-> Acontext has a background agent to track your session state (*i.e.* task, user feedback, progress..)
-
-**💻 Problem 3: Move agent from local to cloud breaks things** 
-
-> Acontext offers sandbox, file disk and agent skills, all available as the agent tool.
-
-**👀 Problem 4: You can't see how your agent is doing.** 
-
-> Store sessions here, then Acontext tells you the agent daily success rate.
-
-**...**
-
-Acontext is a simple context storage to help these problems.
-
 <div align="center">
-    <picture>
-      <img alt="Acontext Components" src="./assets/acontext-components.png" width="80%">
-    </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./assets/problems-solutions-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="./assets/problems-solutions.svg">
+    <img alt="Why Acontext - Problems and Solutions" src="./assets/problems-solutions.svg">
+  </picture>
 </div>
+
 
 
 
