@@ -421,7 +421,7 @@ def test_sessions_list_filter_by_configs_empty_not_sent(
     mock_request.assert_called_once()
     args, kwargs = mock_request.call_args
     # Empty filter should not be included in params
-    assert "filter_by_configs" not in kwargs.get("params", {})
+    assert "filter_by_configs" not in (kwargs.get("params") or {})
 
 
 @patch("acontext.client.AcontextClient.request")
