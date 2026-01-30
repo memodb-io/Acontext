@@ -18,7 +18,7 @@
   
   <!-- Labels -->
   <text x="130" y="20" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#6b7280" text-anchor="middle">PROBLEMS</text>
-  <text x="480" y="20" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#00a86b" text-anchor="middle">ACONTEXT SOLUTIONS</text>
+  <text x="480" y="20" font-family="system-ui, sans-serif" font-size="11" font-weight="600" fill="#00a86b" text-anchor="middle">ACONTEXT</text>
   
   <!-- Problem Cards (Left) - No background -->
   <g>
@@ -52,7 +52,7 @@
   </g>
   
   <!-- Solution Cards (Right) -->
-  <g filter="url(#shadow)">
+  <g>
     <rect x="288" y="30" width="382" height="60" rx="8" fill="url(#solutionGrad)"/>
     <circle cx="310" cy="60" r="14" fill="rgba(255,255,255,0.2)"/>
     <text x="310" y="65" font-family="system-ui, sans-serif" font-size="11" font-weight="700" fill="white" text-anchor="middle">&#x2713;</text>

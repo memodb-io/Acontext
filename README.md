@@ -23,6 +23,8 @@
 
 
 
+
+# ❓ What is Acontext
 <div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./assets/problems-solutions-dark.svg">
@@ -30,7 +32,11 @@
     <img alt="Why Acontext - Problems and Solutions" src="./assets/problems-solutions.svg">
   </picture>
 </div>
+Acontext is a context storage for your agent products:
 
+- it can store messages, artifacts, agent skills and sandboxes...
+- it provides observability over the context data.
+- it supports many out-of-box context engineering methods
 
 
 
