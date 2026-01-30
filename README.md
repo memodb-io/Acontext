@@ -36,10 +36,6 @@
 
 
 
-
-
-
-
 # 💡 Core Features
 
 - **Context Storage**
