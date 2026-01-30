@@ -1,0 +1,56 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": ".open-next/worker.js",
+  "name": "acontext-landingpage",
+  "compatibility_date": "2025-08-15",
+  "keep_names": false,
+  "compatibility_flags": [
+    // Enable Node.js API
+    // see https://developers.cloudflare.com/workers/configuration/compatibility-flags/#nodejs-compatibility-flag
+    "nodejs_compat",
+    // Allow to fetch URLs in your app
+    // see https://developers.cloudflare.com/workers/configuration/compatibility-flags/#global-fetch-strictly-public
+    "global_fetch_strictly_public",
+  ],
+  "routes": [
+    {
+      "pattern": "acontext.io",
+      "custom_domain": true,
+    },
+    {
+      "pattern": "www.acontext.io",
+      "custom_domain": true,
+    },
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS",
+  },
+  "d1_databases": [
+    {
+      "binding": "D1",
+      "database_id": "779d5c29-d4ce-4617-aa23-46e721427a3f",
+      "database_name": "acontext-landingpage",
+      "remote": true,
+    },
+  ],
+  "services": [
+    // The service should match the "name" of your worker
+    {
+      "binding": "WORKER_SELF_REFERENCE",
+      "service": "acontext-landingpage",
+    },
+  ],
+  "r2_buckets": [
+    {
+      "binding": "R2",
+      "bucket_name": "acontext-landingpage-assets",
+      "preview_bucket_name": "acontext-landingpage-assets-preview",
+    },
+    // Create a R2 binding with the binding name "NEXT_INC_CACHE_R2_BUCKET"
+    {
+      "binding": "NEXT_INC_CACHE_R2_BUCKET",
+      "bucket_name": "acontext-landingpage-inc-cache",
+    },
+  ],
+}
