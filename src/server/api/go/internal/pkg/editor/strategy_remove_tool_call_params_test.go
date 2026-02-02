@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-func TestRemoveToolCallParamsStrategy_GtToken(t *testing.T) {
+func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 	log := zaptest.NewLogger(t)
 	err := tokenizer.Init(log)
 	require.NoError(t, err, "failed to initialize tokenizer")

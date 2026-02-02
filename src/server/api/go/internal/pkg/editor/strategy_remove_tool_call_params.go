@@ -1,9 +1,9 @@
 package editor
 
 import (
-	"encoding/json"
 	"fmt"
 
+	"github.com/bytedance/sonic"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 )
@@ -86,7 +86,7 @@ func (s *RemoveToolCallParamsStrategy) Apply(messages []model.Message) ([]model.
 			case string:
 				tokCount, err = tokenizer.CountTokens(v)
 			default:
-				b, merr := json.Marshal(v)
+				b, merr := sonic.Marshal(v)
 				if merr == nil {
 					tokCount, err = tokenizer.CountTokens(string(b))
 				} else {
