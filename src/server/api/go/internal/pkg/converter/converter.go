@@ -56,6 +56,18 @@ func ValidateFormat(format string) (model.MessageFormat, error) {
 	}
 }
 
+// GetMessagesOutput represents the response for GetMessages endpoint
+// The Items field contains messages in the requested format (openai, anthropic, gemini, or acontext)
+type GetMessagesOutput struct {
+	Items           interface{}                  `json:"items"`                        // Messages in the requested format
+	IDs             []string                     `json:"ids"`                          // Message IDs corresponding to items
+	NextCursor      string                       `json:"next_cursor,omitempty"`        // Cursor for pagination
+	HasMore         bool                         `json:"has_more"`                     // Whether there are more messages
+	ThisTimeTokens  int                          `json:"this_time_tokens"`             // Token count for returned messages
+	EditAtMessageID string                       `json:"edit_at_message_id,omitempty"` // Message ID where edit strategies were applied
+	PublicURLs      map[string]service.PublicURL `json:"public_urls,omitempty"`        // Asset public URLs (only for acontext format)
+}
+
 // GetConvertedMessagesOutput wraps the converted messages with metadata
 func GetConvertedMessagesOutput(
 	messages []model.Message,
@@ -65,7 +77,7 @@ func GetConvertedMessagesOutput(
 	hasMore bool,
 	thisTimeTokens int,
 	editAtMessageID string,
-) (map[string]interface{}, error) {
+) (*GetMessagesOutput, error) {
 	convertedData, err := ConvertMessages(ConvertMessagesInput{
 		Messages:   messages,
 		Format:     format,
@@ -81,25 +93,25 @@ func GetConvertedMessagesOutput(
 		messageIDs[i] = messages[i].ID.String()
 	}
 
-	result := map[string]interface{}{
-		"items":            convertedData,
-		"ids":              messageIDs,
-		"has_more":         hasMore,
-		"this_time_tokens": thisTimeTokens,
+	result := &GetMessagesOutput{
+		Items:          convertedData,
+		IDs:            messageIDs,
+		HasMore:        hasMore,
+		ThisTimeTokens: thisTimeTokens,
 	}
 
 	if nextCursor != "" {
-		result["next_cursor"] = nextCursor
+		result.NextCursor = nextCursor
 	}
 
 	// Include edit_at_message_id if provided
 	if editAtMessageID != "" {
-		result["edit_at_message_id"] = editAtMessageID
+		result.EditAtMessageID = editAtMessageID
 	}
 
-	// Include public_urls only if format is None (original format)
+	// Include public_urls only if format is acontext (original format)
 	if format == model.FormatAcontext && len(publicURLs) > 0 {
-		result["public_urls"] = publicURLs
+		result.PublicURLs = publicURLs
 	}
 
 	return result, nil

@@ -86,7 +86,7 @@
                     {
                         "label": "JavaScript",
                         "lang": "javascript",
-                        "source": "import { AcontextClient } from '@anthropic/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List all skills with pagination\nconst result = await client.skills.list_catalog({ limit: 50 });\nresult.items.forEach(skill =\u003e {\n  console.log(`${skill.name}: ${skill.description}`);\n});\n\n// Paginate through all skills\nif (result.has_more) {\n  const nextPage = await client.skills.list_catalog({ cursor: result.next_cursor });\n}\n"
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List all skills with pagination\nconst result = await client.skills.list_catalog({ limit: 50 });\nresult.items.forEach(skill =\u003e {\n  console.log(`${skill.name}: ${skill.description}`);\n});\n\n// Paginate through all skills\nif (result.has_more) {\n  const nextPage = await client.skills.list_catalog({ cursor: result.next_cursor });\n}\n"
                     }
                 ]
             },
@@ -158,7 +158,7 @@
                     {
                         "label": "JavaScript",
                         "lang": "javascript",
-                        "source": "import { AcontextClient } from '@anthropic/acontext';\nimport fs from 'fs';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Upload a skill from a zip file\nconst fileBuffer = fs.readFileSync('my_skill.zip');\nconst skill = await client.skills.create({\n  file: ['my_skill.zip', fileBuffer, 'application/zip'],\n  user: 'alice@example.com',\n  meta: { version: '1.0' }\n});\nconsole.log(`Created skill: ${skill.name} (ID: ${skill.id})`);\n"
+                        "source": "import { AcontextClient } from '@acontext/acontext';\nimport fs from 'fs';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Upload a skill from a zip file\nconst fileBuffer = fs.readFileSync('my_skill.zip');\nconst skill = await client.skills.create({\n  file: ['my_skill.zip', fileBuffer, 'application/zip'],\n  user: 'alice@example.com',\n  meta: { version: '1.0' }\n});\nconsole.log(`Created skill: ${skill.name} (ID: ${skill.id})`);\n"
                     }
                 ]
             }
@@ -219,7 +219,7 @@
                     {
                         "label": "JavaScript",
                         "lang": "javascript",
-                        "source": "import { AcontextClient } from '@anthropic/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get a skill by ID\nconst skill = await client.skills.get('skill-uuid-here');\nconsole.log(`Skill: ${skill.name}`);\nconsole.log(`Description: ${skill.description}`);\nconsole.log(`Files: ${skill.file_index.length} file(s)`);\nskill.file_index.forEach(f =\u003e console.log(`  - ${f.path} (${f.mime})`));\n"
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get a skill by ID\nconst skill = await client.skills.get('skill-uuid-here');\nconsole.log(`Skill: ${skill.name}`);\nconsole.log(`Description: ${skill.description}`);\nconsole.log(`Files: ${skill.file_index.length} file(s)`);\nskill.file_index.forEach(f =\u003e console.log(`  - ${f.path} (${f.mime})`));\n"
                     }
                 ]
             },
@@ -266,7 +266,7 @@
                     {
                         "label": "JavaScript",
                         "lang": "javascript",
-                        "source": "import { AcontextClient } from '@anthropic/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Delete a skill by ID\nawait client.skills.delete('skill-uuid-here');\nconsole.log('Skill deleted successfully');\n"
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Delete a skill by ID\nawait client.skills.delete('skill-uuid-here');\nconsole.log('Skill deleted successfully');\n"
                     }
                 ]
             }
@@ -416,7 +416,7 @@
                     {
                         "label": "JavaScript",
                         "lang": "javascript",
-                        "source": "import { AcontextClient } from '@anthropic/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get a file from a skill (text files return content, binary files return URL)\nconst fileResp = await client.skills.getFile({\n  skillId: 'skill-uuid-here',\n  filePath: 'scripts/main.py',\n  expire: 1800  // URL expires in 30 minutes\n});\n\nconsole.log(`File: ${fileResp.path} (${fileResp.mime})`);\nif (fileResp.content) {\n  console.log(`Content: ${fileResp.content.raw}`);\n}\nif (fileResp.url) {\n  console.log(`Download URL: ${fileResp.url}`);\n}\n"
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get a file from a skill (text files return content, binary files return URL)\nconst fileResp = await client.skills.getFile({\n  skillId: 'skill-uuid-here',\n  filePath: 'scripts/main.py',\n  expire: 1800  // URL expires in 30 minutes\n});\n\nconsole.log(`File: ${fileResp.path} (${fileResp.mime})`);\nif (fileResp.content) {\n  console.log(`Content: ${fileResp.content.raw}`);\n}\nif (fileResp.url) {\n  console.log(`Download URL: ${fileResp.url}`);\n}\n"
                     }
                 ]
             }
@@ -1230,8 +1230,8 @@
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "201": {
+                        "description": "Created",
                         "schema": {
                             "allOf": [
                                 {
@@ -1564,8 +1564,8 @@
                         "in": "query"
                     },
                     {
-                        "type": "string",
-                        "example": "false",
+                        "type": "boolean",
+                        "example": false,
                         "description": "Order by created_at descending if true, ascending if false (default false)",
                         "name": "time_desc",
                         "in": "query"
@@ -1949,8 +1949,8 @@
                         "in": "query"
                     },
                     {
-                        "type": "string",
-                        "example": "true",
+                        "type": "boolean",
+                        "example": true,
                         "description": "Whether to return asset public url, default is true",
                         "name": "with_asset_public_url",
                         "in": "query"
@@ -1968,8 +1968,8 @@
                         "in": "query"
                     },
                     {
-                        "type": "string",
-                        "example": "false",
+                        "type": "boolean",
+                        "example": false,
                         "description": "Order by created_at descending if true, ascending if false (default false)",
                         "name": "time_desc",
                         "in": "query"
@@ -2001,7 +2001,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/service.GetMessagesOutput"
+                                            "$ref": "#/definitions/converter.GetMessagesOutput"
                                         }
                                     }
                                 }
@@ -2483,18 +2483,56 @@
                     {
                         "label": "Python",
                         "lang": "python",
-                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get user resource counts\nresources = client.users.get_resources('alice@acontext.io')\nprint(f\"Sessions: {resources.sessions_count}\")\nprint(f\"Disks: {resources.disks_count}\")\nprint(f\"Skills: {resources.skills_count}\")\n"
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get user resource counts\nresources = client.users.get_resources('alice@acontext.io')\nprint(f\"Sessions: {resources.counts.sessions_count}\")\nprint(f\"Disks: {resources.counts.disks_count}\")\nprint(f\"Skills: {resources.counts.skills_count}\")\n"
                     },
                     {
                         "label": "JavaScript",
                         "lang": "javascript",
-                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get user resource counts\nconst resources = await client.users.getResources('alice@acontext.io');\nconsole.log(`Sessions: ${resources.sessions_count}`);\nconsole.log(`Disks: ${resources.disks_count}`);\nconsole.log(`Skills: ${resources.skills_count}`);\n"
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get user resource counts\nconst resources = await client.users.getResources('alice@acontext.io');\nconsole.log(`Sessions: ${resources.counts.sessions_count}`);\nconsole.log(`Disks: ${resources.counts.disks_count}`);\nconsole.log(`Skills: ${resources.counts.skills_count}`);\n"
                     }
                 ]
             }
         }
     },
     "definitions": {
+        "converter.GetMessagesOutput": {
+            "type": "object",
+            "properties": {
+                "edit_at_message_id": {
+                    "description": "Message ID where edit strategies were applied",
+                    "type": "string"
+                },
+                "has_more": {
+                    "description": "Whether there are more messages",
+                    "type": "boolean"
+                },
+                "ids": {
+                    "description": "Message IDs corresponding to items",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "items": {
+                    "description": "Messages in the requested format"
+                },
+                "next_cursor": {
+                    "description": "Cursor for pagination",
+                    "type": "string"
+                },
+                "public_urls": {
+                    "description": "Asset public URLs (only for acontext format)",
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/service.PublicURL"
+                    }
+                },
+                "this_time_tokens": {
+                    "description": "Token count for returned messages",
+                    "type": "integer"
+                }
+            }
+        },
         "fileparser.FileContent": {
             "type": "object",
             "properties": {
@@ -3121,33 +3159,6 @@
                 "url": {
                     "description": "Present if file is not text-based or not parseable",
                     "type": "string"
-                }
-            }
-        },
-        "service.GetMessagesOutput": {
-            "type": "object",
-            "properties": {
-                "edit_at_message_id": {
-                    "type": "string"
-                },
-                "has_more": {
-                    "type": "boolean"
-                },
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/model.Message"
-                    }
-                },
-                "next_cursor": {
-                    "type": "string"
-                },
-                "public_urls": {
-                    "description": "file_name -\u003e url",
-                    "type": "object",
-                    "additionalProperties": {
-                        "$ref": "#/definitions/service.PublicURL"
-                    }
                 }
             }
         },

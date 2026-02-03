@@ -476,7 +476,7 @@ func (h *ArtifactHandler) GrepArtifacts(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			disk_id	path	string	true	"Disk ID"	Format(uuid)
-//	@Param			query	query	string	true	"Glob pattern (e.g., '**/*.py', '*.txt')"*/
+//	@Param			query	query	string	true	"Glob pattern (e.g., '**/*.py', '*.txt')"
 //	@Param			limit	query	int		false	"Maximum number of results (default 100, max 1000)"
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=[]model.Artifact}
@@ -615,7 +615,7 @@ type UploadFromSandboxReq struct {
 //	@Param			disk_id	path	string							true	"Disk ID"	Format(uuid)	Example(123e4567-e89b-12d3-a456-426614174000)
 //	@Param			request	body	handler.UploadFromSandboxReq	true	"Upload from sandbox request"
 //	@Security		BearerAuth
-//	@Success		200	{object}	serializer.Response{data=model.Artifact}
+//	@Success		201	{object}	serializer.Response{data=model.Artifact}
 //	@Router			/disk/{disk_id}/artifact/upload_from_sandbox [post]
 //	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Upload file from sandbox to disk\nartifact = client.disks.artifacts.upload_from_sandbox(\n    disk_id='disk-uuid',\n    sandbox_id='sandbox-uuid',\n    sandbox_path='/home/user/',\n    sandbox_filename='output.txt',\n    file_path='/results/'\n)\nprint(f\"Created: {artifact.path}{artifact.filename}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Upload file from sandbox to disk\nconst artifact = await client.disks.artifacts.uploadFromSandbox('disk-uuid', {\n  sandboxId: 'sandbox-uuid',\n  sandboxPath: '/home/user/',\n  sandboxFilename: 'output.txt',\n  filePath: '/results/'\n});\nconsole.log(`Created: ${artifact.path}${artifact.filename}`);\n","label":"JavaScript"}]
 func (h *ArtifactHandler) UploadFromSandbox(c *gin.Context) {

@@ -89,6 +89,26 @@ const skills = await client.skills.listCatalog({ user: "alice@example.com" });
 ```
 </CodeGroup>
 
+## Get User Resources
+
+Check how many resources a user has before cleanup or for analytics:
+
+<CodeGroup>
+```python Python
+resources = client.users.get_resources("alice@example.com")
+print(f"Sessions: {resources.counts.sessions_count}")
+print(f"Disks: {resources.counts.disks_count}")
+print(f"Skills: {resources.counts.skills_count}")
+```
+
+```typescript TypeScript
+const resources = await client.users.getResources("alice@example.com");
+console.log(`Sessions: ${resources.counts.sessions_count}`);
+console.log(`Disks: ${resources.counts.disks_count}`);
+console.log(`Skills: ${resources.counts.skills_count}`);
+```
+</CodeGroup>
+
 ## Delete User (Cascade)
 
 Deleting a user removes all associated Sessions, Disks, and Skills:
@@ -127,6 +147,10 @@ sessions = client.sessions.list(user=user_id)
 disks = client.disks.list(user=user_id)
 print(f"User has {len(sessions.items)} sessions, {len(disks.items)} disks")
 
+# Get resource counts
+resources = client.users.get_resources(user_id)
+print(f"Total: {resources.counts.sessions_count} sessions, {resources.counts.disks_count} disks, {resources.counts.skills_count} skills")
+
 # Delete user and all resources
 client.users.delete(user_id)
 ```
@@ -147,6 +171,10 @@ const disk = await client.disks.create({ user: userId });
 const sessions = await client.sessions.list({ user: userId });
 const disks = await client.disks.list({ user: userId });
 console.log(`User has ${sessions.items.length} sessions, ${disks.items.length} disks`);
+
+// Get resource counts
+const resources = await client.users.getResources(userId);
+console.log(`Total: ${resources.counts.sessions_count} sessions, ${resources.counts.disks_count} disks, ${resources.counts.skills_count} skills`);
 
 // Delete user and all resources
 await client.users.delete(userId);

@@ -1,5 +1,32 @@
 basePath: /api/v1
 definitions:
+  converter.GetMessagesOutput:
+    properties:
+      edit_at_message_id:
+        description: Message ID where edit strategies were applied
+        type: string
+      has_more:
+        description: Whether there are more messages
+        type: boolean
+      ids:
+        description: Message IDs corresponding to items
+        items:
+          type: string
+        type: array
+      items:
+        description: Messages in the requested format
+      next_cursor:
+        description: Cursor for pagination
+        type: string
+      public_urls:
+        additionalProperties:
+          $ref: '#/definitions/service.PublicURL'
+        description: Asset public URLs (only for acontext format)
+        type: object
+      this_time_tokens:
+        description: Token count for returned messages
+        type: integer
+    type: object
   fileparser.FileContent:
     properties:
       raw:
@@ -424,24 +451,6 @@ definitions:
         description: Present if file is not text-based or not parseable
         type: string
     type: object
-  service.GetMessagesOutput:
-    properties:
-      edit_at_message_id:
-        type: string
-      has_more:
-        type: boolean
-      items:
-        items:
-          $ref: '#/definitions/model.Message'
-        type: array
-      next_cursor:
-        type: string
-      public_urls:
-        additionalProperties:
-          $ref: '#/definitions/service.PublicURL'
-        description: file_name -> url
-        type: object
-    type: object
   service.GetSandboxLogsOutput:
     properties:
       has_more:
@@ -585,7 +594,7 @@ paths:
       - label: JavaScript
         lang: javascript
         source: |
-          import { AcontextClient } from '@anthropic/acontext';
+          import { AcontextClient } from '@acontext/acontext';
 
           const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
@@ -660,7 +669,7 @@ paths:
       - label: JavaScript
         lang: javascript
         source: |
-          import { AcontextClient } from '@anthropic/acontext';
+          import { AcontextClient } from '@acontext/acontext';
           import fs from 'fs';
 
           const client = new AcontextClient({ apiKey: 'sk_project_token' });
@@ -710,7 +719,7 @@ paths:
       - label: JavaScript
         lang: javascript
         source: |
-          import { AcontextClient } from '@anthropic/acontext';
+          import { AcontextClient } from '@acontext/acontext';
 
           const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
@@ -762,7 +771,7 @@ paths:
       - label: JavaScript
         lang: javascript
         source: |
-          import { AcontextClient } from '@anthropic/acontext';
+          import { AcontextClient } from '@acontext/acontext';
 
           const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
@@ -901,7 +910,7 @@ paths:
       - label: JavaScript
         lang: javascript
         source: |
-          import { AcontextClient } from '@anthropic/acontext';
+          import { AcontextClient } from '@acontext/acontext';
 
           const client = new AcontextClient({ apiKey: 'sk_project_token' });
 
@@ -1625,8 +1634,8 @@ paths:
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Created
           schema:
             allOf:
             - $ref: '#/definitions/serializer.Response'
@@ -1934,10 +1943,10 @@ paths:
         type: string
       - description: Order by created_at descending if true, ascending if false (default
           false)
-        example: "false"
+        example: false
         in: query
         name: time_desc
-        type: string
+        type: boolean
       produces:
       - application/json
       responses:
@@ -2294,10 +2303,10 @@ paths:
         name: cursor
         type: string
       - description: Whether to return asset public url, default is true
-        example: "true"
+        example: true
         in: query
         name: with_asset_public_url
-        type: string
+        type: boolean
       - description: 'Format to convert messages to: acontext (original), openai (default),
           anthropic, gemini.'
         enum:
@@ -2310,10 +2319,10 @@ paths:
         type: string
       - description: Order by created_at descending if true, ascending if false (default
           false)
-        example: "false"
+        example: false
         in: query
         name: time_desc
-        type: string
+        type: boolean
       - description: JSON array of edit strategies to apply before format conversion
         example: '[{"type":"remove_tool_result","params":{"keep_recent_n_tool_results":3}}]'
         in: query
@@ -2338,7 +2347,7 @@ paths:
             - $ref: '#/definitions/serializer.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/service.GetMessagesOutput'
+                  $ref: '#/definitions/converter.GetMessagesOutput'
               type: object
       security:
       - BearerAuth: []
@@ -2752,9 +2761,9 @@ paths:
 
           # Get user resource counts
           resources = client.users.get_resources('alice@acontext.io')
-          print(f"Sessions: {resources.sessions_count}")
-          print(f"Disks: {resources.disks_count}")
-          print(f"Skills: {resources.skills_count}")
+          print(f"Sessions: {resources.counts.sessions_count}")
+          print(f"Disks: {resources.counts.disks_count}")
+          print(f"Skills: {resources.counts.skills_count}")
       - label: JavaScript
         lang: javascript
         source: |
@@ -2764,9 +2773,9 @@ paths:
 
           // Get user resource counts
           const resources = await client.users.getResources('alice@acontext.io');
-          console.log(`Sessions: ${resources.sessions_count}`);
-          console.log(`Disks: ${resources.disks_count}`);
-          console.log(`Skills: ${resources.skills_count}`);
+          console.log(`Sessions: ${resources.counts.sessions_count}`);
+          console.log(`Disks: ${resources.counts.disks_count}`);
+          console.log(`Skills: ${resources.counts.skills_count}`);
   /user/ls:
     get:
       consumes:

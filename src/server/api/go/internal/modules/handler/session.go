@@ -63,7 +63,7 @@ type GetSessionsReq struct {
 //	@Param			filter_by_configs	query	string	false	"JSON-encoded object for JSONB containment filter. Example: {\"agent\":\"bot1\"}"
 //	@Param			limit				query	integer	false	"Limit of sessions to return, default 20. Max 200."
 //	@Param			cursor				query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
-//	@Param			time_desc			query	string	false	"Order by created_at descending if true, ascending if false (default false)"	example(false)
+//	@Param			time_desc			query	boolean	false	"Order by created_at descending if true, ascending if false (default false)"	example(false)
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=service.ListSessionsOutput}
 //	@Router			/session [get]
@@ -485,13 +485,13 @@ type GetMessagesReq struct {
 //	@Param			session_id							path	string	true	"Session ID"	format(uuid)
 //	@Param			limit								query	integer	false	"Limit of messages to return. Max 200. If limit is 0 or not provided, all messages will be returned. \n\nWARNING!\n Use `limit` only for read-only/display purposes (pagination, viewing). Do NOT use `limit` to truncate messages before sending to LLM as it may cause tool-call and tool-result unpairing issues. Instead, use the `token_limit` edit strategy in `edit_strategies` parameter to safely manage message context size."
 //	@Param			cursor								query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
-//	@Param			with_asset_public_url				query	string	false	"Whether to return asset public url, default is true"																																																																							example(true)
+//	@Param			with_asset_public_url				query	boolean	false	"Whether to return asset public url, default is true"																																																																							example(true)
 //	@Param			format								query	string	false	"Format to convert messages to: acontext (original), openai (default), anthropic, gemini."																																																														enums(acontext,openai,anthropic,gemini)
-//	@Param			time_desc							query	string	false	"Order by created_at descending if true, ascending if false (default false)"																																																																	example(false)
+//	@Param			time_desc							query	boolean	false	"Order by created_at descending if true, ascending if false (default false)"																																																																	example(false)
 //	@Param			edit_strategies						query	string	false	"JSON array of edit strategies to apply before format conversion"																																																																				example([{"type":"remove_tool_result","params":{"keep_recent_n_tool_results":3}}])
 //	@Param			pin_editing_strategies_at_message	query	string	false	"Message ID to pin editing strategies at. When provided, strategies are only applied to messages up to and including this message ID, keeping subsequent messages unchanged. This helps maintain prompt cache stability by preserving a stable prefix. The response will include edit_at_message_id indicating where strategies were applied."	example()
 //	@Security		BearerAuth
-//	@Success		200	{object}	serializer.Response{data=service.GetMessagesOutput}
+//	@Success		200	{object}	serializer.Response{data=converter.GetMessagesOutput}
 //	@Router			/session/{session_id}/messages [get]
 //	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get messages from session\nmessages = client.sessions.get_messages(\n    session_id='session-uuid',\n    limit=50,\n    format='acontext',\n    time_desc=True\n)\nfor message in messages.items:\n    print(f\"{message.role}: {message.parts}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get messages from session\nconst messages = await client.sessions.getMessages('session-uuid', {\n  limit: 50,\n  format: 'acontext',\n  timeDesc: true\n});\nfor (const message of messages.items) {\n  console.log(`${message.role}: ${JSON.stringify(message.parts)}`);\n}\n","label":"JavaScript"}]
 func (h *SessionHandler) GetMessages(c *gin.Context) {
