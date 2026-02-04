@@ -23,7 +23,9 @@
 
 
 
-Acontext is the context data platform built for production AI agents. Its purpose is to become the data foundation of the agent, and improve the agent from a local demo to a production-ready, context-observable product.
+Acontext is a context data platform for production AI agents. Think of it as Supabase, but purpose-built for agent context.
+
+We help agents scale from local demos to production without rebuilding context infrastructure — giving you unified storage, built-in context engineering, and context observability out of the box.
 
 
 
