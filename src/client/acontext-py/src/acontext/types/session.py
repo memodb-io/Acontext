@@ -269,31 +269,6 @@ class GetMessagesOutput(BaseModel):
             "pin_editing_strategies_at_message in subsequent requests."
         ),
     )
-    # auto_trim_applied shows whether auto-trim ran.
-    auto_trim_applied: bool | None = Field(
-        None,
-        description="Whether auto-trim ran for this response",
-    )
-    # auto_trim_strategy shows the strategy name used by auto-trim.
-    auto_trim_strategy: str | None = Field(
-        None,
-        description="Auto-trim strategy name applied by the server",
-    )
-    # estimated_tokens_removed shows the estimated token reduction from auto-trim.
-    estimated_tokens_removed: int | None = Field(
-        None,
-        description="Estimated token reduction from auto-trim",
-    )
-    # auto_trim_skipped shows whether auto-trim was skipped.
-    auto_trim_skipped: bool | None = Field(
-        None,
-        description="Whether auto-trim was skipped by the server",
-    )
-    # skip_reason explains why auto-trim was skipped.
-    skip_reason: str | None = Field(
-        None,
-        description="Reason auto-trim was skipped, when provided",
-    )
 
 
 class GetTasksOutput(BaseModel):

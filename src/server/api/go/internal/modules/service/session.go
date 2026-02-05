@@ -390,8 +390,6 @@ type GetMessagesInput struct {
 	// EditingTrigger holds optional trigger config for applying edit_strategies.
 	EditingTrigger                *EditingTrigger `json:"editing_trigger,omitempty"`
 	PinEditingStrategiesAtMessage string          `json:"pin_editing_strategies_at_message,omitempty"`
-	// AutoTrim holds optional auto-trim config for get-messages.
-	AutoTrim *AutoTrim `json:"auto_trim,omitempty"`
 }
 
 // EditingTrigger defines trigger configuration for applying edit_strategies.
@@ -399,14 +397,6 @@ type GetMessagesInput struct {
 type EditingTrigger struct {
 	// TokenGte triggers edit strategies when the token count is greater than or equal to this value.
 	TokenGte *int `json:"token_gte,omitempty"`
-}
-
-// AutoTrim defines auto-trim configuration for get-messages.
-type AutoTrim struct {
-	// TokenThreshold triggers trimming when token count is >= this value.
-	TokenThreshold int `json:"token_threshold"`
-	// Strategy is the trimming strategy name (v0 only remove_tool_result).
-	Strategy string `json:"strategy"`
 }
 
 type PublicURL struct {
@@ -420,16 +410,6 @@ type GetMessagesOutput struct {
 	HasMore         bool                 `json:"has_more"`
 	PublicURLs      map[string]PublicURL `json:"public_urls,omitempty"` // file_name -> url
 	EditAtMessageID string               `json:"edit_at_message_id,omitempty"`
-	// AutoTrimApplied is true when auto-trim ran.
-	AutoTrimApplied bool `json:"auto_trim_applied"`
-	// AutoTrimStrategy is the auto-trim strategy name used.
-	AutoTrimStrategy *string `json:"auto_trim_strategy,omitempty"`
-	// EstimatedTokensRemoved is the estimated tokens removed by auto-trim.
-	EstimatedTokensRemoved int `json:"estimated_tokens_removed"`
-	// AutoTrimSkipped is true when auto-trim was skipped.
-	AutoTrimSkipped bool `json:"auto_trim_skipped,omitempty"`
-	// AutoTrimSkipReason explains why auto-trim was skipped.
-	AutoTrimSkipReason *string `json:"skip_reason,omitempty"`
 }
 
 func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (*GetMessagesOutput, error) {
@@ -490,76 +470,6 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 		out.Items = msgs[:in.Limit]
 		last := out.Items[len(out.Items)-1]
 		out.NextCursor = paging.EncodeCursor(last.CreatedAt, last.ID)
-	}
-
-	// Track original token count for auto-trim checks.
-	originalTokens := 0
-	// Cache per-message token counts for auto-trim estimation.
-	var originalPerMessageTokens []int
-	// Track whether auto-trim should run.
-	autoTrimTriggered := false
-	// Count tokens only when auto-trim config is present.
-	if in.AutoTrim != nil {
-		// Skip token counting when strategy is not supported.
-		if !IsAutoTrimStrategySupported(in.AutoTrim.Strategy) {
-			// Record skip reason for unsupported strategy before counting.
-			reason := "unsupported_strategy"
-			out.AutoTrimSkipped = true
-			out.AutoTrimSkipReason = &reason
-		} else if len(out.Items) > 0 {
-			// Count tokens on the loaded messages with a per-message cache.
-			originalTokens, originalPerMessageTokens, err = countMessageTokensWithCache(ctx, out.Items)
-			// Return error if token counting fails with session context.
-			if err != nil {
-				return nil, fmt.Errorf("failed to count tokens for auto-trim session_id=%s: %w", in.SessionID, err)
-			}
-			// Trigger auto-trim when tokens meet or exceed the threshold.
-			if checkTokensGte(originalTokens, in.AutoTrim.TokenThreshold) {
-				autoTrimTriggered = true
-			}
-			// TODO: message_count_gte
-			// TODO: tool_use_count_gte
-		}
-	}
-	// Apply auto-trim when the trigger is true.
-	if autoTrimTriggered {
-		// Apply auto-trim using the registry for supported strategies.
-		if IsAutoTrimStrategySupported(in.AutoTrim.Strategy) {
-			// Apply the auto-trim strategy via the registry.
-			editedMessages, err := ApplyAutoTrimStrategy(ctx, in.AutoTrim.Strategy, out.Items)
-			if err != nil {
-				// Record skip reason when auto-trim apply fails.
-				reason := "apply_failed"
-				out.AutoTrimSkipped = true
-				out.AutoTrimSkipReason = &reason
-			} else {
-				// Replace messages with auto-trimmed messages.
-				out.Items = editedMessages
-				// Mark auto-trim as applied.
-				out.AutoTrimApplied = true
-				// Store the applied strategy name for the response.
-				strategyName := in.AutoTrim.Strategy
-				out.AutoTrimStrategy = &strategyName
-				// Estimate tokens removed using cached per-message counts.
-				out.EstimatedTokensRemoved, err = estimateTokensRemovedAfterAutoTrim(
-					ctx,
-					originalTokens,
-					originalPerMessageTokens,
-					out.Items,
-				)
-				// Return error if token estimation fails with session context.
-				if err != nil {
-					return nil, fmt.Errorf("failed to estimate tokens after auto-trim session_id=%s: %w", in.SessionID, err)
-				}
-			}
-		}
-	}
-	// Mark auto-trim as skipped when it was requested but not triggered.
-	if in.AutoTrim != nil && !autoTrimTriggered && !out.AutoTrimSkipped {
-		// Record skip reason for a non-triggered auto-trim.
-		reason := "not_triggered"
-		out.AutoTrimSkipped = true
-		out.AutoTrimSkipReason = &reason
 	}
 
 	// Apply edit strategies if provided (before format conversion)

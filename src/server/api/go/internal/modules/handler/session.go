@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
-	// strconv is used to parse the auto_trim_token_threshold query value.
-	"strconv"
 	"strings"
 	"time"
 
@@ -492,37 +490,6 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 	c.JSON(http.StatusCreated, serializer.Response{Data: out})
 }
 
-// AutoTrim defines the optional auto-trim input in get-messages.
-type AutoTrim struct {
-	TokenThreshold int    `form:"token_threshold" json:"token_threshold"`
-	Strategy       string `form:"strategy" json:"strategy"`
-}
-
-// AutoTrimInfo defines the auto-trim metadata returned in responses.
-type AutoTrimInfo struct {
-	Applied                bool    `json:"auto_trim_applied"`
-	Strategy               *string `json:"auto_trim_strategy,omitempty"`
-	EstimatedTokensRemoved int     `json:"estimated_tokens_removed"`
-	Skipped                bool    `json:"auto_trim_skipped,omitempty"`
-	SkipReason             *string `json:"skip_reason,omitempty"`
-}
-
-// GetMessagesResp defines a typed response shape for get-messages auto-trim metadata.
-type GetMessagesResp struct {
-	// Messages holds the returned messages list.
-	Messages []model.Message `json:"messages"`
-	// AutoTrimApplied is true when auto-trim ran.
-	AutoTrimApplied bool `json:"auto_trim_applied"`
-	// AutoTrimStrategy is the strategy name used by auto-trim.
-	AutoTrimStrategy *string `json:"auto_trim_strategy,omitempty"`
-	// EstimatedTokensRemoved is the estimated tokens removed by auto-trim.
-	EstimatedTokensRemoved int `json:"estimated_tokens_removed"`
-	// AutoTrimSkipped is true when auto-trim was skipped.
-	AutoTrimSkipped bool `json:"auto_trim_skipped,omitempty"`
-	// SkipReason explains why auto-trim was skipped.
-	SkipReason *string `json:"skip_reason,omitempty"`
-}
-
 type GetMessagesReq struct {
 	Limit                         *int   `form:"limit" json:"limit" binding:"omitempty,min=0,max=200" example:"20"`
 	Cursor                        string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
@@ -532,8 +499,6 @@ type GetMessagesReq struct {
 	EditStrategies                string `form:"edit_strategies" json:"edit_strategies" example:"[{\"type\":\"remove_tool_result\",\"params\":{\"keep_recent_n_tool_results\":3}}]"`
 	EditingTrigger                string `form:"editing_trigger" json:"editing_trigger" example:"{\"token_gte\":30000}"`
 	PinEditingStrategiesAtMessage string `form:"pin_editing_strategies_at_message" json:"pin_editing_strategies_at_message" example:""`
-	// AutoTrim holds optional auto-trim parameters.
-	AutoTrim *AutoTrim `form:"auto_trim" json:"auto_trim"`
 }
 
 // GetMessages godoc
@@ -561,28 +526,6 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 	if err := c.ShouldBind(&req); err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
 		return
-	}
-
-	// Read auto-trim threshold from query params.
-	thrStr := c.Query("auto_trim_token_threshold")
-	// Read auto-trim strategy from query params.
-	strat := c.Query("auto_trim_strategy")
-	// Build auto-trim config only when any auto-trim param is present.
-	if thrStr != "" || strat != "" {
-		// Parse threshold to int.
-		thr, err := strconv.Atoi(thrStr)
-		// Return 400 when threshold is missing, non-numeric, or non-positive.
-		if err != nil || thr <= 0 {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid auto_trim_token_threshold", err))
-			return
-		}
-		// Return 400 when strategy is not supported by the registry.
-		if !service.IsAutoTrimStrategySupported(strat) {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid auto_trim_strategy", errors.New("strategy not supported")))
-			return
-		}
-		// Attach parsed auto-trim config to the request object.
-		req.AutoTrim = &AutoTrim{TokenThreshold: thr, Strategy: strat}
 	}
 
 	sessionID, err := uuid.Parse(c.Param("session_id"))
@@ -658,14 +601,6 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		editingTrigger = &trig
 	}
 
-	// Map handler auto-trim to service auto-trim.
-	var autoTrim *service.AutoTrim
-	// Build service auto-trim only when request auto-trim exists.
-	if req.AutoTrim != nil {
-		// Copy threshold and strategy into service input.
-		autoTrim = &service.AutoTrim{TokenThreshold: req.AutoTrim.TokenThreshold, Strategy: req.AutoTrim.Strategy}
-	}
-
 	out, err := h.svc.GetMessages(c.Request.Context(), service.GetMessagesInput{
 		SessionID:                     sessionID,
 		Limit:                         limit,
@@ -676,8 +611,6 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		EditStrategies:                editStrategies,
 		EditingTrigger:                editingTrigger,
 		PinEditingStrategiesAtMessage: req.PinEditingStrategiesAtMessage,
-		// Pass auto-trim config to service.
-		AutoTrim: autoTrim,
 	})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.DBErr("", err))
@@ -715,20 +648,6 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to convert messages", err))
 		return
-	}
-
-	// Include auto-trim fields in the response only when auto-trim was requested.
-	if req.AutoTrim != nil {
-		// auto_trim_applied shows whether auto-trim ran.
-		convertedOut["auto_trim_applied"] = out.AutoTrimApplied
-		// auto_trim_strategy shows which strategy ran.
-		convertedOut["auto_trim_strategy"] = out.AutoTrimStrategy
-		// estimated_tokens_removed shows the estimated token reduction.
-		convertedOut["estimated_tokens_removed"] = out.EstimatedTokensRemoved
-		// auto_trim_skipped shows whether auto-trim was skipped.
-		convertedOut["auto_trim_skipped"] = out.AutoTrimSkipped
-		// skip_reason explains why auto-trim was skipped.
-		convertedOut["skip_reason"] = out.AutoTrimSkipReason
 	}
 
 	c.JSON(http.StatusOK, serializer.Response{Data: convertedOut})
