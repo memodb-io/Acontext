@@ -4,6 +4,7 @@ from .backend.e2b import E2BSandboxBackend
 from .backend.novita import NovitaSandboxBackend
 from .backend.cf import CloudflareSandboxBackend
 from .backend.aws_agentcore import AWSAgentCoreSandboxBackend
+from .backend.k8s_sandbox import K8sSandboxBackend
 from ...env import DEFAULT_CORE_CONFIG, LOG
 
 SANDBOX_FACTORIES: dict[str, Type[SandboxBackend] | None] = {
@@ -12,6 +13,7 @@ SANDBOX_FACTORIES: dict[str, Type[SandboxBackend] | None] = {
     NovitaSandboxBackend.type: NovitaSandboxBackend,
     CloudflareSandboxBackend.type: CloudflareSandboxBackend,
     AWSAgentCoreSandboxBackend.type: AWSAgentCoreSandboxBackend,
+    K8sSandboxBackend.type: K8sSandboxBackend,
 }
 
 

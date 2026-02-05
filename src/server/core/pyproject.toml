@@ -37,7 +37,11 @@ dependencies = [
     "novita-sandbox>=1.0.4",
     "urllib3>=2.6.3",
     "boto3>=1.42.19",
+    "agentic-sandbox",
 ]
 
 [dependency-groups]
 dev = ["pytest>=8.4.1", "pytest-asyncio>=1.0.0", "pytest-cov>=6.2.1"]
+
+[tool.uv.sources]
+agentic-sandbox = { git = "https://github.com/kubernetes-sigs/agent-sandbox.git", subdirectory = "clients/python/agentic-sandbox-client", rev = "main" }

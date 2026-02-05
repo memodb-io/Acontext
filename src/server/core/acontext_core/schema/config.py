@@ -76,7 +76,7 @@ class CoreConfig(BaseModel):
 
     # sandbox
     sandbox_type: Literal[
-        "disabled", "novita", "e2b", "cloudflare", "aws_agentcore"
+        "disabled", "novita", "e2b", "cloudflare", "aws_agentcore", "k8s"
     ] = "disabled"
     novita_api_key: Optional[str] = None
     e2b_domain_base_url: Optional[str] = None
@@ -92,6 +92,11 @@ class CoreConfig(BaseModel):
     # If omitted, boto3 will use the default credential chain, see https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html#configuring-credentials
     aws_agentcore_access_key: Optional[str] = None
     aws_agentcore_secret_key: Optional[str] = None
+    # K8s sandbox configuration
+    k8s_sandbox_router_url: Optional[str] = None
+    k8s_sandbox_template_name: Optional[str] = None
+    k8s_sandbox_namespace: str = "default"
+    k8s_sandbox_server_port: int = 8888
     sandbox_default_cpu_count: float = 1
     sandbox_default_memory_mb: int = 512
     sandbox_default_disk_gb: int = 10
@@ -165,3 +170,11 @@ def post_validate_core_config_sanity(config: CoreConfig) -> None:
         assert (
             config.aws_agentcore_region is not None
         ), "aws_agentcore_region is required when sandbox_type is aws_agentcore"
+    
+    if config.sandbox_type == "k8s":
+        assert (
+            config.k8s_sandbox_router_url is not None
+        ), "k8s_sandbox_router_url is required when sandbox_type is k8s"
+        assert (
+            config.k8s_sandbox_template_name is not None
+        ), "k8s_sandbox_template_name is required when sandbox_type is k8s"
