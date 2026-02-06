@@ -178,6 +178,10 @@ func (p *PartIn) Validate() error {
 		if p.Text == "" {
 			return errors.New("text part requires non-empty text field")
 		}
+	case model.PartTypeThinking:
+		if p.Text == "" {
+			return errors.New("thinking part requires non-empty text field")
+		}
 	case model.PartTypeToolCall:
 		if p.Meta == nil {
 			return errors.New("tool-call part requires meta field")

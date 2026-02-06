@@ -58,7 +58,7 @@ func ExtractTextAndToolContent(parts []model.Part) (string, error) {
 
 	for _, part := range parts {
 		switch part.Type {
-		case model.PartTypeText:
+		case model.PartTypeText, model.PartTypeThinking:
 			if part.Text != "" {
 				content.WriteString(part.Text)
 				content.WriteString("\n") // Add separator

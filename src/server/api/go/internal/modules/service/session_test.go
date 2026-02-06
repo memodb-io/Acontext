@@ -684,11 +684,12 @@ func TestPartIn_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "thinking part without text (valid - no text requirement for thinking)",
+			name: "thinking part without text (invalid - text is required for thinking)",
 			part: PartIn{
 				Type: model.PartTypeThinking,
 			},
-			wantErr: false,
+			wantErr: true,
+			errMsg:  "thinking part requires non-empty text field",
 		},
 		{
 			name: "invalid type",
