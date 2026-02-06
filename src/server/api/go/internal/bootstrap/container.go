@@ -48,6 +48,9 @@ func BuildContainer() *do.Injector {
 		}
 		// [optional] auto migrate
 		if cfg.Database.AutoMigrate {
+			// Ensure pgvector extension exists
+			_ = d.Exec("CREATE EXTENSION IF NOT EXISTS vector")
+
 			_ = d.AutoMigrate(
 				&model.Project{},
 				&model.User{},
