@@ -4,10 +4,122 @@ import (
 	"testing"
 
 	"github.com/memodb-io/Acontext/internal/modules/model"
+	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zaptest"
 )
 
 func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
+	log := zaptest.NewLogger(t)
+	err := tokenizer.Init(log)
+	require.NoError(t, err, "failed to initialize tokenizer")
+	t.Run("removes only tool calls above gt_token threshold", func(t *testing.T) {
+		messages := []model.Message{
+			{
+				Parts: []model.Part{
+					{
+						Type: "tool-call",
+						Meta: map[string]any{
+							"id":        "call_1",
+							"name":      "search",
+							"arguments": `{"query": "short"}`,
+						},
+					},
+				},
+			},
+			{
+				Parts: []model.Part{
+					{
+						Type: "tool-call",
+						Meta: map[string]any{
+							"id":        "call_2",
+							"name":      "search",
+							"arguments": `{"query": "this is a very long argument that should exceed the token threshold for removal"}`,
+						},
+					},
+				},
+			},
+		}
+
+		params := map[string]interface{}{"keep_recent_n_tool_calls": 0, "gt_token": 10}
+		strategy, err := createRemoveToolCallParamsStrategy(params)
+		assert.NoError(t, err)
+		result, err := strategy.Apply(messages)
+		assert.NoError(t, err)
+		assert.Equal(t, `{"query": "short"}`, result[0].Parts[0].Meta["arguments"])
+		assert.Equal(t, "{}", result[1].Parts[0].Meta["arguments"])
+	})
+
+	t.Run("keep_recent_n applies before gt_token", func(t *testing.T) {
+		longArgs := `{"query": "this is a long argument that should remain because it is recent"}`
+		tokCount, err := tokenizer.CountTokens(longArgs)
+		require.NoError(t, err)
+		require.Greater(t, tokCount, 1)
+
+		messages := []model.Message{
+			{
+				Parts: []model.Part{
+					{
+						Type: "tool-call",
+						Meta: map[string]any{
+							"id":        "call_1",
+							"name":      "search",
+							"arguments": longArgs,
+						},
+					},
+				},
+			},
+			{
+				Parts: []model.Part{
+					{
+						Type: "tool-call",
+						Meta: map[string]any{
+							"id":        "call_2",
+							"name":      "search",
+							"arguments": longArgs,
+						},
+					},
+				},
+			},
+		}
+
+		params := map[string]interface{}{
+			"keep_recent_n_tool_calls": 1,
+			"gt_token":                 tokCount - 1,
+		}
+		strategy, err := createRemoveToolCallParamsStrategy(params)
+		require.NoError(t, err)
+		result, err := strategy.Apply(messages)
+		require.NoError(t, err)
+		assert.Equal(t, "{}", result[0].Parts[0].Meta["arguments"])
+		assert.Equal(t, longArgs, result[1].Parts[0].Meta["arguments"])
+	})
+
+	t.Run("skips removal when arguments missing and gt_token is set", func(t *testing.T) {
+		messages := []model.Message{
+			{
+				Parts: []model.Part{
+					{
+						Type: "tool-call",
+						Meta: map[string]any{
+							"id":   "call_1",
+							"name": "search",
+						},
+					},
+				},
+			},
+		}
+
+		params := map[string]interface{}{"keep_recent_n_tool_calls": 0, "gt_token": 10}
+		strategy, err := createRemoveToolCallParamsStrategy(params)
+		require.NoError(t, err)
+		result, err := strategy.Apply(messages)
+		require.NoError(t, err)
+		_, ok := result[0].Parts[0].Meta["arguments"]
+		assert.False(t, ok)
+	})
+
 	t.Run("removes parameters from old tool calls", func(t *testing.T) {
 		messages := []model.Message{
 			{
@@ -401,5 +513,33 @@ func TestCreateRemoveToolCallParamsStrategy(t *testing.T) {
 		assert.True(t, ok)
 		assert.Equal(t, 3, rtcp.KeepRecentN)
 		assert.Nil(t, rtcp.KeepTools)
+	})
+
+	t.Run("invalid gt_token type returns error", func(t *testing.T) {
+		config := StrategyConfig{
+			Type: "remove_tool_call_params",
+			Params: map[string]interface{}{
+				"gt_token": "invalid",
+			},
+		}
+
+		_, err := CreateStrategy(config)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "gt_token must be an integer")
+	})
+
+	t.Run("gt_token must be > 0", func(t *testing.T) {
+		config := StrategyConfig{
+			Type: "remove_tool_call_params",
+			Params: map[string]interface{}{
+				"gt_token": 0,
+			},
+		}
+
+		_, err := CreateStrategy(config)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "gt_token must be > 0")
 	})
 }

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/memodb-io/Acontext/internal/modules/model"
+	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 )
 
 // RemoveToolResultStrategy replaces old tool-result parts' text with a placeholder
@@ -12,6 +13,7 @@ type RemoveToolResultStrategy struct {
 	KeepRecentN int
 	Placeholder string
 	KeepTools   []string // Tool names that should never have their results removed
+	GtToken     int      // Only remove results if token count exceeds this threshold (>0)
 }
 
 // Name returns the strategy name
@@ -47,7 +49,7 @@ func (s *RemoveToolResultStrategy) Apply(messages []model.Message) ([]model.Mess
 		}
 	}
 
-	// Collect all tool-result parts with their positions, excluding those in KeepTools
+	// Collect tool-result positions to potentially modify
 	type toolResultPosition struct {
 		messageIdx int
 		partIdx    int
@@ -56,47 +58,57 @@ func (s *RemoveToolResultStrategy) Apply(messages []model.Message) ([]model.Mess
 
 	for msgIdx, msg := range messages {
 		for partIdx, part := range msg.Parts {
-			if part.Type == "tool-result" {
-				// Check if this tool result should be kept based on KeepTools
-				if part.Meta != nil {
-					if toolCallID, ok := part.Meta["tool_call_id"].(string); ok {
-						if toolName, found := toolCallIDToName[toolCallID]; found {
-							if keepToolsSet[toolName] {
-								// Skip this tool result - it should always be kept
-								continue
-							}
+			if part.Type != "tool-result" {
+				continue
+			}
+			// 1. keep_tools exclusion
+			if part.Meta != nil {
+				if toolCallID, ok := part.Meta["tool_call_id"].(string); ok {
+					if toolName, found := toolCallIDToName[toolCallID]; found {
+						if keepToolsSet[toolName] {
+							continue
 						}
 					}
 				}
-				toolResultPositions = append(toolResultPositions, toolResultPosition{
-					messageIdx: msgIdx,
-					partIdx:    partIdx,
-				})
 			}
+			// Add to list for possible replacement
+			toolResultPositions = append(toolResultPositions, toolResultPosition{
+				messageIdx: msgIdx,
+				partIdx:    partIdx,
+			})
 		}
 	}
 
-	// Calculate how many to replace (all except the most recent KeepRecentN)
+	// 2. keep_recent_n filter
 	totalToolResults := len(toolResultPositions)
 	if totalToolResults <= s.KeepRecentN {
-		// Nothing to replace
 		return messages, nil
 	}
-
-	numToReplace := totalToolResults - s.KeepRecentN
-
-	// Use the placeholder text (defaults to "Done" if not set)
 	placeholder := s.Placeholder
 	if placeholder == "" {
 		placeholder = "Done"
 	}
 
-	// Replace the text of the oldest tool-result parts
-	for i := range numToReplace {
+	cutoff := totalToolResults - s.KeepRecentN
+	for i := 0; i < cutoff; i++ {
 		pos := toolResultPositions[i]
+		if s.GtToken > 0 {
+			text := messages[pos.messageIdx].Parts[pos.partIdx].Text
+			if text == "" {
+				// Empty result means zero tokens; don't remove based on gt_token.
+				continue
+			}
+			tokCount, err := tokenizer.CountTokens(text)
+			if err != nil {
+				// Skip gt_token check if tokenization fails.
+				continue
+			}
+			if tokCount <= s.GtToken {
+				continue
+			}
+		}
 		messages[pos.messageIdx].Parts[pos.partIdx].Text = placeholder
 	}
-
 	return messages, nil
 }
 
@@ -145,9 +157,24 @@ func createRemoveToolResultStrategy(params map[string]interface{}) (EditStrategy
 		}
 	}
 
+	gtToken := 0
+	if gtTokenVal, ok := params["gt_token"]; ok {
+		switch v := gtTokenVal.(type) {
+		case float64:
+			gtToken = int(v)
+		case int:
+			gtToken = v
+		default:
+			return nil, fmt.Errorf("gt_token must be an integer, got %T", gtTokenVal)
+		}
+		if gtToken <= 0 {
+			return nil, fmt.Errorf("gt_token must be > 0, got %d", gtToken)
+		}
+	}
 	return &RemoveToolResultStrategy{
 		KeepRecentN: keepRecentNInt,
 		Placeholder: placeholder,
 		KeepTools:   keepTools,
+		GtToken:     gtToken,
 	}, nil
 }

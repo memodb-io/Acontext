@@ -8,6 +8,7 @@ import { FileUpload } from '../uploads';
 import { buildParams } from '../utils';
 import {
   EditStrategy,
+  EditStrategySchema,
   GetMessagesOutput,
   GetMessagesOutputSchema,
   GetTasksOutput,
@@ -285,8 +286,11 @@ export class SessionsAPI {
    * @param options.editStrategies - Optional list of edit strategies to apply before format conversion.
    *   Examples:
    *   - Remove tool results: [{ type: 'remove_tool_result', params: { keep_recent_n_tool_results: 3 } }]
+   *   - Remove large tool results: [{ type: 'remove_tool_result', params: { gt_token: 100 } }]
+   *   - Remove large tool call params: [{ type: 'remove_tool_call_params', params: { gt_token: 100 } }]
    *   - Middle out: [{ type: 'middle_out', params: { token_reduce_to: 5000 } }]
    *   - Token limit: [{ type: 'token_limit', params: { limit_tokens: 20000 } }]
+   *   Throws if editStrategies fail schema validation.
    * @param options.pinEditingStrategiesAtMessage - Message ID to pin editing strategies at.
    *   When provided, strategies are only applied to messages up to and including this message ID,
    *   keeping subsequent messages unchanged. This helps maintain prompt cache stability by
@@ -320,6 +324,7 @@ export class SessionsAPI {
       })
     );
     if (options?.editStrategies !== undefined && options?.editStrategies !== null) {
+      EditStrategySchema.array().parse(options.editStrategies);
       params.edit_strategies = JSON.stringify(options.editStrategies);
     }
     if (options?.pinEditingStrategiesAtMessage !== undefined && options?.pinEditingStrategiesAtMessage !== null) {

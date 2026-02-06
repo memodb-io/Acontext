@@ -248,6 +248,17 @@ describe('AcontextClient Unit Tests', () => {
       expect(result.items).toBeInstanceOf(Array);
     });
 
+    test('should reject non-positive gt_token in edit strategies', async () => {
+      const sessionId = 'test-session-id';
+      await expect(
+        client.sessions.getMessages(sessionId, {
+          editStrategies: [
+            { type: 'remove_tool_result' as const, params: { gt_token: 0 } },
+          ],
+        })
+      ).rejects.toThrow();
+    });
+
     test('should get tasks', async () => {
       const sessionId = 'test-session-id';
       const tasks = [mockTask({ session_id: sessionId })];

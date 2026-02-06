@@ -482,6 +482,23 @@ async def test_async_sessions_get_messages_forwards_format(
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
 @pytest.mark.asyncio
+async def test_async_sessions_get_messages_rejects_non_positive_gt_token(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    edit_strategies = [
+        {"type": "remove_tool_result", "params": {"gt_token": 0}},
+    ]
+
+    with pytest.raises(ValueError, match="gt_token must be >= 1"):
+        await async_client.sessions.get_messages(
+            "session-id", format="openai", edit_strategies=edit_strategies
+        )
+
+    mock_request.assert_not_called()
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
 async def test_async_sessions_get_tasks_without_filters(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
