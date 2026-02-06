@@ -237,10 +237,11 @@ class TestAssistantMessageConversion:
         )
         assert blob is not None
         assert len(blob["content"]) == 2
-        # First block is thinking-as-text
+        # First block is native thinking block
         assert blob["content"][0] == {
-            "type": "text",
-            "text": "Let me reason...",
+            "type": "thinking",
+            "thinking": "Let me reason...",
+            "signature": "sig123",
         }
         assert has_thinking is True
 
@@ -297,7 +298,7 @@ class TestAssistantMessageConversion:
         assert blob is not None
         assert len(blob["content"]) == 3
         types = [b["type"] for b in blob["content"]]
-        assert types == ["text", "text", "tool_use"]
+        assert types == ["thinking", "text", "tool_use"]
         assert has_thinking is True
 
 

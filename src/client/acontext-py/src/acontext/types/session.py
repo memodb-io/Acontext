@@ -142,7 +142,7 @@ class Part(BaseModel):
 
     type: str = Field(
         ...,
-        description="Part type: 'text', 'image', 'audio', 'video', 'file', 'tool-call', 'tool-result', 'data'",
+        description="Part type: 'text', 'image', 'audio', 'video', 'file', 'tool-call', 'tool-result', 'data', 'thinking'",
     )
     text: str | None = Field(None, description="Text content for text parts")
     asset: Asset | None = Field(None, description="Asset information for media parts")

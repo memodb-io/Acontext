@@ -329,8 +329,9 @@ describe('Assistant message conversion (claudeAssistantMessageToAnthropicBlob)',
     expect(blob).not.toBeNull();
     expect((blob!.content as Array<unknown>).length).toBe(2);
     expect((blob!.content as Array<Record<string, unknown>>)[0]).toEqual({
-      type: 'text',
-      text: 'Let me reason...',
+      type: 'thinking',
+      thinking: 'Let me reason...',
+      signature: 'sig123',
     });
     expect(hasThinking).toBe(true);
   });
@@ -428,7 +429,7 @@ describe('Assistant message conversion (claudeAssistantMessageToAnthropicBlob)',
     const content = blob!.content as Array<Record<string, unknown>>;
     expect(content.length).toBe(3);
     const types = content.map((b) => b.type);
-    expect(types).toEqual(['text', 'text', 'tool_use']);
+    expect(types).toEqual(['thinking', 'text', 'tool_use']);
     expect(hasThinking).toBe(true);
   });
 });

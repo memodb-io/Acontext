@@ -197,7 +197,11 @@ def _convert_block(block: dict, *, role: str, include_thinking: bool) -> dict | 
         thinking_text = block.get("thinking", "")
         if not thinking_text:
             return None  # empty thinking text rejected by API
-        return {"type": "text", "text": thinking_text}
+        return {
+            "type": "thinking",
+            "thinking": thinking_text,
+            "signature": block.get("signature", ""),
+        }
 
     if _is_tool_use_block(block):
         if role != "assistant":
@@ -328,7 +332,7 @@ class ClaudeAgentStorage:
         Optional user identifier string passed to ``sessions.create()``.
         Associates the Acontext session with this user.
     include_thinking:
-        Whether to store ``ThinkingBlock`` content as text blocks.
+        Whether to store ``ThinkingBlock`` content as native thinking blocks.
         Default ``False`` (omit thinking).
     on_error:
         Optional callback ``(exception, msg_dict) -> None`` invoked when

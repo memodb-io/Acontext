@@ -15,6 +15,10 @@ export const AssetSchema = z.object({
 
 export type Asset = z.infer<typeof AssetSchema>;
 
+/**
+ * Message part schema.
+ * Part type is one of: 'text', 'image', 'audio', 'video', 'file', 'tool-call', 'tool-result', 'data', 'thinking'.
+ */
 export const PartSchema = z.object({
   type: z.string(),
   text: z.string().nullable().optional(),

@@ -13,7 +13,7 @@ class MessagePart:
 
     Args:
         type: One of ``text``, ``image``, ``audio``, ``video``, ``file``, ``tool-call``,
-            ``tool-result`` or ``data``.
+            ``tool-result``, ``data`` or ``thinking``.
         text: Optional textual payload for ``text`` parts.
         meta: Optional metadata dictionary accepted by the API.
         file_field: Optional field name to use in the multipart body. When omitted the

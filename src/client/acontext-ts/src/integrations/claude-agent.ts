@@ -64,7 +64,7 @@ export interface ClaudeAgentStorageOptions {
   sessionId?: string;
   /** Optional user identifier passed to `sessions.create()`. */
   user?: string;
-  /** Whether to store ThinkingBlock content as text blocks. Default: false. */
+  /** Whether to store ThinkingBlock content as native thinking blocks. Default: false. */
   includeThinking?: boolean;
   /**
    * Optional error callback invoked when `storeMessage` raises.
@@ -194,7 +194,11 @@ function convertBlock(
       if (!thinkingText) {
         return null; // empty thinking text
       }
-      return { type: 'text', text: thinkingText };
+      return {
+        type: 'thinking',
+        thinking: thinkingText,
+        signature: block.signature ?? '',
+      };
     }
 
     case 'tool_use': {
