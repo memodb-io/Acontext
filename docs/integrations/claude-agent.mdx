@@ -7,6 +7,8 @@ The `ClaudeAgentStorage` integration persists messages from the Claude Agent SDK
 
 ## Quick Start
 
+<Tabs>
+<Tab title="Python">
 <Steps>
 <Step title="Install dependencies">
 ```bash
@@ -48,13 +50,54 @@ The `replay-user-messages` flag ensures `UserMessage` is included in the `receiv
 </Tip>
 </Step>
 </Steps>
+</Tab>
+
+<Tab title="TypeScript">
+<Steps>
+<Step title="Install dependencies">
+```bash
+npm install @anthropic-ai/claude-agent-sdk @acontext/acontext
+```
+</Step>
+
+<Step title="Configure environment">
+```env
+ANTHROPIC_API_KEY=your_anthropic_key_here
+ACONTEXT_API_KEY=sk-ac-your-api-key
+```
+</Step>
+
+<Step title="Run agent with Acontext">
+
+```typescript
+import { AcontextClient, ClaudeAgentStorage } from '@acontext/acontext';
+import { query } from '@anthropic-ai/claude-agent-sdk';
+
+const client = new AcontextClient({ apiKey: 'sk-ac-your-api-key' });
+const storage = new ClaudeAgentStorage({ client });
+
+const q = query({ prompt: 'What is the capital of France?', 
+    options: {
+      extraArgs: { "replay-user-messages": null }, // include UserMessage in stream
+    }});
+for await (const message of q) {
+  await storage.saveMessage(message);
+}
+```
+
+</Step>
+</Steps>
+</Tab>
+</Tabs>
 
 ## Session Handling
 
 ### Auto-discovered session id
 
-By default, `ClaudeAgentStorage` discovers the session id from the Claude Agent SDK stream (from the `SystemMessage` with `subtype == "init"`):
+By default, `ClaudeAgentStorage` discovers the session id from the Claude Agent SDK stream (from the `SystemMessage` with `subtype == "init"` in Python, or system message with `session_id` field in TypeScript):
 
+<Tabs>
+<Tab title="Python">
 ```python
 storage = ClaudeAgentStorage(client=acontext_client)
 
@@ -65,11 +108,29 @@ async for message in claude_client.receive_response():
 # After init: storage.session_id is set
 print(storage.session_id)
 ```
+</Tab>
+
+<Tab title="TypeScript">
+```typescript
+const storage = new ClaudeAgentStorage({ client });
+
+// sessionId is null until the init message arrives
+for await (const message of q) {
+  await storage.saveMessage(message);
+}
+
+// After init: storage.sessionId is set
+console.log(storage.sessionId);
+```
+</Tab>
+</Tabs>
 
 ### Explicit Acontext session
 
 To correlate the Claude run with a specific Acontext session:
 
+<Tabs>
+<Tab title="Python">
 ```python
 session = await acontext_client.sessions.create()
 storage = ClaudeAgentStorage(client=acontext_client, session_id=session.id)
@@ -77,6 +138,19 @@ storage = ClaudeAgentStorage(client=acontext_client, session_id=session.id)
 async for message in claude_client.receive_response():
     await storage.save_message(message)
 ```
+</Tab>
+
+<Tab title="TypeScript">
+```typescript
+const session = await client.sessions.create();
+const storage = new ClaudeAgentStorage({ client, sessionId: session.id });
+
+for await (const message of q) {
+  await storage.saveMessage(message);
+}
+```
+</Tab>
+</Tabs>
 
 ## Options
 
@@ -84,12 +158,25 @@ async for message in claude_client.receive_response():
 
 By default, `ThinkingBlock` content is omitted from stored messages. To include it as text blocks:
 
+<Tabs>
+<Tab title="Python">
 ```python
 storage = ClaudeAgentStorage(
     client=acontext_client,
     include_thinking=True,
 )
 ```
+</Tab>
+
+<Tab title="TypeScript">
+```typescript
+const storage = new ClaudeAgentStorage({
+  client,
+  includeThinking: true,
+});
+```
+</Tab>
+</Tabs>
 
 When thinking is included, the stored message `meta` will contain `"has_thinking": True` so consumers can distinguish thinking text from regular text on retrieval.
 
@@ -97,12 +184,49 @@ When thinking is included, the stored message `meta` will contain `"has_thinking
 
 By default, API errors during storage are logged and swallowed so your message loop is never interrupted. To customize:
 
+<Tabs>
+<Tab title="Python">
 ```python
 storage = ClaudeAgentStorage(
     client=acontext_client,
     on_error=lambda exc, msg: print(f"Storage failed: {exc}"),
 )
 ```
+</Tab>
+
+<Tab title="TypeScript">
+```typescript
+const storage = new ClaudeAgentStorage({
+  client,
+  onError: (err, blob) => console.error('Storage failed:', err),
+});
+```
+</Tab>
+</Tabs>
+
+### User identifier
+
+Pass a `user` string to associate the Acontext session with a specific user. This value is forwarded to `sessions.create()` when the session is first created:
+
+<Tabs>
+<Tab title="Python">
+```python
+storage = ClaudeAgentStorage(
+    client=acontext_client,
+    user="alice@example.com",
+)
+```
+</Tab>
+
+<Tab title="TypeScript">
+```typescript
+const storage = new ClaudeAgentStorage({
+  client,
+  user: 'alice@example.com',
+});
+```
+</Tab>
+</Tabs>
 
 ## What gets stored
 
@@ -110,7 +234,7 @@ storage = ClaudeAgentStorage(
 |---|---|---|
 | **UserMessage** | Yes | `role: "user"`. String content wrapped as text block. `ToolUseBlock` skipped (invalid in user role). |
 | **AssistantMessage** | Yes | `role: "assistant"`. `model` stored in message `meta`. `ToolResultBlock` skipped (invalid in assistant role). If `error` field is set, its value is included in `meta.error` for observability. |
-| **SystemMessage** | No | Used only for session-id resolution (`subtype == "init"`). |
+| **SystemMessage** | No | Used only for session-id resolution (`subtype == "init"` in Python, `session_id` field in TypeScript). |
 | **ResultMessage** | No | Fallback session-id source. |
 | **StreamEvent** | No | Fallback session-id source. |
 

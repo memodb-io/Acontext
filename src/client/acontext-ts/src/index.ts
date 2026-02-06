@@ -13,4 +13,5 @@ export { APIError, TransportError, AcontextError } from './errors';
 export * from './types';
 export * from './resources';
 export * from './agent';
+export * from './integrations';
 
