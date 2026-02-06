@@ -462,7 +462,7 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 	}
 
 	// Store user-provided meta in __user_meta__ field for complete isolation from system fields
-	if req.Meta != nil && len(req.Meta) > 0 {
+	if len(req.Meta) > 0 {
 		if normalizedMeta == nil {
 			normalizedMeta = make(map[string]interface{})
 		}

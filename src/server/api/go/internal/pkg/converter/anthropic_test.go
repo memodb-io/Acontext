@@ -92,6 +92,30 @@ func TestAnthropicConverter_Convert_ToolResult(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
+func TestAnthropicConverter_Convert_ThinkingBlock(t *testing.T) {
+	converter := &AnthropicConverter{}
+
+	messages := []model.Message{
+		createTestMessage("assistant", []model.Part{
+			{
+				Type: "thinking",
+				Text: "Let me reason step by step...",
+				Meta: map[string]any{
+					"signature": "sig_abc123",
+				},
+			},
+			{
+				Type: "text",
+				Text: "Here is my answer.",
+			},
+		}, nil),
+	}
+
+	result, err := converter.Convert(messages, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+}
+
 func TestAnthropicConverter_Convert_Image(t *testing.T) {
 	converter := &AnthropicConverter{}
 

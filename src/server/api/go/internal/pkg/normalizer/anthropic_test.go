@@ -190,6 +190,44 @@ func TestAnthropicNormalizer_NormalizeFromAnthropicMessage(t *testing.T) {
 			wantErr:     false,
 		},
 		{
+			name: "assistant message with thinking block",
+			input: `{
+				"role": "assistant",
+				"content": [
+					{"type": "thinking", "thinking": "Let me reason about this...", "signature": "sig_abc123"}
+				]
+			}`,
+			wantRole:    "assistant",
+			wantPartCnt: 1,
+			wantErr:     false,
+		},
+		{
+			name: "assistant message with thinking and text blocks",
+			input: `{
+				"role": "assistant",
+				"content": [
+					{"type": "thinking", "thinking": "Step 1: analyze the problem...", "signature": "sig_def456"},
+					{"type": "text", "text": "Here is my answer."}
+				]
+			}`,
+			wantRole:    "assistant",
+			wantPartCnt: 2,
+			wantErr:     false,
+		},
+		{
+			name: "assistant message with redacted thinking block (skipped)",
+			input: `{
+				"role": "assistant",
+				"content": [
+					{"type": "redacted_thinking", "data": "opaque-encrypted-data"},
+					{"type": "text", "text": "Here is my answer."}
+				]
+			}`,
+			wantRole:    "assistant",
+			wantPartCnt: 1,
+			wantErr:     false,
+		},
+		{
 			name: "invalid role (system not supported)",
 			input: `{
 				"role": "system",
@@ -330,6 +368,23 @@ func TestAnthropicNormalizer_ContentBlockTypes(t *testing.T) {
 				assert.Equal(t, "application/pdf", fmt.Sprint(meta["media_type"]))
 			},
 		},
+		{
+			name: "thinking block",
+			input: `{
+				"role": "assistant",
+				"content": [
+					{
+						"type": "thinking",
+						"thinking": "Let me analyze this carefully...",
+						"signature": "sig_xyz789"
+					}
+				]
+			}`,
+			wantPartType: "thinking",
+			checkMeta: func(t *testing.T, meta map[string]interface{}) {
+				assert.Equal(t, "sig_xyz789", meta["signature"])
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -347,6 +402,53 @@ func TestAnthropicNormalizer_ContentBlockTypes(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestAnthropicNormalizer_ThinkingBlock(t *testing.T) {
+	normalizer := &AnthropicNormalizer{}
+
+	t.Run("thinking block extracts text and signature", func(t *testing.T) {
+		input := `{
+			"role": "assistant",
+			"content": [
+				{
+					"type": "thinking",
+					"thinking": "Step 1: Consider the input.\nStep 2: Form a response.",
+					"signature": "sig_abc123"
+				}
+			]
+		}`
+
+		role, parts, _, err := normalizer.NormalizeFromAnthropicMessage(json.RawMessage(input))
+
+		assert.NoError(t, err)
+		assert.Equal(t, "assistant", role)
+		assert.Len(t, parts, 1)
+		assert.Equal(t, "thinking", parts[0].Type)
+		assert.Equal(t, "Step 1: Consider the input.\nStep 2: Form a response.", parts[0].Text)
+		assert.Equal(t, "sig_abc123", parts[0].Meta["signature"])
+	})
+
+	t.Run("redacted thinking block is skipped", func(t *testing.T) {
+		input := `{
+			"role": "assistant",
+			"content": [
+				{"type": "thinking", "thinking": "Visible thinking", "signature": "sig_1"},
+				{"type": "redacted_thinking", "data": "opaque-data"},
+				{"type": "text", "text": "Final answer"}
+			]
+		}`
+
+		role, parts, _, err := normalizer.NormalizeFromAnthropicMessage(json.RawMessage(input))
+
+		assert.NoError(t, err)
+		assert.Equal(t, "assistant", role)
+		assert.Len(t, parts, 2)
+		assert.Equal(t, "thinking", parts[0].Type)
+		assert.Equal(t, "Visible thinking", parts[0].Text)
+		assert.Equal(t, "text", parts[1].Type)
+		assert.Equal(t, "Final answer", parts[1].Text)
+	})
 }
 
 func TestAnthropicNormalizer_CacheControl(t *testing.T) {

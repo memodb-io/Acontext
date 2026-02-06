@@ -48,6 +48,30 @@ func TestOpenAIConverter_Convert_AssistantWithToolCalls(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
+func TestOpenAIConverter_Convert_ThinkingDowngradedToText(t *testing.T) {
+	converter := &OpenAIConverter{}
+
+	messages := []model.Message{
+		createTestMessage("assistant", []model.Part{
+			{
+				Type: "thinking",
+				Text: "Let me reason about this...",
+				Meta: map[string]any{
+					"signature": "sig_abc123",
+				},
+			},
+			{
+				Type: "text",
+				Text: "Here is my answer.",
+			},
+		}, nil),
+	}
+
+	result, err := converter.Convert(messages, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+}
+
 func TestOpenAIConverter_Convert_ToolResult(t *testing.T) {
 	converter := &OpenAIConverter{}
 

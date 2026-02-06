@@ -89,6 +89,14 @@ func (c *GeminiConverter) convertParts(parts []model.Part, publicURLs map[string
 				})
 			}
 
+		case "thinking":
+			// Downgrade thinking blocks to plain text for Gemini format
+			if part.Text != "" {
+				geminiParts = append(geminiParts, &genai.Part{
+					Text: part.Text,
+				})
+			}
+
 		case "image":
 			imagePart := c.convertImagePart(part, publicURLs)
 			if imagePart != nil {

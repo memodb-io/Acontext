@@ -158,6 +158,11 @@ func (c *OpenAIConverter) convertToAssistantMessage(msg model.Message) openai.Ch
 		switch part.Type {
 		case "text":
 			textContent += part.Text
+		case "thinking":
+			// Downgrade thinking blocks to plain text for OpenAI format
+			if part.Text != "" {
+				textContent += part.Text
+			}
 		case "tool-call":
 			if part.Meta != nil {
 				toolCall := c.convertToToolCall(part)

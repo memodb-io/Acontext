@@ -35,6 +35,10 @@ func (n *AnthropicNormalizer) NormalizeFromAnthropicMessage(messageJSON json.Raw
 		if err != nil {
 			return "", nil, nil, err
 		}
+		// Skip empty parts
+		if part.Type == "" {
+			continue
+		}
 		parts = append(parts, part)
 	}
 
@@ -157,9 +161,19 @@ func normalizeAnthropicContentBlock(blockUnion anthropic.ContentBlockParamUnion)
 			Type: "file",
 			Meta: meta,
 		}, nil
+	} else if blockUnion.OfThinking != nil {
+		// Handle thinking block (extended thinking)
+		return service.PartIn{
+			Type: "thinking",
+			Text: blockUnion.OfThinking.Thinking,
+			Meta: map[string]interface{}{
+				"signature": blockUnion.OfThinking.Signature,
+			},
+		}, nil
 	}
 
-	return service.PartIn{}, fmt.Errorf("unsupported Anthropic content block type")
+	// Skip unsupported block types
+	return service.PartIn{}, nil
 }
 
 // CacheControl represents cache control configuration

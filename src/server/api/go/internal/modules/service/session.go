@@ -158,7 +158,7 @@ type StoreMQPublishJSON struct {
 }
 
 type PartIn struct {
-	Type      string                 `json:"type" validate:"required,oneof=text image audio video file tool-call tool-result data"` // "text" | "image" | ...
+	Type      string                 `json:"type" validate:"required,oneof=text image audio video file tool-call tool-result data thinking"` // "text" | "image" | ...
 	Text      string                 `json:"text,omitempty"`                                                                        // Text sharding
 	FileField string                 `json:"file_field,omitempty"`                                                                  // File field name in the form
 	Meta      map[string]interface{} `json:"meta,omitempty"`                                                                        // [Optional] metadata

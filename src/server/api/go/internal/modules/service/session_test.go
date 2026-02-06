@@ -673,6 +673,24 @@ func TestPartIn_Validate(t *testing.T) {
 			errMsg:  "data part requires 'data_type' in meta",
 		},
 		{
+			name: "valid thinking part",
+			part: PartIn{
+				Type: "thinking",
+				Text: "Let me reason about this...",
+				Meta: map[string]interface{}{
+					"signature": "sig_abc123",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "thinking part without text (valid - no text requirement for thinking)",
+			part: PartIn{
+				Type: "thinking",
+			},
+			wantErr: false,
+		},
+		{
 			name: "invalid type",
 			part: PartIn{
 				Type: "invalid",

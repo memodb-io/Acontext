@@ -103,6 +103,12 @@ func (c *AnthropicConverter) convertParts(parts []model.Part, publicURLs map[str
 					contentBlocks = append(contentBlocks, *docBlock)
 				}
 			}
+
+		case "thinking":
+			// Convert thinking block back to Anthropic ThinkingBlockParam
+			signature, _ := part.Meta["signature"].(string)
+			block := anthropic.NewThinkingBlock(signature, part.Text)
+			contentBlocks = append(contentBlocks, block)
 		}
 	}
 
