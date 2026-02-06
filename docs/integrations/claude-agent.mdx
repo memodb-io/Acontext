@@ -1,0 +1,132 @@
+---
+title: "Claude Agent SDK"
+description: "Integrate Claude Agent SDK with Acontext for session persistence"
+---
+
+The `ClaudeAgentStorage` integration persists messages from the Claude Agent SDK to Acontext automatically. It stores **only** `UserMessage` and `AssistantMessage` in Anthropic format — `SystemMessage`, `ResultMessage`, and `StreamEvent` are used only for session-id resolution.
+
+## Quick Start
+
+<Steps>
+<Step title="Install dependencies">
+```bash
+pip install claude-agent-sdk acontext python-dotenv
+```
+</Step>
+
+<Step title="Configure environment">
+```env
+ANTHROPIC_API_KEY=your_anthropic_key_here
+ACONTEXT_API_KEY=sk-ac-your-api-key
+```
+</Step>
+
+<Step title="Run agent with Acontext">
+
+```python
+import asyncio
+from acontext import AcontextAsyncClient, ClaudeAgentStorage
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+
+async def main():
+    acontext_client = AcontextAsyncClient(api_key="sk-ac-your-api-key")
+    storage = ClaudeAgentStorage(client=acontext_client)
+
+    options = ClaudeAgentOptions(
+        extra_args={"replay-user-messages": None},  # include UserMessage in stream
+    )
+    async with ClaudeSDKClient(options=options) as claude_client:
+        await claude_client.query("What is the capital of France?")
+        async for message in claude_client.receive_response():
+            await storage.save_message(message)
+
+asyncio.run(main())
+```
+
+<Tip>
+The `replay-user-messages` flag ensures `UserMessage` is included in the `receive_response()` stream so that both sides of the conversation are stored. Without it, only `AssistantMessage` appears in the stream and user messages won't be persisted.
+</Tip>
+</Step>
+</Steps>
+
+## Session Handling
+
+### Auto-discovered session id
+
+By default, `ClaudeAgentStorage` discovers the session id from the Claude Agent SDK stream (from the `SystemMessage` with `subtype == "init"`):
+
+```python
+storage = ClaudeAgentStorage(client=acontext_client)
+
+# session_id is None until the init message arrives
+async for message in claude_client.receive_response():
+    await storage.save_message(message)
+
+# After init: storage.session_id is set
+print(storage.session_id)
+```
+
+### Explicit Acontext session
+
+To correlate the Claude run with a specific Acontext session:
+
+```python
+session = await acontext_client.sessions.create()
+storage = ClaudeAgentStorage(client=acontext_client, session_id=session.id)
+
+async for message in claude_client.receive_response():
+    await storage.save_message(message)
+```
+
+## Options
+
+### Include thinking blocks
+
+By default, `ThinkingBlock` content is omitted from stored messages. To include it as text blocks:
+
+```python
+storage = ClaudeAgentStorage(
+    client=acontext_client,
+    include_thinking=True,
+)
+```
+
+When thinking is included, the stored message `meta` will contain `"has_thinking": True` so consumers can distinguish thinking text from regular text on retrieval.
+
+### Custom error handling
+
+By default, API errors during storage are logged and swallowed so your message loop is never interrupted. To customize:
+
+```python
+storage = ClaudeAgentStorage(
+    client=acontext_client,
+    on_error=lambda exc, msg: print(f"Storage failed: {exc}"),
+)
+```
+
+## What gets stored
+
+| Message type | Stored? | Notes |
+|---|---|---|
+| **UserMessage** | Yes | `role: "user"`. String content wrapped as text block. `ToolUseBlock` skipped (invalid in user role). |
+| **AssistantMessage** | Yes | `role: "assistant"`. `model` stored in message `meta`. `ToolResultBlock` skipped (invalid in assistant role). If `error` field is set, its value is included in `meta.error` for observability. |
+| **SystemMessage** | No | Used only for session-id resolution (`subtype == "init"`). |
+| **ResultMessage** | No | Fallback session-id source. |
+| **StreamEvent** | No | Fallback session-id source. |
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Anthropic format" icon="message" href="/store/messages/special/anthropic">
+Anthropic message storage details
+</Card>
+<Card title="Message meta" icon="tag" href="/store/messages/special/message-meta">
+Working with message metadata
+</Card>
+<Card title="Observability" icon="eye" href="/observe/agent_tasks">
+Monitor agent tasks
+</Card>
+<Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
+View all interactions
+</Card>
+</CardGroup>

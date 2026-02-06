@@ -116,6 +116,7 @@
           "integrations/openai-python",
           "integrations/openai-typescript",
           "integrations/openai_agent",
+          "integrations/claude-agent",
           "integrations/ai-sdk"
         ]
       },

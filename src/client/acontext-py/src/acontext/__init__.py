@@ -15,6 +15,7 @@ from .resources import (
     DisksAPI,
     SessionsAPI,
 )
+from .integrations.claude_agent import ClaudeAgentStorage
 from .types import Task, TaskData
 
 __all__ = [
@@ -31,6 +32,7 @@ __all__ = [
     "AsyncSessionsAPI",
     "Task",
     "TaskData",
+    "ClaudeAgentStorage",
     "__version__",
 ]
 
