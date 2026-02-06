@@ -160,7 +160,7 @@ for await (const message of q) {
 
 ### Include thinking blocks
 
-By default, `ThinkingBlock` content is omitted from stored messages. To include it as text blocks:
+By default, `ThinkingBlock` content is omitted from stored messages. To include it as native thinking blocks:
 
 <Tabs>
 <Tab title="Python">
@@ -182,7 +182,9 @@ const storage = new ClaudeAgentStorage({
 </Tab>
 </Tabs>
 
-When thinking is included, the stored message `meta` will contain `"has_thinking": True` so consumers can distinguish thinking text from regular text on retrieval.
+Thinking blocks are stored as Anthropic `thinking` content blocks with their `signature` preserved. When retrieved in Anthropic format, they round-trip as native `thinking` blocks. When retrieved in OpenAI or Gemini format, thinking content is automatically downgraded to plain text.
+
+The stored message `meta` will contain `"has_thinking": True` for observability.
 
 ### Custom error handling
 

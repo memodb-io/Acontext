@@ -1,9 +1,9 @@
 ---
 title: Anthropic Special Flags
-description: "Store Anthropic-specific message flags like prompt caching"
+description: "Store Anthropic-specific message flags like prompt caching and thinking blocks"
 ---
 
-Acontext preserves Anthropic-specific flags like `cache_control` for [prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching).
+Acontext preserves Anthropic-specific flags like `cache_control` for [prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) and `thinking` blocks for [extended thinking](https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking).
 
 ## Prompt Cache
 
@@ -26,3 +26,35 @@ client.sessions.store_message(
 # Retrieved messages preserve the cache_control flag
 messages = client.sessions.get_messages(session_id=session.id, format="anthropic")
 ```
+
+## Thinking Blocks
+
+Acontext natively stores `thinking` blocks from Claude's extended thinking feature. The `signature` is preserved for multi-turn conversation continuity.
+
+```python
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "assistant",
+        "content": [
+            {
+                "type": "thinking",
+                "thinking": "Let me reason step by step...",
+                "signature": "EqoBCkgIAxgCIkD..."
+            },
+            {
+                "type": "text",
+                "text": "The answer is 42."
+            }
+        ]
+    },
+    format="anthropic"
+)
+
+# Retrieved in Anthropic format: thinking blocks round-trip as native thinking blocks
+# Retrieved in OpenAI/Gemini format: thinking content is downgraded to plain text
+```
+
+<Tip>
+If you're using the Claude Agent SDK, see [ClaudeAgentStorage](/integrations/claude-agent#include-thinking-blocks) for automatic thinking block handling.
+</Tip>
