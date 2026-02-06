@@ -53,6 +53,9 @@ func BuildContainer() *do.Injector {
 		//   ALTER TABLE agent_skills DROP COLUMN IF EXISTS asset_meta;
 		//   ALTER TABLE agent_skills DROP COLUMN IF EXISTS file_index;
 		if cfg.Database.AutoMigrate {
+			// Ensure pgvector extension exists
+			_ = d.Exec("CREATE EXTENSION IF NOT EXISTS vector")
+
 			_ = d.AutoMigrate(
 				&model.Project{},
 				&model.User{},

@@ -25,6 +25,9 @@ func setupSessionTestDB(t *testing.T) *gorm.DB {
 		return nil
 	}
 
+	// Ensure pgvector extension exists
+	db.Exec("CREATE EXTENSION IF NOT EXISTS vector")
+
 	// Auto migrate all required tables
 	err = db.AutoMigrate(
 		&model.Project{},
