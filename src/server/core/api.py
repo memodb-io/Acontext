@@ -12,7 +12,7 @@ from acontext_core.telemetry.otel import (
     shutdown_otel_tracing,
 )
 from acontext_core.telemetry.config import TelemetryConfig
-from routers import session_router, sandbox_router
+from routers import session_router, search_router, sandbox_router
 
 
 # Filter to exclude /health endpoint from uvicorn access logs
@@ -85,6 +85,7 @@ app = FastAPI(lifespan=lifespan)
 
 # Include routers
 app.include_router(session_router)
+app.include_router(search_router)
 app.include_router(sandbox_router)
 
 # Instrument FastAPI app after creation and route registration

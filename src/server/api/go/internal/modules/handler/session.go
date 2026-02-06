@@ -778,3 +778,47 @@ func (h *SessionHandler) PatchConfigs(c *gin.Context) {
 
 	c.JSON(http.StatusOK, serializer.Response{Data: PatchSessionConfigsResp{Configs: updatedConfigs}})
 }
+
+type SessionSearchReq struct {
+	Query string `form:"query" json:"query" binding:"required" example:"find conversations about authentication"`
+	Limit int    `form:"limit,default=10" json:"limit" binding:"omitempty,min=1,max=100" example:"10"`
+}
+
+// SessionSearch godoc
+//
+//	@Summary		Search sessions
+//	@Description	Search for sessions by semantic similarity to a query string
+//	@Tags			session
+//	@Accept			json
+//	@Produce		json
+//	@Param			query	query	string	true	"Search query text"
+//	@Param			limit	query	integer	false	"Maximum number of results (1-100, default 10)"
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response{data=httpclient.SessionSearchResponse}
+//	@Router			/sessions/search [get]
+func (h *SessionHandler) SessionSearch(c *gin.Context) {
+	req := SessionSearchReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	limit := req.Limit
+	if limit == 0 {
+		limit = 10 // Default
+	}
+
+	result, err := h.coreClient.SessionSearch(c.Request.Context(), project.ID, req.Query, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "failed to search sessions", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{Data: result})
+}
