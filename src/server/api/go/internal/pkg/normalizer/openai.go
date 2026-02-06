@@ -7,22 +7,20 @@ import (
 	openai "github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/packages/param"
 
+	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/service"
 )
 
-// OpenAINormalizer normalizes OpenAI format to internal format using official SDK types
+// OpenAINormalizer normalizes OpenAI format to internal format using official SDK types.
 type OpenAINormalizer struct{}
 
-// NormalizeFromOpenAIMessage converts OpenAI ChatCompletionMessageParamUnion to internal format
-// Returns: role, parts, messageMeta, error
-func (n *OpenAINormalizer) NormalizeFromOpenAIMessage(messageJSON json.RawMessage) (string, []service.PartIn, map[string]interface{}, error) {
-	// Parse using official OpenAI SDK types
+// Normalize converts OpenAI ChatCompletionMessageParamUnion to internal format.
+func (n *OpenAINormalizer) Normalize(messageJSON json.RawMessage) (string, []service.PartIn, map[string]interface{}, error) {
 	var message openai.ChatCompletionMessageParamUnion
 	if err := message.UnmarshalJSON(messageJSON); err != nil {
 		return "", nil, nil, fmt.Errorf("failed to unmarshal OpenAI message: %w", err)
 	}
 
-	// Extract role and content based on message type
 	if message.OfUser != nil {
 		return normalizeOpenAIUserMessage(*message.OfUser)
 	} else if message.OfAssistant != nil {
@@ -40,13 +38,18 @@ func (n *OpenAINormalizer) NormalizeFromOpenAIMessage(messageJSON json.RawMessag
 	return "", nil, nil, fmt.Errorf("unknown OpenAI message type")
 }
 
+// NormalizeFromOpenAIMessage is a backward-compatible alias for Normalize.
+// Deprecated: Use Normalize() via the MessageNormalizer interface instead.
+func (n *OpenAINormalizer) NormalizeFromOpenAIMessage(messageJSON json.RawMessage) (string, []service.PartIn, map[string]interface{}, error) {
+	return n.Normalize(messageJSON)
+}
+
 func normalizeOpenAIUserMessage(msg openai.ChatCompletionUserMessageParam) (string, []service.PartIn, map[string]interface{}, error) {
 	parts := []service.PartIn{}
 
-	// Handle content - can be string or array
 	if !param.IsOmitted(msg.Content.OfString) {
 		parts = append(parts, service.PartIn{
-			Type: "text",
+			Type: model.PartTypeText,
 			Text: msg.Content.OfString.Value,
 		})
 	} else if len(msg.Content.OfArrayOfContentParts) > 0 {
@@ -61,27 +64,24 @@ func normalizeOpenAIUserMessage(msg openai.ChatCompletionUserMessageParam) (stri
 		return "", nil, nil, fmt.Errorf("OpenAI user message must have content")
 	}
 
-	// Extract message-level metadata
 	messageMeta := map[string]interface{}{
-		"source_format": "openai",
+		model.MsgMetaSourceFormat: "openai",
 	}
 
-	// Extract name field if present
 	if !param.IsOmitted(msg.Name) {
-		messageMeta["name"] = msg.Name.Value
+		messageMeta[model.MetaKeyName] = msg.Name.Value
 	}
 
-	return "user", parts, messageMeta, nil
+	return model.RoleUser, parts, messageMeta, nil
 }
 
 func normalizeOpenAIAssistantMessage(msg openai.ChatCompletionAssistantMessageParam) (string, []service.PartIn, map[string]interface{}, error) {
 	parts := []service.PartIn{}
 
-	// Handle content - can be string or array
 	if !param.IsOmitted(msg.Content.OfString) {
 		if msg.Content.OfString.Value != "" {
 			parts = append(parts, service.PartIn{
-				Type: "text",
+				Type: model.PartTypeText,
 				Text: msg.Content.OfString.Value,
 			})
 		}
@@ -95,50 +95,43 @@ func normalizeOpenAIAssistantMessage(msg openai.ChatCompletionAssistantMessagePa
 		}
 	}
 
-	// Handle tool calls - UNIFIED FORMAT
 	for _, toolCall := range msg.ToolCalls {
 		if toolCall.OfFunction != nil {
 			parts = append(parts, service.PartIn{
-				Type: "tool-call",
+				Type: model.PartTypeToolCall,
 				Meta: map[string]interface{}{
-					"id":        toolCall.OfFunction.ID,
-					"name":      toolCall.OfFunction.Function.Name, // Unified: was "tool_name"
-					"arguments": toolCall.OfFunction.Function.Arguments,
-					"type":      "function", // Store tool type
+					model.MetaKeyID:         toolCall.OfFunction.ID,
+					model.MetaKeyName:       toolCall.OfFunction.Function.Name,
+					model.MetaKeyArguments:  toolCall.OfFunction.Function.Arguments,
+					model.MetaKeySourceType: "function",
 				},
 			})
 		}
 	}
 
-	// Handle deprecated function call
 	if !param.IsOmitted(msg.FunctionCall) {
 		parts = append(parts, service.PartIn{
-			Type: "tool-call",
+			Type: model.PartTypeToolCall,
 			Meta: map[string]interface{}{
-				"name":      msg.FunctionCall.Name, // Unified: was "tool_name"
-				"arguments": msg.FunctionCall.Arguments,
-				"type":      "function",
+				model.MetaKeyName:       msg.FunctionCall.Name,
+				model.MetaKeyArguments:  msg.FunctionCall.Arguments,
+				model.MetaKeySourceType: "function",
 			},
 		})
 	}
 
-	// Extract message-level metadata
 	messageMeta := map[string]interface{}{
-		"source_format": "openai",
+		model.MsgMetaSourceFormat: "openai",
 	}
 
-	// Extract name field if present
 	if !param.IsOmitted(msg.Name) {
-		messageMeta["name"] = msg.Name.Value
+		messageMeta[model.MetaKeyName] = msg.Name.Value
 	}
 
-	return "assistant", parts, messageMeta, nil
+	return model.RoleAssistant, parts, messageMeta, nil
 }
 
 func normalizeOpenAIToolMessage(msg openai.ChatCompletionToolMessageParam) (string, []service.PartIn, map[string]interface{}, error) {
-	parts := []service.PartIn{}
-
-	// Tool messages are converted to user messages with tool-result parts
 	var content string
 	if !param.IsOmitted(msg.Content.OfString) {
 		content = msg.Content.OfString.Value
@@ -148,24 +141,24 @@ func normalizeOpenAIToolMessage(msg openai.ChatCompletionToolMessageParam) (stri
 		}
 	}
 
-	parts = append(parts, service.PartIn{
-		Type: "tool-result",
-		Text: content,
-		Meta: map[string]interface{}{
-			"tool_call_id": msg.ToolCallID, // Keep as tool_call_id (unified format)
+	parts := []service.PartIn{
+		{
+			Type: model.PartTypeToolResult,
+			Text: content,
+			Meta: map[string]interface{}{
+				model.MetaKeyToolCallID: msg.ToolCallID,
+			},
 		},
-	})
-
-	// Extract message-level metadata
-	messageMeta := map[string]interface{}{
-		"source_format": "openai",
 	}
 
-	return "user", parts, messageMeta, nil
+	messageMeta := map[string]interface{}{
+		model.MsgMetaSourceFormat: "openai",
+	}
+
+	return model.RoleUser, parts, messageMeta, nil
 }
 
 func normalizeOpenAIFunctionMessage(msg openai.ChatCompletionFunctionMessageParam) (string, []service.PartIn, map[string]interface{}, error) {
-	// Function messages are converted to user messages with tool-result parts
 	content := ""
 	if !param.IsOmitted(msg.Content) {
 		content = msg.Content.Value
@@ -173,7 +166,7 @@ func normalizeOpenAIFunctionMessage(msg openai.ChatCompletionFunctionMessagePara
 
 	parts := []service.PartIn{
 		{
-			Type: "tool-result",
+			Type: model.PartTypeToolResult,
 			Text: content,
 			Meta: map[string]interface{}{
 				"function_name": msg.Name, // Keep function_name for deprecated function format
@@ -181,56 +174,50 @@ func normalizeOpenAIFunctionMessage(msg openai.ChatCompletionFunctionMessagePara
 		},
 	}
 
-	// Extract message-level metadata
 	messageMeta := map[string]interface{}{
-		"source_format": "openai",
+		model.MsgMetaSourceFormat: "openai",
 	}
 
-	return "user", parts, messageMeta, nil
+	return model.RoleUser, parts, messageMeta, nil
 }
 
 func normalizeOpenAIContentPart(partUnion openai.ChatCompletionContentPartUnionParam) (service.PartIn, error) {
 	if partUnion.OfText != nil {
 		return service.PartIn{
-			Type: "text",
+			Type: model.PartTypeText,
 			Text: partUnion.OfText.Text,
 		}, nil
 	} else if partUnion.OfImageURL != nil {
 		return service.PartIn{
-			Type: "image",
+			Type: model.PartTypeImage,
 			Meta: map[string]interface{}{
-				"url":    partUnion.OfImageURL.ImageURL.URL,
-				"detail": partUnion.OfImageURL.ImageURL.Detail,
+				model.MetaKeyURL:    partUnion.OfImageURL.ImageURL.URL,
+				model.MetaKeyDetail: partUnion.OfImageURL.ImageURL.Detail,
 			},
 		}, nil
 	} else if partUnion.OfInputAudio != nil {
 		return service.PartIn{
-			Type: "audio",
+			Type: model.PartTypeAudio,
 			Meta: map[string]interface{}{
-				"data":   partUnion.OfInputAudio.InputAudio.Data,
-				"format": partUnion.OfInputAudio.InputAudio.Format,
+				model.MetaKeyData:        partUnion.OfInputAudio.InputAudio.Data,
+				model.MetaKeyAudioFormat: partUnion.OfInputAudio.InputAudio.Format,
 			},
 		}, nil
 	} else if partUnion.OfFile != nil {
 		meta := map[string]interface{}{}
 
-		// Extract file_id if present
 		if !param.IsOmitted(partUnion.OfFile.File.FileID) {
-			meta["file_id"] = partUnion.OfFile.File.FileID.Value
+			meta[model.MetaKeyFileID] = partUnion.OfFile.File.FileID.Value
 		}
-
-		// Extract base64 file_data if present
 		if !param.IsOmitted(partUnion.OfFile.File.FileData) {
-			meta["file_data"] = partUnion.OfFile.File.FileData.Value
+			meta[model.MetaKeyFileData] = partUnion.OfFile.File.FileData.Value
 		}
-
-		// Extract filename if present
 		if !param.IsOmitted(partUnion.OfFile.File.Filename) {
-			meta["filename"] = partUnion.OfFile.File.Filename.Value
+			meta[model.MetaKeyFilename] = partUnion.OfFile.File.Filename.Value
 		}
 
 		return service.PartIn{
-			Type: "file",
+			Type: model.PartTypeFile,
 			Meta: meta,
 		}, nil
 	}
@@ -241,15 +228,15 @@ func normalizeOpenAIContentPart(partUnion openai.ChatCompletionContentPartUnionP
 func normalizeOpenAIAssistantContentPart(partUnion openai.ChatCompletionAssistantMessageParamContentArrayOfContentPartUnion) (service.PartIn, error) {
 	if partUnion.OfText != nil {
 		return service.PartIn{
-			Type: "text",
+			Type: model.PartTypeText,
 			Text: partUnion.OfText.Text,
 		}, nil
 	} else if partUnion.OfRefusal != nil {
 		return service.PartIn{
-			Type: "text",
+			Type: model.PartTypeText,
 			Text: partUnion.OfRefusal.Refusal,
 			Meta: map[string]interface{}{
-				"is_refusal": true,
+				model.MetaKeyIsRefusal: true,
 			},
 		}, nil
 	}

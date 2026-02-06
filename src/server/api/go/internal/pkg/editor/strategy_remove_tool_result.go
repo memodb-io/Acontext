@@ -39,9 +39,9 @@ func (s *RemoveToolResultStrategy) Apply(messages []model.Message) ([]model.Mess
 	toolCallIDToName := make(map[string]string)
 	for _, msg := range messages {
 		for _, part := range msg.Parts {
-			if part.Type == "tool-call" && part.Meta != nil {
-				if id, ok := part.Meta["id"].(string); ok {
-					if name, ok := part.Meta["name"].(string); ok {
+			if part.Type == model.PartTypeToolCall {
+				if id := part.ID(); id != "" {
+					if name := part.Name(); name != "" {
 						toolCallIDToName[id] = name
 					}
 				}
@@ -58,12 +58,12 @@ func (s *RemoveToolResultStrategy) Apply(messages []model.Message) ([]model.Mess
 
 	for msgIdx, msg := range messages {
 		for partIdx, part := range msg.Parts {
-			if part.Type != "tool-result" {
+			if part.Type != model.PartTypeToolResult {
 				continue
 			}
 			// 1. keep_tools exclusion
 			if part.Meta != nil {
-				if toolCallID, ok := part.Meta["tool_call_id"].(string); ok {
+				if toolCallID := part.ToolCallID(); toolCallID != "" {
 					if toolName, found := toolCallIDToName[toolCallID]; found {
 						if keepToolsSet[toolName] {
 							continue

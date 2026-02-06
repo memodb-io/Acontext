@@ -27,10 +27,10 @@ func TestApplyStrategies(t *testing.T) {
 	t.Run("apply single strategy", func(t *testing.T) {
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Result 1"},
-					{Type: "tool-result", Text: "Result 2"},
+					{Type: model.PartTypeToolResult, Text: "Result 1"},
+					{Type: model.PartTypeToolResult, Text: "Result 2"},
 				},
 			},
 		}
@@ -54,9 +54,9 @@ func TestApplyStrategies(t *testing.T) {
 	t.Run("empty strategies list", func(t *testing.T) {
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "text", Text: "Hello"},
+					{Type: model.PartTypeText, Text: "Hello"},
 				},
 			},
 		}
@@ -72,9 +72,9 @@ func TestApplyStrategies(t *testing.T) {
 	t.Run("nil strategies list", func(t *testing.T) {
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "text", Text: "Hello"},
+					{Type: model.PartTypeText, Text: "Hello"},
 				},
 			},
 		}
@@ -88,9 +88,9 @@ func TestApplyStrategies(t *testing.T) {
 	t.Run("invalid strategy in list", func(t *testing.T) {
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "text", Text: "Hello"},
+					{Type: model.PartTypeText, Text: "Hello"},
 				},
 			},
 		}
@@ -115,7 +115,7 @@ func TestApplyStrategiesWithPin(t *testing.T) {
 		msgID, _ := uuid.Parse(id)
 		return model.Message{
 			ID:    msgID,
-			Role:  "user",
+			Role:  model.RoleUser,
 			Parts: parts,
 		}
 	}
@@ -126,9 +126,9 @@ func TestApplyStrategiesWithPin(t *testing.T) {
 		msg3ID := "33333333-3333-3333-3333-333333333333"
 
 		messages := []model.Message{
-			createMessage(msg1ID, []model.Part{{Type: "tool-result", Text: "Result 1"}}),
-			createMessage(msg2ID, []model.Part{{Type: "tool-result", Text: "Result 2"}}),
-			createMessage(msg3ID, []model.Part{{Type: "tool-result", Text: "Result 3"}}),
+			createMessage(msg1ID, []model.Part{{Type: model.PartTypeToolResult, Text: "Result 1"}}),
+			createMessage(msg2ID, []model.Part{{Type: model.PartTypeToolResult, Text: "Result 2"}}),
+			createMessage(msg3ID, []model.Part{{Type: model.PartTypeToolResult, Text: "Result 3"}}),
 		}
 
 		configs := []StrategyConfig{
@@ -158,10 +158,10 @@ func TestApplyStrategiesWithPin(t *testing.T) {
 		msg4ID := "44444444-4444-4444-4444-444444444444"
 
 		messages := []model.Message{
-			createMessage(msg1ID, []model.Part{{Type: "tool-result", Text: "Result 1"}}),
-			createMessage(msg2ID, []model.Part{{Type: "tool-result", Text: "Result 2"}}),
-			createMessage(msg3ID, []model.Part{{Type: "tool-result", Text: "Result 3"}}),
-			createMessage(msg4ID, []model.Part{{Type: "tool-result", Text: "Result 4"}}),
+			createMessage(msg1ID, []model.Part{{Type: model.PartTypeToolResult, Text: "Result 1"}}),
+			createMessage(msg2ID, []model.Part{{Type: model.PartTypeToolResult, Text: "Result 2"}}),
+			createMessage(msg3ID, []model.Part{{Type: model.PartTypeToolResult, Text: "Result 3"}}),
+			createMessage(msg4ID, []model.Part{{Type: model.PartTypeToolResult, Text: "Result 4"}}),
 		}
 
 		configs := []StrategyConfig{
@@ -192,8 +192,8 @@ func TestApplyStrategiesWithPin(t *testing.T) {
 		msg2ID := "22222222-2222-2222-2222-222222222222"
 
 		messages := []model.Message{
-			createMessage(msg1ID, []model.Part{{Type: "tool-result", Text: "Result 1"}}),
-			createMessage(msg2ID, []model.Part{{Type: "tool-result", Text: "Result 2"}}),
+			createMessage(msg1ID, []model.Part{{Type: model.PartTypeToolResult, Text: "Result 1"}}),
+			createMessage(msg2ID, []model.Part{{Type: model.PartTypeToolResult, Text: "Result 2"}}),
 		}
 
 		configs := []StrategyConfig{
@@ -220,8 +220,8 @@ func TestApplyStrategiesWithPin(t *testing.T) {
 		msg2ID := "22222222-2222-2222-2222-222222222222"
 
 		messages := []model.Message{
-			createMessage(msg1ID, []model.Part{{Type: "tool-result", Text: "Result 1"}}),
-			createMessage(msg2ID, []model.Part{{Type: "tool-result", Text: "Result 2"}}),
+			createMessage(msg1ID, []model.Part{{Type: model.PartTypeToolResult, Text: "Result 1"}}),
+			createMessage(msg2ID, []model.Part{{Type: model.PartTypeToolResult, Text: "Result 2"}}),
 		}
 
 		configs := []StrategyConfig{
@@ -247,8 +247,8 @@ func TestApplyStrategiesWithPin(t *testing.T) {
 		nonExistentID := "99999999-9999-9999-9999-999999999999"
 
 		messages := []model.Message{
-			createMessage(msg1ID, []model.Part{{Type: "tool-result", Text: "Result 1"}}),
-			createMessage(msg2ID, []model.Part{{Type: "tool-result", Text: "Result 2"}}),
+			createMessage(msg1ID, []model.Part{{Type: model.PartTypeToolResult, Text: "Result 1"}}),
+			createMessage(msg2ID, []model.Part{{Type: model.PartTypeToolResult, Text: "Result 2"}}),
 		}
 
 		configs := []StrategyConfig{
@@ -275,8 +275,8 @@ func TestApplyStrategiesWithPin(t *testing.T) {
 		msg2ID := "22222222-2222-2222-2222-222222222222"
 
 		messages := []model.Message{
-			createMessage(msg1ID, []model.Part{{Type: "text", Text: "Hello"}}),
-			createMessage(msg2ID, []model.Part{{Type: "text", Text: "World"}}),
+			createMessage(msg1ID, []model.Part{{Type: model.PartTypeText, Text: "Hello"}}),
+			createMessage(msg2ID, []model.Part{{Type: model.PartTypeText, Text: "World"}}),
 		}
 
 		result, err := ApplyStrategiesWithPin(messages, nil, msg1ID)

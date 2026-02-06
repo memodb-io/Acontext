@@ -71,21 +71,15 @@ func removeWithToolPairing(messages []model.Message, messageTokens []int, idx in
 		queue = queue[1:]
 		for _, removedPart := range messages[current].Parts {
 			switch removedPart.Type {
-			case "tool-call":
-				if removedPart.Meta == nil {
-					continue
-				}
-				toolCallID, ok := removedPart.Meta["id"].(string)
-				if !ok || toolCallID == "" {
+			case model.PartTypeToolCall:
+				toolCallID := removedPart.ID()
+				if toolCallID == "" {
 					continue
 				}
 				enqueueToolPair(messages, toolCallID, toRemove, &queue)
-			case "tool-result":
-				if removedPart.Meta == nil {
-					continue
-				}
-				toolCallID, ok := removedPart.Meta["tool_call_id"].(string)
-				if !ok || toolCallID == "" {
+			case model.PartTypeToolResult:
+				toolCallID := removedPart.ToolCallID()
+				if toolCallID == "" {
 					continue
 				}
 				enqueueToolPair(messages, toolCallID, toRemove, &queue)
@@ -112,18 +106,15 @@ func enqueueToolPair(messages []model.Message, toolCallID string, toRemove map[i
 			continue
 		}
 		for _, part := range msg.Parts {
-			if part.Meta == nil {
-				continue
-			}
-			if part.Type == "tool-call" {
-				if id, ok := part.Meta["id"].(string); ok && id == toolCallID {
+			if part.Type == model.PartTypeToolCall {
+				if part.ID() == toolCallID {
 					toRemove[i] = struct{}{}
 					*queue = append(*queue, i)
 					break
 				}
 			}
-			if part.Type == "tool-result" {
-				if id, ok := part.Meta["tool_call_id"].(string); ok && id == toolCallID {
+			if part.Type == model.PartTypeToolResult {
+				if part.ToolCallID() == toolCallID {
 					toRemove[i] = struct{}{}
 					*queue = append(*queue, i)
 					break

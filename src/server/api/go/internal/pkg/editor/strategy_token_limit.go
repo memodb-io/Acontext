@@ -47,8 +47,8 @@ func (s *TokenLimitStrategy) Apply(messages []model.Message) ([]model.Message, e
 	toolCallIDToResultIndex := make(map[string]int)
 	for i, msg := range messages {
 		for _, part := range msg.Parts {
-			if part.Type == "tool-result" && part.Meta != nil {
-				if toolCallID, ok := part.Meta["tool_call_id"].(string); ok {
+			if part.Type == model.PartTypeToolResult {
+				if toolCallID := part.ToolCallID(); toolCallID != "" {
 					toolCallIDToResultIndex[toolCallID] = i
 				}
 			}
@@ -76,8 +76,8 @@ func (s *TokenLimitStrategy) Apply(messages []model.Message) ([]model.Message, e
 
 		// Check if this message has tool-call parts and remove corresponding tool-results
 		for _, part := range messages[i].Parts {
-			if part.Type == "tool-call" && part.Meta != nil {
-				if id, ok := part.Meta["id"].(string); ok {
+			if part.Type == model.PartTypeToolCall {
+				if id := part.ID(); id != "" {
 					// Use the map to find the corresponding tool-result message (O(1) lookup)
 					if resultIdx, found := toolCallIDToResultIndex[id]; found && !toRemove[resultIdx] {
 						// Mark the tool-result message for removal

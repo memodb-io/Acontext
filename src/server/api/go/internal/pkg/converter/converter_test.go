@@ -33,8 +33,8 @@ func createTestMessage(role string, parts []model.Part, meta map[string]any) mod
 
 func TestConvertMessages_InvalidFormat(t *testing.T) {
 	messages := []model.Message{
-		createTestMessage("user", []model.Part{
-			{Type: "text", Text: "Test"},
+		createTestMessage(model.RoleUser, []model.Part{
+			{Type: model.PartTypeText, Text: "Test"},
 		}, nil),
 	}
 
@@ -50,8 +50,8 @@ func TestConvertMessages_InvalidFormat(t *testing.T) {
 
 func TestConvertMessages_DefaultFormat(t *testing.T) {
 	messages := []model.Message{
-		createTestMessage("user", []model.Part{
-			{Type: "text", Text: "Test"},
+		createTestMessage(model.RoleUser, []model.Part{
+			{Type: model.PartTypeText, Text: "Test"},
 		}, nil),
 	}
 
@@ -69,8 +69,8 @@ func TestConvertMessages_DefaultFormat(t *testing.T) {
 
 func TestConvertMessages_AllFormats(t *testing.T) {
 	messages := []model.Message{
-		createTestMessage("user", []model.Part{
-			{Type: "text", Text: "Test message"},
+		createTestMessage(model.RoleUser, []model.Part{
+			{Type: model.PartTypeText, Text: "Test message"},
 		}, nil),
 	}
 
@@ -155,8 +155,8 @@ func TestValidateFormat(t *testing.T) {
 
 func TestGetConvertedMessagesOutput(t *testing.T) {
 	messages := []model.Message{
-		createTestMessage("user", []model.Part{
-			{Type: "text", Text: "Test"},
+		createTestMessage(model.RoleUser, []model.Part{
+			{Type: model.PartTypeText, Text: "Test"},
 		}, nil),
 	}
 
@@ -187,8 +187,8 @@ func TestGetConvertedMessagesOutput(t *testing.T) {
 
 func TestGetConvertedMessagesOutput_NonAcontextFormat(t *testing.T) {
 	messages := []model.Message{
-		createTestMessage("user", []model.Part{
-			{Type: "text", Text: "Test"},
+		createTestMessage(model.RoleUser, []model.Part{
+			{Type: model.PartTypeText, Text: "Test"},
 		}, nil),
 	}
 
@@ -245,8 +245,8 @@ func TestGetConvertedMessagesOutput_EmptyMessages(t *testing.T) {
 
 func TestGetConvertedMessagesOutput_SingleMessage(t *testing.T) {
 	// Test with single message
-	msg := createTestMessage("user", []model.Part{
-		{Type: "text", Text: "Single message"},
+	msg := createTestMessage(model.RoleUser, []model.Part{
+		{Type: model.PartTypeText, Text: "Single message"},
 	}, nil)
 
 	messages := []model.Message{msg}
@@ -282,8 +282,8 @@ func TestGetConvertedMessagesOutput_IDOrderMatchesItemOrder(t *testing.T) {
 	expectedIDs := make([]string, 5)
 
 	for i := range 5 {
-		messages[i] = createTestMessage("user", []model.Part{
-			{Type: "text", Text: "Message"},
+		messages[i] = createTestMessage(model.RoleUser, []model.Part{
+			{Type: model.PartTypeText, Text: "Message"},
 		}, nil)
 		expectedIDs[i] = messages[i].ID.String()
 	}
@@ -306,8 +306,8 @@ func TestGetConvertedMessagesOutput_IDOrderMatchesItemOrder(t *testing.T) {
 
 func TestGetConvertedMessagesOutput_DifferentFormats(t *testing.T) {
 	// Test that ids field is present regardless of format
-	msg := createTestMessage("user", []model.Part{
-		{Type: "text", Text: "Test"},
+	msg := createTestMessage(model.RoleUser, []model.Part{
+		{Type: model.PartTypeText, Text: "Test"},
 	}, nil)
 
 	messages := []model.Message{msg}
@@ -339,8 +339,8 @@ func TestGetConvertedMessagesOutput_DifferentFormats(t *testing.T) {
 
 func TestGetConvertedMessagesOutput_WithPublicURLs(t *testing.T) {
 	// Test that ids work alongside public_urls
-	msg := createTestMessage("user", []model.Part{
-		{Type: "text", Text: "Test"},
+	msg := createTestMessage(model.RoleUser, []model.Part{
+		{Type: model.PartTypeText, Text: "Test"},
 	}, nil)
 
 	messages := []model.Message{msg}
@@ -372,7 +372,7 @@ func TestGetConvertedMessagesOutput_WithPublicURLs(t *testing.T) {
 
 func TestExtractUserMeta_WithUserMeta(t *testing.T) {
 	meta := map[string]interface{}{
-		"source_format": "openai",
+		model.MsgMetaSourceFormat: "openai",
 		model.UserMetaKey: map[string]interface{}{
 			"key":    "value",
 			"source": "web",
@@ -389,7 +389,7 @@ func TestExtractUserMeta_WithUserMeta(t *testing.T) {
 
 func TestExtractUserMeta_WithoutUserMeta(t *testing.T) {
 	meta := map[string]interface{}{
-		"source_format": "openai",
+		model.MsgMetaSourceFormat: "openai",
 	}
 
 	result := ExtractUserMeta(meta)
@@ -434,20 +434,20 @@ func TestExtractUserMeta_WrongTypeUserMeta(t *testing.T) {
 
 func TestGetConvertedMessagesOutput_ExtractsMetasCorrectly(t *testing.T) {
 	// Create messages with user meta
-	msg1 := createTestMessage("user", []model.Part{
-		{Type: "text", Text: "Hello"},
+	msg1 := createTestMessage(model.RoleUser, []model.Part{
+		{Type: model.PartTypeText, Text: "Hello"},
 	}, map[string]any{
-		"source_format": "openai",
+		model.MsgMetaSourceFormat: "openai",
 		model.UserMetaKey: map[string]interface{}{
 			"source":     "web",
 			"request_id": "abc123",
 		},
 	})
 
-	msg2 := createTestMessage("assistant", []model.Part{
-		{Type: "text", Text: "Hi there"},
+	msg2 := createTestMessage(model.RoleAssistant, []model.Part{
+		{Type: model.PartTypeText, Text: "Hi there"},
 	}, map[string]any{
-		"source_format": "openai",
+		model.MsgMetaSourceFormat: "openai",
 		model.UserMetaKey: map[string]interface{}{
 			"model": "gpt-4",
 		},
@@ -485,8 +485,8 @@ func TestGetConvertedMessagesOutput_MetasOrderMatchesIDs(t *testing.T) {
 	// Create 3 messages with different metas
 	messages := make([]model.Message, 3)
 	for i := range 3 {
-		messages[i] = createTestMessage("user", []model.Part{
-			{Type: "text", Text: "Message"},
+		messages[i] = createTestMessage(model.RoleUser, []model.Part{
+			{Type: model.PartTypeText, Text: "Message"},
 		}, map[string]any{
 			model.UserMetaKey: map[string]interface{}{
 				"index": i,
@@ -517,10 +517,10 @@ func TestGetConvertedMessagesOutput_MetasOrderMatchesIDs(t *testing.T) {
 
 func TestGetConvertedMessagesOutput_EmptyUserMeta(t *testing.T) {
 	// Message without __user_meta__ field
-	msg := createTestMessage("user", []model.Part{
-		{Type: "text", Text: "Hello"},
+	msg := createTestMessage(model.RoleUser, []model.Part{
+		{Type: model.PartTypeText, Text: "Hello"},
 	}, map[string]any{
-		"source_format": "openai",
+		model.MsgMetaSourceFormat: "openai",
 		// No __user_meta__ field
 	})
 
@@ -546,22 +546,22 @@ func TestGetConvertedMessagesOutput_EmptyUserMeta(t *testing.T) {
 
 func TestGetConvertedMessagesOutput_MixedMetas(t *testing.T) {
 	// Mix of messages with and without user meta
-	msg1 := createTestMessage("user", []model.Part{
-		{Type: "text", Text: "Hello"},
+	msg1 := createTestMessage(model.RoleUser, []model.Part{
+		{Type: model.PartTypeText, Text: "Hello"},
 	}, map[string]any{
 		model.UserMetaKey: map[string]interface{}{
 			"has_meta": true,
 		},
 	})
 
-	msg2 := createTestMessage("assistant", []model.Part{
-		{Type: "text", Text: "Hi"},
+	msg2 := createTestMessage(model.RoleAssistant, []model.Part{
+		{Type: model.PartTypeText, Text: "Hi"},
 	}, nil) // No meta at all
 
-	msg3 := createTestMessage("user", []model.Part{
-		{Type: "text", Text: "Bye"},
+	msg3 := createTestMessage(model.RoleUser, []model.Part{
+		{Type: model.PartTypeText, Text: "Bye"},
 	}, map[string]any{
-		"source_format": "openai",
+		model.MsgMetaSourceFormat: "openai",
 		// No __user_meta__
 	})
 

@@ -360,74 +360,20 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 		return
 	}
 
-	switch format {
-	case model.FormatAcontext:
-		// Parse and validate using Acontext normalizer
-		norm := &normalizer.AcontextNormalizer{}
-		normalizedRole, normalizedParts, normalizedMeta, err = norm.NormalizeFromAcontextMessage(blobJSON)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("failed to normalize Acontext message", err))
-			return
-		}
-
-		// Collect file fields from normalized parts
-		for _, p := range normalizedParts {
-			if p.FileField != "" {
-				fileFields = append(fileFields, p.FileField)
-			}
-		}
-
-	case model.FormatOpenAI:
-		// Parse and validate using official OpenAI SDK
-		norm := &normalizer.OpenAINormalizer{}
-		normalizedRole, normalizedParts, normalizedMeta, err = norm.NormalizeFromOpenAIMessage(blobJSON)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("failed to normalize OpenAI message", err))
-			return
-		}
-
-		// Collect file fields from normalized parts
-		for _, p := range normalizedParts {
-			if p.FileField != "" {
-				fileFields = append(fileFields, p.FileField)
-			}
-		}
-
-	case model.FormatAnthropic:
-		// Parse and validate using official Anthropic SDK
-		norm := &normalizer.AnthropicNormalizer{}
-		normalizedRole, normalizedParts, normalizedMeta, err = norm.NormalizeFromAnthropicMessage(blobJSON)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("failed to normalize Anthropic message", err))
-			return
-		}
-
-		// Collect file fields from normalized parts
-		for _, p := range normalizedParts {
-			if p.FileField != "" {
-				fileFields = append(fileFields, p.FileField)
-			}
-		}
-
-	case model.FormatGemini:
-		// Parse and validate using official Google Gemini SDK
-		norm := &normalizer.GeminiNormalizer{}
-		normalizedRole, normalizedParts, normalizedMeta, err = norm.NormalizeFromGeminiMessage(blobJSON)
-		if err != nil {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("failed to normalize Gemini message", err))
-			return
-		}
-
-		// Collect file fields from normalized parts
-		for _, p := range normalizedParts {
-			if p.FileField != "" {
-				fileFields = append(fileFields, p.FileField)
-			}
-		}
-
-	default:
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("unsupported format", fmt.Errorf("format %s is not supported", format)))
+	norm, normErr := normalizer.GetNormalizer(format)
+	if normErr != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("unsupported format", normErr))
 		return
+	}
+	normalizedRole, normalizedParts, normalizedMeta, err = norm.Normalize(blobJSON)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr(fmt.Sprintf("failed to normalize %s message", format), err))
+		return
+	}
+	for _, p := range normalizedParts {
+		if p.FileField != "" {
+			fileFields = append(fileFields, p.FileField)
+		}
 	}
 
 	// Validate that we have at least one part

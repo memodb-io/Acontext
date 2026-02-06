@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -24,7 +25,7 @@ func TestOpenAINormalizer_NormalizeFromOpenAIMessage(t *testing.T) {
 				"role": "user",
 				"content": "Hello, how are you?"
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -36,7 +37,7 @@ func TestOpenAINormalizer_NormalizeFromOpenAIMessage(t *testing.T) {
 					{"type": "text", "text": "What's in this image?"}
 				]
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -55,7 +56,7 @@ func TestOpenAINormalizer_NormalizeFromOpenAIMessage(t *testing.T) {
 					}
 				]
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 2,
 			wantErr:     false,
 		},
@@ -65,7 +66,7 @@ func TestOpenAINormalizer_NormalizeFromOpenAIMessage(t *testing.T) {
 				"role": "assistant",
 				"content": "I can help you with that."
 			}`,
-			wantRole:    "assistant",
+			wantRole:    model.RoleAssistant,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -85,7 +86,7 @@ func TestOpenAINormalizer_NormalizeFromOpenAIMessage(t *testing.T) {
 					}
 				]
 			}`,
-			wantRole:    "assistant",
+			wantRole:    model.RoleAssistant,
 			wantPartCnt: 2,
 			wantErr:     false,
 		},
@@ -95,7 +96,7 @@ func TestOpenAINormalizer_NormalizeFromOpenAIMessage(t *testing.T) {
 				"role": "assistant",
 				"content": ""
 			}`,
-			wantRole:    "assistant",
+			wantRole:    model.RoleAssistant,
 			wantPartCnt: 0,
 			wantErr:     false,
 		},
@@ -110,7 +111,7 @@ func TestOpenAINormalizer_NormalizeFromOpenAIMessage(t *testing.T) {
 					}
 				]
 			}`,
-			wantRole:    "assistant",
+			wantRole:    model.RoleAssistant,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -150,7 +151,7 @@ func TestOpenAINormalizer_NormalizeFromOpenAIMessage(t *testing.T) {
 				"content": "Temperature is 72F",
 				"tool_call_id": "call_abc123"
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -161,7 +162,7 @@ func TestOpenAINormalizer_NormalizeFromOpenAIMessage(t *testing.T) {
 				"name": "get_weather",
 				"content": "{\"temperature\": 72}"
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -179,7 +180,7 @@ func TestOpenAINormalizer_NormalizeFromOpenAIMessage(t *testing.T) {
 					}
 				]
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -216,7 +217,7 @@ func TestOpenAINormalizer_NormalizeFromOpenAIMessage(t *testing.T) {
 				assert.Len(t, parts, tt.wantPartCnt)
 				// Verify message metadata
 				assert.NotNil(t, messageMeta)
-				assert.Equal(t, "openai", messageMeta["source_format"])
+				assert.Equal(t, "openai", messageMeta[model.MsgMetaSourceFormat])
 			}
 		})
 	}
@@ -238,7 +239,7 @@ func TestOpenAINormalizer_ContentPartTypes(t *testing.T) {
 					{"type": "text", "text": "Hello"}
 				]
 			}`,
-			wantPartType: "text",
+			wantPartType: model.PartTypeText,
 		},
 		{
 			name: "image_url part",
@@ -251,7 +252,7 @@ func TestOpenAINormalizer_ContentPartTypes(t *testing.T) {
 					}
 				]
 			}`,
-			wantPartType: "image",
+			wantPartType: model.PartTypeImage,
 		},
 		{
 			name: "input_audio part",
@@ -264,7 +265,7 @@ func TestOpenAINormalizer_ContentPartTypes(t *testing.T) {
 					}
 				]
 			}`,
-			wantPartType: "audio",
+			wantPartType: model.PartTypeAudio,
 		},
 	}
 
@@ -273,11 +274,11 @@ func TestOpenAINormalizer_ContentPartTypes(t *testing.T) {
 			role, parts, messageMeta, err := normalizer.NormalizeFromOpenAIMessage(json.RawMessage(tt.input))
 
 			assert.NoError(t, err)
-			assert.Equal(t, "user", role)
+			assert.Equal(t, model.RoleUser, role)
 			assert.Len(t, parts, 1)
 			assert.Equal(t, tt.wantPartType, parts[0].Type)
 			assert.NotNil(t, messageMeta)
-			assert.Equal(t, "openai", messageMeta["source_format"])
+			assert.Equal(t, "openai", messageMeta[model.MsgMetaSourceFormat])
 		})
 	}
 }
@@ -303,16 +304,16 @@ func TestOpenAINormalizer_ToolCallsAndResults(t *testing.T) {
 		role, parts, messageMeta, err := normalizer.NormalizeFromOpenAIMessage(json.RawMessage(input))
 
 		assert.NoError(t, err)
-		assert.Equal(t, "assistant", role)
+		assert.Equal(t, model.RoleAssistant, role)
 		assert.Len(t, parts, 1)
-		assert.Equal(t, "tool-call", parts[0].Type)
+		assert.Equal(t, model.PartTypeToolCall, parts[0].Type)
 		assert.NotNil(t, parts[0].Meta)
-		assert.Equal(t, "call_123", parts[0].Meta["id"])
+		assert.Equal(t, "call_123", parts[0].Meta[model.MetaKeyID])
 		// UNIFIED FORMAT: now uses "name" instead of "tool_name"
-		assert.Equal(t, "calculate", parts[0].Meta["name"])
-		assert.Equal(t, "function", parts[0].Meta["type"])
+		assert.Equal(t, "calculate", parts[0].Meta[model.MetaKeyName])
+		assert.Equal(t, "function", parts[0].Meta[model.MetaKeySourceType])
 		assert.NotNil(t, messageMeta)
-		assert.Equal(t, "openai", messageMeta["source_format"])
+		assert.Equal(t, "openai", messageMeta[model.MsgMetaSourceFormat])
 	})
 
 	t.Run("tool result message", func(t *testing.T) {
@@ -325,14 +326,14 @@ func TestOpenAINormalizer_ToolCallsAndResults(t *testing.T) {
 		role, parts, messageMeta, err := normalizer.NormalizeFromOpenAIMessage(json.RawMessage(input))
 
 		assert.NoError(t, err)
-		assert.Equal(t, "user", role)
+		assert.Equal(t, model.RoleUser, role)
 		assert.Len(t, parts, 1)
-		assert.Equal(t, "tool-result", parts[0].Type)
+		assert.Equal(t, model.PartTypeToolResult, parts[0].Type)
 		assert.Equal(t, "Result: 8", parts[0].Text)
 		// UNIFIED FORMAT: uses "tool_call_id"
-		assert.Equal(t, "call_123", parts[0].Meta["tool_call_id"])
+		assert.Equal(t, "call_123", parts[0].Meta[model.MetaKeyToolCallID])
 		assert.NotNil(t, messageMeta)
-		assert.Equal(t, "openai", messageMeta["source_format"])
+		assert.Equal(t, "openai", messageMeta[model.MsgMetaSourceFormat])
 	})
 
 	t.Run("deprecated function call", func(t *testing.T) {
@@ -347,14 +348,14 @@ func TestOpenAINormalizer_ToolCallsAndResults(t *testing.T) {
 		role, parts, messageMeta, err := normalizer.NormalizeFromOpenAIMessage(json.RawMessage(input))
 
 		assert.NoError(t, err)
-		assert.Equal(t, "assistant", role)
+		assert.Equal(t, model.RoleAssistant, role)
 		assert.Len(t, parts, 1)
-		assert.Equal(t, "tool-call", parts[0].Type)
+		assert.Equal(t, model.PartTypeToolCall, parts[0].Type)
 		// UNIFIED FORMAT: now uses "name" instead of "tool_name"
-		assert.Equal(t, "old_function", parts[0].Meta["name"])
-		assert.Equal(t, "function", parts[0].Meta["type"])
+		assert.Equal(t, "old_function", parts[0].Meta[model.MetaKeyName])
+		assert.Equal(t, "function", parts[0].Meta[model.MetaKeySourceType])
 		assert.NotNil(t, messageMeta)
-		assert.Equal(t, "openai", messageMeta["source_format"])
+		assert.Equal(t, "openai", messageMeta[model.MsgMetaSourceFormat])
 	})
 }
 
@@ -376,15 +377,15 @@ func TestOpenAINormalizer_MultipleContentParts(t *testing.T) {
 	role, parts, messageMeta, err := normalizer.NormalizeFromOpenAIMessage(json.RawMessage(input))
 
 	assert.NoError(t, err)
-	assert.Equal(t, "user", role)
+	assert.Equal(t, model.RoleUser, role)
 	assert.Len(t, parts, 3)
-	assert.Equal(t, "text", parts[0].Type)
+	assert.Equal(t, model.PartTypeText, parts[0].Type)
 	assert.Equal(t, "First part", parts[0].Text)
-	assert.Equal(t, "text", parts[1].Type)
+	assert.Equal(t, model.PartTypeText, parts[1].Type)
 	assert.Equal(t, "Second part", parts[1].Text)
-	assert.Equal(t, "image", parts[2].Type)
+	assert.Equal(t, model.PartTypeImage, parts[2].Type)
 	assert.NotNil(t, messageMeta)
-	assert.Equal(t, "openai", messageMeta["source_format"])
+	assert.Equal(t, "openai", messageMeta[model.MsgMetaSourceFormat])
 }
 
 func TestOpenAINormalizer_MessageWithName(t *testing.T) {
@@ -399,10 +400,10 @@ func TestOpenAINormalizer_MessageWithName(t *testing.T) {
 	role, parts, messageMeta, err := normalizer.NormalizeFromOpenAIMessage(json.RawMessage(input))
 
 	assert.NoError(t, err)
-	assert.Equal(t, "user", role)
+	assert.Equal(t, model.RoleUser, role)
 	assert.Len(t, parts, 1)
-	assert.Equal(t, "text", parts[0].Type)
+	assert.Equal(t, model.PartTypeText, parts[0].Type)
 	assert.NotNil(t, messageMeta)
-	assert.Equal(t, "openai", messageMeta["source_format"])
-	assert.Equal(t, "Alice", messageMeta["name"])
+	assert.Equal(t, "openai", messageMeta[model.MsgMetaSourceFormat])
+	assert.Equal(t, "Alice", messageMeta[model.MetaKeyName])
 }

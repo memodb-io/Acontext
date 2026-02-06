@@ -610,10 +610,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -641,10 +641,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "assistant",
+					Role:      model.RoleAssistant,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "assistant"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleAssistant
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -671,10 +671,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -695,10 +695,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -729,10 +729,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -760,10 +760,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "assistant",
+					Role:      model.RoleAssistant,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "assistant"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleAssistant
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -799,10 +799,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "assistant",
+					Role:      model.RoleAssistant,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "assistant"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleAssistant
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -831,10 +831,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "assistant",
+					Role:      model.RoleAssistant,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "assistant"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleAssistant
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -864,10 +864,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -897,10 +897,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -922,10 +922,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "assistant",
+					Role:      model.RoleAssistant,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "assistant"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleAssistant
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -956,10 +956,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -989,10 +989,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -1023,10 +1023,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -1057,10 +1057,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -1080,10 +1080,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user", // function messages convert to user role
+					Role:      model.RoleUser, // function messages convert to user role
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -1112,10 +1112,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "assistant",
+					Role:      model.RoleAssistant,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "assistant"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleAssistant
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -1135,10 +1135,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user", // tool role converts to user
+					Role:      model.RoleUser, // tool role converts to user
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -1177,10 +1177,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -1211,10 +1211,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -1246,10 +1246,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -1281,10 +1281,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -1312,10 +1312,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "assistant",
+					Role:      model.RoleAssistant,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "assistant"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleAssistant
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -1355,10 +1355,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "assistant",
+					Role:      model.RoleAssistant,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "assistant"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleAssistant
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -1383,10 +1383,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -1416,10 +1416,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -1465,14 +1465,14 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					// Verify cache_control is extracted
 					if len(in.Parts) >= 2 {
 						secondPart := in.Parts[1]
 						if secondPart.Meta != nil {
-							if cacheControl, ok := secondPart.Meta["cache_control"].(map[string]interface{}); ok {
+							if cacheControl, ok := secondPart.Meta[model.MetaKeyCacheControl].(map[string]interface{}); ok {
 								return cacheControl["type"] == "ephemeral"
 							}
 						}
@@ -1512,14 +1512,14 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					// Verify image with cache_control
 					if len(in.Parts) >= 2 {
 						imagePart := in.Parts[1]
-						if imagePart.Type == "image" && imagePart.Meta != nil {
-							if cacheControl, ok := imagePart.Meta["cache_control"].(map[string]interface{}); ok {
+						if imagePart.Type == model.PartTypeImage && imagePart.Meta != nil {
+							if cacheControl, ok := imagePart.Meta[model.MetaKeyCacheControl].(map[string]interface{}); ok {
 								return cacheControl["type"] == "ephemeral"
 							}
 						}
@@ -1559,15 +1559,15 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "assistant",
+					Role:      model.RoleAssistant,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					// Verify tool-call (unified from tool_use) with cache_control
 					if len(in.Parts) >= 2 {
 						toolPart := in.Parts[1]
 						// UNIFIED FORMAT: Anthropic tool_use is now normalized to "tool-call"
-						if toolPart.Type == "tool-call" && toolPart.Meta != nil {
-							if cacheControl, ok := toolPart.Meta["cache_control"].(map[string]interface{}); ok {
+						if toolPart.Type == model.PartTypeToolCall && toolPart.Meta != nil {
+							if cacheControl, ok := toolPart.Meta[model.MetaKeyCacheControl].(map[string]interface{}); ok {
 								return cacheControl["type"] == "ephemeral"
 							}
 						}
@@ -1600,14 +1600,14 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					// Verify tool_result with cache_control
 					if len(in.Parts) > 0 {
 						toolResultPart := in.Parts[0]
-						if toolResultPart.Type == "tool-result" && toolResultPart.Meta != nil {
-							if cacheControl, ok := toolResultPart.Meta["cache_control"].(map[string]interface{}); ok {
+						if toolResultPart.Type == model.PartTypeToolResult && toolResultPart.Meta != nil {
+							if cacheControl, ok := toolResultPart.Meta[model.MetaKeyCacheControl].(map[string]interface{}); ok {
 								return cacheControl["type"] == "ephemeral"
 							}
 						}
@@ -1647,14 +1647,14 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					// Verify document with cache_control
 					if len(in.Parts) >= 2 {
 						docPart := in.Parts[1]
-						if docPart.Type == "file" && docPart.Meta != nil {
-							if cacheControl, ok := docPart.Meta["cache_control"].(map[string]interface{}); ok {
+						if docPart.Type == model.PartTypeFile && docPart.Meta != nil {
+							if cacheControl, ok := docPart.Meta[model.MetaKeyCacheControl].(map[string]interface{}); ok {
 								return cacheControl["type"] == "ephemeral"
 							}
 						}
@@ -1704,7 +1704,7 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					// Verify multiple cache breakpoints (max 4 according to docs)
@@ -1712,7 +1712,7 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 						cacheCount := 0
 						for i := 0; i < 3; i++ {
 							if in.Parts[i].Meta != nil {
-								if _, ok := in.Parts[i].Meta["cache_control"]; ok {
+								if _, ok := in.Parts[i].Meta[model.MetaKeyCacheControl]; ok {
 									cacheCount++
 								}
 							}
@@ -1760,14 +1760,14 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
 					// Verify selective caching: first part no cache, others with cache
 					if len(in.Parts) == 3 {
-						noCacheFirst := in.Parts[0].Meta == nil || in.Parts[0].Meta["cache_control"] == nil
-						hasCacheSecond := in.Parts[1].Meta != nil && in.Parts[1].Meta["cache_control"] != nil
-						hasCacheThird := in.Parts[2].Meta != nil && in.Parts[2].Meta["cache_control"] != nil
+						noCacheFirst := in.Parts[0].Meta == nil || in.Parts[0].Meta[model.MetaKeyCacheControl] == nil
+						hasCacheSecond := in.Parts[1].Meta != nil && in.Parts[1].Meta[model.MetaKeyCacheControl] != nil
+						hasCacheThird := in.Parts[2].Meta != nil && in.Parts[2].Meta[model.MetaKeyCacheControl] != nil
 						return noCacheFirst && hasCacheSecond && hasCacheThird
 					}
 					return false
@@ -1790,10 +1790,10 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -1896,7 +1896,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 						{
 							ID:        uuid.New(),
 							SessionID: sessionID,
-							Role:      "user",
+							Role:      model.RoleUser,
 						},
 					},
 					HasMore: false,
@@ -1924,7 +1924,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 						{
 							ID:        uuid.New(),
 							SessionID: sessionID,
-							Role:      "user",
+							Role:      model.RoleUser,
 						},
 					},
 					HasMore: false,
@@ -1970,7 +1970,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 						{
 							ID:        uuid.New(),
 							SessionID: sessionID,
-							Role:      "user",
+							Role:      model.RoleUser,
 						},
 					},
 					HasMore: false,
@@ -2012,7 +2012,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 						{
 							ID:        uuid.New(),
 							SessionID: sessionID,
-							Role:      "user",
+							Role:      model.RoleUser,
 						},
 					},
 					HasMore: false,
@@ -2033,7 +2033,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 						{
 							ID:        uuid.New(),
 							SessionID: sessionID,
-							Role:      "user",
+							Role:      model.RoleUser,
 						},
 					},
 					HasMore: false,
@@ -2054,7 +2054,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 						{
 							ID:        uuid.New(),
 							SessionID: sessionID,
-							Role:      "user",
+							Role:      model.RoleUser,
 						},
 					},
 					HasMore:    true,
@@ -2076,7 +2076,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 						{
 							ID:        uuid.New(),
 							SessionID: sessionID,
-							Role:      "user",
+							Role:      model.RoleUser,
 						},
 					},
 					HasMore: false,
@@ -2097,7 +2097,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 						{
 							ID:        uuid.New(),
 							SessionID: sessionID,
-							Role:      "user",
+							Role:      model.RoleUser,
 						},
 					},
 					HasMore: false,
@@ -2118,7 +2118,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 						{
 							ID:        uuid.New(),
 							SessionID: sessionID,
-							Role:      "user",
+							Role:      model.RoleUser,
 						},
 					},
 					HasMore: false,
@@ -2154,7 +2154,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 						{
 							ID:        uuid.New(),
 							SessionID: sessionID,
-							Role:      "user",
+							Role:      model.RoleUser,
 						},
 					},
 					HasMore: false,
@@ -2175,7 +2175,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 						{
 							ID:        uuid.New(),
 							SessionID: sessionID,
-							Role:      "user",
+							Role:      model.RoleUser,
 						},
 					},
 					HasMore: false,
@@ -2196,7 +2196,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 						{
 							ID:        uuid.New(),
 							SessionID: sessionID,
-							Role:      "user",
+							Role:      model.RoleUser,
 						},
 					},
 					HasMore:    true,
@@ -2218,7 +2218,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 						{
 							ID:        uuid.New(),
 							SessionID: sessionID,
-							Role:      "user",
+							Role:      model.RoleUser,
 						},
 					},
 					HasMore: false,
@@ -2301,10 +2301,10 @@ func TestSessionHandler_StoreMessage_Multipart(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user" && len(in.Parts) > 0
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser && len(in.Parts) > 0
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -2339,10 +2339,10 @@ func TestSessionHandler_StoreMessage_Multipart(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user"
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -2381,10 +2381,10 @@ func TestSessionHandler_StoreMessage_Multipart(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user" && len(in.Parts) > 0
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser && len(in.Parts) > 0
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -2420,10 +2420,10 @@ func TestSessionHandler_StoreMessage_Multipart(t *testing.T) {
 				expectedMessage := &model.Message{
 					ID:        uuid.New(),
 					SessionID: sessionID,
-					Role:      "user",
+					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == "user" && len(in.Parts) > 0
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser && len(in.Parts) > 0
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -2516,19 +2516,19 @@ func TestOpenAI_ToolCalls_FieldPreservation(t *testing.T) {
 	expectedMessage := &model.Message{
 		ID:        uuid.New(),
 		SessionID: sessionID,
-		Role:      "assistant",
+		Role:      model.RoleAssistant,
 		Meta: datatypes.NewJSONType(map[string]any{
-			"source_format": "openai",
-			"name":          "assistant_bot",
+			model.MsgMetaSourceFormat: "openai",
+			model.MetaKeyName:        "assistant_bot",
 		}),
 		Parts: []model.Part{
 			{
-				Type: "tool-call",
+				Type: model.PartTypeToolCall,
 				Meta: map[string]any{
-					"id":        "call_abc123",
-					"name":      "get_weather",
-					"arguments": `{"city":"San Francisco"}`,
-					"type":      "function",
+					model.MetaKeyID:         "call_abc123",
+					model.MetaKeyName:       "get_weather",
+					model.MetaKeyArguments:  `{"city":"San Francisco"}`,
+					model.MetaKeySourceType: "function",
 				},
 			},
 		},
@@ -2675,22 +2675,22 @@ func TestOpenAIToAnthropic_FieldMapping(t *testing.T) {
 	expectedMessage := &model.Message{
 		ID:        uuid.New(),
 		SessionID: sessionID,
-		Role:      "assistant",
+		Role:      model.RoleAssistant,
 		Meta: datatypes.NewJSONType(map[string]any{
-			"source_format": "openai",
+			model.MsgMetaSourceFormat: "openai",
 		}),
 		Parts: []model.Part{
 			{
-				Type: "text",
+				Type: model.PartTypeText,
 				Text: "I'll help you with that.",
 			},
 			{
-				Type: "tool-call",
+				Type: model.PartTypeToolCall,
 				Meta: map[string]any{
-					"id":        "call_def456",
-					"name":      "search_database",
-					"arguments": `{"query":"users","limit":10}`,
-					"type":      "function",
+					model.MetaKeyID:         "call_def456",
+					model.MetaKeyName:       "search_database",
+					model.MetaKeyArguments:  `{"query":"users","limit":10}`,
+					model.MetaKeySourceType: "function",
 				},
 			},
 		},
@@ -2803,22 +2803,22 @@ func TestAnthropicToOpenAI_FieldMapping(t *testing.T) {
 	expectedMessage := &model.Message{
 		ID:        uuid.New(),
 		SessionID: sessionID,
-		Role:      "assistant",
+		Role:      model.RoleAssistant,
 		Meta: datatypes.NewJSONType(map[string]any{
-			"source_format": "anthropic",
+			model.MsgMetaSourceFormat: "anthropic",
 		}),
 		Parts: []model.Part{
 			{
-				Type: "text",
+				Type: model.PartTypeText,
 				Text: "Let me check the weather.",
 			},
 			{
-				Type: "tool-call", // 统一格式：Anthropic tool_use 存储为 tool-call
+				Type: model.PartTypeToolCall, // 统一格式：Anthropic tool_use 存储为 tool-call
 				Meta: map[string]any{
-					"id":        "toolu_xyz789",
-					"name":      "get_weather",       // 统一格式：使用 name
-					"arguments": `{"city":"Boston"}`, // 统一格式：使用 JSON 字符串
-					"type":      "tool_use",          // 存储原始类型
+					model.MetaKeyID:         "toolu_xyz789",
+					model.MetaKeyName:       "get_weather",       // 统一格式：使用 name
+					model.MetaKeyArguments:  `{"city":"Boston"}`, // 统一格式：使用 JSON 字符串
+					model.MetaKeySourceType: "tool_use",          // 存储原始类型
 				},
 			},
 		},
@@ -2919,16 +2919,16 @@ func TestToolResult_OpenAIToAnthropic(t *testing.T) {
 	expectedMessage := &model.Message{
 		ID:        uuid.New(),
 		SessionID: sessionID,
-		Role:      "user",
+		Role:      model.RoleUser,
 		Meta: datatypes.NewJSONType(map[string]any{
-			"source_format": "openai",
+			model.MsgMetaSourceFormat: "openai",
 		}),
 		Parts: []model.Part{
 			{
-				Type: "tool-result",
+				Type: model.PartTypeToolResult,
 				Text: "Weather: 72°F, Sunny",
 				Meta: map[string]any{
-					"tool_call_id": "call_weather_123", // 统一格式
+					model.MetaKeyToolCallID: "call_weather_123", // 统一格式
 				},
 			},
 		},
@@ -3035,17 +3035,17 @@ func TestToolResult_AnthropicToOpenAI(t *testing.T) {
 	expectedMessage := &model.Message{
 		ID:        uuid.New(),
 		SessionID: sessionID,
-		Role:      "user",
+		Role:      model.RoleUser,
 		Meta: datatypes.NewJSONType(map[string]any{
-			"source_format": "anthropic",
+			model.MsgMetaSourceFormat: "anthropic",
 		}),
 		Parts: []model.Part{
 			{
-				Type: "tool-result",
+				Type: model.PartTypeToolResult,
 				Text: "Database query returned 5 results",
 				Meta: map[string]any{
-					"tool_call_id": "toolu_result_456", // 统一格式
-					"is_error":     false,
+					model.MetaKeyToolCallID: "toolu_result_456", // 统一格式
+					model.MetaKeyIsError:    false,
 				},
 			},
 		},
@@ -3131,22 +3131,22 @@ func TestAnthropic_CacheControl_Preservation(t *testing.T) {
 	expectedMessage := &model.Message{
 		ID:        uuid.New(),
 		SessionID: sessionID,
-		Role:      "user",
+		Role:      model.RoleUser,
 		Meta: datatypes.NewJSONType(map[string]any{
-			"source_format": "anthropic",
+			model.MsgMetaSourceFormat: "anthropic",
 		}),
 		Parts: []model.Part{
 			{
-				Type: "text",
+				Type: model.PartTypeText,
 				Text: "System instructions here",
 				Meta: map[string]any{
-					"cache_control": map[string]interface{}{
+					model.MetaKeyCacheControl: map[string]interface{}{
 						"type": "ephemeral",
 					},
 				},
 			},
 			{
-				Type: "text",
+				Type: model.PartTypeText,
 				Text: "User question",
 				Meta: map[string]any{}, // No cache_control
 			},
@@ -3253,31 +3253,31 @@ func TestMultipleToolCalls_Conversion(t *testing.T) {
 	expectedMessage := &model.Message{
 		ID:        uuid.New(),
 		SessionID: sessionID,
-		Role:      "assistant",
+		Role:      model.RoleAssistant,
 		Meta: datatypes.NewJSONType(map[string]any{
-			"source_format": "openai",
+			model.MsgMetaSourceFormat: "openai",
 		}),
 		Parts: []model.Part{
 			{
-				Type: "text",
+				Type: model.PartTypeText,
 				Text: "I'll check both cities.",
 			},
 			{
-				Type: "tool-call",
+				Type: model.PartTypeToolCall,
 				Meta: map[string]any{
-					"id":        "call_1",
-					"name":      "get_weather",
-					"arguments": `{"city":"SF"}`,
-					"type":      "function",
+					model.MetaKeyID:         "call_1",
+					model.MetaKeyName:       "get_weather",
+					model.MetaKeyArguments:  `{"city":"SF"}`,
+					model.MetaKeySourceType: "function",
 				},
 			},
 			{
-				Type: "tool-call",
+				Type: model.PartTypeToolCall,
 				Meta: map[string]any{
-					"id":        "call_2",
-					"name":      "get_weather",
-					"arguments": `{"city":"NYC"}`,
-					"type":      "function",
+					model.MetaKeyID:         "call_2",
+					model.MetaKeyName:       "get_weather",
+					model.MetaKeyArguments:  `{"city":"NYC"}`,
+					model.MetaKeySourceType: "function",
 				},
 			},
 		},
@@ -3399,10 +3399,10 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 					{
 						ID:        uuid.New(),
 						SessionID: sessionID,
-						Role:      "user",
+						Role:      model.RoleUser,
 						Parts: []model.Part{
 							{
-								Type: "text",
+								Type: model.PartTypeText,
 								Text: "Hello, world!",
 							},
 						},
@@ -3410,10 +3410,10 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 					{
 						ID:        uuid.New(),
 						SessionID: sessionID,
-						Role:      "assistant",
+						Role:      model.RoleAssistant,
 						Parts: []model.Part{
 							{
-								Type: "text",
+								Type: model.PartTypeText,
 								Text: "How can I help you?",
 							},
 						},
@@ -3432,14 +3432,14 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 					{
 						ID:        uuid.New(),
 						SessionID: sessionID,
-						Role:      "assistant",
+						Role:      model.RoleAssistant,
 						Parts: []model.Part{
 							{
-								Type: "tool-call",
+								Type: model.PartTypeToolCall,
 								Meta: map[string]interface{}{
-									"name":      "get_weather",
-									"arguments": `{"city":"San Francisco"}`,
-									"id":        "call_123",
+									model.MetaKeyName:      "get_weather",
+									model.MetaKeyArguments: `{"city":"San Francisco"}`,
+									model.MetaKeyID:        "call_123",
 								},
 							},
 						},
@@ -3458,10 +3458,10 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 					{
 						ID:        uuid.New(),
 						SessionID: sessionID,
-						Role:      "user",
+						Role:      model.RoleUser,
 						Parts: []model.Part{
 							{
-								Type: "text",
+								Type: model.PartTypeText,
 								Text: "What's the weather?",
 							},
 						},
@@ -3469,17 +3469,17 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 					{
 						ID:        uuid.New(),
 						SessionID: sessionID,
-						Role:      "assistant",
+						Role:      model.RoleAssistant,
 						Parts: []model.Part{
 							{
-								Type: "text",
+								Type: model.PartTypeText,
 								Text: "Let me check.",
 							},
 							{
-								Type: "tool-call",
+								Type: model.PartTypeToolCall,
 								Meta: map[string]interface{}{
-									"name":      "get_weather",
-									"arguments": `{"location":"SF"}`,
+									model.MetaKeyName:      "get_weather",
+									model.MetaKeyArguments: `{"location":"SF"}`,
 								},
 							},
 						},
@@ -3507,10 +3507,10 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 					{
 						ID:        uuid.New(),
 						SessionID: sessionID,
-						Role:      "user",
+						Role:      model.RoleUser,
 						Parts: []model.Part{
 							{
-								Type: "image",
+								Type: model.PartTypeImage,
 								Asset: &model.Asset{
 									SHA256: "abc123",
 									S3Key:  "images/test.jpg",

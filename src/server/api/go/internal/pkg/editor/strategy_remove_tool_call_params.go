@@ -43,12 +43,12 @@ func (s *RemoveToolCallParamsStrategy) Apply(messages []model.Message) ([]model.
 
 	for msgIdx, msg := range messages {
 		for partIdx, part := range msg.Parts {
-			if part.Type != "tool-call" {
+			if part.Type != model.PartTypeToolCall {
 				continue
 			}
 			// 1. keep_tools exclusion
 			if part.Meta != nil {
-				if toolName, ok := part.Meta["name"].(string); ok {
+				if toolName := part.Name(); toolName != "" {
 					if keepToolsSet[toolName] {
 						continue
 					}
@@ -75,7 +75,7 @@ func (s *RemoveToolCallParamsStrategy) Apply(messages []model.Message) ([]model.
 			continue
 		}
 		if s.GtToken > 0 {
-			args, ok := partMeta["arguments"]
+			args, ok := partMeta[model.MetaKeyArguments]
 			if !ok {
 				// No arguments means zero tokens; don't remove based on gt_token.
 				continue
@@ -102,7 +102,7 @@ func (s *RemoveToolCallParamsStrategy) Apply(messages []model.Message) ([]model.
 				continue
 			}
 		}
-		partMeta["arguments"] = "{}"
+		partMeta[model.MetaKeyArguments] = "{}"
 	}
 	return messages, nil
 }

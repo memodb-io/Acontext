@@ -18,15 +18,15 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 	t.Run("replaces only tool results above gt_token threshold", func(t *testing.T) {
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "short result", Meta: map[string]interface{}{"tool_call_id": "call1"}},
+					{Type: model.PartTypeToolResult, Text: "short result", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call1"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "this is a very long tool result that should exceed the token threshold for replacement", Meta: map[string]interface{}{"tool_call_id": "call2"}},
+					{Type: model.PartTypeToolResult, Text: "this is a very long tool result that should exceed the token threshold for replacement", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call2"}},
 				},
 			},
 		}
@@ -48,15 +48,15 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: longText, Meta: map[string]interface{}{"tool_call_id": "call1"}},
+					{Type: model.PartTypeToolResult, Text: longText, Meta: map[string]interface{}{model.MetaKeyToolCallID: "call1"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: longText, Meta: map[string]interface{}{"tool_call_id": "call2"}},
+					{Type: model.PartTypeToolResult, Text: longText, Meta: map[string]interface{}{model.MetaKeyToolCallID: "call2"}},
 				},
 			},
 		}
@@ -77,45 +77,45 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 	t.Run("replace oldest tool results", func(t *testing.T) {
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "text", Text: "What's the weather?"},
+					{Type: model.PartTypeText, Text: "What's the weather?"},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "tool-call", Meta: map[string]interface{}{"id": "call1", "name": "get_weather"}},
+					{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call1", model.MetaKeyName: "get_weather"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Sunny, 75°F", Meta: map[string]interface{}{"tool_call_id": "call1"}},
+					{Type: model.PartTypeToolResult, Text: "Sunny, 75°F", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call1"}},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "tool-call", Meta: map[string]interface{}{"id": "call2", "name": "get_forecast"}},
+					{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call2", model.MetaKeyName: "get_forecast"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Clear skies tomorrow", Meta: map[string]interface{}{"tool_call_id": "call2"}},
+					{Type: model.PartTypeToolResult, Text: "Clear skies tomorrow", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call2"}},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "tool-call", Meta: map[string]interface{}{"id": "call3", "name": "get_temperature"}},
+					{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call3", model.MetaKeyName: "get_temperature"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Current temp: 75°F", Meta: map[string]interface{}{"tool_call_id": "call3"}},
+					{Type: model.PartTypeToolResult, Text: "Current temp: 75°F", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call3"}},
 				},
 			},
 		}
@@ -126,26 +126,26 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, result, 7)
 		assert.Equal(t, "Done", result[2].Parts[0].Text)
-		assert.Equal(t, "tool-result", result[2].Parts[0].Type)
+		assert.Equal(t, model.PartTypeToolResult, result[2].Parts[0].Type)
 		assert.NotNil(t, result[2].Parts[0].Meta)
 		assert.Equal(t, "Done", result[4].Parts[0].Text)
-		assert.Equal(t, "tool-result", result[4].Parts[0].Type)
+		assert.Equal(t, model.PartTypeToolResult, result[4].Parts[0].Type)
 		assert.Equal(t, "Current temp: 75°F", result[6].Parts[0].Text)
-		assert.Equal(t, "tool-result", result[6].Parts[0].Type)
+		assert.Equal(t, model.PartTypeToolResult, result[6].Parts[0].Type)
 	})
 
 	t.Run("keep all when KeepRecentN >= total", func(t *testing.T) {
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Result 1"},
+					{Type: model.PartTypeToolResult, Text: "Result 1"},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Result 2"},
+					{Type: model.PartTypeToolResult, Text: "Result 2"},
 				},
 			},
 		}
@@ -161,15 +161,15 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 	t.Run("replace all when KeepRecentN is 0", func(t *testing.T) {
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Result 1"},
+					{Type: model.PartTypeToolResult, Text: "Result 1"},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Result 2"},
+					{Type: model.PartTypeToolResult, Text: "Result 2"},
 				},
 			},
 		}
@@ -185,15 +185,15 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 	t.Run("no tool results in messages", func(t *testing.T) {
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "text", Text: "Hello"},
+					{Type: model.PartTypeText, Text: "Hello"},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "text", Text: "Hi there"},
+					{Type: model.PartTypeText, Text: "Hi there"},
 				},
 			},
 		}
@@ -210,17 +210,17 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 	t.Run("multiple parts with some tool-results", func(t *testing.T) {
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "text", Text: "Question"},
-					{Type: "tool-result", Text: "Old result"},
+					{Type: model.PartTypeText, Text: "Question"},
+					{Type: model.PartTypeToolResult, Text: "Old result"},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "text", Text: "Answer"},
-					{Type: "tool-result", Text: "Recent result"},
+					{Type: model.PartTypeText, Text: "Answer"},
+					{Type: model.PartTypeToolResult, Text: "Recent result"},
 				},
 			},
 		}
@@ -238,9 +238,9 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 	t.Run("negative KeepRecentN returns error", func(t *testing.T) {
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Result"},
+					{Type: model.PartTypeToolResult, Text: "Result"},
 				},
 			},
 		}
@@ -255,15 +255,15 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 	t.Run("custom placeholder text", func(t *testing.T) {
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Result 1"},
+					{Type: model.PartTypeToolResult, Text: "Result 1"},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Result 2"},
+					{Type: model.PartTypeToolResult, Text: "Result 2"},
 				},
 			},
 		}
@@ -279,9 +279,9 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 	t.Run("empty placeholder defaults to Done", func(t *testing.T) {
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Result 1"},
+					{Type: model.PartTypeToolResult, Text: "Result 1"},
 				},
 			},
 		}
@@ -296,39 +296,39 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 	t.Run("keep_tools prevents removal of specified tool results", func(t *testing.T) {
 		messages := []model.Message{
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "tool-call", Meta: map[string]interface{}{"id": "call1", "name": "important_tool"}},
+					{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call1", model.MetaKeyName: "important_tool"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Important result", Meta: map[string]interface{}{"tool_call_id": "call1"}},
+					{Type: model.PartTypeToolResult, Text: "Important result", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call1"}},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "tool-call", Meta: map[string]interface{}{"id": "call2", "name": "regular_tool"}},
+					{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call2", model.MetaKeyName: "regular_tool"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Regular result", Meta: map[string]interface{}{"tool_call_id": "call2"}},
+					{Type: model.PartTypeToolResult, Text: "Regular result", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call2"}},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "tool-call", Meta: map[string]interface{}{"id": "call3", "name": "important_tool"}},
+					{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call3", model.MetaKeyName: "important_tool"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Another important result", Meta: map[string]interface{}{"tool_call_id": "call3"}},
+					{Type: model.PartTypeToolResult, Text: "Another important result", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call3"}},
 				},
 			},
 		}
@@ -345,39 +345,39 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 	t.Run("keep_tools with keep_recent_n", func(t *testing.T) {
 		messages := []model.Message{
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "tool-call", Meta: map[string]interface{}{"id": "call1", "name": "regular_tool"}},
+					{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call1", model.MetaKeyName: "regular_tool"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Old regular result", Meta: map[string]interface{}{"tool_call_id": "call1"}},
+					{Type: model.PartTypeToolResult, Text: "Old regular result", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call1"}},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "tool-call", Meta: map[string]interface{}{"id": "call2", "name": "important_tool"}},
+					{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call2", model.MetaKeyName: "important_tool"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Important result", Meta: map[string]interface{}{"tool_call_id": "call2"}},
+					{Type: model.PartTypeToolResult, Text: "Important result", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call2"}},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "tool-call", Meta: map[string]interface{}{"id": "call3", "name": "regular_tool"}},
+					{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call3", model.MetaKeyName: "regular_tool"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Recent regular result", Meta: map[string]interface{}{"tool_call_id": "call3"}},
+					{Type: model.PartTypeToolResult, Text: "Recent regular result", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call3"}},
 				},
 			},
 		}
@@ -394,39 +394,39 @@ func TestRemoveToolResultStrategy_Apply(t *testing.T) {
 	t.Run("keep_tools with multiple tool names", func(t *testing.T) {
 		messages := []model.Message{
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "tool-call", Meta: map[string]interface{}{"id": "call1", "name": "tool_a"}},
+					{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call1", model.MetaKeyName: "tool_a"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Result A", Meta: map[string]interface{}{"tool_call_id": "call1"}},
+					{Type: model.PartTypeToolResult, Text: "Result A", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call1"}},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "tool-call", Meta: map[string]interface{}{"id": "call2", "name": "tool_b"}},
+					{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call2", model.MetaKeyName: "tool_b"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Result B", Meta: map[string]interface{}{"tool_call_id": "call2"}},
+					{Type: model.PartTypeToolResult, Text: "Result B", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call2"}},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "tool-call", Meta: map[string]interface{}{"id": "call3", "name": "tool_c"}},
+					{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call3", model.MetaKeyName: "tool_c"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Result C", Meta: map[string]interface{}{"tool_call_id": "call3"}},
+					{Type: model.PartTypeToolResult, Text: "Result C", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call3"}},
 				},
 			},
 		}

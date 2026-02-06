@@ -19,11 +19,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_1",
-							"name":      "search",
-							"arguments": `{"query": "short"}`,
+							model.MetaKeyID:        "call_1",
+							model.MetaKeyName:      "search",
+							model.MetaKeyArguments: `{"query": "short"}`,
 						},
 					},
 				},
@@ -31,11 +31,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_2",
-							"name":      "search",
-							"arguments": `{"query": "this is a very long argument that should exceed the token threshold for removal"}`,
+							model.MetaKeyID:        "call_2",
+							model.MetaKeyName:      "search",
+							model.MetaKeyArguments: `{"query": "this is a very long argument that should exceed the token threshold for removal"}`,
 						},
 					},
 				},
@@ -47,8 +47,8 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 		assert.NoError(t, err)
 		result, err := strategy.Apply(messages)
 		assert.NoError(t, err)
-		assert.Equal(t, `{"query": "short"}`, result[0].Parts[0].Meta["arguments"])
-		assert.Equal(t, "{}", result[1].Parts[0].Meta["arguments"])
+		assert.Equal(t, `{"query": "short"}`, result[0].Parts[0].Meta[model.MetaKeyArguments])
+		assert.Equal(t, "{}", result[1].Parts[0].Meta[model.MetaKeyArguments])
 	})
 
 	t.Run("keep_recent_n applies before gt_token", func(t *testing.T) {
@@ -61,11 +61,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_1",
-							"name":      "search",
-							"arguments": longArgs,
+							model.MetaKeyID:        "call_1",
+							model.MetaKeyName:      "search",
+							model.MetaKeyArguments: longArgs,
 						},
 					},
 				},
@@ -73,11 +73,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_2",
-							"name":      "search",
-							"arguments": longArgs,
+							model.MetaKeyID:        "call_2",
+							model.MetaKeyName:      "search",
+							model.MetaKeyArguments: longArgs,
 						},
 					},
 				},
@@ -92,8 +92,8 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 		require.NoError(t, err)
 		result, err := strategy.Apply(messages)
 		require.NoError(t, err)
-		assert.Equal(t, "{}", result[0].Parts[0].Meta["arguments"])
-		assert.Equal(t, longArgs, result[1].Parts[0].Meta["arguments"])
+		assert.Equal(t, "{}", result[0].Parts[0].Meta[model.MetaKeyArguments])
+		assert.Equal(t, longArgs, result[1].Parts[0].Meta[model.MetaKeyArguments])
 	})
 
 	t.Run("skips removal when arguments missing and gt_token is set", func(t *testing.T) {
@@ -101,10 +101,10 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":   "call_1",
-							"name": "search",
+							model.MetaKeyID:   "call_1",
+							model.MetaKeyName: "search",
 						},
 					},
 				},
@@ -116,7 +116,7 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 		require.NoError(t, err)
 		result, err := strategy.Apply(messages)
 		require.NoError(t, err)
-		_, ok := result[0].Parts[0].Meta["arguments"]
+		_, ok := result[0].Parts[0].Meta[model.MetaKeyArguments]
 		assert.False(t, ok)
 	})
 
@@ -125,11 +125,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_1",
-							"name":      "search",
-							"arguments": `{"query": "old search"}`,
+							model.MetaKeyID:        "call_1",
+							model.MetaKeyName:      "search",
+							model.MetaKeyArguments: `{"query": "old search"}`,
 						},
 					},
 				},
@@ -137,11 +137,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_2",
-							"name":      "search",
-							"arguments": `{"query": "recent search"}`,
+							model.MetaKeyID:        "call_2",
+							model.MetaKeyName:      "search",
+							model.MetaKeyArguments: `{"query": "recent search"}`,
 						},
 					},
 				},
@@ -152,8 +152,8 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 		result, err := strategy.Apply(messages)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "{}", result[0].Parts[0].Meta["arguments"])
-		assert.Equal(t, `{"query": "recent search"}`, result[1].Parts[0].Meta["arguments"])
+		assert.Equal(t, "{}", result[0].Parts[0].Meta[model.MetaKeyArguments])
+		assert.Equal(t, `{"query": "recent search"}`, result[1].Parts[0].Meta[model.MetaKeyArguments])
 	})
 
 	t.Run("keeps all when under limit", func(t *testing.T) {
@@ -161,11 +161,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_1",
-							"name":      "search",
-							"arguments": `{"query": "test"}`,
+							model.MetaKeyID:        "call_1",
+							model.MetaKeyName:      "search",
+							model.MetaKeyArguments: `{"query": "test"}`,
 						},
 					},
 				},
@@ -176,7 +176,7 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 		result, err := strategy.Apply(messages)
 
 		assert.NoError(t, err)
-		assert.Equal(t, `{"query": "test"}`, result[0].Parts[0].Meta["arguments"])
+		assert.Equal(t, `{"query": "test"}`, result[0].Parts[0].Meta[model.MetaKeyArguments])
 	})
 
 	t.Run("removes all when keep_recent_n is zero", func(t *testing.T) {
@@ -184,11 +184,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_1",
-							"name":      "search",
-							"arguments": `{"query": "test"}`,
+							model.MetaKeyID:        "call_1",
+							model.MetaKeyName:      "search",
+							model.MetaKeyArguments: `{"query": "test"}`,
 						},
 					},
 				},
@@ -199,7 +199,7 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 		result, err := strategy.Apply(messages)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "{}", result[0].Parts[0].Meta["arguments"])
+		assert.Equal(t, "{}", result[0].Parts[0].Meta[model.MetaKeyArguments])
 	})
 
 	t.Run("returns error for negative keep_recent_n", func(t *testing.T) {
@@ -215,7 +215,7 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 		messages := []model.Message{
 			{
 				Parts: []model.Part{
-					{Type: "text", Text: "hello"},
+					{Type: model.PartTypeText, Text: "hello"},
 				},
 			},
 		}
@@ -231,13 +231,13 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 		messages := []model.Message{
 			{
 				Parts: []model.Part{
-					{Type: "text", Text: "hello"},
+					{Type: model.PartTypeText, Text: "hello"},
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_1",
-							"name":      "search",
-							"arguments": `{"query": "old"}`,
+							model.MetaKeyID:        "call_1",
+							model.MetaKeyName:      "search",
+							model.MetaKeyArguments: `{"query": "old"}`,
 						},
 					},
 				},
@@ -245,11 +245,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_2",
-							"name":      "search",
-							"arguments": `{"query": "new"}`,
+							model.MetaKeyID:        "call_2",
+							model.MetaKeyName:      "search",
+							model.MetaKeyArguments: `{"query": "new"}`,
 						},
 					},
 				},
@@ -260,8 +260,8 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 		result, err := strategy.Apply(messages)
 
 		assert.NoError(t, err)
-		assert.Equal(t, "{}", result[0].Parts[1].Meta["arguments"])
-		assert.Equal(t, `{"query": "new"}`, result[1].Parts[0].Meta["arguments"])
+		assert.Equal(t, "{}", result[0].Parts[1].Meta[model.MetaKeyArguments])
+		assert.Equal(t, `{"query": "new"}`, result[1].Parts[0].Meta[model.MetaKeyArguments])
 	})
 
 	t.Run("handles tool call with nil meta gracefully", func(t *testing.T) {
@@ -269,7 +269,7 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: nil,
 					},
 				},
@@ -288,11 +288,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_1",
-							"name":      "important_tool",
-							"arguments": `{"key": "important_value"}`,
+							model.MetaKeyID:        "call_1",
+							model.MetaKeyName:      "important_tool",
+							model.MetaKeyArguments: `{"key": "important_value"}`,
 						},
 					},
 				},
@@ -300,11 +300,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_2",
-							"name":      "regular_tool",
-							"arguments": `{"key": "regular_value"}`,
+							model.MetaKeyID:        "call_2",
+							model.MetaKeyName:      "regular_tool",
+							model.MetaKeyArguments: `{"key": "regular_value"}`,
 						},
 					},
 				},
@@ -312,11 +312,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_3",
-							"name":      "important_tool",
-							"arguments": `{"key": "another_important_value"}`,
+							model.MetaKeyID:        "call_3",
+							model.MetaKeyName:      "important_tool",
+							model.MetaKeyArguments: `{"key": "another_important_value"}`,
 						},
 					},
 				},
@@ -328,10 +328,10 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 
 		assert.NoError(t, err)
 		// important_tool calls should keep their arguments
-		assert.Equal(t, `{"key": "important_value"}`, result[0].Parts[0].Meta["arguments"])
-		assert.Equal(t, `{"key": "another_important_value"}`, result[2].Parts[0].Meta["arguments"])
+		assert.Equal(t, `{"key": "important_value"}`, result[0].Parts[0].Meta[model.MetaKeyArguments])
+		assert.Equal(t, `{"key": "another_important_value"}`, result[2].Parts[0].Meta[model.MetaKeyArguments])
 		// regular_tool should have arguments cleared
-		assert.Equal(t, "{}", result[1].Parts[0].Meta["arguments"])
+		assert.Equal(t, "{}", result[1].Parts[0].Meta[model.MetaKeyArguments])
 	})
 
 	t.Run("keep_tools with keep_recent_n", func(t *testing.T) {
@@ -339,11 +339,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_1",
-							"name":      "regular_tool",
-							"arguments": `{"key": "old_regular"}`,
+							model.MetaKeyID:        "call_1",
+							model.MetaKeyName:      "regular_tool",
+							model.MetaKeyArguments: `{"key": "old_regular"}`,
 						},
 					},
 				},
@@ -351,11 +351,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_2",
-							"name":      "important_tool",
-							"arguments": `{"key": "important"}`,
+							model.MetaKeyID:        "call_2",
+							model.MetaKeyName:      "important_tool",
+							model.MetaKeyArguments: `{"key": "important"}`,
 						},
 					},
 				},
@@ -363,11 +363,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_3",
-							"name":      "regular_tool",
-							"arguments": `{"key": "recent_regular"}`,
+							model.MetaKeyID:        "call_3",
+							model.MetaKeyName:      "regular_tool",
+							model.MetaKeyArguments: `{"key": "recent_regular"}`,
 						},
 					},
 				},
@@ -380,11 +380,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 
 		assert.NoError(t, err)
 		// Old regular call should have arguments cleared
-		assert.Equal(t, "{}", result[0].Parts[0].Meta["arguments"])
+		assert.Equal(t, "{}", result[0].Parts[0].Meta[model.MetaKeyArguments])
 		// important_tool should keep arguments
-		assert.Equal(t, `{"key": "important"}`, result[1].Parts[0].Meta["arguments"])
+		assert.Equal(t, `{"key": "important"}`, result[1].Parts[0].Meta[model.MetaKeyArguments])
 		// Recent regular call should keep arguments (within keep_recent_n)
-		assert.Equal(t, `{"key": "recent_regular"}`, result[2].Parts[0].Meta["arguments"])
+		assert.Equal(t, `{"key": "recent_regular"}`, result[2].Parts[0].Meta[model.MetaKeyArguments])
 	})
 
 	t.Run("keep_tools with multiple tool names", func(t *testing.T) {
@@ -392,11 +392,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_1",
-							"name":      "tool_a",
-							"arguments": `{"key": "a"}`,
+							model.MetaKeyID:        "call_1",
+							model.MetaKeyName:      "tool_a",
+							model.MetaKeyArguments: `{"key": "a"}`,
 						},
 					},
 				},
@@ -404,11 +404,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_2",
-							"name":      "tool_b",
-							"arguments": `{"key": "b"}`,
+							model.MetaKeyID:        "call_2",
+							model.MetaKeyName:      "tool_b",
+							model.MetaKeyArguments: `{"key": "b"}`,
 						},
 					},
 				},
@@ -416,11 +416,11 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 			{
 				Parts: []model.Part{
 					{
-						Type: "tool-call",
+						Type: model.PartTypeToolCall,
 						Meta: map[string]any{
-							"id":        "call_3",
-							"name":      "tool_c",
-							"arguments": `{"key": "c"}`,
+							model.MetaKeyID:        "call_3",
+							model.MetaKeyName:      "tool_c",
+							model.MetaKeyArguments: `{"key": "c"}`,
 						},
 					},
 				},
@@ -432,10 +432,10 @@ func TestRemoveToolCallParamsStrategy_Apply(t *testing.T) {
 
 		assert.NoError(t, err)
 		// tool_a and tool_c should keep arguments
-		assert.Equal(t, `{"key": "a"}`, result[0].Parts[0].Meta["arguments"])
-		assert.Equal(t, `{"key": "c"}`, result[2].Parts[0].Meta["arguments"])
+		assert.Equal(t, `{"key": "a"}`, result[0].Parts[0].Meta[model.MetaKeyArguments])
+		assert.Equal(t, `{"key": "c"}`, result[2].Parts[0].Meta[model.MetaKeyArguments])
 		// tool_b should have arguments cleared
-		assert.Equal(t, "{}", result[1].Parts[0].Meta["arguments"])
+		assert.Equal(t, "{}", result[1].Parts[0].Meta[model.MetaKeyArguments])
 	})
 }
 

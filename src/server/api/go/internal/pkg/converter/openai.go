@@ -10,7 +10,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/service"
 )
 
-// OpenAIConverter converts messages to OpenAI-compatible format using official SDK types
+// OpenAIConverter converts messages to OpenAI-compatible format using official SDK types.
 type OpenAIConverter struct{}
 
 func (c *OpenAIConverter) Convert(messages []model.Message, publicURLs map[string]service.PublicURL) (interface{}, error) {
@@ -19,20 +19,18 @@ func (c *OpenAIConverter) Convert(messages []model.Message, publicURLs map[strin
 	for _, msg := range messages {
 		// Special handling: if user role contains only tool-result parts,
 		// convert to OpenAI's tool role
-		if msg.Role == "user" && c.isToolResultOnly(msg.Parts) {
+		if msg.Role == model.RoleUser && c.isToolResultOnly(msg.Parts) {
 			toolMsg := c.convertToToolMessage(msg)
 			result = append(result, toolMsg)
 		} else {
-			// Normal message conversion
 			switch msg.Role {
-			case "user":
+			case model.RoleUser:
 				userMsg := c.convertToUserMessage(msg, publicURLs)
 				result = append(result, userMsg)
-			case "assistant":
+			case model.RoleAssistant:
 				assistantMsg := c.convertToAssistantMessage(msg)
 				result = append(result, assistantMsg)
 			default:
-				// Default to user message
 				userMsg := c.convertToUserMessage(msg, publicURLs)
 				result = append(result, userMsg)
 			}
@@ -43,18 +41,15 @@ func (c *OpenAIConverter) Convert(messages []model.Message, publicURLs map[strin
 }
 
 func (c *OpenAIConverter) convertToUserMessage(msg model.Message, publicURLs map[string]service.PublicURL) openai.ChatCompletionMessageParamUnion {
-	// Check if content should be string or array
-	if len(msg.Parts) == 1 && msg.Parts[0].Type == "text" {
-		// Single text part - use string content
+	if len(msg.Parts) == 1 && msg.Parts[0].Type == model.PartTypeText {
 		userParam := openai.ChatCompletionUserMessageParam{
 			Content: openai.ChatCompletionUserMessageParamContentUnion{
 				OfString: param.NewOpt(msg.Parts[0].Text),
 			},
 		}
 
-		// Add name field from message meta if present
 		if metaData := msg.Meta.Data(); len(metaData) > 0 {
-			if name, ok := metaData["name"].(string); ok && name != "" {
+			if name, ok := metaData[model.MetaKeyName].(string); ok && name != "" {
 				userParam.Name = param.NewOpt(name)
 			}
 		}
@@ -64,62 +59,45 @@ func (c *OpenAIConverter) convertToUserMessage(msg model.Message, publicURLs map
 		}
 	}
 
-	// Multiple parts or non-text parts - use array content
 	contentParts := make([]openai.ChatCompletionContentPartUnionParam, 0, len(msg.Parts))
 	for _, part := range msg.Parts {
 		switch part.Type {
-		case "text":
+		case model.PartTypeText:
 			contentParts = append(contentParts, openai.TextContentPart(part.Text))
-		case "image":
-			imageURL := c.getAssetURL(part.Asset, publicURLs)
+		case model.PartTypeImage:
+			imageURL := GetAssetURL(part.Asset, publicURLs)
 			if imageURL != "" {
-				detail := ""
-				if part.Meta != nil {
-					if d, ok := part.Meta["detail"].(string); ok {
-						detail = d
-					}
-				}
+				detail := part.GetMetaString(model.MetaKeyDetail)
 				imgParam := openai.ChatCompletionContentPartImageImageURLParam{
 					URL:    imageURL,
 					Detail: detail,
 				}
 				contentParts = append(contentParts, openai.ImageContentPart(imgParam))
 			}
-		case "audio":
+		case model.PartTypeAudio:
 			if part.Meta != nil {
-				data := ""
-				format := ""
-				if d, ok := part.Meta["data"].(string); ok {
-					data = d
-				}
-				if f, ok := part.Meta["format"].(string); ok {
-					format = f
-				}
+				data := part.GetMetaString(model.MetaKeyData)
+				format := part.GetMetaString(model.MetaKeyAudioFormat)
 				audioParam := openai.ChatCompletionContentPartInputAudioInputAudioParam{
 					Data:   data,
 					Format: format,
 				}
 				contentParts = append(contentParts, openai.InputAudioContentPart(audioParam))
 			}
-		case "file":
+		case model.PartTypeFile:
 			if part.Meta != nil {
 				fileParam := openai.ChatCompletionContentPartFileFileParam{}
 				hasContent := false
 
-				// Add file_id if present
-				if fileID, ok := part.Meta["file_id"].(string); ok && fileID != "" {
+				if fileID := part.GetMetaString(model.MetaKeyFileID); fileID != "" {
 					fileParam.FileID = param.NewOpt(fileID)
 					hasContent = true
 				}
-
-				// Add base64 file_data if present
-				if fileData, ok := part.Meta["file_data"].(string); ok && fileData != "" {
+				if fileData := part.GetMetaString(model.MetaKeyFileData); fileData != "" {
 					fileParam.FileData = param.NewOpt(fileData)
 					hasContent = true
 				}
-
-				// Add filename if present
-				if filename, ok := part.Meta["filename"].(string); ok && filename != "" {
+				if filename := part.GetMetaString(model.MetaKeyFilename); filename != "" {
 					fileParam.Filename = param.NewOpt(filename)
 					hasContent = true
 				}
@@ -137,9 +115,8 @@ func (c *OpenAIConverter) convertToUserMessage(msg model.Message, publicURLs map
 		},
 	}
 
-	// Add name field from message meta if present
 	if metaData := msg.Meta.Data(); len(metaData) > 0 {
-		if name, ok := metaData["name"].(string); ok && name != "" {
+		if name, ok := metaData[model.MetaKeyName].(string); ok && name != "" {
 			userParam.Name = param.NewOpt(name)
 		}
 	}
@@ -150,20 +127,18 @@ func (c *OpenAIConverter) convertToUserMessage(msg model.Message, publicURLs map
 }
 
 func (c *OpenAIConverter) convertToAssistantMessage(msg model.Message) openai.ChatCompletionMessageParamUnion {
-	// Separate text content and tool calls
 	var textContent string
 	var toolCalls []openai.ChatCompletionMessageToolCallUnionParam
 
 	for _, part := range msg.Parts {
 		switch part.Type {
-		case "text":
+		case model.PartTypeText:
 			textContent += part.Text
-		case "thinking":
-			// Downgrade thinking blocks to plain text for OpenAI format
+		case model.PartTypeThinking:
 			if part.Text != "" {
 				textContent += part.Text
 			}
-		case "tool-call":
+		case model.PartTypeToolCall:
 			if part.Meta != nil {
 				toolCall := c.convertToToolCall(part)
 				if toolCall != nil {
@@ -173,7 +148,6 @@ func (c *OpenAIConverter) convertToAssistantMessage(msg model.Message) openai.Ch
 		}
 	}
 
-	// Build assistant message
 	assistantParam := openai.ChatCompletionAssistantMessageParam{}
 
 	if textContent != "" {
@@ -186,9 +160,8 @@ func (c *OpenAIConverter) convertToAssistantMessage(msg model.Message) openai.Ch
 		assistantParam.ToolCalls = toolCalls
 	}
 
-	// Add name field from message meta if present
 	if metaData := msg.Meta.Data(); len(metaData) > 0 {
-		if name, ok := metaData["name"].(string); ok && name != "" {
+		if name, ok := metaData[model.MetaKeyName].(string); ok && name != "" {
 			assistantParam.Name = param.NewOpt(name)
 		}
 	}
@@ -199,7 +172,6 @@ func (c *OpenAIConverter) convertToAssistantMessage(msg model.Message) openai.Ch
 }
 
 func (c *OpenAIConverter) convertToToolMessage(msg model.Message) openai.ChatCompletionMessageParamUnion {
-	// Extract tool result information
 	toolCallID := c.extractToolCallID(msg.Parts)
 	content := c.extractToolResultContent(msg.Parts)
 
@@ -220,14 +192,13 @@ func (c *OpenAIConverter) convertToToolCall(part model.Part) *openai.ChatComplet
 		return nil
 	}
 
-	// UNIFIED FORMAT: Use unified field names
-	id, _ := part.Meta["id"].(string)
-	name, _ := part.Meta["name"].(string) // Unified: was "tool_name", now "name"
-	arguments, _ := part.Meta["arguments"].(string)
+	id := part.ID()
+	name := part.Name()
+	arguments := part.Arguments()
 
 	// If arguments is not a string, marshal it
 	if arguments == "" {
-		if argsObj, ok := part.Meta["arguments"]; ok {
+		if argsObj, ok := part.Meta[model.MetaKeyArguments]; ok {
 			if argsBytes, err := json.Marshal(argsObj); err == nil {
 				arguments = string(argsBytes)
 			}
@@ -256,7 +227,7 @@ func (c *OpenAIConverter) isToolResultOnly(parts []model.Part) bool {
 		return false
 	}
 	for _, part := range parts {
-		if part.Type != "tool-result" {
+		if part.Type != model.PartTypeToolResult {
 			return false
 		}
 	}
@@ -265,9 +236,9 @@ func (c *OpenAIConverter) isToolResultOnly(parts []model.Part) bool {
 
 func (c *OpenAIConverter) extractToolCallID(parts []model.Part) string {
 	for _, part := range parts {
-		if part.Type == "tool-result" && part.Meta != nil {
-			if toolCallID, ok := part.Meta["tool_call_id"].(string); ok {
-				return toolCallID
+		if part.Type == model.PartTypeToolResult {
+			if id := part.ToolCallID(); id != "" {
+				return id
 			}
 		}
 	}
@@ -277,20 +248,9 @@ func (c *OpenAIConverter) extractToolCallID(parts []model.Part) string {
 func (c *OpenAIConverter) extractToolResultContent(parts []model.Part) string {
 	content := ""
 	for _, part := range parts {
-		if part.Type == "tool-result" {
+		if part.Type == model.PartTypeToolResult {
 			content += part.Text
 		}
 	}
 	return content
-}
-
-func (c *OpenAIConverter) getAssetURL(asset *model.Asset, publicURLs map[string]service.PublicURL) string {
-	if asset == nil {
-		return ""
-	}
-	assetKey := asset.S3Key
-	if publicURL, ok := publicURLs[assetKey]; ok {
-		return publicURL.URL
-	}
-	return ""
 }

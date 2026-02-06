@@ -1,10 +1,6 @@
 package converter
 
 import (
-	"encoding/base64"
-	"encoding/json"
-	"io"
-	"net/http"
 	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -14,7 +10,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/pkg/normalizer"
 )
 
-// AnthropicConverter converts messages to Anthropic Claude-compatible format using official SDK types
+// AnthropicConverter converts messages to Anthropic Claude-compatible format using official SDK types.
 type AnthropicConverter struct{}
 
 func (c *AnthropicConverter) Convert(messages []model.Message, publicURLs map[string]service.PublicURL) (interface{}, error) {
@@ -30,26 +26,22 @@ func (c *AnthropicConverter) Convert(messages []model.Message, publicURLs map[st
 
 func (c *AnthropicConverter) convertMessage(msg model.Message, publicURLs map[string]service.PublicURL) anthropic.MessageParam {
 	role := c.convertRole(msg.Role)
-
-	// Convert parts to content blocks
 	contentBlocks := c.convertParts(msg.Parts, publicURLs)
 
-	if role == "user" {
+	if role == model.RoleUser {
 		return anthropic.NewUserMessage(contentBlocks...)
-	} else {
-		return anthropic.NewAssistantMessage(contentBlocks...)
 	}
+	return anthropic.NewAssistantMessage(contentBlocks...)
 }
 
 func (c *AnthropicConverter) convertRole(role string) string {
-	// Anthropic roles: "user", "assistant"
 	switch role {
-	case "assistant":
-		return "assistant"
-	case "user", "tool", "function":
-		return "user"
+	case model.RoleAssistant:
+		return model.RoleAssistant
+	case model.RoleUser, "tool", "function":
+		return model.RoleUser
 	default:
-		return "user"
+		return model.RoleUser
 	}
 }
 
@@ -58,9 +50,8 @@ func (c *AnthropicConverter) convertParts(parts []model.Part, publicURLs map[str
 
 	for _, part := range parts {
 		switch part.Type {
-		case "text":
+		case model.PartTypeText:
 			if part.Text != "" {
-				// Check if cache_control is present
 				if cacheControl := normalizer.BuildAnthropicCacheControl(part.Meta); cacheControl != nil {
 					blockParam := anthropic.TextBlockParam{
 						Text:         part.Text,
@@ -74,14 +65,13 @@ func (c *AnthropicConverter) convertParts(parts []model.Part, publicURLs map[str
 				}
 			}
 
-		case "image":
+		case model.PartTypeImage:
 			imageBlock := c.convertImagePart(part, publicURLs)
 			if imageBlock != nil {
 				contentBlocks = append(contentBlocks, *imageBlock)
 			}
 
-		case "tool-call":
-			// UNIFIED FORMAT: Convert tool-call to Anthropic tool_use
+		case model.PartTypeToolCall:
 			if part.Meta != nil {
 				toolUseBlock := c.convertToolCallPart(part)
 				if toolUseBlock != nil {
@@ -89,14 +79,13 @@ func (c *AnthropicConverter) convertParts(parts []model.Part, publicURLs map[str
 				}
 			}
 
-		case "tool-result":
+		case model.PartTypeToolResult:
 			toolResultBlock := c.convertToolResultPart(part)
 			if toolResultBlock != nil {
 				contentBlocks = append(contentBlocks, *toolResultBlock)
 			}
 
-		case "file":
-			// Convert file to document block
+		case model.PartTypeFile:
 			if part.Meta != nil {
 				docBlock := c.convertDocumentPart(part, publicURLs)
 				if docBlock != nil {
@@ -104,9 +93,8 @@ func (c *AnthropicConverter) convertParts(parts []model.Part, publicURLs map[str
 				}
 			}
 
-		case "thinking":
-			// Convert thinking block back to Anthropic ThinkingBlockParam
-			signature, _ := part.Meta["signature"].(string)
+		case model.PartTypeThinking:
+			signature := part.Signature()
 			block := anthropic.NewThinkingBlock(signature, part.Text)
 			contentBlocks = append(contentBlocks, block)
 		}
@@ -116,10 +104,9 @@ func (c *AnthropicConverter) convertParts(parts []model.Part, publicURLs map[str
 }
 
 func (c *AnthropicConverter) convertImagePart(part model.Part, publicURLs map[string]service.PublicURL) *anthropic.ContentBlockParamUnion {
-	// Try to get image URL from asset
-	imageURL := c.getAssetURL(part.Asset, publicURLs)
+	imageURL := GetAssetURL(part.Asset, publicURLs)
 	if imageURL == "" && part.Meta != nil {
-		if url, ok := part.Meta["url"].(string); ok {
+		if url := part.GetMetaString(model.MetaKeyURL); url != "" {
 			imageURL = url
 		}
 	}
@@ -128,33 +115,20 @@ func (c *AnthropicConverter) convertImagePart(part model.Part, publicURLs map[st
 		return nil
 	}
 
-	// Check if it's a base64 data URL or regular URL
 	if strings.HasPrefix(imageURL, "data:") {
-		// Extract base64 data and media type
-		parts := strings.SplitN(imageURL, ",", 2)
-		if len(parts) != 2 {
+		mediaType, base64Data := ParseDataURL(imageURL)
+		if base64Data == "" {
 			return nil
 		}
-
-		// Parse media type from data URL (e.g., "data:image/png;base64")
-		mediaType := "image/png" // default
-		if strings.Contains(parts[0], ":") && strings.Contains(parts[0], ";") {
-			typePart := strings.Split(parts[0], ":")[1]
-			mediaType = strings.Split(typePart, ";")[0]
-		}
-
-		block := anthropic.NewImageBlockBase64(mediaType, parts[1])
-		return &block
-	}
-
-	// Try to download and convert to base64
-	if base64Data, mediaType := c.downloadImageAsBase64(imageURL); base64Data != "" {
 		block := anthropic.NewImageBlockBase64(mediaType, base64Data)
 		return &block
 	}
 
-	// Fall back to URL if available (note: Anthropic might not support URL directly for images in some contexts)
-	// In practice, we convert to base64
+	if base64Data, mediaType := DownloadImageAsBase64(imageURL); base64Data != "" {
+		block := anthropic.NewImageBlockBase64(mediaType, base64Data)
+		return &block
+	}
+
 	return nil
 }
 
@@ -163,43 +137,22 @@ func (c *AnthropicConverter) convertToolCallPart(part model.Part) *anthropic.Con
 		return nil
 	}
 
-	// UNIFIED FORMAT: Extract from unified field names
-	id, _ := part.Meta["id"].(string)
-	name, _ := part.Meta["name"].(string) // Unified field name
+	id := part.ID()
+	name := part.Name()
 
 	if id == "" || name == "" {
 		return nil
 	}
 
-	// Parse arguments (unified field name)
-	var input interface{}
-	if argsStr, ok := part.Meta["arguments"].(string); ok {
-		// Arguments is JSON string, unmarshal it
-		if err := json.Unmarshal([]byte(argsStr), &input); err != nil {
-			input = map[string]interface{}{}
-		}
-	} else {
-		// Arguments is already an object
-		input = part.Meta["arguments"]
-	}
+	input := ParseToolArguments(part.Meta[model.MetaKeyArguments])
 
 	block := anthropic.NewToolUseBlock(id, input, name)
 	return &block
 }
 
 func (c *AnthropicConverter) convertToolResultPart(part model.Part) *anthropic.ContentBlockParamUnion {
-	// UNIFIED FORMAT: Use tool_call_id (unified field name)
-	toolUseID := ""
-	isError := false
-
-	if part.Meta != nil {
-		if id, ok := part.Meta["tool_call_id"].(string); ok { // Unified field name
-			toolUseID = id
-		}
-		if err, ok := part.Meta["is_error"].(bool); ok {
-			isError = err
-		}
-	}
+	toolUseID := part.ToolCallID()
+	isError := part.IsError()
 
 	if toolUseID == "" {
 		return nil
@@ -210,18 +163,16 @@ func (c *AnthropicConverter) convertToolResultPart(part model.Part) *anthropic.C
 }
 
 func (c *AnthropicConverter) convertDocumentPart(part model.Part, publicURLs map[string]service.PublicURL) *anthropic.ContentBlockParamUnion {
-	// Try to get document URL or base64 data from meta
 	if part.Meta == nil {
 		return nil
 	}
 
-	if sourceType, ok := part.Meta["type"].(string); ok {
+	if sourceType := part.GetMetaString(model.MetaKeySourceType); sourceType != "" {
 		switch sourceType {
 		case "base64":
-			mediaType, _ := part.Meta["media_type"].(string)
-			data, _ := part.Meta["data"].(string)
+			mediaType := part.GetMetaString(model.MetaKeyMediaType)
+			data := part.GetMetaString(model.MetaKeyData)
 			if mediaType != "" && data != "" {
-				// Use Base64PDFSourceParam for PDF documents (type and media_type fields have default values)
 				source := anthropic.Base64PDFSourceParam{
 					Data: data,
 				}
@@ -229,9 +180,8 @@ func (c *AnthropicConverter) convertDocumentPart(part model.Part, publicURLs map
 				return &block
 			}
 		case "url":
-			url, _ := part.Meta["url"].(string)
+			url := part.GetMetaString(model.MetaKeyURL)
 			if url != "" {
-				// Use URLPDFSourceParam for URL documents
 				source := anthropic.URLPDFSourceParam{
 					URL: url,
 				}
@@ -242,43 +192,4 @@ func (c *AnthropicConverter) convertDocumentPart(part model.Part, publicURLs map
 	}
 
 	return nil
-}
-
-func (c *AnthropicConverter) downloadImageAsBase64(imageURL string) (string, string) {
-	resp, err := http.Get(imageURL)
-	if err != nil {
-		return "", ""
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", ""
-	}
-
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", ""
-	}
-
-	// Determine media type
-	mediaType := resp.Header.Get("Content-Type")
-	if mediaType == "" {
-		mediaType = "image/png" // default
-	}
-
-	// Encode to base64
-	base64Data := base64.StdEncoding.EncodeToString(data)
-
-	return base64Data, mediaType
-}
-
-func (c *AnthropicConverter) getAssetURL(asset *model.Asset, publicURLs map[string]service.PublicURL) string {
-	if asset == nil {
-		return ""
-	}
-	assetKey := asset.S3Key
-	if publicURL, ok := publicURLs[assetKey]; ok {
-		return publicURL.URL
-	}
-	return ""
 }

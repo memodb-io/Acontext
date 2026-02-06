@@ -36,18 +36,18 @@ func TestCreateMiddleOutStrategy(t *testing.T) {
 func TestMiddleOutStrategy_Apply(t *testing.T) {
 	initTokenizer(t)
 	messages := []model.Message{
-		{Role: "user", Parts: []model.Part{{Type: "text", Text: "Hello"}}},
-		{Role: "assistant", Parts: []model.Part{{Type: "text", Text: "World"}}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "Hello"}}},
+		{Role: model.RoleAssistant, Parts: []model.Part{{Type: model.PartTypeText, Text: "World"}}},
 	}
 	result, err := (&MiddleOutStrategy{TokenReduceTo: 1_000_000}).Apply(messages)
 	require.NoError(t, err)
 	require.Equal(t, messages, result)
 
 	msgs := []model.Message{
-		{Role: "user", Parts: []model.Part{{Type: "text", Text: "m0"}}},
-		{Role: "user", Parts: []model.Part{{Type: "text", Text: "m1"}}},
-		{Role: "user", Parts: []model.Part{{Type: "text", Text: "m2"}}},
-		{Role: "user", Parts: []model.Part{{Type: "text", Text: "m3"}}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "m0"}}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "m1"}}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "m2"}}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "m3"}}},
 	}
 	total, err := tokenizer.CountMessagePartsTokens(context.Background(), msgs)
 	require.NoError(t, err)
@@ -59,9 +59,9 @@ func TestMiddleOutStrategy_Apply(t *testing.T) {
 	require.Equal(t, []string{"m0", "m1", "m3"}, []string{res[0].Parts[0].Text, res[1].Parts[0].Text, res[2].Parts[0].Text})
 
 	odd := []model.Message{
-		{Role: "user", Parts: []model.Part{{Type: "text", Text: "first"}}},
-		{Role: "user", Parts: []model.Part{{Type: "text", Text: "middle"}}},
-		{Role: "user", Parts: []model.Part{{Type: "text", Text: "last"}}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "first"}}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "middle"}}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "last"}}},
 	}
 	total, err = tokenizer.CountMessagePartsTokens(context.Background(), odd)
 	require.NoError(t, err)
@@ -74,8 +74,8 @@ func TestMiddleOutStrategy_Apply(t *testing.T) {
 	require.Equal(t, "last", resOdd[1].Parts[0].Text)
 
 	two := []model.Message{
-		{Role: "user", Parts: []model.Part{{Type: "text", Text: "old"}}},
-		{Role: "user", Parts: []model.Part{{Type: "text", Text: "new"}}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "old"}}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "new"}}},
 	}
 	newTokens, err := tokenizer.CountSingleMessageTokens(context.Background(), two[1])
 	require.NoError(t, err)
@@ -85,11 +85,11 @@ func TestMiddleOutStrategy_Apply(t *testing.T) {
 	require.Equal(t, "new", res2[0].Parts[0].Text)
 
 	withToolCall := []model.Message{
-		{Role: "user", Parts: []model.Part{{Type: "text", Text: "a"}}},
-		{Role: "user", Parts: []model.Part{{Type: "text", Text: "b"}}},
-		{Role: "assistant", Parts: []model.Part{{Type: "tool-call", Meta: map[string]interface{}{"id": "call_1", "name": "t", "arguments": "{}"}}}},
-		{Role: "user", Parts: []model.Part{{Type: "tool-result", Text: "ok", Meta: map[string]interface{}{"tool_call_id": "call_1"}}}},
-		{Role: "user", Parts: []model.Part{{Type: "text", Text: "c"}}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "a"}}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "b"}}},
+		{Role: model.RoleAssistant, Parts: []model.Part{{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call_1", model.MetaKeyName: "t", model.MetaKeyArguments: "{}"}}}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeToolResult, Text: "ok", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call_1"}}}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "c"}}},
 	}
 	total, err = tokenizer.CountMessagePartsTokens(context.Background(), withToolCall)
 	require.NoError(t, err)
@@ -101,14 +101,14 @@ func TestMiddleOutStrategy_Apply(t *testing.T) {
 	require.Equal(t, []string{"a", "b", "c"}, []string{res3[0].Parts[0].Text, res3[1].Parts[0].Text, res3[2].Parts[0].Text})
 
 	cascade := []model.Message{
-		{Role: "user", Parts: []model.Part{{Type: "text", Text: "s"}}},
-		{Role: "assistant", Parts: []model.Part{
-			{Type: "tool-call", Meta: map[string]interface{}{"id": "call_a", "name": "a", "arguments": "{}"}},
-			{Type: "tool-call", Meta: map[string]interface{}{"id": "call_b", "name": "b", "arguments": "{}"}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "s"}}},
+		{Role: model.RoleAssistant, Parts: []model.Part{
+			{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call_a", model.MetaKeyName: "a", model.MetaKeyArguments: "{}"}},
+			{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call_b", model.MetaKeyName: "b", model.MetaKeyArguments: "{}"}},
 		}},
-		{Role: "user", Parts: []model.Part{{Type: "tool-result", Text: "ra", Meta: map[string]interface{}{"tool_call_id": "call_a"}}}},
-		{Role: "user", Parts: []model.Part{{Type: "tool-result", Text: "rb", Meta: map[string]interface{}{"tool_call_id": "call_b"}}}},
-		{Role: "user", Parts: []model.Part{{Type: "text", Text: "e"}}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeToolResult, Text: "ra", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call_a"}}}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeToolResult, Text: "rb", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call_b"}}}},
+		{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "e"}}},
 	}
 	total, err = tokenizer.CountMessagePartsTokens(context.Background(), cascade)
 	require.NoError(t, err)

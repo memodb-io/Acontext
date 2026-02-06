@@ -142,21 +142,21 @@ func TestTokenLimitStrategy_MessagesWithinLimit(t *testing.T) {
 
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "text", Text: "Hello"},
+					{Type: model.PartTypeText, Text: "Hello"},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "text", Text: "Hi there!"},
+					{Type: model.PartTypeText, Text: "Hi there!"},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "text", Text: "How are you?"},
+					{Type: model.PartTypeText, Text: "How are you?"},
 				},
 			},
 		}
@@ -181,9 +181,9 @@ func TestTokenLimitStrategy_MessagesWithinLimit(t *testing.T) {
 
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "text", Text: "Testing exact boundary"},
+					{Type: model.PartTypeText, Text: "Testing exact boundary"},
 				},
 			},
 		}
@@ -210,27 +210,27 @@ func TestTokenLimitStrategy_MessagesExceedingLimit(t *testing.T) {
 
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "text", Text: "First message - this should be removed"},
+					{Type: model.PartTypeText, Text: "First message - this should be removed"},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "text", Text: "Second message - this should be removed too"},
+					{Type: model.PartTypeText, Text: "Second message - this should be removed too"},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "text", Text: "Third message - this should be kept"},
+					{Type: model.PartTypeText, Text: "Third message - this should be kept"},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "text", Text: "Fourth message - this should be kept as well"},
+					{Type: model.PartTypeText, Text: "Fourth message - this should be kept as well"},
 				},
 			},
 		}
@@ -265,12 +265,12 @@ func TestTokenLimitStrategy_MessagesExceedingLimit(t *testing.T) {
 
 		// Create many messages
 		messages := []model.Message{
-			{Role: "user", Parts: []model.Part{{Type: "text", Text: "Message 1 - remove"}}},
-			{Role: "assistant", Parts: []model.Part{{Type: "text", Text: "Message 2 - remove"}}},
-			{Role: "user", Parts: []model.Part{{Type: "text", Text: "Message 3 - remove"}}},
-			{Role: "assistant", Parts: []model.Part{{Type: "text", Text: "Message 4 - remove"}}},
-			{Role: "user", Parts: []model.Part{{Type: "text", Text: "Message 5 - keep"}}},
-			{Role: "assistant", Parts: []model.Part{{Type: "text", Text: "Message 6 - keep"}}},
+			{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "Message 1 - remove"}}},
+			{Role: model.RoleAssistant, Parts: []model.Part{{Type: model.PartTypeText, Text: "Message 2 - remove"}}},
+			{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "Message 3 - remove"}}},
+			{Role: model.RoleAssistant, Parts: []model.Part{{Type: model.PartTypeText, Text: "Message 4 - remove"}}},
+			{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "Message 5 - keep"}}},
+			{Role: model.RoleAssistant, Parts: []model.Part{{Type: model.PartTypeText, Text: "Message 6 - keep"}}},
 		}
 
 		// Count tokens for last message only
@@ -297,8 +297,8 @@ func TestTokenLimitStrategy_MessagesExceedingLimit(t *testing.T) {
 		initTokenizer(t)
 
 		messages := []model.Message{
-			{Role: "user", Parts: []model.Part{{Type: "text", Text: "This is a relatively long message that will definitely exceed a very small token limit"}}},
-			{Role: "assistant", Parts: []model.Part{{Type: "text", Text: "Another message"}}},
+			{Role: model.RoleUser, Parts: []model.Part{{Type: model.PartTypeText, Text: "This is a relatively long message that will definitely exceed a very small token limit"}}},
+			{Role: model.RoleAssistant, Parts: []model.Part{{Type: model.PartTypeText, Text: "Another message"}}},
 		}
 
 		// Set an extremely low limit
@@ -327,33 +327,33 @@ func TestTokenLimitStrategy_ToolCallPairing(t *testing.T) {
 
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "text", Text: "What's the weather?"},
+					{Type: model.PartTypeText, Text: "What's the weather?"},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "tool-call", Meta: map[string]interface{}{"id": "call_123", "name": "get_weather"}},
+					{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call_123", model.MetaKeyName: "get_weather"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Sunny, 75°F", Meta: map[string]interface{}{"tool_call_id": "call_123"}},
+					{Type: model.PartTypeToolResult, Text: "Sunny, 75°F", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call_123"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "text", Text: "Thank you!"},
+					{Type: model.PartTypeText, Text: "Thank you!"},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "text", Text: "You're welcome!"},
+					{Type: model.PartTypeText, Text: "You're welcome!"},
 				},
 			},
 		}
@@ -376,13 +376,13 @@ func TestTokenLimitStrategy_ToolCallPairing(t *testing.T) {
 		hasToolResult := false
 		for _, msg := range result {
 			for _, part := range msg.Parts {
-				if part.Type == "tool-call" {
-					if meta, ok := part.Meta["id"].(string); ok && meta == "call_123" {
+				if part.Type == model.PartTypeToolCall {
+					if meta, ok := part.Meta[model.MetaKeyID].(string); ok && meta == "call_123" {
 						hasToolCall = true
 					}
 				}
-				if part.Type == "tool-result" {
-					if meta, ok := part.Meta["tool_call_id"].(string); ok && meta == "call_123" {
+				if part.Type == model.PartTypeToolResult {
+					if meta, ok := part.Meta[model.MetaKeyToolCallID].(string); ok && meta == "call_123" {
 						hasToolResult = true
 					}
 				}
@@ -398,33 +398,33 @@ func TestTokenLimitStrategy_ToolCallPairing(t *testing.T) {
 
 		messages := []model.Message{
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "tool-call", Meta: map[string]interface{}{"id": "call_1", "name": "tool1"}},
+					{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call_1", model.MetaKeyName: "tool1"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Result 1", Meta: map[string]interface{}{"tool_call_id": "call_1"}},
+					{Type: model.PartTypeToolResult, Text: "Result 1", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call_1"}},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "tool-call", Meta: map[string]interface{}{"id": "call_2", "name": "tool2"}},
+					{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call_2", model.MetaKeyName: "tool2"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Result 2", Meta: map[string]interface{}{"tool_call_id": "call_2"}},
+					{Type: model.PartTypeToolResult, Text: "Result 2", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call_2"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "text", Text: "Final message to keep"},
+					{Type: model.PartTypeText, Text: "Final message to keep"},
 				},
 			},
 		}
@@ -445,8 +445,8 @@ func TestTokenLimitStrategy_ToolCallPairing(t *testing.T) {
 		// Verify no tool-calls or tool-results remain
 		for _, msg := range result {
 			for _, part := range msg.Parts {
-				assert.NotEqual(t, "tool-call", part.Type, "all tool-calls should be removed")
-				assert.NotEqual(t, "tool-result", part.Type, "all tool-results should be removed")
+				assert.NotEqual(t, model.PartTypeToolCall, part.Type, "all tool-calls should be removed")
+				assert.NotEqual(t, model.PartTypeToolResult, part.Type, "all tool-results should be removed")
 			}
 		}
 	})
@@ -456,28 +456,28 @@ func TestTokenLimitStrategy_ToolCallPairing(t *testing.T) {
 
 		messages := []model.Message{
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "tool-call", Meta: map[string]interface{}{"id": "call_a", "name": "tool_a"}},
-					{Type: "tool-call", Meta: map[string]interface{}{"id": "call_b", "name": "tool_b"}},
+					{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call_a", model.MetaKeyName: "tool_a"}},
+					{Type: model.PartTypeToolCall, Meta: map[string]interface{}{model.MetaKeyID: "call_b", model.MetaKeyName: "tool_b"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Result A", Meta: map[string]interface{}{"tool_call_id": "call_a"}},
+					{Type: model.PartTypeToolResult, Text: "Result A", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call_a"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "tool-result", Text: "Result B", Meta: map[string]interface{}{"tool_call_id": "call_b"}},
+					{Type: model.PartTypeToolResult, Text: "Result B", Meta: map[string]interface{}{model.MetaKeyToolCallID: "call_b"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "text", Text: "Keep this message"},
+					{Type: model.PartTypeText, Text: "Keep this message"},
 				},
 			},
 		}
@@ -505,7 +505,7 @@ func TestTokenLimitStrategy_ToolCallPairing(t *testing.T) {
 		for _, msg := range result {
 			for _, part := range msg.Parts {
 				if part.Meta != nil {
-					if id, ok := part.Meta["id"].(string); ok {
+					if id, ok := part.Meta[model.MetaKeyID].(string); ok {
 						if id == "call_a" {
 							hasCallA = true
 						}
@@ -513,7 +513,7 @@ func TestTokenLimitStrategy_ToolCallPairing(t *testing.T) {
 							hasCallB = true
 						}
 					}
-					if id, ok := part.Meta["tool_call_id"].(string); ok {
+					if id, ok := part.Meta[model.MetaKeyToolCallID].(string); ok {
 						if id == "call_a" {
 							hasResultA = true
 						}
@@ -536,22 +536,22 @@ func TestTokenLimitStrategy_ToolCallPairing(t *testing.T) {
 
 		messages := []model.Message{
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
 					// Orphaned tool-result (no matching tool-call in messages)
-					{Type: "tool-result", Text: "Orphaned result with some text to make it have tokens", Meta: map[string]interface{}{"tool_call_id": "nonexistent"}},
+					{Type: model.PartTypeToolResult, Text: "Orphaned result with some text to make it have tokens", Meta: map[string]interface{}{model.MetaKeyToolCallID: "nonexistent"}},
 				},
 			},
 			{
-				Role: "user",
+				Role: model.RoleUser,
 				Parts: []model.Part{
-					{Type: "text", Text: "Second message with content"},
+					{Type: model.PartTypeText, Text: "Second message with content"},
 				},
 			},
 			{
-				Role: "assistant",
+				Role: model.RoleAssistant,
 				Parts: []model.Part{
-					{Type: "text", Text: "Final message"},
+					{Type: model.PartTypeText, Text: "Final message"},
 				},
 			},
 		}
@@ -573,9 +573,9 @@ func TestTokenLimitStrategy_ToolCallPairing(t *testing.T) {
 		hasOrphanedResult := false
 		for _, msg := range result {
 			for _, part := range msg.Parts {
-				if part.Type == "tool-result" {
+				if part.Type == model.PartTypeToolResult {
 					if part.Meta != nil {
-						if meta, ok := part.Meta["tool_call_id"].(string); ok && meta == "nonexistent" {
+						if meta, ok := part.Meta[model.MetaKeyToolCallID].(string); ok && meta == "nonexistent" {
 							hasOrphanedResult = true
 						}
 					}

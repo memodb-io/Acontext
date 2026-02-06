@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -28,7 +29,7 @@ func TestAnthropicNormalizer_NormalizeFromAnthropicMessage(t *testing.T) {
 					{"type": "text", "text": "Hello, how are you?"}
 				]
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -40,7 +41,7 @@ func TestAnthropicNormalizer_NormalizeFromAnthropicMessage(t *testing.T) {
 					{"type": "text", "text": "I'm doing well, thank you!"}
 				]
 			}`,
-			wantRole:    "assistant",
+			wantRole:    model.RoleAssistant,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -60,7 +61,7 @@ func TestAnthropicNormalizer_NormalizeFromAnthropicMessage(t *testing.T) {
 					}
 				]
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 2,
 			wantErr:     false,
 		},
@@ -78,7 +79,7 @@ func TestAnthropicNormalizer_NormalizeFromAnthropicMessage(t *testing.T) {
 					}
 				]
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -95,7 +96,7 @@ func TestAnthropicNormalizer_NormalizeFromAnthropicMessage(t *testing.T) {
 					}
 				]
 			}`,
-			wantRole:    "assistant",
+			wantRole:    model.RoleAssistant,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -113,7 +114,7 @@ func TestAnthropicNormalizer_NormalizeFromAnthropicMessage(t *testing.T) {
 					}
 				]
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -132,7 +133,7 @@ func TestAnthropicNormalizer_NormalizeFromAnthropicMessage(t *testing.T) {
 					}
 				]
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -151,7 +152,7 @@ func TestAnthropicNormalizer_NormalizeFromAnthropicMessage(t *testing.T) {
 					}
 				]
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -167,7 +168,7 @@ func TestAnthropicNormalizer_NormalizeFromAnthropicMessage(t *testing.T) {
 					}
 				]
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -185,7 +186,7 @@ func TestAnthropicNormalizer_NormalizeFromAnthropicMessage(t *testing.T) {
 					}
 				]
 			}`,
-			wantRole:    "assistant",
+			wantRole:    model.RoleAssistant,
 			wantPartCnt: 2,
 			wantErr:     false,
 		},
@@ -197,7 +198,7 @@ func TestAnthropicNormalizer_NormalizeFromAnthropicMessage(t *testing.T) {
 					{"type": "thinking", "thinking": "Let me reason about this...", "signature": "sig_abc123"}
 				]
 			}`,
-			wantRole:    "assistant",
+			wantRole:    model.RoleAssistant,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -210,7 +211,7 @@ func TestAnthropicNormalizer_NormalizeFromAnthropicMessage(t *testing.T) {
 					{"type": "text", "text": "Here is my answer."}
 				]
 			}`,
-			wantRole:    "assistant",
+			wantRole:    model.RoleAssistant,
 			wantPartCnt: 2,
 			wantErr:     false,
 		},
@@ -223,7 +224,7 @@ func TestAnthropicNormalizer_NormalizeFromAnthropicMessage(t *testing.T) {
 					{"type": "text", "text": "Here is my answer."}
 				]
 			}`,
-			wantRole:    "assistant",
+			wantRole:    model.RoleAssistant,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -255,7 +256,7 @@ func TestAnthropicNormalizer_NormalizeFromAnthropicMessage(t *testing.T) {
 				assert.Len(t, parts, tt.wantPartCnt)
 				// Verify message metadata
 				assert.NotNil(t, messageMeta)
-				assert.Equal(t, "anthropic", messageMeta["source_format"])
+				assert.Equal(t, "anthropic", messageMeta[model.MsgMetaSourceFormat])
 			}
 		})
 	}
@@ -278,7 +279,7 @@ func TestAnthropicNormalizer_ContentBlockTypes(t *testing.T) {
 					{"type": "text", "text": "Hello"}
 				]
 			}`,
-			wantPartType: "text",
+			wantPartType: model.PartTypeText,
 		},
 		{
 			name: "image block with base64",
@@ -295,12 +296,12 @@ func TestAnthropicNormalizer_ContentBlockTypes(t *testing.T) {
 					}
 				]
 			}`,
-			wantPartType: "image",
+			wantPartType: model.PartTypeImage,
 			checkMeta: func(t *testing.T, meta map[string]interface{}) {
-				assert.Equal(t, "base64", meta["type"])
+				assert.Equal(t, "base64", meta[model.MetaKeySourceType])
 				// media_type is stored as-is from SDK, use fmt.Sprint to convert
-				assert.Equal(t, "image/png", fmt.Sprint(meta["media_type"]))
-				assert.NotEmpty(t, meta["data"])
+				assert.Equal(t, "image/png", fmt.Sprint(meta[model.MetaKeyMediaType]))
+				assert.NotEmpty(t, meta[model.MetaKeyData])
 			},
 		},
 		{
@@ -316,13 +317,13 @@ func TestAnthropicNormalizer_ContentBlockTypes(t *testing.T) {
 					}
 				]
 			}`,
-			wantPartType: "tool-call", // UNIFIED FORMAT: was "tool-use", now "tool-call"
+			wantPartType: model.PartTypeToolCall, // UNIFIED FORMAT: was "tool-use", now "tool-call"
 			checkMeta: func(t *testing.T, meta map[string]interface{}) {
-				assert.Equal(t, "toolu_789", meta["id"])
-				assert.Equal(t, "calculator", meta["name"])
+				assert.Equal(t, "toolu_789", meta[model.MetaKeyID])
+				assert.Equal(t, "calculator", meta[model.MetaKeyName])
 				// UNIFIED FORMAT: was "input", now "arguments"
-				assert.Contains(t, meta["arguments"], "operation")
-				assert.Equal(t, "tool_use", meta["type"]) // Store original type
+				assert.Contains(t, meta[model.MetaKeyArguments], "operation")
+				assert.Equal(t, "tool_use", meta[model.MetaKeySourceType]) // Store original type
 			},
 		},
 		{
@@ -339,11 +340,11 @@ func TestAnthropicNormalizer_ContentBlockTypes(t *testing.T) {
 					}
 				]
 			}`,
-			wantPartType: "tool-result",
+			wantPartType: model.PartTypeToolResult,
 			checkMeta: func(t *testing.T, meta map[string]interface{}) {
 				// UNIFIED FORMAT: was "tool_use_id", now "tool_call_id"
-				assert.Equal(t, "toolu_789", meta["tool_call_id"])
-				assert.Equal(t, false, meta["is_error"])
+				assert.Equal(t, "toolu_789", meta[model.MetaKeyToolCallID])
+				assert.Equal(t, false, meta[model.MetaKeyIsError])
 			},
 		},
 		{
@@ -361,11 +362,11 @@ func TestAnthropicNormalizer_ContentBlockTypes(t *testing.T) {
 					}
 				]
 			}`,
-			wantPartType: "file",
+			wantPartType: model.PartTypeFile,
 			checkMeta: func(t *testing.T, meta map[string]interface{}) {
-				assert.Equal(t, "base64", meta["type"])
+				assert.Equal(t, "base64", meta[model.MetaKeySourceType])
 				// media_type for documents, use fmt.Sprint to convert
-				assert.Equal(t, "application/pdf", fmt.Sprint(meta["media_type"]))
+				assert.Equal(t, "application/pdf", fmt.Sprint(meta[model.MetaKeyMediaType]))
 			},
 		},
 		{
@@ -380,9 +381,9 @@ func TestAnthropicNormalizer_ContentBlockTypes(t *testing.T) {
 					}
 				]
 			}`,
-			wantPartType: "thinking",
+			wantPartType: model.PartTypeThinking,
 			checkMeta: func(t *testing.T, meta map[string]interface{}) {
-				assert.Equal(t, "sig_xyz789", meta["signature"])
+				assert.Equal(t, "sig_xyz789", meta[model.MetaKeySignature])
 			},
 		},
 	}
@@ -395,7 +396,7 @@ func TestAnthropicNormalizer_ContentBlockTypes(t *testing.T) {
 			assert.Len(t, parts, 1)
 			assert.Equal(t, tt.wantPartType, parts[0].Type)
 			assert.NotNil(t, messageMeta)
-			assert.Equal(t, "anthropic", messageMeta["source_format"])
+			assert.Equal(t, "anthropic", messageMeta[model.MsgMetaSourceFormat])
 
 			if tt.checkMeta != nil && parts[0].Meta != nil {
 				tt.checkMeta(t, parts[0].Meta)
@@ -422,11 +423,11 @@ func TestAnthropicNormalizer_ThinkingBlock(t *testing.T) {
 		role, parts, _, err := normalizer.NormalizeFromAnthropicMessage(json.RawMessage(input))
 
 		assert.NoError(t, err)
-		assert.Equal(t, "assistant", role)
+		assert.Equal(t, model.RoleAssistant, role)
 		assert.Len(t, parts, 1)
-		assert.Equal(t, "thinking", parts[0].Type)
+		assert.Equal(t, model.PartTypeThinking, parts[0].Type)
 		assert.Equal(t, "Step 1: Consider the input.\nStep 2: Form a response.", parts[0].Text)
-		assert.Equal(t, "sig_abc123", parts[0].Meta["signature"])
+		assert.Equal(t, "sig_abc123", parts[0].Meta[model.MetaKeySignature])
 	})
 
 	t.Run("redacted thinking block is skipped", func(t *testing.T) {
@@ -442,11 +443,11 @@ func TestAnthropicNormalizer_ThinkingBlock(t *testing.T) {
 		role, parts, _, err := normalizer.NormalizeFromAnthropicMessage(json.RawMessage(input))
 
 		assert.NoError(t, err)
-		assert.Equal(t, "assistant", role)
+		assert.Equal(t, model.RoleAssistant, role)
 		assert.Len(t, parts, 2)
-		assert.Equal(t, "thinking", parts[0].Type)
+		assert.Equal(t, model.PartTypeThinking, parts[0].Type)
 		assert.Equal(t, "Visible thinking", parts[0].Text)
-		assert.Equal(t, "text", parts[1].Type)
+		assert.Equal(t, model.PartTypeText, parts[1].Type)
 		assert.Equal(t, "Final answer", parts[1].Text)
 	})
 }
@@ -468,13 +469,13 @@ func TestAnthropicNormalizer_CacheControl(t *testing.T) {
 	role, parts, messageMeta, err := normalizer.NormalizeFromAnthropicMessage(json.RawMessage(input))
 
 	assert.NoError(t, err)
-	assert.Equal(t, "user", role)
+	assert.Equal(t, model.RoleUser, role)
 	assert.Len(t, parts, 1)
 	assert.NotNil(t, parts[0].Meta)
 	assert.NotNil(t, messageMeta)
-	assert.Equal(t, "anthropic", messageMeta["source_format"])
+	assert.Equal(t, "anthropic", messageMeta[model.MsgMetaSourceFormat])
 
-	cacheControl, ok := parts[0].Meta["cache_control"].(map[string]interface{})
+	cacheControl, ok := parts[0].Meta[model.MetaKeyCacheControl].(map[string]interface{})
 	assert.True(t, ok)
 	assert.Equal(t, "ephemeral", cacheControl["type"])
 }
@@ -511,7 +512,7 @@ func TestBuildAnthropicCacheControl(t *testing.T) {
 		{
 			name: "with valid cache_control",
 			input: map[string]any{
-				"cache_control": map[string]interface{}{
+				model.MetaKeyCacheControl: map[string]interface{}{
 					"type": "ephemeral",
 				},
 			},
@@ -533,7 +534,7 @@ func TestBuildAnthropicCacheControl(t *testing.T) {
 		{
 			name: "with invalid type",
 			input: map[string]any{
-				"cache_control": map[string]interface{}{
+				model.MetaKeyCacheControl: map[string]interface{}{
 					"type": "invalid",
 				},
 			},

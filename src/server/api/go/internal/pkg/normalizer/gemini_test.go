@@ -7,6 +7,7 @@ import (
 
 	"google.golang.org/genai"
 
+	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -29,7 +30,7 @@ func TestGeminiNormalizer_NormalizeFromGeminiMessage(t *testing.T) {
 					{"text": "Hello, how are you?"}
 				]
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -41,7 +42,7 @@ func TestGeminiNormalizer_NormalizeFromGeminiMessage(t *testing.T) {
 					{"text": "I'm doing well, thank you!"}
 				]
 			}`,
-			wantRole:    "assistant",
+			wantRole:    model.RoleAssistant,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -67,7 +68,7 @@ func TestGeminiNormalizer_NormalizeFromGeminiMessage(t *testing.T) {
 				jsonBytes, _ := json.Marshal(content)
 				return string(jsonBytes)
 			}(),
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 2,
 			wantErr:     false,
 		},
@@ -85,7 +86,7 @@ func TestGeminiNormalizer_NormalizeFromGeminiMessage(t *testing.T) {
 					}
 				]
 			}`,
-			wantRole:    "assistant",
+			wantRole:    model.RoleAssistant,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -103,7 +104,7 @@ func TestGeminiNormalizer_NormalizeFromGeminiMessage(t *testing.T) {
 					}
 				]
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -124,7 +125,7 @@ func TestGeminiNormalizer_NormalizeFromGeminiMessage(t *testing.T) {
 				"role": "user",
 				"parts": []
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 0,
 			wantErr:     false,
 		},
@@ -145,7 +146,7 @@ func TestGeminiNormalizer_NormalizeFromGeminiMessage(t *testing.T) {
 				assert.Len(t, parts, tt.wantPartCnt)
 				// Verify message metadata
 				assert.NotNil(t, messageMeta)
-				assert.Equal(t, "gemini", messageMeta["source_format"])
+				assert.Equal(t, "gemini", messageMeta[model.MsgMetaSourceFormat])
 			}
 		})
 	}
@@ -170,15 +171,15 @@ func TestGeminiNormalizer_FunctionCall(t *testing.T) {
 	role, parts, messageMeta, err := normalizer.NormalizeFromGeminiMessage(json.RawMessage(input))
 
 	assert.NoError(t, err)
-	assert.Equal(t, "assistant", role)
+	assert.Equal(t, model.RoleAssistant, role)
 	assert.Len(t, parts, 1)
-	assert.Equal(t, "tool-call", parts[0].Type)
+	assert.Equal(t, model.PartTypeToolCall, parts[0].Type)
 	assert.NotNil(t, parts[0].Meta)
-	assert.Equal(t, "calculate", parts[0].Meta["name"])
-	assert.Equal(t, "call_123", parts[0].Meta["id"])
-	assert.Equal(t, "function", parts[0].Meta["type"])
+	assert.Equal(t, "calculate", parts[0].Meta[model.MetaKeyName])
+	assert.Equal(t, "call_123", parts[0].Meta[model.MetaKeyID])
+	assert.Equal(t, "function", parts[0].Meta[model.MetaKeySourceType])
 	assert.NotNil(t, messageMeta)
-	assert.Equal(t, "gemini", messageMeta["source_format"])
+	assert.Equal(t, "gemini", messageMeta[model.MsgMetaSourceFormat])
 }
 
 func TestGeminiNormalizer_FunctionResponse(t *testing.T) {
@@ -200,15 +201,15 @@ func TestGeminiNormalizer_FunctionResponse(t *testing.T) {
 	role, parts, messageMeta, err := normalizer.NormalizeFromGeminiMessage(json.RawMessage(input))
 
 	assert.NoError(t, err)
-	assert.Equal(t, "user", role)
+	assert.Equal(t, model.RoleUser, role)
 	assert.Len(t, parts, 1)
-	assert.Equal(t, "tool-result", parts[0].Type)
+	assert.Equal(t, model.PartTypeToolResult, parts[0].Type)
 	assert.Contains(t, parts[0].Text, "Result")
 	assert.NotNil(t, parts[0].Meta)
-	assert.Equal(t, "get_weather", parts[0].Meta["name"])
-	assert.Equal(t, "call_123", parts[0].Meta["tool_call_id"])
+	assert.Equal(t, "get_weather", parts[0].Meta[model.MetaKeyName])
+	assert.Equal(t, "call_123", parts[0].Meta[model.MetaKeyToolCallID])
 	assert.NotNil(t, messageMeta)
-	assert.Equal(t, "gemini", messageMeta["source_format"])
+	assert.Equal(t, "gemini", messageMeta[model.MsgMetaSourceFormat])
 }
 
 func TestGeminiNormalizer_MultipleParts(t *testing.T) {
@@ -231,15 +232,15 @@ func TestGeminiNormalizer_MultipleParts(t *testing.T) {
 	role, parts, messageMeta, err := normalizer.NormalizeFromGeminiMessage(json.RawMessage(input))
 
 	assert.NoError(t, err)
-	assert.Equal(t, "user", role)
+	assert.Equal(t, model.RoleUser, role)
 	assert.Len(t, parts, 3)
-	assert.Equal(t, "text", parts[0].Type)
+	assert.Equal(t, model.PartTypeText, parts[0].Type)
 	assert.Equal(t, "First part", parts[0].Text)
-	assert.Equal(t, "text", parts[1].Type)
+	assert.Equal(t, model.PartTypeText, parts[1].Type)
 	assert.Equal(t, "Second part", parts[1].Text)
-	assert.Equal(t, "image", parts[2].Type)
+	assert.Equal(t, model.PartTypeImage, parts[2].Type)
 	assert.NotNil(t, messageMeta)
-	assert.Equal(t, "gemini", messageMeta["source_format"])
+	assert.Equal(t, "gemini", messageMeta[model.MsgMetaSourceFormat])
 }
 
 // TestGeminiNormalizer_FunctionCallAndResponseMatching tests that FunctionCall and FunctionResponse
@@ -266,17 +267,17 @@ func TestGeminiNormalizer_FunctionCallAndResponseMatching(t *testing.T) {
 	role, parts, messageMeta, err := normalizer.NormalizeFromGeminiMessage(json.RawMessage(input))
 
 	assert.NoError(t, err)
-	assert.Equal(t, "assistant", role)
+	assert.Equal(t, model.RoleAssistant, role)
 	assert.Len(t, parts, 1)
 
 	// First part should be tool-call with provided ID
-	assert.Equal(t, "tool-call", parts[0].Type)
+	assert.Equal(t, model.PartTypeToolCall, parts[0].Type)
 	assert.NotNil(t, parts[0].Meta)
-	assert.Equal(t, "get_weather", parts[0].Meta["name"])
-	assert.Equal(t, "call_123", parts[0].Meta["id"])
+	assert.Equal(t, "get_weather", parts[0].Meta[model.MetaKeyName])
+	assert.Equal(t, "call_123", parts[0].Meta[model.MetaKeyID])
 
 	assert.NotNil(t, messageMeta)
-	assert.Equal(t, "gemini", messageMeta["source_format"])
+	assert.Equal(t, "gemini", messageMeta[model.MsgMetaSourceFormat])
 }
 
 // TestGeminiNormalizer_FunctionCallWithoutID tests that FunctionCall without ID generates a UUID
@@ -298,14 +299,14 @@ func TestGeminiNormalizer_FunctionCallWithoutID(t *testing.T) {
 	role, parts, messageMeta, err := normalizer.NormalizeFromGeminiMessage(json.RawMessage(input))
 
 	assert.NoError(t, err)
-	assert.Equal(t, "assistant", role)
+	assert.Equal(t, model.RoleAssistant, role)
 	assert.Len(t, parts, 1)
-	assert.Equal(t, "tool-call", parts[0].Type)
+	assert.Equal(t, model.PartTypeToolCall, parts[0].Type)
 	assert.NotNil(t, parts[0].Meta)
-	assert.Equal(t, "calculate", parts[0].Meta["name"])
+	assert.Equal(t, "calculate", parts[0].Meta[model.MetaKeyName])
 	// ID should be generated in format: call_xxx (short random string)
-	assert.NotEmpty(t, parts[0].Meta["id"])
-	idStr, ok := parts[0].Meta["id"].(string)
+	assert.NotEmpty(t, parts[0].Meta[model.MetaKeyID])
+	idStr, ok := parts[0].Meta[model.MetaKeyID].(string)
 	assert.True(t, ok)
 	assert.Greater(t, len(idStr), 0)
 	// Should start with "call_" prefix
@@ -313,7 +314,7 @@ func TestGeminiNormalizer_FunctionCallWithoutID(t *testing.T) {
 	assert.Equal(t, "call_", idStr[:5], "ID should start with 'call_' prefix")
 	// Generated call info (id and name) should be stored in messageMeta
 	assert.NotNil(t, messageMeta)
-	callInfo, exists := messageMeta["__gemini_call_info__"]
+	callInfo, exists := messageMeta[model.GeminiCallInfoKey]
 	assert.True(t, exists, "call info should exist in messageMeta")
 
 	// Handle different possible types ([]interface{} or []map[string]interface{})
@@ -360,17 +361,17 @@ func TestGeminiNormalizer_FunctionResponseWithoutID(t *testing.T) {
 	role, parts, messageMeta, err := normalizer.NormalizeFromGeminiMessage(json.RawMessage(input))
 
 	assert.NoError(t, err)
-	assert.Equal(t, "user", role)
+	assert.Equal(t, model.RoleUser, role)
 	assert.Len(t, parts, 1)
-	assert.Equal(t, "tool-result", parts[0].Type)
+	assert.Equal(t, model.PartTypeToolResult, parts[0].Type)
 	assert.Contains(t, parts[0].Text, "Temperature")
 	assert.NotNil(t, parts[0].Meta)
-	assert.Equal(t, "get_weather", parts[0].Meta["name"])
+	assert.Equal(t, "get_weather", parts[0].Meta[model.MetaKeyName])
 	// tool_call_id should not be set (will be resolved later)
-	_, hasID := parts[0].Meta["tool_call_id"]
+	_, hasID := parts[0].Meta[model.MetaKeyToolCallID]
 	assert.False(t, hasID)
 	assert.NotNil(t, messageMeta)
-	assert.Equal(t, "gemini", messageMeta["source_format"])
+	assert.Equal(t, "gemini", messageMeta[model.MsgMetaSourceFormat])
 }
 
 // TestGeminiNormalizer_MultipleFunctionCalls tests multiple FunctionCalls without IDs
@@ -398,22 +399,22 @@ func TestGeminiNormalizer_MultipleFunctionCalls(t *testing.T) {
 	role, parts, messageMeta, err := normalizer.NormalizeFromGeminiMessage(json.RawMessage(input))
 
 	assert.NoError(t, err)
-	assert.Equal(t, "assistant", role)
+	assert.Equal(t, model.RoleAssistant, role)
 	assert.Len(t, parts, 2)
 
 	// Both should be tool-call parts
-	assert.Equal(t, "tool-call", parts[0].Type)
-	assert.Equal(t, "tool-call", parts[1].Type)
-	assert.Equal(t, "get_weather", parts[0].Meta["name"])
-	assert.Equal(t, "calculate", parts[1].Meta["name"])
+	assert.Equal(t, model.PartTypeToolCall, parts[0].Type)
+	assert.Equal(t, model.PartTypeToolCall, parts[1].Type)
+	assert.Equal(t, "get_weather", parts[0].Meta[model.MetaKeyName])
+	assert.Equal(t, "calculate", parts[1].Meta[model.MetaKeyName])
 
 	// Both should have generated IDs
-	id0, ok0 := parts[0].Meta["id"].(string)
+	id0, ok0 := parts[0].Meta[model.MetaKeyID].(string)
 	assert.True(t, ok0)
 	assert.True(t, len(id0) > 5)
 	assert.Equal(t, "call_", id0[:5])
 
-	id1, ok1 := parts[1].Meta["id"].(string)
+	id1, ok1 := parts[1].Meta[model.MetaKeyID].(string)
 	assert.True(t, ok1)
 	assert.True(t, len(id1) > 5)
 	assert.Equal(t, "call_", id1[:5])
@@ -422,7 +423,7 @@ func TestGeminiNormalizer_MultipleFunctionCalls(t *testing.T) {
 	assert.NotEqual(t, id0, id1)
 
 	// Both should be stored in messageMeta
-	callInfo, exists := messageMeta["__gemini_call_info__"]
+	callInfo, exists := messageMeta[model.GeminiCallInfoKey]
 	assert.True(t, exists)
 
 	var callInfoArray []interface{}
@@ -478,20 +479,20 @@ func TestGeminiNormalizer_MixedFunctionCalls(t *testing.T) {
 	role, parts, messageMeta, err := normalizer.NormalizeFromGeminiMessage(json.RawMessage(input))
 
 	assert.NoError(t, err)
-	assert.Equal(t, "assistant", role)
+	assert.Equal(t, model.RoleAssistant, role)
 	assert.Len(t, parts, 2)
 
 	// First call has provided ID
-	assert.Equal(t, "call_provided", parts[0].Meta["id"])
+	assert.Equal(t, "call_provided", parts[0].Meta[model.MetaKeyID])
 
 	// Second call has generated ID
-	id1, ok := parts[1].Meta["id"].(string)
+	id1, ok := parts[1].Meta[model.MetaKeyID].(string)
 	assert.True(t, ok)
 	assert.True(t, len(id1) > 5)
 	assert.Equal(t, "call_", id1[:5])
 
 	// Both calls should be in messageMeta (all FunctionCalls are tracked, not just generated ones)
-	callInfo, exists := messageMeta["__gemini_call_info__"]
+	callInfo, exists := messageMeta[model.GeminiCallInfoKey]
 	assert.True(t, exists)
 
 	var callInfoArray []interface{}

@@ -58,20 +58,20 @@ func ExtractTextAndToolContent(parts []model.Part) (string, error) {
 
 	for _, part := range parts {
 		switch part.Type {
-		case "text":
+		case model.PartTypeText:
 			if part.Text != "" {
 				content.WriteString(part.Text)
 				content.WriteString("\n") // Add separator
 			}
-		case "tool-call":
+		case model.PartTypeToolCall:
 			// Extract only "name" and "arguments" from meta for token counting
 			if part.Meta != nil {
 				filtered := make(map[string]interface{})
-				if name, ok := part.Meta["name"]; ok {
-					filtered["name"] = name
+				if name, ok := part.Meta[model.MetaKeyName]; ok {
+					filtered[model.MetaKeyName] = name
 				}
-				if args, ok := part.Meta["arguments"]; ok {
-					filtered["arguments"] = args
+				if args, ok := part.Meta[model.MetaKeyArguments]; ok {
+					filtered[model.MetaKeyArguments] = args
 				}
 				metaJSON, err := json.Marshal(filtered)
 				if err != nil {
@@ -80,8 +80,7 @@ func ExtractTextAndToolContent(parts []model.Part) (string, error) {
 				content.WriteString(string(metaJSON))
 				content.WriteString("\n")
 			}
-		case "tool-result":
-			// Extract tool result information from meta
+		case model.PartTypeToolResult:
 			if part.Text != "" {
 				content.WriteString(part.Text)
 				content.WriteString("\n")

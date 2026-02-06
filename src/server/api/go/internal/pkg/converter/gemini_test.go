@@ -13,8 +13,8 @@ func TestGeminiConverter_Convert_TextMessage(t *testing.T) {
 	converter := &GeminiConverter{}
 
 	messages := []model.Message{
-		createTestMessage("user", []model.Part{
-			{Type: "text", Text: "Hello from Gemini!"},
+		createTestMessage(model.RoleUser, []model.Part{
+			{Type: model.PartTypeText, Text: "Hello from Gemini!"},
 		}, nil),
 	}
 
@@ -30,8 +30,8 @@ func TestGeminiConverter_Convert_AssistantMessage(t *testing.T) {
 	converter := &GeminiConverter{}
 
 	messages := []model.Message{
-		createTestMessage("assistant", []model.Part{
-			{Type: "text", Text: "I'm doing well, thank you!"},
+		createTestMessage(model.RoleAssistant, []model.Part{
+			{Type: model.PartTypeText, Text: "I'm doing well, thank you!"},
 		}, nil),
 	}
 
@@ -45,14 +45,14 @@ func TestGeminiConverter_Convert_ToolCall(t *testing.T) {
 
 	// UNIFIED FORMAT: now uses unified field names
 	messages := []model.Message{
-		createTestMessage("assistant", []model.Part{
+		createTestMessage(model.RoleAssistant, []model.Part{
 			{
-				Type: "tool-call",
+				Type: model.PartTypeToolCall,
 				Meta: map[string]any{
-					"id":        "call_123",
-					"name":      "get_weather",
-					"arguments": "{\"city\":\"SF\"}",
-					"type":      "function",
+					model.MetaKeyID:         "call_123",
+					model.MetaKeyName:       "get_weather",
+					model.MetaKeyArguments:  "{\"city\":\"SF\"}",
+					model.MetaKeySourceType: "function",
 				},
 			},
 		}, nil),
@@ -67,16 +67,16 @@ func TestGeminiConverter_Convert_ThinkingDowngradedToText(t *testing.T) {
 	converter := &GeminiConverter{}
 
 	messages := []model.Message{
-		createTestMessage("assistant", []model.Part{
+		createTestMessage(model.RoleAssistant, []model.Part{
 			{
-				Type: "thinking",
+				Type: model.PartTypeThinking,
 				Text: "Let me reason about this...",
 				Meta: map[string]any{
-					"signature": "sig_abc123",
+					model.MetaKeySignature: "sig_abc123",
 				},
 			},
 			{
-				Type: "text",
+				Type: model.PartTypeText,
 				Text: "Here is my answer.",
 			},
 		}, nil),
@@ -91,12 +91,12 @@ func TestGeminiConverter_Convert_ToolResult(t *testing.T) {
 	converter := &GeminiConverter{}
 
 	messages := []model.Message{
-		createTestMessage("user", []model.Part{
+		createTestMessage(model.RoleUser, []model.Part{
 			{
-				Type: "tool-result",
+				Type: model.PartTypeToolResult,
 				Text: "Weather is sunny",
 				Meta: map[string]any{
-					"name": "get_weather",
+					model.MetaKeyName: "get_weather",
 				},
 			},
 		}, nil),
@@ -111,9 +111,9 @@ func TestGeminiConverter_Convert_Image(t *testing.T) {
 	converter := &GeminiConverter{}
 
 	messages := []model.Message{
-		createTestMessage("user", []model.Part{
+		createTestMessage(model.RoleUser, []model.Part{
 			{
-				Type:     "image",
+				Type:     model.PartTypeImage,
 				Filename: "image.jpg",
 				Asset: &model.Asset{
 					S3Key: "assets/image.jpg",
@@ -137,10 +137,10 @@ func TestGeminiConverter_Convert_MultipleParts(t *testing.T) {
 	converter := &GeminiConverter{}
 
 	messages := []model.Message{
-		createTestMessage("user", []model.Part{
-			{Type: "text", Text: "What's in this image?"},
+		createTestMessage(model.RoleUser, []model.Part{
+			{Type: model.PartTypeText, Text: "What's in this image?"},
 			{
-				Type:     "image",
+				Type:     model.PartTypeImage,
 				Filename: "image.jpg",
 				Asset: &model.Asset{
 					S3Key: "assets/image.jpg",
@@ -165,7 +165,7 @@ func TestGeminiConverter_Convert_InvalidRole(t *testing.T) {
 
 	messages := []model.Message{
 		createTestMessage("system", []model.Part{
-			{Type: "text", Text: "System message"},
+			{Type: model.PartTypeText, Text: "System message"},
 		}, nil),
 	}
 

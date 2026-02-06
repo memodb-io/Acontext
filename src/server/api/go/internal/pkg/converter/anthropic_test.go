@@ -13,8 +13,8 @@ func TestAnthropicConverter_Convert_TextMessage(t *testing.T) {
 	converter := &AnthropicConverter{}
 
 	messages := []model.Message{
-		createTestMessage("user", []model.Part{
-			{Type: "text", Text: "Hello from Anthropic!"},
+		createTestMessage(model.RoleUser, []model.Part{
+			{Type: model.PartTypeText, Text: "Hello from Anthropic!"},
 		}, nil),
 	}
 
@@ -30,12 +30,12 @@ func TestAnthropicConverter_Convert_WithCacheControl(t *testing.T) {
 	converter := &AnthropicConverter{}
 
 	messages := []model.Message{
-		createTestMessage("user", []model.Part{
+		createTestMessage(model.RoleUser, []model.Part{
 			{
-				Type: "text",
+				Type: model.PartTypeText,
 				Text: "Cached content",
 				Meta: map[string]any{
-					"cache_control": map[string]interface{}{
+					model.MetaKeyCacheControl: map[string]interface{}{
 						"type": "ephemeral",
 					},
 				},
@@ -53,14 +53,14 @@ func TestAnthropicConverter_Convert_ToolCall(t *testing.T) {
 
 	// UNIFIED FORMAT: now uses "tool-call" type and unified field names
 	messages := []model.Message{
-		createTestMessage("assistant", []model.Part{
+		createTestMessage(model.RoleAssistant, []model.Part{
 			{
-				Type: "tool-call", // Unified: was "tool-use", now "tool-call"
+				Type: model.PartTypeToolCall, // Unified: was "tool-use", now "tool-call"
 				Meta: map[string]any{
-					"id":        "toolu_123",
-					"name":      "get_weather",           // Unified: was "tool_name", now "name"
-					"arguments": "{\"city\":\"Boston\"}", // Unified: JSON string format
-					"type":      "tool_use",              // Store original Anthropic type
+					model.MetaKeyID:         "toolu_123",
+					model.MetaKeyName:       "get_weather",           // Unified: was "tool_name", now "name"
+					model.MetaKeyArguments:  "{\"city\":\"Boston\"}", // Unified: JSON string format
+					model.MetaKeySourceType: "tool_use",              // Store original Anthropic type
 				},
 			},
 		}, nil),
@@ -76,12 +76,12 @@ func TestAnthropicConverter_Convert_ToolResult(t *testing.T) {
 
 	// UNIFIED FORMAT: now uses "tool_call_id" instead of "tool_use_id"
 	messages := []model.Message{
-		createTestMessage("user", []model.Part{
+		createTestMessage(model.RoleUser, []model.Part{
 			{
-				Type: "tool-result",
+				Type: model.PartTypeToolResult,
 				Text: "Weather: 72°F",
 				Meta: map[string]any{
-					"tool_call_id": "toolu_123", // Unified: was "tool_use_id", now "tool_call_id"
+					model.MetaKeyToolCallID: "toolu_123", // Unified: was "tool_use_id", now "tool_call_id"
 				},
 			},
 		}, nil),
@@ -96,16 +96,16 @@ func TestAnthropicConverter_Convert_ThinkingBlock(t *testing.T) {
 	converter := &AnthropicConverter{}
 
 	messages := []model.Message{
-		createTestMessage("assistant", []model.Part{
+		createTestMessage(model.RoleAssistant, []model.Part{
 			{
-				Type: "thinking",
+				Type: model.PartTypeThinking,
 				Text: "Let me reason step by step...",
 				Meta: map[string]any{
-					"signature": "sig_abc123",
+					model.MetaKeySignature: "sig_abc123",
 				},
 			},
 			{
-				Type: "text",
+				Type: model.PartTypeText,
 				Text: "Here is my answer.",
 			},
 		}, nil),
@@ -120,9 +120,9 @@ func TestAnthropicConverter_Convert_Image(t *testing.T) {
 	converter := &AnthropicConverter{}
 
 	messages := []model.Message{
-		createTestMessage("user", []model.Part{
+		createTestMessage(model.RoleUser, []model.Part{
 			{
-				Type:     "image",
+				Type:     model.PartTypeImage,
 				Filename: "image.jpg",
 				Asset: &model.Asset{
 					S3Key: "assets/image.jpg",

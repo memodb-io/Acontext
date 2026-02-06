@@ -167,43 +167,39 @@ type PartIn struct {
 func (p *PartIn) Validate() error {
 	validate := validator.New()
 
-	// Basic field validation
+	// Basic field validation (struct tag oneof must remain a string literal -- Go limitation)
 	if err := validate.Struct(p); err != nil {
 		return err
 	}
 
-	// Validate required fields based on different types
+	// Validate required fields based on type (using model constants)
 	switch p.Type {
-	case "text":
+	case model.PartTypeText:
 		if p.Text == "" {
 			return errors.New("text part requires non-empty text field")
 		}
-	case "tool-call":
-		// UNIFIED FORMAT: only "tool-call" is accepted (no more "tool-use")
+	case model.PartTypeToolCall:
 		if p.Meta == nil {
 			return errors.New("tool-call part requires meta field")
 		}
-		// Unified format requires 'name' field
-		if _, hasName := p.Meta["name"]; !hasName {
+		if _, ok := p.Meta[model.MetaKeyName]; !ok {
 			return errors.New("tool-call part requires 'name' in meta")
 		}
-		// Unified format requires 'arguments' field
-		if _, hasArguments := p.Meta["arguments"]; !hasArguments {
+		if _, ok := p.Meta[model.MetaKeyArguments]; !ok {
 			return errors.New("tool-call part requires 'arguments' in meta")
 		}
-	case "tool-result":
+	case model.PartTypeToolResult:
 		if p.Meta == nil {
 			return errors.New("tool-result part requires meta field")
 		}
-		// Unified format requires 'tool_call_id'
-		if _, hasToolCallID := p.Meta["tool_call_id"]; !hasToolCallID {
+		if _, ok := p.Meta[model.MetaKeyToolCallID]; !ok {
 			return errors.New("tool-result part requires 'tool_call_id' in meta")
 		}
-	case "data":
+	case model.PartTypeData:
 		if p.Meta == nil {
 			return errors.New("data part requires meta field")
 		}
-		if _, ok := p.Meta["data_type"]; !ok {
+		if _, ok := p.Meta[model.MetaKeyDataType]; !ok {
 			return errors.New("data part requires 'data_type' in meta")
 		}
 	}
@@ -223,7 +219,7 @@ func (s *sessionService) validateAndResolveGeminiToolResult(ctx context.Context,
 	}
 
 	// Get function name from response
-	responseName, hasName := partIn.Meta["name"]
+	responseName, hasName := partIn.Meta[model.MetaKeyName]
 	if !hasName {
 		return fmt.Errorf("tool-result part[%d] missing function name", idx)
 	}
@@ -244,7 +240,7 @@ func (s *sessionService) validateAndResolveGeminiToolResult(ctx context.Context,
 	}
 
 	// Handle ID: if response has ID, validate it matches; if not, copy from call
-	responseID, hasID := partIn.Meta["tool_call_id"]
+	responseID, hasID := partIn.Meta[model.MetaKeyToolCallID]
 	if hasID {
 		// ID exists: validate it matches the popped call ID
 		responseIDStr, ok := responseID.(string)
@@ -257,7 +253,7 @@ func (s *sessionService) validateAndResolveGeminiToolResult(ctx context.Context,
 		// ID matches, no need to update
 	} else {
 		// ID missing: copy from popped call
-		partIn.Meta["tool_call_id"] = poppedID
+		partIn.Meta[model.MetaKeyToolCallID] = poppedID
 	}
 
 	return nil
@@ -285,7 +281,7 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 
 		// For Gemini format tool-result parts, always validate against stored call info (before file uploads)
 		// This ensures validation happens before file uploads to avoid orphaned assets
-		if in.Format == model.FormatGemini && partIn.Type == "tool-result" {
+		if in.Format == model.FormatGemini && partIn.Type == model.PartTypeToolResult {
 			if err := s.validateAndResolveGeminiToolResult(ctx, in.SessionID, partIn, idx); err != nil {
 				return nil, err
 			}

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,7 +27,7 @@ func TestAcontextNormalizer_NormalizeFromAcontextMessage(t *testing.T) {
 					{"type": "text", "text": "Hello world"}
 				]
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -38,7 +39,7 @@ func TestAcontextNormalizer_NormalizeFromAcontextMessage(t *testing.T) {
 					{"type": "text", "text": "How can I help you?"}
 				]
 			}`,
-			wantRole:    "assistant",
+			wantRole:    model.RoleAssistant,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -62,7 +63,7 @@ func TestAcontextNormalizer_NormalizeFromAcontextMessage(t *testing.T) {
 					{"type": "image", "meta": {"url": "https://example.com/image.jpg"}}
 				]
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 2,
 			wantErr:     false,
 		},
@@ -81,7 +82,7 @@ func TestAcontextNormalizer_NormalizeFromAcontextMessage(t *testing.T) {
 					}
 				]
 			}`,
-			wantRole:    "assistant",
+			wantRole:    model.RoleAssistant,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -97,7 +98,7 @@ func TestAcontextNormalizer_NormalizeFromAcontextMessage(t *testing.T) {
 					}
 				]
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 1,
 			wantErr:     false,
 		},
@@ -139,7 +140,7 @@ func TestAcontextNormalizer_NormalizeFromAcontextMessage(t *testing.T) {
 				"role": "user",
 				"parts": []
 			}`,
-			wantRole:    "user",
+			wantRole:    model.RoleUser,
 			wantPartCnt: 0,
 			wantErr:     false,
 		},
@@ -160,7 +161,7 @@ func TestAcontextNormalizer_NormalizeFromAcontextMessage(t *testing.T) {
 				assert.Len(t, parts, tt.wantPartCnt)
 				// Verify message metadata
 				assert.NotNil(t, messageMeta)
-				assert.Equal(t, "acontext", messageMeta["source_format"])
+				assert.Equal(t, "acontext", messageMeta[model.MsgMetaSourceFormat])
 			}
 		})
 	}
@@ -173,14 +174,14 @@ func TestAcontextNormalizer_ValidatePartTypes(t *testing.T) {
 		partType string
 		input    string
 	}{
-		{"text", `{"role": "user", "parts": [{"type": "text", "text": "sample text"}]}`},
-		{"image", `{"role": "user", "parts": [{"type": "image", "meta": {"url": "https://example.com/img.jpg"}}]}`},
-		{"audio", `{"role": "user", "parts": [{"type": "audio", "meta": {"url": "https://example.com/audio.mp3"}}]}`},
-		{"video", `{"role": "user", "parts": [{"type": "video", "meta": {"url": "https://example.com/video.mp4"}}]}`},
-		{"file", `{"role": "user", "parts": [{"type": "file", "meta": {"url": "https://example.com/file.pdf"}}]}`},
-		{"tool-call", `{"role": "assistant", "parts": [{"type": "tool-call", "meta": {"name": "test", "arguments": "{}"}}]}`},
-		{"tool-result", `{"role": "user", "parts": [{"type": "tool-result", "text": "result", "meta": {"tool_call_id": "call_123"}}]}`},
-		{"data", `{"role": "user", "parts": [{"type": "data", "meta": {"data_type": "json", "key": "value"}}]}`},
+		{model.PartTypeText, `{"role": "user", "parts": [{"type": "text", "text": "sample text"}]}`},
+		{model.PartTypeImage, `{"role": "user", "parts": [{"type": "image", "meta": {"url": "https://example.com/img.jpg"}}]}`},
+		{model.PartTypeAudio, `{"role": "user", "parts": [{"type": "audio", "meta": {"url": "https://example.com/audio.mp3"}}]}`},
+		{model.PartTypeVideo, `{"role": "user", "parts": [{"type": "video", "meta": {"url": "https://example.com/video.mp4"}}]}`},
+		{model.PartTypeFile, `{"role": "user", "parts": [{"type": "file", "meta": {"url": "https://example.com/file.pdf"}}]}`},
+		{model.PartTypeToolCall, `{"role": "assistant", "parts": [{"type": "tool-call", "meta": {"name": "test", "arguments": "{}"}}]}`},
+		{model.PartTypeToolResult, `{"role": "user", "parts": [{"type": "tool-result", "text": "result", "meta": {"tool_call_id": "call_123"}}]}`},
+		{model.PartTypeData, `{"role": "user", "parts": [{"type": "data", "meta": {"data_type": "json", "key": "value"}}]}`},
 	}
 
 	for _, tt := range tests {
@@ -192,7 +193,7 @@ func TestAcontextNormalizer_ValidatePartTypes(t *testing.T) {
 			assert.Len(t, parts, 1)
 			assert.Equal(t, tt.partType, parts[0].Type)
 			assert.NotNil(t, messageMeta)
-			assert.Equal(t, "acontext", messageMeta["source_format"])
+			assert.Equal(t, "acontext", messageMeta[model.MsgMetaSourceFormat])
 		})
 	}
 }
@@ -214,10 +215,10 @@ func TestAcontextNormalizer_MessageWithMeta(t *testing.T) {
 	role, parts, messageMeta, err := normalizer.NormalizeFromAcontextMessage(json.RawMessage(input))
 
 	assert.NoError(t, err)
-	assert.Equal(t, "user", role)
+	assert.Equal(t, model.RoleUser, role)
 	assert.Len(t, parts, 1)
 	assert.NotNil(t, messageMeta)
-	assert.Equal(t, "acontext", messageMeta["source_format"])
-	assert.Equal(t, "Alice", messageMeta["name"])
+	assert.Equal(t, "acontext", messageMeta[model.MsgMetaSourceFormat])
+	assert.Equal(t, "Alice", messageMeta[model.MetaKeyName])
 	assert.Equal(t, "custom_value", messageMeta["custom_field"])
 }
