@@ -19,6 +19,9 @@ type Task struct {
 	Status     string   `gorm:"type:text;not null;default:'pending';check:status IN ('success','failed','running','pending');index:ix_task_session_id_status,priority:2" json:"status"`
 	IsPlanning bool     `gorm:"not null;default:false" json:"is_planning"`
 
+	// Embedding vector for semantic search
+	Embedding []float32 `gorm:"type:vector(1536)" json:"-"`
+
 	CreatedAt time.Time `gorm:"autoCreateTime;not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime;not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 
