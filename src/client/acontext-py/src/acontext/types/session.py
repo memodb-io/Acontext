@@ -303,3 +303,9 @@ class MessageObservingStatus(BaseModel):
     )
     pending: int = Field(..., description="Number of messages with pending status")
     updated_at: str = Field(..., description="Timestamp when the status was retrieved")
+
+
+class SessionSearchResult(BaseModel):
+    """Response model for session search."""
+
+    session_ids: list[str] = Field(..., description="List of matching session UUIDs")
