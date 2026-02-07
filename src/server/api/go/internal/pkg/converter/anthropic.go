@@ -94,9 +94,11 @@ func (c *AnthropicConverter) convertParts(parts []model.Part, publicURLs map[str
 			}
 
 		case model.PartTypeThinking:
-			signature := part.Signature()
-			block := anthropic.NewThinkingBlock(signature, part.Text)
-			contentBlocks = append(contentBlocks, block)
+			if part.Text != "" {
+				signature := part.Signature()
+				block := anthropic.NewThinkingBlock(signature, part.Text)
+				contentBlocks = append(contentBlocks, block)
+			}
 		}
 	}
 

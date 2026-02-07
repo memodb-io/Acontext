@@ -98,9 +98,9 @@ func TestAcontextConverter_Convert_WithCacheControl(t *testing.T) {
 	assert.Len(t, msg.Parts, 1)
 	part := msg.Parts[0]
 	assert.NotNil(t, part.Meta)
-	assert.NotNil(t, part.Meta["cache_control"])
+	assert.NotNil(t, part.Meta[model.MetaKeyCacheControl])
 
-	cacheControl := part.Meta["cache_control"].(map[string]any)
+	cacheControl := part.Meta[model.MetaKeyCacheControl].(map[string]any)
 	assert.Equal(t, "ephemeral", cacheControl["type"])
 }
 
