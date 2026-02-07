@@ -6,10 +6,16 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/service"
 )
+
+// httpClient is a shared HTTP client with a sensible timeout for downloading
+// external resources (images, files). Using a package-level client avoids
+// creating a new transport per request and prevents unbounded hangs on slow or malicious URLs.
+var httpClient = &http.Client{Timeout: 15 * time.Second}
 
 // GetAssetURL returns the public URL for a given asset using the provided URL mapping.
 // Returns empty string if asset is nil or not found in the mapping.
@@ -27,7 +33,7 @@ func GetAssetURL(asset *model.Asset, publicURLs map[string]service.PublicURL) st
 // the base64-encoded data and its MIME type.
 // Returns empty strings on any error.
 func DownloadImageAsBase64(imageURL string) (base64Data string, mediaType string) {
-	resp, err := http.Get(imageURL)
+	resp, err := httpClient.Get(imageURL)
 	if err != nil {
 		return "", ""
 	}
@@ -63,11 +69,16 @@ func ParseDataURL(dataURL string) (mediaType string, base64Data string) {
 		return "", ""
 	}
 
-	// Parse media type from data URL (e.g., "data:image/png;base64")
-	mediaType = "image/png" // default
-	if strings.Contains(parts[0], ":") && strings.Contains(parts[0], ";") {
-		typePart := strings.Split(parts[0], ":")[1]
-		mediaType = strings.Split(typePart, ";")[0]
+	// Parse media type from header: "data:<mediatype>;base64" or "data:<mediatype>"
+	header := strings.TrimPrefix(parts[0], "data:")
+	// Strip encoding suffix (e.g., ";base64")
+	if idx := strings.Index(header, ";"); idx >= 0 {
+		header = header[:idx]
+	}
+
+	mediaType = header
+	if mediaType == "" {
+		mediaType = "image/png" // default when MIME type is missing
 	}
 
 	return mediaType, parts[1]
