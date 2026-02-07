@@ -74,6 +74,19 @@ func normalizeGeminiPart(part *genai.Part) (service.PartIn, map[string]interface
 		return service.PartIn{}, nil, fmt.Errorf("nil part")
 	}
 
+	// Handle thinking part (must check before plain text since thinking parts also have Text)
+	if part.Thought && part.Text != "" {
+		meta := map[string]interface{}{}
+		if len(part.ThoughtSignature) > 0 {
+			meta[model.MetaKeySignature] = base64.StdEncoding.EncodeToString(part.ThoughtSignature)
+		}
+		return service.PartIn{
+			Type: model.PartTypeThinking,
+			Text: part.Text,
+			Meta: meta,
+		}, nil, nil
+	}
+
 	// Handle text part
 	if part.Text != "" {
 		return service.PartIn{

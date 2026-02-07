@@ -1,7 +1,10 @@
 package converter
 
 import (
+	"encoding/base64"
 	"testing"
+
+	"google.golang.org/genai"
 
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/service"
@@ -63,8 +66,12 @@ func TestGeminiConverter_Convert_ToolCall(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
-func TestGeminiConverter_Convert_ThinkingDowngradedToText(t *testing.T) {
+func TestGeminiConverter_Convert_ThinkingAsNativePart(t *testing.T) {
 	converter := &GeminiConverter{}
+
+	// Signature stored as base64-encoded string (as produced by Gemini normalizer)
+	sigBytes := []byte("gemini-thought-signature-data")
+	sigBase64 := base64.StdEncoding.EncodeToString(sigBytes)
 
 	messages := []model.Message{
 		createTestMessage(model.RoleAssistant, []model.Part{
@@ -72,7 +79,7 @@ func TestGeminiConverter_Convert_ThinkingDowngradedToText(t *testing.T) {
 				Type: model.PartTypeThinking,
 				Text: "Let me reason about this...",
 				Meta: map[string]any{
-					model.MetaKeySignature: "sig_abc123",
+					model.MetaKeySignature: sigBase64,
 				},
 			},
 			{
@@ -84,7 +91,21 @@ func TestGeminiConverter_Convert_ThinkingDowngradedToText(t *testing.T) {
 
 	result, err := converter.Convert(messages, nil)
 	require.NoError(t, err)
-	assert.NotNil(t, result)
+
+	contents := result.([]*genai.Content)
+	require.Len(t, contents, 1)
+	require.Len(t, contents[0].Parts, 2)
+
+	// First part: thinking with Thought=true and ThoughtSignature
+	thinkingPart := contents[0].Parts[0]
+	assert.Equal(t, "Let me reason about this...", thinkingPart.Text)
+	assert.True(t, thinkingPart.Thought, "thinking part should have Thought=true")
+	assert.Equal(t, sigBytes, thinkingPart.ThoughtSignature, "ThoughtSignature should round-trip")
+
+	// Second part: regular text with Thought=false
+	textPart := contents[0].Parts[1]
+	assert.Equal(t, "Here is my answer.", textPart.Text)
+	assert.False(t, textPart.Thought, "text part should have Thought=false")
 }
 
 func TestGeminiConverter_Convert_ToolResult(t *testing.T) {

@@ -212,6 +212,70 @@ func TestGeminiNormalizer_FunctionResponse(t *testing.T) {
 	assert.Equal(t, "gemini", messageMeta[model.MsgMetaSourceFormat])
 }
 
+func TestGeminiNormalizer_ThinkingPart(t *testing.T) {
+	normalizer := &GeminiNormalizer{}
+
+	sigBytes := []byte("gemini-thought-signature-data")
+	sigBase64 := base64.StdEncoding.EncodeToString(sigBytes)
+
+	t.Run("thinking part with signature", func(t *testing.T) {
+		// Build input using SDK types to ensure correct JSON format
+		content := genai.Content{
+			Role: "model",
+			Parts: []*genai.Part{
+				{
+					Text:             "Let me reason step by step...",
+					Thought:          true,
+					ThoughtSignature: sigBytes,
+				},
+				{
+					Text: "The answer is 42.",
+				},
+			},
+		}
+		inputJSON, _ := json.Marshal(content)
+
+		role, parts, messageMeta, err := normalizer.Normalize(json.RawMessage(inputJSON))
+
+		assert.NoError(t, err)
+		assert.Equal(t, model.RoleAssistant, role)
+		assert.Len(t, parts, 2)
+
+		// First part: should be recognized as thinking
+		assert.Equal(t, model.PartTypeThinking, parts[0].Type)
+		assert.Equal(t, "Let me reason step by step...", parts[0].Text)
+		assert.Equal(t, sigBase64, parts[0].Meta[model.MetaKeySignature])
+
+		// Second part: regular text
+		assert.Equal(t, model.PartTypeText, parts[1].Type)
+		assert.Equal(t, "The answer is 42.", parts[1].Text)
+
+		assert.Equal(t, "gemini", messageMeta[model.MsgMetaSourceFormat])
+	})
+
+	t.Run("thinking part without signature", func(t *testing.T) {
+		content := genai.Content{
+			Role: "model",
+			Parts: []*genai.Part{
+				{
+					Text:    "Some internal reasoning...",
+					Thought: true,
+				},
+			},
+		}
+		inputJSON, _ := json.Marshal(content)
+
+		_, parts, _, err := normalizer.Normalize(json.RawMessage(inputJSON))
+
+		assert.NoError(t, err)
+		assert.Len(t, parts, 1)
+		assert.Equal(t, model.PartTypeThinking, parts[0].Type)
+		assert.Equal(t, "Some internal reasoning...", parts[0].Text)
+		// Meta should be empty (no signature)
+		assert.Empty(t, parts[0].Meta[model.MetaKeySignature])
+	})
+}
+
 func TestGeminiNormalizer_MultipleParts(t *testing.T) {
 	normalizer := &GeminiNormalizer{}
 

@@ -182,7 +182,7 @@ const storage = new ClaudeAgentStorage({
 </Tab>
 </Tabs>
 
-Thinking blocks are stored as Anthropic `thinking` content blocks with their `signature` preserved. When retrieved in Anthropic format, they round-trip as native `thinking` blocks. When retrieved in OpenAI or Gemini format, thinking content is automatically downgraded to plain text.
+Thinking blocks are stored as Anthropic `thinking` content blocks with their `signature` preserved. When retrieved in Anthropic or Gemini format, they round-trip as native `thinking` blocks. When retrieved in OpenAI format, thinking content is automatically downgraded to plain text.
 
 The stored message `meta` will contain `"has_thinking": True` for observability.
 

@@ -127,16 +127,23 @@ func (c *OpenAIConverter) convertToUserMessage(msg model.Message, publicURLs map
 }
 
 func (c *OpenAIConverter) convertToAssistantMessage(msg model.Message) openai.ChatCompletionMessageParamUnion {
-	var textContent string
+	var contentParts []openai.ChatCompletionAssistantMessageParamContentArrayOfContentPartUnion
 	var toolCalls []openai.ChatCompletionMessageToolCallUnionParam
 
 	for _, part := range msg.Parts {
 		switch part.Type {
 		case model.PartTypeText:
-			textContent += part.Text
-		case model.PartTypeThinking:
 			if part.Text != "" {
-				textContent += part.Text
+				contentParts = append(contentParts, openai.ChatCompletionAssistantMessageParamContentArrayOfContentPartUnion{
+					OfText: &openai.ChatCompletionContentPartTextParam{Text: part.Text},
+				})
+			}
+		case model.PartTypeThinking:
+			// Downgrade thinking blocks to plain text parts for OpenAI format
+			if part.Text != "" {
+				contentParts = append(contentParts, openai.ChatCompletionAssistantMessageParamContentArrayOfContentPartUnion{
+					OfText: &openai.ChatCompletionContentPartTextParam{Text: part.Text},
+				})
 			}
 		case model.PartTypeToolCall:
 			if part.Meta != nil {
@@ -150,9 +157,15 @@ func (c *OpenAIConverter) convertToAssistantMessage(msg model.Message) openai.Ch
 
 	assistantParam := openai.ChatCompletionAssistantMessageParam{}
 
-	if textContent != "" {
+	if len(contentParts) == 1 {
+		// Single text part: use OfString for maximum compatibility
 		assistantParam.Content = openai.ChatCompletionAssistantMessageParamContentUnion{
-			OfString: param.NewOpt(textContent),
+			OfString: param.NewOpt(contentParts[0].OfText.Text),
+		}
+	} else if len(contentParts) > 1 {
+		// Multiple parts (e.g. thinking + text): preserve as separate content parts
+		assistantParam.Content = openai.ChatCompletionAssistantMessageParamContentUnion{
+			OfArrayOfContentParts: contentParts,
 		}
 	}
 

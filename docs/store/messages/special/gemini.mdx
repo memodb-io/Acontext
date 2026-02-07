@@ -1,0 +1,78 @@
+---
+title: Gemini Special Handling
+description: "Gemini-specific message handling like thinking blocks and function call ID generation"
+---
+
+Acontext handles Gemini-specific features including `thinking` parts for [Gemini thinking](https://ai.google.dev/gemini-api/docs/thinking) and automatic function call ID generation.
+
+## Thinking Parts
+
+Acontext natively stores Gemini thinking parts. The `ThoughtSignature` is base64-encoded and preserved for multi-turn continuity.
+
+```python
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "model",
+        "parts": [
+            {
+                "text": "Let me reason step by step...",
+                "thought": True,
+                "thoughtSignature": "Z2VtaW5pLXRob3VnaHQtc2ln..."
+            },
+            {
+                "text": "The answer is 42."
+            }
+        ]
+    },
+    format="gemini"
+)
+
+# Retrieved in Gemini format: thinking parts round-trip with Thought flag and ThoughtSignature
+# Retrieved in Anthropic format: thinking parts round-trip as native thinking blocks
+# Retrieved in OpenAI format: thinking content is downgraded to plain text
+```
+
+## Function Call ID Generation
+
+Gemini `FunctionCall` parts may omit the `id` field. Acontext automatically generates a unique ID (format: `call_<8-char-hex>`) for each function call without one, and stores the ID-to-name mapping in message metadata so that `FunctionResponse` parts can be matched back correctly.
+
+```python
+# Store a model message with a FunctionCall (no ID needed)
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "model",
+        "parts": [
+            {
+                "functionCall": {
+                    "name": "get_weather",
+                    "args": {"city": "San Francisco"}
+                }
+            }
+        ]
+    },
+    format="gemini"
+)
+
+# Store the FunctionResponse — Acontext resolves the tool_call_id automatically
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "user",
+        "parts": [
+            {
+                "functionResponse": {
+                    "name": "get_weather",
+                    "response": {"temperature": "72°F", "condition": "sunny"}
+                }
+            }
+        ]
+    },
+    format="gemini"
+)
+```
+
+<Tip>
+Thinking parts stored from any provider (Anthropic or Gemini) are cross-compatible. Retrieve in any format and Acontext converts automatically. See [Multi-provider Messages](/store/messages/multi-provider) for details.
+</Tip>

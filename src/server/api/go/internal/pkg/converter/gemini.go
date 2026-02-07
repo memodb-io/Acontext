@@ -11,6 +11,21 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/service"
 )
 
+// decodeSignatureBytes decodes a base64-encoded signature string back to []byte.
+// Returns nil on empty input or decode failure.
+func decodeSignatureBytes(sig string) []byte {
+	if sig == "" {
+		return nil
+	}
+	b, err := base64.StdEncoding.DecodeString(sig)
+	if err != nil {
+		// Signature may not be valid base64 (e.g. from Anthropic format);
+		// store it as raw UTF-8 bytes so it still round-trips.
+		return []byte(sig)
+	}
+	return b
+}
+
 // GeminiConverter converts messages to Google Gemini-compatible format using official SDK types.
 type GeminiConverter struct{}
 
@@ -84,11 +99,16 @@ func (c *GeminiConverter) convertParts(parts []model.Part, publicURLs map[string
 			}
 
 		case model.PartTypeThinking:
-			// Downgrade thinking blocks to plain text for Gemini format
+			// Output as native Gemini thinking part with Thought flag and signature
 			if part.Text != "" {
-				geminiParts = append(geminiParts, &genai.Part{
-					Text: part.Text,
-				})
+				gPart := &genai.Part{
+					Text:    part.Text,
+					Thought: true,
+				}
+				if sigBytes := decodeSignatureBytes(part.Signature()); sigBytes != nil {
+					gPart.ThoughtSignature = sigBytes
+				}
+				geminiParts = append(geminiParts, gPart)
 			}
 
 		case model.PartTypeImage:
