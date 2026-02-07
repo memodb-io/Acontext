@@ -1,0 +1,72 @@
+---
+title: Format Conversion
+description: "How Acontext normalizes and converts messages across OpenAI, Anthropic, and Gemini formats"
+---
+
+Acontext normalizes messages to a unified internal schema on store, and converts back to the target provider format on retrieval.
+
+## Conversion Flow
+
+````mermaid
+flowchart LR
+    subgraph Store["Store (Normalize)"]
+        direction TB
+        OI["OpenAI"] --> N["Acontext Internal Format"]
+        AI["Anthropic"] --> N
+        GI["Gemini"] --> N
+    end
+
+    N --> C{{"Retrieve (Convert)"}}
+
+    subgraph Retrieve["Output Format"]
+        direction TB
+        OO["OpenAI"]
+        AO["Anthropic"]
+        GO["Gemini"]
+        CO["Acontext"]
+    end
+
+    C --> OO
+    C --> AO
+    C --> GO
+    C --> CO
+````
+
+## Part Type Conversion Matrix
+
+Each message is composed of typed parts. The table below shows how each internal part type maps to provider-specific structures on retrieval:
+
+| Internal Part Type | OpenAI | Anthropic | Gemini |
+|---|---|---|---|
+| `text` | `content` string or `text` content part | `text` block | `text` part |
+| `image` | `image_url` content part | `image` block (base64) | `InlineData` part |
+| `tool-call` | `tool_calls` array | `tool_use` block | `FunctionCall` part |
+| `tool-result` | `tool` role message | `tool_result` block | `FunctionResponse` part |
+| `thinking` | downgraded to `text` content part | native `thinking` block with `signature` | native `Thought` part with `ThoughtSignature` |
+| `audio` | `input_audio` content part | — | — |
+| `file` | `file` content part | `document` block | — |
+
+<Tip>
+Thinking blocks from Anthropic and Gemini are stored identically and are fully cross-compatible. A thinking block stored from Claude can be retrieved in Gemini format as a native `Thought` part, and vice versa.
+</Tip>
+
+## Role Mapping
+
+| Provider | Provider Roles | Internal Role |
+|---|---|---|
+| OpenAI | `user`, `assistant`, `tool`, `function` | `user` or `assistant` |
+| Anthropic | `user`, `assistant` | `user` or `assistant` |
+| Gemini | `user`, `model` | `user` or `assistant` |
+
+On retrieval, `assistant` is converted back to `model` for Gemini format.
+
+## Provider-specific Handling
+
+<CardGroup cols={2}>
+<Card title="Anthropic Flags" icon="a" href="/store/messages/special/anthropic">
+Cache control and thinking blocks
+</Card>
+<Card title="Gemini Handling" icon="g" href="/store/messages/special/gemini">
+Thinking parts and function call ID generation
+</Card>
+</CardGroup>
