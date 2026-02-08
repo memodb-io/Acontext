@@ -8,21 +8,18 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	stdpath "path"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/memodb-io/Acontext/internal/infra/blob"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/pkg/paging"
 	"github.com/memodb-io/Acontext/internal/pkg/utils/fileparser"
-	"github.com/memodb-io/Acontext/internal/pkg/utils/mime"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/yaml.v3"
-	"gorm.io/datatypes"
 )
 
 type AgentSkillsService interface {
@@ -30,18 +27,21 @@ type AgentSkillsService interface {
 	GetByID(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*model.AgentSkills, error)
 	Delete(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error
 	List(ctx context.Context, in ListAgentSkillsInput) (*ListAgentSkillsOutput, error)
-	GetFile(ctx context.Context, agentSkills *model.AgentSkills, filePath string, expire time.Duration) (*GetFileOutput, error)
+	GetFile(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID, filePath string, expire time.Duration) (*GetFileOutput, error)
+	ListFiles(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*ListFilesOutput, error)
 }
 
 type agentSkillsService struct {
-	r  repo.AgentSkillsRepo
-	s3 *blob.S3Deps
+	r           repo.AgentSkillsRepo
+	diskSvc     DiskService
+	artifactSvc ArtifactService
 }
 
-func NewAgentSkillsService(r repo.AgentSkillsRepo, s3 *blob.S3Deps) AgentSkillsService {
+func NewAgentSkillsService(r repo.AgentSkillsRepo, diskSvc DiskService, artifactSvc ArtifactService) AgentSkillsService {
 	return &agentSkillsService{
-		r:  r,
-		s3: s3,
+		r:           r,
+		diskSvc:     diskSvc,
+		artifactSvc: artifactSvc,
 	}
 }
 
@@ -56,6 +56,53 @@ type CreateAgentSkillsInput struct {
 type SkillMetadata struct {
 	Name        string `yaml:"name"`
 	Description string `yaml:"description"`
+}
+
+// SkillFileInfo represents a file in a skill's disk, with S3 key for sandbox download.
+type SkillFileInfo struct {
+	Path  string // Joined skill-relative path, e.g. "scripts/main.py" (from joinSkillPath)
+	MIME  string // MIME type from artifact's AssetMeta
+	S3Key string // S3 key from artifact's AssetMeta (for sandbox upload)
+}
+
+// ListFilesOutput contains skill metadata and the list of files with S3 keys.
+// Combines skill name/description with file list to avoid double-querying.
+type ListFilesOutput struct {
+	Name        string          // Skill name (sanitized, used for sandbox path)
+	Description string          // Skill description
+	Files       []SkillFileInfo // File list with S3 keys
+}
+
+// splitSkillPath converts a skill-relative file path into Artifact (Path, Filename) tuple.
+// Uses "path" package (always '/'), NOT "path/filepath" (OS-dependent separator).
+func splitSkillPath(relativePath string) (dir, filename string) {
+	d := stdpath.Dir(relativePath)
+	f := stdpath.Base(relativePath)
+	if d == "." {
+		return "/", f
+	}
+	return "/" + d + "/", f
+}
+
+// joinSkillPath reconstructs a skill-relative file path from Artifact (Path, Filename).
+func joinSkillPath(artifactPath, filename string) string {
+	if artifactPath == "/" {
+		return filename
+	}
+	return strings.TrimPrefix(artifactPath, "/") + filename
+}
+
+// artifactsToFileIndex converts a slice of Artifacts into a FileInfo slice.
+// Always returns a non-nil slice (avoids JSON "file_index": null).
+func artifactsToFileIndex(artifacts []*model.Artifact) []model.FileInfo {
+	out := make([]model.FileInfo, len(artifacts))
+	for i, a := range artifacts {
+		out[i] = model.FileInfo{
+			Path: joinSkillPath(a.Path, a.Filename),
+			MIME: a.AssetMeta.Data().MIME,
+		}
+	}
+	return out
 }
 
 func extractYAMLFrontMatter(content []byte) string {
@@ -112,10 +159,11 @@ type zipFileData struct {
 	name         string
 	content      []byte
 	relativePath string
-	mimeType     string
 }
 
 func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInput) (*model.AgentSkills, error) {
+	// ── Phase 1: ZIP parsing (pre-Disk, no cleanup needed on failure) ──
+
 	zipFile, err := in.ZipFile.Open()
 	if err != nil {
 		return nil, fmt.Errorf("open zip file: %w", err)
@@ -193,6 +241,7 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 		return nil, errors.New("SKILL.md file is required in the zip package")
 	}
 
+	// Detect root prefix for stripping
 	if len(fileNames) > 0 {
 		firstFile := fileNames[0]
 		parts := strings.Split(firstFile, "/")
@@ -218,66 +267,45 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 			relativePath = strings.TrimPrefix(fileData.name, rootPrefix)
 		}
 		fileData.relativePath = relativePath
-		fileData.mimeType = mime.DetectMimeType(fileData.content, fileData.name)
 	}
 
-	// Sanitize skill name for both DB storage and S3 path
+	// Sanitize skill name for DB storage and sandbox paths
 	sanitizedName := sanitizeS3Key(skillName)
 
-	agentSkills := &model.AgentSkills{
-		ProjectID:   in.ProjectID,
-		UserID:      in.UserID,
-		Name:        sanitizedName,
-		Description: skillDescription,
-		Meta:        in.Meta,
+	// ── Phase 2: Disk + Artifact uploads (cleanup required on failure) ──
+
+	disk, err := s.diskSvc.Create(ctx, in.ProjectID, in.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("create disk: %w", err)
 	}
 
-	if err := s.r.Create(ctx, agentSkills); err != nil {
-		return nil, fmt.Errorf("create agent_skills record: %w", err)
-	}
-
-	dbID := agentSkills.ID
-	var uploadSuccess bool
-
+	success := false
 	defer func() {
-		if err != nil && dbID != uuid.Nil {
-			cleanupCtx := context.Background()
-			if uploadSuccess {
-				baseS3KeyPrefix := fmt.Sprintf("agent_skills/%s/%s", in.ProjectID.String(), dbID.String())
-				s.s3.DeleteObjectsByPrefix(cleanupCtx, baseS3KeyPrefix)
-			}
-			s.r.Delete(cleanupCtx, in.ProjectID, dbID)
+		if !success {
+			s.diskSvc.Delete(context.Background(), in.ProjectID, disk.ID)
 		}
 	}()
-
-	baseS3Key := fmt.Sprintf("agent_skills/%s/%s/%s", in.ProjectID.String(), dbID.String(), sanitizedName)
-
-	fileIndex := make([]model.FileInfo, len(filesToUpload))
-	var baseBucket string
-	var mu sync.Mutex
 
 	g, gctx := errgroup.WithContext(ctx)
 	g.SetLimit(10)
 
+	artifacts := make([]*model.Artifact, len(filesToUpload))
+
 	for i, fileData := range filesToUpload {
 		i, fileData := i, fileData
 		g.Go(func() error {
-			fullS3Key := fmt.Sprintf("%s/%s", baseS3Key, fileData.relativePath)
-			asset, err := s.s3.UploadFileDirect(gctx, fullS3Key, fileData.content, fileData.mimeType)
+			dir, fname := splitSkillPath(fileData.relativePath)
+			artifact, err := s.artifactSvc.CreateFromBytes(gctx, CreateArtifactFromBytesInput{
+				ProjectID: in.ProjectID,
+				DiskID:    disk.ID,
+				Path:      dir,
+				Filename:  fname,
+				Content:   fileData.content,
+			})
 			if err != nil {
-				return fmt.Errorf("upload file to S3: %w", err)
+				return fmt.Errorf("create artifact for %s: %w", fileData.relativePath, err)
 			}
-
-			mu.Lock()
-			if baseBucket == "" {
-				baseBucket = asset.Bucket
-			}
-			fileIndex[i] = model.FileInfo{
-				Path: fileData.relativePath,
-				MIME: fileData.mimeType,
-			}
-			mu.Unlock()
-
+			artifacts[i] = artifact
 			return nil
 		})
 	}
@@ -286,33 +314,56 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 		return nil, err
 	}
 
-	uploadSuccess = true
+	// ── Phase 3: DB record + response ──
 
-	baseAsset := &model.Asset{
-		Bucket: baseBucket,
-		S3Key:  baseS3Key,
-		ETag:   "",
-		SHA256: "",
-		MIME:   "",
-		SizeB:  0,
+	agentSkills := &model.AgentSkills{
+		ProjectID:   in.ProjectID,
+		UserID:      in.UserID,
+		Name:        sanitizedName,
+		Description: skillDescription,
+		DiskID:      disk.ID,
+		Meta:        in.Meta,
 	}
 
-	agentSkills.AssetMeta = datatypes.NewJSONType(*baseAsset)
-	agentSkills.FileIndex = datatypes.NewJSONType(fileIndex)
-
-	if err = s.r.Update(ctx, agentSkills); err != nil {
-		return nil, fmt.Errorf("update agent_skills record: %w", err)
+	if err := s.r.Create(ctx, agentSkills); err != nil {
+		return nil, fmt.Errorf("create agent_skills record: %w", err)
 	}
 
+	agentSkills.FileIndex = artifactsToFileIndex(artifacts)
+	success = true
 	return agentSkills, nil
 }
 
 func (s *agentSkillsService) GetByID(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*model.AgentSkills, error) {
-	return s.r.GetByID(ctx, projectID, id)
+	skill, err := s.r.GetByID(ctx, projectID, id)
+	if err != nil {
+		return nil, err
+	}
+
+	artifacts, err := s.artifactSvc.ListByPath(ctx, skill.DiskID, "")
+	if err != nil {
+		return nil, fmt.Errorf("list artifacts for skill: %w", err)
+	}
+
+	skill.FileIndex = artifactsToFileIndex(artifacts)
+	return skill, nil
 }
 
 func (s *agentSkillsService) Delete(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error {
-	return s.r.Delete(ctx, projectID, id)
+	skill, err := s.r.GetByID(ctx, projectID, id)
+	if err != nil {
+		return err
+	}
+
+	if err := s.r.Delete(ctx, projectID, id); err != nil {
+		return fmt.Errorf("delete agent_skills record: %w", err)
+	}
+
+	if err := s.diskSvc.Delete(ctx, projectID, skill.DiskID); err != nil {
+		return fmt.Errorf("delete disk: %w", err)
+	}
+
+	return nil
 }
 
 type ListAgentSkillsInput struct {
@@ -400,53 +451,42 @@ type GetFileOutput struct {
 	URL     *string                 `json:"url,omitempty"`     // Present if file is not text-based or not parseable
 }
 
-func (s *agentSkillsService) GetFile(ctx context.Context, agentSkills *model.AgentSkills, filePath string, expire time.Duration) (*GetFileOutput, error) {
-	if agentSkills == nil {
-		return nil, errors.New("agent_skills is nil")
+func (s *agentSkillsService) GetFile(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID, filePath string, expire time.Duration) (*GetFileOutput, error) {
+	// Fetch skill record directly (no FileIndex population needed — just need DiskID)
+	skill, err := s.r.GetByID(ctx, projectID, skillID)
+	if err != nil {
+		return nil, err
 	}
 
-	// Find file in file index
-	fileIndex := agentSkills.FileIndex.Data()
-	var fileInfo *model.FileInfo
-	for i := range fileIndex {
-		if fileIndex[i].Path == filePath {
-			fileInfo = &fileIndex[i]
-			break
-		}
-	}
-	if fileInfo == nil {
-		return nil, fmt.Errorf("file path '%s' not found in agent_skills", filePath)
+	// Split filePath into Artifact (Path, Filename) using path helpers
+	dir, fname := splitSkillPath(filePath)
+
+	// Get artifact by path
+	artifact, err := s.artifactSvc.GetByPath(ctx, skill.DiskID, dir, fname)
+	if err != nil {
+		return nil, fmt.Errorf("file path '%s' not found in agent_skills: %w", filePath, err)
 	}
 
-	// Get full S3 key
-	fullS3Key := agentSkills.GetFileS3Key(filePath)
+	mimeType := artifact.AssetMeta.Data().MIME
 
-	// Check if file type is parseable
 	parser := fileparser.NewFileParser()
-	filename := filepath.Base(filePath)
-	canParse := parser.CanParseFile(filename, fileInfo.MIME)
+	canParse := parser.CanParseFile(fname, mimeType)
 
 	output := &GetFileOutput{
-		Path: fileInfo.Path,
-		MIME: fileInfo.MIME,
+		Path: filePath,
+		MIME: mimeType,
 	}
 
 	if canParse {
-		// Download and parse file content
-		content, err := s.s3.DownloadFile(ctx, fullS3Key)
+		// Download and parse file content via ArtifactService
+		fileContent, err := s.artifactSvc.GetFileContent(ctx, artifact)
 		if err != nil {
-			return nil, fmt.Errorf("failed to download file content: %w", err)
+			return nil, fmt.Errorf("failed to get file content: %w", err)
 		}
-
-		fileContent, err := parser.ParseFile(filename, fileInfo.MIME, content)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse file content: %w", err)
-		}
-
 		output.Content = fileContent
 	} else {
-		// Generate presigned URL for non-text files
-		url, err := s.s3.PresignGet(ctx, fullS3Key, expire)
+		// Generate presigned URL for non-text files via ArtifactService
+		url, err := s.artifactSvc.GetPresignedURL(ctx, artifact, expire)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate presigned URL: %w", err)
 		}
@@ -454,4 +494,34 @@ func (s *agentSkillsService) GetFile(ctx context.Context, agentSkills *model.Age
 	}
 
 	return output, nil
+}
+
+func (s *agentSkillsService) ListFiles(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*ListFilesOutput, error) {
+	// Get skill for DiskID + name/description (no FileIndex population)
+	skill, err := s.r.GetByID(ctx, projectID, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// List all artifacts
+	artifacts, err := s.artifactSvc.ListByPath(ctx, skill.DiskID, "")
+	if err != nil {
+		return nil, fmt.Errorf("list artifacts for skill: %w", err)
+	}
+
+	files := make([]SkillFileInfo, len(artifacts))
+	for i, a := range artifacts {
+		asset := a.AssetMeta.Data()
+		files[i] = SkillFileInfo{
+			Path:  joinSkillPath(a.Path, a.Filename),
+			MIME:  asset.MIME,
+			S3Key: asset.S3Key,
+		}
+	}
+
+	return &ListFilesOutput{
+		Name:        skill.Name,
+		Description: skill.Description,
+		Files:       files,
+	}, nil
 }

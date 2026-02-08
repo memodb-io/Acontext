@@ -155,6 +155,22 @@ await client.skills.delete(skill.id);
 </Step>
 </Steps>
 
+## Disk Storage
+
+Each skill stores its files on an internal [Disk](/store/disk). The `disk_id` is returned when you create or get a skill.
+
+<CodeGroup>
+```python Python
+skill = client.skills.get(skill_id)
+print(skill.disk_id)  # UUID of the backing Disk
+```
+
+```typescript TypeScript
+const skill = await client.skills.get(skillId);
+console.log(skill.diskId); // UUID of the backing Disk
+```
+</CodeGroup>
+
 ## Next Steps
 
 <CardGroup cols={2}>

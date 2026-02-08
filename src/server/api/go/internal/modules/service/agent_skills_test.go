@@ -5,24 +5,19 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
-	"io"
 	"mime/multipart"
-	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/modules/model"
-	"github.com/memodb-io/Acontext/internal/pkg/paging"
 	"github.com/memodb-io/Acontext/internal/pkg/utils/fileparser"
-	"github.com/memodb-io/Acontext/internal/pkg/utils/mime"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"gopkg.in/yaml.v3"
 	"gorm.io/datatypes"
 )
+
+// ── Mock: AgentSkillsRepo ──
 
 type MockAgentSkillsRepo struct {
 	mock.Mock
@@ -63,325 +58,122 @@ func (m *MockAgentSkillsRepo) ListWithCursor(ctx context.Context, projectID uuid
 	return args.Get(0).([]*model.AgentSkills), args.Error(1)
 }
 
-type MockAgentSkillsS3 struct {
+// ── Mock: DiskService ──
+
+type MockDiskService struct {
 	mock.Mock
 }
 
-func (m *MockAgentSkillsS3) UploadFileDirect(ctx context.Context, key string, content []byte, contentType string) (*model.Asset, error) {
-	args := m.Called(ctx, key, content, contentType)
+func (m *MockDiskService) Create(ctx context.Context, projectID uuid.UUID, userID *uuid.UUID) (*model.Disk, error) {
+	args := m.Called(ctx, projectID, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*model.Asset), args.Error(1)
+	return args.Get(0).(*model.Disk), args.Error(1)
 }
 
-func (m *MockAgentSkillsS3) DeleteObjectsByPrefix(ctx context.Context, prefix string) error {
-	args := m.Called(ctx, prefix)
+func (m *MockDiskService) Delete(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID) error {
+	args := m.Called(ctx, projectID, diskID)
 	return args.Error(0)
 }
 
-func (m *MockAgentSkillsS3) DownloadFile(ctx context.Context, key string) ([]byte, error) {
-	args := m.Called(ctx, key)
+func (m *MockDiskService) List(ctx context.Context, in ListDisksInput) (*ListDisksOutput, error) {
+	args := m.Called(ctx, in)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]byte), args.Error(1)
+	return args.Get(0).(*ListDisksOutput), args.Error(1)
 }
 
-func (m *MockAgentSkillsS3) PresignGet(ctx context.Context, key string, expire time.Duration) (string, error) {
-	args := m.Called(ctx, key, expire)
+// ── Mock: ArtifactService ──
+
+type MockArtifactService struct {
+	mock.Mock
+}
+
+func (m *MockArtifactService) Create(ctx context.Context, in CreateArtifactInput) (*model.Artifact, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Artifact), args.Error(1)
+}
+
+func (m *MockArtifactService) CreateFromBytes(ctx context.Context, in CreateArtifactFromBytesInput) (*model.Artifact, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Artifact), args.Error(1)
+}
+
+func (m *MockArtifactService) DeleteByPath(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, path string, filename string) error {
+	args := m.Called(ctx, projectID, diskID, path, filename)
+	return args.Error(0)
+}
+
+func (m *MockArtifactService) GetByPath(ctx context.Context, diskID uuid.UUID, path string, filename string) (*model.Artifact, error) {
+	args := m.Called(ctx, diskID, path, filename)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Artifact), args.Error(1)
+}
+
+func (m *MockArtifactService) GetPresignedURL(ctx context.Context, artifact *model.Artifact, expire time.Duration) (string, error) {
+	args := m.Called(ctx, artifact, expire)
 	return args.String(0), args.Error(1)
 }
 
-type testAgentSkillsService struct {
-	r  *MockAgentSkillsRepo
-	s3 *MockAgentSkillsS3
+func (m *MockArtifactService) GetFileContent(ctx context.Context, artifact *model.Artifact) (*fileparser.FileContent, error) {
+	args := m.Called(ctx, artifact)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*fileparser.FileContent), args.Error(1)
 }
 
-func newTestAgentSkillsService(r *MockAgentSkillsRepo, s3 *MockAgentSkillsS3) AgentSkillsService {
-	return &testAgentSkillsService{r: r, s3: s3}
+func (m *MockArtifactService) UpdateArtifactMetaByPath(ctx context.Context, diskID uuid.UUID, path string, filename string, userMeta map[string]interface{}) (*model.Artifact, error) {
+	args := m.Called(ctx, diskID, path, filename, userMeta)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Artifact), args.Error(1)
 }
 
-func (s *testAgentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInput) (*model.AgentSkills, error) {
-	zipFile, err := in.ZipFile.Open()
-	if err != nil {
-		return nil, err
+func (m *MockArtifactService) ListByPath(ctx context.Context, diskID uuid.UUID, path string) ([]*model.Artifact, error) {
+	args := m.Called(ctx, diskID, path)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
 	}
-	defer zipFile.Close()
-
-	zipContent, err := io.ReadAll(zipFile)
-	if err != nil {
-		return nil, err
-	}
-
-	zipReader, err := zip.NewReader(bytes.NewReader(zipContent), int64(len(zipContent)))
-	if err != nil {
-		return nil, err
-	}
-
-	var skillName, skillDescription string
-	var skillMetadataFound bool
-	var rootPrefix string
-	var fileNames []string
-	filesToUpload := make([]*zipFileData, 0)
-
-	for _, file := range zipReader.File {
-		if file.FileInfo().IsDir() {
-			continue
-		}
-
-		if isMacOSSystemFile(file.Name) {
-			continue
-		}
-
-		fileReader, err := file.Open()
-		if err != nil {
-			return nil, err
-		}
-
-		fileContent, err := io.ReadAll(fileReader)
-		fileReader.Close()
-		if err != nil {
-			return nil, err
-		}
-
-		fileName := filepath.Base(file.Name)
-		if strings.EqualFold(fileName, "SKILL.md") && !skillMetadataFound {
-			yamlContent := extractYAMLFrontMatter(fileContent)
-			if yamlContent == "" {
-				return nil, errors.New("SKILL.md must contain YAML front matter")
-			}
-
-			var metadata SkillMetadata
-			if err := yaml.Unmarshal([]byte(yamlContent), &metadata); err != nil {
-				return nil, err
-			}
-
-			skillName = metadata.Name
-			skillDescription = metadata.Description
-			skillMetadataFound = true
-
-			if skillName == "" {
-				return nil, errors.New("name is required in SKILL.md")
-			}
-			if skillDescription == "" {
-				return nil, errors.New("description is required in SKILL.md")
-			}
-		}
-
-		fileNames = append(fileNames, file.Name)
-		filesToUpload = append(filesToUpload, &zipFileData{
-			name:    file.Name,
-			content: fileContent,
-		})
-	}
-
-	if !skillMetadataFound {
-		return nil, errors.New("SKILL.md file is required in the zip package")
-	}
-
-	if len(fileNames) > 0 {
-		firstFile := fileNames[0]
-		parts := strings.Split(firstFile, "/")
-		if len(parts) > 1 && parts[0] != "" {
-			outermostDir := parts[0]
-			allUnderSameRoot := true
-			for _, fileName := range fileNames {
-				fileParts := strings.Split(fileName, "/")
-				if len(fileParts) == 0 || fileParts[0] != outermostDir {
-					allUnderSameRoot = false
-					break
-				}
-			}
-			if allUnderSameRoot {
-				rootPrefix = outermostDir + "/"
-			}
-		}
-	}
-
-	for _, fileData := range filesToUpload {
-		relativePath := fileData.name
-		if rootPrefix != "" && strings.HasPrefix(fileData.name, rootPrefix) {
-			relativePath = strings.TrimPrefix(fileData.name, rootPrefix)
-		}
-		fileData.relativePath = relativePath
-		fileData.mimeType = mime.DetectMimeType(fileData.content, fileData.name)
-	}
-
-	agentSkills := &model.AgentSkills{
-		ProjectID:   in.ProjectID,
-		UserID:      in.UserID,
-		Name:        skillName,
-		Description: skillDescription,
-		Meta:        in.Meta,
-	}
-
-	if err := s.r.Create(ctx, agentSkills); err != nil {
-		return nil, err
-	}
-
-	dbID := agentSkills.ID
-	var uploadSuccess bool
-
-	defer func() {
-		if err != nil && dbID != uuid.Nil {
-			cleanupCtx := context.Background()
-			if uploadSuccess {
-				baseS3KeyPrefix := fmt.Sprintf("agent_skills/%s/%s", in.ProjectID.String(), dbID.String())
-				s.s3.DeleteObjectsByPrefix(cleanupCtx, baseS3KeyPrefix)
-			}
-			s.r.Delete(cleanupCtx, in.ProjectID, dbID)
-		}
-	}()
-
-	sanitizedName := sanitizeS3Key(skillName)
-	baseS3Key := fmt.Sprintf("agent_skills/%s/%s/%s", in.ProjectID.String(), dbID.String(), sanitizedName)
-
-	fileIndex := make([]model.FileInfo, len(filesToUpload))
-	var baseBucket string
-
-	for i, fileData := range filesToUpload {
-		fullS3Key := fmt.Sprintf("%s/%s", baseS3Key, fileData.relativePath)
-		asset, uploadErr := s.s3.UploadFileDirect(ctx, fullS3Key, fileData.content, fileData.mimeType)
-		if uploadErr != nil {
-			err = uploadErr
-			return nil, err
-		}
-
-		if baseBucket == "" {
-			baseBucket = asset.Bucket
-		}
-		fileIndex[i] = model.FileInfo{
-			Path: fileData.relativePath,
-			MIME: fileData.mimeType,
-		}
-	}
-
-	uploadSuccess = true
-
-	baseAsset := &model.Asset{
-		Bucket: baseBucket,
-		S3Key:  baseS3Key,
-		ETag:   "",
-		SHA256: "",
-		MIME:   "",
-		SizeB:  0,
-	}
-
-	agentSkills.AssetMeta = datatypes.NewJSONType(*baseAsset)
-	agentSkills.FileIndex = datatypes.NewJSONType(fileIndex)
-
-	if err = s.r.Update(ctx, agentSkills); err != nil {
-		return nil, err
-	}
-
-	return agentSkills, nil
+	return args.Get(0).([]*model.Artifact), args.Error(1)
 }
 
-func (s *testAgentSkillsService) GetByID(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*model.AgentSkills, error) {
-	return s.r.GetByID(ctx, projectID, id)
+func (m *MockArtifactService) GetAllPaths(ctx context.Context, diskID uuid.UUID) ([]string, error) {
+	args := m.Called(ctx, diskID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]string), args.Error(1)
 }
 
-func (s *testAgentSkillsService) Delete(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error {
-	return s.r.Delete(ctx, projectID, id)
+func (m *MockArtifactService) GrepArtifacts(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	args := m.Called(ctx, projectID, diskID, pattern, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]*model.Artifact), args.Error(1)
 }
 
-func (s *testAgentSkillsService) List(ctx context.Context, in ListAgentSkillsInput) (*ListAgentSkillsOutput, error) {
-	var afterT time.Time
-	var afterID uuid.UUID
-	var err error
-	if in.Cursor != "" {
-		afterT, afterID, err = paging.DecodeCursor(in.Cursor)
-		if err != nil {
-			return nil, err
-		}
+func (m *MockArtifactService) GlobArtifacts(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
+	args := m.Called(ctx, projectID, diskID, pattern, limit)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
 	}
-
-	agentSkills, err := s.r.ListWithCursor(ctx, in.ProjectID, in.User, afterT, afterID, in.Limit+1, in.TimeDesc)
-	if err != nil {
-		return nil, err
-	}
-
-	hasMore := len(agentSkills) > in.Limit
-	if hasMore {
-		agentSkills = agentSkills[:in.Limit]
-	}
-
-	items := make([]*AgentSkillsListItem, len(agentSkills))
-	for i, skill := range agentSkills {
-		items[i] = &AgentSkillsListItem{
-			ID:          skill.ID,
-			UserID:      skill.UserID,
-			Name:        skill.Name,
-			Description: skill.Description,
-			Meta:        skill.Meta,
-			CreatedAt:   skill.CreatedAt,
-			UpdatedAt:   skill.UpdatedAt,
-		}
-	}
-
-	out := &ListAgentSkillsOutput{
-		Items:   items,
-		HasMore: hasMore,
-	}
-	if hasMore && len(items) > 0 {
-		last := agentSkills[len(agentSkills)-1]
-		out.NextCursor = paging.EncodeCursor(last.CreatedAt, last.ID)
-	}
-
-	return out, nil
+	return args.Get(0).([]*model.Artifact), args.Error(1)
 }
 
-func (s *testAgentSkillsService) GetFile(ctx context.Context, agentSkills *model.AgentSkills, filePath string, expire time.Duration) (*GetFileOutput, error) {
-	if agentSkills == nil {
-		return nil, errors.New("agent_skills is nil")
-	}
-
-	fileIndex := agentSkills.FileIndex.Data()
-	var fileInfo *model.FileInfo
-	for i := range fileIndex {
-		if fileIndex[i].Path == filePath {
-			fileInfo = &fileIndex[i]
-			break
-		}
-	}
-	if fileInfo == nil {
-		return nil, errors.New("file path not found in agent_skills")
-	}
-
-	fullS3Key := agentSkills.GetFileS3Key(filePath)
-
-	parser := fileparser.NewFileParser()
-	fileName := filepath.Base(filePath)
-	canParse := parser.CanParseFile(fileName, fileInfo.MIME)
-
-	output := &GetFileOutput{
-		Path: fileInfo.Path,
-		MIME: fileInfo.MIME,
-	}
-
-	if canParse {
-		content, err := s.s3.DownloadFile(ctx, fullS3Key)
-		if err != nil {
-			return nil, err
-		}
-
-		fileContent, err := parser.ParseFile(fileName, fileInfo.MIME, content)
-		if err != nil {
-			return nil, err
-		}
-
-		output.Content = fileContent
-	} else {
-		url, err := s.s3.PresignGet(ctx, fullS3Key, expire)
-		if err != nil {
-			return nil, err
-		}
-		output.URL = &url
-	}
-
-	return output, nil
-}
+// ── Helpers ──
 
 func createTestZipFile(files map[string]string) ([]byte, error) {
 	buf := new(bytes.Buffer)
@@ -420,32 +212,109 @@ func createTestMultipartFileHeader(filename string, content []byte) *multipart.F
 	return form.File["file"][0]
 }
 
-func createTestAgentSkills() *model.AgentSkills {
-	projectID := uuid.New()
-	agentSkillsID := uuid.New()
-
-	baseAsset := &model.Asset{
-		Bucket: "test-bucket",
-		S3Key:  "agent_skills/" + projectID.String() + "/" + agentSkillsID.String() + "/test-skill",
-		ETag:   "test-etag",
-		SHA256: "test-sha256",
-		MIME:   "",
-		SizeB:  0,
+func makeArtifact(diskID uuid.UUID, path, filename, mime, s3Key string) *model.Artifact {
+	return &model.Artifact{
+		ID:       uuid.New(),
+		DiskID:   diskID,
+		Path:     path,
+		Filename: filename,
+		AssetMeta: datatypes.NewJSONType(model.Asset{
+			Bucket: "test-bucket",
+			S3Key:  s3Key,
+			MIME:   mime,
+		}),
 	}
+}
 
+func createTestAgentSkills() *model.AgentSkills {
 	return &model.AgentSkills{
-		ID:          agentSkillsID,
-		ProjectID:   projectID,
+		ID:          uuid.New(),
+		ProjectID:   uuid.New(),
+		DiskID:      uuid.New(),
 		Name:        "test-skill",
 		Description: "Test description",
-		AssetMeta:   datatypes.NewJSONType(*baseAsset),
-		FileIndex: datatypes.NewJSONType([]model.FileInfo{
+		FileIndex: []model.FileInfo{
 			{Path: "SKILL.md", MIME: "text/markdown"},
 			{Path: "file1.json", MIME: "application/json"},
-		}),
+		},
 		Meta:      map[string]interface{}{"version": "1.0"},
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
+	}
+}
+
+func newService(repo *MockAgentSkillsRepo, diskSvc *MockDiskService, artifactSvc *MockArtifactService) AgentSkillsService {
+	return NewAgentSkillsService(repo, diskSvc, artifactSvc)
+}
+
+// testMocks bundles the three mocks used by every agentSkillsService test.
+type testMocks struct {
+	repo     *MockAgentSkillsRepo
+	disk     *MockDiskService
+	artifact *MockArtifactService
+}
+
+func newTestMocks() testMocks {
+	return testMocks{
+		repo:     &MockAgentSkillsRepo{},
+		disk:     &MockDiskService{},
+		artifact: &MockArtifactService{},
+	}
+}
+
+func (m testMocks) service() AgentSkillsService {
+	return newService(m.repo, m.disk, m.artifact)
+}
+
+// ── Path helper tests ──
+
+func TestSplitSkillPath(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        string
+		expectedDir  string
+		expectedFile string
+	}{
+		{"root file", "SKILL.md", "/", "SKILL.md"},
+		{"nested file", "a/b/c/file.txt", "/a/b/c/", "file.txt"},
+		{"single dir", "scripts/main.py", "/scripts/", "main.py"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir, file := splitSkillPath(tt.input)
+			assert.Equal(t, tt.expectedDir, dir)
+			assert.Equal(t, tt.expectedFile, file)
+		})
+	}
+}
+
+func TestJoinSkillPath(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		filename string
+		expected string
+	}{
+		{"root", "/", "SKILL.md", "SKILL.md"},
+		{"nested", "/scripts/", "main.py", "scripts/main.py"},
+		{"deep", "/a/b/c/", "file.txt", "a/b/c/file.txt"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := joinSkillPath(tt.path, tt.filename)
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestSplitJoinRoundtrip(t *testing.T) {
+	paths := []string{"SKILL.md", "scripts/main.py", "a/b/c/file.txt", "file.json"}
+	for _, p := range paths {
+		dir, file := splitSkillPath(p)
+		result := joinSkillPath(dir, file)
+		assert.Equal(t, p, result, "roundtrip failed for path: %s", p)
 	}
 }
 
@@ -455,26 +324,10 @@ func TestSanitizeS3Key(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{
-			name:     "spaces replaced",
-			input:    "my skill name",
-			expected: "my-skill-name",
-		},
-		{
-			name:     "special chars replaced",
-			input:    "skill:with*special?chars",
-			expected: "skill-with-special-chars",
-		},
-		{
-			name:     "multiple special chars",
-			input:    "skill/with\\many:*?\"<>|chars",
-			expected: "skill-with-many-------chars",
-		},
-		{
-			name:     "normal alphanumeric",
-			input:    "normal-skill-123",
-			expected: "normal-skill-123",
-		},
+		{"spaces replaced", "my skill name", "my-skill-name"},
+		{"special chars replaced", "skill:with*special?chars", "skill-with-special-chars"},
+		{"multiple special chars", "skill/with\\many:*?\"<>|chars", "skill-with-many-------chars"},
+		{"normal alphanumeric", "normal-skill-123", "normal-skill-123"},
 	}
 
 	for _, tt := range tests {
@@ -491,31 +344,11 @@ func TestIsMacOSSystemFile(t *testing.T) {
 		fileName string
 		expected bool
 	}{
-		{
-			name:     "__MACOSX directory",
-			fileName: "__MACOSX/file.txt",
-			expected: true,
-		},
-		{
-			name:     "resource fork file",
-			fileName: "dir/._file.txt",
-			expected: true,
-		},
-		{
-			name:     ".DS_Store",
-			fileName: "dir/.DS_Store",
-			expected: true,
-		},
-		{
-			name:     "normal file",
-			fileName: "dir/file.txt",
-			expected: false,
-		},
-		{
-			name:     "file starting with underscore",
-			fileName: "dir/_file.txt",
-			expected: false,
-		},
+		{"__MACOSX directory", "__MACOSX/file.txt", true},
+		{"resource fork file", "dir/._file.txt", true},
+		{".DS_Store", "dir/.DS_Store", true},
+		{"normal file", "dir/file.txt", false},
+		{"file starting with underscore", "dir/_file.txt", false},
 	}
 
 	for _, tt := range tests {
@@ -526,9 +359,12 @@ func TestIsMacOSSystemFile(t *testing.T) {
 	}
 }
 
+// ── Service: Create tests ──
+
 func TestAgentSkillsService_Create_Success(t *testing.T) {
 	ctx := context.Background()
 	projectID := uuid.New()
+	diskID := uuid.New()
 
 	validZipContent, _ := createTestZipFile(map[string]string{
 		"SKILL.md":   "---\nname: test-skill\ndescription: Test description\n---\n",
@@ -536,71 +372,104 @@ func TestAgentSkillsService_Create_Success(t *testing.T) {
 		"file2.md":   "# Test",
 	})
 
-	tests := []struct {
-		name          string
-		zipContent    []byte
-		meta          map[string]interface{}
-		setupMocks    func(*MockAgentSkillsRepo, *MockAgentSkillsS3)
-		validateAsset func(*testing.T, *model.AgentSkills)
-	}{
-		{
-			name:       "basic creation",
-			zipContent: validZipContent,
-			meta:       map[string]interface{}{"version": "1.0"},
-			setupMocks: func(repo *MockAgentSkillsRepo, s3 *MockAgentSkillsS3) {
-				repo.On("Create", mock.Anything, mock.MatchedBy(func(as *model.AgentSkills) bool {
-					return as.Name == "test-skill" && as.Description == "Test description"
-				})).Return(nil)
+	t.Run("basic creation", func(t *testing.T) {
+		m := newTestMocks()
 
-				s3.On("UploadFileDirect", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-					Return(&model.Asset{
-						Bucket: "test-bucket",
-						S3Key:  "test-key",
-						ETag:   "test-etag",
-						SHA256: "test-sha256",
-						MIME:   "application/json",
-						SizeB:  100,
-					}, nil)
+		m.disk.On("Create", mock.Anything, projectID, mock.Anything).
+			Return(&model.Disk{ID: diskID, ProjectID: projectID}, nil)
 
-				repo.On("Update", mock.Anything, mock.MatchedBy(func(as *model.AgentSkills) bool {
-					return as.AssetMeta.Data().Bucket == "test-bucket" && len(as.FileIndex.Data()) == 3
-				})).Return(nil)
-			},
-			validateAsset: func(t *testing.T, as *model.AgentSkills) {
-				assert.Equal(t, "test-skill", as.Name)
-				assert.Equal(t, "Test description", as.Description)
-				assert.Equal(t, projectID, as.ProjectID)
-				assert.NotEqual(t, uuid.Nil, as.ID)
-				assert.Equal(t, 3, len(as.FileIndex.Data()))
-				assert.Equal(t, "test-bucket", as.AssetMeta.Data().Bucket)
-			},
-		},
-	}
+		m.artifact.On("CreateFromBytes", mock.Anything, mock.MatchedBy(func(in CreateArtifactFromBytesInput) bool {
+			return in.Filename == "SKILL.md"
+		})).Return(makeArtifact(diskID, "/", "SKILL.md", "text/markdown", "disks/hash1"), nil)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockRepo := &MockAgentSkillsRepo{}
-			mockS3 := &MockAgentSkillsS3{}
-			tt.setupMocks(mockRepo, mockS3)
+		m.artifact.On("CreateFromBytes", mock.Anything, mock.MatchedBy(func(in CreateArtifactFromBytesInput) bool {
+			return in.Filename == "file1.json"
+		})).Return(makeArtifact(diskID, "/", "file1.json", "application/json", "disks/hash2"), nil)
 
-			service := newTestAgentSkillsService(mockRepo, mockS3)
+		m.artifact.On("CreateFromBytes", mock.Anything, mock.MatchedBy(func(in CreateArtifactFromBytesInput) bool {
+			return in.Filename == "file2.md"
+		})).Return(makeArtifact(diskID, "/", "file2.md", "text/markdown", "disks/hash3"), nil)
 
-			fileHeader := createTestMultipartFileHeader("skills.zip", tt.zipContent)
+		m.repo.On("Create", mock.Anything, mock.MatchedBy(func(as *model.AgentSkills) bool {
+			return as.Name == "test-skill" && as.Description == "Test description" && as.DiskID == diskID
+		})).Return(nil)
 
-			result, err := service.Create(ctx, CreateAgentSkillsInput{
-				ProjectID: projectID,
-				ZipFile:   fileHeader,
-				Meta:      tt.meta,
-			})
-
-			assert.NoError(t, err)
-			assert.NotNil(t, result)
-			tt.validateAsset(t, result)
-
-			mockRepo.AssertExpectations(t)
-			mockS3.AssertExpectations(t)
+		fileHeader := createTestMultipartFileHeader("skills.zip", validZipContent)
+		result, err := m.service().Create(ctx, CreateAgentSkillsInput{
+			ProjectID: projectID,
+			ZipFile:   fileHeader,
+			Meta:      map[string]interface{}{"version": "1.0"},
 		})
-	}
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, "test-skill", result.Name)
+		assert.Equal(t, "Test description", result.Description)
+		assert.Equal(t, diskID, result.DiskID)
+		assert.Len(t, result.FileIndex, 3)
+		assert.NotNil(t, result.FileIndex)
+
+		m.repo.AssertExpectations(t)
+		m.disk.AssertExpectations(t)
+		m.artifact.AssertExpectations(t)
+	})
+}
+
+func TestAgentSkillsService_Create_FileIndexIsArrayNotNull(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+	diskID := uuid.New()
+
+	zipContent, _ := createTestZipFile(map[string]string{
+		"SKILL.md": "---\nname: test-skill\ndescription: Test description\n---\n",
+	})
+
+	m := newTestMocks()
+	m.disk.On("Create", mock.Anything, projectID, mock.Anything).
+		Return(&model.Disk{ID: diskID, ProjectID: projectID}, nil)
+	m.artifact.On("CreateFromBytes", mock.Anything, mock.Anything).
+		Return(makeArtifact(diskID, "/", "SKILL.md", "text/markdown", "disks/hash"), nil)
+	m.repo.On("Create", mock.Anything, mock.Anything).Return(nil)
+
+	fileHeader := createTestMultipartFileHeader("skills.zip", zipContent)
+	result, err := m.service().Create(ctx, CreateAgentSkillsInput{
+		ProjectID: projectID,
+		ZipFile:   fileHeader,
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.NotNil(t, result.FileIndex) // must be [] not null
+	assert.Len(t, result.FileIndex, 1)
+	assert.Equal(t, "SKILL.md", result.FileIndex[0].Path)
+}
+
+func TestAgentSkillsService_Create_NameSanitization(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+	diskID := uuid.New()
+
+	zipContent, _ := createTestZipFile(map[string]string{
+		"SKILL.md": "---\nname: my special:skill\ndescription: Test description\n---\n",
+	})
+
+	m := newTestMocks()
+	m.disk.On("Create", mock.Anything, projectID, mock.Anything).
+		Return(&model.Disk{ID: diskID, ProjectID: projectID}, nil)
+	m.artifact.On("CreateFromBytes", mock.Anything, mock.Anything).
+		Return(makeArtifact(diskID, "/", "SKILL.md", "text/markdown", "disks/hash"), nil)
+	m.repo.On("Create", mock.Anything, mock.MatchedBy(func(as *model.AgentSkills) bool {
+		return as.Name == "my-special-skill"
+	})).Return(nil)
+
+	fileHeader := createTestMultipartFileHeader("skills.zip", zipContent)
+	result, err := m.service().Create(ctx, CreateAgentSkillsInput{
+		ProjectID: projectID,
+		ZipFile:   fileHeader,
+	})
+
+	assert.NoError(t, err)
+	assert.Equal(t, "my-special-skill", result.Name)
 }
 
 func TestAgentSkillsService_Create_ValidationFailures(t *testing.T) {
@@ -631,38 +500,18 @@ func TestAgentSkillsService_Create_ValidationFailures(t *testing.T) {
 		zipContent    []byte
 		expectedError string
 	}{
-		{
-			name:          "missing SKILL.md",
-			zipContent:    zipWithoutSkill,
-			expectedError: "SKILL.md file is required",
-		},
-		{
-			name:          "invalid YAML",
-			zipContent:    zipWithInvalidYAML,
-			expectedError: "yaml",
-		},
-		{
-			name:          "missing name",
-			zipContent:    zipWithoutName,
-			expectedError: "name is required",
-		},
-		{
-			name:          "missing description",
-			zipContent:    zipWithoutDescription,
-			expectedError: "description is required",
-		},
+		{"missing SKILL.md", zipWithoutSkill, "SKILL.md file is required"},
+		{"invalid YAML", zipWithInvalidYAML, "yaml"},
+		{"missing name", zipWithoutName, "name is required"},
+		{"missing description", zipWithoutDescription, "description is required"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockRepo := &MockAgentSkillsRepo{}
-			mockS3 := &MockAgentSkillsS3{}
-
-			service := newTestAgentSkillsService(mockRepo, mockS3)
-
+			m := newTestMocks()
 			fileHeader := createTestMultipartFileHeader("skills.zip", tt.zipContent)
 
-			result, err := service.Create(ctx, CreateAgentSkillsInput{
+			result, err := m.service().Create(ctx, CreateAgentSkillsInput{
 				ProjectID: projectID,
 				ZipFile:   fileHeader,
 				Meta:      map[string]interface{}{},
@@ -671,90 +520,74 @@ func TestAgentSkillsService_Create_ValidationFailures(t *testing.T) {
 			assert.Error(t, err)
 			assert.Nil(t, result)
 			assert.Contains(t, err.Error(), tt.expectedError)
+			m.disk.AssertNotCalled(t, "Create")
 		})
 	}
 }
 
-func TestAgentSkillsService_Create_TwoPhaseRollback(t *testing.T) {
+func TestAgentSkillsService_Create_FailureMidUpload(t *testing.T) {
 	ctx := context.Background()
 	projectID := uuid.New()
+	diskID := uuid.New()
 
-	validZipContent, _ := createTestZipFile(map[string]string{
+	zipContent, _ := createTestZipFile(map[string]string{
 		"SKILL.md":   "---\nname: test-skill\ndescription: Test description\n---\n",
 		"file1.json": `{"key": "value"}`,
 	})
 
-	t.Run("S3 upload fails - DB record deleted", func(t *testing.T) {
-		mockRepo := &MockAgentSkillsRepo{}
-		mockS3 := &MockAgentSkillsS3{}
+	m := newTestMocks()
+	m.disk.On("Create", mock.Anything, projectID, mock.Anything).
+		Return(&model.Disk{ID: diskID, ProjectID: projectID}, nil)
+	m.artifact.On("CreateFromBytes", mock.Anything, mock.Anything).
+		Return(nil, errors.New("S3 upload failed"))
+	m.disk.On("Delete", mock.Anything, projectID, diskID).Return(nil)
 
-		mockRepo.On("Create", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			as := args.Get(1).(*model.AgentSkills)
-			as.ID = uuid.New()
-		}).Return(nil)
-
-		mockS3.On("UploadFileDirect", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-			Return(nil, errors.New("S3 upload failed"))
-
-		mockRepo.On("Delete", mock.Anything, projectID, mock.Anything).Return(nil)
-
-		service := newTestAgentSkillsService(mockRepo, mockS3)
-		fileHeader := createTestMultipartFileHeader("skills.zip", validZipContent)
-
-		result, err := service.Create(ctx, CreateAgentSkillsInput{
-			ProjectID: projectID,
-			ZipFile:   fileHeader,
-			Meta:      map[string]interface{}{},
-		})
-
-		assert.Error(t, err)
-		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "S3 upload failed")
-
-		mockRepo.AssertCalled(t, "Delete", mock.Anything, projectID, mock.Anything)
+	fileHeader := createTestMultipartFileHeader("skills.zip", zipContent)
+	result, err := m.service().Create(ctx, CreateAgentSkillsInput{
+		ProjectID: projectID,
+		ZipFile:   fileHeader,
 	})
 
-	t.Run("DB update fails - S3 and DB cleaned up", func(t *testing.T) {
-		mockRepo := &MockAgentSkillsRepo{}
-		mockS3 := &MockAgentSkillsS3{}
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "S3 upload failed")
+	m.disk.AssertCalled(t, "Delete", mock.Anything, projectID, diskID)
+	m.repo.AssertNotCalled(t, "Create")
+}
 
-		mockRepo.On("Create", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
-			as := args.Get(1).(*model.AgentSkills)
-			as.ID = uuid.New()
-		}).Return(nil)
+func TestAgentSkillsService_Create_FailureOnDBInsert(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+	diskID := uuid.New()
 
-		mockS3.On("UploadFileDirect", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-			Return(&model.Asset{
-				Bucket: "test-bucket",
-				S3Key:  "test-key",
-			}, nil)
-
-		mockRepo.On("Update", mock.Anything, mock.Anything).Return(errors.New("DB update failed"))
-
-		mockS3.On("DeleteObjectsByPrefix", mock.Anything, mock.Anything).Return(nil)
-
-		mockRepo.On("Delete", mock.Anything, projectID, mock.Anything).Return(nil)
-
-		service := newTestAgentSkillsService(mockRepo, mockS3)
-		fileHeader := createTestMultipartFileHeader("skills.zip", validZipContent)
-
-		result, err := service.Create(ctx, CreateAgentSkillsInput{
-			ProjectID: projectID,
-			ZipFile:   fileHeader,
-			Meta:      map[string]interface{}{},
-		})
-
-		assert.Error(t, err)
-		assert.Nil(t, result)
-
-		mockS3.AssertCalled(t, "DeleteObjectsByPrefix", mock.Anything, mock.Anything)
-		mockRepo.AssertCalled(t, "Delete", mock.Anything, projectID, mock.Anything)
+	zipContent, _ := createTestZipFile(map[string]string{
+		"SKILL.md": "---\nname: test-skill\ndescription: Test description\n---\n",
 	})
+
+	m := newTestMocks()
+	m.disk.On("Create", mock.Anything, projectID, mock.Anything).
+		Return(&model.Disk{ID: diskID, ProjectID: projectID}, nil)
+	m.artifact.On("CreateFromBytes", mock.Anything, mock.Anything).
+		Return(makeArtifact(diskID, "/", "SKILL.md", "text/markdown", "disks/hash"), nil)
+	m.repo.On("Create", mock.Anything, mock.Anything).Return(errors.New("DB insert failed"))
+	m.disk.On("Delete", mock.Anything, projectID, diskID).Return(nil)
+
+	fileHeader := createTestMultipartFileHeader("skills.zip", zipContent)
+	result, err := m.service().Create(ctx, CreateAgentSkillsInput{
+		ProjectID: projectID,
+		ZipFile:   fileHeader,
+	})
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "DB insert failed")
+	m.disk.AssertCalled(t, "Delete", mock.Anything, projectID, diskID)
 }
 
 func TestAgentSkillsService_Create_MacOSFiltering(t *testing.T) {
 	ctx := context.Background()
 	projectID := uuid.New()
+	diskID := uuid.New()
 
 	zipWithMacOSFiles, _ := createTestZipFile(map[string]string{
 		"SKILL.md":             "---\nname: test-skill\ndescription: Test description\n---\n",
@@ -765,38 +598,35 @@ func TestAgentSkillsService_Create_MacOSFiltering(t *testing.T) {
 		"subdir/__MACOSX/file": "nested macos",
 	})
 
-	mockRepo := &MockAgentSkillsRepo{}
-	mockS3 := &MockAgentSkillsS3{}
+	m := newTestMocks()
+	m.disk.On("Create", mock.Anything, projectID, mock.Anything).
+		Return(&model.Disk{ID: diskID, ProjectID: projectID}, nil)
 
-	mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil)
+	artifactCount := 0
+	m.artifact.On("CreateFromBytes", mock.Anything, mock.MatchedBy(func(in CreateArtifactFromBytesInput) bool {
+		return in.DiskID == diskID
+	})).Run(func(args mock.Arguments) {
+		artifactCount++
+	}).Return(makeArtifact(diskID, "/", "file", "application/octet-stream", "disks/hash"), nil)
 
-	uploadCount := 0
-	mockS3.On("UploadFileDirect", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			uploadCount++
-		}).
-		Return(&model.Asset{Bucket: "test-bucket", S3Key: "test-key"}, nil)
+	m.repo.On("Create", mock.Anything, mock.Anything).Return(nil)
 
-	mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil)
-
-	service := newTestAgentSkillsService(mockRepo, mockS3)
 	fileHeader := createTestMultipartFileHeader("skills.zip", zipWithMacOSFiles)
-
-	result, err := service.Create(ctx, CreateAgentSkillsInput{
+	result, err := m.service().Create(ctx, CreateAgentSkillsInput{
 		ProjectID: projectID,
 		ZipFile:   fileHeader,
-		Meta:      map[string]interface{}{},
 	})
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
-	assert.Equal(t, 2, uploadCount, "Should only upload SKILL.md and file1.json")
-	assert.Equal(t, 2, len(result.FileIndex.Data()))
+	assert.Equal(t, 2, artifactCount, "Should only create artifacts for SKILL.md and file1.json")
+	assert.Len(t, result.FileIndex, 2)
 }
 
 func TestAgentSkillsService_Create_RootPrefixStripping(t *testing.T) {
 	ctx := context.Background()
 	projectID := uuid.New()
+	diskID := uuid.New()
 
 	zipWithOuterDir, _ := createTestZipFile(map[string]string{
 		"outer-dir/SKILL.md":        "---\nname: test-skill\ndescription: Test description\n---\n",
@@ -804,267 +634,352 @@ func TestAgentSkillsService_Create_RootPrefixStripping(t *testing.T) {
 		"outer-dir/subdir/file2.md": "# Test",
 	})
 
-	mockRepo := &MockAgentSkillsRepo{}
-	mockS3 := &MockAgentSkillsS3{}
+	m := newTestMocks()
+	m.disk.On("Create", mock.Anything, projectID, mock.Anything).
+		Return(&model.Disk{ID: diskID, ProjectID: projectID}, nil)
 
-	mockRepo.On("Create", mock.Anything, mock.Anything).Return(nil)
+	m.artifact.On("CreateFromBytes", mock.Anything, mock.MatchedBy(func(in CreateArtifactFromBytesInput) bool {
+		return in.Filename == "SKILL.md"
+	})).Return(makeArtifact(diskID, "/", "SKILL.md", "text/markdown", "disks/hash1"), nil)
 
-	var uploadedPaths []string
-	mockS3.On("UploadFileDirect", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
-		Run(func(args mock.Arguments) {
-			key := args.Get(1).(string)
-			uploadedPaths = append(uploadedPaths, key)
-		}).
-		Return(&model.Asset{Bucket: "test-bucket", S3Key: "test-key"}, nil)
+	m.artifact.On("CreateFromBytes", mock.Anything, mock.MatchedBy(func(in CreateArtifactFromBytesInput) bool {
+		return in.Filename == "file1.json"
+	})).Return(makeArtifact(diskID, "/", "file1.json", "application/json", "disks/hash2"), nil)
 
-	mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil)
+	m.artifact.On("CreateFromBytes", mock.Anything, mock.MatchedBy(func(in CreateArtifactFromBytesInput) bool {
+		return in.Filename == "file2.md"
+	})).Return(makeArtifact(diskID, "/subdir/", "file2.md", "text/markdown", "disks/hash3"), nil)
 
-	service := newTestAgentSkillsService(mockRepo, mockS3)
+	m.repo.On("Create", mock.Anything, mock.Anything).Return(nil)
+
 	fileHeader := createTestMultipartFileHeader("skills.zip", zipWithOuterDir)
-
-	result, err := service.Create(ctx, CreateAgentSkillsInput{
+	result, err := m.service().Create(ctx, CreateAgentSkillsInput{
 		ProjectID: projectID,
 		ZipFile:   fileHeader,
-		Meta:      map[string]interface{}{},
 	})
 
 	assert.NoError(t, err)
 	assert.NotNil(t, result)
+	assert.Len(t, result.FileIndex, 3)
 
-	fileIndex := result.FileIndex.Data()
-	assert.Equal(t, 3, len(fileIndex))
-
-	// Extract paths and check without relying on order (map iteration order is non-deterministic)
 	var paths []string
-	for _, fi := range fileIndex {
+	for _, fi := range result.FileIndex {
 		paths = append(paths, fi.Path)
 	}
 	assert.ElementsMatch(t, []string{"SKILL.md", "file1.json", "subdir/file2.md"}, paths)
 }
 
+// ── Service: GetByID tests ──
+
 func TestAgentSkillsService_GetByID(t *testing.T) {
 	ctx := context.Background()
 	projectID := uuid.New()
 	agentSkillsID := uuid.New()
+	diskID := uuid.New()
 
-	tests := []struct {
-		name          string
-		setupMocks    func(*MockAgentSkillsRepo)
-		expectedError bool
-	}{
-		{
-			name: "success",
-			setupMocks: func(repo *MockAgentSkillsRepo) {
-				repo.On("GetByID", ctx, projectID, agentSkillsID).
-					Return(createTestAgentSkills(), nil)
-			},
-			expectedError: false,
-		},
-		{
-			name: "not found",
-			setupMocks: func(repo *MockAgentSkillsRepo) {
-				repo.On("GetByID", ctx, projectID, agentSkillsID).
-					Return(nil, errors.New("not found"))
-			},
-			expectedError: true,
-		},
-	}
+	t.Run("success", func(t *testing.T) {
+		m := newTestMocks()
+		skill := &model.AgentSkills{ID: agentSkillsID, ProjectID: projectID, DiskID: diskID, Name: "test-skill"}
+		m.repo.On("GetByID", ctx, projectID, agentSkillsID).Return(skill, nil)
+		m.artifact.On("ListByPath", ctx, diskID, "").Return([]*model.Artifact{
+			makeArtifact(diskID, "/", "SKILL.md", "text/markdown", "disks/hash1"),
+			makeArtifact(diskID, "/scripts/", "main.py", "text/x-python", "disks/hash2"),
+		}, nil)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockRepo := &MockAgentSkillsRepo{}
-			mockS3 := &MockAgentSkillsS3{}
-			tt.setupMocks(mockRepo)
+		result, err := m.service().GetByID(ctx, projectID, agentSkillsID)
 
-			service := newTestAgentSkillsService(mockRepo, mockS3)
-			result, err := service.GetByID(ctx, projectID, agentSkillsID)
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.NotNil(t, result.FileIndex)
+		assert.Len(t, result.FileIndex, 2)
+		assert.Equal(t, "SKILL.md", result.FileIndex[0].Path)
+		assert.Equal(t, "scripts/main.py", result.FileIndex[1].Path)
+	})
 
-			if tt.expectedError {
-				assert.Error(t, err)
-				assert.Nil(t, result)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, result)
-			}
+	t.Run("empty file index is not nil", func(t *testing.T) {
+		m := newTestMocks()
+		skill := &model.AgentSkills{ID: agentSkillsID, ProjectID: projectID, DiskID: diskID, Name: "empty-skill"}
+		m.repo.On("GetByID", ctx, projectID, agentSkillsID).Return(skill, nil)
+		m.artifact.On("ListByPath", ctx, diskID, "").Return([]*model.Artifact{}, nil)
 
-			mockRepo.AssertExpectations(t)
-		})
-	}
+		result, err := m.service().GetByID(ctx, projectID, agentSkillsID)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.NotNil(t, result.FileIndex, "FileIndex should be [] not nil")
+		assert.Empty(t, result.FileIndex)
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		m := newTestMocks()
+		m.repo.On("GetByID", ctx, projectID, agentSkillsID).Return(nil, errors.New("not found"))
+
+		result, err := m.service().GetByID(ctx, projectID, agentSkillsID)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+	})
 }
+
+// ── Service: Delete tests ──
 
 func TestAgentSkillsService_Delete(t *testing.T) {
 	ctx := context.Background()
 	projectID := uuid.New()
 	agentSkillsID := uuid.New()
+	diskID := uuid.New()
 
-	tests := []struct {
-		name          string
-		setupMocks    func(*MockAgentSkillsRepo)
-		expectedError bool
-	}{
-		{
-			name: "success",
-			setupMocks: func(repo *MockAgentSkillsRepo) {
-				repo.On("Delete", ctx, projectID, agentSkillsID).Return(nil)
-			},
-			expectedError: false,
-		},
-		{
-			name: "not found",
-			setupMocks: func(repo *MockAgentSkillsRepo) {
-				repo.On("Delete", ctx, projectID, agentSkillsID).
-					Return(errors.New("not found"))
-			},
-			expectedError: true,
-		},
-	}
+	t.Run("success - skill deleted first, then disk", func(t *testing.T) {
+		m := newTestMocks()
+		skill := &model.AgentSkills{ID: agentSkillsID, ProjectID: projectID, DiskID: diskID}
+		m.repo.On("GetByID", ctx, projectID, agentSkillsID).Return(skill, nil)
+		m.repo.On("Delete", ctx, projectID, agentSkillsID).Return(nil)
+		m.disk.On("Delete", ctx, projectID, diskID).Return(nil)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockRepo := &MockAgentSkillsRepo{}
-			mockS3 := &MockAgentSkillsS3{}
-			tt.setupMocks(mockRepo)
+		err := m.service().Delete(ctx, projectID, agentSkillsID)
 
-			service := newTestAgentSkillsService(mockRepo, mockS3)
-			err := service.Delete(ctx, projectID, agentSkillsID)
+		assert.NoError(t, err)
+		m.repo.AssertCalled(t, "Delete", ctx, projectID, agentSkillsID)
+		m.disk.AssertCalled(t, "Delete", ctx, projectID, diskID)
+	})
 
-			if tt.expectedError {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+	t.Run("not found", func(t *testing.T) {
+		m := newTestMocks()
+		m.repo.On("GetByID", ctx, projectID, agentSkillsID).Return(nil, errors.New("not found"))
 
-			mockRepo.AssertExpectations(t)
-		})
-	}
+		err := m.service().Delete(ctx, projectID, agentSkillsID)
+
+		assert.Error(t, err)
+		m.repo.AssertNotCalled(t, "Delete")
+		m.disk.AssertNotCalled(t, "Delete")
+	})
 }
+
+// ── Service: List tests ──
 
 func TestAgentSkillsService_List(t *testing.T) {
 	ctx := context.Background()
 	projectID := uuid.New()
 
-	tests := []struct {
-		name          string
-		setupMocks    func(*MockAgentSkillsRepo)
-		expectedError bool
-		validateItems func(*testing.T, *ListAgentSkillsOutput)
-	}{
-		{
-			name: "success with items",
-			setupMocks: func(repo *MockAgentSkillsRepo) {
-				skills := []*model.AgentSkills{createTestAgentSkills(), createTestAgentSkills()}
-				repo.On("ListWithCursor", mock.Anything, projectID, "", mock.Anything, mock.Anything, 21, false).
-					Return(skills, nil)
-			},
-			expectedError: false,
-			validateItems: func(t *testing.T, output *ListAgentSkillsOutput) {
-				assert.Equal(t, 2, len(output.Items))
-				assert.False(t, output.HasMore)
-			},
-		},
-		{
-			name: "empty result",
-			setupMocks: func(repo *MockAgentSkillsRepo) {
-				repo.On("ListWithCursor", mock.Anything, projectID, "", mock.Anything, mock.Anything, 21, false).
-					Return([]*model.AgentSkills{}, nil)
-			},
-			expectedError: false,
-			validateItems: func(t *testing.T, output *ListAgentSkillsOutput) {
-				assert.Equal(t, 0, len(output.Items))
-				assert.False(t, output.HasMore)
-			},
-		},
-		{
-			name: "error",
-			setupMocks: func(repo *MockAgentSkillsRepo) {
-				repo.On("ListWithCursor", mock.Anything, projectID, "", mock.Anything, mock.Anything, 21, false).
-					Return(nil, errors.New("database error"))
-			},
-			expectedError: true,
-		},
-	}
+	t.Run("success with items", func(t *testing.T) {
+		m := newTestMocks()
+		skills := []*model.AgentSkills{createTestAgentSkills(), createTestAgentSkills()}
+		m.repo.On("ListWithCursor", mock.Anything, projectID, "", mock.Anything, mock.Anything, 21, false).
+			Return(skills, nil)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockRepo := &MockAgentSkillsRepo{}
-			mockS3 := &MockAgentSkillsS3{}
-			tt.setupMocks(mockRepo)
+		result, err := m.service().List(ctx, ListAgentSkillsInput{ProjectID: projectID, Limit: 20})
 
-			service := newTestAgentSkillsService(mockRepo, mockS3)
-			result, err := service.List(ctx, ListAgentSkillsInput{
-				ProjectID: projectID,
-				Limit:     20,
-			})
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Len(t, result.Items, 2)
+		assert.False(t, result.HasMore)
+	})
 
-			if tt.expectedError {
-				assert.Error(t, err)
-				assert.Nil(t, result)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, result)
-				if tt.validateItems != nil {
-					tt.validateItems(t, result)
-				}
-			}
+	t.Run("empty result", func(t *testing.T) {
+		m := newTestMocks()
+		m.repo.On("ListWithCursor", mock.Anything, projectID, "", mock.Anything, mock.Anything, 21, false).
+			Return([]*model.AgentSkills{}, nil)
 
-			mockRepo.AssertExpectations(t)
-		})
-	}
+		result, err := m.service().List(ctx, ListAgentSkillsInput{ProjectID: projectID, Limit: 20})
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Empty(t, result.Items)
+		assert.False(t, result.HasMore)
+	})
+
+	t.Run("error", func(t *testing.T) {
+		m := newTestMocks()
+		m.repo.On("ListWithCursor", mock.Anything, projectID, "", mock.Anything, mock.Anything, 21, false).
+			Return(nil, errors.New("database error"))
+
+		result, err := m.service().List(ctx, ListAgentSkillsInput{ProjectID: projectID, Limit: 20})
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+	})
 }
+
+// ── Service: GetFile tests ──
 
 func TestAgentSkillsService_GetFile(t *testing.T) {
 	ctx := context.Background()
-	agentSkills := createTestAgentSkills()
+	projectID := uuid.New()
+	skillID := uuid.New()
+	diskID := uuid.New()
 
-	tests := []struct {
-		name          string
-		filePath      string
-		setupMocks    func(*MockAgentSkillsS3)
-		expectedError bool
-		validateOut   func(*testing.T, *GetFileOutput)
-	}{
-		{
-			name:     "file with content (parseable)",
-			filePath: "file1.json",
-			setupMocks: func(s3 *MockAgentSkillsS3) {
-				s3.On("DownloadFile", ctx, mock.Anything).
-					Return([]byte(`{"key": "value"}`), nil)
-			},
-			expectedError: false,
-			validateOut: func(t *testing.T, out *GetFileOutput) {
-				assert.Equal(t, "file1.json", out.Path)
-				assert.NotNil(t, out.Content)
-			},
-		},
-		{
-			name:          "file not in index",
-			filePath:      "nonexistent.txt",
-			setupMocks:    func(s3 *MockAgentSkillsS3) {},
-			expectedError: true,
-		},
+	skill := &model.AgentSkills{
+		ID:        skillID,
+		ProjectID: projectID,
+		DiskID:    diskID,
+		Name:      "test-skill",
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockRepo := &MockAgentSkillsRepo{}
-			mockS3 := &MockAgentSkillsS3{}
-			tt.setupMocks(mockS3)
+	t.Run("file with content (parseable)", func(t *testing.T) {
+		m := newTestMocks()
+		m.repo.On("GetByID", ctx, projectID, skillID).Return(skill, nil)
 
-			service := newTestAgentSkillsService(mockRepo, mockS3)
-			result, err := service.GetFile(ctx, agentSkills, tt.filePath, 1*time.Hour)
+		artifact := makeArtifact(diskID, "/", "file1.json", "application/json", "disks/hash")
+		m.artifact.On("GetByPath", ctx, diskID, "/", "file1.json").Return(artifact, nil)
+		m.artifact.On("GetFileContent", ctx, artifact).Return(&fileparser.FileContent{Raw: `{"key": "value"}`}, nil)
 
-			if tt.expectedError {
-				assert.Error(t, err)
-				assert.Nil(t, result)
-			} else {
-				assert.NoError(t, err)
-				assert.NotNil(t, result)
-				if tt.validateOut != nil {
-					tt.validateOut(t, result)
-				}
-			}
+		result, err := m.service().GetFile(ctx, projectID, skillID, "file1.json", time.Hour)
 
-			mockS3.AssertExpectations(t)
-		})
-	}
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, "file1.json", result.Path)
+		assert.NotNil(t, result.Content)
+	})
+
+	t.Run("file with presigned URL (binary)", func(t *testing.T) {
+		m := newTestMocks()
+		m.repo.On("GetByID", ctx, projectID, skillID).Return(skill, nil)
+
+		artifact := makeArtifact(diskID, "/", "image.png", "image/png", "disks/hash")
+		m.artifact.On("GetByPath", ctx, diskID, "/", "image.png").Return(artifact, nil)
+		m.artifact.On("GetPresignedURL", ctx, artifact, time.Hour).Return("https://s3.example.com/url", nil)
+
+		result, err := m.service().GetFile(ctx, projectID, skillID, "image.png", time.Hour)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, "image.png", result.Path)
+		assert.NotNil(t, result.URL)
+		assert.Equal(t, "https://s3.example.com/url", *result.URL)
+	})
+
+	t.Run("nested path resolves correctly", func(t *testing.T) {
+		m := newTestMocks()
+		m.repo.On("GetByID", ctx, projectID, skillID).Return(skill, nil)
+
+		artifact := makeArtifact(diskID, "/scripts/sub/", "file.py", "text/x-python", "disks/hash")
+		m.artifact.On("GetByPath", ctx, diskID, "/scripts/sub/", "file.py").Return(artifact, nil)
+		m.artifact.On("GetFileContent", ctx, artifact).Return(&fileparser.FileContent{Raw: "print('hello')"}, nil)
+
+		result, err := m.service().GetFile(ctx, projectID, skillID, "scripts/sub/file.py", time.Hour)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, "scripts/sub/file.py", result.Path)
+	})
+
+	t.Run("skill not found", func(t *testing.T) {
+		m := newTestMocks()
+		m.repo.On("GetByID", ctx, projectID, skillID).Return(nil, errors.New("not found"))
+
+		result, err := m.service().GetFile(ctx, projectID, skillID, "file1.json", time.Hour)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+	})
+
+	t.Run("file not found in artifacts", func(t *testing.T) {
+		m := newTestMocks()
+		m.repo.On("GetByID", ctx, projectID, skillID).Return(skill, nil)
+		m.artifact.On("GetByPath", ctx, diskID, "/", "nonexistent.txt").
+			Return(nil, errors.New("not found"))
+
+		result, err := m.service().GetFile(ctx, projectID, skillID, "nonexistent.txt", time.Hour)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "not found")
+	})
+}
+
+// ── Service: ListFiles tests ──
+
+func TestAgentSkillsService_ListFiles(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+	agentSkillsID := uuid.New()
+	diskID := uuid.New()
+
+	t.Run("returns files with pre-joined paths, S3 keys, and skill metadata", func(t *testing.T) {
+		m := newTestMocks()
+		skill := &model.AgentSkills{
+			ID: agentSkillsID, ProjectID: projectID, DiskID: diskID,
+			Name: "test-skill", Description: "Test description",
+		}
+		m.repo.On("GetByID", ctx, projectID, agentSkillsID).Return(skill, nil)
+		m.artifact.On("ListByPath", ctx, diskID, "").Return([]*model.Artifact{
+			makeArtifact(diskID, "/", "SKILL.md", "text/markdown", "disks/hash1"),
+			makeArtifact(diskID, "/scripts/", "main.py", "text/x-python", "disks/hash2"),
+		}, nil)
+
+		result, err := m.service().ListFiles(ctx, projectID, agentSkillsID)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, "test-skill", result.Name)
+		assert.Equal(t, "Test description", result.Description)
+		assert.Len(t, result.Files, 2)
+		assert.Equal(t, "SKILL.md", result.Files[0].Path)
+		assert.Equal(t, "text/markdown", result.Files[0].MIME)
+		assert.Equal(t, "disks/hash1", result.Files[0].S3Key)
+		assert.Equal(t, "scripts/main.py", result.Files[1].Path)
+		assert.Equal(t, "text/x-python", result.Files[1].MIME)
+		assert.Equal(t, "disks/hash2", result.Files[1].S3Key)
+	})
+
+	t.Run("skill not found", func(t *testing.T) {
+		m := newTestMocks()
+		m.repo.On("GetByID", ctx, projectID, agentSkillsID).Return(nil, errors.New("not found"))
+
+		result, err := m.service().ListFiles(ctx, projectID, agentSkillsID)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+	})
+}
+
+// ── Create + Delete in same test (workspace rule) ──
+
+func TestAgentSkillsService_CreateAndDelete(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+	diskID := uuid.New()
+
+	zipContent, _ := createTestZipFile(map[string]string{
+		"SKILL.md": "---\nname: test-skill\ndescription: Test description\n---\n",
+	})
+
+	m := newTestMocks()
+
+	// Create
+	m.disk.On("Create", mock.Anything, projectID, mock.Anything).
+		Return(&model.Disk{ID: diskID, ProjectID: projectID}, nil)
+	m.artifact.On("CreateFromBytes", mock.Anything, mock.Anything).
+		Return(makeArtifact(diskID, "/", "SKILL.md", "text/markdown", "disks/hash"), nil)
+
+	var createdSkillID uuid.UUID
+	m.repo.On("Create", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		as := args.Get(1).(*model.AgentSkills)
+		as.ID = uuid.New()
+		createdSkillID = as.ID
+	}).Return(nil)
+
+	svc := m.service()
+	fileHeader := createTestMultipartFileHeader("skills.zip", zipContent)
+
+	result, err := svc.Create(ctx, CreateAgentSkillsInput{
+		ProjectID: projectID,
+		ZipFile:   fileHeader,
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+
+	// Delete
+	m.repo.On("GetByID", ctx, projectID, createdSkillID).Return(&model.AgentSkills{
+		ID: createdSkillID, ProjectID: projectID, DiskID: diskID,
+	}, nil)
+	m.repo.On("Delete", ctx, projectID, createdSkillID).Return(nil)
+	m.disk.On("Delete", ctx, projectID, diskID).Return(nil)
+
+	err = svc.Delete(ctx, projectID, createdSkillID)
+	assert.NoError(t, err)
+
+	m.repo.AssertExpectations(t)
+	m.disk.AssertExpectations(t)
+	m.artifact.AssertExpectations(t)
 }

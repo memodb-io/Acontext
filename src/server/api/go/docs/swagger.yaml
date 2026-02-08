@@ -265,14 +265,15 @@ definitions:
         type: string
       description:
         type: string
+      disk_id:
+        description: DiskID references the Disk that stores this skill's files as
+          Artifacts
+        type: string
       file_index:
-        description: |-
-          FileIndex contains file information (path and MIME type) from the skillName root directory
-          Example: [{"path": "SKILL.md", "mime": "text/markdown"}, {"path": "scripts/extract_text.json", "mime": "application/json"}]
-          These paths are relative to baseS3Key (which includes skillName)
-          Full S3 key = baseS3Key + "/" + fileIndex[i].Path
+        description: FileIndex is computed at query time from the Disk's Artifacts,
+          not persisted
         items:
-          type: object
+          $ref: '#/definitions/model.FileInfo'
         type: array
       id:
         type: string
@@ -312,6 +313,15 @@ definitions:
       updated_at:
         type: string
       user_id:
+        type: string
+    type: object
+  model.FileInfo:
+    properties:
+      mime:
+        description: MIME type of the file
+        type: string
+      path:
+        description: Relative path from skillName root
         type: string
     type: object
   model.Message:
@@ -649,10 +659,10 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Upload a zip file containing agent skill and extract it to S3.
-        The zip file must contain a SKILL.md file (case-insensitive) with YAML format
-        containing 'name' and 'description' fields. The name and description will
-        be extracted from SKILL.md. Optionally associate with a user identifier.
+      description: Upload a zip file containing agent skill. The zip file must contain
+        a SKILL.md file (case-insensitive) with YAML format containing 'name' and
+        'description' fields. The name and description will be extracted from SKILL.md.
+        Files are stored as Disk Artifacts. Optionally associate with a user identifier.
       parameters:
       - description: 'ZIP file containing agent skill. Must contain SKILL.md (case-insensitive)
           with YAML format: name and description fields.'
@@ -724,7 +734,7 @@ paths:
     delete:
       consumes:
       - application/json
-      description: Delete agent skill and all extracted files from S3
+      description: Delete agent skill and all associated files
       parameters:
       - description: Agent skill UUID
         in: path

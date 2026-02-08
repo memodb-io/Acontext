@@ -18,7 +18,6 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"gorm.io/datatypes"
 )
 
 // MockAgentSkillsService is a mock implementation of AgentSkillsService
@@ -55,12 +54,20 @@ func (m *MockAgentSkillsService) List(ctx context.Context, in service.ListAgentS
 	return args.Get(0).(*service.ListAgentSkillsOutput), args.Error(1)
 }
 
-func (m *MockAgentSkillsService) GetFile(ctx context.Context, agentSkills *model.AgentSkills, filePath string, expire time.Duration) (*service.GetFileOutput, error) {
-	args := m.Called(ctx, agentSkills, filePath, expire)
+func (m *MockAgentSkillsService) GetFile(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID, filePath string, expire time.Duration) (*service.GetFileOutput, error) {
+	args := m.Called(ctx, projectID, skillID, filePath, expire)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*service.GetFileOutput), args.Error(1)
+}
+
+func (m *MockAgentSkillsService) ListFiles(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*service.ListFilesOutput, error) {
+	args := m.Called(ctx, projectID, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.ListFilesOutput), args.Error(1)
 }
 
 func setupAgentSkillsRouter() *gin.Engine {
@@ -72,18 +79,13 @@ func createTestAgentSkills() *model.AgentSkills {
 	projectID := uuid.New()
 	agentSkillsID := uuid.New()
 
-	baseAsset := &model.Asset{
-		Bucket: "test-bucket",
-		S3Key:  "agent_skills/" + projectID.String() + "/" + agentSkillsID.String() + "/extracted/",
-	}
-
 	return &model.AgentSkills{
 		ID:          agentSkillsID,
 		ProjectID:   projectID,
+		DiskID:      uuid.New(),
 		Name:        "test-skills",
 		Description: "Test description",
-		AssetMeta:   datatypes.NewJSONType(*baseAsset),
-		FileIndex:   datatypes.NewJSONType([]model.FileInfo{{Path: "file1.json", MIME: "application/json"}, {Path: "file2.md", MIME: "text/markdown"}}),
+		FileIndex:   []model.FileInfo{{Path: "file1.json", MIME: "application/json"}, {Path: "file2.md", MIME: "text/markdown"}},
 		Meta:        map[string]interface{}{"version": "1.0"},
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
@@ -175,20 +177,22 @@ description: Test with SKILL.md in subdirectory`,
 	expectedAgentSkills := &model.AgentSkills{
 		ID:          agentSkillsID,
 		ProjectID:   projectID,
+		DiskID:      uuid.New(),
 		Name:        "test-skills",
 		Description: "Test description",
-		FileIndex:   datatypes.NewJSONType([]model.FileInfo{{Path: "SKILL.md", MIME: "text/markdown"}, {Path: "file1.json", MIME: "application/json"}, {Path: "file2.md", MIME: "text/markdown"}}),
+		FileIndex:   []model.FileInfo{{Path: "SKILL.md", MIME: "text/markdown"}, {Path: "file1.json", MIME: "application/json"}, {Path: "file2.md", MIME: "text/markdown"}},
 		Meta:        map[string]interface{}{"version": "1.0"},
 	}
 
 	expectedAgentSkillsWithOuterDir := &model.AgentSkills{
 		ID:          agentSkillsID,
 		ProjectID:   projectID,
+		DiskID:      uuid.New(),
 		Name:        "pdf", // skillName from SKILL.md, not from zip directory name
 		Description: "PDF processing skills",
 		// FileIndex should strip the outer "random-name/" prefix (regardless of its name)
 		// skillName "pdf" will be used as S3 root directory
-		FileIndex: datatypes.NewJSONType([]model.FileInfo{{Path: "SKILL.md", MIME: "text/markdown"}, {Path: "forms.md", MIME: "text/markdown"}, {Path: "scripts/tool.json", MIME: "application/json"}}),
+		FileIndex: []model.FileInfo{{Path: "SKILL.md", MIME: "text/markdown"}, {Path: "forms.md", MIME: "text/markdown"}, {Path: "scripts/tool.json", MIME: "application/json"}},
 		Meta:      map[string]interface{}{"version": "1.0"},
 	}
 
@@ -299,9 +303,10 @@ description: Test with SKILL.md in subdirectory`,
 				})).Return(&model.AgentSkills{
 					ID:          agentSkillsID,
 					ProjectID:   projectID,
+					DiskID:      uuid.New(),
 					Name:        "lowercase-test",
 					Description: "Test with lowercase skill.md",
-					FileIndex:   datatypes.NewJSONType([]model.FileInfo{{Path: "skill.md", MIME: "text/markdown"}, {Path: "file1.json", MIME: "application/json"}}),
+					FileIndex:   []model.FileInfo{{Path: "skill.md", MIME: "text/markdown"}, {Path: "file1.json", MIME: "application/json"}},
 				}, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -316,9 +321,10 @@ description: Test with SKILL.md in subdirectory`,
 				})).Return(&model.AgentSkills{
 					ID:          agentSkillsID,
 					ProjectID:   projectID,
+					DiskID:      uuid.New(),
 					Name:        "subdir-test",
 					Description: "Test with SKILL.md in subdirectory",
-					FileIndex:   datatypes.NewJSONType([]model.FileInfo{{Path: "subdir/SKILL.md", MIME: "text/markdown"}, {Path: "subdir/file1.json", MIME: "application/json"}}),
+					FileIndex:   []model.FileInfo{{Path: "subdir/SKILL.md", MIME: "text/markdown"}, {Path: "subdir/file1.json", MIME: "application/json"}},
 				}, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -654,8 +660,7 @@ func TestAgentSkillsHandler_GetAgentSkillFile(t *testing.T) {
 			id:       agentSkills.ID.String(),
 			filePath: "file1.json",
 			setup: func(svc *MockAgentSkillsService) {
-				svc.On("GetByID", mock.Anything, projectID, agentSkills.ID).Return(agentSkills, nil)
-				svc.On("GetFile", mock.Anything, agentSkills, "file1.json", mock.Anything).Return(&service.GetFileOutput{
+				svc.On("GetFile", mock.Anything, projectID, agentSkills.ID, "file1.json", mock.Anything).Return(&service.GetFileOutput{
 					Path: "file1.json",
 					MIME: "application/json",
 					URL:  &testURL,
@@ -684,8 +689,7 @@ func TestAgentSkillsHandler_GetAgentSkillFile(t *testing.T) {
 			id:       agentSkills.ID.String(),
 			filePath: "non-existent.json",
 			setup: func(svc *MockAgentSkillsService) {
-				svc.On("GetByID", mock.Anything, projectID, agentSkills.ID).Return(agentSkills, nil)
-				svc.On("GetFile", mock.Anything, agentSkills, "non-existent.json", mock.Anything).Return(nil, errors.New("file not found"))
+				svc.On("GetFile", mock.Anything, projectID, agentSkills.ID, "non-existent.json", mock.Anything).Return(nil, errors.New("file not found"))
 			},
 			expectedStatus: http.StatusNotFound,
 		},
@@ -740,17 +744,13 @@ func TestAgentSkillsHandler_DownloadToSandbox(t *testing.T) {
 	// Create skill with empty file index for testing the "no files" case
 	createEmptySkill := func() *model.AgentSkills {
 		agentSkillsID := uuid.New()
-		baseAsset := &model.Asset{
-			Bucket: "test-bucket",
-			S3Key:  "agent_skills/" + projectID.String() + "/" + agentSkillsID.String() + "/empty-skill/",
-		}
 		return &model.AgentSkills{
 			ID:          agentSkillsID,
 			ProjectID:   projectID,
+			DiskID:      uuid.New(),
 			Name:        "empty-skill",
 			Description: "Test skill with no files",
-			AssetMeta:   datatypes.NewJSONType(*baseAsset),
-			FileIndex:   datatypes.NewJSONType([]model.FileInfo{}),
+			FileIndex:   []model.FileInfo{},
 			Meta:        map[string]interface{}{},
 			CreatedAt:   time.Now(),
 			UpdatedAt:   time.Now(),
@@ -795,7 +795,7 @@ func TestAgentSkillsHandler_DownloadToSandbox(t *testing.T) {
 			skillID:     uuid.New().String(),
 			requestBody: `{"sandbox_id": "` + sandboxID.String() + `"}`,
 			setup: func(svc *MockAgentSkillsService) {
-				svc.On("GetByID", mock.Anything, projectID, mock.Anything).Return(nil, errors.New("not found"))
+				svc.On("ListFiles", mock.Anything, projectID, mock.Anything).Return(nil, errors.New("not found"))
 			},
 			expectedStatus: http.StatusNotFound,
 			expectedError:  "skill not found",
@@ -806,7 +806,11 @@ func TestAgentSkillsHandler_DownloadToSandbox(t *testing.T) {
 			requestBody: `{"sandbox_id": "` + sandboxID.String() + `"}`,
 			setup: func(svc *MockAgentSkillsService) {
 				skill := createEmptySkill()
-				svc.On("GetByID", mock.Anything, projectID, skill.ID).Return(skill, nil)
+				svc.On("ListFiles", mock.Anything, projectID, skill.ID).Return(&service.ListFilesOutput{
+					Name:        skill.Name,
+					Description: skill.Description,
+					Files:       []service.SkillFileInfo{},
+				}, nil)
 			},
 			expectedStatus: http.StatusOK,
 			checkResponse: func(t *testing.T, response map[string]interface{}) {
@@ -829,7 +833,11 @@ func TestAgentSkillsHandler_DownloadToSandbox(t *testing.T) {
 				skill := createEmptySkill()
 				skillID = skill.ID.String()
 				// Update the mock setup with the correct skill
-				mockService.On("GetByID", mock.Anything, projectID, skill.ID).Return(skill, nil)
+				mockService.On("ListFiles", mock.Anything, projectID, skill.ID).Return(&service.ListFilesOutput{
+					Name:        skill.Name,
+					Description: skill.Description,
+					Files:       []service.SkillFileInfo{},
+				}, nil)
 			} else {
 				skillID = tt.skillID
 				tt.setup(mockService)

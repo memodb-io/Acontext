@@ -96,7 +96,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Upload a zip file containing agent skill and extract it to S3. The zip file must contain a SKILL.md file (case-insensitive) with YAML format containing 'name' and 'description' fields. The name and description will be extracted from SKILL.md. Optionally associate with a user identifier.",
+                "description": "Upload a zip file containing agent skill. The zip file must contain a SKILL.md file (case-insensitive) with YAML format containing 'name' and 'description' fields. The name and description will be extracted from SKILL.md. Files are stored as Disk Artifacts. Optionally associate with a user identifier.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -229,7 +229,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Delete agent skill and all extracted files from S3",
+                "description": "Delete agent skill and all associated files",
                 "consumes": [
                     "application/json"
                 ],
@@ -3052,11 +3052,15 @@
                 "description": {
                     "type": "string"
                 },
+                "disk_id": {
+                    "description": "DiskID references the Disk that stores this skill's files as Artifacts",
+                    "type": "string"
+                },
                 "file_index": {
-                    "description": "FileIndex contains file information (path and MIME type) from the skillName root directory\nExample: [{\"path\": \"SKILL.md\", \"mime\": \"text/markdown\"}, {\"path\": \"scripts/extract_text.json\", \"mime\": \"application/json\"}]\nThese paths are relative to baseS3Key (which includes skillName)\nFull S3 key = baseS3Key + \"/\" + fileIndex[i].Path",
+                    "description": "FileIndex is computed at query time from the Disk's Artifacts, not persisted",
                     "type": "array",
                     "items": {
-                        "type": "object"
+                        "$ref": "#/definitions/model.FileInfo"
                     }
                 },
                 "id": {
@@ -3116,6 +3120,19 @@
                     "type": "string"
                 },
                 "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.FileInfo": {
+            "type": "object",
+            "properties": {
+                "mime": {
+                    "description": "MIME type of the file",
+                    "type": "string"
+                },
+                "path": {
+                    "description": "Relative path from skillName root",
                     "type": "string"
                 }
             }

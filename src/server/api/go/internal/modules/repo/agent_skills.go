@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/memodb-io/Acontext/internal/infra/blob"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"gorm.io/gorm"
 )
@@ -21,13 +20,11 @@ type AgentSkillsRepo interface {
 
 type agentSkillsRepo struct {
 	db *gorm.DB
-	s3 *blob.S3Deps
 }
 
-func NewAgentSkillsRepo(db *gorm.DB, s3 *blob.S3Deps) AgentSkillsRepo {
+func NewAgentSkillsRepo(db *gorm.DB) AgentSkillsRepo {
 	return &agentSkillsRepo{
 		db: db,
-		s3: s3,
 	}
 }
 
@@ -53,32 +50,12 @@ func (r *agentSkillsRepo) Update(ctx context.Context, as *model.AgentSkills) err
 }
 
 func (r *agentSkillsRepo) Delete(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error {
-	// First, query the record to verify it exists (outside transaction)
-	var as model.AgentSkills
-	if err := r.db.WithContext(ctx).Where("id = ? AND project_id = ?", id, projectID).First(&as).Error; err != nil {
-		return err
-	}
-
-	// Recursively delete all objects under the id directory: agent_skills/{project_id}/{id}/
-	// This ensures we delete everything associated with this agent_skills record,
-	// regardless of FileIndex completeness or path structure changes
-	baseS3KeyPrefix := fmt.Sprintf("agent_skills/%s/%s", projectID.String(), id.String())
-
-	// Delete all files from S3 first (recursive delete)
-	// If S3 deletion fails, we don't delete the database record, so it can be retried
-	if err := r.s3.DeleteObjectsByPrefix(ctx, baseS3KeyPrefix); err != nil {
-		return fmt.Errorf("delete files from S3: %w", err)
-	}
-
-	// After S3 deletion succeeds, delete the database record in a transaction
-	// This ensures atomicity for the database operation
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// Verify agent_skills still exists and belongs to project
+		var as model.AgentSkills
 		if err := tx.Where("id = ? AND project_id = ?", id, projectID).First(&as).Error; err != nil {
 			return err
 		}
 
-		// Delete the agent_skills record
 		if err := tx.Delete(&as).Error; err != nil {
 			return fmt.Errorf("delete agent_skills: %w", err)
 		}

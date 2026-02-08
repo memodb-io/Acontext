@@ -21,6 +21,7 @@ class Skill(BaseModel):
     user_id: str | None = Field(None, description="User UUID")
     name: str = Field(..., description="Skill name (unique within project)")
     description: str = Field(..., description="Skill description")
+    disk_id: str = Field(..., description="Disk UUID that stores this skill's files")
     file_index: list[FileInfo] = Field(
         ..., description="List of file information (path and MIME type) in the skill"
     )

@@ -18,6 +18,7 @@ export const SkillSchema = z.object({
   user_id: z.string().nullable().optional(),
   name: z.string(),
   description: z.string(),
+  disk_id: z.string(),
   file_index: z.array(FileInfoSchema),
   meta: z.record(z.string(), z.unknown()).nullable(),
   created_at: z.string(),

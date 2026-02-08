@@ -35,7 +35,7 @@ type CreateAgentSkillsReq struct {
 // CreateAgentSkills godoc
 //
 //	@Summary		Create agent skill
-//	@Description	Upload a zip file containing agent skill and extract it to S3. The zip file must contain a SKILL.md file (case-insensitive) with YAML format containing 'name' and 'description' fields. The name and description will be extracted from SKILL.md. Optionally associate with a user identifier.
+//	@Description	Upload a zip file containing agent skill. The zip file must contain a SKILL.md file (case-insensitive) with YAML format containing 'name' and 'description' fields. The name and description will be extracted from SKILL.md. Files are stored as Disk Artifacts. Optionally associate with a user identifier.
 //	@Tags			agent_skills
 //	@Accept			multipart/form-data
 //	@Produce		json
@@ -149,7 +149,7 @@ func (h *AgentSkillsHandler) GetAgentSkill(c *gin.Context) {
 // DeleteAgentSkills godoc
 //
 //	@Summary		Delete agent skill
-//	@Description	Delete agent skill and all extracted files from S3
+//	@Description	Delete agent skill and all associated files
 //	@Tags			agent_skills
 //	@Accept			json
 //	@Produce		json
@@ -262,20 +262,14 @@ func (h *AgentSkillsHandler) GetAgentSkillFile(c *gin.Context) {
 		return
 	}
 
-	agentSkills, err := h.svc.GetByID(c.Request.Context(), project.ID, id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, serializer.DBErr("", err))
-		return
-	}
-
-	expire := time.Duration(900) * time.Second // default 15 minutes
+	expire := 15 * time.Minute
 	if expireStr := c.Query("expire"); expireStr != "" {
 		if expireInt, err := time.ParseDuration(expireStr + "s"); err == nil {
 			expire = expireInt
 		}
 	}
 
-	output, err := h.svc.GetFile(c.Request.Context(), agentSkills, filePath, expire)
+	output, err := h.svc.GetFile(c.Request.Context(), project.ID, id, filePath, expire)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			c.JSON(http.StatusNotFound, serializer.DBErr("", err))
@@ -341,26 +335,24 @@ func (h *AgentSkillsHandler) DownloadToSandbox(c *gin.Context) {
 		return
 	}
 
-	// Get the skill to retrieve file index and S3 keys
-	agentSkill, err := h.svc.GetByID(c.Request.Context(), project.ID, id)
+	// Get skill metadata + file list in a single query (no double artifact listing)
+	listResult, err := h.svc.ListFiles(c.Request.Context(), project.ID, id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, serializer.DBErr("skill not found", err))
 		return
 	}
 
 	// Build the base destination path: /skills/skill_name
-	// Note: agentSkill.Name is already sanitized at upload time
-	baseDirPath := "/skills/" + agentSkill.Name
+	// Note: skill name is already sanitized at upload time
+	baseDirPath := "/skills/" + listResult.Name
 
-	// Get file index from skill - check early to avoid unnecessary sandbox operations
-	fileIndex := agentSkill.FileIndex.Data()
-	if len(fileIndex) == 0 {
+	if len(listResult.Files) == 0 {
 		// No files to download, just return success with the expected path
 		c.JSON(http.StatusOK, serializer.Response{Data: DownloadSkillToSandboxResp{
 			Success:     true,
 			DirPath:     baseDirPath,
-			Name:        agentSkill.Name,
-			Description: agentSkill.Description,
+			Name:        listResult.Name,
+			Description: listResult.Description,
 		}})
 		return
 	}
@@ -381,22 +373,19 @@ func (h *AgentSkillsHandler) DownloadToSandbox(c *gin.Context) {
 	g, gctx := errgroup.WithContext(c.Request.Context())
 	g.SetLimit(10)
 
-	for _, fileInfo := range fileIndex {
-		fileInfo := fileInfo // capture loop variable
+	for _, file := range listResult.Files {
+		file := file // capture loop variable
 		g.Go(func() error {
-			// Get S3 key for this file
-			s3Key := agentSkill.GetFileS3Key(fileInfo.Path)
-
 			// Build destination path in sandbox: baseDirPath/relativePath
-			destPath := baseDirPath + "/" + fileInfo.Path
+			destPath := baseDirPath + "/" + file.Path
 
-			// Upload file to sandbox via CORE service
-			result, err := h.coreClient.UploadSandboxFile(gctx, project.ID, sandboxID, s3Key, destPath)
+			// Upload file to sandbox via CORE service using S3 key from artifact
+			result, err := h.coreClient.UploadSandboxFile(gctx, project.ID, sandboxID, file.S3Key, destPath)
 			if err != nil {
-				return fmt.Errorf("failed to download file to sandbox: %s: %w", fileInfo.Path, err)
+				return fmt.Errorf("failed to download file to sandbox: %s: %w", file.Path, err)
 			}
 			if !result.Success {
-				return fmt.Errorf("failed to download file to sandbox: %s", fileInfo.Path)
+				return fmt.Errorf("failed to download file to sandbox: %s", file.Path)
 			}
 			return nil
 		})
@@ -410,7 +399,7 @@ func (h *AgentSkillsHandler) DownloadToSandbox(c *gin.Context) {
 	c.JSON(http.StatusOK, serializer.Response{Data: DownloadSkillToSandboxResp{
 		Success:     true,
 		DirPath:     baseDirPath,
-		Name:        agentSkill.Name,
-		Description: agentSkill.Description,
+		Name:        listResult.Name,
+		Description: listResult.Description,
 	}})
 }

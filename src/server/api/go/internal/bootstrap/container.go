@@ -47,6 +47,11 @@ func BuildContainer() *do.Injector {
 			return nil, err
 		}
 		// [optional] auto migrate
+		// NOTE: agent_skills.asset_meta and agent_skills.file_index columns are
+		// deprecated as of the Disk migration. They are no longer used by the
+		// application. Safe to drop manually:
+		//   ALTER TABLE agent_skills DROP COLUMN IF EXISTS asset_meta;
+		//   ALTER TABLE agent_skills DROP COLUMN IF EXISTS file_index;
 		if cfg.Database.AutoMigrate {
 			_ = d.AutoMigrate(
 				&model.Project{},
@@ -175,7 +180,6 @@ func BuildContainer() *do.Injector {
 	do.Provide(inj, func(i *do.Injector) (repo.AgentSkillsRepo, error) {
 		return repo.NewAgentSkillsRepo(
 			do.MustInvoke[*gorm.DB](i),
-			do.MustInvoke[*blob.S3Deps](i),
 		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (repo.UserRepo, error) {
@@ -215,7 +219,8 @@ func BuildContainer() *do.Injector {
 	do.Provide(inj, func(i *do.Injector) (service.AgentSkillsService, error) {
 		return service.NewAgentSkillsService(
 			do.MustInvoke[repo.AgentSkillsRepo](i),
-			do.MustInvoke[*blob.S3Deps](i),
+			do.MustInvoke[service.DiskService](i),
+			do.MustInvoke[service.ArtifactService](i),
 		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (service.UserService, error) {
