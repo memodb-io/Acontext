@@ -352,10 +352,24 @@ export function WithCustomCursor({
   const containerRef = useRef<HTMLDivElement>(null)
   const { resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
 
   // Ensure we only render after mount to prevent hydration mismatch
+  // Also detect mobile/touch devices to disable custom cursor
   useEffect(() => {
     setMounted(true)
+
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 768 // md breakpoint
+      setIsMobile(mobile)
+    }
+
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+
+    return () => {
+      window.removeEventListener('resize', checkMobile)
+    }
   }, [])
 
   // Auto-detect theme colors if not provided
@@ -384,7 +398,7 @@ export function WithCustomCursor({
         style={cursorStyle}
         color={finalColor}
         colorRgb={finalColorRgb}
-        enabled={cursorEnabled}
+        enabled={cursorEnabled && !isMobile}
         followDelay={cursorFollowDelay}
         size={cursorSize}
         hideOnLeave={cursorHideOnLeave}
