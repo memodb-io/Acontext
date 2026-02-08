@@ -514,6 +514,7 @@ describe('Agent Tools Unit Tests', () => {
         id: 'skill-id',
         name: 'test-skill',
         description: 'A test skill',
+        disk_id: 'disk-id',
         file_index: [],
         meta: null,
         user_id: null,

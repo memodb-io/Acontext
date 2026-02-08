@@ -413,6 +413,7 @@ export function mockSkill(overrides?: Partial<{
   id: string;
   name: string;
   description: string;
+  disk_id: string;
   file_index: Array<{ path: string; mime: string }>;
   meta: Record<string, unknown> | null;
   user_id: string | null;
@@ -424,6 +425,7 @@ export function mockSkill(overrides?: Partial<{
     id: overrides?.id ?? mockId(),
     name: overrides?.name ?? 'test-skill',
     description: overrides?.description ?? 'A test skill',
+    disk_id: overrides?.disk_id ?? mockId(),
     file_index: overrides?.file_index ?? [],
     meta: overrides?.meta ?? null,
     user_id: overrides?.user_id ?? null,
