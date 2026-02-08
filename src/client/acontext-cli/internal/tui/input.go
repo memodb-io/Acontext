@@ -3,17 +3,20 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/AlecAivazis/survey/v2"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// InputModel is a bubbletea model for a text input
+// InputModel is a bubbletea model for a text input.
+// cursorPos is tracked as a rune offset (not byte offset) so that
+// multi-byte Unicode characters are handled correctly.
 type InputModel struct {
 	prompt       string
 	placeholder  string
 	value        string
-	cursorPos    int
+	cursorPos    int // rune offset
 	done         bool
 	quitting     bool
 	defaultValue string
@@ -25,7 +28,7 @@ func NewInput(prompt, placeholder, defaultValue string) InputModel {
 		prompt:       prompt,
 		placeholder:  placeholder,
 		value:        defaultValue,
-		cursorPos:    len(defaultValue),
+		cursorPos:    utf8.RuneCountInString(defaultValue),
 		defaultValue: defaultValue,
 	}
 }
@@ -34,9 +37,21 @@ func (m InputModel) Init() tea.Cmd {
 	return nil
 }
 
+// runeSlice converts a rune offset to a byte offset in s.
+func runeOffset(s string, runePos int) int {
+	bytePos := 0
+	for i := 0; i < runePos && bytePos < len(s); i++ {
+		_, size := utf8.DecodeRuneInString(s[bytePos:])
+		bytePos += size
+	}
+	return bytePos
+}
+
 func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		runeCount := utf8.RuneCountInString(m.value)
+
 		switch msg.String() {
 		case "ctrl+c":
 			m.quitting = true
@@ -46,35 +61,42 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case "backspace":
 			if m.cursorPos > 0 {
-				m.value = m.value[:m.cursorPos-1] + m.value[m.cursorPos:]
+				bytePos := runeOffset(m.value, m.cursorPos-1)
+				byteEnd := runeOffset(m.value, m.cursorPos)
+				m.value = m.value[:bytePos] + m.value[byteEnd:]
 				m.cursorPos--
 			}
 		case "delete":
-			if m.cursorPos < len(m.value) {
-				m.value = m.value[:m.cursorPos] + m.value[m.cursorPos+1:]
+			if m.cursorPos < runeCount {
+				bytePos := runeOffset(m.value, m.cursorPos)
+				byteEnd := runeOffset(m.value, m.cursorPos+1)
+				m.value = m.value[:bytePos] + m.value[byteEnd:]
 			}
 		case "left":
 			if m.cursorPos > 0 {
 				m.cursorPos--
 			}
 		case "right":
-			if m.cursorPos < len(m.value) {
+			if m.cursorPos < runeCount {
 				m.cursorPos++
 			}
 		case "home", "ctrl+a":
 			m.cursorPos = 0
 		case "end", "ctrl+e":
-			m.cursorPos = len(m.value)
+			m.cursorPos = runeCount
 		case "ctrl+u":
-			m.value = m.value[m.cursorPos:]
+			bytePos := runeOffset(m.value, m.cursorPos)
+			m.value = m.value[bytePos:]
 			m.cursorPos = 0
 		case "ctrl+k":
-			m.value = m.value[:m.cursorPos]
+			bytePos := runeOffset(m.value, m.cursorPos)
+			m.value = m.value[:bytePos]
 		default:
-			// Handle regular character input
-			if len(msg.String()) == 1 {
+			// Handle regular character input (supports multi-byte Unicode)
+			if utf8.RuneCountInString(msg.String()) == 1 {
 				char := msg.String()
-				m.value = m.value[:m.cursorPos] + char + m.value[m.cursorPos:]
+				bytePos := runeOffset(m.value, m.cursorPos)
+				m.value = m.value[:bytePos] + char + m.value[bytePos:]
 				m.cursorPos++
 			}
 		}
@@ -105,9 +127,10 @@ func (m InputModel) View() string {
 		// Show placeholder
 		b.WriteString(PlaceholderStyle.Render(m.placeholder))
 	} else {
-		// Show value with cursor
-		before := m.value[:m.cursorPos]
-		after := m.value[m.cursorPos:]
+		// Show value with cursor (rune-safe splitting)
+		bytePos := runeOffset(m.value, m.cursorPos)
+		before := m.value[:bytePos]
+		after := m.value[bytePos:]
 		b.WriteString(InputStyle.Render(before))
 		b.WriteString(CursorStyle.Render("▌"))
 		b.WriteString(InputStyle.Render(after))

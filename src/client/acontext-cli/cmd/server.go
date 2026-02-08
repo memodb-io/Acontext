@@ -94,7 +94,12 @@ func (b *OutputBuffer) AddLine(line string) {
 	b.mu.Lock()
 	b.lines = append(b.lines, line)
 	if len(b.lines) > b.maxLen {
-		b.lines = b.lines[1:]
+		// Copy to a new slice to avoid leaking memory from the underlying array.
+		// Without this, b.lines = b.lines[1:] would advance the slice header while
+		// the old elements remain in the underlying array, causing unbounded growth.
+		newLines := make([]string, b.maxLen)
+		copy(newLines, b.lines[len(b.lines)-b.maxLen:])
+		b.lines = newLines
 	}
 	callback = b.onNewLine
 	b.mu.Unlock()

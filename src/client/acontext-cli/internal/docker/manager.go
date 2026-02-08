@@ -178,11 +178,32 @@ func GetServicePorts(projectDir string, composeFile string) (map[string]string, 
 		return nil, err
 	}
 
-	// Parse JSON output - each line is a JSON object
 	portsMap := make(map[string]string)
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	raw := strings.TrimSpace(string(output))
+	if raw == "" {
+		return portsMap, nil
+	}
+
+	// Handle both JSON array format and line-by-line JSON objects.
+	// Newer docker compose versions may output a JSON array, while older ones
+	// output one JSON object per line.
+	if strings.HasPrefix(raw, "[") {
+		var entries []ServiceInfo
+		if err := json.Unmarshal([]byte(raw), &entries); err == nil {
+			for _, info := range entries {
+				if info.Service != "" && info.Ports != "" {
+					portsMap[info.Service] = info.Ports
+				}
+			}
+			return portsMap, nil
+		}
+	}
+
+	// Fallback: parse line-by-line JSON objects
+	lines := strings.Split(raw, "\n")
 	for _, line := range lines {
-		if line == "" {
+		line = strings.TrimSpace(line)
+		if line == "" || line == "[" || line == "]" {
 			continue
 		}
 		var info ServiceInfo

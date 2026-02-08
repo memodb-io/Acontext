@@ -203,7 +203,7 @@ func discoverTemplates(repo, language string) ([]Preset, error) {
 }
 
 // formatTemplateName formats template name for display
-func formatTemplateName(language, templateName string) string {
+func formatTemplateName(_ string, templateName string) string {
 	// Capitalize first letter and replace hyphens/underscores with spaces
 	parts := strings.FieldsFunc(templateName, func(r rune) bool {
 		return r == '-' || r == '_'
