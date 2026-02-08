@@ -675,6 +675,19 @@ func TestArtifactService_GlobArtifacts(t *testing.T) {
 			wantErr:   false,
 		},
 		{
+			name:    "exact path match without wildcards",
+			pattern: "/src/main.py",
+			limit:   100,
+			setupMock: func(repo *MockArtifactRepo) {
+				repo.On("GlobArtifacts", mock.Anything, mock.Anything, "/src/main.py", 100).
+					Return([]*model.Artifact{
+						{Filename: "main.py", Path: "/src/"},
+					}, nil)
+			},
+			wantCount: 1,
+			wantErr:   false,
+		},
+		{
 			name:    "limit enforcement",
 			pattern: "**/*.txt",
 			limit:   0, // Should default to 100
