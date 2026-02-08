@@ -23,10 +23,11 @@ import Image from "next/image";
 import Link from "next/link";
 import {
   Folder,
-  Database,
   MessageSquare,
   LayoutDashboard,
   Activity,
+  Wrench,
+  Users,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Separator } from "@/components/ui/separator";
@@ -72,14 +73,19 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       icon: Folder,
     },
     {
-      title: t("space"),
-      url: "/space",
-      icon: Database,
+      title: t("users"),
+      url: "/users",
+      icon: Users,
     },
     {
       title: t("session"),
       url: "/session",
       icon: MessageSquare,
+    },
+    {
+      title: t("agentSkills"),
+      url: "/agent_skills",
+      icon: Wrench,
     },
   ];
 
@@ -148,7 +154,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               <SidebarMenuItem key={item.title}>
                 <SidebarMenuButton
                   asChild
-                  isActive={pathname === item.url}
+                  isActive={pathname === item.url || pathname.startsWith(item.url + "/")}
                   tooltip={{
                     children: item.title,
                     hidden: false,

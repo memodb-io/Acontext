@@ -7,13 +7,6 @@ import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -46,30 +39,26 @@ import {
   deleteSession,
   getSessionConfigs,
   updateSessionConfigs,
-  connectSessionToSpace,
 } from "@/app/session/actions";
-import {
-  getSpaces,
-} from "@/app/space/actions";
-import { Session, Space } from "@/types";
+import { Session } from "@/types";
 import ReactCodeMirror from "@uiw/react-codemirror";
 import { okaidia } from "@uiw/codemirror-theme-okaidia";
 import { json } from "@codemirror/lang-json";
 import { EditorView } from "@codemirror/view";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function SessionsPage() {
-  const t = useTranslations("space");
+  const t = useTranslations("session");
   const router = useRouter();
   const { resolvedTheme } = useTheme();
 
   const [sessions, setSessions] = useState<Session[]>([]);
-  const [spaces, setSpaces] = useState<Space[]>([]);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [isRefreshingSessions, setIsRefreshingSessions] = useState(false);
   const [sessionFilterText, setSessionFilterText] = useState("");
-  const [sessionSpaceFilter, setSessionSpaceFilter] = useState<string>("all");
+  const [userFilter, setUserFilter] = useState("");
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
@@ -79,7 +68,8 @@ export default function SessionsPage() {
   const [createConfigValue, setCreateConfigValue] = useState("{}");
   const [createConfigError, setCreateConfigError] = useState<string>("");
   const [isCreateConfigValid, setIsCreateConfigValid] = useState(true);
-  const [createSpaceId, setCreateSpaceId] = useState<string>("none");
+  const [createUser, setCreateUser] = useState<string>("");
+  const [createDisableTaskTracking, setCreateDisableTaskTracking] = useState(false);
 
   const [configDialogOpen, setConfigDialogOpen] = useState(false);
   const [configEditValue, setConfigEditValue] = useState("");
@@ -89,11 +79,6 @@ export default function SessionsPage() {
   const [configEditTarget, setConfigEditTarget] = useState<Session | null>(
     null
   );
-
-  const [connectDialogOpen, setConnectDialogOpen] = useState(false);
-  const [connectTargetSession, setConnectTargetSession] = useState<Session | null>(null);
-  const [connectSpaceId, setConnectSpaceId] = useState<string>("");
-  const [isConnecting, setIsConnecting] = useState(false);
 
   const filteredSessions = sessions.filter((session) => {
     const matchesId = session.id
@@ -105,22 +90,19 @@ export default function SessionsPage() {
   const loadSessions = async () => {
     try {
       setIsLoadingSessions(true);
-      // Pass filter parameters to backend
-      let spaceId: string | undefined;
-      let notConnected: boolean | undefined;
-
-      if (sessionSpaceFilter === "not-connected") {
-        notConnected = true;
-      } else if (sessionSpaceFilter !== "all") {
-        spaceId = sessionSpaceFilter;
-      }
 
       const allSsns: Session[] = [];
       let cursor: string | undefined = undefined;
       let hasMore = true;
 
       while (hasMore) {
-        const res = await getSessions(spaceId, notConnected, 50, cursor, true);
+        const res = await getSessions(
+          userFilter || undefined,
+          undefined,
+          50,
+          cursor,
+          true
+        );
         if (res.code !== 0) {
           console.error(res.message);
           break;
@@ -138,34 +120,10 @@ export default function SessionsPage() {
     }
   };
 
-  const loadSpaces = async () => {
-    try {
-      const allSpcs: Space[] = [];
-      let cursor: string | undefined = undefined;
-      let hasMore = true;
-
-      while (hasMore) {
-        const res = await getSpaces(50, cursor, true);
-        if (res.code !== 0) {
-          console.error(res.message);
-          break;
-        }
-        allSpcs.push(...(res.data?.items || []));
-        cursor = res.data?.next_cursor;
-        hasMore = res.data?.has_more || false;
-      }
-
-      setSpaces(allSpcs);
-    } catch (error) {
-      console.error("Failed to load spaces:", error);
-    }
-  };
-
   useEffect(() => {
     loadSessions();
-    loadSpaces();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionSpaceFilter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userFilter]);
 
   const validateJSON = (value: string): boolean => {
     const trimmed = value.trim();
@@ -216,12 +174,12 @@ export default function SessionsPage() {
     setCreateConfigValue("{}");
     setCreateConfigError("");
     setIsCreateConfigValid(true);
-    setCreateSpaceId("none");
+    setCreateUser("");
+    setCreateDisableTaskTracking(false);
     setCreateDialogOpen(true);
   };
 
   const handleCreateSession = async () => {
-    // Validate input
     const trimmedValue = createConfigValue.trim();
     if (!trimmedValue) {
       setCreateConfigError(t("invalidJson") + ": Empty configuration");
@@ -232,8 +190,11 @@ export default function SessionsPage() {
       const configs = JSON.parse(trimmedValue);
       setCreateConfigError("");
       setIsCreatingSession(true);
-      const spaceId = createSpaceId === "none" ? undefined : createSpaceId;
-      const res = await createSession(spaceId, configs);
+      const res = await createSession(
+        createUser || undefined,
+        configs,
+        createDisableTaskTracking || undefined
+      );
       if (res.code !== 0) {
         console.error(res.message);
         setCreateConfigError(res.message);
@@ -304,7 +265,6 @@ export default function SessionsPage() {
   const handleSaveConfig = async () => {
     if (!configEditTarget) return;
 
-    // Validate input
     const trimmedValue = configEditValue.trim();
     if (!trimmedValue) {
       setConfigEditError(t("invalidJson") + ": Empty configuration");
@@ -337,31 +297,6 @@ export default function SessionsPage() {
     }
   };
 
-  const handleOpenConnectDialog = (session: Session) => {
-    setConnectTargetSession(session);
-    setConnectSpaceId(spaces.length > 0 ? spaces[0].id : "");
-    setConnectDialogOpen(true);
-  };
-
-  const handleConnectToSpace = async () => {
-    if (!connectTargetSession || !connectSpaceId) return;
-
-    try {
-      setIsConnecting(true);
-      const res = await connectSessionToSpace(connectTargetSession.id, connectSpaceId);
-      if (res.code !== 0) {
-        console.error(res.message);
-        return;
-      }
-      await loadSessions();
-      setConnectDialogOpen(false);
-    } catch (error) {
-      console.error("Failed to connect to space:", error);
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
   const handleGoToMessages = (sessionId: string, e: React.MouseEvent) => {
     e.stopPropagation();
     router.push(`/session/${sessionId}/messages`);
@@ -379,7 +314,7 @@ export default function SessionsPage() {
           <div>
             <h1 className="text-2xl font-bold">{t("sessionList")}</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              {t("sessionListDescription") || "管理所有 Session"}
+              {t("sessionListDescription")}
             </p>
           </div>
           <div className="flex gap-2">
@@ -411,23 +346,13 @@ export default function SessionsPage() {
         </div>
 
         <div className="flex gap-2">
-          <Select
-            value={sessionSpaceFilter}
-            onValueChange={setSessionSpaceFilter}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("allSpaces")}</SelectItem>
-              <SelectItem value="not-connected">{t("notConnected")}</SelectItem>
-              {spaces.map((space) => (
-                <SelectItem key={space.id} value={space.id}>
-                  {space.id}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Input
+            type="text"
+            placeholder={t("filterByUser")}
+            value={userFilter}
+            onChange={(e) => setUserFilter(e.target.value)}
+            className="max-w-[200px]"
+          />
           <Input
             type="text"
             placeholder={t("filterById")}
@@ -455,7 +380,7 @@ export default function SessionsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>{t("sessionId")}</TableHead>
-                  <TableHead>{t("spaceId")}</TableHead>
+                  <TableHead>{t("userId")}</TableHead>
                   <TableHead>{t("createdAt")}</TableHead>
                   <TableHead>{t("actions")}</TableHead>
                 </TableRow>
@@ -472,10 +397,8 @@ export default function SessionsPage() {
                       {session.id}
                     </TableCell>
                     <TableCell className="font-mono">
-                      {session.space_id || (
-                        <span className="text-muted-foreground">
-                          {t("notConnected")}
-                        </span>
+                      {session.user_id || (
+                        <span className="text-muted-foreground">-</span>
                       )}
                     </TableCell>
                     <TableCell>
@@ -488,24 +411,14 @@ export default function SessionsPage() {
                           size="sm"
                           onClick={(e) => handleGoToMessages(session.id, e)}
                         >
-                          {t("messages") || "Messages"}
+                          {t("messages")}
                         </Button>
                         <Button
                           variant="secondary"
                           size="sm"
                           onClick={(e) => handleGoToTasks(session.id, e)}
                         >
-                          {t("tasks") || "Tasks"}
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenConnectDialog(session);
-                          }}
-                        >
-                          {t("connectToSpace")}
+                          {t("tasks")}
                         </Button>
                         <Button
                           variant="secondary"
@@ -611,55 +524,6 @@ export default function SessionsPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Connect to Space Dialog */}
-      <Dialog open={connectDialogOpen} onOpenChange={setConnectDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{t("connectToSpaceTitle")}</DialogTitle>
-            <DialogDescription>{t("connectToSpaceDescription")}</DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Select
-              value={connectSpaceId}
-              onValueChange={setConnectSpaceId}
-            >
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {spaces.map((space) => (
-                  <SelectItem key={space.id} value={space.id}>
-                    {space.id}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConnectDialogOpen(false)}
-              disabled={isConnecting}
-            >
-              {t("cancel")}
-            </Button>
-            <Button
-              onClick={handleConnectToSpace}
-              disabled={isConnecting || !connectSpaceId}
-            >
-              {isConnecting ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {t("connecting")}
-                </>
-              ) : (
-                t("connect")
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Create Session Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -670,24 +534,29 @@ export default function SessionsPage() {
           <div className="py-4 space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">
-                {t("selectSpace")}
+                {t("user")}
               </label>
-              <Select
-                value={createSpaceId}
-                onValueChange={setCreateSpaceId}
+              <Input
+                type="text"
+                placeholder={t("userPlaceholder")}
+                value={createUser}
+                onChange={(e) => setCreateUser(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="disableTaskTracking"
+                checked={createDisableTaskTracking}
+                onCheckedChange={(checked) =>
+                  setCreateDisableTaskTracking(checked === true)
+                }
+              />
+              <label
+                htmlFor="disableTaskTracking"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{t("notConnected")}</SelectItem>
-                  {spaces.map((space) => (
-                    <SelectItem key={space.id} value={space.id}>
-                      {space.id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                {t("disableTaskTracking")}
+              </label>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">
@@ -695,7 +564,7 @@ export default function SessionsPage() {
               </label>
               <ReactCodeMirror
                 value={createConfigValue}
-                height="400px"
+                height="300px"
                 theme={resolvedTheme === "dark" ? okaidia : "light"}
                 extensions={[json(), EditorView.lineWrapping]}
                 onChange={handleCreateConfigChange}
@@ -734,4 +603,3 @@ export default function SessionsPage() {
     </div>
   );
 }
-

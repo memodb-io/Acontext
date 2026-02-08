@@ -13,8 +13,8 @@ import {
 
 // Session APIs
 export async function getSessions(
-  spaceId?: string,
-  notConnected?: boolean,
+  user?: string,
+  filterByConfigs?: string,
   limit: number = 20,
   cursor?: string,
   time_desc: boolean = false
@@ -24,11 +24,11 @@ export async function getSessions(
       limit: limit.toString(),
       time_desc: time_desc.toString(),
     });
-    if (spaceId) {
-      params.append("space_id", spaceId);
+    if (user) {
+      params.append("user", user);
     }
-    if (notConnected !== undefined) {
-      params.append("not_connected", notConnected.toString());
+    if (filterByConfigs) {
+      params.append("filter_by_configs", filterByConfigs);
     }
     if (cursor) {
       params.append("cursor", cursor);
@@ -50,17 +50,29 @@ export async function getSessions(
 }
 
 export async function createSession(
-  space_id?: string,
-  configs?: Record<string, unknown>
+  user?: string,
+  configs?: Record<string, unknown>,
+  disableTaskTracking?: boolean,
+  useUUID?: string
 ): Promise<ApiResponse<Session>> {
   try {
+    const body: Record<string, unknown> = {
+      configs: configs || {},
+    };
+    if (user) {
+      body.user = user;
+    }
+    if (disableTaskTracking !== undefined) {
+      body.disable_task_tracking = disableTaskTracking;
+    }
+    if (useUUID) {
+      body.use_uuid = useUUID;
+    }
+
     const response = await fetch(`${API_SERVER_URL}/api/v1/session`, {
       method: "POST",
       headers: getAuthHeaders(),
-      body: JSON.stringify({
-        space_id: space_id || "",
-        configs: configs || {},
-      }),
+      body: JSON.stringify(body),
     });
 
     return await handleResponse<Session>(response);
@@ -122,26 +134,6 @@ export async function updateSessionConfigs(
     return await handleResponse<null>(response);
   } catch (error) {
     return handleError(error, "updateSessionConfigs");
-  }
-}
-
-export async function connectSessionToSpace(
-  session_id: string,
-  space_id: string
-): Promise<ApiResponse<null>> {
-  try {
-    const response = await fetch(
-      `${API_SERVER_URL}/api/v1/session/${session_id}/connect_to_space`,
-      {
-        method: "POST",
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ space_id }),
-      }
-    );
-
-    return await handleResponse<null>(response);
-  } catch (error) {
-    return handleError(error, "connectSessionToSpace");
   }
 }
 
@@ -270,4 +262,3 @@ export async function getTasks(
     return handleError(error, "getTasks");
   }
 }
-

@@ -38,18 +38,11 @@ export interface GetArtifactResp {
   content?: FileContent | null;
 }
 
-export interface Space {
-  id: string;
-  project_id: string;
-  configs: Record<string, unknown>;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface Session {
   id: string;
   project_id: string;
-  space_id: string | null;
+  user_id: string | null;
+  disable_task_tracking: boolean;
   configs: Record<string, unknown>;
   created_at: string;
   updated_at: string;
@@ -98,19 +91,12 @@ export interface Task {
   data: Record<string, unknown>;
   status: "pending" | "running" | "success" | "failed";
   is_planning: boolean;
-  space_digested: boolean;
   created_at: string;
   updated_at: string;
 }
 
 export interface GetTasksResp {
   items: Task[];
-  next_cursor?: string;
-  has_more: boolean;
-}
-
-export interface GetSpacesResp {
-  items: Space[];
   next_cursor?: string;
   has_more: boolean;
 }
@@ -127,17 +113,45 @@ export interface GetDisksResp {
   has_more: boolean;
 }
 
-export interface Block {
+// Add types for new API entities
+
+export interface AgentSkill {
   id: string;
-  space_id: string;
-  type: string;
-  parent_id: string | null;
-  title: string;
-  props: Record<string, unknown>;
-  sort: number;
-  is_archived: boolean;
+  user_id: string | null;
+  name: string;
+  description: string;
+  file_index: { path: string; mime: string }[];
+  meta: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+}
+
+export interface GetAgentSkillsResp {
+  items: AgentSkill[];
+  next_cursor?: string;
+  has_more: boolean;
+}
+
+export interface User {
+  id: string;
+  project_id: string;
+  identifier: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GetUsersResp {
+  items: User[];
+  next_cursor?: string;
+  has_more: boolean;
+}
+
+export interface UserResources {
+  counts: {
+    sessions_count: number;
+    disks_count: number;
+    skills_count: number;
+  };
 }
 
 // Message related types

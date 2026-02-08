@@ -39,7 +39,7 @@ import { EditorView } from "@codemirror/view";
 const PAGE_SIZE = 10;
 
 export default function TasksPage() {
-  const t = useTranslations("space");
+  const t = useTranslations("session");
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -385,11 +385,6 @@ export default function TasksPage() {
                   {selectedTask.is_planning && (
                     <span className="inline-flex items-center rounded-md bg-purple-500/10 text-purple-500 border border-purple-500/20 px-2 py-1 text-xs font-medium">
                       Planning
-                    </span>
-                  )}
-                  {selectedTask.space_digested && (
-                    <span className="inline-flex items-center rounded-md bg-blue-500/10 text-blue-500 border border-blue-500/20 px-2 py-1 text-xs font-medium">
-                      Space Digested
                     </span>
                   )}
                 </div>

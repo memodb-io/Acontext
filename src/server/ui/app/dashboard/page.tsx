@@ -53,7 +53,6 @@ const createPlaceholderData = (timeRange: TimeRange): DashboardData => {
     taskStatistics: [],
     newSessionsCount: labels.map((label) => ({ date: label, count: 0 })),
     newDisksCount: labels.map((label) => ({ date: label, count: 0 })),
-    newSpacesCount: labels.map((label) => ({ date: label, count: 0 })),
   }
 }
 
@@ -157,10 +156,6 @@ export default function DashboardPage() {
   const hasNewDisksData = useMemo(
     () => dashboardData.newDisksCount.some((point) => point.count > 0),
     [dashboardData.newDisksCount]
-  )
-  const hasNewSpacesData = useMemo(
-    () => dashboardData.newSpacesCount.some((point) => point.count > 0),
-    [dashboardData.newSpacesCount]
   )
 
   const chartConfig = useMemo(
@@ -550,8 +545,8 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      {/* New counts section - 3 charts in one row */}
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* New counts section - 2 charts in one row */}
+      <div className="grid gap-4 md:grid-cols-2">
         {/* New sessions count bar chart */}
         <Card>
           <CardHeader>
@@ -622,45 +617,6 @@ export default function DashboardPage() {
                   dataKey="count"
                   fill="#ec4899"
                   name={t("newDisks")}
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            )
-          )}
-          </CardContent>
-        </Card>
-
-        {/* New spaces count bar chart */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{t("newSpacesChart")}</CardTitle>
-            <CardDescription>{t("newSpacesChartDesc")}</CardDescription>
-          </CardHeader>
-          <CardContent>
-          {renderChart(
-            hasNewSpacesData,
-            (
-              <BarChart data={dashboardData.newSpacesCount} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="date"
-                  tick={{ fontSize: 12 }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
-                />
-                <YAxis width={50} />
-                <ChartTooltip
-                  content={(props: CustomTooltipProps) => (
-                    <ChartTooltipContent
-                      {...props}
-                    />
-                  )}
-                />
-                <Bar
-                  dataKey="count"
-                  fill="#14b8a6"
-                  name={t("newSpaces")}
                   radius={[4, 4, 0, 0]}
                 />
               </BarChart>

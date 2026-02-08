@@ -191,7 +191,7 @@ const MessageContentPreview = ({
 };
 
 export default function MessagesPage() {
-  const t = useTranslations("space");
+  const t = useTranslations("session");
   const params = useParams();
   const router = useRouter();
   const sessionId = params.sessionId as string;

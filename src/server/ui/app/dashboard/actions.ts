@@ -30,7 +30,6 @@ export type DashboardData = {
   taskStatistics: Array<TaskStatistics>;
   newSessionsCount: Array<{ date: string; count: number }>;
   newDisksCount: Array<{ date: string; count: number }>;
-  newSpacesCount: Array<{ date: string; count: number }>;
 };
 
 declare global {
@@ -101,10 +100,6 @@ const emptyData = (days: number): DashboardData => {
       date: label,
       count: 0,
     })),
-    newSpacesCount: buckets.map(({ label }) => ({
-      date: label,
-      count: 0,
-    })),
   };
 };
 
@@ -144,7 +139,6 @@ export const fetchDashboardData = async (
       taskStatsRows,
       newSessionsRows,
       newDisksRows,
-      newSpacesRows,
     ] = await Promise.all([
       pool.query<{
         date: string;
@@ -338,21 +332,6 @@ export const fetchDashboardData = async (
         `,
         [intervalDays]
       ),
-      pool.query<{
-        date: string;
-        count: number;
-      }>(
-        `
-        SELECT
-          TO_CHAR(DATE(created_at), 'YYYY-MM-DD') AS date,
-          COUNT(*) AS count
-        FROM spaces
-        WHERE created_at >= CURRENT_DATE - ($1::int) * INTERVAL '1 day'
-        GROUP BY DATE(created_at)
-        ORDER BY DATE(created_at) ASC
-        `,
-        [intervalDays]
-      ),
     ]);
 
     const taskSuccessMap = new Map(
@@ -450,9 +429,6 @@ export const fetchDashboardData = async (
     const newDisksMap = new Map(
       newDisksRows.rows.map((row) => [row.date, row])
     );
-    const newSpacesMap = new Map(
-      newSpacesRows.rows.map((row) => [row.date, row])
-    );
 
     const newSessionsCount = dateBuckets.map(({ key, label }) => {
       const row = newSessionsMap.get(key);
@@ -470,14 +446,6 @@ export const fetchDashboardData = async (
       };
     });
 
-    const newSpacesCount = dateBuckets.map(({ key, label }) => {
-      const row = newSpacesMap.get(key);
-      return {
-        date: label,
-        count: row?.count ?? 0,
-      };
-    });
-
     return {
       taskSuccessRate,
       taskStatusDistribution,
@@ -488,7 +456,6 @@ export const fetchDashboardData = async (
       taskStatistics,
       newSessionsCount,
       newDisksCount,
-      newSpacesCount,
     };
   }).catch((error) => {
     console.error("Failed to fetch dashboard data:", error);
