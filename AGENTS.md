@@ -13,9 +13,12 @@ Acontext is a simple context storage for building cloud-native AI Agents
 
 ## Plan-driven Development
 - Always plan a markdown at plans/ before you code
-- A plan should at least contain `features`, `overall designs`, `implementation TODOS`, `impact files`, `new deps`, `test cases` sections.
 - Remember to update the related plans after you finish your work.
-- Once you finished a plan, always report to me to make sure you're doing it right. If I approve your code, move the plan .md to ./plans/done to archive it.
+- A plan should at least contain `features`/`show case`, `designs overview`, `TODOS`, `new deps`, `test cases` sections.
+  - always use the features/show case to present what you're going to build.
+  - use checklist in `TODOS` section, for each checkbox, you must have a clear descripion of what to do and list all the files that will be modified.
+  - in `new deps` section, you must list all the new external dependencies that will be added.
+  - in `test cases` section, use checklist format to list all the test cases that should be covered.
 
 ## MODULES
 - API is the main module that handles the API requests and responses to Acontext, SDKs are the client-side modules that interact with the API. 
