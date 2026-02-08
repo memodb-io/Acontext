@@ -176,9 +176,10 @@ func (r *artifactRepo) GlobArtifacts(ctx context.Context, diskID uuid.UUID, patt
 	// But since we're doing full replacement, we don't need to escape
 
 	// Match against combined path/filename
+	// path already ends with '/', so no extra separator needed
 	query := r.db.WithContext(ctx).
 		Where("disk_id = ?", diskID).
-		Where("(path || '/' || filename) LIKE ?", sqlPattern).
+		Where("(path || filename) LIKE ?", sqlPattern).
 		Limit(limit)
 
 	err := query.Find(&artifacts).Error
