@@ -1,4 +1,4 @@
-.PHONY: build install clean test help
+.PHONY: build install clean test help lint format tidy check dev run
 
 # Variables
 BINARY_NAME=acontext-cli
@@ -18,9 +18,9 @@ build: ## Build the binary
 	@go build -ldflags "-X main.cliVersion=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PACKAGE)
 	@echo "✅ Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
-install: build ## Install to /usr/local/bin
-	@echo "Installing $(BINARY_NAME) to /usr/local/bin..."
-	@sudo cp $(BUILD_DIR)/$(BINARY_NAME) /usr/local/bin/
+install: build ## Install to /usr/local/bin as 'acontext'
+	@echo "Installing as acontext to /usr/local/bin..."
+	@sudo cp $(BUILD_DIR)/$(BINARY_NAME) /usr/local/bin/acontext
 	@echo "✅ Installed successfully"
 
 clean: ## Clean build artifacts

@@ -62,19 +62,3 @@ func CreateSandboxProject(sandboxType, packageManager, baseDir string) error {
 	fmt.Printf("✅ Project created successfully at %s\n", projectPath)
 	return nil
 }
-
-// CreateSandboxProjectWithOverwrite creates a new sandbox project, removing existing directory if needed
-func CreateSandboxProjectWithOverwrite(sandboxType, packageManager, baseDir string) error {
-	projectPath := filepath.Join("sandbox", sandboxType)
-	fullPath := filepath.Join(baseDir, projectPath)
-
-	// Remove existing directory if it exists
-	if _, err := os.Stat(fullPath); err == nil {
-		fmt.Printf("🗑️  Removing existing project at %s...\n", projectPath)
-		if err := os.RemoveAll(fullPath); err != nil {
-			return fmt.Errorf("failed to remove existing project: %w", err)
-		}
-	}
-
-	return CreateSandboxProject(sandboxType, packageManager, baseDir)
-}

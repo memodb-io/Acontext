@@ -6,7 +6,7 @@ import "fmt"
 type SandboxType struct {
 	Name        string // e.g., "cloudflare"
 	DisplayName string // e.g., "Cloudflare Sandbox"
-	NpmPackage  string // e.g., "@acontext/sandbox-cloudflare"
+	NpmPackage  string // shorthand for `create` command, e.g., "@acontext/sandbox-cloudflare" → resolves to "@acontext/create-sandbox-cloudflare"
 }
 
 // GetAvailableSandboxTypes returns the list of available sandbox types
@@ -15,7 +15,7 @@ func GetAvailableSandboxTypes() []SandboxType {
 		{
 			Name:        "cloudflare",
 			DisplayName: "Cloudflare Sandbox",
-			NpmPackage:  "@acontext/create-sandbox-cloudflare",
+			NpmPackage:  "@acontext/sandbox-cloudflare",
 		},
 	}
 }

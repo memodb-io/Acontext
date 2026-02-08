@@ -18,7 +18,6 @@ bin/
 out/
 
 # Go specific
-*.mod.sum
 go.work
 go.work.sum
 
@@ -48,7 +47,6 @@ temp/
 
 # OS files
 Thumbs.db
-.DS_Store
 
 # Test outputs
 test-results/
@@ -59,7 +57,7 @@ checksums.txt
 *.tar.gz
 *.zip
 
-# Snapshots (for GoReleaser testing)
+# Distribution
 dist/**
 
 db/

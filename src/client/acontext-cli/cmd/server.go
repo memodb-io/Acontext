@@ -111,12 +111,6 @@ func (b *OutputBuffer) GetLines() []string {
 	return append([]string(nil), b.lines...)
 }
 
-func (b *OutputBuffer) Clear() {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	b.lines = make([]string, 0)
-}
-
 type model struct {
 	sandboxBuffer     *OutputBuffer
 	dockerBuffer      *OutputBuffer
@@ -615,7 +609,11 @@ func runServerUp(cmd *cobra.Command, args []string) error {
 		// Reader exits via ctx.Done().
 	}
 
-	defer cleanupOnce.Do(cleanupFunc)
+	defer func() {
+		fmt.Println("\n🛑 Stopping services...")
+		cleanupOnce.Do(cleanupFunc)
+		fmt.Println("✅ Services stopped successfully")
+	}()
 
 	go func() {
 		for {
@@ -850,9 +848,6 @@ func runServerUp(cmd *cobra.Command, args []string) error {
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("TUI error: %w", err)
 	}
-
-	fmt.Println("\n🛑 Stopping services...")
-	fmt.Println("✅ Services stopped successfully")
 
 	return nil
 }

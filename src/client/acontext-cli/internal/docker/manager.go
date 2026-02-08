@@ -61,12 +61,14 @@ func Logs(projectDir string, composeFile string, service string) error {
 func WaitForHealth(projectDir string, composeFile string, timeout time.Duration) error {
 	fmt.Println("⏳ Waiting for services to be healthy...")
 
-	deadline := time.Now().Add(timeout)
+	deadlineTimer := time.NewTimer(timeout)
+	defer deadlineTimer.Stop()
+
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 
 	checkCount := 0
-	for time.Now().Before(deadline) {
+	for {
 		checkCount++
 
 		// Check critical services health status
@@ -85,7 +87,7 @@ func WaitForHealth(projectDir string, composeFile string, timeout time.Duration)
 			select {
 			case <-ticker.C:
 				fmt.Print(".")
-			case <-time.After(time.Until(deadline)):
+			case <-deadlineTimer.C:
 				return fmt.Errorf("timeout waiting for services to start")
 			}
 			continue
@@ -122,13 +124,11 @@ func WaitForHealth(projectDir string, composeFile string, timeout time.Duration)
 			if checkCount%10 == 0 {
 				fmt.Print(".")
 			}
-		case <-time.After(time.Until(deadline)):
+		case <-deadlineTimer.C:
+			fmt.Println()
 			return fmt.Errorf("timeout waiting for services to be healthy")
 		}
 	}
-
-	fmt.Println()
-	return fmt.Errorf("timeout waiting for services to be healthy")
 }
 
 //go:embed docker-compose.yaml

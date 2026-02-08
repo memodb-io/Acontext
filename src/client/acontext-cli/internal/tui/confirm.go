@@ -129,7 +129,10 @@ func RunConfirm(prompt string, defaultValue bool) (bool, error) {
 		return false, fmt.Errorf("confirm error: %w", err)
 	}
 
-	result := finalModel.(ConfirmModel)
+	result, ok := finalModel.(ConfirmModel)
+	if !ok {
+		return false, fmt.Errorf("unexpected model type")
+	}
 	if result.quitting {
 		return false, fmt.Errorf("confirm cancelled")
 	}

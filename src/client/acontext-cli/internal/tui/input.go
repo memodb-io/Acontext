@@ -147,7 +147,10 @@ func RunInput(prompt, placeholder, defaultValue string) (string, error) {
 		return "", fmt.Errorf("input error: %w", err)
 	}
 
-	result := finalModel.(InputModel)
+	result, ok := finalModel.(InputModel)
+	if !ok {
+		return "", fmt.Errorf("unexpected model type")
+	}
 	if result.quitting {
 		return "", fmt.Errorf("input cancelled")
 	}
