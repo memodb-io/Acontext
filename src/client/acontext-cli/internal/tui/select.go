@@ -139,7 +139,10 @@ func RunSelect(title string, options []SelectOption) (string, error) {
 		return "", fmt.Errorf("select error: %w", err)
 	}
 
-	result := finalModel.(SelectModel)
+	result, ok := finalModel.(SelectModel)
+	if !ok {
+		return "", fmt.Errorf("unexpected model type")
+	}
 	if result.quitting {
 		return "", fmt.Errorf("selection cancelled")
 	}
@@ -176,7 +179,10 @@ func RunSelectWithLabel(title string, options []SelectOption) (string, string, e
 		return "", "", fmt.Errorf("select error: %w", err)
 	}
 
-	result := finalModel.(SelectModel)
+	result, ok := finalModel.(SelectModel)
+	if !ok {
+		return "", "", fmt.Errorf("unexpected model type")
+	}
 	if result.quitting {
 		return "", "", fmt.Errorf("selection cancelled")
 	}

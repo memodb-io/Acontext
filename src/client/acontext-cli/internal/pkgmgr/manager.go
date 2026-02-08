@@ -6,23 +6,32 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/memodb-io/Acontext/acontext-cli/internal/tui"
 )
+
+// lockFileEntry maps a lock file name to its package manager.
+type lockFileEntry struct {
+	File string
+	PM   string
+}
+
+// lockFileOrder defines the deterministic preference order for lock file detection.
+var lockFileOrder = []lockFileEntry{
+	{"pnpm-lock.yaml", "pnpm"},
+	{"package-lock.json", "npm"},
+	{"yarn.lock", "yarn"},
+	{"bun.lockb", "bun"},
+}
 
 // DetectPackageManager detects the package manager used in a project directory
 // by checking for lock files. Returns the package manager name or error.
 func DetectPackageManager(projectDir string) (string, error) {
 	// Check for lock files in order of preference
-	lockFiles := map[string]string{
-		"pnpm-lock.yaml":    "pnpm",
-		"package-lock.json": "npm",
-		"yarn.lock":         "yarn",
-		"bun.lockb":         "bun",
-	}
-
-	for lockFile, pm := range lockFiles {
-		lockPath := filepath.Join(projectDir, lockFile)
+	for _, entry := range lockFileOrder {
+		lockPath := filepath.Join(projectDir, entry.File)
 		if _, err := os.Stat(lockPath); err == nil {
-			return pm, nil
+			return entry.PM, nil
 		}
 	}
 
@@ -97,11 +106,11 @@ func ExecuteCommand(dir, command string) error {
 
 // PromptPackageManager prompts the user to select a package manager
 func PromptPackageManager() (string, error) {
-	options := []string{"pnpm", "npm", "yarn", "bun"}
+	candidates := []string{"pnpm", "npm", "yarn", "bun"}
 
 	// Filter out unavailable package managers
 	available := []string{}
-	for _, pm := range options {
+	for _, pm := range candidates {
 		if isPackageManagerInstalled(pm) {
 			available = append(available, pm)
 		}
@@ -111,12 +120,19 @@ func PromptPackageManager() (string, error) {
 		return "npm", nil // Default to npm if none available
 	}
 
-	// If only one is available, return it
+	// If only one is available, return it directly
 	if len(available) == 1 {
 		return available[0], nil
 	}
 
-	// Use survey to prompt user (we'll need to import it in the calling code)
-	// For now, return the first available
-	return available[0], nil
+	// Build TUI select options from available package managers
+	options := make([]tui.SelectOption, len(available))
+	for i, pm := range available {
+		options[i] = tui.SelectOption{
+			Label: pm,
+			Value: pm,
+		}
+	}
+
+	return tui.RunSelect("Select a package manager:", options)
 }

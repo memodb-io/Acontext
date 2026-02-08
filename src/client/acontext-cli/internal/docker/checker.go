@@ -18,13 +18,10 @@ func CheckDockerInstalled() error {
 		return fmt.Errorf("docker daemon is not running. Please start Docker first")
 	}
 
-	// Check if docker compose command is available
-	if _, err := exec.LookPath("docker"); err == nil {
-		// Try docker compose version
-		cmd = exec.Command("docker", "compose", "version")
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("docker compose is not available. Please install Docker Compose V2")
-		}
+	// Check if docker compose is available
+	cmd = exec.Command("docker", "compose", "version")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("docker compose is not available. Please install Docker Compose V2")
 	}
 
 	return nil

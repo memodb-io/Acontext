@@ -8,9 +8,6 @@ on:
 permissions:
   contents: write 
 
-env:
-  GO_VERSION: '1.25.7'
-
 jobs:
   create-release:
     name: Create Release
@@ -50,10 +47,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Read Go version from go.mod
+        id: go-version
+        run: |
+          GO_VERSION=$(grep '^go ' src/client/acontext-cli/go.mod | awk '{print $2}')
+          echo "version=$GO_VERSION" >> $GITHUB_OUTPUT
+
       - name: Go Release Binaries 
         uses: wangyoucao577/go-release-action@v1
         with:
-          goversion: ${{ env.GO_VERSION }}
+          goversion: ${{ steps.go-version.outputs.version }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}

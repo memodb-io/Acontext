@@ -43,6 +43,7 @@ func DownloadTemplateWithVars(template *Config, destDir string, vars map[string]
 		"git", "clone",
 		"--filter=blob:none",
 		"--sparse",
+		"--depth=1",
 		"--quiet",
 		template.Repo,
 		tempDir,

@@ -26,43 +26,24 @@ func GetVersion() string {
 }
 
 func main() {
-	// Print logo on first run (skip for help commands and root command)
-	shouldSkipLogo := false
-
-	// Check if running root command (no subcommand)
-	if len(os.Args) == 1 {
-		// No arguments - will execute rootCmd.Run, which prints logo
-		shouldSkipLogo = true
-	} else if len(os.Args) > 1 {
+	// Print logo before subcommand execution (skip for help, root, and unknown commands).
+	// Use Cobra's own command traversal to determine if a valid subcommand was provided,
+	// instead of maintaining a separate hardcoded list.
+	shouldPrintLogo := false
+	if len(os.Args) > 1 {
 		firstArg := os.Args[1]
-		// Skip logo for help flags
-		if firstArg == "--help" || firstArg == "-h" {
-			shouldSkipLogo = true
-		}
-		// Skip logo for "--" followed by "help" (e.g., "acontext -- help")
-		if firstArg == "--" && len(os.Args) > 2 && os.Args[2] == "help" {
-			shouldSkipLogo = true
-		}
-		// Skip logo for "help" command
-		if firstArg == "help" {
-			shouldSkipLogo = true
-		}
-		// Skip logo if executing root command (first arg is not a known subcommand)
-		knownSubcommands := []string{"create", "server", "version", "upgrade", "help"}
-		isSubcommand := false
-		for _, subcmd := range knownSubcommands {
-			if firstArg == subcmd {
-				isSubcommand = true
-				break
+		isHelpFlag := firstArg == "--help" || firstArg == "-h"
+		isHelpCmd := firstArg == "help"
+		if !isHelpFlag && !isHelpCmd {
+			// Use Cobra's Find to check if the argument resolves to a registered subcommand
+			foundCmd, _, _ := rootCmd.Find(os.Args[1:])
+			if foundCmd != nil && foundCmd != rootCmd {
+				shouldPrintLogo = true
 			}
-		}
-		if !isSubcommand {
-			// Not a known subcommand, will execute rootCmd.Run which prints logo
-			shouldSkipLogo = true
 		}
 	}
 
-	if !shouldSkipLogo {
+	if shouldPrintLogo {
 		fmt.Println(logo.Logo)
 	}
 
@@ -206,9 +187,12 @@ var versionCmd = &cobra.Command{
 	},
 }
 
-// checkUpdateAsync checks for updates asynchronously and prints a message if available
+// checkUpdateAsync checks for updates asynchronously and prints a message if available.
+// It waits up to 5 seconds for the check to complete so the message is not lost on exit.
 func checkUpdateAsync() {
+	done := make(chan struct{})
 	go func() {
+		defer close(done)
 		hasUpdate, latestVersion, err := version.IsUpdateAvailable(cliVersion)
 		if err != nil {
 			// Silently fail - don't annoy users with network errors
@@ -221,6 +205,12 @@ func checkUpdateAsync() {
 			fmt.Println()
 		}
 	}()
+
+	// Wait for the check to complete (with timeout to avoid hanging forever)
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+	}
 }
 
 // checkUpdateSync checks for updates synchronously and prints a message if available

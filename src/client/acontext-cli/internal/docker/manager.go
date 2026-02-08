@@ -61,12 +61,14 @@ func Logs(projectDir string, composeFile string, service string) error {
 func WaitForHealth(projectDir string, composeFile string, timeout time.Duration) error {
 	fmt.Println("⏳ Waiting for services to be healthy...")
 
-	deadline := time.Now().Add(timeout)
+	deadlineTimer := time.NewTimer(timeout)
+	defer deadlineTimer.Stop()
+
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
 
 	checkCount := 0
-	for time.Now().Before(deadline) {
+	for {
 		checkCount++
 
 		// Check critical services health status
@@ -85,7 +87,7 @@ func WaitForHealth(projectDir string, composeFile string, timeout time.Duration)
 			select {
 			case <-ticker.C:
 				fmt.Print(".")
-			case <-time.After(time.Until(deadline)):
+			case <-deadlineTimer.C:
 				return fmt.Errorf("timeout waiting for services to start")
 			}
 			continue
@@ -122,13 +124,11 @@ func WaitForHealth(projectDir string, composeFile string, timeout time.Duration)
 			if checkCount%10 == 0 {
 				fmt.Print(".")
 			}
-		case <-time.After(time.Until(deadline)):
+		case <-deadlineTimer.C:
+			fmt.Println()
 			return fmt.Errorf("timeout waiting for services to be healthy")
 		}
 	}
-
-	fmt.Println()
-	return fmt.Errorf("timeout waiting for services to be healthy")
 }
 
 //go:embed docker-compose.yaml
@@ -178,11 +178,32 @@ func GetServicePorts(projectDir string, composeFile string) (map[string]string, 
 		return nil, err
 	}
 
-	// Parse JSON output - each line is a JSON object
 	portsMap := make(map[string]string)
-	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+	raw := strings.TrimSpace(string(output))
+	if raw == "" {
+		return portsMap, nil
+	}
+
+	// Handle both JSON array format and line-by-line JSON objects.
+	// Newer docker compose versions may output a JSON array, while older ones
+	// output one JSON object per line.
+	if strings.HasPrefix(raw, "[") {
+		var entries []ServiceInfo
+		if err := json.Unmarshal([]byte(raw), &entries); err == nil {
+			for _, info := range entries {
+				if info.Service != "" && info.Ports != "" {
+					portsMap[info.Service] = info.Ports
+				}
+			}
+			return portsMap, nil
+		}
+	}
+
+	// Fallback: parse line-by-line JSON objects
+	lines := strings.Split(raw, "\n")
 	for _, line := range lines {
-		if line == "" {
+		line = strings.TrimSpace(line)
+		if line == "" || line == "[" || line == "]" {
 			continue
 		}
 		var info ServiceInfo

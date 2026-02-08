@@ -33,12 +33,6 @@ For system-wide installation to `/usr/local/bin`:
 curl -fsSL https://install.acontext.io | sh -s -- --system
 ```
 
-### Homebrew (macOS)
-
-```bash
-brew install acontext/tap/acontext-cli
-```
-
 ## Usage
 
 ### Create a New Project
@@ -105,7 +99,7 @@ When running `acontext server up`, if `.env` file doesn't exist, a default one w
 2. **LLM API Key**: Your API key for the selected SDK
 3. **LLM Base URL**: API endpoint (defaults to official API URLs)
 4. **Acontext API Token**: A string to build your Acontext API key (`sk-ac-<your-token>`)
-5. **Config File Path**: Optional path to a `config.yaml` file
+5. **Config File Path**: Optional path to a `config.yaml` file (copy `config.yaml.example` as a starting point)
 
 ## Development Status
 
@@ -123,7 +117,7 @@ When running `acontext server up`, if `.env` file doesn't exist, a default one w
 - ✅ Interactive .env configuration
 - ✅ Version checking and auto-update
 - ✅ CI/CD with GitHub Actions
-- ✅ Automated releases with GoReleaser
+- ✅ Automated releases with GitHub Actions
 - ✅ Comprehensive unit tests
 - ✅ Telemetry for usage analytics
 

@@ -90,10 +90,11 @@ const (
 
 // IsTTY returns true if stdout is a terminal
 func IsTTY() bool {
-	if fileInfo, _ := os.Stdout.Stat(); (fileInfo.Mode() & os.ModeCharDevice) != 0 {
-		return true
+	fileInfo, err := os.Stdout.Stat()
+	if err != nil {
+		return false
 	}
-	return false
+	return (fileInfo.Mode() & os.ModeCharDevice) != 0
 }
 
 // RenderSuccess renders a success message

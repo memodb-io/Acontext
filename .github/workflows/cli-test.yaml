@@ -16,9 +16,6 @@ on:
       - 'src/client/acontext-cli/**'
       - '.github/workflows/cli-test.yaml'
 
-env:
-  GO_VERSION: '1.25.7'
-
 jobs:
   test:
     name: Test
@@ -26,9 +23,6 @@ jobs:
     defaults:
       run:
         working-directory: src/client/acontext-cli
-    strategy:
-      matrix:
-        go-version: ['1.25.7']
     
     steps:
       - name: Checkout code
@@ -37,19 +31,8 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ matrix.go-version }}
           go-version-file: src/client/acontext-cli/go.mod
           cache: true
-
-      - name: Cache Go modules
-        uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('src/client/acontext-cli/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
 
       - name: Download dependencies
         run: go mod download
@@ -78,7 +61,6 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ env.GO_VERSION }}
           go-version-file: src/client/acontext-cli/go.mod
           cache: true
 
@@ -98,6 +80,7 @@ jobs:
 
   build:
     name: Build
+    needs: [test, lint]
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -106,7 +89,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        go-version: ['1.25.7']
     
     steps:
       - name: Checkout code
@@ -115,7 +97,6 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ matrix.go-version }}
           go-version-file: src/client/acontext-cli/go.mod
           cache: true
 
@@ -126,9 +107,9 @@ jobs:
         shell: bash
         run: |
           if [ "${{ matrix.os }}" == "windows-latest" ]; then
-            go build -ldflags "-X main.version=dev" -o acontext-cli.exe main.go
+            go build -ldflags "-X main.cliVersion=dev" -o acontext-cli.exe main.go
           else
-            go build -ldflags "-X main.version=dev" -o acontext-cli main.go
+            go build -ldflags "-X main.cliVersion=dev" -o acontext-cli main.go
           fi
 
       - name: Test binary
@@ -165,7 +146,6 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ env.GO_VERSION }}
           go-version-file: src/client/acontext-cli/go.mod
           cache: true
 
@@ -230,7 +210,7 @@ jobs:
 
       - name: Build test binary
         run: |
-          go build -ldflags "-X main.version=dev" -o acontext-cli main.go
+          go build -ldflags "-X main.cliVersion=dev" -o acontext-cli main.go
           chmod +x acontext-cli
           ./acontext-cli version
 
