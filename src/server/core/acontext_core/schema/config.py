@@ -24,6 +24,10 @@ class CoreConfig(BaseModel):
 
     llm_simple_model: str = "gpt-4.1"
 
+    # Embedding Configuration
+    task_embedding_model: str = "text-embedding-3-small"
+    task_embedding_dim: int = 1536
+
     # Core Configuration
     logging_format: str = "text"
     logging_level: str = "INFO"

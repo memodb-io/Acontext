@@ -1,5 +1,6 @@
 from typing import List
-from fastapi import APIRouter, Path, Query, HTTPException
+from fastapi import APIRouter, Path, Query
+from fastapi.exceptions import HTTPException
 from pydantic import BaseModel
 
 from acontext_core.env import LOG
@@ -25,31 +26,29 @@ async def session_flush(
     return Flag(status=r.error.status.value, errmsg=r.error.errmsg)
 
 
-# Search router for project-level session search (without session_id in path)
+# Search router for project-level session search
 class SessionSearchResponse(BaseModel):
     session_ids: List[str]
 
 
-search_router = APIRouter(prefix="/api/v1/project/{project_id}/sessions", tags=["session_search"])
+search_router = APIRouter(prefix="/api/v1/sessions", tags=["session_search"])
 
 
 @search_router.get("/search")
 async def session_search(
-    project_id: asUUID = Path(..., description="Project ID to search within"),
+    user_id: asUUID = Query(..., description="User ID to search within"),
     query: str = Query(..., description="Search query text"),
     limit: int = Query(10, ge=1, le=100, description="Maximum results to return"),
 ) -> SessionSearchResponse:
     """
-    Search for sessions by semantic similarity to query text.
-
     Uses vector embeddings on Tasks to find sessions with relevant context.
     """
-    LOG.info(f"Searching sessions in project {project_id} with query: {query[:50]}...")
+    LOG.info(f"Searching sessions in user {user_id} with query: {query[:50]}...")
 
     async with DB_CLIENT.get_session_context() as db_session:
         result = await search_sessions_by_task_query(
             db_session,
-            project_id,
+            user_id,
             query,
             topk=limit,
         )

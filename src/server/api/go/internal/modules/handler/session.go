@@ -780,8 +780,9 @@ func (h *SessionHandler) PatchConfigs(c *gin.Context) {
 }
 
 type SessionSearchReq struct {
-	Query string `form:"query" json:"query" binding:"required" example:"find conversations about authentication"`
-	Limit int    `form:"limit,default=10" json:"limit" binding:"omitempty,min=1,max=100" example:"10"`
+	Query  string `form:"query" json:"query" binding:"required" example:"find conversations about authentication"`
+	UserID string `form:"user_id" json:"user_id" binding:"required" example:"123e4567-e89b-12d3-a456-426614174000"`
+	Limit  int    `form:"limit,default=10" json:"limit" binding:"omitempty,min=1,max=100" example:"10"`
 }
 
 // SessionSearch godoc
@@ -803,18 +804,12 @@ func (h *SessionHandler) SessionSearch(c *gin.Context) {
 		return
 	}
 
-	project, ok := c.MustGet("project").(*model.Project)
-	if !ok {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
-		return
-	}
-
 	limit := req.Limit
 	if limit == 0 {
-		limit = 10 // Default
+		limit = 10
 	}
 
-	result, err := h.coreClient.SessionSearch(c.Request.Context(), project.ID, req.Query, limit)
+	result, err := h.coreClient.SessionSearch(c.Request.Context(), req.UserID, req.Query, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "failed to search sessions", err))
 		return

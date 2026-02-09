@@ -11,10 +11,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
+
 from .base import ORM_BASE, CommonMixin
 from ..utils import asUUID
 from pgvector.sqlalchemy import Vector
+from ...env import DEFAULT_CORE_CONFIG
 
 if TYPE_CHECKING:
     from .project import Project
@@ -82,9 +84,9 @@ class Task(CommonMixin):
     )
     
     # Embedding vector for semantic search
-    embedding: Any = field(
+    embedding: Optional[List[float]] = field(
         default=None,
-        metadata={"db": Column(Vector(1536), nullable=True)},
+        metadata={"db": Column(Vector(DEFAULT_CORE_CONFIG.task_embedding_dim), nullable=True)},
     )
 
     # Relationships
