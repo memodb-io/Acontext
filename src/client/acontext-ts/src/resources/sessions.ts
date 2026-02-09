@@ -438,4 +438,36 @@ export class SessionsAPI {
     });
     return (data as { configs: Record<string, unknown> }).configs ?? {};
   }
+
+  /**
+   * Search for sessions by semantic similarity to a query string.
+   *
+   * @param options - Options for searching sessions.
+   * @param options.query - The search query text.
+   * @param options.userId - The User ID to search within.
+   * @param options.limit - Maximum number of results to return (1-100, default 10).
+   * @returns SessionSearchResult containing list of matching session UUIDs.
+   *
+   * @example
+   * const result = await client.sessions.search({
+   *   query: 'conversations about authentication',
+   *   userId: 'user_123'
+   * });
+   */
+  async search(options: {
+    query: string;
+    userId: string;
+    limit?: number | null;
+  }): Promise<{ session_ids: string[] }> {
+    const params = buildParams({
+      query: options.query,
+      user_id: options.userId,
+      limit: options.limit ?? null,
+    });
+    const data = await this.requester.request('GET', '/sessions/search', {
+      params: Object.keys(params).length > 0 ? params : undefined,
+    });
+    // Assuming SessionSearchResult schema exists or returning generic object
+    return data as { session_ids: string[] };
+  }
 }

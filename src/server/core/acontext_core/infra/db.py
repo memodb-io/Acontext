@@ -238,6 +238,39 @@ async def init_database() -> None:
     assert await DB_CLIENT.health_check(), "Database health check failed"
     logger.info(f"Database created successfully {DB_CLIENT.get_pool_status()}")
 
+    # Validate vector dimension matches configuration
+    expected_dim = DEFAULT_CORE_CONFIG.task_embedding_dim
+
+    async with DB_CLIENT.get_session_context() as session:
+        result = await session.execute(text("SELECT 1 FROM pg_extension WHERE extname = 'vector'"))
+        if not result.scalar():
+            logger.warning("pgvector extension not installed. Skipping dimension check.")
+            return
+
+        try:
+            # Check the defined dimension of the 'embedding' column in 'tasks'
+            sql = text("""
+                SELECT atttypmod
+                FROM pg_attribute
+                WHERE attrelid = 'tasks'::regclass
+                AND attname = 'embedding'
+            """)
+            result = await session.execute(sql)
+            val = result.scalar()
+
+            if val is not None:
+                if val != expected_dim:
+                    logger.warning(
+                        f"Database 'tasks.embedding' dimension ({val}) does not match "
+                        f"config ({expected_dim})! This may cause runtime errors."
+                    )
+                else:
+                    logger.info("Database vector dimension matches config.")
+            else:
+                logger.info("Tasks table or embedding column not found. Skipping dimension check (fresh install?).")
+        except Exception as e:
+            logger.warning(f"Could not verify database vector dimension: {e}")
+
 
 async def close_database() -> None:
     """Close database connections."""

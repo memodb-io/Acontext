@@ -1,5 +1,3 @@
-"""Session search service for semantic session search via Tasks."""
-
 from typing import List
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -7,12 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...schema.result import Result
 from ...schema.utils import asUUID
 from ...llm.embeddings.openai_embedding import openai_embedding
-from ...env import LOG
-
+from ...env import LOG, DEFAULT_CORE_CONFIG
 
 async def search_sessions_by_task_query(
     db_session: AsyncSession,
-    project_id: asUUID,
+    user_id: asUUID,
     query: str,
     topk: int = 10,
     threshold: float = 0.8,
@@ -22,7 +19,7 @@ async def search_sessions_by_task_query(
 
     Args:
         db_session: Database session
-        project_id: Project ID to scope the search
+        user_id: User ID to scope the search
         query: Search query text
         topk: Maximum number of results to return
         threshold: Cosine distance threshold (lower = more similar)
@@ -31,24 +28,21 @@ async def search_sessions_by_task_query(
         Result containing list of unique session_ids ordered by relevance
     """
     try:
-        # Generate embedding for the query
         embedding_result = await openai_embedding(
-            model="text-embedding-3-small",
+            model=DEFAULT_CORE_CONFIG.task_embedding_model,
             texts=[query],
             phase="query",
         )
-        query_embedding = embedding_result.embedding[0].tolist()
+        query_embedding = embedding_result.embedding[0]
 
         # Perform vector similarity search using pgvector on TASKS table
-        # Using cosine distance operator <=>
-        # Join with sessions table to filter by project_id
         sql = text("""
-            SELECT DISTINCT t.session_id, MIN(t.embedding <=> :query_embedding) as distance
+            SELECT DISTINCT t.session_id, MIN(t.embedding <=> :query_embedding::vector) as distance
             FROM tasks t
             JOIN sessions s ON t.session_id = s.id
-            WHERE s.project_id = :project_id
+            WHERE s.user_id = :user_id
               AND t.embedding IS NOT NULL
-              AND (t.embedding <=> :query_embedding) < :threshold
+              AND (t.embedding <=> :query_embedding::vector) < :threshold
             GROUP BY t.session_id
             ORDER BY distance ASC
             LIMIT :topk
@@ -58,7 +52,7 @@ async def search_sessions_by_task_query(
             sql,
             {
                 "query_embedding": str(query_embedding),
-                "project_id": str(project_id),
+                "user_id": str(user_id),
                 "threshold": threshold,
                 "topk": topk,
             },

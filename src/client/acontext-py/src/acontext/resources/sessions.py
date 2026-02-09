@@ -502,22 +502,24 @@ class SessionsAPI:
         self,
         *,
         query: str,
+        user_id: str,
         limit: int | None = None,
     ) -> SessionSearchResult:
         """Search for sessions by semantic similarity to a query string.
 
         Args:
             query: The search query text.
+            user_id: The User ID to search within.
             limit: Maximum number of results to return (1-100, default 10).
 
         Returns:
             SessionSearchResult containing list of matching session UUIDs.
 
         Example:
-            >>> result = client.sessions.search(query="conversations about authentication")
+            >>> result = client.sessions.search(query="conversations about authentication", user_id="user_123")
             >>> for session_id in result.session_ids:
             ...     print(session_id)
         """
-        params = build_params(query=query, limit=limit)
+        params = build_params(query=query, user_id=user_id, limit=limit)
         data = self._requester.request("GET", "/sessions/search", params=params or None)
         return SessionSearchResult.model_validate(data)
