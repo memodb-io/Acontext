@@ -18,6 +18,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/pkg/editor"
 	"github.com/memodb-io/Acontext/internal/pkg/paging"
+	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/datatypes"
@@ -390,14 +391,66 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 }
 
 type GetMessagesInput struct {
-	SessionID                     uuid.UUID               `json:"session_id"`
-	Limit                         int                     `json:"limit"`
-	Cursor                        string                  `json:"cursor"`
-	WithAssetPublicURL            bool                    `json:"with_public_url"`
-	AssetExpire                   time.Duration           `json:"asset_expire"`
-	TimeDesc                      bool                    `json:"time_desc"`
-	EditStrategies                []editor.StrategyConfig `json:"edit_strategies,omitempty"`
-	PinEditingStrategiesAtMessage string                  `json:"pin_editing_strategies_at_message,omitempty"`
+	SessionID          uuid.UUID               `json:"session_id"`
+	Limit              int                     `json:"limit"`
+	Cursor             string                  `json:"cursor"`
+	WithAssetPublicURL bool                    `json:"with_public_url"`
+	AssetExpire        time.Duration           `json:"asset_expire"`
+	TimeDesc           bool                    `json:"time_desc"`
+	EditStrategies     []editor.StrategyConfig `json:"edit_strategies,omitempty"`
+	// EditingTrigger holds optional trigger config for applying edit_strategies.
+	EditingTrigger                *EditingTrigger `json:"editing_trigger,omitempty"`
+	PinEditingStrategiesAtMessage string          `json:"pin_editing_strategies_at_message,omitempty"`
+}
+
+// EditingTrigger defines trigger configuration for applying edit_strategies.
+// v0 supports only token_gte.
+type EditingTrigger struct {
+	// TokenGte triggers edit strategies when the token count is greater than or equal to this value.
+	TokenGte *int `json:"token_gte,omitempty"`
+}
+
+type editingTriggerEval struct {
+	sessionID uuid.UUID
+	messages  []model.Message
+
+	tokenCount *int
+}
+
+func (e *editingTriggerEval) Tokens(ctx context.Context) (int, error) {
+	if e.tokenCount != nil {
+		return *e.tokenCount, nil
+	}
+
+	tokens, err := tokenizer.CountMessagePartsTokens(ctx, e.messages)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count tokens for editing_trigger session_id=%s: %w", e.sessionID, err)
+	}
+
+	e.tokenCount = &tokens
+	return tokens, nil
+}
+
+type editingTriggerCheck func(ctx context.Context, eval *editingTriggerEval) (bool, error)
+
+func buildEditingTriggerChecks(trigger *EditingTrigger) []editingTriggerCheck {
+	checks := make([]editingTriggerCheck, 0, 1)
+	if trigger == nil {
+		return checks
+	}
+
+	if trigger.TokenGte != nil && *trigger.TokenGte > 0 {
+		threshold := *trigger.TokenGte
+		checks = append(checks, func(ctx context.Context, eval *editingTriggerEval) (bool, error) {
+			tokens, err := eval.Tokens(ctx)
+			if err != nil {
+				return false, err
+			}
+			return tokens >= threshold, nil
+		})
+	}
+
+	return checks
 }
 
 type PublicURL struct {
@@ -475,12 +528,59 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 
 	// Apply edit strategies if provided (before format conversion)
 	if len(in.EditStrategies) > 0 {
-		result, err := editor.ApplyStrategiesWithPin(out.Items, in.EditStrategies, in.PinEditingStrategiesAtMessage)
-		if err != nil {
-			return nil, fmt.Errorf("failed to apply edit strategies: %w", err)
+		applyEditStrategies := true
+		triggerChecks := buildEditingTriggerChecks(in.EditingTrigger)
+		if len(triggerChecks) > 0 {
+			// Evaluate trigger on the same editable prefix used by pin_editing_strategies_at_message.
+			triggerMessages := out.Items
+			effectivePin := ""
+			if in.PinEditingStrategiesAtMessage != "" {
+				pinIndex := -1
+				for i := range out.Items {
+					if out.Items[i].ID.String() == in.PinEditingStrategiesAtMessage {
+						pinIndex = i
+						break
+					}
+				}
+				if pinIndex != -1 {
+					effectivePin = in.PinEditingStrategiesAtMessage
+					triggerMessages = out.Items[:pinIndex+1]
+				}
+			}
+
+			// OR semantics: apply when any trigger check passes.
+			applyEditStrategies = false
+			eval := &editingTriggerEval{sessionID: in.SessionID, messages: triggerMessages}
+			for _, check := range triggerChecks {
+				ok, err := check(ctx, eval)
+				if err != nil {
+					return nil, err
+				}
+				if ok {
+					applyEditStrategies = true
+					break
+				}
+			}
+
+			if !applyEditStrategies && len(out.Items) > 0 {
+				if effectivePin != "" {
+					out.EditAtMessageID = effectivePin
+				} else {
+					out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
+				}
+			}
 		}
-		out.Items = result.Messages
-		out.EditAtMessageID = result.EditAtMessageID
+
+		if applyEditStrategies {
+			result, err := editor.ApplyStrategiesWithPin(out.Items, in.EditStrategies, in.PinEditingStrategiesAtMessage)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply edit strategies: %w", err)
+			}
+			out.Items = result.Messages
+			out.EditAtMessageID = result.EditAtMessageID
+		} else if out.EditAtMessageID == "" && len(out.Items) > 0 {
+			out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
+		}
 	} else if len(out.Items) > 0 {
 		// No strategies, but still set EditAtMessageID to the last message
 		out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
