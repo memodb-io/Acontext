@@ -391,16 +391,17 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 }
 
 type GetMessagesInput struct {
-	SessionID          uuid.UUID               `json:"session_id"`
-	Limit              int                     `json:"limit"`
-	Cursor             string                  `json:"cursor"`
-	WithAssetPublicURL bool                    `json:"with_public_url"`
-	AssetExpire        time.Duration           `json:"asset_expire"`
-	TimeDesc           bool                    `json:"time_desc"`
-	EditStrategies     []editor.StrategyConfig `json:"edit_strategies,omitempty"`
+	SessionID                     uuid.UUID               `json:"session_id"`
+	Limit                         int                     `json:"limit"`
+	Cursor                        string                  `json:"cursor"`
+	WithAssetPublicURL            bool                    `json:"with_public_url"`
+	AssetExpire                   time.Duration           `json:"asset_expire"`
+	TimeDesc                      bool                    `json:"time_desc"`
+	EditStrategies                []editor.StrategyConfig `json:"edit_strategies,omitempty"`
+	PinEditingStrategiesAtMessage string                  `json:"pin_editing_strategies_at_message,omitempty"`
+	
 	// EditingTrigger holds optional trigger config for applying edit_strategies.
-	EditingTrigger                *EditingTrigger `json:"editing_trigger,omitempty"`
-	PinEditingStrategiesAtMessage string          `json:"pin_editing_strategies_at_message,omitempty"`
+	EditingTrigger                *EditingTrigger 		  `json:"editing_trigger,omitempty"`
 }
 
 // EditingTrigger defines trigger configuration for applying edit_strategies.
