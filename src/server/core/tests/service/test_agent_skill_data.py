@@ -11,7 +11,6 @@ from acontext_core.service.data.agent_skill import (
 from acontext_core.service.data.artifact import get_artifact_by_path
 from acontext_core.schema.orm import Project, Disk, AgentSkill
 from acontext_core.schema.result import Result
-from acontext_core.infra.db import DatabaseClient
 
 
 class TestParseSkillMd:
@@ -62,11 +61,8 @@ class TestParseSkillMd:
 
 class TestGetAgentSkill:
     @pytest.mark.asyncio
-    async def test_get_agent_skill_found(self):
+    async def test_get_agent_skill_found(self, db_client):
         """Fetch a skill by project and skill id — found."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_skill_hmac_1",
@@ -100,11 +96,8 @@ class TestGetAgentSkill:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_get_agent_skill_not_found_wrong_project(self):
+    async def test_get_agent_skill_not_found_wrong_project(self, db_client):
         """Fetch a skill with wrong project_id — not found."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_skill_hmac_2",
@@ -133,11 +126,8 @@ class TestGetAgentSkill:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_get_agent_skill_not_found_missing_id(self):
+    async def test_get_agent_skill_not_found_missing_id(self, db_client):
         """Fetch a skill with non-existent skill_id — not found."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_skill_hmac_3",
@@ -153,11 +143,8 @@ class TestGetAgentSkill:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_relationship_project_agent_skills(self):
+    async def test_relationship_project_agent_skills(self, db_client):
         """Relationship: Project.agent_skills loads the skill."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_skill_hmac_4",
@@ -194,11 +181,8 @@ class TestGetAgentSkill:
 
 class TestCreateSkill:
     @pytest.mark.asyncio
-    async def test_create_skill_success(self):
+    async def test_create_skill_success(self, db_client):
         """Create a skill from valid SKILL.md content — success."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_skill_hmac_5",
@@ -229,11 +213,8 @@ class TestCreateSkill:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_create_skill_with_meta(self):
+    async def test_create_skill_with_meta(self, db_client):
         """Create a skill with meta (user_id=None since Core has no User ORM)."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_skill_hmac_6",
@@ -257,11 +238,8 @@ class TestCreateSkill:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_create_skill_name_sanitization(self):
+    async def test_create_skill_name_sanitization(self, db_client):
         """Create a skill with special characters in name — sanitized."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_skill_hmac_7",
@@ -279,11 +257,8 @@ class TestCreateSkill:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_create_skill_invalid_missing_name(self):
+    async def test_create_skill_invalid_missing_name(self, db_client):
         """Create a skill with content missing name — rejects."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_skill_hmac_8",
@@ -299,11 +274,8 @@ class TestCreateSkill:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_create_skill_invalid_empty_content(self):
+    async def test_create_skill_invalid_empty_content(self, db_client):
         """Create a skill with empty content — rejects."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_skill_hmac_9",
@@ -318,11 +290,8 @@ class TestCreateSkill:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_create_skill_sha256_and_size_b(self):
+    async def test_create_skill_sha256_and_size_b(self, db_client):
         """Create a skill — verify sha256 and size_b in artifact asset_meta."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_skill_hmac_10",

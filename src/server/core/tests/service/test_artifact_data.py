@@ -12,7 +12,6 @@ from acontext_core.service.data.disk import create_disk
 from acontext_core.service.data.agent_skill import create_skill
 from acontext_core.schema.orm import Project, Disk, Artifact
 from acontext_core.schema.result import Result
-from acontext_core.infra.db import DatabaseClient
 
 
 def _make_asset_meta(
@@ -37,11 +36,8 @@ def _make_asset_meta(
 
 class TestGetArtifactByPath:
     @pytest.mark.asyncio
-    async def test_get_artifact_by_path_found(self):
+    async def test_get_artifact_by_path_found(self, db_client):
         """Fetch an artifact by disk, path, and filename — found."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_1",
@@ -77,11 +73,8 @@ class TestGetArtifactByPath:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_get_artifact_by_path_not_found(self):
+    async def test_get_artifact_by_path_not_found(self, db_client):
         """Fetch an artifact with wrong path/filename — not found."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_2",
@@ -102,11 +95,8 @@ class TestGetArtifactByPath:
 
 class TestListArtifactsByPath:
     @pytest.mark.asyncio
-    async def test_list_all(self):
+    async def test_list_all(self, db_client):
         """List all artifacts on a disk (path='')."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_3",
@@ -145,11 +135,8 @@ class TestListArtifactsByPath:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_list_filtered(self):
+    async def test_list_filtered(self, db_client):
         """List artifacts filtered by a specific path."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_4",
@@ -189,11 +176,8 @@ class TestListArtifactsByPath:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_list_empty_disk(self):
+    async def test_list_empty_disk(self, db_client):
         """List artifacts on a disk with no artifacts — empty list."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_5",
@@ -216,11 +200,8 @@ class TestListArtifactsByPath:
 
 class TestGlobArtifacts:
     @pytest.mark.asyncio
-    async def test_wildcard_extension(self):
+    async def test_wildcard_extension(self, db_client):
         """Glob *.py matches only Python files."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_6",
@@ -253,11 +234,8 @@ class TestGlobArtifacts:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_path_prefix(self):
+    async def test_path_prefix(self, db_client):
         """Glob /scripts/* matches only artifacts under /scripts/."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_7",
@@ -297,11 +275,8 @@ class TestGlobArtifacts:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_single_char_wildcard(self):
+    async def test_single_char_wildcard(self, db_client):
         """Glob /?.py matches single-char filenames only."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_8",
@@ -341,11 +316,8 @@ class TestGlobArtifacts:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_recursive_pattern(self):
+    async def test_recursive_pattern(self, db_client):
         """Glob **/*.py matches Python files at any depth."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_9",
@@ -401,11 +373,8 @@ class TestGlobArtifacts:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_literal_percent_and_underscore(self):
+    async def test_literal_percent_and_underscore(self, db_client):
         """Glob with literal % and _ in filenames — matches API behavior (no escaping)."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_10",
@@ -445,11 +414,8 @@ class TestGlobArtifacts:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_no_matches(self):
+    async def test_no_matches(self, db_client):
         """Glob with no matching files — empty list."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_11",
@@ -482,11 +448,8 @@ class TestGlobArtifacts:
 
 class TestGrepArtifacts:
     @pytest.mark.asyncio
-    async def test_substring_match(self):
+    async def test_substring_match(self, db_client):
         """Grep for a substring in artifact content."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_12",
@@ -520,11 +483,8 @@ class TestGrepArtifacts:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_case_insensitive_default(self):
+    async def test_case_insensitive_default(self, db_client):
         """Grep is case-insensitive by default (uses ~* operator)."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_13",
@@ -556,11 +516,8 @@ class TestGrepArtifacts:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_case_sensitive(self):
+    async def test_case_sensitive(self, db_client):
         """Grep with case_sensitive=True uses ~ (case-sensitive regex)."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_14",
@@ -602,11 +559,8 @@ class TestGrepArtifacts:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_skips_binary_no_content(self):
+    async def test_skips_binary_no_content(self, db_client):
         """Grep skips artifacts without content or with non-text MIME types."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_15",
@@ -648,11 +602,8 @@ class TestGrepArtifacts:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_no_matches(self):
+    async def test_no_matches(self, db_client):
         """Grep with no matching content — empty list."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_16",
@@ -685,11 +636,8 @@ class TestGrepArtifacts:
 
 class TestUpsertArtifact:
     @pytest.mark.asyncio
-    async def test_insert_new(self):
+    async def test_insert_new(self, db_client):
         """Upsert a new artifact on an empty disk."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_17",
@@ -721,11 +669,8 @@ class TestUpsertArtifact:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_update_existing(self):
+    async def test_update_existing(self, db_client):
         """Upsert an existing artifact — updates asset_meta, preserves id and created_at."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_18",
@@ -771,11 +716,8 @@ class TestUpsertArtifact:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_updates_updated_at(self):
+    async def test_updates_updated_at(self, db_client):
         """Upsert updates the updated_at timestamp."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_19",
@@ -807,11 +749,8 @@ class TestUpsertArtifact:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_meta_handling(self):
+    async def test_meta_handling(self, db_client):
         """Upsert meta is overwritten, not merged."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_20",
@@ -845,11 +784,8 @@ class TestUpsertArtifact:
 
 class TestIntegrationSkillFileList:
     @pytest.mark.asyncio
-    async def test_skill_file_list(self):
+    async def test_skill_file_list(self, db_client):
         """Integration: Create a skill, then list its artifacts."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_21",

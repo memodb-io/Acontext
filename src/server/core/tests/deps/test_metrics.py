@@ -4,7 +4,6 @@ from datetime import date
 import pytest
 from sqlalchemy import select, func
 
-from acontext_core.infra.db import DatabaseClient
 from acontext_core.schema.orm import Project, Metric
 from acontext_core.telemetry.capture_metrics import capture_increment
 from acontext_core.telemetry.get_metrics import get_metrics
@@ -14,10 +13,7 @@ FAKE_KEY = "b" * 32
 
 
 @pytest.mark.asyncio
-async def test_capture_increment_creates_and_increments_metric():
-    db_client = DatabaseClient()
-    await db_client.create_tables()
-
+async def test_capture_increment_creates_and_increments_metric(db_client):
     async with db_client.get_session_context() as session:
         # Ensure we start from a clean state for this project/tag
         proj_query = await session.execute(
@@ -61,11 +57,8 @@ async def test_capture_increment_creates_and_increments_metric():
 
 
 @pytest.mark.asyncio
-async def test_get_metrics_returns_latest_increment():
+async def test_get_metrics_returns_latest_increment(db_client):
     """Test that get_metrics returns the most recent increment value for a project and tag."""
-    db_client = DatabaseClient()
-    await db_client.create_tables()
-
     async with db_client.get_session_context() as session:
         # Ensure we start from a clean state for this project/tag
         proj_query = await session.execute(

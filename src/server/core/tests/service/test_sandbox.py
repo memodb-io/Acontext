@@ -16,7 +16,6 @@ from acontext_core.schema.sandbox import (
     SandboxCommandOutput,
     SandboxStatus,
 )
-from acontext_core.infra.db import DatabaseClient
 from acontext_core.infra.sandbox.backend.base import SandboxBackend
 
 
@@ -105,11 +104,8 @@ class TestSandboxIdMapping:
     """Test that sandbox IDs are correctly mapped between unified UUID and backend ID."""
 
     @pytest.mark.asyncio
-    async def test_create_sandbox_returns_unified_uuid(self, mock_sandbox_backend):
+    async def test_create_sandbox_returns_unified_uuid(self, db_client, mock_sandbox_backend):
         """Test that create_sandbox returns unified UUID, not backend sandbox ID."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test project
             project = Project(
@@ -142,11 +138,8 @@ class TestSandboxIdMapping:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_get_sandbox_returns_unified_uuid(self, mock_sandbox_backend):
+    async def test_get_sandbox_returns_unified_uuid(self, db_client, mock_sandbox_backend):
         """Test that get_sandbox returns the unified UUID in the response."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test project
             project = Project(
@@ -176,11 +169,8 @@ class TestExecCommandLogging:
     """Test that exec_command correctly logs commands to history_commands."""
 
     @pytest.mark.asyncio
-    async def test_exec_command_logs_to_history(self, mock_sandbox_backend):
+    async def test_exec_command_logs_to_history(self, db_client, mock_sandbox_backend):
         """Test that executed commands are logged to history_commands JSONB."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test project
             project = Project(
@@ -220,11 +210,8 @@ class TestExecCommandLogging:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_exec_command_handles_empty_history(self, mock_sandbox_backend):
+    async def test_exec_command_handles_empty_history(self, db_client, mock_sandbox_backend):
         """Test that exec_command works when history_commands starts as empty list."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test project
             project = Project(
@@ -256,11 +243,8 @@ class TestDownloadFileLogging:
     """Test that download_file correctly logs files to generated_files."""
 
     @pytest.mark.asyncio
-    async def test_download_file_logs_to_generated_files(self, mock_sandbox_backend):
+    async def test_download_file_logs_to_generated_files(self, db_client, mock_sandbox_backend):
         """Test that downloaded files are logged to generated_files JSONB."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test project
             project = Project(
@@ -306,11 +290,8 @@ class TestSandboxNotFound:
     """Test error handling when sandbox is not found."""
 
     @pytest.mark.asyncio
-    async def test_operations_on_nonexistent_sandbox(self, mock_sandbox_backend):
+    async def test_operations_on_nonexistent_sandbox(self, db_client, mock_sandbox_backend):
         """Test that operations on non-existent sandbox return proper errors."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             fake_id = uuid.uuid4()
 
@@ -336,11 +317,8 @@ class TestKillSandbox:
     """Test kill_sandbox functionality."""
 
     @pytest.mark.asyncio
-    async def test_kill_sandbox_success(self, mock_sandbox_backend):
+    async def test_kill_sandbox_success(self, db_client, mock_sandbox_backend):
         """Test that kill_sandbox works correctly."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test project
             project = Project(
