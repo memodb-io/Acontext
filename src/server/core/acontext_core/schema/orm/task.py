@@ -11,9 +11,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING, List, Optional
+
 from .base import ORM_BASE, CommonMixin
 from ..utils import asUUID
+from pgvector.sqlalchemy import Vector
+from ...env import DEFAULT_CORE_CONFIG
 
 if TYPE_CHECKING:
     from .project import Project
@@ -48,42 +51,42 @@ class Task(CommonMixin):
         metadata={
             "db": Column(
                 UUID(as_uuid=True),
-                ForeignKey("sessions.id", ondelete="CASCADE"),
+                ForeignKey("sessions.id", ondelete="CASCADE", onupdate="CASCADE"),
                 nullable=False,
             )
-        }
+        },
     )
 
     project_id: asUUID = field(
         metadata={
             "db": Column(
                 UUID(as_uuid=True),
-                ForeignKey("projects.id", ondelete="CASCADE"),
+                ForeignKey("projects.id", ondelete="CASCADE", onupdate="CASCADE"),
                 nullable=False,
             )
-        }
+        },
     )
 
     order: int = field(metadata={"db": Column(Integer, nullable=False)})
 
-    data: dict = field(metadata={"db": Column(JSONB, nullable=False)})
+    data: dict = field(
+        default_factory=dict, metadata={"db": Column(JSONB, nullable=False)}
+    )
 
     status: str = field(
         default="pending",
-        metadata={
-            "db": Column(
-                String,
-                nullable=False,
-                server_default="pending",
-            )
-        },
+        metadata={"db": Column(String, nullable=False, server_default="pending")},
     )
 
     is_planning: bool = field(
         default=False,
-        metadata={
-            "db": Column(Boolean, nullable=False, default=False, server_default="false")
-        },
+        metadata={"db": Column(Boolean, nullable=False, server_default="false")},
+    )
+    
+    # Embedding vector for semantic search
+    embedding: Optional[List[float]] = field(
+        default=None,
+        metadata={"db": Column(Vector(DEFAULT_CORE_CONFIG.task_embedding_dim), nullable=True)},
     )
 
     # Relationships
