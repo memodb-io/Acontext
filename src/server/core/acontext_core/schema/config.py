@@ -29,6 +29,7 @@ class CoreConfig(BaseModel):
     logging_level: str = "INFO"
     session_message_session_lock_wait_seconds: int = 1
     session_message_processing_timeout_seconds: int = 60
+    session_message_flush_max_retries: int = 60
 
     # MQ Configuration
     mq_url: str = "amqp://acontext:helloworld@127.0.0.1:15672/"

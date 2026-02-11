@@ -15,7 +15,11 @@ from .constants import EX, RK
 from .data import message as MD
 from .data import project as PD
 from .controller import message as MC
-from .utils import check_redis_lock_or_set, release_redis_lock
+from .utils import (
+    check_redis_lock_or_set,
+    release_redis_lock,
+    check_buffer_timer_or_set,
+)
 
 
 async def waiting_for_message_notify(wait_for_seconds: int, body: InsertNewMessage):
@@ -23,10 +27,16 @@ async def waiting_for_message_notify(wait_for_seconds: int, body: InsertNewMessa
         f"Session message buffer is not full, wait {wait_for_seconds} seconds for next turn/idle notify"
     )
     await asyncio.sleep(wait_for_seconds)
+    timer_body = InsertNewMessage(
+        project_id=body.project_id,
+        session_id=body.session_id,
+        message_id=body.message_id,
+        skip_latest_check=True,
+    )
     await publish_mq(
         exchange_name=EX.session_message,
         routing_key=RK.session_message_buffer_process,
-        body=body.model_dump_json(),
+        body=timer_body.model_dump_json(),
     )
 
 
@@ -48,7 +58,7 @@ async def insert_new_message(body: InsertNewMessage, message: Message):
             LOG.debug(f"No pending message found for session {body.session_id}, ignore")
             return
         latest_pending_message_id = message_ids[0]
-        if body.message_id != latest_pending_message_id:
+        if not body.skip_latest_check and body.message_id != latest_pending_message_id:
             LOG.debug(
                 f"Message {body.message_id} is not the latest pending message, ignore"
             )
@@ -67,13 +77,26 @@ async def insert_new_message(body: InsertNewMessage, message: Message):
             pending_message_length
             < project_config.project_session_message_buffer_max_turns
         ):
-            asyncio.create_task(
-                waiting_for_message_notify(
-                    project_config.project_session_message_buffer_ttl_seconds, body
-                )
+            should_create_timer = await check_buffer_timer_or_set(
+                body.project_id,
+                body.session_id,
+                project_config.project_session_message_buffer_ttl_seconds,
             )
+            if should_create_timer:
+                asyncio.create_task(
+                    waiting_for_message_notify(
+                        project_config.project_session_message_buffer_ttl_seconds,
+                        body,
+                    )
+                )
+            else:
+                LOG.debug(
+                    f"Buffer timer already exists for session {body.session_id}, skip creating new timer"
+                )
             return
 
+    # Reset flag so retries always go through the normal dedup path
+    body.skip_latest_check = False
     _l = await check_redis_lock_or_set(
         body.project_id, f"session.message.insert.{body.session_id}"
     )
@@ -146,7 +169,7 @@ async def buffer_new_message(body: InsertNewMessage, message: Message):
             LOG.debug(f"No pending message found for session {body.session_id}, ignore")
             return
         latest_pending_message_id = message_ids[0]
-        if body.message_id != latest_pending_message_id:
+        if not body.skip_latest_check and body.message_id != latest_pending_message_id:
             LOG.debug(
                 f"Message {body.message_id} is not the latest pending message, ignore"
             )
@@ -156,6 +179,8 @@ async def buffer_new_message(body: InsertNewMessage, message: Message):
         if eil:
             return
     LOG.info(f"Message {body.message_id} IDLE, process it now")
+
+    body.skip_latest_check = False
     _l = await check_redis_lock_or_set(
         body.project_id, f"session.message.insert.{body.session_id}"
     )
@@ -163,6 +188,7 @@ async def buffer_new_message(body: InsertNewMessage, message: Message):
         LOG.info(
             f"Current Session is locked, resend Message {body.message_id} to insert queue."
         )
+        # Reset flag so retries always go through the normal dedup path
         await publish_mq(
             exchange_name=EX.session_message,
             routing_key=RK.session_message_insert_retry,
@@ -182,18 +208,26 @@ async def buffer_new_message(body: InsertNewMessage, message: Message):
 async def flush_session_message_blocking(
     project_id: asUUID, session_id: asUUID
 ) -> Result[None]:
-    while True:
+    max_retries = DEFAULT_CORE_CONFIG.session_message_flush_max_retries
+    for _attempt in range(max_retries):
         _l = await check_redis_lock_or_set(
             project_id, f"session.message.insert.{session_id}"
         )
         if _l:
             break
         LOG.debug(
-            f"Current Session is locked. "
+            f"Current Session is locked (attempt {_attempt + 1}/{max_retries}). "
             f"wait {DEFAULT_CORE_CONFIG.session_message_session_lock_wait_seconds} seconds for next resend. "
         )
         await asyncio.sleep(
             DEFAULT_CORE_CONFIG.session_message_session_lock_wait_seconds
+        )
+    else:
+        LOG.warning(
+            f"flush_session_message_blocking exhausted {max_retries} retries for session {session_id}"
+        )
+        return Result.reject(
+            f"Failed to acquire session lock after {max_retries} retries"
         )
 
     try:

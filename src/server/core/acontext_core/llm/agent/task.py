@@ -165,42 +165,55 @@ async def task_agent_curd(
         just_finish = False
         tool_response = []
         USE_CTX = None
-        for tool_call in use_tools:
-            try:
-                tool_name = tool_call.function.name
-                if tool_name == "finish":
-                    just_finish = True
-                    continue
-                tool_arguments = tool_call.function.arguments
-                tool = TASK_TOOLS[tool_name]
-                with bound_logging_vars(tool=tool_name):
-                    async with DB_CLIENT.get_session_context() as db_session:
-                        USE_CTX = await build_task_ctx(
-                            db_session,
-                            project_id,
-                            session_id,
-                            messages,
-                            before_use_ctx=USE_CTX,
+        try:
+            async with DB_CLIENT.get_session_context() as db_session:
+                for tool_call in use_tools:
+                    try:
+                        tool_name = tool_call.function.name
+                        if tool_name == "finish":
+                            just_finish = True
+                            continue
+                        tool_arguments = tool_call.function.arguments
+                        tool = TASK_TOOLS[tool_name]
+                        with bound_logging_vars(tool=tool_name):
+                            USE_CTX = await build_task_ctx(
+                                db_session,
+                                project_id,
+                                session_id,
+                                messages,
+                                before_use_ctx=USE_CTX,
+                            )
+                            r = await tool.handler(USE_CTX, tool_arguments)
+                            t, eil = r.unpack()
+                            if eil:
+                                raise RuntimeError(
+                                    f"Tool {tool_name} rejected: {r.error}"
+                                )
+                        if tool_name != "report_thinking":
+                            LOG.info(
+                                f"Tool Call: {tool_name} - {tool_arguments} -> {t}"
+                            )
+                        tool_response.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "content": t,
+                            }
                         )
-                        r = await tool.handler(USE_CTX, tool_arguments)
-                    t, eil = r.unpack()
-                    if eil:
-                        return r
-                if tool_name != "report_thinking":
-                    LOG.info(f"Tool Call: {tool_name} - {tool_arguments} -> {t}")
-                tool_response.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": t,
-                    }
-                )
-                if tool_name in NEED_UPDATE_CTX:
-                    USE_CTX = None
-            except KeyError as e:
-                return Result.reject(f"Tool {tool_name} not found: {str(e)}")
-            except Exception as e:
-                return Result.reject(f"Tool {tool_name} error: {str(e)}")
+                        if tool_name in NEED_UPDATE_CTX:
+                            USE_CTX = None
+                    except KeyError as e:
+                        raise RuntimeError(
+                            f"Tool {tool_name} not found: {str(e)}"
+                        ) from e
+                    except RuntimeError:
+                        raise
+                    except Exception as e:
+                        raise RuntimeError(
+                            f"Tool {tool_name} error: {str(e)}"
+                        ) from e
+        except RuntimeError as e:
+            return Result.reject(str(e))
         _messages.extend(tool_response)
         if just_finish:
             LOG.info("finish function is called")

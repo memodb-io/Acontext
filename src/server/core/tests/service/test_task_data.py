@@ -10,16 +10,12 @@ from acontext_core.service.data.task import (
 )
 from acontext_core.schema.orm import Task, Project, Session
 from acontext_core.schema.result import Result
-from acontext_core.infra.db import DatabaseClient
 
 
 class TestFetchCurrentTasks:
     @pytest.mark.asyncio
-    async def test_fetch_all_tasks_success(self):
+    async def test_fetch_all_tasks_success(self, db_client):
         """Test fetching all tasks for a session"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -77,11 +73,8 @@ class TestFetchCurrentTasks:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_fetch_tasks_with_status_filter(self):
+    async def test_fetch_tasks_with_status_filter(self, db_client):
         """Test fetching tasks with status filter"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Clean up any existing project with this key
             existing = await session.execute(
@@ -135,11 +128,8 @@ class TestFetchCurrentTasks:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_fetch_tasks_no_results(self):
+    async def test_fetch_tasks_no_results(self, db_client):
         """Test fetching tasks for non-existent session"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             non_existent_session_id = uuid.uuid4()
 
@@ -153,11 +143,8 @@ class TestFetchCurrentTasks:
 
 class TestUpdateTask:
     @pytest.mark.asyncio
-    async def test_update_status_success(self):
+    async def test_update_status_success(self, db_client):
         """Test updating task status"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Clean up any existing project with this key
             existing = await session.execute(
@@ -202,11 +189,8 @@ class TestUpdateTask:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_update_order_success(self):
+    async def test_update_order_success(self, db_client):
         """Test updating task order"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -244,11 +228,8 @@ class TestUpdateTask:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_update_data_success(self):
+    async def test_update_data_success(self, db_client):
         """Test updating task data"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -283,11 +264,8 @@ class TestUpdateTask:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_update_multiple_fields(self):
+    async def test_update_multiple_fields(self, db_client):
         """Test updating multiple task fields at once"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -331,11 +309,8 @@ class TestUpdateTask:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_update_nonexistent_task(self):
+    async def test_update_nonexistent_task(self, db_client):
         """Test updating a task that doesn't exist"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             non_existent_task_id = uuid.uuid4()
 
@@ -347,11 +322,8 @@ class TestUpdateTask:
             assert f"Task {non_existent_task_id} not found" in error.errmsg
 
     @pytest.mark.asyncio
-    async def test_update_task_with_none_values(self):
+    async def test_update_task_with_none_values(self, db_client):
         """Test updating task with None values (should not change anything)"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -392,11 +364,8 @@ class TestUpdateTask:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_update_task_patch_data_success(self):
+    async def test_update_task_patch_data_success(self, db_client):
         """Test updating task using patch_data for partial updates"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -469,11 +438,8 @@ class TestUpdateTask:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_update_task_patch_data_with_status_and_order(self):
+    async def test_update_task_patch_data_with_status_and_order(self, db_client):
         """Test updating task using patch_data combined with status and order updates"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -521,11 +487,8 @@ class TestUpdateTask:
 
 class TestInsertTask:
     @pytest.mark.asyncio
-    async def test_insert_task_success(self):
+    async def test_insert_task_success(self, db_client):
         """Test inserting a new task"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -555,11 +518,8 @@ class TestInsertTask:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_insert_task_with_custom_status(self):
+    async def test_insert_task_with_custom_status(self, db_client):
         """Test inserting a task with custom status"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -596,11 +556,8 @@ class TestInsertTask:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_insert_task_default_status(self):
+    async def test_insert_task_default_status(self, db_client):
         """Test inserting a task with default status"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -630,11 +587,8 @@ class TestInsertTask:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_insert_task_complex_data(self):
+    async def test_insert_task_complex_data(self, db_client):
         """Test inserting a task with complex JSON data including progresses"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -665,11 +619,8 @@ class TestInsertTask:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_insert_order_increment(self):
+    async def test_insert_order_increment(self, db_client):
         """Test that inserting a task increments subsequent task orders"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -742,11 +693,8 @@ class TestInsertTask:
 
 class TestDeleteTask:
     @pytest.mark.asyncio
-    async def test_delete_task_success(self):
+    async def test_delete_task_success(self, db_client):
         """Test deleting an existing task"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -787,11 +735,8 @@ class TestDeleteTask:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_delete_nonexistent_task(self):
+    async def test_delete_nonexistent_task(self, db_client):
         """Test deleting a task that doesn't exist (should not raise error)"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             non_existent_task_id = uuid.uuid4()
 
@@ -802,11 +747,8 @@ class TestDeleteTask:
             assert data is None
 
     @pytest.mark.asyncio
-    async def test_delete_task_cascade_behavior(self):
+    async def test_delete_task_cascade_behavior(self, db_client):
         """Test that deleting a task doesn't affect other tasks"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -866,11 +808,8 @@ class TestDeleteTask:
 
 class TestIntegrationScenarios:
     @pytest.mark.asyncio
-    async def test_full_task_lifecycle(self):
+    async def test_full_task_lifecycle(self, db_client):
         """Test complete task lifecycle: create, update, fetch, delete"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -924,11 +863,8 @@ class TestIntegrationScenarios:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_multiple_sessions_isolation(self):
+    async def test_multiple_sessions_isolation(self, db_client):
         """Test that tasks from different sessions are properly isolated"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create two different sessions
             project = Project(
@@ -981,11 +917,8 @@ class TestIntegrationScenarios:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_ordering_after_updates(self):
+    async def test_ordering_after_updates(self, db_client):
         """Test that task ordering is maintained after updates and insertions"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -1071,11 +1004,8 @@ class TestIntegrationScenarios:
 
 class TestAppendProgressToTask:
     @pytest.mark.asyncio
-    async def test_append_progress_to_null_progresses(self):
+    async def test_append_progress_to_null_progresses(self, db_client):
         """Test appending progress when progresses field is NULL"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -1118,11 +1048,8 @@ class TestAppendProgressToTask:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_append_progress_to_existing_progresses(self):
+    async def test_append_progress_to_existing_progresses(self, db_client):
         """Test appending progress to existing progresses array"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -1171,11 +1098,8 @@ class TestAppendProgressToTask:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_append_multiple_progresses_sequentially(self):
+    async def test_append_multiple_progresses_sequentially(self, db_client):
         """Test appending multiple progresses in sequence"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -1224,11 +1148,8 @@ class TestAppendProgressToTask:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_append_progress_with_empty_array(self):
+    async def test_append_progress_with_empty_array(self, db_client):
         """Test appending progress to an empty array"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -1270,11 +1191,8 @@ class TestAppendProgressToTask:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_append_progress_with_special_characters(self):
+    async def test_append_progress_with_special_characters(self, db_client):
         """Test appending progress with special characters and Unicode"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Create test data
             project = Project(
@@ -1321,11 +1239,8 @@ class TestAppendProgressToTask:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_append_progress_task_not_found(self):
+    async def test_append_progress_task_not_found(self, db_client):
         """Test appending progress to non-existent task"""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             # Try to append progress to non-existent task
             fake_task_id = "00000000-0000-0000-0000-000000000000"

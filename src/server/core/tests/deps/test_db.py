@@ -1,17 +1,13 @@
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
-from acontext_core.infra.db import DatabaseClient
 from acontext_core.schema.orm import Project, Session
 
 FAKE_KEY = "a" * 32
 
 
 @pytest.mark.asyncio
-async def test_db():
-    db_client = DatabaseClient()
-    await db_client.create_tables()
-
+async def test_db(db_client):
     await db_client.health_check()
     print(db_client.get_pool_status())
 

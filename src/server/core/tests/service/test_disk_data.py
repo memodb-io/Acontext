@@ -3,16 +3,12 @@ import uuid
 from acontext_core.service.data.disk import get_disk, create_disk
 from acontext_core.schema.orm import Project, Disk
 from acontext_core.schema.result import Result
-from acontext_core.infra.db import DatabaseClient
 
 
 class TestGetDisk:
     @pytest.mark.asyncio
-    async def test_get_disk_found(self):
+    async def test_get_disk_found(self, db_client):
         """Fetch a disk by project and disk id — found."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_disk_hmac_1",
@@ -36,11 +32,8 @@ class TestGetDisk:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_get_disk_not_found_wrong_project(self):
+    async def test_get_disk_not_found_wrong_project(self, db_client):
         """Fetch a disk with wrong project_id — not found."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_disk_hmac_2",
@@ -60,11 +53,8 @@ class TestGetDisk:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_get_disk_not_found_missing_id(self):
+    async def test_get_disk_not_found_missing_id(self, db_client):
         """Fetch a disk with non-existent disk_id — not found."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_disk_hmac_3",
@@ -82,11 +72,8 @@ class TestGetDisk:
 
 class TestCreateDisk:
     @pytest.mark.asyncio
-    async def test_create_disk_success(self):
+    async def test_create_disk_success(self, db_client):
         """Create a disk — success."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_disk_hmac_4",
@@ -108,11 +95,8 @@ class TestCreateDisk:
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_create_disk_user_id_none(self):
+    async def test_create_disk_user_id_none(self, db_client):
         """Create a disk with user_id=None (default) — user_id is null."""
-        db_client = DatabaseClient()
-        await db_client.create_tables()
-
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_disk_hmac_5",
