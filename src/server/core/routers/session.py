@@ -37,18 +37,20 @@ search_router = APIRouter(prefix="/api/v1/sessions", tags=["session_search"])
 @search_router.get("/search")
 async def session_search(
     user_id: asUUID = Query(..., description="User ID to search within"),
+    project_id: asUUID = Query(..., description="Project ID to search within"),
     query: str = Query(..., description="Search query text"),
     limit: int = Query(10, ge=1, le=100, description="Maximum results to return"),
 ) -> SessionSearchResponse:
     """
     Uses vector embeddings on Tasks to find sessions with relevant context.
     """
-    LOG.info(f"Searching sessions in user {user_id} with query: {query[:50]}...")
+    LOG.info(f"Searching sessions in project {project_id} for user {user_id} with query: {query[:50]}...")
 
     async with DB_CLIENT.get_session_context() as db_session:
         result = await search_sessions_by_task_query(
             db_session,
             user_id,
+            project_id,
             query,
             topk=limit,
         )

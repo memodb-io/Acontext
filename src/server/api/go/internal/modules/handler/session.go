@@ -780,9 +780,10 @@ func (h *SessionHandler) PatchConfigs(c *gin.Context) {
 }
 
 type SessionSearchReq struct {
-	Query  string `form:"query" json:"query" binding:"required" example:"find conversations about authentication"`
-	UserID string `form:"user_id" json:"user_id" binding:"required" example:"123e4567-e89b-12d3-a456-426614174000"`
-	Limit  int    `form:"limit,default=10" json:"limit" binding:"omitempty,min=1,max=100" example:"10"`
+	Query     string `form:"query" json:"query" binding:"required" example:"find conversations about authentication"`
+	UserID    string `form:"user_id" json:"user_id" binding:"required" example:"123e4567-e89b-12d3-a456-426614174000"`
+	ProjectID string `form:"project_id" json:"project_id" binding:"required" example:"123e4567-e89b-12d3-a456-426614174001"`
+	Limit     int    `form:"limit,default=10" json:"limit" binding:"omitempty,min=1,max=100" example:"10"`
 }
 
 // SessionSearch godoc
@@ -792,8 +793,10 @@ type SessionSearchReq struct {
 //	@Tags			session
 //	@Accept			json
 //	@Produce		json
-//	@Param			query	query	string	true	"Search query text"
-//	@Param			limit	query	integer	false	"Maximum number of results (1-100, default 10)"
+//	@Param			query		query	string	true	"Search query text"
+//	@Param			user_id		query	string	true	"User ID"
+//	@Param			project_id	query	string	true	"Project ID"
+//	@Param			limit		query	integer	false	"Maximum number of results (1-100, default 10)"
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=httpclient.SessionSearchResponse}
 //	@Router			/sessions/search [get]
@@ -809,7 +812,7 @@ func (h *SessionHandler) SessionSearch(c *gin.Context) {
 		limit = 10
 	}
 
-	result, err := h.coreClient.SessionSearch(c.Request.Context(), req.UserID, req.Query, limit)
+	result, err := h.coreClient.SessionSearch(c.Request.Context(), req.UserID, req.ProjectID, req.Query, limit)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "failed to search sessions", err))
 		return

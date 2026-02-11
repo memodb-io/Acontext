@@ -445,23 +445,27 @@ export class SessionsAPI {
    * @param options - Options for searching sessions.
    * @param options.query - The search query text.
    * @param options.userId - The User ID to search within.
+   * @param options.projectId - The Project ID to search within.
    * @param options.limit - Maximum number of results to return (1-100, default 10).
    * @returns SessionSearchResult containing list of matching session UUIDs.
    *
    * @example
    * const result = await client.sessions.search({
    *   query: 'conversations about authentication',
-   *   userId: 'user_123'
+   *   userId: 'user_123',
+   *   projectId: 'proj_456'
    * });
    */
   async search(options: {
     query: string;
     userId: string;
+    projectId: string;
     limit?: number | null;
   }): Promise<{ session_ids: string[] }> {
     const params = buildParams({
       query: options.query,
       user_id: options.userId,
+      project_id: options.projectId,
       limit: options.limit ?? null,
     });
     const data = await this.requester.request('GET', '/sessions/search', {
