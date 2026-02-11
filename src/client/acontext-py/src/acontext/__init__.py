@@ -10,9 +10,11 @@ from .messages import AcontextMessage
 from .resources import (
     AsyncDiskArtifactsAPI,
     AsyncDisksAPI,
+    AsyncLearningSpacesAPI,
     AsyncSessionsAPI,
     DiskArtifactsAPI,
     DisksAPI,
+    LearningSpacesAPI,
     SessionsAPI,
 )
 from .integrations.claude_agent import ClaudeAgentStorage
@@ -29,7 +31,9 @@ __all__ = [
     "SessionsAPI",
     "AsyncDisksAPI",
     "AsyncDiskArtifactsAPI",
+    "AsyncLearningSpacesAPI",
     "AsyncSessionsAPI",
+    "LearningSpacesAPI",
     "Task",
     "TaskData",
     "ClaudeAgentStorage",

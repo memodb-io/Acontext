@@ -8,6 +8,9 @@ from .metric import Metric
 from .agent_skill import AgentSkill
 from .disk import Disk
 from .artifact import Artifact
+from .learning_space import LearningSpace
+from .learning_space_skill import LearningSpaceSkill
+from .learning_space_session import LearningSpaceSession
 
 __all__ = [
     "ORM_BASE",
@@ -24,4 +27,7 @@ __all__ = [
     "AgentSkill",
     "Disk",
     "Artifact",
+    "LearningSpace",
+    "LearningSpaceSkill",
+    "LearningSpaceSession",
 ]

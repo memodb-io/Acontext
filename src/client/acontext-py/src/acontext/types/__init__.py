@@ -43,6 +43,12 @@ from .user import (
     User,
     UserResourceCounts,
 )
+from .learning_space import (
+    LearningSpace,
+    LearningSpaceSession,
+    LearningSpaceSkill,
+    ListLearningSpacesOutput,
+)
 
 __all__ = [
     # Common types
@@ -85,4 +91,9 @@ __all__ = [
     "ListUsersOutput",
     "User",
     "UserResourceCounts",
+    # Learning space types
+    "LearningSpace",
+    "LearningSpaceSession",
+    "LearningSpaceSkill",
+    "ListLearningSpacesOutput",
 ]
