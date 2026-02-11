@@ -140,14 +140,14 @@ func (r *artifactRepo) ExistsByPathAndFilename(ctx context.Context, diskID uuid.
 func (r *artifactRepo) GrepArtifacts(ctx context.Context, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
 	var artifacts []*model.Artifact
 
-	// Use regex pattern matching on text content
+	// Use case-insensitive regex pattern matching on text content
 	// Filter by text-searchable mime types and ensure content is not null
 	// This matches the index condition for optimal performance
 	query := r.db.WithContext(ctx).
 		Where("disk_id = ?", diskID).
 		Where("(asset_meta->>'content') IS NOT NULL").
 		Where("((asset_meta->>'mime') LIKE 'text/%' OR (asset_meta->>'mime') = 'application/json' OR (asset_meta->>'mime') LIKE 'application/x-%')").
-		Where("(asset_meta->>'content') ~ ?", pattern).
+		Where("(asset_meta->>'content') ~* ?", pattern).
 		Limit(limit)
 
 	err := query.Find(&artifacts).Error

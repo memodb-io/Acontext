@@ -5,6 +5,9 @@ from .message import Message, Part, Asset, ToolCallMeta, ToolResultMeta
 from .task import Task
 from .sandbox_log import SandboxLog
 from .metric import Metric
+from .agent_skill import AgentSkill
+from .disk import Disk
+from .artifact import Artifact
 
 __all__ = [
     "ORM_BASE",
@@ -18,4 +21,7 @@ __all__ = [
     "Task",
     "Metric",
     "SandboxLog",
+    "AgentSkill",
+    "Disk",
+    "Artifact",
 ]
