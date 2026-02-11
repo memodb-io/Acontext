@@ -107,6 +107,14 @@ func (m *MockSessionService) PatchConfigs(ctx context.Context, projectID uuid.UU
 	return args.Get(0).(map[string]interface{}), args.Error(1)
 }
 
+func (m *MockSessionService) ForkSession(ctx context.Context, in service.ForkSessionInput) (*service.ForkSessionOutput, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*service.ForkSessionOutput), args.Error(1)
+}
+
 func setupSessionRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	return gin.New()
@@ -2519,7 +2527,7 @@ func TestOpenAI_ToolCalls_FieldPreservation(t *testing.T) {
 		Role:      model.RoleAssistant,
 		Meta: datatypes.NewJSONType(map[string]any{
 			model.MsgMetaSourceFormat: "openai",
-			model.MetaKeyName:        "assistant_bot",
+			model.MetaKeyName:         "assistant_bot",
 		}),
 		Parts: []model.Part{
 			{
@@ -3827,4 +3835,185 @@ func TestSessionHandler_PatchConfigs_InvalidRequest(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 	mockService.AssertNotCalled(t, "PatchConfigs")
+}
+
+// Fork Session Tests
+
+func TestSessionHandler_ForkSession_Success(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	projectID := uuid.New()
+	sessionID := uuid.New()
+	newSessionID := uuid.New()
+
+	mockService := new(MockSessionService)
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
+
+	expectedOutput := &service.ForkSessionOutput{
+		OldSessionID: sessionID,
+		NewSessionID: newSessionID,
+	}
+
+	mockService.On("ForkSession", mock.Anything, service.ForkSessionInput{
+		ProjectID: projectID,
+		SessionID: sessionID,
+	}).Return(expectedOutput, nil)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Set("project", &model.Project{ID: projectID})
+	c.Params = gin.Params{
+		{Key: "session_id", Value: sessionID.String()},
+	}
+	req, _ := http.NewRequest("POST", "/session/"+sessionID.String()+"/fork", nil)
+	c.Request = req
+
+	handler.ForkSession(c)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response map[string]interface{}
+	err := sonic.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	data := response["data"].(map[string]interface{})
+	assert.Equal(t, sessionID.String(), data["old_session_id"])
+	assert.Equal(t, newSessionID.String(), data["new_session_id"])
+
+	mockService.AssertExpectations(t)
+}
+
+func TestSessionHandler_ForkSession_SessionNotFound(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	projectID := uuid.New()
+	sessionID := uuid.New()
+
+	mockService := new(MockSessionService)
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
+
+	mockService.On("ForkSession", mock.Anything, service.ForkSessionInput{
+		ProjectID: projectID,
+		SessionID: sessionID,
+	}).Return(nil, service.ErrSessionNotFound)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Set("project", &model.Project{ID: projectID})
+	c.Params = gin.Params{
+		{Key: "session_id", Value: sessionID.String()},
+	}
+	req, _ := http.NewRequest("POST", "/session/"+sessionID.String()+"/fork", nil)
+	c.Request = req
+
+	handler.ForkSession(c)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+
+	var response map[string]interface{}
+	err := sonic.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "SESSION_NOT_FOUND", response["msg"])
+
+	mockService.AssertExpectations(t)
+}
+
+func TestSessionHandler_ForkSession_SessionTooLarge(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	projectID := uuid.New()
+	sessionID := uuid.New()
+
+	mockService := new(MockSessionService)
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
+
+	mockService.On("ForkSession", mock.Anything, service.ForkSessionInput{
+		ProjectID: projectID,
+		SessionID: sessionID,
+	}).Return(nil, service.ErrSessionTooLarge)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Set("project", &model.Project{ID: projectID})
+	c.Params = gin.Params{
+		{Key: "session_id", Value: sessionID.String()},
+	}
+	req, _ := http.NewRequest("POST", "/session/"+sessionID.String()+"/fork", nil)
+	c.Request = req
+
+	handler.ForkSession(c)
+
+	assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
+
+	var response map[string]interface{}
+	err := sonic.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "SESSION_TOO_LARGE", response["msg"])
+
+	mockService.AssertExpectations(t)
+}
+
+func TestSessionHandler_ForkSession_InvalidUUID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	projectID := uuid.New()
+	invalidSessionID := "invalid-uuid"
+
+	mockService := new(MockSessionService)
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Set("project", &model.Project{ID: projectID})
+	c.Params = gin.Params{
+		{Key: "session_id", Value: invalidSessionID},
+	}
+	req, _ := http.NewRequest("POST", "/session/"+invalidSessionID+"/fork", nil)
+	c.Request = req
+
+	handler.ForkSession(c)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response map[string]interface{}
+	err := sonic.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "INVALID_SESSION_ID", response["msg"])
+
+	mockService.AssertNotCalled(t, "ForkSession")
+}
+
+func TestSessionHandler_ForkSession_InternalError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	projectID := uuid.New()
+	sessionID := uuid.New()
+
+	mockService := new(MockSessionService)
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
+
+	mockService.On("ForkSession", mock.Anything, service.ForkSessionInput{
+		ProjectID: projectID,
+		SessionID: sessionID,
+	}).Return(nil, errors.New("database connection failed"))
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Set("project", &model.Project{ID: projectID})
+	c.Params = gin.Params{
+		{Key: "session_id", Value: sessionID.String()},
+	}
+	req, _ := http.NewRequest("POST", "/session/"+sessionID.String()+"/fork", nil)
+	c.Request = req
+
+	handler.ForkSession(c)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+
+	var response map[string]interface{}
+	err := sonic.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "INTERNAL_ERROR", response["msg"])
+
+	mockService.AssertExpectations(t)
 }

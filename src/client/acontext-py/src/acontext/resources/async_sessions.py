@@ -10,6 +10,7 @@ from ..client_types import AsyncRequesterProtocol
 from ..messages import AcontextMessage
 from ..types.session import (
     EditStrategy,
+    ForkSessionResult,
     GetMessagesOutput,
     GetTasksOutput,
     ListSessionsOutput,
@@ -502,3 +503,27 @@ class AsyncSessionsAPI:
             json_data=payload,
         )
         return data.get("configs", {})  # type: ignore
+
+    async def fork(self, session_id: str) -> ForkSessionResult:
+        """Fork (duplicate) a session with all its messages and tasks.
+
+        Creates a complete copy of the session including all messages, tasks, and configurations.
+        The forked session will be independent and modifications to it won't affect the original.
+
+        Args:
+            session_id: The UUID of the session to fork.
+
+        Returns:
+            ForkSessionResult containing the original and new session IDs.
+
+        Raises:
+            ValueError: If session_id is invalid or session doesn't exist.
+            RuntimeError: If session exceeds maximum forkable size (5000 messages).
+
+        Example:
+            >>> result = await client.sessions.fork(session_id)
+            >>> print(f"Forked session: {result.new_session_id}")
+            >>> print(f"Original session: {result.old_session_id}")
+        """
+        data = await self._requester.request("POST", f"/session/{session_id}/fork")
+        return ForkSessionResult.model_validate(data)

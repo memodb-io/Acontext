@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/infra/httpclient"
 	"github.com/memodb-io/Acontext/internal/modules/model"
+	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
 	"github.com/memodb-io/Acontext/internal/pkg/converter"
@@ -25,6 +26,10 @@ import (
 
 // MaxMetaSize is the maximum allowed size for user-provided message metadata (64KB)
 const MaxMetaSize = 64 * 1024
+
+// MaxForkableMessages is imported from repo package to maintain single source of truth
+// This constant is defined in repo package to avoid circular dependencies
+// Import it via repo.MaxForkableMessages where needed
 
 type SessionHandler struct {
 	svc        service.SessionService
@@ -664,6 +669,11 @@ type PatchSessionConfigsResp struct {
 	Configs map[string]interface{} `json:"configs"`
 }
 
+type ForkSessionResp struct {
+	OldSessionID string `json:"old_session_id"`
+	NewSessionID string `json:"new_session_id"`
+}
+
 // PatchMessageMeta godoc
 //
 //	@Summary		Patch message metadata
@@ -777,4 +787,66 @@ func (h *SessionHandler) PatchConfigs(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, serializer.Response{Data: PatchSessionConfigsResp{Configs: updatedConfigs}})
+}
+
+// ForkSession godoc
+//
+//	@Summary		Fork session
+//	@Description	Create a complete copy of a session with all its messages and tasks. The forked session will be independent and can be modified without affecting the original.
+//	@Tags			session
+//	@Accept			json
+//	@Produce		json
+//	@Param			session_id	path	string	true	"Session ID"	format(uuid)
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response{data=handler.ForkSessionResp}
+//	@Failure		400	{object}	serializer.Response	"Invalid session ID"
+//	@Failure		404	{object}	serializer.Response	"Session not found"
+//	@Failure		413	{object}	serializer.Response	"Session exceeds maximum forkable size"
+//	@Failure		500	{object}	serializer.Response	"Failed to fork session"
+//	@Router			/session/{session_id}/fork [post]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Fork a session\nresult = client.sessions.fork(session_id='session-uuid')\nprint(f\"Forked session: {result.new_session_id}\")\nprint(f\"Original session: {result.old_session_id}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Fork a session\nconst result = await client.sessions.fork('session-uuid');\nconsole.log(`Forked session: ${result.newSessionId}`);\nconsole.log(`Original session: ${result.oldSessionId}`);\n","label":"JavaScript"}]
+func (h *SessionHandler) ForkSession(c *gin.Context) {
+	// Parse and validate session ID
+	sessionID, err := uuid.Parse(c.Param("session_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.Err(http.StatusBadRequest, "INVALID_SESSION_ID", err))
+		return
+	}
+
+	// Get project from context
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	// Call service to fork session
+	result, err := h.svc.ForkSession(c.Request.Context(), service.ForkSessionInput{
+		ProjectID: project.ID,
+		SessionID: sessionID,
+	})
+	if err != nil {
+		// Handle specific error cases using typed errors
+		if errors.Is(err, service.ErrSessionNotFound) {
+			c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "SESSION_NOT_FOUND", err))
+			return
+		}
+		if errors.Is(err, service.ErrSessionTooLarge) {
+			c.JSON(http.StatusRequestEntityTooLarge, serializer.Err(
+				http.StatusRequestEntityTooLarge,
+				"SESSION_TOO_LARGE",
+				fmt.Errorf("Session exceeds maximum forkable size (%d messages). Consider using async fork.", repo.MaxForkableMessages),
+			))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "INTERNAL_ERROR", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{
+		Data: ForkSessionResp{
+			OldSessionID: result.OldSessionID.String(),
+			NewSessionID: result.NewSessionID.String(),
+		},
+	})
 }

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
@@ -19,6 +20,7 @@ import (
 type RouterDeps struct {
 	Config             *config.Config
 	DB                 *gorm.DB
+	Redis              *redis.Client
 	Log                *zap.Logger
 	SessionHandler     *handler.SessionHandler
 	DiskHandler        *handler.DiskHandler
@@ -80,6 +82,8 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			session.GET("/:session_id/token_counts", d.SessionHandler.GetTokenCounts)
 
 			session.GET("/:session_id/observing_status", d.SessionHandler.GetSessionObservingStatus)
+
+			session.POST("/:session_id/fork", d.SessionHandler.ForkSession)
 
 			task := session.Group("/:session_id/task")
 			{
