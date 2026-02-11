@@ -401,7 +401,7 @@ type SessionSearchResponse struct {
 }
 
 // SessionSearch calls the session search endpoint in Python Core
-func (c *CoreClient) SessionSearch(ctx context.Context, userID string, query string, limit int) (*SessionSearchResponse, error) {
+func (c *CoreClient) SessionSearch(ctx context.Context, userID string, projectID string, query string, limit int) (*SessionSearchResponse, error) {
 	endpoint := fmt.Sprintf("%s/api/v1/sessions/search", c.BaseURL)
 
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
@@ -412,6 +412,7 @@ func (c *CoreClient) SessionSearch(ctx context.Context, userID string, query str
 	// Add query parameters
 	q := httpReq.URL.Query()
 	q.Add("user_id", userID)
+	q.Add("project_id", projectID)
 	q.Add("query", query)
 	q.Add("limit", fmt.Sprintf("%d", limit))
 	httpReq.URL.RawQuery = q.Encode()

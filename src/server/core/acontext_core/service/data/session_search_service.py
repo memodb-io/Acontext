@@ -10,6 +10,7 @@ from ...env import LOG, DEFAULT_CORE_CONFIG
 async def search_sessions_by_task_query(
     db_session: AsyncSession,
     user_id: asUUID,
+    project_id: asUUID,
     query: str,
     topk: int = 10,
     threshold: float = 0.8,
@@ -20,6 +21,7 @@ async def search_sessions_by_task_query(
     Args:
         db_session: Database session
         user_id: User ID to scope the search
+        project_id: Project ID to scope the search
         query: Search query text
         topk: Maximum number of results to return
         threshold: Cosine distance threshold (lower = more similar)
@@ -41,6 +43,7 @@ async def search_sessions_by_task_query(
             FROM tasks t
             JOIN sessions s ON t.session_id = s.id
             WHERE s.user_id = :user_id
+              AND s.project_id = :project_id
               AND t.embedding IS NOT NULL
               AND (t.embedding <=> :query_embedding::vector) < :threshold
             GROUP BY t.session_id
@@ -53,6 +56,7 @@ async def search_sessions_by_task_query(
             {
                 "query_embedding": str(query_embedding),
                 "user_id": str(user_id),
+                "project_id": str(project_id),
                 "threshold": threshold,
                 "topk": topk,
             },
