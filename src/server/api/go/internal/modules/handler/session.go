@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
@@ -798,12 +797,6 @@ func (h *SessionHandler) PatchConfigs(c *gin.Context) {
 //	@Router			/session/{session_id}/fork [post]
 //	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Fork a session\nresult = client.sessions.fork(session_id='session-uuid')\nprint(f\"Forked {result.old_session_id} → {result.new_session_id}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Fork a session\nconst result = await client.sessions.fork('session-uuid');\nconsole.log(`Forked ${result.old_session_id} → ${result.new_session_id}`);\n","label":"JavaScript"}]
 func (h *SessionHandler) ForkSession(c *gin.Context) {
-	// Feature is enabled by default, but can be disabled via environment variable for emergency rollback
-	if os.Getenv("ENABLE_SESSION_FORK") == "false" {
-		c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "Not found", nil))
-		return
-	}
-
 	// Parse session_id from URL
 	sessionID, err := uuid.Parse(c.Param("session_id"))
 	if err != nil {

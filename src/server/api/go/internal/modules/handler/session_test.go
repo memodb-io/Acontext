@@ -3886,34 +3886,6 @@ func TestSessionHandler_ForkSession_Success(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestSessionHandler_ForkSession_FeatureFlagDisabled(t *testing.T) {
-	// Feature is enabled by default, explicitly disable it
-	t.Setenv("ENABLE_SESSION_FORK", "false")
-
-	gin.SetMode(gin.TestMode)
-
-	projectID := uuid.New()
-	sessionID := uuid.New()
-
-	mockService := new(MockSessionService)
-	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
-
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Set("project", &model.Project{ID: projectID})
-	c.Params = gin.Params{
-		{Key: "session_id", Value: sessionID.String()},
-	}
-	req, _ := http.NewRequest("POST", "/session/"+sessionID.String()+"/fork", nil)
-	c.Request = req
-
-	handler.ForkSession(c)
-
-	// Should return 404 when explicitly disabled via ENABLE_SESSION_FORK=false
-	assert.Equal(t, http.StatusNotFound, w.Code)
-	mockService.AssertNotCalled(t, "ForkSession")
-}
-
 func TestSessionHandler_ForkSession_SessionNotFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
