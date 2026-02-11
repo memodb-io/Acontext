@@ -4,6 +4,7 @@
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
 test_scripts/
 plans/appendix
+plans/dont-track
 ### Python ###
 # Byte-compiled / optimized / DLL files
 __pycache__/
