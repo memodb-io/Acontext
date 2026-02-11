@@ -15,6 +15,7 @@ import {
   mockGetArtifactResp,
   mockFileContent,
   mockUser,
+  mockTool,
   mockTask,
   mockPaginatedList,
   resetMockIds,
@@ -750,6 +751,7 @@ describe('AcontextClient Unit Tests', () => {
           sessions_count: 10,
           disks_count: 3,
           skills_count: 2,
+          tools_count: 4,
         },
       };
       client
@@ -762,6 +764,7 @@ describe('AcontextClient Unit Tests', () => {
       expect(result.counts.sessions_count).toBe(10);
       expect(result.counts.disks_count).toBe(3);
       expect(result.counts.skills_count).toBe(2);
+      expect(result.counts.tools_count).toBe(4);
     });
 
     test('should delete a user', async () => {
@@ -769,6 +772,71 @@ describe('AcontextClient Unit Tests', () => {
       client.mock().onDelete(`/user/${encodeURIComponent(identifier)}`, () => undefined);
 
       await client.users.delete(identifier);
+      expect(client.requester.calls).toHaveLength(1);
+      expect(client.requester.calls[0].method).toBe('DELETE');
+    });
+  });
+
+  describe('Tools API', () => {
+    test('should upsert a tool', async () => {
+      const tool = mockTool();
+      client.mock().onPost('/tools', (options) => {
+        const payload = options?.jsonData as Record<string, unknown>;
+        expect(payload.openai_schema).toBeDefined();
+        expect(payload.config).toEqual({ tag: 'web' });
+        return tool;
+      });
+
+      const result = await client.tools.upsert({
+        openaiSchema: {
+          type: 'function',
+          function: {
+            name: 'github_search',
+            description: 'Search GitHub',
+            parameters: { type: 'object', properties: {} },
+          },
+        },
+        config: { tag: 'web' },
+      });
+      expect(result).toBeDefined();
+      expect(result.name).toBe('github_search');
+    });
+
+    test('should list tools with filter and format', async () => {
+      const tools = [mockTool(), mockTool({ name: 'slack_search' })];
+      client.mock().onGet('/tools', (options) => {
+        expect(options?.params?.filter_config).toBe('{"tag":"web"}');
+        expect(options?.params?.format).toBe('anthropic');
+        return mockPaginatedList(tools, false);
+      });
+
+      const result = await client.tools.list({
+        filterConfig: { tag: 'web' },
+        format: 'anthropic',
+      });
+      expect(result.items).toHaveLength(2);
+    });
+
+    test('should search tools', async () => {
+      client.mock().onGet('/tools/search', (options) => {
+        expect(options?.params?.query).toBe('search in slack and save it to CRM');
+        return {
+          items: [{ tool: mockTool(), distance: 0.12 }],
+        };
+      });
+
+      const result = await client.tools.search({
+        query: 'search in slack and save it to CRM',
+      });
+      expect(result.items).toHaveLength(1);
+      expect(result.items[0].tool.name).toBe('github_search');
+    });
+
+    test('should delete a tool', async () => {
+      const name = 'github_search';
+      client.mock().onDelete(`/tools/${encodeURIComponent(name)}`, () => undefined);
+
+      await client.tools.delete(name);
       expect(client.requester.calls).toHaveLength(1);
       expect(client.requester.calls[0].method).toBe('DELETE');
     });

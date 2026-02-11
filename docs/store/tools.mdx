@@ -1,0 +1,135 @@
+---
+title: Tools
+description: "Store tool schemas and search them semantically"
+---
+
+Tools let you store function/tool schemas (OpenAI format) and retrieve them in different provider formats with semantic search.
+
+## Quick Start
+
+<Steps>
+<Step title="Upsert a tool schema">
+<CodeGroup>
+```python Python
+import os
+from acontext import AcontextClient
+
+client = AcontextClient(
+    api_key=os.getenv("ACONTEXT_API_KEY"),
+)
+
+tool = client.tools.upsert(
+    openai_schema={
+        "type": "function",
+        "function": {
+            "name": "github_search",
+            "description": "Search GitHub issues and PRs",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    config={"tag": "web"},
+)
+print(tool.name)
+```
+
+```typescript TypeScript
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+const tool = await client.tools.upsert({
+  openaiSchema: {
+    type: "function",
+    function: {
+      name: "github_search",
+      description: "Search GitHub issues and PRs",
+      parameters: {
+        type: "object",
+        properties: { query: { type: "string" } },
+        required: ["query"],
+      },
+    },
+  },
+  config: { tag: "web" },
+});
+console.log(tool.name);
+```
+</CodeGroup>
+</Step>
+
+<Step title="List tools (filter + format conversion)">
+<CodeGroup>
+```python Python
+tools = client.tools.list(
+    filter_config={"tag": "web"},
+    format="anthropic",
+)
+for t in tools.items:
+    print(t.name)
+```
+
+```typescript TypeScript
+const tools = await client.tools.list({
+  filterConfig: { tag: "web" },
+  format: "anthropic",
+});
+for (const t of tools.items) {
+  console.log(t.name);
+}
+```
+</CodeGroup>
+</Step>
+
+<Step title="Semantic search tools">
+<CodeGroup>
+```python Python
+hits = client.tools.search(
+    query="search in slack and save it to CRM",
+)
+for hit in hits.items:
+    print(hit.tool.name, hit.distance)
+```
+
+```typescript TypeScript
+const hits = await client.tools.search({
+  query: "search in slack and save it to CRM",
+});
+for (const hit of hits.items) {
+  console.log(hit.tool.name, hit.distance);
+}
+```
+</CodeGroup>
+</Step>
+
+<Step title="Delete a tool">
+<CodeGroup>
+```python Python
+client.tools.delete("github_search")
+```
+
+```typescript TypeScript
+await client.tools.delete("github_search");
+```
+</CodeGroup>
+</Step>
+</Steps>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Store with User" icon="user" href="/store/per-user">
+Scope tools to a user identifier
+</Card>
+<Card title="Agent Tools" icon="wand-magic-sparkles" href="/tool/whatis">
+Use tools inside your agent loops
+</Card>
+</CardGroup>
+

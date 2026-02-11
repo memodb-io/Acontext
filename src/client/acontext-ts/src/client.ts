@@ -7,6 +7,7 @@ import { DisksAPI } from './resources/disks';
 import { SandboxesAPI } from './resources/sandboxes';
 import { SessionsAPI } from './resources/sessions';
 import { SkillsAPI } from './resources/skills';
+import { ToolsAPI } from './resources/tools';
 import { UsersAPI } from './resources/users';
 import { DEFAULT_BASE_URL, DEFAULT_USER_AGENT } from './constants';
 import { RequesterProtocol } from './client-types';
@@ -28,6 +29,7 @@ export class AcontextClient implements RequesterProtocol {
   public disks: DisksAPI;
   public artifacts: DisksAPI['artifacts'];
   public skills: SkillsAPI;
+  public tools: ToolsAPI;
   public users: UsersAPI;
   public sandboxes: SandboxesAPI;
 
@@ -67,6 +69,7 @@ export class AcontextClient implements RequesterProtocol {
     this.disks = new DisksAPI(this);
     this.artifacts = this.disks.artifacts;
     this.skills = new SkillsAPI(this);
+    this.tools = new ToolsAPI(this);
     this.users = new UsersAPI(this);
     this.sandboxes = new SandboxesAPI(this);
   }
@@ -323,4 +326,3 @@ export class AcontextClient implements RequesterProtocol {
     }
   }
 }
-

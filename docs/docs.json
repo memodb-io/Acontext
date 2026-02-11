@@ -45,6 +45,7 @@
               },
               "store/disk",
               "store/skill",
+              "store/tools",
               "store/sandbox",
               "store/per-user"
             ]

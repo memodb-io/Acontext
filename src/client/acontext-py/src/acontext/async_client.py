@@ -16,6 +16,7 @@ from .resources.async_disks import AsyncDisksAPI as AsyncDisksAPI
 from .resources.async_sandboxes import AsyncSandboxesAPI as AsyncSandboxesAPI
 from .resources.async_sessions import AsyncSessionsAPI as AsyncSessionsAPI
 from .resources.async_skills import AsyncSkillsAPI as AsyncSkillsAPI
+from .resources.async_tools import AsyncToolsAPI as AsyncToolsAPI
 from .resources.async_users import AsyncUsersAPI as AsyncUsersAPI
 
 
@@ -107,6 +108,7 @@ class AcontextAsyncClient:
         self.disks = AsyncDisksAPI(self)
         self.artifacts = self.disks.artifacts
         self.skills = AsyncSkillsAPI(self)
+        self.tools = AsyncToolsAPI(self)
         self.users = AsyncUsersAPI(self)
         self.sandboxes = AsyncSandboxesAPI(self)
 

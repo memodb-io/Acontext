@@ -22,6 +22,7 @@ type UserResourceCounts struct {
 	SessionsCount int64 `json:"sessions_count"`
 	DisksCount    int64 `json:"disks_count"`
 	SkillsCount   int64 `json:"skills_count"`
+	ToolsCount    int64 `json:"tools_count"`
 }
 
 type userRepo struct{ db *gorm.DB }
@@ -151,6 +152,17 @@ func (r *userRepo) GetResourceCounts(ctx context.Context, projectID uuid.UUID, u
 		return nil, err
 	}
 	counts.SkillsCount = skillsCount
+
+	// Count tools (user-scoped only)
+	var toolsCount int64
+	err = r.db.WithContext(ctx).
+		Model(&model.Tool{}).
+		Where("project_id = ? AND user_id = ?", projectID, userID).
+		Count(&toolsCount).Error
+	if err != nil {
+		return nil, err
+	}
+	counts.ToolsCount = toolsCount
 
 	return counts, nil
 }

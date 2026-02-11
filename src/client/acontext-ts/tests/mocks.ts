@@ -7,6 +7,7 @@ import { RequesterProtocol } from '../src/client-types';
 import { SessionsAPI } from '../src/resources/sessions';
 import { DisksAPI } from '../src/resources/disks';
 import { SkillsAPI } from '../src/resources/skills';
+import { ToolsAPI } from '../src/resources/tools';
 import { UsersAPI } from '../src/resources/users';
 
 // Type for mock response handlers
@@ -119,6 +120,7 @@ export class MockAcontextClient {
   public disks: DisksAPI;
   public artifacts: DisksAPI['artifacts'];
   public skills: SkillsAPI;
+  public tools: ToolsAPI;
   public users: UsersAPI;
 
   constructor() {
@@ -127,6 +129,7 @@ export class MockAcontextClient {
     this.disks = new DisksAPI(this.requester);
     this.artifacts = this.disks.artifacts;
     this.skills = new SkillsAPI(this.requester);
+    this.tools = new ToolsAPI(this.requester);
     this.users = new UsersAPI(this.requester);
   }
 
@@ -429,6 +432,41 @@ export function mockSkill(overrides?: Partial<{
     file_index: overrides?.file_index ?? [],
     meta: overrides?.meta ?? null,
     user_id: overrides?.user_id ?? null,
+    created_at: overrides?.created_at ?? now,
+    updated_at: overrides?.updated_at ?? now,
+  };
+}
+
+/**
+ * Mock data factory for Tool objects.
+ */
+export function mockTool(overrides?: Partial<{
+  id: string;
+  project_id: string;
+  user_id: string | null;
+  name: string;
+  description: string;
+  config: Record<string, unknown> | null;
+  schema: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}>): Record<string, unknown> {
+  const now = mockTimestamp();
+  return {
+    id: overrides?.id ?? mockId(),
+    project_id: overrides?.project_id ?? mockId(),
+    user_id: overrides?.user_id ?? null,
+    name: overrides?.name ?? 'github_search',
+    description: overrides?.description ?? 'Search GitHub',
+    config: overrides?.config ?? { tag: 'web' },
+    schema: overrides?.schema ?? {
+      type: 'function',
+      function: {
+        name: overrides?.name ?? 'github_search',
+        description: overrides?.description ?? 'Search GitHub',
+        parameters: { type: 'object', properties: {} },
+      },
+    },
     created_at: overrides?.created_at ?? now,
     updated_at: overrides?.updated_at ?? now,
   };
