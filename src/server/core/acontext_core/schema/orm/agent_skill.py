@@ -48,6 +48,7 @@ class AgentSkill(CommonMixin):
         metadata={
             "db": Column(
                 UUID(as_uuid=True),
+                ForeignKey("users.id", ondelete="CASCADE"),
                 nullable=True,
                 index=True,
             )

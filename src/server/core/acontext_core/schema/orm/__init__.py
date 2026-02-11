@@ -1,4 +1,5 @@
 from .base import ORM_BASE
+from .user import User
 from .project import Project
 from .session import Session
 from .message import Message, Part, Asset, ToolCallMeta, ToolResultMeta
@@ -14,6 +15,7 @@ from .learning_space_session import LearningSpaceSession
 
 __all__ = [
     "ORM_BASE",
+    "User",
     "Project",
     "Session",
     "Message",

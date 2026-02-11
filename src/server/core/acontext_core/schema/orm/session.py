@@ -32,6 +32,18 @@ class Session(CommonMixin):
         }
     )
 
+    user_id: Optional[asUUID] = field(
+        default=None,
+        metadata={
+            "db": Column(
+                UUID(as_uuid=True),
+                ForeignKey("users.id", ondelete="CASCADE"),
+                nullable=True,
+                index=True,
+            )
+        },
+    )
+
     disable_task_tracking: bool = field(
         default=False,
         metadata={
