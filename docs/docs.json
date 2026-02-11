@@ -50,15 +50,6 @@
             ]
           },
           {
-            "group": "Agent Tools",
-            "icon": "wand-magic-sparkles",
-            "pages": [
-              "tool/whatis",
-              "tool/bash_tools",
-              "tool/disk_tools"
-            ]
-          },
-          {
             "group": "Context Engineering",
             "icon": "scissors",
             "pages": [
@@ -88,6 +79,22 @@
                   "observe/traces"
                 ]
               }
+            ]
+          },
+          {
+            "group": "Self-learning",
+            "icon": "brain",
+            "pages": [
+              "learn/learning-space"
+            ]
+          },
+          {
+            "group": "Agent Tools",
+            "icon": "wand-magic-sparkles",
+            "pages": [
+              "tool/whatis",
+              "tool/bash_tools",
+              "tool/disk_tools"
             ]
           },
           {

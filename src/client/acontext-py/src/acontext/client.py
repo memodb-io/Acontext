@@ -15,6 +15,7 @@ from .uploads import FileUpload as FileUpload
 from .resources.disks import DisksAPI as DisksAPI
 from .resources.sandboxes import SandboxesAPI as SandboxesAPI
 from .resources.sessions import SessionsAPI as SessionsAPI
+from .resources.learning_spaces import LearningSpacesAPI as LearningSpacesAPI
 from .resources.skills import SkillsAPI as SkillsAPI
 from .resources.users import UsersAPI as UsersAPI
 
@@ -109,6 +110,7 @@ class AcontextClient:
         self.skills = SkillsAPI(self)
         self.users = UsersAPI(self)
         self.sandboxes = SandboxesAPI(self)
+        self.learning_spaces = LearningSpacesAPI(self)
 
     @property
     def base_url(self) -> str:

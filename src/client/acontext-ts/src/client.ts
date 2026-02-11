@@ -4,6 +4,7 @@
 
 import { APIError, TransportError } from './errors';
 import { DisksAPI } from './resources/disks';
+import { LearningSpacesAPI } from './resources/learning-spaces';
 import { SandboxesAPI } from './resources/sandboxes';
 import { SessionsAPI } from './resources/sessions';
 import { SkillsAPI } from './resources/skills';
@@ -30,6 +31,7 @@ export class AcontextClient implements RequesterProtocol {
   public skills: SkillsAPI;
   public users: UsersAPI;
   public sandboxes: SandboxesAPI;
+  public learningSpaces: LearningSpacesAPI;
 
   constructor(options: AcontextClientOptions = {}) {
     // Priority: explicit parameters > environment variables > defaults
@@ -69,6 +71,7 @@ export class AcontextClient implements RequesterProtocol {
     this.skills = new SkillsAPI(this);
     this.users = new UsersAPI(this);
     this.sandboxes = new SandboxesAPI(this);
+    this.learningSpaces = new LearningSpacesAPI(this);
   }
 
   get baseUrl(): string {

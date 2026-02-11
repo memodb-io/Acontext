@@ -65,6 +65,9 @@ func BuildContainer() *do.Injector {
 				&model.Metric{},
 				&model.AgentSkills{},
 				&model.SandboxLog{},
+				&model.LearningSpace{},
+				&model.LearningSpaceSkill{},
+				&model.LearningSpaceSession{},
 			)
 		}
 
@@ -188,6 +191,15 @@ func BuildContainer() *do.Injector {
 	do.Provide(inj, func(i *do.Injector) (repo.SandboxLogRepo, error) {
 		return repo.NewSandboxLogRepo(do.MustInvoke[*gorm.DB](i)), nil
 	})
+	do.Provide(inj, func(i *do.Injector) (repo.LearningSpaceRepo, error) {
+		return repo.NewLearningSpaceRepo(do.MustInvoke[*gorm.DB](i)), nil
+	})
+	do.Provide(inj, func(i *do.Injector) (repo.LearningSpaceSkillRepo, error) {
+		return repo.NewLearningSpaceSkillRepo(do.MustInvoke[*gorm.DB](i)), nil
+	})
+	do.Provide(inj, func(i *do.Injector) (repo.LearningSpaceSessionRepo, error) {
+		return repo.NewLearningSpaceSessionRepo(do.MustInvoke[*gorm.DB](i)), nil
+	})
 
 	// Service
 	do.Provide(inj, func(i *do.Injector) (service.SessionService, error) {
@@ -229,6 +241,15 @@ func BuildContainer() *do.Injector {
 	do.Provide(inj, func(i *do.Injector) (service.SandboxLogService, error) {
 		return service.NewSandboxLogService(do.MustInvoke[repo.SandboxLogRepo](i)), nil
 	})
+	do.Provide(inj, func(i *do.Injector) (service.LearningSpaceService, error) {
+		return service.NewLearningSpaceService(
+			do.MustInvoke[repo.LearningSpaceRepo](i),
+			do.MustInvoke[repo.LearningSpaceSkillRepo](i),
+			do.MustInvoke[repo.LearningSpaceSessionRepo](i),
+			do.MustInvoke[repo.AgentSkillsRepo](i),
+			do.MustInvoke[repo.SessionRepo](i),
+		), nil
+	})
 
 	// Handler
 	do.Provide(inj, func(i *do.Injector) (*handler.SessionHandler, error) {
@@ -269,6 +290,12 @@ func BuildContainer() *do.Injector {
 		return handler.NewSandboxHandler(
 			do.MustInvoke[*httpclient.CoreClient](i),
 			do.MustInvoke[service.SandboxLogService](i),
+		), nil
+	})
+	do.Provide(inj, func(i *do.Injector) (*handler.LearningSpaceHandler, error) {
+		return handler.NewLearningSpaceHandler(
+			do.MustInvoke[service.LearningSpaceService](i),
+			do.MustInvoke[service.UserService](i),
 		), nil
 	})
 	return inj
