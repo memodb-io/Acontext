@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -36,6 +37,17 @@ type SessionService interface {
 	GetSessionObservingStatus(ctx context.Context, sessionID string) (*model.MessageObservingStatus, error)
 	PatchMessageMeta(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, messageID uuid.UUID, patchMeta map[string]interface{}) (map[string]interface{}, error)
 	PatchConfigs(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, patchConfigs map[string]interface{}) (map[string]interface{}, error)
+	ForkSession(ctx context.Context, in ForkSessionInput) (*ForkSessionOutput, error)
+}
+
+type ForkSessionInput struct {
+	ProjectID uuid.UUID
+	SessionID uuid.UUID
+}
+
+type ForkSessionOutput struct {
+	OldSessionID uuid.UUID `json:"old_session_id"`
+	NewSessionID uuid.UUID `json:"new_session_id"`
 }
 
 type sessionService struct {
@@ -742,4 +754,35 @@ func (s *sessionService) PatchConfigs(
 	}
 
 	return existingConfigs, nil
+}
+
+// ForkSession creates a complete copy of a session with all its messages and tasks.
+// Returns ForkSessionOutput containing old and new session IDs.
+func (s *sessionService) ForkSession(ctx context.Context, in ForkSessionInput) (*ForkSessionOutput, error) {
+	// Verify session exists and belongs to project
+	session, err := s.sessionRepo.Get(ctx, &model.Session{ID: in.SessionID})
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrSessionNotFound
+		}
+		return nil, fmt.Errorf("failed to get session: %w", err)
+	}
+	if session.ProjectID != in.ProjectID {
+		return nil, ErrSessionNotFound
+	}
+
+	// Perform fork operation (size limit check is done atomically inside the transaction)
+	result, err := s.sessionRepo.ForkSession(ctx, in.SessionID)
+	if err != nil {
+		// Check for size limit error
+		if strings.Contains(err.Error(), "exceeds maximum forkable size") {
+			return nil, fmt.Errorf("%w: %v", ErrSessionTooLarge, err)
+		}
+		return nil, fmt.Errorf("%w: %v", ErrForkFailed, err)
+	}
+
+	return &ForkSessionOutput{
+		OldSessionID: result.OldSessionID,
+		NewSessionID: result.NewSessionID,
+	}, nil
 }

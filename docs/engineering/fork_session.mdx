@@ -1,0 +1,241 @@
+---
+title: Fork Session
+description: "Duplicate sessions to experiment safely or create conversation branches"
+---
+
+Create independent copies of sessions with all messages, tasks, and configurations intact. Perfect for experimentation, checkpointing, and branching workflows.
+
+## Use Cases
+
+- **Experimentation**: Try different approaches without affecting the original conversation
+- **Checkpointing**: Save progress at key decision points
+- **Branching workflows**: Explore parallel conversation paths from a common starting point
+- **Template sessions**: Reuse successful session patterns
+
+## Basic Usage
+
+<CodeGroup>
+```python Python
+from acontext import AcontextClient
+import os
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+
+# Fork a session
+result = client.sessions.fork(session_id="session-uuid")
+
+print(f"Original session: {result.old_session_id}")
+print(f"Forked session: {result.new_session_id}")
+
+# Now you can modify the forked session independently
+client.sessions.store_message(
+    session_id=result.new_session_id,
+    blob={"role": "user", "content": "Let's try a different approach"},
+    format="openai"
+)
+```
+
+```typescript TypeScript
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+// Fork a session
+const result = await client.sessions.fork("session-uuid");
+
+console.log(`Original session: ${result.oldSessionId}`);
+console.log(`Forked session: ${result.newSessionId}`);
+
+// Now you can modify the forked session independently
+await client.sessions.storeMessage(
+    result.newSessionId,
+    { role: "user", content: "Let's try a different approach" },
+    { format: "openai" }
+);
+```
+</CodeGroup>
+
+## Async Python SDK
+
+<CodeGroup>
+```python Python (Async)
+from acontext import AsyncAcontextClient
+import os
+import asyncio
+
+async def fork_example():
+    async with AsyncAcontextClient(api_key=os.getenv("ACONTEXT_API_KEY")) as client:
+        result = await client.sessions.fork(session_id="session-uuid")
+        print(f"Forked session: {result.new_session_id}")
+
+asyncio.run(fork_example())
+```
+</CodeGroup>
+
+## What Gets Copied
+
+When you fork a session, the following are duplicated:
+
+- **Messages**: All messages with preserved parent-child relationships
+- **Tasks**: All tasks with their order, status, and data
+- **Configurations**: Session configs and settings
+- **User association**: The forked session belongs to the same project
+
+## What Doesn't Get Copied
+
+- **Asset files**: S3 assets are shared (not duplicated) between sessions for efficiency
+- **Message processing status**: Forked messages are marked as "pending" for reprocessing
+- **Task-message links**: These are cleared and will be reassigned by the core service
+
+## Independence
+
+The forked session is completely independent:
+
+- Changes to the original session don't affect the fork
+- Changes to the fork don't affect the original
+- Each session can have different messages, tasks, and configs going forward
+
+## Limitations
+
+### Size Limit
+
+Sessions with more than **5,000 messages** cannot be forked synchronously. You'll receive an error:
+
+```json
+{
+  "error": "SESSION_TOO_LARGE",
+  "message": "Session exceeds maximum forkable size (5000 messages). Consider using async fork."
+}
+```
+
+For large sessions, async fork support is planned for a future release.
+
+### Rate Limiting
+
+Fork operations are rate-limited to **10 requests per minute** per project. If exceeded, you'll receive:
+
+```json
+{
+  "error": "RATE_LIMIT_EXCEEDED",
+  "message": "Too many requests. Please wait 60 seconds before retrying.",
+  "retry_after": 60
+}
+```
+
+## Error Handling
+
+<CodeGroup>
+```python Python
+from acontext import AcontextClient
+from acontext.exceptions import AcontextError
+
+client = AcontextClient(api_key="...")
+
+try:
+    result = client.sessions.fork(session_id="invalid-uuid")
+except AcontextError as e:
+    if "SESSION_NOT_FOUND" in str(e):
+        print("Session does not exist or you don't have access")
+    elif "SESSION_TOO_LARGE" in str(e):
+        print("Session is too large to fork synchronously")
+    elif "RATE_LIMIT_EXCEEDED" in str(e):
+        print("Rate limit exceeded, wait before retrying")
+    else:
+        print(f"Fork failed: {e}")
+```
+
+```typescript TypeScript
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({ apiKey: "..." });
+
+try {
+    const result = await client.sessions.fork("invalid-uuid");
+} catch (error) {
+    const message = error.message || String(error);
+    
+    if (message.includes("SESSION_NOT_FOUND")) {
+        console.log("Session does not exist or you don't have access");
+    } else if (message.includes("SESSION_TOO_LARGE")) {
+        console.log("Session is too large to fork synchronously");
+    } else if (message.includes("RATE_LIMIT_EXCEEDED")) {
+        console.log("Rate limit exceeded, wait before retrying");
+    } else {
+        console.log(`Fork failed: ${error}`);
+    }
+}
+```
+</CodeGroup>
+
+## Common Patterns
+
+### Experiment and Compare
+
+Fork a session to try different approaches, then compare results:
+
+```python
+# Fork the original session
+result = client.sessions.fork(session_id=original_id)
+experimental_id = result.new_session_id
+
+# Try a different approach in the fork
+client.sessions.store_message(
+    session_id=experimental_id,
+    blob={"role": "user", "content": "Alternative approach..."},
+    format="openai"
+)
+
+# Compare token counts
+original = client.sessions.get_token_counts(session_id=original_id)
+experimental = client.sessions.get_token_counts(session_id=experimental_id)
+
+print(f"Original: {original.total_tokens} tokens")
+print(f"Experimental: {experimental.total_tokens} tokens")
+```
+
+### Checkpoint Before Major Changes
+
+Create a checkpoint before making significant changes:
+
+```python
+# Create checkpoint
+checkpoint = client.sessions.fork(session_id=session_id)
+print(f"Checkpoint created: {checkpoint.new_session_id}")
+
+# Make major changes to original
+client.sessions.store_message(
+    session_id=session_id,
+    blob={"role": "user", "content": "Major change..."},
+    format="openai"
+)
+
+# If needed, you can always go back to the checkpoint
+```
+
+### Template Sessions
+
+Create a base session as a template and fork it for each new conversation:
+
+```python
+# Set up template session once
+template_id = "template-session-uuid"
+client.sessions.store_message(
+    session_id=template_id,
+    blob={"role": "system", "content": "You are a helpful assistant..."},
+    format="openai"
+)
+
+# Fork for each new conversation
+new_conversation = client.sessions.fork(session_id=template_id)
+```
+
+## Performance
+
+Fork operations typically complete in:
+- **< 1 second**: Sessions with < 100 messages
+- **< 3 seconds**: Sessions with < 1000 messages
+- **< 5 seconds**: Sessions with < 5000 messages
+
+The operation is atomic - either the entire fork succeeds or fails with no partial state.

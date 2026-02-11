@@ -15,6 +15,11 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+const (
+	// MaxForkableMessages is the maximum number of messages allowed for synchronous fork
+	MaxForkableMessages = 5000
+)
+
 type SessionRepo interface {
 	Create(ctx context.Context, s *model.Session) error
 	Delete(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID) error
@@ -29,6 +34,13 @@ type SessionRepo interface {
 	PopGeminiCallIDAndName(ctx context.Context, sessionID uuid.UUID) (string, string, error)
 	GetMessageByID(ctx context.Context, sessionID uuid.UUID, messageID uuid.UUID) (*model.Message, error)
 	UpdateMessageMeta(ctx context.Context, messageID uuid.UUID, meta datatypes.JSONType[map[string]interface{}]) error
+	ForkSession(ctx context.Context, sessionID uuid.UUID) (*ForkSessionResult, error)
+}
+
+// ForkSessionResult contains the result of a fork operation
+type ForkSessionResult struct {
+	OldSessionID uuid.UUID
+	NewSessionID uuid.UUID
 }
 
 type sessionRepo struct {
@@ -417,4 +429,148 @@ func (r *sessionRepo) UpdateMessageMeta(ctx context.Context, messageID uuid.UUID
 		Model(&model.Message{}).
 		Where("id = ?", messageID).
 		Update("meta", meta).Error
+}
+
+// ForkSession creates a complete copy of a session with all its messages and tasks.
+// Uses SELECT FOR UPDATE to lock the session during the fork operation.
+// Returns ForkSessionResult containing old and new session IDs.
+func (r *sessionRepo) ForkSession(ctx context.Context, sessionID uuid.UUID) (*ForkSessionResult, error) {
+	var result ForkSessionResult
+	result.OldSessionID = sessionID
+
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Get original session with row-level lock to prevent concurrent modifications
+		var originalSession model.Session
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ?", sessionID).
+			First(&originalSession).Error; err != nil {
+			return fmt.Errorf("failed to get session: %w", err)
+		}
+
+		// Get all messages from original session (ordered by created_at to preserve parent relationships)
+		var originalMessages []model.Message
+		if err := tx.Where("session_id = ?", sessionID).
+			Order("created_at ASC, id ASC").
+			Find(&originalMessages).Error; err != nil {
+			return fmt.Errorf("failed to get messages: %w", err)
+		}
+
+		// Check session size limit (inside transaction after SELECT FOR UPDATE to prevent race conditions)
+		if len(originalMessages) > MaxForkableMessages {
+			return fmt.Errorf("session exceeds maximum forkable size (%d messages)", MaxForkableMessages)
+		}
+
+		// Create new session with copied configs
+		newSession := model.Session{
+			ProjectID:           originalSession.ProjectID,
+			UserID:              originalSession.UserID,
+			DisableTaskTracking: originalSession.DisableTaskTracking,
+			Configs:             originalSession.Configs,
+		}
+		if err := tx.Create(&newSession).Error; err != nil {
+			return fmt.Errorf("failed to create new session: %w", err)
+		}
+		result.NewSessionID = newSession.ID
+
+		// Copy messages with parent ID remapping
+		oldToNewMessageID := make(map[uuid.UUID]uuid.UUID)
+		assetsToIncrement := make([]model.Asset, 0)
+
+		for _, oldMsg := range originalMessages {
+			newMsg := model.Message{
+				SessionID:                oldMsg.SessionID, // Will be updated to newSession.ID
+				Role:                     oldMsg.Role,
+				PartsAssetMeta:           oldMsg.PartsAssetMeta,
+				Meta:                     oldMsg.Meta,
+				SessionTaskProcessStatus: "pending", // Reset to pending for reprocessing
+				TaskID:                   nil,       // Clear task reference (will be reassigned by core)
+			}
+
+			// Update session ID to new session
+			newMsg.SessionID = newSession.ID
+
+			// Remap parent ID if exists
+			if oldMsg.ParentID != nil {
+				if newParentID, ok := oldToNewMessageID[*oldMsg.ParentID]; ok {
+					newMsg.ParentID = &newParentID
+				} else {
+					// Parent not found in mapping (data corruption or orphaned message)
+					r.log.Warn("message has parent_id not found in mapping",
+						zap.String("message_id", oldMsg.ID.String()),
+						zap.String("parent_id", oldMsg.ParentID.String()))
+					// Continue without parent (orphaned message)
+				}
+			}
+
+			// Create new message
+			if err := tx.Create(&newMsg).Error; err != nil {
+				return fmt.Errorf("failed to create message: %w", err)
+			}
+
+			// Track ID mapping for parent remapping
+			oldToNewMessageID[oldMsg.ID] = newMsg.ID
+
+			// Collect assets for reference counting
+			// 1. Parts asset (the JSON file containing message parts)
+			partsAsset := oldMsg.PartsAssetMeta.Data()
+			if partsAsset.SHA256 != "" {
+				assetsToIncrement = append(assetsToIncrement, partsAsset)
+			}
+
+			// 2. Download and parse parts to extract individual part assets
+			if r.s3 != nil && partsAsset.S3Key != "" {
+				parts := []model.Part{}
+				if err := r.s3.DownloadJSON(ctx, partsAsset.S3Key, &parts); err != nil {
+					// Return error to rollback transaction - we need accurate asset reference counting
+					return fmt.Errorf("failed to download parts for asset extraction (s3_key=%s): %w", partsAsset.S3Key, err)
+				}
+
+				// Extract assets from parts
+				for _, part := range parts {
+					if part.Asset != nil && part.Asset.SHA256 != "" {
+						assetsToIncrement = append(assetsToIncrement, *part.Asset)
+					}
+				}
+			}
+		}
+
+		// Get all tasks from original session
+		var originalTasks []model.Task
+		if err := tx.Where("session_id = ?", sessionID).
+			Order("\"order\" ASC"). // order is a reserved keyword
+			Find(&originalTasks).Error; err != nil {
+			return fmt.Errorf("failed to get tasks: %w", err)
+		}
+
+		// Copy tasks
+		for _, oldTask := range originalTasks {
+			newTask := model.Task{
+				SessionID:  newSession.ID,
+				ProjectID:  oldTask.ProjectID,
+				Order:      oldTask.Order,
+				Data:       oldTask.Data,
+				Status:     oldTask.Status,
+				IsPlanning: oldTask.IsPlanning,
+			}
+
+			if err := tx.Create(&newTask).Error; err != nil {
+				return fmt.Errorf("failed to create task: %w", err)
+			}
+		}
+
+		// Increment asset references for all collected assets
+		if len(assetsToIncrement) > 0 {
+			if err := r.assetReferenceRepo.BatchIncrementAssetRefs(ctx, originalSession.ProjectID, assetsToIncrement); err != nil {
+				return fmt.Errorf("failed to increment asset references: %w", err)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &result, nil
 }

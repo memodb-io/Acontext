@@ -28,3 +28,25 @@ export function buildParams(
   return result;
 }
 
+/**
+ * Validate that a string is a valid UUID v4 format.
+ * @param uuid - The string to validate.
+ * @returns True if valid UUID, false otherwise.
+ */
+export function isValidUUID(uuid: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+}
+
+/**
+ * Validate UUID and throw error if invalid.
+ * @param uuid - The UUID to validate.
+ * @param paramName - The parameter name for error message.
+ * @throws {Error} If UUID is invalid.
+ */
+export function validateUUID(uuid: string, paramName: string = 'id'): void {
+  if (!isValidUUID(uuid)) {
+    throw new Error(`Invalid UUID format for ${paramName}: ${uuid}`);
+  }
+}
+
