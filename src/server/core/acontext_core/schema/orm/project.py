@@ -70,7 +70,6 @@ class Project(CommonMixin):
         },
     )
 
-<<<<<<< HEAD
     # Relationships for API-owned tables — passive_deletes, no cascade
     agent_skills: List["AgentSkill"] = field(
         default_factory=list,
@@ -84,9 +83,10 @@ class Project(CommonMixin):
     disks: List["Disk"] = field(
         default_factory=list,
         metadata={
-            "db": relationship(
-                "Disk", back_populates="project", passive_deletes=True
-=======
+            "db": relationship("Disk", back_populates="project", passive_deletes=True)
+        },
+    )
+
     learning_spaces: List["LearningSpace"] = field(
         default_factory=list,
         metadata={
@@ -94,7 +94,6 @@ class Project(CommonMixin):
                 "LearningSpace",
                 back_populates="project",
                 passive_deletes=True,
->>>>>>> 40cca70 (feat: add learning space resource)
             )
         },
     )

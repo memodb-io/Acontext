@@ -150,64 +150,64 @@ All steps use the same `db_session` — if any step fails, the session's transac
 
 **AgentSkill ORM and data**
 
-- [ ] **AgentSkill ORM model** — Create `agent_skill.py` under `acontext_core/schema/orm/`. Use `@ORM_BASE.mapped` + `@dataclass` + inherit `CommonMixin`. Table name `agent_skills`. Columns (via `field(metadata={"db": Column(...)})`) : `project_id` (UUID FK→projects.id, ondelete CASCADE, nullable=False, index=True), `user_id` (UUID, nullable=True, index=True, **no FK** — no User ORM in Core), `name` (String/text, nullable=False), `description` (String/text, nullable=True), `disk_id` (UUID FK→disks.id, ondelete CASCADE, nullable=False), `meta` (JSONB, nullable=True). `id`, `created_at`, `updated_at` come from `CommonMixin`. Relationships: `project` (back_populates="agent_skills", passive_deletes=True), `disk` (back_populates="agent_skills", passive_deletes=True). No `file_index` field.  
+- [x] **AgentSkill ORM model** — Create `agent_skill.py` under `acontext_core/schema/orm/`. Use `@ORM_BASE.mapped` + `@dataclass` + inherit `CommonMixin`. Table name `agent_skills`. Columns (via `field(metadata={"db": Column(...)})`) : `project_id` (UUID FK→projects.id, ondelete CASCADE, nullable=False, index=True), `user_id` (UUID, nullable=True, index=True, **no FK** — no User ORM in Core), `name` (String/text, nullable=False), `description` (String/text, nullable=True), `disk_id` (UUID FK→disks.id, ondelete CASCADE, nullable=False), `meta` (JSONB, nullable=True). `id`, `created_at`, `updated_at` come from `CommonMixin`. Relationships: `project` (back_populates="agent_skills", passive_deletes=True), `disk` (back_populates="agent_skills", passive_deletes=True). No `file_index` field.  
   - Files: `src/server/core/acontext_core/schema/orm/agent_skill.py`
 
-- [ ] **Project relationships** — Add to `Project` ORM: `agent_skills: List["AgentSkill"]` and `disks: List["Disk"]` using `field(default_factory=list, metadata={"db": relationship(..., back_populates="project", passive_deletes=True)})`. **Do NOT use** `cascade="all, delete-orphan"` — these tables are owned by the API. Add `TYPE_CHECKING` imports for `AgentSkill` and `Disk`.  
+- [x] **Project relationships** — Add to `Project` ORM: `agent_skills: List["AgentSkill"]` and `disks: List["Disk"]` using `field(default_factory=list, metadata={"db": relationship(..., back_populates="project", passive_deletes=True)})`. **Do NOT use** `cascade="all, delete-orphan"` — these tables are owned by the API. Add `TYPE_CHECKING` imports for `AgentSkill` and `Disk`.  
   - Files: `src/server/core/acontext_core/schema/orm/project.py`
 
-- [ ] **ORM exports** — Import `AgentSkill`, `Disk`, `Artifact` in `schema/orm/__init__.py` and add to `__all__`.  
+- [x] **ORM exports** — Import `AgentSkill`, `Disk`, `Artifact` in `schema/orm/__init__.py` and add to `__all__`.  
   - Files: `src/server/core/acontext_core/schema/orm/__init__.py`
 
-- [ ] **Data: get_agent_skill** — Create `agent_skill.py` under `acontext_core/service/data/`. Implement `get_agent_skill(db_session: AsyncSession, project_id: asUUID, skill_id: asUUID) -> Result[AgentSkill]` using `select(AgentSkill).where(AgentSkill.id == skill_id, AgentSkill.project_id == project_id)`, `result.scalars().first()`. Return `Result.resolve(skill)` if found, `Result.reject(f"AgentSkill {skill_id} not found")` if not.  
+- [x] **Data: get_agent_skill** — Create `agent_skill.py` under `acontext_core/service/data/`. Implement `get_agent_skill(db_session: AsyncSession, project_id: asUUID, skill_id: asUUID) -> Result[AgentSkill]` using `select(AgentSkill).where(AgentSkill.id == skill_id, AgentSkill.project_id == project_id)`, `result.scalars().first()`. Return `Result.resolve(skill)` if found, `Result.reject(f"AgentSkill {skill_id} not found")` if not.  
   - Files: `src/server/core/acontext_core/service/data/agent_skill.py`
 
-- [ ] **Helper: _parse_skill_md** — In the same file, implement `_parse_skill_md(content: str) -> tuple[str, str]`. Logic: split `content` by lines, find first `---` line, find second `---` line; if both found extract YAML between them, otherwise treat entire content as YAML. Parse with `yaml.safe_load()`. Return `(name, description)`. Raise `ValueError` if `name` or `description` is missing/empty. Catch `yaml.YAMLError` and re-raise as `ValueError` with a descriptive message. Extra fields in the YAML front matter are silently ignored. This mirrors the API's `extractYAMLFrontMatter` + `SkillMetadata` validation.  
+- [x] **Helper: _parse_skill_md** — In the same file, implement `_parse_skill_md(content: str) -> tuple[str, str]`. Logic: split `content` by lines, find first `---` line, find second `---` line; if both found extract YAML between them, otherwise treat entire content as YAML. Parse with `yaml.safe_load()`. Return `(name, description)`. Raise `ValueError` if `name` or `description` is missing/empty. Catch `yaml.YAMLError` and re-raise as `ValueError` with a descriptive message. Extra fields in the YAML front matter are silently ignored. This mirrors the API's `extractYAMLFrontMatter` + `SkillMetadata` validation.  
   - Files: `src/server/core/acontext_core/service/data/agent_skill.py`
 
-- [ ] **Data: create_skill** — In the same file, implement `create_skill(db_session: AsyncSession, project_id: asUUID, content: str, *, user_id: Optional[asUUID] = None, meta: Optional[dict] = None) -> Result[AgentSkill]`. Steps: (1) call `_parse_skill_md(content)` → catch `ValueError` and return `Result.reject(...)` on failure; (2) sanitize name (replace `/ \ : * ? " < > |` and spaces with `-`); (3) call `create_disk(db_session, project_id, user_id=user_id)` → unpack result, reject on error; (4) build `asset_meta = {"bucket": "", "s3_key": "", "etag": "", "sha256": hashlib.sha256(content.encode()).hexdigest(), "mime": "text/markdown", "size_b": len(content.encode()), "content": content}`; (5) call `upsert_artifact(db_session, disk.id, "/", "SKILL.md", asset_meta)` → unpack, reject on error; (6) create `AgentSkill(project_id=project_id, user_id=user_id, name=sanitized_name, description=description, disk_id=disk.id, meta=meta)`, `session.add(skill)`, `await session.flush()`; (7) return `Result.resolve(skill)`. Import `hashlib` for SHA256 and `yaml` for parsing.  
+- [x] **Data: create_skill** — In the same file, implement `create_skill(db_session: AsyncSession, project_id: asUUID, content: str, *, user_id: Optional[asUUID] = None, meta: Optional[dict] = None) -> Result[AgentSkill]`. Steps: (1) call `_parse_skill_md(content)` → catch `ValueError` and return `Result.reject(...)` on failure; (2) sanitize name (replace `/ \ : * ? " < > |` and spaces with `-`); (3) call `create_disk(db_session, project_id, user_id=user_id)` → unpack result, reject on error; (4) build `asset_meta = {"bucket": "", "s3_key": "", "etag": "", "sha256": hashlib.sha256(content.encode()).hexdigest(), "mime": "text/markdown", "size_b": len(content.encode()), "content": content}`; (5) call `upsert_artifact(db_session, disk.id, "/", "SKILL.md", asset_meta)` → unpack, reject on error; (6) create `AgentSkill(project_id=project_id, user_id=user_id, name=sanitized_name, description=description, disk_id=disk.id, meta=meta)`, `session.add(skill)`, `await session.flush()`; (7) return `Result.resolve(skill)`. Import `hashlib` for SHA256 and `yaml` for parsing.  
   - Files: `src/server/core/acontext_core/service/data/agent_skill.py`
 
 **Disk ORM and data**
 
-- [ ] **Disk ORM model** — Create `disk.py` under `acontext_core/schema/orm/`. Use `@ORM_BASE.mapped` + `@dataclass` + inherit `CommonMixin`. Table name `disks`. Columns: `project_id` (UUID FK→projects.id, ondelete CASCADE, nullable=False, index=True), `user_id` (UUID, nullable=True, index=True, **no FK**). Relationships: `project` (back_populates="disks", passive_deletes=True), `artifacts` (back_populates="disk", passive_deletes=True), `agent_skills` (back_populates="disk", passive_deletes=True).  
+- [x] **Disk ORM model** — Create `disk.py` under `acontext_core/schema/orm/`. Use `@ORM_BASE.mapped` + `@dataclass` + inherit `CommonMixin`. Table name `disks`. Columns: `project_id` (UUID FK→projects.id, ondelete CASCADE, nullable=False, index=True), `user_id` (UUID, nullable=True, index=True, **no FK**). Relationships: `project` (back_populates="disks", passive_deletes=True), `artifacts` (back_populates="disk", passive_deletes=True), `agent_skills` (back_populates="disk", passive_deletes=True).  
   - Files: `src/server/core/acontext_core/schema/orm/disk.py`
 
-- [ ] **Data: get_disk** — Create `disk.py` under `acontext_core/service/data/`. Implement `get_disk(db_session: AsyncSession, project_id: asUUID, disk_id: asUUID) -> Result[Disk]`. Return `Result.reject(...)` if not found.  
+- [x] **Data: get_disk** — Create `disk.py` under `acontext_core/service/data/`. Implement `get_disk(db_session: AsyncSession, project_id: asUUID, disk_id: asUUID) -> Result[Disk]`. Return `Result.reject(...)` if not found.  
   - Files: `src/server/core/acontext_core/service/data/disk.py`
 
-- [ ] **Data: create_disk** — In the same file, implement `create_disk(db_session: AsyncSession, project_id: asUUID, *, user_id: Optional[asUUID] = None) -> Result[Disk]`. Create `Disk(project_id=project_id, user_id=user_id)`, `session.add(disk)`, `await session.flush()` (to populate `id` and timestamps). Return `Result.resolve(disk)`.  
+- [x] **Data: create_disk** — In the same file, implement `create_disk(db_session: AsyncSession, project_id: asUUID, *, user_id: Optional[asUUID] = None) -> Result[Disk]`. Create `Disk(project_id=project_id, user_id=user_id)`, `session.add(disk)`, `await session.flush()` (to populate `id` and timestamps). Return `Result.resolve(disk)`.  
   - Files: `src/server/core/acontext_core/service/data/disk.py`
 
 **Artifact ORM and data**
 
-- [ ] **Artifact ORM model** — Create `artifact.py` under `acontext_core/schema/orm/`. Use `@ORM_BASE.mapped` + `@dataclass` + inherit `CommonMixin`. Table name `artifacts`. Columns: `disk_id` (UUID FK→disks.id, ondelete CASCADE, nullable=False, index=True), `path` (String/text, nullable=False), `filename` (String/text, nullable=False), `meta` (JSONB, nullable=True), `asset_meta` (JSONB, nullable=False). Add `__table_args__` with `UniqueConstraint("disk_id", "path", "filename", name="idx_disk_path_filename")`. Relationship: `disk` (back_populates="artifacts", passive_deletes=True).  
+- [x] **Artifact ORM model** — Create `artifact.py` under `acontext_core/schema/orm/`. Use `@ORM_BASE.mapped` + `@dataclass` + inherit `CommonMixin`. Table name `artifacts`. Columns: `disk_id` (UUID FK→disks.id, ondelete CASCADE, nullable=False, index=True), `path` (String/text, nullable=False), `filename` (String/text, nullable=False), `meta` (JSONB, nullable=True), `asset_meta` (JSONB, nullable=False). Add `__table_args__` with `UniqueConstraint("disk_id", "path", "filename", name="idx_disk_path_filename")`. Relationship: `disk` (back_populates="artifacts", passive_deletes=True).  
   - Files: `src/server/core/acontext_core/schema/orm/artifact.py`
 
-- [ ] **Data: get_artifact_by_path** — Create `artifact.py` under `acontext_core/service/data/`. Implement `get_artifact_by_path(db_session: AsyncSession, disk_id: asUUID, path: str, filename: str) -> Result[Artifact]`. Filter by `Artifact.disk_id == disk_id, Artifact.path == path, Artifact.filename == filename`. Return `Result.reject(...)` if not found.  
+- [x] **Data: get_artifact_by_path** — Create `artifact.py` under `acontext_core/service/data/`. Implement `get_artifact_by_path(db_session: AsyncSession, disk_id: asUUID, path: str, filename: str) -> Result[Artifact]`. Filter by `Artifact.disk_id == disk_id, Artifact.path == path, Artifact.filename == filename`. Return `Result.reject(...)` if not found.  
   - Files: `src/server/core/acontext_core/service/data/artifact.py`
 
-- [ ] **Data: list_artifacts_by_path** — In the same file, implement `list_artifacts_by_path(db_session: AsyncSession, disk_id: asUUID, path: str = "") -> Result[List[Artifact]]`. If `path` is empty, return all artifacts for the disk; otherwise filter by `Artifact.path == path`. Always `Result.resolve(list)` (empty list is valid).  
+- [x] **Data: list_artifacts_by_path** — In the same file, implement `list_artifacts_by_path(db_session: AsyncSession, disk_id: asUUID, path: str = "") -> Result[List[Artifact]]`. If `path` is empty, return all artifacts for the disk; otherwise filter by `Artifact.path == path`. Always `Result.resolve(list)` (empty list is valid).  
   - Files: `src/server/core/acontext_core/service/data/artifact.py`
 
-- [ ] **Data: glob_artifacts** — In the same file, implement `glob_artifacts(db_session: AsyncSession, disk_id: asUUID, pattern: str) -> Result[List[Artifact]]`. Convert the glob `pattern` to a SQL LIKE pattern: escape literal `%` and `_` in input, then replace `*` → `%` and `?` → `_`. Build a computed column `Artifact.path + Artifact.filename` and filter with `.like(sql_pattern)`. Filter by `Artifact.disk_id == disk_id`. Always `Result.resolve(list)`.  
+- [x] **Data: glob_artifacts** — In the same file, implement `glob_artifacts(db_session: AsyncSession, disk_id: asUUID, pattern: str) -> Result[List[Artifact]]`. Convert the glob `pattern` to a SQL LIKE pattern: escape literal `%` and `_` in input, then replace `*` → `%` and `?` → `_`. Build a computed column `Artifact.path + Artifact.filename` and filter with `.like(sql_pattern)`. Filter by `Artifact.disk_id == disk_id`. Always `Result.resolve(list)`.  
   - Files: `src/server/core/acontext_core/service/data/artifact.py`
 
-- [ ] **Data: grep_artifacts** — In the same file, implement `grep_artifacts(db_session: AsyncSession, disk_id: asUUID, query: str, *, case_sensitive: bool = False) -> Result[List[Artifact]]`. Extract the text content column as `Artifact.asset_meta["content"].astext`. Filter: `disk_id` match, `asset_meta->>'content'` is not null, and content `.ilike(f"%{escaped_query}%")` (or `.like(...)` if `case_sensitive=True`). Escape `%`, `_` in the query string before wrapping. Always `Result.resolve(list)`.  
+- [x] **Data: grep_artifacts** — In the same file, implement `grep_artifacts(db_session: AsyncSession, disk_id: asUUID, query: str, *, case_sensitive: bool = False) -> Result[List[Artifact]]`. Extract the text content column as `Artifact.asset_meta["content"].astext`. Filter: `disk_id` match, `asset_meta->>'content'` is not null, and content `.ilike(f"%{escaped_query}%")` (or `.like(...)` if `case_sensitive=True`). Escape `%`, `_` in the query string before wrapping. Always `Result.resolve(list)`.  
   - Files: `src/server/core/acontext_core/service/data/artifact.py`
 
-- [ ] **Data: upsert_artifact** — In the same file, implement `upsert_artifact(db_session: AsyncSession, disk_id: asUUID, path: str, filename: str, asset_meta: dict, *, meta: Optional[dict] = None) -> Result[Artifact]`. Use `insert(Artifact).values(disk_id=..., path=..., filename=..., asset_meta=..., meta=...).on_conflict_do_update(index_elements=["disk_id", "path", "filename"], set_={"asset_meta": asset_meta, "meta": meta, "updated_at": func.now()})` via `sqlalchemy.dialects.postgresql.insert`. After executing the upsert statement, call `get_artifact_by_path(db_session, disk_id, path, filename)` to return a full ORM instance (do **not** use `returning()` — it returns a `Row`, not an ORM-mapped instance). Return `Result.resolve(artifact)`.  
+- [x] **Data: upsert_artifact** — In the same file, implement `upsert_artifact(db_session: AsyncSession, disk_id: asUUID, path: str, filename: str, asset_meta: dict, *, meta: Optional[dict] = None) -> Result[Artifact]`. Use `insert(Artifact).values(disk_id=..., path=..., filename=..., asset_meta=..., meta=...).on_conflict_do_update(index_elements=["disk_id", "path", "filename"], set_={"asset_meta": asset_meta, "meta": meta, "updated_at": func.now()})` via `sqlalchemy.dialects.postgresql.insert`. After executing the upsert statement, call `get_artifact_by_path(db_session, disk_id, path, filename)` to return a full ORM instance (do **not** use `returning()` — it returns a `Row`, not an ORM-mapped instance). Return `Result.resolve(artifact)`.  
   - Files: `src/server/core/acontext_core/service/data/artifact.py`
 
 **Tests**
 
-- [ ] **Test: agent_skill data operators** — Create test file with all AgentSkill test cases (see Test cases section below). Follow existing pattern: `DatabaseClient()` → `create_tables()` → `get_session_context()` → test logic → cleanup.  
+- [x] **Test: agent_skill data operators** — Create test file with all AgentSkill test cases (see Test cases section below). Follow existing pattern: `DatabaseClient()` → `create_tables()` → `get_session_context()` → test logic → cleanup.  
   - Files: `src/server/core/tests/service/test_agent_skill_data.py`
 
-- [ ] **Test: disk data operators** — Create test file with all Disk test cases.  
+- [x] **Test: disk data operators** — Create test file with all Disk test cases.  
   - Files: `src/server/core/tests/service/test_disk_data.py`
 
-- [ ] **Test: artifact data operators** — Create test file with all Artifact test cases including integration test.  
+- [x] **Test: artifact data operators** — Create test file with all Artifact test cases including integration test.  
   - Files: `src/server/core/tests/service/test_artifact_data.py`
 
 ---
@@ -224,57 +224,57 @@ All tests follow the existing pattern: `DatabaseClient()` → `create_tables()` 
 
 **AgentSkill**
 
-- [ ] **get_agent_skill — found**: Create a Project, a Disk, and an AgentSkill row. Call `get_agent_skill(project_id, skill_id)` → assert `result.ok()` and returned skill matches. Clean up: `session.delete(project)`.
-- [ ] **get_agent_skill — not found (wrong project)**: Create a Project and skill. Call with a different `project_id` → assert `not result.ok()`.
-- [ ] **get_agent_skill — not found (missing id)**: Call with a non-existent `skill_id` → assert `not result.ok()`.
-- [ ] **Relationship — Project.agent_skills**: Load a Project with `selectinload(Project.agent_skills)` → assert the skill appears in the list. Clean up: `session.delete(project)`.
-- [ ] **_parse_skill_md — with front matter**: Input `"---\nname: my-skill\ndescription: A test skill\n---\n# Body"` → returns `("my-skill", "A test skill")`.
-- [ ] **_parse_skill_md — without delimiters**: Input `"name: my-skill\ndescription: A test skill"` (plain YAML) → returns `("my-skill", "A test skill")`.
-- [ ] **_parse_skill_md — missing name**: Input `"---\ndescription: only desc\n---"` → raises `ValueError`.
-- [ ] **_parse_skill_md — missing description**: Input `"---\nname: no-desc\n---"` → raises `ValueError`.
-- [ ] **_parse_skill_md — empty content**: Input `""` → raises `ValueError`.
-- [ ] **_parse_skill_md — invalid YAML syntax**: Input `"---\nname: [invalid: yaml\n---"` (malformed YAML) → raises `ValueError` (wraps `yaml.YAMLError`).
-- [ ] **_parse_skill_md — extra fields ignored**: Input `"---\nname: s\ndescription: d\nversion: 1.0\n---"` → returns `("s", "d")` without error (extra fields are silently ignored).
-- [ ] **create_skill — success**: Provide valid SKILL.md content with name and description. Assert `result.ok()`. Assert returned skill has correct `name` (sanitized), `description`, `project_id`. Assert a Disk was created (`skill.disk_id` is valid). Assert SKILL.md artifact exists on that disk via `get_artifact_by_path(disk_id, "/", "SKILL.md")`. Assert artifact's `asset_meta["content"]` equals the original content. Clean up: `session.delete(project)`.
-- [ ] **create_skill — with meta and user_id**: Pass `meta={"version": "1.0"}` and `user_id`. Assert skill has the correct `meta` and `user_id`.
-- [ ] **create_skill — name sanitization**: Provide content with name `"my skill/v2"`. Assert returned skill's name is `"my-skill-v2"`.
-- [ ] **create_skill — invalid SKILL.md (missing name)**: Provide content without `name`. Assert `not result.ok()` with error message about missing name.
-- [ ] **create_skill — invalid SKILL.md (empty content)**: Provide empty string. Assert `not result.ok()`.
-- [ ] **create_skill — sha256 and size_b correctness**: Create a skill with known content. Fetch the SKILL.md artifact and verify `asset_meta["sha256"]` matches `hashlib.sha256(content.encode()).hexdigest()` and `asset_meta["size_b"]` matches `len(content.encode())`.
+- [x] **get_agent_skill — found**: Create a Project, a Disk, and an AgentSkill row. Call `get_agent_skill(project_id, skill_id)` → assert `result.ok()` and returned skill matches. Clean up: `session.delete(project)`.
+- [x] **get_agent_skill — not found (wrong project)**: Create a Project and skill. Call with a different `project_id` → assert `not result.ok()`.
+- [x] **get_agent_skill — not found (missing id)**: Call with a non-existent `skill_id` → assert `not result.ok()`.
+- [x] **Relationship — Project.agent_skills**: Load a Project with `selectinload(Project.agent_skills)` → assert the skill appears in the list. Clean up: `session.delete(project)`.
+- [x] **_parse_skill_md — with front matter**: Input `"---\nname: my-skill\ndescription: A test skill\n---\n# Body"` → returns `("my-skill", "A test skill")`.
+- [x] **_parse_skill_md — without delimiters**: Input `"name: my-skill\ndescription: A test skill"` (plain YAML) → returns `("my-skill", "A test skill")`.
+- [x] **_parse_skill_md — missing name**: Input `"---\ndescription: only desc\n---"` → raises `ValueError`.
+- [x] **_parse_skill_md — missing description**: Input `"---\nname: no-desc\n---"` → raises `ValueError`.
+- [x] **_parse_skill_md — empty content**: Input `""` → raises `ValueError`.
+- [x] **_parse_skill_md — invalid YAML syntax**: Input `"---\nname: [invalid: yaml\n---"` (malformed YAML) → raises `ValueError` (wraps `yaml.YAMLError`).
+- [x] **_parse_skill_md — extra fields ignored**: Input `"---\nname: s\ndescription: d\nversion: 1.0\n---"` → returns `("s", "d")` without error (extra fields are silently ignored).
+- [x] **create_skill — success**: Provide valid SKILL.md content with name and description. Assert `result.ok()`. Assert returned skill has correct `name` (sanitized), `description`, `project_id`. Assert a Disk was created (`skill.disk_id` is valid). Assert SKILL.md artifact exists on that disk via `get_artifact_by_path(disk_id, "/", "SKILL.md")`. Assert artifact's `asset_meta["content"]` equals the original content. Clean up: `session.delete(project)`.
+- [x] **create_skill — with meta and user_id**: Pass `meta={"version": "1.0"}` and `user_id`. Assert skill has the correct `meta` and `user_id`.
+- [x] **create_skill — name sanitization**: Provide content with name `"my skill/v2"`. Assert returned skill's name is `"my-skill-v2"`.
+- [x] **create_skill — invalid SKILL.md (missing name)**: Provide content without `name`. Assert `not result.ok()` with error message about missing name.
+- [x] **create_skill — invalid SKILL.md (empty content)**: Provide empty string. Assert `not result.ok()`.
+- [x] **create_skill — sha256 and size_b correctness**: Create a skill with known content. Fetch the SKILL.md artifact and verify `asset_meta["sha256"]` matches `hashlib.sha256(content.encode()).hexdigest()` and `asset_meta["size_b"]` matches `len(content.encode())`.
 
 **Disk**
 
-- [ ] **get_disk — found**: Create a Project and Disk. Call `get_disk(project_id, disk_id)` → assert `result.ok()`. Clean up: `session.delete(project)`.
-- [ ] **get_disk — not found**: Call with wrong project or missing id → assert `not result.ok()`.
-- [ ] **create_disk — success**: Call `create_disk(project_id)`. Assert `result.ok()`, returned Disk has `project_id` set, `id` is a valid UUID, `created_at` is populated. Clean up: `session.delete(project)`.
-- [ ] **create_disk — with user_id**: Call `create_disk(project_id, user_id=some_uuid)`. Assert `user_id` is set on the returned Disk.
+- [x] **get_disk — found**: Create a Project and Disk. Call `get_disk(project_id, disk_id)` → assert `result.ok()`. Clean up: `session.delete(project)`.
+- [x] **get_disk — not found**: Call with wrong project or missing id → assert `not result.ok()`.
+- [x] **create_disk — success**: Call `create_disk(project_id)`. Assert `result.ok()`, returned Disk has `project_id` set, `id` is a valid UUID, `created_at` is populated. Clean up: `session.delete(project)`.
+- [x] **create_disk — with user_id**: Call `create_disk(project_id, user_id=some_uuid)`. Assert `user_id` is set on the returned Disk.
 
 **Artifact**
 
-- [ ] **get_artifact_by_path — found**: Create a Project, Disk, and Artifact with known `path`/`filename`/`asset_meta`. Call `get_artifact_by_path(disk_id, path, filename)` → assert match. Verify `asset_meta` dict has expected keys (`s3_key`, `mime`, `size_b`). Clean up: `session.delete(project)`.
-- [ ] **get_artifact_by_path — not found**: Call with wrong path/filename → assert `not result.ok()`.
-- [ ] **list_artifacts_by_path — all**: Create multiple artifacts on one disk with different paths. Call with `path=""` → assert all returned.
-- [ ] **list_artifacts_by_path — filtered**: Call with a specific `path` → assert only matching artifacts returned.
-- [ ] **list_artifacts_by_path — empty disk**: Call on a disk with no artifacts → assert `result.ok()` with empty list.
-- [ ] **glob_artifacts — wildcard extension**: Create artifacts `main.py`, `utils.py`, `README.md` on a disk. Call `glob_artifacts(disk_id, "*.py")` → assert returns only `main.py` and `utils.py`.
-- [ ] **glob_artifacts — path prefix**: Create artifacts under paths `/` and `/scripts/`. Call `glob_artifacts(disk_id, "/scripts/*")` → assert returns only artifacts under `/scripts/`.
-- [ ] **glob_artifacts — single char wildcard**: Call `glob_artifacts(disk_id, "?.py")` → assert matches single-char filenames only (e.g. `a.py` but not `main.py`).
-- [ ] **glob_artifacts — recursive `**` pattern**: Create artifacts at paths `/SKILL.md`, `/scripts/run.sh`, `/scripts/lib/utils.py`. Call `glob_artifacts(disk_id, "**/*.py")` → assert returns only `utils.py`. Call `glob_artifacts(disk_id, "/scripts/**")` → assert returns both `run.sh` and `utils.py`.
-- [ ] **glob_artifacts — literal `%` and `_` in filenames**: Create an artifact with filename `100%_done.txt`. Call `glob_artifacts(disk_id, "*100%*")` → assert it matches (the `%` in the pattern is escaped as a literal before glob-to-LIKE conversion).
-- [ ] **glob_artifacts — no matches**: Call `glob_artifacts(disk_id, "*.rs")` on a disk with no `.rs` files → assert `result.ok()` with empty list.
-- [ ] **grep_artifacts — substring match**: Create artifacts with `asset_meta.content` containing `"def hello_world():"`. Call `grep_artifacts(disk_id, "hello_world")` → assert the artifact is returned.
-- [ ] **grep_artifacts — case insensitive (default)**: Create artifact with content `"Hello World"`. Call `grep_artifacts(disk_id, "hello world")` → assert match (case_sensitive=False by default).
-- [ ] **grep_artifacts — case sensitive**: Same setup. Call `grep_artifacts(disk_id, "hello world", case_sensitive=True)` → assert no match. Call with `"Hello World"` → assert match.
-- [ ] **grep_artifacts — skips binary (no content)**: Create an artifact with `asset_meta` that has no `content` key (binary file). Call `grep_artifacts(disk_id, "anything")` → assert that artifact is excluded from results.
-- [ ] **grep_artifacts — no matches**: Call with a query that doesn't appear in any artifact content → assert `result.ok()` with empty list.
-- [ ] **upsert_artifact — insert new**: Upsert an artifact on an empty disk. Assert `result.ok()`, returned artifact has correct `disk_id`, `path`, `filename`, `asset_meta`. Verify row exists via `get_artifact_by_path`. Clean up: `session.delete(project)`.
-- [ ] **upsert_artifact — update existing**: Insert an artifact, then upsert the same `(disk_id, path, filename)` with different `asset_meta` (e.g. new `s3_key`). Assert the returned artifact has the updated `asset_meta`. Assert only one row exists for that path (no duplicate). Assert `id` and `created_at` are preserved from the original insert.
-- [ ] **upsert_artifact — updates updated_at**: Insert, record `updated_at`. Upsert same path with new data. Assert `updated_at` has changed (is later than the original).
-- [ ] **upsert_artifact — meta handling**: Upsert with `meta={"key": "value"}`. Assert `meta` is stored. Upsert again with `meta=None`. Assert `meta` is now `None` (overwritten, not merged).
+- [x] **get_artifact_by_path — found**: Create a Project, Disk, and Artifact with known `path`/`filename`/`asset_meta`. Call `get_artifact_by_path(disk_id, path, filename)` → assert match. Verify `asset_meta` dict has expected keys (`s3_key`, `mime`, `size_b`). Clean up: `session.delete(project)`.
+- [x] **get_artifact_by_path — not found**: Call with wrong path/filename → assert `not result.ok()`.
+- [x] **list_artifacts_by_path — all**: Create multiple artifacts on one disk with different paths. Call with `path=""` → assert all returned.
+- [x] **list_artifacts_by_path — filtered**: Call with a specific `path` → assert only matching artifacts returned.
+- [x] **list_artifacts_by_path — empty disk**: Call on a disk with no artifacts → assert `result.ok()` with empty list.
+- [x] **glob_artifacts — wildcard extension**: Create artifacts `main.py`, `utils.py`, `README.md` on a disk. Call `glob_artifacts(disk_id, "*.py")` → assert returns only `main.py` and `utils.py`.
+- [x] **glob_artifacts — path prefix**: Create artifacts under paths `/` and `/scripts/`. Call `glob_artifacts(disk_id, "/scripts/*")` → assert returns only artifacts under `/scripts/`.
+- [x] **glob_artifacts — single char wildcard**: Call `glob_artifacts(disk_id, "?.py")` → assert matches single-char filenames only (e.g. `a.py` but not `main.py`).
+- [x] **glob_artifacts — recursive `**` pattern**: Create artifacts at paths `/SKILL.md`, `/scripts/run.sh`, `/scripts/lib/utils.py`. Call `glob_artifacts(disk_id, "**/*.py")` → assert returns only `utils.py`. Call `glob_artifacts(disk_id, "/scripts/**")` → assert returns both `run.sh` and `utils.py`.
+- [x] **glob_artifacts — literal `%` and `_` in filenames**: Create an artifact with filename `100%_done.txt`. Call `glob_artifacts(disk_id, "*100%*")` → assert it matches (the `%` in the pattern is escaped as a literal before glob-to-LIKE conversion).
+- [x] **glob_artifacts — no matches**: Call `glob_artifacts(disk_id, "*.rs")` on a disk with no `.rs` files → assert `result.ok()` with empty list.
+- [x] **grep_artifacts — substring match**: Create artifacts with `asset_meta.content` containing `"def hello_world():"`. Call `grep_artifacts(disk_id, "hello_world")` → assert the artifact is returned.
+- [x] **grep_artifacts — case insensitive (default)**: Create artifact with content `"Hello World"`. Call `grep_artifacts(disk_id, "hello world")` → assert match (case_sensitive=False by default).
+- [x] **grep_artifacts — case sensitive**: Same setup. Call `grep_artifacts(disk_id, "hello world", case_sensitive=True)` → assert no match. Call with `"Hello World"` → assert match.
+- [x] **grep_artifacts — skips binary (no content)**: Create an artifact with `asset_meta` that has no `content` key (binary file). Call `grep_artifacts(disk_id, "anything")` → assert that artifact is excluded from results.
+- [x] **grep_artifacts — no matches**: Call with a query that doesn't appear in any artifact content → assert `result.ok()` with empty list.
+- [x] **upsert_artifact — insert new**: Upsert an artifact on an empty disk. Assert `result.ok()`, returned artifact has correct `disk_id`, `path`, `filename`, `asset_meta`. Verify row exists via `get_artifact_by_path`. Clean up: `session.delete(project)`.
+- [x] **upsert_artifact — update existing**: Insert an artifact, then upsert the same `(disk_id, path, filename)` with different `asset_meta` (e.g. new `s3_key`). Assert the returned artifact has the updated `asset_meta`. Assert only one row exists for that path (no duplicate). Assert `id` and `created_at` are preserved from the original insert.
+- [x] **upsert_artifact — updates updated_at**: Insert, record `updated_at`. Upsert same path with new data. Assert `updated_at` has changed (is later than the original).
+- [x] **upsert_artifact — meta handling**: Upsert with `meta={"key": "value"}`. Assert `meta` is stored. Upsert again with `meta=None`. Assert `meta` is now `None` (overwritten, not merged).
 
 **Integration: Skill + Disk + Artifact**
 
-- [ ] **Skill file list**: Create a skill with a disk and artifacts. Call `get_agent_skill` → get `disk_id` → call `list_artifacts_by_path(disk_id, "")` → assert the artifact list matches the expected file set (paths + mime from `asset_meta`). Clean up: `session.delete(project)`.
+- [x] **Skill file list**: Create a skill with a disk and artifacts. Call `get_agent_skill` → get `disk_id` → call `list_artifacts_by_path(disk_id, "")` → assert the artifact list matches the expected file set (paths + mime from `asset_meta`). Clean up: `session.delete(project)`.
 
 ---
 
