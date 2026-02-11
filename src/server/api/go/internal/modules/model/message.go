@@ -193,7 +193,7 @@ type Message struct {
 	TaskID *uuid.UUID `gorm:"type:uuid;index:ix_message_task_id;constraint:OnDelete:SET NULL,OnUpdate:CASCADE;" json:"task_id"`
 	Task   *Task      `gorm:"foreignKey:TaskID;references:ID" json:"-"`
 
-	SessionTaskProcessStatus string `gorm:"type:text;not null;default:'pending';check:session_task_process_status IN ('pending', 'processing', 'completed', 'failed')" json:"session_task_process_status"`
+	SessionTaskProcessStatus string `gorm:"type:text;not null;default:'pending';check:session_task_process_status IN ('pending', 'running', 'success', 'failed')" json:"session_task_process_status"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime;not null;default:CURRENT_TIMESTAMP;index:idx_session_created,priority:2,sort:desc" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime;not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
