@@ -8,6 +8,7 @@ from ..utils import asUUID
 
 if TYPE_CHECKING:
     from .project import Project
+    from .user import User
     from .message import Message
     from .task import Task
 
@@ -19,6 +20,7 @@ class Session(CommonMixin):
 
     __table_args__ = (
         Index("ix_session_project_id", "project_id"),
+        Index("ix_session_user_id", "user_id"),
         Index("ix_session_session_project_id", "id", "project_id"),
     )
 
@@ -30,6 +32,17 @@ class Session(CommonMixin):
                 nullable=False,
             )
         }
+    )
+
+    user_id: Optional[asUUID] = field(
+        default=None,
+        metadata={
+            "db": Column(
+                UUID(as_uuid=True),
+                ForeignKey("users.id", ondelete="CASCADE"),
+                nullable=True,
+            )
+        },
     )
 
     disable_task_tracking: bool = field(
@@ -46,6 +59,12 @@ class Session(CommonMixin):
     # Relationships
     project: "Project" = field(
         init=False, metadata={"db": relationship("Project", back_populates="sessions")}
+    )
+
+    user: Optional["User"] = field(
+        init=False,
+        default=None,
+        metadata={"db": relationship("User", back_populates="sessions")},
     )
 
     messages: List["Message"] = field(

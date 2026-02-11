@@ -53,6 +53,10 @@ func BuildContainer() *do.Injector {
 		//   ALTER TABLE agent_skills DROP COLUMN IF EXISTS asset_meta;
 		//   ALTER TABLE agent_skills DROP COLUMN IF EXISTS file_index;
 		if cfg.Database.AutoMigrate {
+			// pgvector is required for semantic search (tools, blocks, etc.)
+			if err := d.Exec("CREATE EXTENSION IF NOT EXISTS vector;").Error; err != nil {
+				log.Sugar().Warnw("failed to init pgvector extension", "err", err)
+			}
 			_ = d.AutoMigrate(
 				&model.Project{},
 				&model.User{},
@@ -65,6 +69,7 @@ func BuildContainer() *do.Injector {
 				&model.Metric{},
 				&model.AgentSkills{},
 				&model.SandboxLog{},
+				&model.Tool{},
 			)
 		}
 
@@ -269,6 +274,12 @@ func BuildContainer() *do.Injector {
 		return handler.NewSandboxHandler(
 			do.MustInvoke[*httpclient.CoreClient](i),
 			do.MustInvoke[service.SandboxLogService](i),
+		), nil
+	})
+	do.Provide(inj, func(i *do.Injector) (*handler.ToolHandler, error) {
+		return handler.NewToolHandler(
+			do.MustInvoke[service.UserService](i),
+			do.MustInvoke[*httpclient.CoreClient](i),
 		), nil
 	})
 	return inj

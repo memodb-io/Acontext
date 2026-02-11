@@ -30,6 +30,14 @@ func (m *MockUserService) GetOrCreate(ctx context.Context, projectID uuid.UUID, 
 	return args.Get(0).(*model.User), args.Error(1)
 }
 
+func (m *MockUserService) GetByIdentifier(ctx context.Context, projectID uuid.UUID, identifier string) (*model.User, error) {
+	args := m.Called(ctx, projectID, identifier)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.User), args.Error(1)
+}
+
 func (m *MockUserService) Delete(ctx context.Context, projectID uuid.UUID, identifier string) error {
 	args := m.Called(ctx, projectID, identifier)
 	return args.Error(0)

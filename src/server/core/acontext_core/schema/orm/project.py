@@ -10,6 +10,8 @@ if TYPE_CHECKING:
     from .task import Task
     from .metric import Metric
     from .sandbox_log import SandboxLog
+    from .user import User
+    from .tool import Tool
 
 
 @ORM_BASE.mapped
@@ -63,6 +65,24 @@ class Project(CommonMixin):
         metadata={
             "db": relationship(
                 "SandboxLog", back_populates="project", cascade="all, delete-orphan"
+            )
+        },
+    )
+
+    users: List["User"] = field(
+        default_factory=list,
+        metadata={
+            "db": relationship(
+                "User", back_populates="project", cascade="all, delete-orphan"
+            )
+        },
+    )
+
+    tools: List["Tool"] = field(
+        default_factory=list,
+        metadata={
+            "db": relationship(
+                "Tool", back_populates="project", cascade="all, delete-orphan"
             )
         },
     )

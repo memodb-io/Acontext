@@ -25,6 +25,9 @@ type User struct {
 
 	// User <-> AgentSkills
 	AgentSkills []AgentSkills `gorm:"constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
+
+	// User <-> Tool
+	Tools []Tool `gorm:"constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
 }
 
 func (User) TableName() string { return "users" }

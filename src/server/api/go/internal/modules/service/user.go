@@ -13,6 +13,7 @@ import (
 
 type UserService interface {
 	GetOrCreate(ctx context.Context, projectID uuid.UUID, identifier string) (*model.User, error)
+	GetByIdentifier(ctx context.Context, projectID uuid.UUID, identifier string) (*model.User, error)
 	Delete(ctx context.Context, projectID uuid.UUID, identifier string) error
 	List(ctx context.Context, in ListUsersInput) (*ListUsersOutput, error)
 	GetResourceCounts(ctx context.Context, projectID uuid.UUID, identifier string) (*GetUserResourcesOutput, error)
@@ -33,11 +34,18 @@ func (s *userService) GetOrCreate(ctx context.Context, projectID uuid.UUID, iden
 	return s.r.GetOrCreate(ctx, projectID, identifier)
 }
 
+func (s *userService) GetByIdentifier(ctx context.Context, projectID uuid.UUID, identifier string) (*model.User, error) {
+	if identifier == "" {
+		return nil, errors.New("user identifier is empty")
+	}
+	return s.r.GetByIdentifier(ctx, projectID, identifier)
+}
+
 func (s *userService) Delete(ctx context.Context, projectID uuid.UUID, identifier string) error {
 	if identifier == "" {
 		return errors.New("user identifier is empty")
 	}
-	// The cascade deletion of associated resources (Session, Disk, AgentSkills)
+	// The cascade deletion of associated resources (Session, Disk, AgentSkills, Tool)
 	// is handled by the database foreign key constraints (ON DELETE CASCADE)
 	return s.r.Delete(ctx, projectID, identifier)
 }
