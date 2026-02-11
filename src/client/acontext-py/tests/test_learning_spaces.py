@@ -3,7 +3,6 @@ Sync tests for the LearningSpacesAPI resource.
 """
 
 import json
-from typing import Any, Dict
 from unittest.mock import patch
 
 import pytest
@@ -125,7 +124,7 @@ def test_list_learning_spaces_filter_by_meta(mock_request, client: AcontextClien
         "has_more": False,
     }
 
-    result = client.learning_spaces.list(filter_by_meta={"version": "1.0"})
+    client.learning_spaces.list(filter_by_meta={"version": "1.0"})
 
     args, kwargs = mock_request.call_args
     assert kwargs["params"]["filter_by_meta"] == json.dumps({"version": "1.0"})

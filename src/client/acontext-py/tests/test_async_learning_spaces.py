@@ -3,7 +3,6 @@ Async tests for the AsyncLearningSpacesAPI resource.
 """
 
 import json
-from typing import Any, Dict
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -121,7 +120,7 @@ async def test_async_list_learning_spaces_filter_by_meta(mock_request) -> None:
     }
 
     async with AcontextAsyncClient(api_key="token") as client:
-        result = await client.learning_spaces.list(filter_by_meta={"version": "1.0"})
+        await client.learning_spaces.list(filter_by_meta={"version": "1.0"})
 
     args, kwargs = mock_request.call_args
     assert kwargs["params"]["filter_by_meta"] == json.dumps({"version": "1.0"})
@@ -158,7 +157,7 @@ async def test_async_update_learning_space(mock_request) -> None:
     mock_request.return_value = {**SAMPLE_LS, "meta": {"version": "2.0"}}
 
     async with AcontextAsyncClient(api_key="token") as client:
-        result = await client.learning_spaces.update("ls-1", meta={"version": "2.0"})
+        await client.learning_spaces.update("ls-1", meta={"version": "2.0"})
 
     args, kwargs = mock_request.call_args
     method, path = args
@@ -239,7 +238,7 @@ async def test_async_include_skill(mock_request) -> None:
     mock_request.return_value = SAMPLE_LS_SKILL
 
     async with AcontextAsyncClient(api_key="token") as client:
-        result = await client.learning_spaces.include_skill("ls-1", skill_id="skill-1")
+        await client.learning_spaces.include_skill("ls-1", skill_id="skill-1")
 
     args, kwargs = mock_request.call_args
     method, path = args
