@@ -288,3 +288,13 @@ export const EditStrategySchema = z.union([
 ]);
 
 export type EditStrategy = z.infer<typeof EditStrategySchema>;
+
+/**
+ * Response schema for forking a session.
+ */
+export const ForkSessionOutputSchema = z.object({
+  old_session_id: z.string(),
+  new_session_id: z.string(),
+});
+
+export type ForkSessionOutput = z.infer<typeof ForkSessionOutputSchema>;

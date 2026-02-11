@@ -18,10 +18,20 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/pkg/editor"
 	"github.com/memodb-io/Acontext/internal/pkg/paging"
+	"github.com/memodb-io/Acontext/internal/telemetry"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+)
+
+// Custom error types for better error handling
+var (
+	ErrSessionNotFound   = errors.New("session not found")
+	ErrSessionTooLarge   = errors.New("session too large to fork")
+	ErrRateLimitExceeded = errors.New("rate limit exceeded")
+	ErrS3OperationFailed = errors.New("S3 operation failed")
+	ErrDatabaseOperation = errors.New("database operation failed")
 )
 
 type SessionService interface {
@@ -36,6 +46,7 @@ type SessionService interface {
 	GetSessionObservingStatus(ctx context.Context, sessionID string) (*model.MessageObservingStatus, error)
 	PatchMessageMeta(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, messageID uuid.UUID, patchMeta map[string]interface{}) (map[string]interface{}, error)
 	PatchConfigs(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, patchConfigs map[string]interface{}) (map[string]interface{}, error)
+	ForkSession(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID) (*model.ForkSessionOutput, error)
 }
 
 type sessionService struct {
@@ -50,9 +61,12 @@ type sessionService struct {
 
 const (
 	// Redis key prefix for message parts cache
-	redisKeyPrefixParts = "message:parts:"
+	redisKeyPrefixParts = "acontext:message:parts:"
 	// Default TTL for message parts cache (1 hour)
 	defaultPartsCacheTTL = time.Hour
+	// Rate limiting
+	maxForksPerMinute   = 10
+	forkRateLimitWindow = 60 * time.Second
 )
 
 func NewSessionService(sessionRepo repo.SessionRepo, assetReferenceRepo repo.AssetReferenceRepo, log *zap.Logger, s3 *blob.S3Deps, publisher *mq.Publisher, cfg *config.Config, redis *redis.Client) SessionService {
@@ -159,9 +173,9 @@ type StoreMQPublishJSON struct {
 
 type PartIn struct {
 	Type      string                 `json:"type" validate:"required,oneof=text image audio video file tool-call tool-result data thinking"` // "text" | "image" | ...
-	Text      string                 `json:"text,omitempty"`                                                                        // Text sharding
-	FileField string                 `json:"file_field,omitempty"`                                                                  // File field name in the form
-	Meta      map[string]interface{} `json:"meta,omitempty"`                                                                        // [Optional] metadata
+	Text      string                 `json:"text,omitempty"`                                                                                 // Text sharding
+	FileField string                 `json:"file_field,omitempty"`                                                                           // File field name in the form
+	Meta      map[string]interface{} `json:"meta,omitempty"`                                                                                 // [Optional] metadata
 }
 
 func (p *PartIn) Validate() error {
@@ -742,4 +756,112 @@ func (s *sessionService) PatchConfigs(
 	}
 
 	return existingConfigs, nil
+}
+
+// ---------------------------------------------------------------------------
+// Fork Session Implementation
+// ---------------------------------------------------------------------------
+
+// checkForkRateLimit checks if the project has exceeded fork rate limit (10/min)
+func (s *sessionService) checkForkRateLimit(ctx context.Context, projectID uuid.UUID) error {
+	if s.redis == nil {
+		// If Redis is not available, skip rate limiting
+		return nil
+	}
+
+	key := fmt.Sprintf("acontext:fork_rate_limit:%s", projectID.String())
+
+	// Increment counter
+	count, err := s.redis.Incr(ctx, key).Result()
+	if err != nil {
+		// Log error but don't block the fork operation
+		s.log.Warn("failed to check fork rate limit", zap.Error(err))
+		return nil
+	}
+
+	// Set expiry on first increment
+	if count == 1 {
+		if err := s.redis.Expire(ctx, key, forkRateLimitWindow).Err(); err != nil {
+			s.log.Warn("failed to set rate limit expiry", zap.Error(err))
+		}
+	}
+
+	// Check if limit exceeded
+	if count > maxForksPerMinute {
+		ttl, err := s.redis.TTL(ctx, key).Result()
+		if err != nil {
+			ttl = forkRateLimitWindow
+		}
+		return fmt.Errorf("%w: max %d forks per minute (retry after %d seconds)", ErrRateLimitExceeded, maxForksPerMinute, int(ttl.Seconds()))
+	}
+
+	return nil
+}
+
+// ForkSession creates a complete copy of a session
+func (s *sessionService) ForkSession(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID) (*model.ForkSessionOutput, error) {
+	startTime := time.Now()
+
+	// Check rate limit
+	if err := s.checkForkRateLimit(ctx, projectID); err != nil {
+		s.log.Warn("fork session rate limited",
+			zap.String("project_id", projectID.String()),
+			zap.String("session_id", sessionID.String()),
+			zap.Error(err))
+		return nil, err
+	}
+
+	// Log fork start
+	s.log.Info("fork session started",
+		zap.String("project_id", projectID.String()),
+		zap.String("session_id", sessionID.String()))
+
+	// Call repository to perform fork
+	result, err := s.sessionRepo.ForkSession(ctx, projectID, sessionID)
+	duration := time.Since(startTime)
+
+	if err != nil {
+		// Determine error type for metrics using typed errors
+		errorType := "internal_error"
+		if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, ErrSessionNotFound) {
+			errorType = "not_found"
+		} else if errors.Is(err, ErrSessionTooLarge) {
+			errorType = "session_too_large"
+		} else if errors.Is(err, ErrRateLimitExceeded) {
+			errorType = "rate_limit_exceeded"
+		} else if errors.Is(err, ErrS3OperationFailed) {
+			errorType = "s3_operation_failed"
+		} else if errors.Is(err, ErrDatabaseOperation) {
+			errorType = "database_operation_failed"
+		}
+
+		// Record error metrics
+		telemetry.RecordForkError(ctx, errorType, float64(duration.Milliseconds()))
+
+		s.log.Error("fork session failed",
+			zap.String("project_id", projectID.String()),
+			zap.String("session_id", sessionID.String()),
+			zap.String("error_type", errorType),
+			zap.Error(err),
+			zap.Duration("duration_ms", duration))
+		return nil, err
+	}
+
+	// Record success metrics with actual counts from result
+	messageCount := int64(result.MessageCount)
+	taskCount := int64(result.TaskCount)
+
+	// Record success metrics
+	telemetry.RecordForkSuccess(ctx, float64(duration.Milliseconds()), messageCount, taskCount)
+
+	// Log fork completion with metrics
+	s.log.Info("fork session completed",
+		zap.String("project_id", projectID.String()),
+		zap.String("old_session_id", result.OldSessionID.String()),
+		zap.String("new_session_id", result.NewSessionID.String()),
+		zap.Int64("message_count", messageCount),
+		zap.Int64("task_count", taskCount),
+		zap.Duration("duration_ms", duration))
+
+	return result, nil
 }

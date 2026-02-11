@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/pkg/normalizer"
 	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 // MaxMetaSize is the maximum allowed size for user-provided message metadata (64KB)
@@ -768,7 +770,7 @@ func (h *SessionHandler) PatchConfigs(c *gin.Context) {
 
 	updatedConfigs, err := h.svc.PatchConfigs(c.Request.Context(), project.ID, sessionID, req.Configs)
 	if err != nil {
-		if strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, gorm.ErrRecordNotFound) || strings.Contains(err.Error(), "not found") {
 			c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, err.Error(), nil))
 			return
 		}
@@ -777,4 +779,68 @@ func (h *SessionHandler) PatchConfigs(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, serializer.Response{Data: PatchSessionConfigsResp{Configs: updatedConfigs}})
+}
+
+// ForkSession godoc
+//
+//	@Summary		Fork a session
+//	@Description	Create a complete copy of a session including all messages, tasks, configs, and assets
+//	@Tags			session
+//	@Accept			json
+//	@Produce		json
+//	@Param			session_id	path	string	true	"Session ID to fork"	format(uuid)
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response{data=model.ForkSessionOutput}
+//	@Failure		400	{object}	serializer.Response	"Session too large or invalid session ID"
+//	@Failure		404	{object}	serializer.Response	"Session not found"
+//	@Failure		429	{object}	serializer.Response	"Rate limit exceeded"
+//	@Failure		500	{object}	serializer.Response	"Internal server error"
+//	@Router			/session/{session_id}/fork [post]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Fork a session\nresult = client.sessions.fork(session_id='session-uuid')\nprint(f\"Forked {result.old_session_id} → {result.new_session_id}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Fork a session\nconst result = await client.sessions.fork('session-uuid');\nconsole.log(`Forked ${result.old_session_id} → ${result.new_session_id}`);\n","label":"JavaScript"}]
+func (h *SessionHandler) ForkSession(c *gin.Context) {
+	// Feature is enabled by default, but can be disabled via environment variable for emergency rollback
+	if os.Getenv("ENABLE_SESSION_FORK") == "false" {
+		c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "Not found", nil))
+		return
+	}
+
+	// Parse session_id from URL
+	sessionID, err := uuid.Parse(c.Param("session_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid session_id", err))
+		return
+	}
+
+	// Get project from context (set by ProjectAuth middleware)
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	// Call service to fork session
+	result, err := h.svc.ForkSession(c.Request.Context(), project.ID, sessionID)
+	if err != nil {
+		// Handle specific errors using typed errors
+		if errors.Is(err, service.ErrSessionNotFound) {
+			c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "Session not found", err))
+			return
+		}
+		if errors.Is(err, service.ErrSessionTooLarge) {
+			c.JSON(http.StatusBadRequest, serializer.Err(http.StatusBadRequest, err.Error(), err))
+			return
+		}
+		if errors.Is(err, service.ErrRateLimitExceeded) {
+			c.JSON(http.StatusTooManyRequests, serializer.Err(http.StatusTooManyRequests, err.Error(), err))
+			return
+		}
+		if errors.Is(err, service.ErrS3OperationFailed) {
+			c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "S3 operation failed", err))
+			return
+		}
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("Failed to fork session", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{Data: result})
 }

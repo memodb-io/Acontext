@@ -79,6 +79,28 @@ func main() {
 		}
 	}
 
+	// Setup OpenTelemetry metrics (using configuration system)
+	mp, err := telemetry.SetupMetrics(cfg)
+	if err != nil {
+		log.Sugar().Warnw("failed to setup metrics, continuing without metrics", "err", err)
+	} else if mp != nil {
+		log.Sugar().Info("OpenTelemetry metrics enabled", "endpoint", cfg.Telemetry.OtlpEndpoint)
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := telemetry.ShutdownMetrics(ctx); err != nil {
+				log.Sugar().Errorw("failed to shutdown metrics", "err", err)
+			}
+		}()
+
+		// Initialize session metrics
+		if err := telemetry.InitSessionMetrics(); err != nil {
+			log.Sugar().Warnw("failed to initialize session metrics, continuing without session metrics", "err", err)
+		} else {
+			log.Sugar().Info("Session metrics initialized")
+		}
+	}
+
 	// init gin
 	gin.SetMode(cfg.App.Env)
 

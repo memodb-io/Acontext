@@ -10,6 +10,7 @@ from ..client_types import RequesterProtocol
 from ..messages import AcontextMessage
 from ..types.session import (
     EditStrategy,
+    ForkSessionOutput,
     GetMessagesOutput,
     GetTasksOutput,
     ListSessionsOutput,
@@ -496,3 +497,33 @@ class SessionsAPI:
             json_data=payload,
         )
         return data.get("configs", {})  # type: ignore
+
+    def fork(
+        self,
+        session_id: str,
+    ) -> ForkSessionOutput:
+        """Fork a session by creating a complete copy.
+
+        Creates a new session with all messages, tasks, configs, and assets from the
+        original session. The forked session is an independent copy - modifications to
+        either session do not affect the other.
+
+        Args:
+            session_id: The UUID of the session to fork.
+
+        Returns:
+            ForkSessionOutput containing the original and new session IDs.
+
+        Raises:
+            APIError: If the session doesn't exist, is too large (>5000 messages),
+                or rate limit is exceeded (10 forks/min per project).
+
+        Example:
+            >>> result = client.sessions.fork(session_id="abc-123")
+            >>> print(f"Forked {result.old_session_id} → {result.new_session_id}")
+        """
+        data = self._requester.request(
+            "POST",
+            f"/session/{session_id}/fork",
+        )
+        return ForkSessionOutput.model_validate(data)

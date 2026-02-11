@@ -1,0 +1,301 @@
+---
+title: 'Session Fork'
+description: 'Create complete copies of sessions to experiment with different approaches'
+---
+
+## Overview
+
+Session forking allows you to create a complete copy of an existing session, including all messages, tasks, configurations, and asset references. This enables you to:
+
+- **Experiment safely**: Try different approaches without affecting your original conversation
+- **Branch workflows**: Test multiple strategies from the same checkpoint
+- **Create checkpoints**: Save conversation state before risky operations
+
+<Note>
+Session forking is enabled by default. Server administrators can temporarily disable it by setting `ENABLE_SESSION_FORK=false` for emergency rollback if needed.
+</Note>
+
+## How It Works
+
+When you fork a session, Acontext creates a new session with:
+
+- ✅ All messages (with preserved parent relationships)
+- ✅ All tasks (with preserved message associations)
+- ✅ Session configurations
+- ✅ Asset references (S3 files are copied server-side)
+- ✅ Original message/task status
+
+The fork operation is atomic - if it fails, no partial data is created.
+
+## Size Limits
+
+To ensure reliable performance, forking has size limits:
+
+- **Maximum messages**: 5,000 per session
+- **Maximum unique assets**: 1,000 per session
+
+If your session exceeds these limits, you'll receive a `400 Bad Request` error.
+
+## Rate Limiting
+
+Fork operations are rate-limited to prevent abuse:
+
+- **Limit**: 10 forks per minute per project
+- **Error**: `429 Too Many Requests` when exceeded
+
+## Usage
+
+<CodeGroup>
+```python Python (Sync)
+from acontext import AcontextClient
+
+client = AcontextClient(api_key="sk-ac-xxx")
+
+# Fork a session
+result = client.sessions.fork(session_id="550e8400-e29b-41d4-a716-446655440000")
+
+print(f"Original session: {result.old_session_id}")
+print(f"New forked session: {result.new_session_id}")
+
+# Continue working with the forked session
+client.sessions.store_message(
+    result.new_session_id,
+    blob={'role': 'user', 'content': 'Let me try a different approach...'}
+)
+```
+
+```python Python (Async)
+import asyncio
+from acontext import AsyncAcontextClient
+
+async def fork_example():
+    client = AsyncAcontextClient(api_key="sk-ac-xxx")
+    
+    # Fork a session
+    result = await client.sessions.fork(
+        session_id="550e8400-e29b-41d4-a716-446655440000"
+    )
+    
+    print(f"Original session: {result.old_session_id}")
+    print(f"New forked session: {result.new_session_id}")
+    
+    # Continue working with the forked session
+    await client.sessions.store_message(
+        result.new_session_id,
+        blob={'role': 'user', 'content': 'Let me try a different approach...'}
+    )
+
+asyncio.run(fork_example())
+```
+
+```typescript TypeScript
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({
+  apiKey: 'sk-ac-xxx'
+});
+
+// Fork a session
+const result = await client.sessions.fork(
+  '550e8400-e29b-41d4-a716-446655440000'
+);
+
+console.log(`Original session: ${result.old_session_id}`);
+console.log(`New forked session: ${result.new_session_id}`);
+
+// Continue working with the forked session
+await client.sessions.storeMessage(
+  result.new_session_id,
+  { role: 'user', content: 'Let me try a different approach...' }
+);
+```
+
+```bash cURL
+curl -X POST "https://api.acontext.io/api/v1/session/{session_id}/fork" \
+  -H "Authorization: Bearer sk-ac-xxx" \
+  -H "Content-Type: application/json"
+```
+</CodeGroup>
+
+## Response Format
+
+The fork operation returns both session IDs:
+
+```json
+{
+  "data": {
+    "old_session_id": "550e8400-e29b-41d4-a716-446655440000",
+    "new_session_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+  }
+}
+```
+
+## Use Cases
+
+### Experiment with Different Prompts
+
+```python
+# Original conversation checkpoint
+original_session = "550e8400-e29b-41d4-a716-446655440000"
+
+# Try approach A
+fork_a = client.sessions.fork(original_session)
+client.sessions.store_message(
+    fork_a.new_session_id,
+    blob={'role': 'user', 'content': 'Use a formal tone'}
+)
+
+# Try approach B
+fork_b = client.sessions.fork(original_session)
+client.sessions.store_message(
+    fork_b.new_session_id,
+    blob={'role': 'user', 'content': 'Use a casual tone'}
+)
+```
+
+### Agent Development Workflow
+
+```python
+# Main development session
+main_session = client.sessions.create()
+
+# ... work on agent implementation ...
+
+# Before major changes, create a backup
+backup = client.sessions.fork(main_session.id)
+
+# Try experimental changes in the main session
+# If things go wrong, you have backup.new_session_id
+```
+
+### A/B Testing Conversations
+
+```python
+# Fork to test different reasoning strategies
+fork_cot = client.sessions.fork(base_session)
+fork_react = client.sessions.fork(base_session)
+
+# Chain of thought approach
+client.sessions.store_message(
+    fork_cot.new_session_id,
+    blob={'role': 'user', 'content': 'Think step by step...'}
+)
+
+# ReAct approach  
+client.sessions.store_message(
+    fork_react.new_session_id,
+    blob={'role': 'user', 'content': 'Let\'s reason and act...'}
+)
+```
+
+## Error Handling
+
+<CodeGroup>
+```python Python
+from acontext import AcontextClient
+from acontext.exceptions import AcontextError
+
+client = AcontextClient(api_key="sk-ac-xxx")
+
+try:
+    result = client.sessions.fork(session_id)
+except AcontextError as e:
+    if e.status_code == 404:
+        print("Session not found")
+    elif e.status_code == 400:
+        print("Session too large to fork")
+    elif e.status_code == 429:
+        print("Rate limit exceeded, wait before retrying")
+    elif e.status_code == 403:
+        print("Permission denied")
+    else:
+        print(f"Fork failed: {e}")
+```
+
+```typescript TypeScript
+import { AcontextClient, AcontextError } from '@acontext/acontext';
+
+const client = new AcontextClient({ apiKey: 'sk-ac-xxx' });
+
+try {
+  const result = await client.sessions.fork(sessionId);
+} catch (error) {
+  if (error instanceof AcontextError) {
+    if (error.statusCode === 404) {
+      console.log('Session not found');
+    } else if (error.statusCode === 400) {
+      console.log('Session too large to fork');
+    } else if (error.statusCode === 429) {
+      console.log('Rate limit exceeded, wait before retrying');
+    } else if (error.statusCode === 403) {
+      console.log('Permission denied');
+    } else {
+      console.log(`Fork failed: ${error.message}`);
+    }
+  }
+}
+```
+</CodeGroup>
+
+## Common Error Codes
+
+| Code | Meaning | Solution |
+|------|---------|----------|
+| `400` | Session too large | Reduce session size or split into smaller sessions |
+| `403` | Permission denied | Verify API key has access to this project |
+| `404` | Session not found | Check session ID is correct |
+| `429` | Rate limit exceeded | Wait before retrying (max 10/minute) |
+| `500` | Internal error | Retry with exponential backoff |
+
+## Performance
+
+Fork operation latency varies by session size:
+
+- **Small sessions** (<100 messages): ~200-500ms
+- **Medium sessions** (100-1000 messages): ~500ms-1s
+- **Large sessions** (1000-5000 messages): ~1-2s
+
+All S3 asset copies are performed server-side for optimal performance.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Fork early, fork often">
+    Create forks at logical checkpoints in your conversation. It's cheap and fast to fork small sessions.
+  </Accordion>
+
+  <Accordion title="Clean up old forks">
+    Delete forks you no longer need to keep your project organized.
+  </Accordion>
+
+  <Accordion title="Monitor fork usage">
+    Track fork operations through OpenTelemetry metrics:
+    - `session.fork.count` - Total fork operations
+    - `session.fork.duration` - Fork latency
+    - `session.fork.errors` - Failed forks by error type
+  </Accordion>
+
+  <Accordion title="Handle rate limits gracefully">
+    Implement exponential backoff when hitting rate limits:
+    ```python
+    import time
+    
+    def fork_with_retry(client, session_id, max_retries=3):
+        for attempt in range(max_retries):
+            try:
+                return client.sessions.fork(session_id)
+            except AcontextError as e:
+                if e.status_code == 429 and attempt < max_retries - 1:
+                    wait_time = 2 ** attempt  # Exponential backoff
+                    time.sleep(wait_time)
+                else:
+                    raise
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## See Also
+
+- [Session Summary](/engineering/session_summary) - Summarize sessions before forking
+- [Message Filtering](/store/messages/filter-by-configs) - Filter messages by configs
+- [API Reference](/api-reference/introduction) - Full API documentation

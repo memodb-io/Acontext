@@ -65,6 +65,7 @@
               "engineering/whatis",
               "engineering/agent_skills",
               "engineering/session_summary",
+              "engineering/session_fork",
               "engineering/editing",
               "engineering/cache"
             ]

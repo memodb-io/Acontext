@@ -9,6 +9,8 @@ import { buildParams } from '../utils';
 import {
   EditStrategy,
   EditStrategySchema,
+  ForkSessionOutput,
+  ForkSessionOutputSchema,
   GetMessagesOutput,
   GetMessagesOutputSchema,
   GetTasksOutput,
@@ -437,5 +439,26 @@ export class SessionsAPI {
       jsonData: payload,
     });
     return (data as { configs: Record<string, unknown> }).configs ?? {};
+  }
+
+  /**
+   * Fork a session by creating a complete copy.
+   *
+   * Creates a new session with all messages, tasks, configs, and assets from the
+   * original session. The forked session is an independent copy - modifications to
+   * either session do not affect the other.
+   *
+   * @param sessionId - The UUID of the session to fork.
+   * @returns ForkSessionOutput containing the original and new session IDs.
+   * @throws APIError if the session doesn't exist, is too large (>5000 messages),
+   *   or rate limit is exceeded (10 forks/min per project).
+   *
+   * @example
+   * const result = await client.sessions.fork('abc-123');
+   * console.log(`Forked ${result.old_session_id} → ${result.new_session_id}`);
+   */
+  async fork(sessionId: string): Promise<ForkSessionOutput> {
+    const data = await this.requester.request('POST', `/session/${sessionId}/fork`);
+    return ForkSessionOutputSchema.parse(data);
   }
 }

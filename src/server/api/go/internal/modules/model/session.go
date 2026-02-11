@@ -39,3 +39,11 @@ type MessageObservingStatus struct {
 	Pending   int       `json:"pending"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+// ForkSessionOutput represents the response from forking a session
+type ForkSessionOutput struct {
+	OldSessionID uuid.UUID `json:"old_session_id"`
+	NewSessionID uuid.UUID `json:"new_session_id"`
+	MessageCount int       `json:"-"` // Internal: for metrics only, not exposed in API
+	TaskCount    int       `json:"-"` // Internal: for metrics only, not exposed in API
+}

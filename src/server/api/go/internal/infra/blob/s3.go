@@ -461,6 +461,35 @@ func (u *S3Deps) DeleteObject(ctx context.Context, key string) error {
 	return nil
 }
 
+// CopyObject copies an object from one key to another within the same bucket (server-side copy)
+func (u *S3Deps) CopyObject(ctx context.Context, sourceKey, destKey string) error {
+	if sourceKey == "" {
+		return errors.New("source key is empty")
+	}
+	if destKey == "" {
+		return errors.New("destination key is empty")
+	}
+
+	copySource := fmt.Sprintf("%s/%s", u.Bucket, sourceKey)
+
+	input := &s3.CopyObjectInput{
+		Bucket:     &u.Bucket,
+		CopySource: &copySource,
+		Key:        &destKey,
+	}
+
+	if u.SSE != nil {
+		input.ServerSideEncryption = *u.SSE
+	}
+
+	_, err := u.Client.CopyObject(ctx, input)
+	if err != nil {
+		return fmt.Errorf("copy object in S3 %s -> %s: %w", sourceKey, destKey, err)
+	}
+
+	return nil
+}
+
 // DeleteObjects deletes multiple objects from S3
 func (u *S3Deps) DeleteObjects(ctx context.Context, keys []string) error {
 	if len(keys) == 0 {

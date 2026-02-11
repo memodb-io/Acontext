@@ -104,6 +104,14 @@ func (m *MockSessionRepo) UpdateMessageMeta(ctx context.Context, messageID uuid.
 	return args.Error(0)
 }
 
+func (m *MockSessionRepo) ForkSession(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID) (*model.ForkSessionOutput, error) {
+	args := m.Called(ctx, projectID, sessionID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.ForkSessionOutput), args.Error(1)
+}
+
 // MockAssetReferenceRepo is a mock implementation of AssetReferenceRepo
 type MockAssetReferenceRepo struct {
 	mock.Mock
@@ -634,7 +642,7 @@ func TestPartIn_Validate(t *testing.T) {
 				Type: model.PartTypeToolResult,
 				Meta: map[string]interface{}{
 					model.MetaKeyToolCallID: "call_123",
-					"result":       "4",
+					"result":                "4",
 				},
 			},
 			wantErr: false,
@@ -656,7 +664,7 @@ func TestPartIn_Validate(t *testing.T) {
 				Type: model.PartTypeData,
 				Meta: map[string]interface{}{
 					model.MetaKeyDataType: "json",
-					"content":   `{"key": "value"}`,
+					"content":             `{"key": "value"}`,
 				},
 			},
 			wantErr: false,

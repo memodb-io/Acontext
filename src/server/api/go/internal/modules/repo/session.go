@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -13,6 +14,13 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+)
+
+// Custom error types for better error handling
+var (
+	ErrSessionNotFound   = errors.New("session not found")
+	ErrSessionTooLarge   = errors.New("session too large to fork")
+	ErrS3OperationFailed = errors.New("S3 operation failed")
 )
 
 type SessionRepo interface {
@@ -29,6 +37,7 @@ type SessionRepo interface {
 	PopGeminiCallIDAndName(ctx context.Context, sessionID uuid.UUID) (string, string, error)
 	GetMessageByID(ctx context.Context, sessionID uuid.UUID, messageID uuid.UUID) (*model.Message, error)
 	UpdateMessageMeta(ctx context.Context, messageID uuid.UUID, meta datatypes.JSONType[map[string]interface{}]) error
+	ForkSession(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID) (*model.ForkSessionOutput, error)
 }
 
 type sessionRepo struct {
@@ -37,6 +46,14 @@ type sessionRepo struct {
 	s3                 *blob.S3Deps
 	log                *zap.Logger
 }
+
+const (
+	// Batch size for inserting messages
+	messageBatchSize = 100
+	// Fork size limits
+	maxForkMessages = 5000
+	maxForkAssets   = 1000
+)
 
 func NewSessionRepo(db *gorm.DB, assetReferenceRepo AssetReferenceRepo, s3 *blob.S3Deps, log *zap.Logger) SessionRepo {
 	return &sessionRepo{
@@ -417,4 +434,457 @@ func (r *sessionRepo) UpdateMessageMeta(ctx context.Context, messageID uuid.UUID
 		Model(&model.Message{}).
 		Where("id = ?", messageID).
 		Update("meta", meta).Error
+}
+
+// ---------------------------------------------------------------------------
+// Fork Session Implementation
+// ---------------------------------------------------------------------------
+
+// validateForkSize checks if the session size is within fork limits
+func (r *sessionRepo) validateForkSize(ctx context.Context, sessionID uuid.UUID) error {
+	// Count messages
+	var messageCount int64
+	if err := r.db.WithContext(ctx).Model(&model.Message{}).
+		Where("session_id = ?", sessionID).Count(&messageCount).Error; err != nil {
+		return fmt.Errorf("count messages: %w", err)
+	}
+
+	if messageCount > maxForkMessages {
+		return fmt.Errorf("%w: %d messages (max %d)", ErrSessionTooLarge, messageCount, maxForkMessages)
+	}
+
+	// Count unique assets by fetching all messages and extracting assets
+	var messages []model.Message
+	if err := r.db.WithContext(ctx).
+		Where("session_id = ?", sessionID).
+		Find(&messages).Error; err != nil {
+		return fmt.Errorf("fetch messages for asset count: %w", err)
+	}
+
+	// Use map to track unique assets
+	uniqueAssets := make(map[string]bool)
+	for _, msg := range messages {
+		// Extract PartsAssetMeta
+		partsAssetMeta := msg.PartsAssetMeta.Data()
+		if partsAssetMeta.SHA256 != "" {
+			uniqueAssets[partsAssetMeta.SHA256] = true
+		}
+
+		// Download and parse parts to extract assets from individual parts
+		if r.s3 != nil && partsAssetMeta.S3Key != "" {
+			parts := []model.Part{}
+			if err := r.s3.DownloadJSON(ctx, partsAssetMeta.S3Key, &parts); err != nil {
+				// Log error but continue
+				r.log.Warn("failed to download parts for asset count",
+					zap.Error(err),
+					zap.String("s3_key", partsAssetMeta.S3Key))
+				continue
+			}
+
+			for _, part := range parts {
+				if part.Asset != nil && part.Asset.SHA256 != "" {
+					uniqueAssets[part.Asset.SHA256] = true
+				}
+			}
+		}
+	}
+
+	assetCount := len(uniqueAssets)
+	if assetCount > maxForkAssets {
+		return fmt.Errorf("%w: %d assets (max %d)", ErrSessionTooLarge, assetCount, maxForkAssets)
+	}
+
+	return nil
+}
+
+// copyMessagePartsS3 copies S3 parts files from old messages to new messages
+func (r *sessionRepo) copyMessagePartsS3(ctx context.Context, projectID uuid.UUID, oldMessages []model.Message, messageIDMap map[uuid.UUID]uuid.UUID) error {
+	if r.s3 == nil {
+		return fmt.Errorf("S3 client not configured")
+	}
+
+	for _, oldMsg := range oldMessages {
+		newMsgID, ok := messageIDMap[oldMsg.ID]
+		if !ok {
+			continue
+		}
+
+		partsAssetMeta := oldMsg.PartsAssetMeta.Data()
+		if partsAssetMeta.S3Key == "" {
+			continue
+		}
+
+		// Construct new S3 key for the forked message
+		newS3Key := fmt.Sprintf("parts/%s/%s.json", projectID.String(), newMsgID.String())
+
+		// Use S3 CopyObject (server-side copy, no download)
+		if err := r.s3.CopyObject(ctx, partsAssetMeta.S3Key, newS3Key); err != nil {
+			return fmt.Errorf("%w: copy S3 parts %s -> %s: %w", ErrS3OperationFailed, partsAssetMeta.S3Key, newS3Key, err)
+		}
+
+		r.log.Debug("copied S3 parts",
+			zap.String("old_key", partsAssetMeta.S3Key),
+			zap.String("new_key", newS3Key))
+	}
+
+	return nil
+}
+
+// MessageTaskMapping stores the task_id for each message during copy
+type MessageTaskMapping struct {
+	oldMessageID uuid.UUID
+	newMessageID uuid.UUID
+	oldTaskID    *uuid.UUID
+}
+
+// copyMessages copies messages with ID mapping and parent relationship preservation
+// Returns: messageIDMap, oldMessages, messageTaskMappings, error
+func (r *sessionRepo) copyMessages(ctx context.Context, tx *gorm.DB, oldSessionID uuid.UUID, newSessionID uuid.UUID, projectID uuid.UUID) (map[uuid.UUID]uuid.UUID, []model.Message, []MessageTaskMapping, error) {
+	// Fetch all messages ordered by created_at
+	var oldMessages []model.Message
+	if err := tx.Where("session_id = ?", oldSessionID).
+		Order("created_at ASC, id ASC").
+		Find(&oldMessages).Error; err != nil {
+		return nil, nil, nil, fmt.Errorf("fetch messages: %w", err)
+	}
+
+	if len(oldMessages) == 0 {
+		return make(map[uuid.UUID]uuid.UUID), []model.Message{}, []MessageTaskMapping{}, nil
+	}
+
+	// Build old->new message ID map and track task associations
+	messageIDMap := make(map[uuid.UUID]uuid.UUID)
+	messageTaskMappings := make([]MessageTaskMapping, 0, len(oldMessages))
+
+	for _, oldMsg := range oldMessages {
+		newMsgID := uuid.New()
+		messageIDMap[oldMsg.ID] = newMsgID
+
+		// Track task_id for later mapping
+		messageTaskMappings = append(messageTaskMappings, MessageTaskMapping{
+			oldMessageID: oldMsg.ID,
+			newMessageID: newMsgID,
+			oldTaskID:    oldMsg.TaskID,
+		})
+	}
+
+	// Prepare new messages with mapped IDs
+	newMessages := make([]model.Message, 0, len(oldMessages))
+	for _, oldMsg := range oldMessages {
+		newMsg := model.Message{
+			ID:                       messageIDMap[oldMsg.ID],
+			SessionID:                newSessionID,
+			Role:                     oldMsg.Role,
+			Meta:                     oldMsg.Meta,
+			SessionTaskProcessStatus: oldMsg.SessionTaskProcessStatus,
+			PartsAssetMeta:           oldMsg.PartsAssetMeta,
+			TaskID:                   nil, // Will be updated after tasks are copied
+			CreatedAt:                time.Now(),
+			UpdatedAt:                time.Now(),
+		}
+
+		// Map parent_id if exists
+		if oldMsg.ParentID != nil {
+			if newParentID, ok := messageIDMap[*oldMsg.ParentID]; ok {
+				newMsg.ParentID = &newParentID
+			}
+		}
+
+		// Update PartsAssetMeta with new S3 key
+		partsAssetMeta := newMsg.PartsAssetMeta.Data()
+		if partsAssetMeta.S3Key != "" {
+			partsAssetMeta.S3Key = fmt.Sprintf("parts/%s/%s.json", projectID.String(), newMsg.ID.String())
+			newMsg.PartsAssetMeta = datatypes.NewJSONType(partsAssetMeta)
+		}
+
+		newMessages = append(newMessages, newMsg)
+	}
+
+	// Batch insert messages to avoid parameter limits
+	for i := 0; i < len(newMessages); i += messageBatchSize {
+		end := i + messageBatchSize
+		if end > len(newMessages) {
+			end = len(newMessages)
+		}
+		batch := newMessages[i:end]
+
+		if err := tx.Create(&batch).Error; err != nil {
+			return nil, nil, nil, fmt.Errorf("insert message batch: %w", err)
+		}
+	}
+
+	return messageIDMap, oldMessages, messageTaskMappings, nil
+}
+
+// copyMessagesWithIDMap copies messages using a pre-generated ID map (for use with S3 copy done before transaction)
+// Returns: messageCount, messageTaskMappings, error
+func (r *sessionRepo) copyMessagesWithIDMap(ctx context.Context, tx *gorm.DB, oldSessionID uuid.UUID, newSessionID uuid.UUID, projectID uuid.UUID, messageIDMap map[uuid.UUID]uuid.UUID) (int, []MessageTaskMapping, error) {
+	// Fetch all messages ordered by created_at
+	var oldMessages []model.Message
+	if err := tx.Where("session_id = ?", oldSessionID).
+		Order("created_at ASC, id ASC").
+		Find(&oldMessages).Error; err != nil {
+		return 0, nil, fmt.Errorf("fetch messages: %w", err)
+	}
+
+	if len(oldMessages) == 0 {
+		return 0, []MessageTaskMapping{}, nil
+	}
+
+	// Track task associations
+	messageTaskMappings := make([]MessageTaskMapping, 0, len(oldMessages))
+	for _, oldMsg := range oldMessages {
+		messageTaskMappings = append(messageTaskMappings, MessageTaskMapping{
+			oldMessageID: oldMsg.ID,
+			newMessageID: messageIDMap[oldMsg.ID],
+			oldTaskID:    oldMsg.TaskID,
+		})
+	}
+
+	// Prepare new messages with mapped IDs
+	newMessages := make([]model.Message, 0, len(oldMessages))
+	for _, oldMsg := range oldMessages {
+		newMsg := model.Message{
+			ID:                       messageIDMap[oldMsg.ID],
+			SessionID:                newSessionID,
+			Role:                     oldMsg.Role,
+			Meta:                     oldMsg.Meta,
+			SessionTaskProcessStatus: oldMsg.SessionTaskProcessStatus,
+			PartsAssetMeta:           oldMsg.PartsAssetMeta,
+			TaskID:                   nil, // Will be updated after tasks are copied
+			CreatedAt:                time.Now(),
+			UpdatedAt:                time.Now(),
+		}
+
+		// Map parent_id if exists
+		if oldMsg.ParentID != nil {
+			if newParentID, ok := messageIDMap[*oldMsg.ParentID]; ok {
+				newMsg.ParentID = &newParentID
+			}
+		}
+
+		// Update PartsAssetMeta with new S3 key
+		partsAssetMeta := newMsg.PartsAssetMeta.Data()
+		if partsAssetMeta.S3Key != "" {
+			partsAssetMeta.S3Key = fmt.Sprintf("parts/%s/%s.json", projectID.String(), newMsg.ID.String())
+			newMsg.PartsAssetMeta = datatypes.NewJSONType(partsAssetMeta)
+		}
+
+		newMessages = append(newMessages, newMsg)
+	}
+
+	// Batch insert messages to avoid parameter limits
+	for i := 0; i < len(newMessages); i += messageBatchSize {
+		end := i + messageBatchSize
+		if end > len(newMessages) {
+			end = len(newMessages)
+		}
+		batch := newMessages[i:end]
+
+		if err := tx.Create(&batch).Error; err != nil {
+			return 0, nil, fmt.Errorf("insert message batch: %w", err)
+		}
+	}
+
+	return len(oldMessages), messageTaskMappings, nil
+}
+
+// copyTasks copies tasks with ID mapping and updates message references
+func (r *sessionRepo) copyTasks(ctx context.Context, tx *gorm.DB, oldSessionID uuid.UUID, newSessionID uuid.UUID, projectID uuid.UUID, messageTaskMappings []MessageTaskMapping) (int, error) {
+	// Fetch all tasks ordered by order
+	var oldTasks []model.Task
+	if err := tx.Where("session_id = ?", oldSessionID).
+		Order("\"order\" ASC").
+		Find(&oldTasks).Error; err != nil {
+		return 0, fmt.Errorf("fetch tasks: %w", err)
+	}
+
+	if len(oldTasks) == 0 {
+		return 0, nil
+	}
+
+	// Build old->new task ID map
+	taskIDMap := make(map[uuid.UUID]uuid.UUID)
+	for _, oldTask := range oldTasks {
+		taskIDMap[oldTask.ID] = uuid.New()
+	}
+
+	// Create new tasks
+	newTasks := make([]model.Task, 0, len(oldTasks))
+	for _, oldTask := range oldTasks {
+		newTask := model.Task{
+			ID:         taskIDMap[oldTask.ID],
+			SessionID:  newSessionID,
+			ProjectID:  projectID,
+			Order:      oldTask.Order,
+			Data:       oldTask.Data,
+			Status:     oldTask.Status,
+			IsPlanning: oldTask.IsPlanning,
+			CreatedAt:  time.Now(),
+			UpdatedAt:  time.Now(),
+		}
+		newTasks = append(newTasks, newTask)
+	}
+
+	// Insert tasks
+	if err := tx.Create(&newTasks).Error; err != nil {
+		return 0, fmt.Errorf("insert tasks: %w", err)
+	}
+
+	// Update message.task_id references using the tracked mappings
+	for _, mapping := range messageTaskMappings {
+		if mapping.oldTaskID != nil {
+			if newTaskID, ok := taskIDMap[*mapping.oldTaskID]; ok {
+				if err := tx.Model(&model.Message{}).
+					Where("id = ?", mapping.newMessageID).
+					Update("task_id", newTaskID).Error; err != nil {
+					return 0, fmt.Errorf("update message task_id: %w", err)
+				}
+			}
+		}
+	}
+
+	return len(newTasks), nil
+}
+
+// incrementAssetRefsForMessages extracts and increments asset references
+func (r *sessionRepo) incrementAssetRefsForMessages(ctx context.Context, projectID uuid.UUID, messages []model.Message) (int, error) {
+	// Extract all assets from messages
+	assets := make([]model.Asset, 0)
+	for _, msg := range messages {
+		// Extract PartsAssetMeta
+		partsAssetMeta := msg.PartsAssetMeta.Data()
+		if partsAssetMeta.SHA256 != "" {
+			assets = append(assets, partsAssetMeta)
+		}
+
+		// Download and parse parts to extract assets from individual parts
+		if r.s3 != nil && partsAssetMeta.S3Key != "" {
+			parts := []model.Part{}
+			if err := r.s3.DownloadJSON(ctx, partsAssetMeta.S3Key, &parts); err != nil {
+				r.log.Warn("failed to download parts for asset increment",
+					zap.Error(err),
+					zap.String("s3_key", partsAssetMeta.S3Key))
+				continue
+			}
+
+			for _, part := range parts {
+				if part.Asset != nil && part.Asset.SHA256 != "" {
+					assets = append(assets, *part.Asset)
+				}
+			}
+		}
+	}
+
+	if len(assets) == 0 {
+		return 0, nil
+	}
+
+	// Batch increment asset references
+	if err := r.assetReferenceRepo.BatchIncrementAssetRefs(ctx, projectID, assets); err != nil {
+		return 0, fmt.Errorf("batch increment asset refs: %w", err)
+	}
+
+	return len(assets), nil
+}
+
+// ForkSession creates a complete copy of a session
+func (r *sessionRepo) ForkSession(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID) (*model.ForkSessionOutput, error) {
+	// Validate size first
+	if err := r.validateForkSize(ctx, sessionID); err != nil {
+		return nil, err
+	}
+
+	// Fetch original session
+	var originalSession model.Session
+	if err := r.db.WithContext(ctx).
+		Where("id = ? AND project_id = ?", sessionID, projectID).
+		First(&originalSession).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("%w: session_id=%s", ErrSessionNotFound, sessionID.String())
+		}
+		return nil, err
+	}
+
+	// Fetch old messages to prepare for S3 copy (before transaction)
+	var oldMessages []model.Message
+	if err := r.db.WithContext(ctx).
+		Where("session_id = ?", sessionID).
+		Order("created_at ASC, id ASC").
+		Find(&oldMessages).Error; err != nil {
+		return nil, fmt.Errorf("fetch messages for S3 copy: %w", err)
+	}
+
+	// Prepare message ID map for S3 copy (before transaction)
+	messageIDMap := make(map[uuid.UUID]uuid.UUID)
+	for _, oldMsg := range oldMessages {
+		messageIDMap[oldMsg.ID] = uuid.New()
+	}
+
+	// Copy S3 parts BEFORE transaction (as per design doc)
+	// This prevents holding transaction open during slow S3 operations
+	if len(oldMessages) > 0 {
+		if err := r.copyMessagePartsS3(ctx, projectID, oldMessages, messageIDMap); err != nil {
+			return nil, err // Error already wrapped with ErrS3OperationFailed
+		}
+	}
+
+	// Start transaction for DB operations only
+	var result *model.ForkSessionOutput
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Create new session with copied fields
+		newSession := model.Session{
+			ID:                  uuid.New(),
+			ProjectID:           originalSession.ProjectID,
+			UserID:              originalSession.UserID,
+			DisableTaskTracking: originalSession.DisableTaskTracking,
+			Configs:             originalSession.Configs,
+			CreatedAt:           time.Now(),
+			UpdatedAt:           time.Now(),
+		}
+
+		if err := tx.Create(&newSession).Error; err != nil {
+			return fmt.Errorf("create new session: %w", err)
+		}
+
+		// Copy messages using pre-generated ID map
+		messageCount, messageTaskMappings, err := r.copyMessagesWithIDMap(ctx, tx, originalSession.ID, newSession.ID, projectID, messageIDMap)
+		if err != nil {
+			return err
+		}
+
+		// Copy tasks and update message task_id references
+		taskCount, err := r.copyTasks(ctx, tx, originalSession.ID, newSession.ID, projectID, messageTaskMappings)
+		if err != nil {
+			return err
+		}
+
+		// Increment asset references (inside transaction for atomicity)
+		assetCount, err := r.incrementAssetRefsForMessages(ctx, projectID, oldMessages)
+		if err != nil {
+			return err
+		}
+
+		r.log.Info("session forked successfully",
+			zap.String("old_session_id", originalSession.ID.String()),
+			zap.String("new_session_id", newSession.ID.String()),
+			zap.Int("messages_copied", messageCount),
+			zap.Int("tasks_copied", taskCount),
+			zap.Int("assets_incremented", assetCount))
+
+		result = &model.ForkSessionOutput{
+			OldSessionID: originalSession.ID,
+			NewSessionID: newSession.ID,
+			MessageCount: messageCount,
+			TaskCount:    taskCount,
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }

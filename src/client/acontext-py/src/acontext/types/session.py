@@ -303,3 +303,10 @@ class MessageObservingStatus(BaseModel):
     )
     pending: int = Field(..., description="Number of messages with pending status")
     updated_at: str = Field(..., description="Timestamp when the status was retrieved")
+
+
+class ForkSessionOutput(BaseModel):
+    """Response model for forking a session."""
+
+    old_session_id: str = Field(..., description="UUID of the original session")
+    new_session_id: str = Field(..., description="UUID of the forked session")

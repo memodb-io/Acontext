@@ -76,6 +76,7 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			session.PATCH("/:session_id/messages/:message_id/meta", d.SessionHandler.PatchMessageMeta)
 
 			session.POST("/:session_id/flush", d.SessionHandler.SessionFlush)
+			session.POST("/:session_id/fork", d.SessionHandler.ForkSession)
 
 			session.GET("/:session_id/token_counts", d.SessionHandler.GetTokenCounts)
 
