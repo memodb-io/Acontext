@@ -33,6 +33,14 @@ func (m *MockAgentSkillsService) Create(ctx context.Context, in service.CreateAg
 	return args.Get(0).(*model.AgentSkills), args.Error(1)
 }
 
+func (m *MockAgentSkillsService) CreateFromTemplate(ctx context.Context, in service.CreateFromTemplateInput) (*model.AgentSkills, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.AgentSkills), args.Error(1)
+}
+
 func (m *MockAgentSkillsService) GetByID(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*model.AgentSkills, error) {
 	args := m.Called(ctx, projectID, id)
 	if args.Get(0) == nil {
