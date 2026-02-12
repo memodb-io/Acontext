@@ -90,6 +90,7 @@ func main() {
 	agentSkillsHandler := do.MustInvoke[*handler.AgentSkillsHandler](inj)
 	userHandler := do.MustInvoke[*handler.UserHandler](inj)
 	sandboxHandler := do.MustInvoke[*handler.SandboxHandler](inj)
+	learningSpaceHandler := do.MustInvoke[*handler.LearningSpaceHandler](inj)
 
 	engine := router.NewRouter(router.RouterDeps{
 		Config:             cfg,
@@ -99,9 +100,10 @@ func main() {
 		DiskHandler:        diskHandler,
 		ArtifactHandler:    artifactHandler,
 		TaskHandler:        taskHandler,
-		AgentSkillsHandler: agentSkillsHandler,
-		UserHandler:        userHandler,
-		SandboxHandler:     sandboxHandler,
+		AgentSkillsHandler:   agentSkillsHandler,
+		UserHandler:          userHandler,
+		SandboxHandler:       sandboxHandler,
+		LearningSpaceHandler: learningSpaceHandler,
 	})
 
 	addr := fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port)

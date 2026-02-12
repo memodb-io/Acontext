@@ -24,9 +24,10 @@ type RouterDeps struct {
 	DiskHandler        *handler.DiskHandler
 	ArtifactHandler    *handler.ArtifactHandler
 	TaskHandler        *handler.TaskHandler
-	AgentSkillsHandler *handler.AgentSkillsHandler
-	UserHandler        *handler.UserHandler
-	SandboxHandler     *handler.SandboxHandler
+	AgentSkillsHandler   *handler.AgentSkillsHandler
+	UserHandler          *handler.UserHandler
+	SandboxHandler       *handler.SandboxHandler
+	LearningSpaceHandler *handler.LearningSpaceHandler
 }
 
 func NewRouter(d RouterDeps) *gin.Engine {
@@ -131,6 +132,20 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			sandbox.POST("", d.SandboxHandler.CreateSandbox)
 			sandbox.POST("/:sandbox_id/exec", d.SandboxHandler.ExecCommand)
 			sandbox.DELETE("/:sandbox_id", d.SandboxHandler.KillSandbox)
+		}
+
+		learningSpaces := v1.Group("/learning_spaces")
+		{
+			learningSpaces.POST("", d.LearningSpaceHandler.Create)
+			learningSpaces.GET("", d.LearningSpaceHandler.List)
+			learningSpaces.GET("/:id", d.LearningSpaceHandler.Get)
+			learningSpaces.PATCH("/:id", d.LearningSpaceHandler.Update)
+			learningSpaces.DELETE("/:id", d.LearningSpaceHandler.Delete)
+			learningSpaces.POST("/:id/learn", d.LearningSpaceHandler.Learn)
+			learningSpaces.POST("/:id/skills", d.LearningSpaceHandler.IncludeSkill)
+			learningSpaces.GET("/:id/skills", d.LearningSpaceHandler.ListSkills)
+			learningSpaces.DELETE("/:id/skills/:skill_id", d.LearningSpaceHandler.ExcludeSkill)
+			learningSpaces.GET("/:id/sessions", d.LearningSpaceHandler.ListSessions)
 		}
 	}
 	return r

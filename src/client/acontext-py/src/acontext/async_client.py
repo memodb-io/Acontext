@@ -15,6 +15,7 @@ from .uploads import FileUpload as FileUpload
 from .resources.async_disks import AsyncDisksAPI as AsyncDisksAPI
 from .resources.async_sandboxes import AsyncSandboxesAPI as AsyncSandboxesAPI
 from .resources.async_sessions import AsyncSessionsAPI as AsyncSessionsAPI
+from .resources.async_learning_spaces import AsyncLearningSpacesAPI as AsyncLearningSpacesAPI
 from .resources.async_skills import AsyncSkillsAPI as AsyncSkillsAPI
 from .resources.async_users import AsyncUsersAPI as AsyncUsersAPI
 
@@ -109,6 +110,7 @@ class AcontextAsyncClient:
         self.skills = AsyncSkillsAPI(self)
         self.users = AsyncUsersAPI(self)
         self.sandboxes = AsyncSandboxesAPI(self)
+        self.learning_spaces = AsyncLearningSpacesAPI(self)
 
     @property
     def base_url(self) -> str:

@@ -10,6 +10,9 @@ if TYPE_CHECKING:
     from .task import Task
     from .metric import Metric
     from .sandbox_log import SandboxLog
+    from .agent_skill import AgentSkill
+    from .disk import Disk
+    from .learning_space import LearningSpace
 
 
 @ORM_BASE.mapped
@@ -63,6 +66,34 @@ class Project(CommonMixin):
         metadata={
             "db": relationship(
                 "SandboxLog", back_populates="project", cascade="all, delete-orphan"
+            )
+        },
+    )
+
+    # Relationships for API-owned tables — passive_deletes, no cascade
+    agent_skills: List["AgentSkill"] = field(
+        default_factory=list,
+        metadata={
+            "db": relationship(
+                "AgentSkill", back_populates="project", passive_deletes=True
+            )
+        },
+    )
+
+    disks: List["Disk"] = field(
+        default_factory=list,
+        metadata={
+            "db": relationship("Disk", back_populates="project", passive_deletes=True)
+        },
+    )
+
+    learning_spaces: List["LearningSpace"] = field(
+        default_factory=list,
+        metadata={
+            "db": relationship(
+                "LearningSpace",
+                back_populates="project",
+                passive_deletes=True,
             )
         },
     )
