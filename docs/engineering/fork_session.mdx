@@ -112,18 +112,6 @@ Sessions with more than **5,000 messages** cannot be forked synchronously. You'l
 
 For large sessions, async fork support is planned for a future release.
 
-### Rate Limiting
-
-Fork operations are rate-limited to **10 requests per minute** per project. If exceeded, you'll receive:
-
-```json
-{
-  "error": "RATE_LIMIT_EXCEEDED",
-  "message": "Too many requests. Please wait 60 seconds before retrying.",
-  "retry_after": 60
-}
-```
-
 ## Error Handling
 
 <CodeGroup>
@@ -140,8 +128,6 @@ except AcontextError as e:
         print("Session does not exist or you don't have access")
     elif "SESSION_TOO_LARGE" in str(e):
         print("Session is too large to fork synchronously")
-    elif "RATE_LIMIT_EXCEEDED" in str(e):
-        print("Rate limit exceeded, wait before retrying")
     else:
         print(f"Fork failed: {e}")
 ```
@@ -160,8 +146,6 @@ try {
         console.log("Session does not exist or you don't have access");
     } else if (message.includes("SESSION_TOO_LARGE")) {
         console.log("Session is too large to fork synchronously");
-    } else if (message.includes("RATE_LIMIT_EXCEEDED")) {
-        console.log("Rate limit exceeded, wait before retrying");
     } else {
         console.log(`Fork failed: ${error}`);
     }

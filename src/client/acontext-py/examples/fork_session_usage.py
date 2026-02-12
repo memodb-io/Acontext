@@ -149,8 +149,6 @@ def main() -> None:
                 print("Session is too large to fork synchronously (>5000 messages)")
             elif exc.status_code == 404:
                 print("Session not found or access denied")
-            elif exc.status_code == 429:
-                print("Rate limit exceeded. Please wait before retrying.")
             raise
 
 
