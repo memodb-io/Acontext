@@ -72,7 +72,7 @@ def main() -> None:
             print("\n--- Forking session ---")
             fork_result = client.sessions.fork(session_id=original_session_id)
             forked_session_id = fork_result.new_session_id
-            print(f"✓ Forked session created")
+            print("✓ Forked session created")
             print(f"  Original session ID: {fork_result.old_session_id}")
             print(f"  Forked session ID: {fork_result.new_session_id}")
 
@@ -138,7 +138,7 @@ def main() -> None:
             print(f"Checkpoint session: {checkpoint_tokens.total_tokens} tokens")
 
             print("\n✓ Fork session example completed successfully!")
-            print(f"\nSession IDs:")
+            print("\nSession IDs:")
             print(f"  Original: {original_session_id}")
             print(f"  Forked: {forked_session_id}")
             print(f"  Checkpoint: {checkpoint_id}")
