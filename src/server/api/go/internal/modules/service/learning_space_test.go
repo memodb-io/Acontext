@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/google/uuid"
@@ -127,29 +128,140 @@ func (m *MockLearningSpaceSessionRepo) ListBySpaceID(ctx context.Context, learni
 // session_test.go and agent_skills_test.go respectively (same package).
 
 // ---------------------------------------------------------------------------
+// Mock: AgentSkillsService (for learning space tests)
+// ---------------------------------------------------------------------------
+
+type MockLSAgentSkillsService struct {
+	mock.Mock
+}
+
+func (m *MockLSAgentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInput) (*model.AgentSkills, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.AgentSkills), args.Error(1)
+}
+
+func (m *MockLSAgentSkillsService) CreateFromTemplate(ctx context.Context, in CreateFromTemplateInput) (*model.AgentSkills, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.AgentSkills), args.Error(1)
+}
+
+func (m *MockLSAgentSkillsService) GetByID(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*model.AgentSkills, error) {
+	args := m.Called(ctx, projectID, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.AgentSkills), args.Error(1)
+}
+
+func (m *MockLSAgentSkillsService) Delete(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error {
+	args := m.Called(ctx, projectID, id)
+	return args.Error(0)
+}
+
+func (m *MockLSAgentSkillsService) List(ctx context.Context, in ListAgentSkillsInput) (*ListAgentSkillsOutput, error) {
+	args := m.Called(ctx, in)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*ListAgentSkillsOutput), args.Error(1)
+}
+
+func (m *MockLSAgentSkillsService) GetFile(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID, filePath string, expire time.Duration) (*GetFileOutput, error) {
+	args := m.Called(ctx, projectID, skillID, filePath, expire)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*GetFileOutput), args.Error(1)
+}
+
+func (m *MockLSAgentSkillsService) ListFiles(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*ListFilesOutput, error) {
+	args := m.Called(ctx, projectID, id)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*ListFilesOutput), args.Error(1)
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
+const testDailyLogsTemplate = `---
+name: "daily-logs"
+description: "Track daily activity logs for the user"
+---
+# Daily Logs
+`
+
+const testUserFactsTemplate = `---
+name: "user-general-facts"
+description: "Capture and recall general facts about the user"
+---
+# User General Facts
+`
+
+func newTestTemplateFS() fstest.MapFS {
+	return fstest.MapFS{
+		"skill_templates/daily-logs/SKILL.md":          &fstest.MapFile{Data: []byte(testDailyLogsTemplate)},
+		"skill_templates/user-general-facts/SKILL.md":  &fstest.MapFile{Data: []byte(testUserFactsTemplate)},
+	}
+}
+
 type lsMocks struct {
-	lsRepo      *MockLearningSpaceRepo
-	lsSkillRepo *MockLearningSpaceSkillRepo
-	lsSessRepo  *MockLearningSpaceSessionRepo
-	skillsRepo  *MockAgentSkillsRepo
-	sessionRepo *MockSessionRepo
+	lsRepo         *MockLearningSpaceRepo
+	lsSkillRepo    *MockLearningSpaceSkillRepo
+	lsSessRepo     *MockLearningSpaceSessionRepo
+	skillsRepo     *MockAgentSkillsRepo
+	sessionRepo    *MockSessionRepo
+	agentSkillsSvc *MockLSAgentSkillsService
+	templateFS     fstest.MapFS
 }
 
 func newLSMocks() lsMocks {
 	return lsMocks{
-		lsRepo:      &MockLearningSpaceRepo{},
-		lsSkillRepo: &MockLearningSpaceSkillRepo{},
-		lsSessRepo:  &MockLearningSpaceSessionRepo{},
-		skillsRepo:  &MockAgentSkillsRepo{},
-		sessionRepo: &MockSessionRepo{},
+		lsRepo:         &MockLearningSpaceRepo{},
+		lsSkillRepo:    &MockLearningSpaceSkillRepo{},
+		lsSessRepo:     &MockLearningSpaceSessionRepo{},
+		skillsRepo:     &MockAgentSkillsRepo{},
+		sessionRepo:    &MockSessionRepo{},
+		agentSkillsSvc: &MockLSAgentSkillsService{},
+		templateFS:     newTestTemplateFS(),
 	}
 }
 
 func (m lsMocks) service() LearningSpaceService {
-	return NewLearningSpaceService(m.lsRepo, m.lsSkillRepo, m.lsSessRepo, m.skillsRepo, m.sessionRepo)
+	return NewLearningSpaceService(m.lsRepo, m.lsSkillRepo, m.lsSessRepo, m.skillsRepo, m.sessionRepo, m.agentSkillsSvc, m.templateFS)
+}
+
+// setupInitSkillsExpectations sets up mock expectations for the default skill
+// init that happens on every successful Create call.
+func setupInitSkillsExpectations(m lsMocks, projectID uuid.UUID, userID *uuid.UUID) (skill1ID, skill2ID uuid.UUID) {
+	skill1ID = uuid.New()
+	skill2ID = uuid.New()
+
+	m.agentSkillsSvc.On("CreateFromTemplate", mock.Anything, mock.MatchedBy(func(in CreateFromTemplateInput) bool {
+		return in.ProjectID == projectID && string(in.Content) == testDailyLogsTemplate
+	})).Return(&model.AgentSkills{ID: skill1ID, ProjectID: projectID, UserID: userID, Name: "daily-logs"}, nil).Once()
+
+	m.agentSkillsSvc.On("CreateFromTemplate", mock.Anything, mock.MatchedBy(func(in CreateFromTemplateInput) bool {
+		return in.ProjectID == projectID && string(in.Content) == testUserFactsTemplate
+	})).Return(&model.AgentSkills{ID: skill2ID, ProjectID: projectID, UserID: userID, Name: "user-general-facts"}, nil).Once()
+
+	m.lsSkillRepo.On("Create", mock.Anything, mock.MatchedBy(func(lss *model.LearningSpaceSkill) bool {
+		return lss.SkillID == skill1ID
+	})).Return(nil).Once()
+
+	m.lsSkillRepo.On("Create", mock.Anything, mock.MatchedBy(func(lss *model.LearningSpaceSkill) bool {
+		return lss.SkillID == skill2ID
+	})).Return(nil).Once()
+
+	return skill1ID, skill2ID
 }
 
 // ---------------------------------------------------------------------------
@@ -165,6 +277,7 @@ func TestLearningSpaceService_Create(t *testing.T) {
 		m.lsRepo.On("Create", mock.Anything, mock.MatchedBy(func(ls *model.LearningSpace) bool {
 			return ls.ProjectID == projectID
 		})).Return(nil)
+		setupInitSkillsExpectations(m, projectID, nil)
 
 		result, err := m.service().Create(ctx, CreateLearningSpaceInput{
 			ProjectID: projectID,
@@ -175,6 +288,8 @@ func TestLearningSpaceService_Create(t *testing.T) {
 		assert.NotNil(t, result)
 		assert.Equal(t, projectID, result.ProjectID)
 		m.lsRepo.AssertExpectations(t)
+		m.agentSkillsSvc.AssertExpectations(t)
+		m.lsSkillRepo.AssertExpectations(t)
 	})
 
 	t.Run("with user_id", func(t *testing.T) {
@@ -183,6 +298,7 @@ func TestLearningSpaceService_Create(t *testing.T) {
 		m.lsRepo.On("Create", mock.Anything, mock.MatchedBy(func(ls *model.LearningSpace) bool {
 			return ls.UserID != nil && *ls.UserID == userID
 		})).Return(nil)
+		setupInitSkillsExpectations(m, projectID, &userID)
 
 		result, err := m.service().Create(ctx, CreateLearningSpaceInput{
 			ProjectID: projectID,
@@ -192,6 +308,8 @@ func TestLearningSpaceService_Create(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		m.lsRepo.AssertExpectations(t)
+		m.agentSkillsSvc.AssertExpectations(t)
+		m.lsSkillRepo.AssertExpectations(t)
 	})
 
 	t.Run("repo error", func(t *testing.T) {
@@ -203,6 +321,174 @@ func TestLearningSpaceService_Create(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, result)
 	})
+}
+
+// ---------------------------------------------------------------------------
+// Service: Create — init skills scenarios
+// ---------------------------------------------------------------------------
+
+func TestCreateLearningSpace_InitSkills_Success(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+	userID := uuid.New()
+
+	m := newLSMocks()
+	m.lsRepo.On("Create", mock.Anything, mock.MatchedBy(func(ls *model.LearningSpace) bool {
+		return ls.ProjectID == projectID
+	})).Return(nil)
+
+	skill1ID, skill2ID := setupInitSkillsExpectations(m, projectID, &userID)
+
+	result, err := m.service().Create(ctx, CreateLearningSpaceInput{
+		ProjectID: projectID,
+		UserID:    &userID,
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+
+	// Verify CreateFromTemplate was called twice with correct project/user IDs
+	m.agentSkillsSvc.AssertNumberOfCalls(t, "CreateFromTemplate", 2)
+
+	// Verify junction records were created with correct space-skill links
+	m.lsSkillRepo.AssertCalled(t, "Create", mock.Anything, mock.MatchedBy(func(lss *model.LearningSpaceSkill) bool {
+		return lss.SkillID == skill1ID
+	}))
+	m.lsSkillRepo.AssertCalled(t, "Create", mock.Anything, mock.MatchedBy(func(lss *model.LearningSpaceSkill) bool {
+		return lss.SkillID == skill2ID
+	}))
+
+	m.agentSkillsSvc.AssertExpectations(t)
+	m.lsSkillRepo.AssertExpectations(t)
+}
+
+func TestCreateLearningSpace_InitSkills_SkillCreationFails(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+
+	m := newLSMocks()
+	m.lsRepo.On("Create", mock.Anything, mock.Anything).Return(nil)
+
+	// First CreateFromTemplate fails
+	m.agentSkillsSvc.On("CreateFromTemplate", mock.Anything, mock.Anything).
+		Return(nil, errors.New("disk creation failed")).Once()
+
+	// Cleanup: no skills to delete (none were created), but space should be deleted
+	m.lsRepo.On("Delete", mock.Anything, projectID, mock.Anything).Return(nil)
+
+	result, err := m.service().Create(ctx, CreateLearningSpaceInput{ProjectID: projectID})
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "disk creation failed")
+
+	// Space should be cleaned up
+	m.lsRepo.AssertCalled(t, "Delete", mock.Anything, projectID, mock.Anything)
+	// No skills to delete
+	m.agentSkillsSvc.AssertNotCalled(t, "Delete")
+}
+
+func TestCreateLearningSpace_InitSkills_JunctionCreationFails(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+
+	m := newLSMocks()
+	m.lsRepo.On("Create", mock.Anything, mock.Anything).Return(nil)
+
+	skill1ID := uuid.New()
+	m.agentSkillsSvc.On("CreateFromTemplate", mock.Anything, mock.MatchedBy(func(in CreateFromTemplateInput) bool {
+		return string(in.Content) == testDailyLogsTemplate
+	})).Return(&model.AgentSkills{ID: skill1ID, ProjectID: projectID, Name: "daily-logs"}, nil).Once()
+
+	// Junction creation fails for first skill
+	m.lsSkillRepo.On("Create", mock.Anything, mock.MatchedBy(func(lss *model.LearningSpaceSkill) bool {
+		return lss.SkillID == skill1ID
+	})).Return(errors.New("junction insert failed")).Once()
+
+	// Cleanup: delete skill1, delete space
+	m.agentSkillsSvc.On("Delete", mock.Anything, projectID, skill1ID).Return(nil)
+	m.lsRepo.On("Delete", mock.Anything, projectID, mock.Anything).Return(nil)
+
+	result, err := m.service().Create(ctx, CreateLearningSpaceInput{ProjectID: projectID})
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "junction insert failed")
+
+	m.agentSkillsSvc.AssertCalled(t, "Delete", mock.Anything, projectID, skill1ID)
+	m.lsRepo.AssertCalled(t, "Delete", mock.Anything, projectID, mock.Anything)
+}
+
+func TestCreateLearningSpace_InitSkills_SecondSkillFails(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+
+	m := newLSMocks()
+	m.lsRepo.On("Create", mock.Anything, mock.Anything).Return(nil)
+
+	skill1ID := uuid.New()
+	m.agentSkillsSvc.On("CreateFromTemplate", mock.Anything, mock.MatchedBy(func(in CreateFromTemplateInput) bool {
+		return string(in.Content) == testDailyLogsTemplate
+	})).Return(&model.AgentSkills{ID: skill1ID, ProjectID: projectID, Name: "daily-logs"}, nil).Once()
+
+	m.lsSkillRepo.On("Create", mock.Anything, mock.MatchedBy(func(lss *model.LearningSpaceSkill) bool {
+		return lss.SkillID == skill1ID
+	})).Return(nil).Once()
+
+	// Second skill creation fails
+	m.agentSkillsSvc.On("CreateFromTemplate", mock.Anything, mock.MatchedBy(func(in CreateFromTemplateInput) bool {
+		return string(in.Content) == testUserFactsTemplate
+	})).Return(nil, errors.New("second skill failed")).Once()
+
+	// Cleanup: delete skill1 (skill2 was never created), delete space
+	m.agentSkillsSvc.On("Delete", mock.Anything, projectID, skill1ID).Return(nil)
+	m.lsRepo.On("Delete", mock.Anything, projectID, mock.Anything).Return(nil)
+
+	result, err := m.service().Create(ctx, CreateLearningSpaceInput{ProjectID: projectID})
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "second skill failed")
+
+	// Only skill1 should be cleaned up (skill2 was never created)
+	m.agentSkillsSvc.AssertNumberOfCalls(t, "Delete", 1)
+	m.agentSkillsSvc.AssertCalled(t, "Delete", mock.Anything, projectID, skill1ID)
+	m.lsRepo.AssertCalled(t, "Delete", mock.Anything, projectID, mock.Anything)
+}
+
+func TestCreateLearningSpace_InitSkills_CleanupFailureWrapsErrors(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+
+	m := newLSMocks()
+	m.lsRepo.On("Create", mock.Anything, mock.Anything).Return(nil)
+
+	skill1ID := uuid.New()
+	m.agentSkillsSvc.On("CreateFromTemplate", mock.Anything, mock.MatchedBy(func(in CreateFromTemplateInput) bool {
+		return string(in.Content) == testDailyLogsTemplate
+	})).Return(&model.AgentSkills{ID: skill1ID, ProjectID: projectID, Name: "daily-logs"}, nil).Once()
+
+	m.lsSkillRepo.On("Create", mock.Anything, mock.MatchedBy(func(lss *model.LearningSpaceSkill) bool {
+		return lss.SkillID == skill1ID
+	})).Return(nil).Once()
+
+	// Second skill fails
+	m.agentSkillsSvc.On("CreateFromTemplate", mock.Anything, mock.MatchedBy(func(in CreateFromTemplateInput) bool {
+		return string(in.Content) == testUserFactsTemplate
+	})).Return(nil, errors.New("original failure")).Once()
+
+	// Cleanup also fails
+	m.agentSkillsSvc.On("Delete", mock.Anything, projectID, skill1ID).Return(errors.New("cleanup delete failed"))
+	m.lsRepo.On("Delete", mock.Anything, projectID, mock.Anything).Return(nil)
+
+	result, err := m.service().Create(ctx, CreateLearningSpaceInput{ProjectID: projectID})
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	// Both original and cleanup errors should be present
+	assert.Contains(t, err.Error(), "original failure")
+	assert.Contains(t, err.Error(), "cleanup errors")
+	assert.Contains(t, err.Error(), "cleanup delete failed")
 }
 
 // ---------------------------------------------------------------------------

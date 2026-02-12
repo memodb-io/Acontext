@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/fs"
 	"time"
 
 	"github.com/google/uuid"
@@ -78,11 +79,21 @@ type IncludeSkillInput struct {
 // ---------------------------------------------------------------------------
 
 type learningSpaceService struct {
-	lsRepo      repo.LearningSpaceRepo
-	lsSkillRepo repo.LearningSpaceSkillRepo
-	lsSessRepo  repo.LearningSpaceSessionRepo
-	skillsRepo  repo.AgentSkillsRepo
-	sessionRepo repo.SessionRepo
+	lsRepo         repo.LearningSpaceRepo
+	lsSkillRepo    repo.LearningSpaceSkillRepo
+	lsSessRepo     repo.LearningSpaceSessionRepo
+	skillsRepo     repo.AgentSkillsRepo
+	sessionRepo    repo.SessionRepo
+	agentSkillsSvc AgentSkillsService
+	templateFS     fs.ReadFileFS
+}
+
+// DefaultSkillTemplatePaths lists the embedded template paths created alongside
+// every new learning space. Exported so bootstrap validation can reference the
+// same list without duplication.
+var DefaultSkillTemplatePaths = []string{
+	"skill_templates/daily-logs/SKILL.md",
+	"skill_templates/user-general-facts/SKILL.md",
 }
 
 func NewLearningSpaceService(
@@ -91,13 +102,17 @@ func NewLearningSpaceService(
 	lsSessRepo repo.LearningSpaceSessionRepo,
 	skillsRepo repo.AgentSkillsRepo,
 	sessionRepo repo.SessionRepo,
+	agentSkillsSvc AgentSkillsService,
+	templateFS fs.ReadFileFS,
 ) LearningSpaceService {
 	return &learningSpaceService{
-		lsRepo:      lsRepo,
-		lsSkillRepo: lsSkillRepo,
-		lsSessRepo:  lsSessRepo,
-		skillsRepo:  skillsRepo,
-		sessionRepo: sessionRepo,
+		lsRepo:         lsRepo,
+		lsSkillRepo:    lsSkillRepo,
+		lsSessRepo:     lsSessRepo,
+		skillsRepo:     skillsRepo,
+		sessionRepo:    sessionRepo,
+		agentSkillsSvc: agentSkillsSvc,
+		templateFS:     templateFS,
 	}
 }
 
@@ -110,7 +125,59 @@ func (s *learningSpaceService) Create(ctx context.Context, in CreateLearningSpac
 	if err := s.lsRepo.Create(ctx, ls); err != nil {
 		return nil, fmt.Errorf("create learning space: %w", err)
 	}
+	if err := s.initDefaultSkills(ctx, ls); err != nil {
+		return nil, err
+	}
 	return ls, nil
+}
+
+// initDefaultSkills creates the default skills from embedded templates and
+// links them to the given learning space. On failure it performs best-effort
+// cleanup of any resources already created (skills, disks, the space itself).
+func (s *learningSpaceService) initDefaultSkills(ctx context.Context, ls *model.LearningSpace) (retErr error) {
+	var createdSkills []*model.AgentSkills
+	defer func() {
+		if retErr == nil {
+			return
+		}
+		// Use context.Background() — the original ctx may be cancelled
+		cleanupCtx := context.Background()
+		var cleanupErrs []error
+		for _, skill := range createdSkills {
+			if err := s.agentSkillsSvc.Delete(cleanupCtx, ls.ProjectID, skill.ID); err != nil {
+				cleanupErrs = append(cleanupErrs, fmt.Errorf("delete skill %s: %w", skill.ID, err))
+			}
+		}
+		if err := s.lsRepo.Delete(cleanupCtx, ls.ProjectID, ls.ID); err != nil {
+			cleanupErrs = append(cleanupErrs, fmt.Errorf("delete learning space %s: %w", ls.ID, err))
+		}
+		if len(cleanupErrs) > 0 {
+			retErr = fmt.Errorf("%w (cleanup errors: %v)", retErr, errors.Join(cleanupErrs...))
+		}
+	}()
+
+	for _, tmplPath := range DefaultSkillTemplatePaths {
+		content, err := s.templateFS.ReadFile(tmplPath)
+		if err != nil {
+			return fmt.Errorf("read template %s: %w", tmplPath, err)
+		}
+		skill, err := s.agentSkillsSvc.CreateFromTemplate(ctx, CreateFromTemplateInput{
+			ProjectID: ls.ProjectID,
+			UserID:    ls.UserID,
+			Content:   content,
+		})
+		if err != nil {
+			return fmt.Errorf("create skill from template %s: %w", tmplPath, err)
+		}
+		createdSkills = append(createdSkills, skill)
+		if err := s.lsSkillRepo.Create(ctx, &model.LearningSpaceSkill{
+			LearningSpaceID: ls.ID,
+			SkillID:         skill.ID,
+		}); err != nil {
+			return fmt.Errorf("link skill %s to space: %w", skill.ID, err)
+		}
+	}
+	return nil
 }
 
 func (s *learningSpaceService) GetByID(ctx context.Context, projectID, id uuid.UUID) (*model.LearningSpace, error) {

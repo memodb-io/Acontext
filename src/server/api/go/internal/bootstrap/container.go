@@ -3,9 +3,11 @@ package bootstrap
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"strings"
 	"time"
 
+	"github.com/memodb-io/Acontext/configs"
 	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/infra/blob"
 	"github.com/memodb-io/Acontext/internal/infra/cache"
@@ -22,7 +24,62 @@ import (
 	"github.com/samber/do"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
+	"gopkg.in/yaml.v3"
 )
+
+// extractFrontMatter extracts YAML front-matter from a markdown file.
+// Returns the YAML content between the first pair of "---" markers,
+// or the full content if markers are not found.
+func extractFrontMatter(content string) string {
+	lines := strings.Split(content, "\n")
+	firstDash := -1
+	for i, line := range lines {
+		if strings.TrimSpace(line) == "---" {
+			firstDash = i
+			break
+		}
+	}
+	if firstDash == -1 {
+		return content
+	}
+	secondDash := -1
+	for i := firstDash + 1; i < len(lines); i++ {
+		if strings.TrimSpace(lines[i]) == "---" {
+			secondDash = i
+			break
+		}
+	}
+	if secondDash == -1 {
+		return content
+	}
+	return strings.Join(lines[firstDash+1:secondDash], "\n")
+}
+
+// validateSkillTemplates reads and parses each embedded skill template at
+// startup, failing fast if any template is malformed or missing required fields.
+func validateSkillTemplates() error {
+	for _, tmplPath := range service.DefaultSkillTemplatePaths {
+		content, err := configs.SkillTemplatesFS.ReadFile(tmplPath)
+		if err != nil {
+			return fmt.Errorf("read embedded template %s: %w", tmplPath, err)
+		}
+		yamlStr := extractFrontMatter(string(content))
+		var meta struct {
+			Name        string `yaml:"name"`
+			Description string `yaml:"description"`
+		}
+		if err := yaml.Unmarshal([]byte(yamlStr), &meta); err != nil {
+			return fmt.Errorf("parse embedded template %s: %w", tmplPath, err)
+		}
+		if meta.Name == "" {
+			return fmt.Errorf("embedded template %s: name is required", tmplPath)
+		}
+		if meta.Description == "" {
+			return fmt.Errorf("embedded template %s: description is required", tmplPath)
+		}
+	}
+	return nil
+}
 
 func BuildContainer() *do.Injector {
 	inj := do.New()
@@ -242,12 +299,17 @@ func BuildContainer() *do.Injector {
 		return service.NewSandboxLogService(do.MustInvoke[repo.SandboxLogRepo](i)), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (service.LearningSpaceService, error) {
+		if err := validateSkillTemplates(); err != nil {
+			return nil, err
+		}
 		return service.NewLearningSpaceService(
 			do.MustInvoke[repo.LearningSpaceRepo](i),
 			do.MustInvoke[repo.LearningSpaceSkillRepo](i),
 			do.MustInvoke[repo.LearningSpaceSessionRepo](i),
 			do.MustInvoke[repo.AgentSkillsRepo](i),
 			do.MustInvoke[repo.SessionRepo](i),
+			do.MustInvoke[service.AgentSkillsService](i),
+			configs.SkillTemplatesFS,
 		), nil
 	})
 
