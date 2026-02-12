@@ -523,7 +523,6 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 		if len(triggerChecks) > 0 {
 			// Evaluate trigger on the same editable prefix used by pin_editing_strategies_at_message.
 			triggerMessages := out.Items
-			effectivePin := ""
 			if in.PinEditingStrategiesAtMessage != "" {
 				pinIndex := -1
 				for i := range out.Items {
@@ -533,7 +532,6 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 					}
 				}
 				if pinIndex != -1 {
-					effectivePin = in.PinEditingStrategiesAtMessage
 					triggerMessages = out.Items[:pinIndex+1]
 				}
 			}
@@ -552,13 +550,15 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 				}
 			}
 
-			if !applyEditStrategies && len(out.Items) > 0 {
-				if effectivePin != "" {
-					out.EditAtMessageID = effectivePin
-				} else {
-					out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
-				}
-			}
+			// TODO(maintainers): clarify final semantics for edit_at_message_id when trigger does not fire.
+			// Should it remain empty (strict "strategies were applied" meaning), or keep a reusable pin hint?
+			// if !applyEditStrategies && len(out.Items) > 0 {
+			// 	if effectivePin != "" {
+			// 		out.EditAtMessageID = effectivePin
+			// 	} else {
+			// 		out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
+			// 	}
+			// }
 		}
 
 		if applyEditStrategies {
