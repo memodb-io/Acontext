@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/modules/model"
+	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
@@ -102,6 +103,14 @@ func (m *MockSessionRepo) GetMessageByID(ctx context.Context, sessionID uuid.UUI
 func (m *MockSessionRepo) UpdateMessageMeta(ctx context.Context, messageID uuid.UUID, meta datatypes.JSONType[map[string]interface{}]) error {
 	args := m.Called(ctx, messageID, meta)
 	return args.Error(0)
+}
+
+func (m *MockSessionRepo) ForkSession(ctx context.Context, sessionID uuid.UUID) (*repo.ForkSessionResult, error) {
+	args := m.Called(ctx, sessionID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*repo.ForkSessionResult), args.Error(1)
 }
 
 // MockAssetReferenceRepo is a mock implementation of AssetReferenceRepo
@@ -634,7 +643,7 @@ func TestPartIn_Validate(t *testing.T) {
 				Type: model.PartTypeToolResult,
 				Meta: map[string]interface{}{
 					model.MetaKeyToolCallID: "call_123",
-					"result":       "4",
+					"result":                "4",
 				},
 			},
 			wantErr: false,
@@ -656,7 +665,7 @@ func TestPartIn_Validate(t *testing.T) {
 				Type: model.PartTypeData,
 				Meta: map[string]interface{}{
 					model.MetaKeyDataType: "json",
-					"content":   `{"key": "value"}`,
+					"content":             `{"key": "value"}`,
 				},
 			},
 			wantErr: false,
