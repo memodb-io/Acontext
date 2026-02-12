@@ -126,6 +126,13 @@ definitions:
     required:
     - command
     type: object
+  handler.ForkSessionResp:
+    properties:
+      new_session_id:
+        type: string
+      old_session_id:
+        type: string
+    type: object
   handler.GetArtifactResp:
     properties:
       artifact:
@@ -2811,6 +2818,76 @@ paths:
           // Flush session buffer
           const result = await client.sessions.flush('session-uuid');
           console.log(result.status);
+  /session/{session_id}/fork:
+    post:
+      consumes:
+      - application/json
+      description: Create a complete copy of a session with all its messages and tasks.
+        The forked session will be independent and can be modified without affecting
+        the original.
+      parameters:
+      - description: Session ID
+        format: uuid
+        in: path
+        name: session_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/handler.ForkSessionResp'
+              type: object
+        "400":
+          description: Invalid session ID
+          schema:
+            $ref: '#/definitions/serializer.Response'
+        "404":
+          description: Session not found
+          schema:
+            $ref: '#/definitions/serializer.Response'
+        "413":
+          description: Session exceeds maximum forkable size
+          schema:
+            $ref: '#/definitions/serializer.Response'
+        "500":
+          description: Failed to fork session
+          schema:
+            $ref: '#/definitions/serializer.Response'
+      security:
+      - BearerAuth: []
+      summary: Fork session
+      tags:
+      - session
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Fork a session
+          result = client.sessions.fork(session_id='session-uuid')
+          print(f"Forked session: {result.new_session_id}")
+          print(f"Original session: {result.old_session_id}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Fork a session
+          const result = await client.sessions.fork('session-uuid');
+          console.log(`Forked session: ${result.newSessionId}`);
+          console.log(`Original session: ${result.oldSessionId}`);
   /session/{session_id}/messages:
     get:
       consumes:

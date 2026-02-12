@@ -2537,6 +2537,92 @@
                 ]
             }
         },
+        "/session/{session_id}/fork": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a complete copy of a session with all its messages and tasks. The forked session will be independent and can be modified without affecting the original.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "session"
+                ],
+                "summary": "Fork session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Session ID",
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/handler.ForkSessionResp"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid session ID",
+                        "schema": {
+                            "$ref": "#/definitions/serializer.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Session not found",
+                        "schema": {
+                            "$ref": "#/definitions/serializer.Response"
+                        }
+                    },
+                    "413": {
+                        "description": "Session exceeds maximum forkable size",
+                        "schema": {
+                            "$ref": "#/definitions/serializer.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Failed to fork session",
+                        "schema": {
+                            "$ref": "#/definitions/serializer.Response"
+                        }
+                    }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Fork a session\nresult = client.sessions.fork(session_id='session-uuid')\nprint(f\"Forked session: {result.new_session_id}\")\nprint(f\"Original session: {result.old_session_id}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Fork a session\nconst result = await client.sessions.fork('session-uuid');\nconsole.log(`Forked session: ${result.newSessionId}`);\nconsole.log(`Original session: ${result.oldSessionId}`);\n"
+                    }
+                ]
+            }
+        },
         "/session/{session_id}/messages": {
             "get": {
                 "security": [
@@ -3390,6 +3476,17 @@
             ],
             "properties": {
                 "command": {
+                    "type": "string"
+                }
+            }
+        },
+        "handler.ForkSessionResp": {
+            "type": "object",
+            "properties": {
+                "new_session_id": {
+                    "type": "string"
+                },
+                "old_session_id": {
                     "type": "string"
                 }
             }
