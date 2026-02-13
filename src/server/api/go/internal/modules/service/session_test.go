@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
+	"github.com/memodb-io/Acontext/internal/pkg/editor"
 	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -1460,6 +1462,110 @@ func TestSessionService_GetMessages_ComputesThisTimeTokens(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, out)
 	assert.Greater(t, out.ThisTimeTokens, 0)
+
+	repo.AssertExpectations(t)
+}
+
+func TestSessionService_GetMessages_ThisTimeTokensMatchesEditedOutput(t *testing.T) {
+	ctx := context.Background()
+	sessionID := uuid.New()
+	triggerThreshold := 1
+
+	err := tokenizer.Init(zap.NewNop())
+	assert.NoError(t, err)
+
+	repo := &MockSessionRepo{}
+	repoMessages := []model.Message{
+		{
+			ID:        uuid.New(),
+			SessionID: sessionID,
+			Role:      model.RoleAssistant,
+			Parts: []model.Part{
+				{
+					Type: model.PartTypeToolResult,
+					Text: strings.Repeat("very large tool result payload ", 200),
+				},
+			},
+		},
+	}
+	repo.On("ListAllMessagesBySession", ctx, sessionID).Return(repoMessages, nil)
+
+	preEditTokens, err := tokenizer.CountMessagePartsTokens(ctx, repoMessages)
+	assert.NoError(t, err)
+	assert.Greater(t, preEditTokens, 0)
+
+	service := NewSessionService(repo, &MockAssetReferenceRepo{}, zap.NewNop(), nil, nil, &config.Config{}, nil)
+	out, err := service.GetMessages(ctx, GetMessagesInput{
+		SessionID: sessionID,
+		Limit:     0,
+		EditStrategies: []editor.StrategyConfig{
+			{
+				Type: "remove_tool_result",
+				Params: map[string]interface{}{
+					"keep_recent_n_tool_results": 0,
+				},
+			},
+		},
+		EditingTrigger: &EditingTrigger{
+			TokenGte: &triggerThreshold,
+		},
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, out)
+	assert.Len(t, out.Items, 1)
+	assert.Equal(t, "Done", out.Items[0].Parts[0].Text)
+
+	finalTokens, err := tokenizer.CountMessagePartsTokens(ctx, out.Items)
+	assert.NoError(t, err)
+	assert.Equal(t, finalTokens, out.ThisTimeTokens)
+	assert.Less(t, out.ThisTimeTokens, preEditTokens)
+
+	repo.AssertExpectations(t)
+}
+
+func TestSessionService_GetMessages_TriggerTokenErrorsAreWrapped(t *testing.T) {
+	ctx := context.Background()
+	sessionID := uuid.New()
+	triggerThreshold := 1
+
+	repo := &MockSessionRepo{}
+	repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+		{
+			ID:        uuid.New(),
+			SessionID: sessionID,
+			Role:      model.RoleAssistant,
+			Parts: []model.Part{
+				{
+					Type: model.PartTypeToolCall,
+					Meta: map[string]interface{}{
+						model.MetaKeyName:      "bad_tool",
+						model.MetaKeyArguments: func() {},
+					},
+				},
+			},
+		},
+	}, nil)
+
+	service := NewSessionService(repo, &MockAssetReferenceRepo{}, zap.NewNop(), nil, nil, &config.Config{}, nil)
+	out, err := service.GetMessages(ctx, GetMessagesInput{
+		SessionID: sessionID,
+		Limit:     0,
+		EditStrategies: []editor.StrategyConfig{
+			{
+				Type: "token_limit",
+				Params: map[string]interface{}{
+					"limit_tokens": 10,
+				},
+			},
+		},
+		EditingTrigger: &EditingTrigger{
+			TokenGte: &triggerThreshold,
+		},
+	})
+
+	assert.Nil(t, out)
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, ErrGetMessagesTokenCount)
 
 	repo.AssertExpectations(t)
 }
