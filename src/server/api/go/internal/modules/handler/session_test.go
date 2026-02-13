@@ -4017,3 +4017,59 @@ func TestSessionHandler_CopySession_InternalError(t *testing.T) {
 
 	mockService.AssertExpectations(t)
 }
+
+func TestSessionHandler_GetMessages_ServiceTokenCountError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	sessionID := uuid.New()
+	mockService := &MockSessionService{}
+	mockService.On("GetMessages", mock.Anything, mock.Anything).Return(nil, service.ErrGetMessagesTokenCount)
+
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
+	router := setupSessionRouter()
+	router.GET("/session/:session_id/messages", handler.GetMessages)
+
+	req := httptest.NewRequest("GET", "/session/"+sessionID.String()+"/messages?limit=20", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	mockService.AssertExpectations(t)
+}
+
+func TestSessionHandler_GetMessages_UsesServiceThisTimeTokens(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	sessionID := uuid.New()
+	mockService := &MockSessionService{}
+	mockService.On("GetMessages", mock.Anything, mock.Anything).Return(&service.GetMessagesOutput{
+		Items: []model.Message{
+			{
+				ID:        uuid.New(),
+				SessionID: sessionID,
+				Role:      model.RoleUser,
+			},
+		},
+		HasMore:        false,
+		ThisTimeTokens: 999,
+	}, nil)
+
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
+	router := setupSessionRouter()
+	router.GET("/session/:session_id/messages", handler.GetMessages)
+
+	req := httptest.NewRequest("GET", "/session/"+sessionID.String()+"/messages?limit=20", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	mockService.AssertExpectations(t)
+
+	var response map[string]interface{}
+	err := sonic.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	data, ok := response["data"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, float64(999), data["this_time_tokens"])
+}

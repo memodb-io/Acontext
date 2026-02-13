@@ -563,6 +563,10 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		PinEditingStrategiesAtMessage: req.PinEditingStrategiesAtMessage,
 	})
 	if err != nil {
+		if errors.Is(err, service.ErrGetMessagesTokenCount) {
+			c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to count tokens", err))
+			return
+		}
 		c.JSON(http.StatusBadRequest, serializer.DBErr("", err))
 		return
 	}
@@ -579,20 +583,13 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		return
 	}
 
-	// Calculate token count for the returned messages
-	thisTimeTokens, err := tokenizer.CountMessagePartsTokens(c.Request.Context(), out.Items)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to count tokens", err))
-		return
-	}
-
 	convertedOut, err := converter.GetConvertedMessagesOutput(
 		out.Items,
 		format,
 		out.PublicURLs,
 		out.NextCursor,
 		out.HasMore,
-		thisTimeTokens,
+		out.ThisTimeTokens,
 		out.EditAtMessageID,
 	)
 	if err != nil {
