@@ -454,7 +454,7 @@ func (e *editingTriggerEval) Tokens(ctx context.Context) (int, error) {
 
 	tokens, err := tokenizer.CountMessagePartsTokens(ctx, e.messages)
 	if err != nil {
-		return 0, fmt.Errorf("failed to count tokens for editing_trigger session_id=%s: %w", e.sessionID, err)
+		return 0, fmt.Errorf("%w: failed to count tokens for editing_trigger session_id=%s: %v", ErrGetMessagesTokenCount, e.sessionID, err)
 	}
 
 	e.tokenCount = &tokens
@@ -591,6 +591,7 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 
 	// Apply edit strategies if provided (before format conversion)
 	var triggerEval *editingTriggerEval
+	strategiesApplied := false
 	if len(in.EditStrategies) > 0 {
 		applyEditStrategies := true
 		triggerChecks := buildEditingTriggerChecks(in.EditingTrigger)
@@ -641,6 +642,7 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 			if err != nil {
 				return nil, fmt.Errorf("failed to apply edit strategies: %w", err)
 			}
+			strategiesApplied = true
 			out.Items = result.Messages
 			out.EditAtMessageID = result.EditAtMessageID
 		} else if out.EditAtMessageID == "" && len(out.Items) > 0 {
@@ -671,7 +673,7 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 		}
 	}
 
-	if triggerEval != nil && triggerEval.tokenCount != nil && sameMessageOrderByID(triggerEval.messages, out.Items) {
+	if triggerEval != nil && triggerEval.tokenCount != nil && !strategiesApplied && sameMessageOrderByID(triggerEval.messages, out.Items) {
 		out.ThisTimeTokens = *triggerEval.tokenCount
 	} else {
 		thisTimeTokens, err := tokenizer.CountMessagePartsTokens(ctx, out.Items)
