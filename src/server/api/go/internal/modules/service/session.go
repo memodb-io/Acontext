@@ -68,6 +68,8 @@ type sessionService struct {
 	materialSvc        MaterialService
 }
 
+var ErrGetMessagesTokenCount = errors.New("get messages token count error")
+
 const (
 	// Redis key prefix for message parts cache
 	redisKeyPrefixParts = "message:parts:"
@@ -502,6 +504,18 @@ func buildEditingTriggerChecks(trigger *EditingTrigger) []editingTriggerCheck {
 	return checks
 }
 
+func sameMessageOrderByID(a, b []model.Message) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].ID != b[i].ID {
+			return false
+		}
+	}
+	return true
+}
+
 type PublicURL struct {
 	URL      string    `json:"url"`
 	ExpireAt time.Time `json:"expire_at"`
@@ -513,6 +527,7 @@ type GetMessagesOutput struct {
 	NextCursor      string               `json:"next_cursor,omitempty"`
 	HasMore         bool                 `json:"has_more"`
 	PublicURLs      map[string]PublicURL `json:"public_urls,omitempty"` // file_name -> url
+	ThisTimeTokens  int                  `json:"this_time_tokens"`
 	EditAtMessageID string               `json:"edit_at_message_id,omitempty"`
 }
 
@@ -604,6 +619,7 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	}
 
 	// Apply edit strategies if provided (before format conversion)
+	var triggerEval *editingTriggerEval
 	if len(in.EditStrategies) > 0 {
 		applyEditStrategies := true
 		triggerChecks := buildEditingTriggerChecks(in.EditingTrigger)
@@ -626,6 +642,7 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 			// OR semantics: apply when any trigger check passes.
 			applyEditStrategies = false
 			eval := &editingTriggerEval{sessionID: in.SessionID, messages: triggerMessages}
+			triggerEval = eval
 			for _, check := range triggerChecks {
 				ok, err := check(ctx, eval)
 				if err != nil {
@@ -686,6 +703,16 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 				}
 			}
 		}
+	}
+
+	if triggerEval != nil && triggerEval.tokenCount != nil && sameMessageOrderByID(triggerEval.messages, out.Items) {
+		out.ThisTimeTokens = *triggerEval.tokenCount
+	} else {
+		thisTimeTokens, err := tokenizer.CountMessagePartsTokens(ctx, out.Items)
+		if err != nil {
+			return nil, fmt.Errorf("%w: session_id=%s: %v", ErrGetMessagesTokenCount, in.SessionID, err)
+		}
+		out.ThisTimeTokens = thisTimeTokens
 	}
 
 	return out, nil
