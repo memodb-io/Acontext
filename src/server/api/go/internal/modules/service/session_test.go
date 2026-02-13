@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/modules/model"
+	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
@@ -634,7 +635,7 @@ func TestPartIn_Validate(t *testing.T) {
 				Type: model.PartTypeToolResult,
 				Meta: map[string]interface{}{
 					model.MetaKeyToolCallID: "call_123",
-					"result":       "4",
+					"result":                "4",
 				},
 			},
 			wantErr: false,
@@ -656,7 +657,7 @@ func TestPartIn_Validate(t *testing.T) {
 				Type: model.PartTypeData,
 				Meta: map[string]interface{}{
 					model.MetaKeyDataType: "json",
-					"content":   `{"key": "value"}`,
+					"content":             `{"key": "value"}`,
 				},
 			},
 			wantErr: false,
@@ -1419,4 +1420,37 @@ func TestSessionService_GetMessages_SortOrder(t *testing.T) {
 			repo.AssertExpectations(t)
 		})
 	}
+}
+
+func TestSessionService_GetMessages_ComputesThisTimeTokens(t *testing.T) {
+	ctx := context.Background()
+	sessionID := uuid.New()
+
+	err := tokenizer.Init(zap.NewNop())
+	assert.NoError(t, err)
+
+	repo := &MockSessionRepo{}
+	repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+		{
+			ID:        uuid.New(),
+			SessionID: sessionID,
+			Role:      model.RoleUser,
+			Parts: []model.Part{
+				model.NewTextPart("hello from acontext"),
+			},
+		},
+	}, nil)
+
+	mockAssetRefRepo := &MockAssetReferenceRepo{}
+	service := NewSessionService(repo, mockAssetRefRepo, zap.NewNop(), nil, nil, &config.Config{}, nil)
+
+	out, err := service.GetMessages(ctx, GetMessagesInput{
+		SessionID: sessionID,
+		Limit:     0,
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, out)
+	assert.Greater(t, out.ThisTimeTokens, 0)
+
+	repo.AssertExpectations(t)
 }
