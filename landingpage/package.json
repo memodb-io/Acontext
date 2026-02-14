@@ -85,7 +85,10 @@
       "sharp",
       "unrs-resolver",
       "workerd"
-    ]
+    ],
+    "overrides": {
+      "@isaacs/brace-expansion": ">=5.0.1"
+    }
   },
   "cloudflare": {
     "bindings": {
