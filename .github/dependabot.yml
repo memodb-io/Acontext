@@ -72,6 +72,23 @@ updates:
       development-dependencies:
         dependency-type: "development"
 
+  - package-ecosystem: "npm"
+    directory: "/landingpage"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    target-branch: "deps"
+    commit-message:
+      prefix: "chore(deps):"
+    groups:
+      production-dependencies:
+        dependency-type: "production"
+      development-dependencies:
+        dependency-type: "development"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
   - package-ecosystem: "docker"
     directory: "/src/server/api/go"
     schedule:
