@@ -71,3 +71,6 @@ jobs:
       - name: Audit UI
         working-directory: src/server/ui
         run: pnpm audit --audit-level=high --prod
+      - name: Audit Landing Page
+        working-directory: landingpage
+        run: pnpm audit --audit-level=high --prod

@@ -1,0 +1,121 @@
+name: Landing Page Test
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "landingpage/**"
+      - ".github/workflows/landingpage-test.yaml"
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - "landingpage/**"
+      - ".github/workflows/landingpage-test.yaml"
+
+jobs:
+  lint-and-build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: landingpage
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: landingpage/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run lint
+        run: pnpm run lint
+
+  test-int:
+    runs-on: ubuntu-latest
+    needs: lint-and-build
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: landingpage
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: landingpage/pnpm-lock.yaml
+
+      - name: Generate .env.local
+        run: |
+          echo "PAYLOAD_SECRET=$(openssl rand -hex 32)" >> .env.local
+          echo 'NEXT_PUBLIC_SERVER_URL="http://localhost:3000"' >> .env.local
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run integration tests
+        run: pnpm run test:int
+
+  test-e2e:
+    runs-on: ubuntu-latest
+    needs: lint-and-build
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: landingpage
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: "pnpm"
+          cache-dependency-path: landingpage/pnpm-lock.yaml
+
+      - name: Generate .env.local
+        run: |
+          echo "PAYLOAD_SECRET=$(openssl rand -hex 32)" >> .env.local
+          echo 'NEXT_PUBLIC_SERVER_URL="http://localhost:3000"' >> .env.local
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run e2e tests
+        run: pnpm run test:e2e
+        env:
+          CI: true
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v6
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: landingpage/playwright-report/
+          retention-days: 30
