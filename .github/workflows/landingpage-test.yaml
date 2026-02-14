@@ -68,10 +68,10 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: landingpage/pnpm-lock.yaml
 
-      - name: Generate .env.local
+      - name: Generate .env
         run: |
-          echo "PAYLOAD_SECRET=$(openssl rand -hex 32)" >> .env.local
-          echo 'NEXT_PUBLIC_SERVER_URL="http://localhost:3000"' >> .env.local
+          echo "PAYLOAD_SECRET=$(openssl rand -hex 32)" >> .env
+          echo 'NEXT_PUBLIC_SERVER_URL="http://localhost:3000"' >> .env
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -102,10 +102,10 @@ jobs:
           cache: "pnpm"
           cache-dependency-path: landingpage/pnpm-lock.yaml
 
-      - name: Generate .env.local
+      - name: Generate .env
         run: |
-          echo "PAYLOAD_SECRET=$(openssl rand -hex 32)" >> .env.local
-          echo 'NEXT_PUBLIC_SERVER_URL="http://localhost:3000"' >> .env.local
+          echo "PAYLOAD_SECRET=$(openssl rand -hex 32)" >> .env
+          echo 'NEXT_PUBLIC_SERVER_URL="http://localhost:3000"' >> .env
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
