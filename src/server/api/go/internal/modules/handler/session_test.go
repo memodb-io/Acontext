@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/bytedance/sonic"
@@ -4072,4 +4073,25 @@ func TestSessionHandler_GetMessages_UsesServiceThisTimeTokens(t *testing.T) {
 	data, ok := response["data"].(map[string]interface{})
 	require.True(t, ok)
 	assert.Equal(t, float64(999), data["this_time_tokens"])
+}
+
+func TestSessionHandler_GetMessages_RejectsEmptyEditingTrigger(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	sessionID := uuid.New()
+	mockService := &MockSessionService{}
+
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
+	router := setupSessionRouter()
+	router.GET("/session/:session_id/messages", handler.GetMessages)
+
+	editStrategies := `[{"type":"token_limit","params":{"limit_tokens":100}}]`
+	reqURL := "/session/" + sessionID.String() + "/messages?limit=20&edit_strategies=" +
+		url.QueryEscape(editStrategies) + "&editing_trigger=" + url.QueryEscape(`{}`)
+	req := httptest.NewRequest("GET", reqURL, nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	mockService.AssertNotCalled(t, "GetMessages")
 }
