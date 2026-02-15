@@ -113,6 +113,7 @@ type LearningSpaceSkillRepo interface {
 	Delete(ctx context.Context, learningSpaceID, skillID uuid.UUID) error
 	ListBySpaceID(ctx context.Context, learningSpaceID uuid.UUID) ([]*model.AgentSkills, error)
 	Exists(ctx context.Context, learningSpaceID, skillID uuid.UUID) (bool, error)
+	ExistsByName(ctx context.Context, learningSpaceID uuid.UUID, skillName string) (bool, error)
 }
 
 type learningSpaceSkillRepo struct {
@@ -147,6 +148,15 @@ func (r *learningSpaceSkillRepo) Exists(ctx context.Context, learningSpaceID, sk
 	var count int64
 	err := r.db.WithContext(ctx).Model(&model.LearningSpaceSkill{}).
 		Where("learning_space_id = ? AND skill_id = ?", learningSpaceID, skillID).
+		Count(&count).Error
+	return count > 0, err
+}
+
+func (r *learningSpaceSkillRepo) ExistsByName(ctx context.Context, learningSpaceID uuid.UUID, skillName string) (bool, error) {
+	var count int64
+	err := r.db.WithContext(ctx).Model(&model.LearningSpaceSkill{}).
+		Joins("JOIN agent_skills ON agent_skills.id = learning_space_skills.skill_id").
+		Where("learning_space_skills.learning_space_id = ? AND agent_skills.name = ?", learningSpaceID, skillName).
 		Count(&count).Error
 	return count > 0, err
 }

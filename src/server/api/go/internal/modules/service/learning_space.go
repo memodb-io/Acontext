@@ -308,20 +308,30 @@ func (s *learningSpaceService) IncludeSkill(ctx context.Context, in IncludeSkill
 	}
 
 	// Validate skill exists
-	if _, err := s.skillsRepo.GetByID(ctx, in.ProjectID, in.SkillID); err != nil {
+	skill, err := s.skillsRepo.GetByID(ctx, in.ProjectID, in.SkillID)
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, fmt.Errorf("skill not found")
 		}
 		return nil, err
 	}
 
-	// Check no duplicate
+	// Check no duplicate by skill ID
 	exists, err := s.lsSkillRepo.Exists(ctx, in.LearningSpaceID, in.SkillID)
 	if err != nil {
 		return nil, err
 	}
 	if exists {
 		return nil, fmt.Errorf("skill already included in this space")
+	}
+
+	// Check no duplicate by skill name
+	nameExists, err := s.lsSkillRepo.ExistsByName(ctx, in.LearningSpaceID, skill.Name)
+	if err != nil {
+		return nil, err
+	}
+	if nameExists {
+		return nil, fmt.Errorf("skill with name '%s' already exists in this space", skill.Name)
 	}
 
 	// Create junction

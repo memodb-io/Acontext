@@ -93,6 +93,11 @@ func (m *MockLearningSpaceSkillRepo) Exists(ctx context.Context, learningSpaceID
 	return args.Bool(0), args.Error(1)
 }
 
+func (m *MockLearningSpaceSkillRepo) ExistsByName(ctx context.Context, learningSpaceID uuid.UUID, skillName string) (bool, error) {
+	args := m.Called(ctx, learningSpaceID, skillName)
+	return args.Bool(0), args.Error(1)
+}
+
 // ---------------------------------------------------------------------------
 // Mock: LearningSpaceSessionRepo
 // ---------------------------------------------------------------------------
@@ -660,8 +665,9 @@ func TestLearningSpaceService_IncludeSkill(t *testing.T) {
 	t.Run("success", func(t *testing.T) {
 		m := newLSMocks()
 		m.lsRepo.On("GetByID", ctx, projectID, lsID).Return(&model.LearningSpace{ID: lsID, ProjectID: projectID}, nil)
-		m.skillsRepo.On("GetByID", ctx, projectID, skillID).Return(&model.AgentSkills{ID: skillID}, nil)
+		m.skillsRepo.On("GetByID", ctx, projectID, skillID).Return(&model.AgentSkills{ID: skillID, Name: "my-skill"}, nil)
 		m.lsSkillRepo.On("Exists", ctx, lsID, skillID).Return(false, nil)
+		m.lsSkillRepo.On("ExistsByName", ctx, lsID, "my-skill").Return(false, nil)
 		m.lsSkillRepo.On("Create", ctx, mock.MatchedBy(func(lss *model.LearningSpaceSkill) bool {
 			return lss.LearningSpaceID == lsID && lss.SkillID == skillID
 		})).Return(nil)
@@ -680,7 +686,7 @@ func TestLearningSpaceService_IncludeSkill(t *testing.T) {
 	t.Run("duplicate — conflict", func(t *testing.T) {
 		m := newLSMocks()
 		m.lsRepo.On("GetByID", ctx, projectID, lsID).Return(&model.LearningSpace{ID: lsID, ProjectID: projectID}, nil)
-		m.skillsRepo.On("GetByID", ctx, projectID, skillID).Return(&model.AgentSkills{ID: skillID}, nil)
+		m.skillsRepo.On("GetByID", ctx, projectID, skillID).Return(&model.AgentSkills{ID: skillID, Name: "my-skill"}, nil)
 		m.lsSkillRepo.On("Exists", ctx, lsID, skillID).Return(true, nil)
 
 		result, err := m.service().IncludeSkill(ctx, IncludeSkillInput{
@@ -690,6 +696,22 @@ func TestLearningSpaceService_IncludeSkill(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, result)
 		assert.Contains(t, err.Error(), "already included")
+	})
+
+	t.Run("duplicate name — conflict", func(t *testing.T) {
+		m := newLSMocks()
+		m.lsRepo.On("GetByID", ctx, projectID, lsID).Return(&model.LearningSpace{ID: lsID, ProjectID: projectID}, nil)
+		m.skillsRepo.On("GetByID", ctx, projectID, skillID).Return(&model.AgentSkills{ID: skillID, Name: "daily-logs"}, nil)
+		m.lsSkillRepo.On("Exists", ctx, lsID, skillID).Return(false, nil)
+		m.lsSkillRepo.On("ExistsByName", ctx, lsID, "daily-logs").Return(true, nil)
+
+		result, err := m.service().IncludeSkill(ctx, IncludeSkillInput{
+			ProjectID: projectID, LearningSpaceID: lsID, SkillID: skillID,
+		})
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "already exists in this space")
 	})
 
 	t.Run("skill not found", func(t *testing.T) {

@@ -193,13 +193,15 @@ No changes.
   - Update `tool_schema()` to include the two new tools in the returned list.
 - **Why:** The core behavioral change — all other tasks support this prompt change.
 - **Acceptance criteria:**
-  - [ ] Prompt clearly instructs using user's query as task description
-  - [ ] Prompt clearly instructs concise step-by-step progress recording (no "Step:" prefix)
-  - [ ] Prompt clearly instructs full-replacement semantics for user preferences
-  - [ ] Prompt references the three separate tools for messages, progress, and preferences
-  - [ ] No references to `user_preference_and_infos` remain in the prompt (old parameter name)
-  - [ ] Thinking Report checklist updated to reference new tool names and split workflow
-  - [ ] `tool_schema()` returns all 8 tools (6 existing + 2 new)
+  - [x] Prompt clearly instructs using user's query as task description
+  - [x] Prompt explicitly distinguishes user requests (= tasks) from agent execution steps (= progress)
+  - [x] Prompt includes concrete correct/wrong examples (restaurant booking, multi-request)
+  - [x] Prompt clearly instructs concise step-by-step progress recording (no "Step:" prefix)
+  - [x] Prompt clearly instructs full-replacement semantics for user preferences
+  - [x] Prompt references the three separate tools for messages, progress, and preferences
+  - [x] No references to `user_preference_and_infos` remain in the prompt (old parameter name)
+  - [x] Thinking Report checklist updated to reference new tool names and split workflow
+  - [x] `tool_schema()` returns all 8 tools (6 existing + 2 new)
 
 ### Task 2: Update `TaskSchema.to_string()` to include user preferences
 - **Files:** `src/server/core/acontext_core/schema/session/task.py`

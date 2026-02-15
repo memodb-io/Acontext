@@ -694,6 +694,15 @@ func TestLearningSpaceHandler_IncludeSkill(t *testing.T) {
 			},
 			expectedStatus: http.StatusConflict,
 		},
+		{
+			name: "duplicate name — conflict",
+			id:   lsID.String(),
+			body: `{"skill_id":"` + skillID.String() + `"}`,
+			setup: func(svc *MockLearningSpaceService) {
+				svc.On("IncludeSkill", mock.Anything, mock.Anything).Return(nil, errors.New("skill with name 'daily-logs' already exists in this space"))
+			},
+			expectedStatus: http.StatusConflict,
+		},
 	}
 
 	for _, tt := range tests {
