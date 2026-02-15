@@ -23,8 +23,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/samber/do"
 	"go.uber.org/zap"
-	"gorm.io/gorm"
 	"gopkg.in/yaml.v3"
+	"gorm.io/gorm"
 )
 
 // extractFrontMatter extracts YAML front-matter from a markdown file.

@@ -17,13 +17,13 @@ import (
 )
 
 type RouterDeps struct {
-	Config             *config.Config
-	DB                 *gorm.DB
-	Log                *zap.Logger
-	SessionHandler     *handler.SessionHandler
-	DiskHandler        *handler.DiskHandler
-	ArtifactHandler    *handler.ArtifactHandler
-	TaskHandler        *handler.TaskHandler
+	Config               *config.Config
+	DB                   *gorm.DB
+	Log                  *zap.Logger
+	SessionHandler       *handler.SessionHandler
+	DiskHandler          *handler.DiskHandler
+	ArtifactHandler      *handler.ArtifactHandler
+	TaskHandler          *handler.TaskHandler
 	AgentSkillsHandler   *handler.AgentSkillsHandler
 	UserHandler          *handler.UserHandler
 	SandboxHandler       *handler.SandboxHandler

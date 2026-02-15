@@ -195,13 +195,9 @@ async def append_progress_to_task(
     db_session: AsyncSession,
     task_id: asUUID,
     progress: str,
-    user_preference: str = None,
 ) -> Result[None]:
-    # append the progress to the task
-    # Use coalesce to handle NULL, then append to the array
     assert progress is not None
 
-    # Fetch the task
     query = select(Task).where(Task.id == task_id)
     result = await db_session.execute(query)
     task = result.scalars().first()
@@ -209,18 +205,30 @@ async def append_progress_to_task(
     if task is None:
         return Result.reject(f"Task {task_id} not found")
 
-    # Get current data and append progress
     if "progresses" not in task.data:
         task.data["progresses"] = []
     task.data["progresses"].append(progress)
 
-    if user_preference is not None:
-        if "user_preferences" not in task.data:
-            task.data["user_preferences"] = []
-        task.data["user_preferences"].append(user_preference)
+    flag_modified(task, "data")
+    await db_session.flush()
+    return Result.resolve(None)
+
+
+async def set_user_preference_for_task(
+    db_session: AsyncSession,
+    task_id: asUUID,
+    user_preference: str,
+) -> Result[None]:
+    query = select(Task).where(Task.id == task_id)
+    result = await db_session.execute(query)
+    task = result.scalars().first()
+
+    if task is None:
+        return Result.reject(f"Task {task_id} not found")
+
+    task.data["user_preferences"] = [user_preference]
 
     flag_modified(task, "data")
-
     await db_session.flush()
     return Result.resolve(None)
 

@@ -14,11 +14,15 @@ from ..tool.task_lib.ctx import TaskCtx
 from ..tool.task_lib.insert import _insert_task_tool
 from ..tool.task_lib.update import _update_task_tool
 from ..tool.task_lib.append import _append_messages_to_task_tool
+from ..tool.task_lib.progress import _append_task_progress_tool
+from ..tool.task_lib.set_preference import _set_task_user_preference_tool
 
 NEED_UPDATE_CTX = {
     _insert_task_tool.schema.function.name,
     _update_task_tool.schema.function.name,
     _append_messages_to_task_tool.schema.function.name,
+    _append_task_progress_tool.schema.function.name,
+    _set_task_user_preference_tool.schema.function.name,
 }
 
 

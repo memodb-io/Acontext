@@ -11,11 +11,9 @@ async def _append_messages_to_task_handler(
     llm_arguments: dict,
 ) -> Result[str]:
     task_order: int = llm_arguments.get("task_order", None)
-    message_order_indexes = llm_arguments.get("message_ids", [])
-    progress_note = llm_arguments.get("progress", None)
-    user_preference = llm_arguments.get("user_preference_and_infos", "").strip()
+    message_id_range: list = llm_arguments.get("message_id_range", None)
 
-    if not task_order:
+    if task_order is None:
         return Result.resolve(
             "You must provide a task order argument, so that we can attach messages to the task. Appending failed."
         )
@@ -23,6 +21,20 @@ async def _append_messages_to_task_handler(
         return Result.resolve(
             f"Task order {task_order} is out of range, appending failed."
         )
+    if (
+        not message_id_range
+        or not isinstance(message_id_range, list)
+        or len(message_id_range) != 2
+    ):
+        return Result.resolve(
+            "message_id_range must be a 2-element array [start, end]. Appending failed."
+        )
+    start_id, end_id = message_id_range[0], message_id_range[1]
+    if not isinstance(start_id, int) or not isinstance(end_id, int) or start_id > end_id:
+        return Result.resolve(
+            f"Invalid range [{start_id}, {end_id}]. start must be <= end. Appending failed."
+        )
+    message_order_indexes = list(range(start_id, end_id + 1))
     actually_task_id = ctx.task_ids_index[task_order - 1]
     actually_task = ctx.task_index[task_order - 1]
     actually_message_ids = [
@@ -32,7 +44,7 @@ async def _append_messages_to_task_handler(
     ]
     if not actually_message_ids:
         return Result.resolve(
-            f"No message ids to append, skip: {message_order_indexes}"
+            f"No message ids to append, skip: range [{start_id}, {end_id}]"
         )
     if actually_task.status in (TaskStatus.SUCCESS, TaskStatus.FAILED):
         return Result.resolve(
@@ -45,20 +57,16 @@ async def _append_messages_to_task_handler(
     )
     if not r.ok():
         return r
-    if progress_note is not None:
-        r = await TD.append_progress_to_task(
-            ctx.db_session, actually_task_id, progress_note, user_preference or None
-        )
-        if not r.ok():
-            return r
     if actually_task.status != TaskStatus.RUNNING:
         r = await TD.update_task(
             ctx.db_session,
             actually_task_id,
             status="running",
         )
+        if not r.ok():
+            return r
     return Result.resolve(
-        f"Messages {message_order_indexes} and progress are appended to task {task_order}"
+        f"Messages [{start_id}..{end_id}] linked to task {task_order}"
     )
 
 
@@ -68,10 +76,9 @@ _append_messages_to_task_tool = (
         ToolSchema(
             function={
                 "name": "append_messages_to_task",
-                "description": """Link relevant message ids to a task for tracking progress and context. Use this to associate relevant messages with a task.
-- Mark the progress and learnings that relevant messages have contributed to the task.
-- Make sure you append messages first(if any), then update the task status.
-- If you decide to append message to a task marked as 'success' or 'failed', update it's status to 'running' first""",
+                "description": """Link a range of message ids to a task. This tool ONLY links messages and auto-sets the task status to 'running'.
+- Use separate tools for recording progress (append_task_progress) and user preferences (set_task_user_preference).
+- If you decide to link messages to a task marked as 'success' or 'failed', update its status to 'running' first.""",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -79,21 +86,15 @@ _append_messages_to_task_tool = (
                             "type": "integer",
                             "description": "The order number of the task to link messages to.",
                         },
-                        "progress": {
-                            "type": "string",
-                            "description": "The progress and learnings from relevant messages. Narrate progress in the first person as the agent.",
-                        },
-                        "user_preference_and_infos": {
-                            "type": "string",
-                            "description": "Any user-mentioned preference and infos to complete this task. If None, an empty string is expected.",
-                        },
-                        "message_ids": {
+                        "message_id_range": {
                             "type": "array",
                             "items": {"type": "integer"},
-                            "description": "List of message IDs to append to the task.",
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "description": "Inclusive range [start, end] of message IDs to link. E.g. [2, 8] links messages 2,3,4,5,6,7,8.",
                         },
                     },
-                    "required": ["task_order", "progress", "message_ids"],
+                    "required": ["task_order", "message_id_range"],
                 },
             }
         )

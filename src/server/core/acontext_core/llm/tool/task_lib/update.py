@@ -10,7 +10,7 @@ async def update_task_handler(
     llm_arguments: dict,
 ) -> Result[str]:
     task_order = llm_arguments.get("task_order", None)
-    if not task_order:
+    if task_order is None:
         return Result.resolve(
             "You must provide a task order argument, so that we can update the task. Updating failed."
         )
@@ -63,7 +63,7 @@ Only when the conversation explicitly mention certain task's purpose should be m
                         },
                         "task_description": {
                             "type": "string",
-                            "description": "Update description for the task, of what's should be done and what's the expected result if any. (optional).",
+                            "description": "Reflect the user's updated query or intent. Use the user's words, not agent-invented descriptions. (optional).",
                         },
                     },
                     "required": ["task_order"],

@@ -38,7 +38,7 @@ _insert_task_tool = (
         ToolSchema(
             function={
                 "name": "insert_task",
-                "description": "Create a new task by inserting it after the specified task order. This is used when identifying new tasks from conversation messages.",
+                "description": "Create a new task by inserting it after the specified task order. Each task represents ONE user request — do NOT create separate tasks for agent execution sub-steps.",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -48,7 +48,7 @@ _insert_task_tool = (
                         },
                         "task_description": {
                             "type": "string",
-                            "description": "A clear, concise description of the task, of what's should be done and what's the expected result if any.",
+                            "description": "The user's query or request verbatim, or closely paraphrased. Do NOT split into agent sub-steps or invent descriptions from agent planning.",
                         },
                     },
                     "required": ["after_task_order", "task_description"],

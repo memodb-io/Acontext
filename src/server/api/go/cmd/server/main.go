@@ -93,13 +93,13 @@ func main() {
 	learningSpaceHandler := do.MustInvoke[*handler.LearningSpaceHandler](inj)
 
 	engine := router.NewRouter(router.RouterDeps{
-		Config:             cfg,
-		DB:                 db,
-		Log:                log,
-		SessionHandler:     sessionHandler,
-		DiskHandler:        diskHandler,
-		ArtifactHandler:    artifactHandler,
-		TaskHandler:        taskHandler,
+		Config:               cfg,
+		DB:                   db,
+		Log:                  log,
+		SessionHandler:       sessionHandler,
+		DiskHandler:          diskHandler,
+		ArtifactHandler:      artifactHandler,
+		TaskHandler:          taskHandler,
 		AgentSkillsHandler:   agentSkillsHandler,
 		UserHandler:          userHandler,
 		SandboxHandler:       sandboxHandler,

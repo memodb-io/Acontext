@@ -289,7 +289,7 @@ func (h *LearningSpaceHandler) Delete(c *gin.Context) {
 //	@Tags			LearningSpaces
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path	string			true	"Learning space UUID"
+//	@Param			id		path	string				true	"Learning space UUID"
 //	@Param			request	body	handler.LearnReq	true	"Learn request"
 //	@Security		BearerAuth
 //	@Success		201	{object}	serializer.Response{data=model.LearningSpaceSession}
@@ -341,7 +341,7 @@ func (h *LearningSpaceHandler) Learn(c *gin.Context) {
 //	@Tags			LearningSpaces
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path	string				true	"Learning space UUID"
+//	@Param			id		path	string					true	"Learning space UUID"
 //	@Param			request	body	handler.IncludeSkillReq	true	"Include skill request"
 //	@Security		BearerAuth
 //	@Success		201	{object}	serializer.Response{data=model.LearningSpaceSkill}
