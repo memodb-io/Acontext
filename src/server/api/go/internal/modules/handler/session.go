@@ -512,6 +512,10 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger JSON", err))
 			return
 		}
+		if len(raw) == 0 {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger", errors.New("at least one supported trigger is required")))
+			return
+		}
 		allowedTriggerKeys := map[string]struct{}{
 			"token_gte": {},
 		}
