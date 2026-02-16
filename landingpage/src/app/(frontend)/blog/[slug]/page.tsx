@@ -52,6 +52,17 @@ const jsxConverters: JSXConvertersFunction = ({ defaultConverters }) => ({
 
   // Lists
   list: ({ node, nodesToJSX }) => {
+    // When a numbered list contains items with headings (e.g. section headings typed as "1. Title"),
+    // render the headings directly without the <ol> wrapper to avoid broken layout and "1." on each.
+    const hasHeadingItems = node.children?.some((child) => {
+      const c = child as unknown as { children?: { type?: string }[] }
+      return c.children?.some((grandchild) => grandchild.type === 'heading')
+    })
+    if (hasHeadingItems) {
+      const children = nodesToJSX({ nodes: node.children })
+      return <>{children}</>
+    }
+
     const children = nodesToJSX({ nodes: node.children })
     if (node.listType === 'number') {
       return <ol className="list-decimal list-inside space-y-2 mb-4 pl-4">{children}</ol>
@@ -63,7 +74,35 @@ const jsxConverters: JSXConvertersFunction = ({ defaultConverters }) => ({
   },
 
   listitem: ({ node, nodesToJSX }) => {
+    // If list item contains a heading, render the heading directly without <li> wrapper,
+    // and prepend the list item number (e.g. "1. ", "2. ") to the heading text.
+    const headingIndex = node.children?.findIndex(
+      (child) => (child as unknown as { type?: string }).type === 'heading',
+    )
+    if (headingIndex !== undefined && headingIndex >= 0) {
+      const headingNode = node.children[headingIndex] as unknown as {
+        type: string
+        tag: string
+        children: unknown[]
+      }
+      const itemValue = (node as unknown as { value?: number }).value || 1
+      // Inject a number prefix text node into the heading's children
+      const numberedHeadingNode = {
+        ...headingNode,
+        children: [
+          { type: 'text', text: `${itemValue}. `, format: 0, detail: 0, mode: 'normal', style: '', version: 1 },
+          ...headingNode.children,
+        ],
+      }
+      // Replace the heading node with the numbered version and render
+      const modifiedChildren = [...node.children]
+      modifiedChildren[headingIndex] = numberedHeadingNode as unknown as (typeof modifiedChildren)[0]
+      const rendered = nodesToJSX({ nodes: modifiedChildren })
+      return <>{rendered}</>
+    }
+
     const children = nodesToJSX({ nodes: node.children })
+
     if (node.checked !== undefined) {
       return (
         <li className="flex items-start gap-2">

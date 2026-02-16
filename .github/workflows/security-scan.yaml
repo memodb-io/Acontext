@@ -16,6 +16,8 @@ on:
       - 'src/client/acontext-ts/package-lock.json'
       - 'src/server/ui/package.json'
       - 'src/server/ui/pnpm-lock.yaml'
+      - 'landingpage/package.json'
+      - 'landingpage/pnpm-lock.yaml'
       - '.github/workflows/security-scan.yaml'
       - '.github/workflows/security-reusable.yaml'
   pull_request:
@@ -33,6 +35,8 @@ on:
       - 'src/client/acontext-ts/package-lock.json'
       - 'src/server/ui/package.json'
       - 'src/server/ui/pnpm-lock.yaml'
+      - 'landingpage/package.json'
+      - 'landingpage/pnpm-lock.yaml'
       - '.github/workflows/security-scan.yaml'
       - '.github/workflows/security-reusable.yaml'
   workflow_dispatch:
