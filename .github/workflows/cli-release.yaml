@@ -12,9 +12,10 @@ jobs:
   create-release:
     name: Create Release
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Extract version from tag
         id: version
@@ -29,13 +30,14 @@ jobs:
           echo "Binary artifacts are available in this release." >> ${{ github.workspace }}-CHANGELOG.txt
 
       - name: Create Release with Notes
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
         with:
           body_path: ${{ github.workspace }}-CHANGELOG.txt
 
   upload-binaries:
     name: Upload Binaries
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       matrix:
         goos: [linux, darwin, windows]
@@ -45,7 +47,7 @@ jobs:
             goarch: arm64
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Read Go version from go.mod
         id: go-version
@@ -54,7 +56,7 @@ jobs:
           echo "version=$GO_VERSION" >> $GITHUB_OUTPUT
 
       - name: Go Release Binaries 
-        uses: wangyoucao577/go-release-action@v1
+        uses: wangyoucao577/go-release-action@279495102627de7960cbc33434ab01a12bae144b # v1
         with:
           goversion: ${{ steps.go-version.outputs.version }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
