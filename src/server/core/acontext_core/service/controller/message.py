@@ -24,6 +24,20 @@ async def _try_rollback_to_failed(pending_message_ids: list) -> None:
             "session.pending_message_rollback_failed",
             pending_message_ids=[str(mid) for mid in pending_message_ids],
         )
+def extract_first_user_message_text(messages: list[MessageBlob]) -> str | None:
+    for message in messages:
+        if message.role != "user":
+            continue
+        text_parts = [
+            part.text.strip()
+            for part in message.parts
+            if part.type == "text"
+            and isinstance(part.text, str)
+            and part.text.strip() != ""
+        ]
+        if text_parts:
+            return "\n".join(text_parts)
+    return None
 
 
 async def process_session_pending_message(
@@ -84,6 +98,14 @@ async def process_session_pending_message(
                 )
                 for m in messages
             ]
+            first_user_message_text = extract_first_user_message_text(messages_data)
+            if first_user_message_text is None:
+                LOG.debug(f"No user text found in pending session {session_id}")
+            else:
+                LOG.debug(
+                    f"Extracted first user text from pending session {session_id}, "
+                    f"length={(first_user_message_text)}"
+                )
 
         async with DB_CLIENT.get_session_context() as session:
             r = await LS.get_learning_space_for_session(session, session_id)
