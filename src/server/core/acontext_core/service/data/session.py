@@ -22,3 +22,15 @@ async def update_session_display_title(
     session.display_title = display_title
     await db_session.flush()
     return Result.resolve(None)
+
+
+async def should_generate_session_display_title(
+    db_session: AsyncSession, session_id: asUUID
+) -> Result[bool]:
+    r = await fetch_session(db_session, session_id)
+    session, eil = r.unpack()
+    if eil:
+        return Result.reject(eil.errmsg)
+    return Result.resolve(
+        session.display_title is None or session.display_title.strip() == ""
+    )
