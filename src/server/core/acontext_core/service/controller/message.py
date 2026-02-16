@@ -229,6 +229,16 @@ async def process_session_pending_message(
                         f"{title_candidate[:80]}"
                     )
 
+            if title_candidate is not None:
+                async with DB_CLIENT.get_session_context() as session:
+                    r = await SD.update_session_display_title(
+                        session, session_id, title_candidate
+                    )
+                    _, eil = r.unpack()
+                    if eil:
+                        return r
+                LOG.debug(f"Persisted display_title for session {session_id}")
+
         ls_session = None
         async with DB_CLIENT.get_session_context() as session:
             r = await LS.get_learning_space_for_session(session, session_id)
