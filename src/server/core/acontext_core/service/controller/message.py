@@ -16,6 +16,7 @@ from ..data import session as SD
 TITLE_INPUT_MAX_CHARS = 512
 TITLE_INPUT_MIN_CHARS = 12
 TITLE_GENERATION_MAX_TOKENS = 24
+TITLE_OUTPUT_MAX_CHARS = 80
 NON_INFORMATIVE_TITLE_INPUTS = {
     "hi",
     "hello",
@@ -73,6 +74,37 @@ def extract_first_user_message_text(messages: list[MessageBlob]) -> str | None:
         if text_parts:
             return normalize_title_input_text("\n".join(text_parts))
     return None
+
+
+def sanitize_generated_title(
+    title_candidate: str | None,
+    fallback_text: str | None,
+    max_chars: int = TITLE_OUTPUT_MAX_CHARS,
+) -> str | None:
+    def _clean(text: str | None) -> str | None:
+        if text is None:
+            return None
+        cleaned = " ".join(text.replace("\n", " ").replace("\r", " ").split())
+        cleaned = cleaned.strip("`'\"“”‘’ ").strip()
+        if cleaned == "":
+            return None
+        if len(cleaned) > max_chars:
+            cleaned = cleaned[:max_chars].rstrip()
+        cleaned = cleaned.strip("`'\"“”‘’ ").strip()
+        if cleaned == "":
+            return None
+        if not any(ch.isalnum() for ch in cleaned):
+            return None
+        return cleaned
+
+    cleaned_title = _clean(title_candidate)
+    if cleaned_title is not None:
+        return cleaned_title
+
+    cleaned_fallback = _clean(fallback_text)
+    if cleaned_fallback is None:
+        return None
+    return " ".join(cleaned_fallback.split()[:8])
 
 
 async def generate_session_title_candidate(
@@ -176,21 +208,26 @@ async def process_session_pending_message(
                     )
 
         if first_user_message_text is not None:
+            title_candidate = None
             r = await generate_session_title_candidate(first_user_message_text)
-            title_candidate, eil = r.unpack()
+            title_candidate_raw, eil = r.unpack()
             if eil:
                 LOG.warning(
                     f"Title generation failed for session {session_id}: {eil.errmsg}"
                 )
-            elif title_candidate is None:
-                LOG.debug(
-                    f"Title generation returned empty content for session {session_id}"
-                )
             else:
-                LOG.debug(
-                    f"Generated session title candidate for session {session_id}: "
-                    f"{title_candidate[:80]}"
+                title_candidate = sanitize_generated_title(
+                    title_candidate_raw, first_user_message_text
                 )
+                if title_candidate is None:
+                    LOG.debug(
+                        f"Title generation produced unusable content for session {session_id}"
+                    )
+                else:
+                    LOG.debug(
+                        f"Generated session title candidate for session {session_id}: "
+                        f"{title_candidate[:80]}"
+                    )
 
         ls_session = None
         async with DB_CLIENT.get_session_context() as session:
