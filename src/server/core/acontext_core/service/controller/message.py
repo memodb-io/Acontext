@@ -13,6 +13,18 @@ from ...constants import ExcessMetricTags
 from ..data import session as SD
 
 TITLE_INPUT_MAX_CHARS = 512
+TITLE_INPUT_MIN_CHARS = 12
+NON_INFORMATIVE_TITLE_INPUTS = {
+    "hi",
+    "hello",
+    "hey",
+    "ok",
+    "okay",
+    "thanks",
+    "thank you",
+    "test",
+    "testing",
+}
 
 
 def normalize_title_input_text(text: str, max_chars: int = TITLE_INPUT_MAX_CHARS) -> str | None:
@@ -22,6 +34,19 @@ def normalize_title_input_text(text: str, max_chars: int = TITLE_INPUT_MAX_CHARS
     if len(normalized) > max_chars:
         normalized = normalized[:max_chars].rstrip()
     return normalized
+
+
+def check_title_input_quality(text: str | None) -> tuple[bool, str]:
+    if text is None:
+        return False, "empty"
+    normalized = normalize_title_input_text(text)
+    if normalized is None:
+        return False, "empty"
+    if len(normalized) < TITLE_INPUT_MIN_CHARS:
+        return False, "too_short"
+    if normalized.lower() in NON_INFORMATIVE_TITLE_INPUTS:
+        return False, "non_informative"
+    return True, "ok"
 
 
 def extract_first_user_message_text(messages: list[MessageBlob]) -> str | None:
@@ -105,8 +130,15 @@ async def process_session_pending_message(
                 )
             else:
                 first_user_message_text = extract_first_user_message_text(messages_data)
-                if first_user_message_text is None:
-                    LOG.debug(f"No user text found in pending session {session_id}")
+                is_quality_ok, quality_reason = check_title_input_quality(
+                    first_user_message_text
+                )
+                if not is_quality_ok:
+                    first_user_message_text = None
+                    LOG.debug(
+                        f"Skip title-input generation for session {session_id}: "
+                        f"{quality_reason}"
+                    )
                 else:
                     LOG.debug(
                         f"Extracted first user text from pending session {session_id}, "
