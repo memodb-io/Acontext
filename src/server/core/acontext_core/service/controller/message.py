@@ -10,6 +10,7 @@ from ...env import LOG
 from ...schema.config import ProjectConfig
 from ...telemetry.get_metrics import get_metrics
 from ...constants import ExcessMetricTags
+from ..data import session as SD
 
 TITLE_INPUT_MAX_CHARS = 512
 
@@ -92,14 +93,25 @@ async def process_session_pending_message(
                 )
                 for m in messages
             ]
-            first_user_message_text = extract_first_user_message_text(messages_data)
-            if first_user_message_text is None:
-                LOG.debug(f"No user text found in pending session {session_id}")
-            else:
+            r = await SD.should_generate_session_display_title(session, session_id)
+            should_generate_title, eil = r.unpack()
+            if eil:
+                return r
+            if not should_generate_title:
+                first_user_message_text = None
                 LOG.debug(
-                    f"Extracted first user text from pending session {session_id}, "
-                    f"length={len(first_user_message_text)}"
+                    f"Session {session_id} already has display_title, "
+                    "skip title-input extraction"
                 )
+            else:
+                first_user_message_text = extract_first_user_message_text(messages_data)
+                if first_user_message_text is None:
+                    LOG.debug(f"No user text found in pending session {session_id}")
+                else:
+                    LOG.debug(
+                        f"Extracted first user text from pending session {session_id}, "
+                        f"length={len(first_user_message_text)}"
+                    )
 
         async with DB_CLIENT.get_session_context() as session:
             r = await LS.get_learning_space_for_session(session, session_id)
