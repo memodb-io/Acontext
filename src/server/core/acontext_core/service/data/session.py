@@ -11,3 +11,14 @@ async def fetch_session(
     if session is None:
         return Result.reject(f"Session {session_id} not found")
     return Result.resolve(session)
+
+
+async def update_session_display_title(
+    db_session: AsyncSession, session_id: asUUID, display_title: str
+) -> Result[None]:
+    session = await db_session.get(Session, session_id)
+    if session is None:
+        return Result.reject(f"Session {session_id} not found")
+    session.display_title = display_title
+    await db_session.flush()
+    return Result.resolve(None)
