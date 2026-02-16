@@ -131,12 +131,14 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local-api
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
+src/server/.env.local-api
 
 # Spyder project settings
 .spyderproject
@@ -208,4 +210,3 @@ pyrightconfig.json
 go.work
 
 # End of https://www.toptal.com/developers/gitignore/api/go
-
