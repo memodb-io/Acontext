@@ -238,7 +238,7 @@ async def task_agent_curd(
                 try:
                     await publish_mq(
                         EX.learning_skill,
-                        RK.learning_skill_process,
+                        RK.learning_skill_distill,
                         SkillLearnTask(
                             project_id=project_id,
                             session_id=session_id,

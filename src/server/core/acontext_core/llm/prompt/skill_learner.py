@@ -57,10 +57,13 @@ Only when step 3 concludes "zero coverage":
 - Name at category level: `api-error-handling`, `database-operations` — not task-specific names
 - Then `create_skill_file` for additional files if needed
 
-### 6. Follow Skill Instructions
-If any skill's SKILL.md contains instructions for the learning agent, execute them.
-- e.g. "daily-log" → create yyyy-mm-dd.md with today's summary
-- e.g. "user-general-facts" → update with newly discovered preferences
+### 6. Reorganize Files
+- `mv_skill_file` to rename or move files within a skill (e.g. fix naming, reorganize into subdirectories)
+
+### 7. Follow Skill Instructions
+If any skill's SKILL.md contains instructions about the contents and files, make sure you're following them:
+- e.g. "daily-log" → requires yyyy-mm-dd.md file with today's summary
+- e.g. "user-general-facts" → requires use [TOPIC].md to separate different topics of the user facts/preferences.
 
 ## Entry Format
 
@@ -178,7 +181,9 @@ Focus on actionable lessons, not blame."""
         messages_section = "## Task Messages\n"
         tool_mappings = {}
         for m in task_messages:
-            messages_section += f"---\n{m.to_string(tool_mappings, truncate_chars=512)}\n"
+            messages_section += (
+                f"---\n{m.to_string(tool_mappings, truncate_chars=512)}\n"
+            )
 
         return f"{task_info}\n{all_tasks_section}\n{messages_section}"
 

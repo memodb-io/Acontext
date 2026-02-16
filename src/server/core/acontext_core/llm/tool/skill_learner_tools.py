@@ -9,6 +9,7 @@ from .skill_learner_lib.str_replace_skill_file import _str_replace_skill_file_to
 from .skill_learner_lib.create_skill_file import _create_skill_file_tool
 from .skill_learner_lib.create_skill import _create_skill_tool
 from .skill_learner_lib.delete_skill_file import _delete_skill_file_tool
+from .skill_learner_lib.mv_skill_file import _mv_skill_file_tool
 from .skill_learner_lib.ctx import SkillLearnerCtx
 
 
@@ -61,6 +62,7 @@ SKILL_LEARNER_TOOLS[_create_skill_tool.schema.function.name] = _create_skill_too
 SKILL_LEARNER_TOOLS[_delete_skill_file_tool.schema.function.name] = (
     _delete_skill_file_tool
 )
+SKILL_LEARNER_TOOLS[_mv_skill_file_tool.schema.function.name] = _mv_skill_file_tool
 SKILL_LEARNER_TOOLS[_finish_tool.schema.function.name] = _finish_tool
 SKILL_LEARNER_TOOLS[_skill_learner_thinking_tool.schema.function.name] = (
     _skill_learner_thinking_tool

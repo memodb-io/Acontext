@@ -1,12 +1,19 @@
 """
-Tests for the skill learner consumer and controller.
+Tests for the split skill learner consumers and controllers.
 
 Covers:
-- Consumer acquires lock and processes
-- Consumer fails to acquire lock and republishes
-- Lock released in finally
-- Controller error paths: missing task, stale status, missing LS, distillation failure
-- End-to-end: fetch task → distill → agent runs with correct args
+- Distillation consumer: resolves LS, calls controller, publishes SkillLearnDistilled
+- Distillation consumer: skips when session has no learning space
+- Distillation consumer: does NOT publish when distillation fails
+- Distillation consumer: publishes correct learning_space_id
+- Agent consumer: acquires lock and calls run_skill_agent
+- Agent consumer: lock contention → republishes same SkillLearnDistilled body
+- Agent consumer: lock released in finally (even on error)
+- Agent consumer: logs session_id and task_id for observability
+- Controller: process_context_distillation error paths
+- Controller: run_skill_agent error paths
+- SkillLearnDistilled schema serialization round-trip
+- End-to-end: distillation → agent with correct args
 """
 
 import uuid
@@ -14,10 +21,16 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from acontext_core.schema.result import Result
-from acontext_core.schema.session.task import TaskSchema, TaskData, TaskStatus
-from acontext_core.schema.mq.learning import SkillLearnTask
-from acontext_core.service.skill_learner import process_skill_learn_task
-from acontext_core.service.controller.skill_learner import process_skill_learning
+from acontext_core.schema.session.task import TaskData, TaskStatus
+from acontext_core.schema.mq.learning import SkillLearnTask, SkillLearnDistilled
+from acontext_core.service.skill_learner import (
+    process_skill_distillation,
+    process_skill_agent,
+)
+from acontext_core.service.controller.skill_learner import (
+    process_context_distillation,
+    run_skill_agent,
+)
 
 
 def _make_body(
@@ -27,6 +40,22 @@ def _make_body(
         project_id=project_id or uuid.uuid4(),
         session_id=session_id or uuid.uuid4(),
         task_id=task_id or uuid.uuid4(),
+    )
+
+
+def _make_distilled_body(
+    project_id=None,
+    session_id=None,
+    task_id=None,
+    learning_space_id=None,
+    distilled_context="Test distilled context",
+) -> SkillLearnDistilled:
+    return SkillLearnDistilled(
+        project_id=project_id or uuid.uuid4(),
+        session_id=session_id or uuid.uuid4(),
+        task_id=task_id or uuid.uuid4(),
+        learning_space_id=learning_space_id or uuid.uuid4(),
+        distilled_context=distilled_context,
     )
 
 
@@ -43,14 +72,65 @@ def _make_learning_space(user_id=None):
 
 
 # =============================================================================
-# Consumer locking tests
+# Distillation consumer tests
 # =============================================================================
 
 
-class TestConsumerLocking:
+class TestDistillationConsumer:
     @pytest.mark.asyncio
-    async def test_acquires_lock_and_processes(self):
-        """Consumer acquires lock and calls controller."""
+    async def test_publishes_distilled_on_success(self):
+        """Distillation consumer publishes SkillLearnDistilled on success."""
+        body = _make_body()
+        ls_session = _make_ls_session()
+        mock_message = MagicMock()
+
+        distilled_payload = SkillLearnDistilled(
+            project_id=body.project_id,
+            session_id=body.session_id,
+            task_id=body.task_id,
+            learning_space_id=ls_session.learning_space_id,
+            distilled_context="distilled text",
+        )
+
+        with (
+            patch("acontext_core.service.skill_learner.DB_CLIENT") as mock_db,
+            patch(
+                "acontext_core.service.skill_learner.LS.get_learning_space_for_session",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(ls_session),
+            ),
+            patch(
+                "acontext_core.service.skill_learner.SLC.process_context_distillation",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(distilled_payload),
+            ) as mock_distill,
+            patch(
+                "acontext_core.service.skill_learner.publish_mq",
+                new_callable=AsyncMock,
+            ) as mock_publish,
+        ):
+            mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
+                return_value=MagicMock()
+            )
+            mock_db.get_session_context.return_value.__aexit__ = AsyncMock(
+                return_value=False
+            )
+
+            await process_skill_distillation(body, mock_message)
+
+            mock_distill.assert_called_once_with(
+                body.project_id,
+                body.session_id,
+                body.task_id,
+                ls_session.learning_space_id,
+            )
+            mock_publish.assert_called_once()
+            call_kwargs = mock_publish.call_args.kwargs
+            assert call_kwargs["routing_key"] == "learning.skill.agent"
+
+    @pytest.mark.asyncio
+    async def test_does_not_publish_on_distillation_failure(self):
+        """Distillation consumer does NOT publish when distillation fails."""
         body = _make_body()
         ls_session = _make_ls_session()
         mock_message = MagicMock()
@@ -62,6 +142,157 @@ class TestConsumerLocking:
                 new_callable=AsyncMock,
                 return_value=Result.resolve(ls_session),
             ),
+            patch(
+                "acontext_core.service.skill_learner.SLC.process_context_distillation",
+                new_callable=AsyncMock,
+                return_value=Result.reject("LLM timeout"),
+            ),
+            patch(
+                "acontext_core.service.skill_learner.publish_mq",
+                new_callable=AsyncMock,
+            ) as mock_publish,
+        ):
+            mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
+                return_value=MagicMock()
+            )
+            mock_db.get_session_context.return_value.__aexit__ = AsyncMock(
+                return_value=False
+            )
+
+            await process_skill_distillation(body, mock_message)
+
+            mock_publish.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_skips_when_no_learning_space(self):
+        """Distillation consumer skips when session has no learning space."""
+        body = _make_body()
+        mock_message = MagicMock()
+
+        with (
+            patch("acontext_core.service.skill_learner.DB_CLIENT") as mock_db,
+            patch(
+                "acontext_core.service.skill_learner.LS.get_learning_space_for_session",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(None),
+            ),
+            patch(
+                "acontext_core.service.skill_learner.SLC.process_context_distillation",
+                new_callable=AsyncMock,
+            ) as mock_distill,
+            patch(
+                "acontext_core.service.skill_learner.publish_mq",
+                new_callable=AsyncMock,
+            ) as mock_publish,
+        ):
+            mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
+                return_value=MagicMock()
+            )
+            mock_db.get_session_context.return_value.__aexit__ = AsyncMock(
+                return_value=False
+            )
+
+            await process_skill_distillation(body, mock_message)
+
+            mock_distill.assert_not_called()
+            mock_publish.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_publishes_correct_learning_space_id(self):
+        """Distillation consumer includes correct learning_space_id in published message."""
+        body = _make_body()
+        expected_ls_id = uuid.uuid4()
+        ls_session = _make_ls_session(learning_space_id=expected_ls_id)
+        mock_message = MagicMock()
+
+        distilled_payload = SkillLearnDistilled(
+            project_id=body.project_id,
+            session_id=body.session_id,
+            task_id=body.task_id,
+            learning_space_id=expected_ls_id,
+            distilled_context="distilled text",
+        )
+
+        with (
+            patch("acontext_core.service.skill_learner.DB_CLIENT") as mock_db,
+            patch(
+                "acontext_core.service.skill_learner.LS.get_learning_space_for_session",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(ls_session),
+            ),
+            patch(
+                "acontext_core.service.skill_learner.SLC.process_context_distillation",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(distilled_payload),
+            ),
+            patch(
+                "acontext_core.service.skill_learner.publish_mq",
+                new_callable=AsyncMock,
+            ) as mock_publish,
+        ):
+            mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
+                return_value=MagicMock()
+            )
+            mock_db.get_session_context.return_value.__aexit__ = AsyncMock(
+                return_value=False
+            )
+
+            await process_skill_distillation(body, mock_message)
+
+            mock_publish.assert_called_once()
+            published_json = mock_publish.call_args.kwargs["body"]
+            restored = SkillLearnDistilled.model_validate_json(published_json)
+            assert restored.learning_space_id == expected_ls_id
+
+    @pytest.mark.asyncio
+    async def test_does_not_publish_when_task_skipped(self):
+        """Distillation consumer does NOT publish when controller returns None (task skipped)."""
+        body = _make_body()
+        ls_session = _make_ls_session()
+        mock_message = MagicMock()
+
+        with (
+            patch("acontext_core.service.skill_learner.DB_CLIENT") as mock_db,
+            patch(
+                "acontext_core.service.skill_learner.LS.get_learning_space_for_session",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(ls_session),
+            ),
+            patch(
+                "acontext_core.service.skill_learner.SLC.process_context_distillation",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(None),
+            ),
+            patch(
+                "acontext_core.service.skill_learner.publish_mq",
+                new_callable=AsyncMock,
+            ) as mock_publish,
+        ):
+            mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
+                return_value=MagicMock()
+            )
+            mock_db.get_session_context.return_value.__aexit__ = AsyncMock(
+                return_value=False
+            )
+
+            await process_skill_distillation(body, mock_message)
+
+            mock_publish.assert_not_called()
+
+
+# =============================================================================
+# Agent consumer tests
+# =============================================================================
+
+
+class TestAgentConsumer:
+    @pytest.mark.asyncio
+    async def test_acquires_lock_and_runs_agent(self):
+        """Agent consumer acquires lock and calls run_skill_agent."""
+        body = _make_distilled_body()
+        mock_message = MagicMock()
+
+        with (
             patch(
                 "acontext_core.service.skill_learner.check_redis_lock_or_set",
                 new_callable=AsyncMock,
@@ -72,42 +303,27 @@ class TestConsumerLocking:
                 new_callable=AsyncMock,
             ) as mock_release,
             patch(
-                "acontext_core.service.skill_learner.SLC.process_skill_learning",
+                "acontext_core.service.skill_learner.SLC.run_skill_agent",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(None),
-            ) as mock_process,
+            ) as mock_agent,
         ):
-            mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
-                return_value=MagicMock()
-            )
-            mock_db.get_session_context.return_value.__aexit__ = AsyncMock(
-                return_value=False
-            )
+            await process_skill_agent(body, mock_message)
 
-            await process_skill_learn_task(body, mock_message)
-
-            mock_process.assert_called_once_with(
+            mock_agent.assert_called_once_with(
                 body.project_id,
-                body.session_id,
-                body.task_id,
-                ls_session.learning_space_id,
+                body.learning_space_id,
+                body.distilled_context,
             )
             mock_release.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_lock_failed_republishes_to_retry(self):
-        """Consumer fails to acquire lock and republishes to retry queue."""
-        body = _make_body()
-        ls_session = _make_ls_session()
+    async def test_lock_contention_republishes_same_body(self):
+        """Agent consumer republishes same SkillLearnDistilled body on lock contention."""
+        body = _make_distilled_body()
         mock_message = MagicMock()
 
         with (
-            patch("acontext_core.service.skill_learner.DB_CLIENT") as mock_db,
-            patch(
-                "acontext_core.service.skill_learner.LS.get_learning_space_for_session",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(ls_session),
-            ),
             patch(
                 "acontext_core.service.skill_learner.check_redis_lock_or_set",
                 new_callable=AsyncMock,
@@ -118,39 +334,31 @@ class TestConsumerLocking:
                 new_callable=AsyncMock,
             ) as mock_publish,
             patch(
-                "acontext_core.service.skill_learner.SLC.process_skill_learning",
+                "acontext_core.service.skill_learner.SLC.run_skill_agent",
                 new_callable=AsyncMock,
-            ) as mock_process,
+            ) as mock_agent,
         ):
-            mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
-                return_value=MagicMock()
-            )
-            mock_db.get_session_context.return_value.__aexit__ = AsyncMock(
-                return_value=False
-            )
+            await process_skill_agent(body, mock_message)
 
-            await process_skill_learn_task(body, mock_message)
-
-            mock_process.assert_not_called()
+            mock_agent.assert_not_called()
             mock_publish.assert_called_once()
-            # Verify routing key is the retry queue
+            # Verify retry routing key
             call_kwargs = mock_publish.call_args.kwargs
-            assert "retry" in call_kwargs["routing_key"]
+            assert call_kwargs["routing_key"] == "learning.skill.agent.retry"
+            # Verify body is the same SkillLearnDistilled (not SkillLearnTask)
+            published_json = call_kwargs["body"]
+            restored = SkillLearnDistilled.model_validate_json(published_json)
+            assert restored.project_id == body.project_id
+            assert restored.learning_space_id == body.learning_space_id
+            assert restored.distilled_context == body.distilled_context
 
     @pytest.mark.asyncio
-    async def test_lock_released_on_controller_error(self):
-        """Lock is released even when controller raises."""
-        body = _make_body()
-        ls_session = _make_ls_session()
+    async def test_lock_released_on_agent_error(self):
+        """Agent consumer releases lock in finally block even on agent error."""
+        body = _make_distilled_body()
         mock_message = MagicMock()
 
         with (
-            patch("acontext_core.service.skill_learner.DB_CLIENT") as mock_db,
-            patch(
-                "acontext_core.service.skill_learner.LS.get_learning_space_for_session",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(ls_session),
-            ),
             patch(
                 "acontext_core.service.skill_learner.check_redis_lock_or_set",
                 new_callable=AsyncMock,
@@ -161,64 +369,80 @@ class TestConsumerLocking:
                 new_callable=AsyncMock,
             ) as mock_release,
             patch(
-                "acontext_core.service.skill_learner.SLC.process_skill_learning",
+                "acontext_core.service.skill_learner.SLC.run_skill_agent",
                 new_callable=AsyncMock,
-                return_value=Result.reject("Controller failed"),
+                return_value=Result.reject("Agent crashed"),
             ),
         ):
-            mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
-                return_value=MagicMock()
-            )
-            mock_db.get_session_context.return_value.__aexit__ = AsyncMock(
-                return_value=False
-            )
+            await process_skill_agent(body, mock_message)
 
-            await process_skill_learn_task(body, mock_message)
-
-            # Lock must be released even on error
             mock_release.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_no_learning_space_skips(self):
-        """Consumer skips when session has no learning space."""
-        body = _make_body()
+    async def test_lock_released_on_exception(self):
+        """Agent consumer releases lock even when run_skill_agent raises an exception."""
+        body = _make_distilled_body()
         mock_message = MagicMock()
 
         with (
-            patch("acontext_core.service.skill_learner.DB_CLIENT") as mock_db,
-            patch(
-                "acontext_core.service.skill_learner.LS.get_learning_space_for_session",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(None),
-            ),
             patch(
                 "acontext_core.service.skill_learner.check_redis_lock_or_set",
                 new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "acontext_core.service.skill_learner.release_redis_lock",
+                new_callable=AsyncMock,
+            ) as mock_release,
+            patch(
+                "acontext_core.service.skill_learner.SLC.run_skill_agent",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("Unexpected crash"),
+            ),
+        ):
+            with pytest.raises(RuntimeError):
+                await process_skill_agent(body, mock_message)
+
+            mock_release.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_lock_key_uses_learning_space_id_from_message(self):
+        """Agent consumer uses learning_space_id from message for lock key."""
+        ls_id = uuid.uuid4()
+        body = _make_distilled_body(learning_space_id=ls_id)
+        mock_message = MagicMock()
+
+        with (
+            patch(
+                "acontext_core.service.skill_learner.check_redis_lock_or_set",
+                new_callable=AsyncMock,
+                return_value=True,
             ) as mock_lock,
             patch(
-                "acontext_core.service.skill_learner.SLC.process_skill_learning",
+                "acontext_core.service.skill_learner.release_redis_lock",
                 new_callable=AsyncMock,
-            ) as mock_process,
+            ),
+            patch(
+                "acontext_core.service.skill_learner.SLC.run_skill_agent",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(None),
+            ),
         ):
-            mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
-                return_value=MagicMock()
-            )
-            mock_db.get_session_context.return_value.__aexit__ = AsyncMock(
-                return_value=False
-            )
+            await process_skill_agent(body, mock_message)
 
-            await process_skill_learn_task(body, mock_message)
-
-            mock_lock.assert_not_called()
-            mock_process.assert_not_called()
+            mock_lock.assert_called_once_with(
+                body.project_id,
+                f"skill_learn.{ls_id}",
+                ttl_seconds=240,
+            )
 
 
 # =============================================================================
-# Controller error path tests
+# Controller: process_context_distillation tests
 # =============================================================================
 
 
-class TestControllerErrorPaths:
+class TestProcessContextDistillation:
     @pytest.mark.asyncio
     async def test_task_not_found(self):
         """Controller rejects when task is not found (stale message)."""
@@ -243,7 +467,7 @@ class TestControllerErrorPaths:
                 new_callable=AsyncMock,
                 return_value=Result.reject("Not found"),
             ):
-                result = await process_skill_learning(
+                result = await process_context_distillation(
                     project_id, session_id, task_id, ls_id
                 )
                 assert not result.ok()
@@ -252,7 +476,7 @@ class TestControllerErrorPaths:
 
     @pytest.mark.asyncio
     async def test_task_not_success_or_failed_skips(self):
-        """Controller resolves (skips) when task is not in success/failed status."""
+        """Controller resolves None when task is not in success/failed status."""
         project_id = uuid.uuid4()
         session_id = uuid.uuid4()
         task_id = uuid.uuid4()
@@ -277,15 +501,16 @@ class TestControllerErrorPaths:
                 new_callable=AsyncMock,
                 return_value=Result.resolve(mock_task),
             ):
-                result = await process_skill_learning(
+                result = await process_context_distillation(
                     project_id, session_id, task_id, ls_id
                 )
-                # Should resolve (not reject) — stale message, just skip
                 assert result.ok()
+                value, _ = result.unpack()
+                assert value is None
 
     @pytest.mark.asyncio
-    async def test_distillation_failure_stops_agent(self):
-        """Controller rejects and does NOT run agent when distillation fails."""
+    async def test_distillation_failure(self):
+        """Controller rejects when distillation LLM call fails."""
         project_id = uuid.uuid4()
         session_id = uuid.uuid4()
         task_id = uuid.uuid4()
@@ -317,10 +542,6 @@ class TestControllerErrorPaths:
                 new_callable=AsyncMock,
                 return_value=Result.reject("LLM timeout"),
             ),
-            patch(
-                "acontext_core.service.controller.skill_learner.skill_learner_agent",
-                new_callable=AsyncMock,
-            ) as mock_agent,
         ):
             mock_session = AsyncMock()
             mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
@@ -330,18 +551,16 @@ class TestControllerErrorPaths:
                 return_value=False
             )
 
-            result = await process_skill_learning(
+            result = await process_context_distillation(
                 project_id, session_id, task_id, ls_id
             )
             assert not result.ok()
             _, error = result.unpack()
             assert "distillation" in error.errmsg.lower()
-            # Agent must NOT have been called
-            mock_agent.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_learning_space_no_skills_calls_agent(self):
-        """Controller handles learning space with no skills (agent creates new skills)."""
+    async def test_returns_skill_learn_distilled_on_success(self):
+        """Controller returns SkillLearnDistilled with correct fields on success."""
         project_id = uuid.uuid4()
         session_id = uuid.uuid4()
         task_id = uuid.uuid4()
@@ -353,7 +572,6 @@ class TestControllerErrorPaths:
         mock_task.data = TaskData(task_description="Test")
 
         mock_tasks = [mock_task]
-        mock_ls = _make_learning_space(user_id=uuid.uuid4())
 
         from pydantic import BaseModel
         from acontext_core.schema.llm import LLMResponse, LLMToolCall, LLMFunction
@@ -400,6 +618,77 @@ class TestControllerErrorPaths:
                 new_callable=AsyncMock,
                 return_value=Result.resolve(mock_llm_response),
             ),
+        ):
+            mock_session = AsyncMock()
+            mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
+                return_value=mock_session
+            )
+            mock_db.get_session_context.return_value.__aexit__ = AsyncMock(
+                return_value=False
+            )
+
+            result = await process_context_distillation(
+                project_id, session_id, task_id, ls_id
+            )
+            assert result.ok()
+            payload, _ = result.unpack()
+            assert isinstance(payload, SkillLearnDistilled)
+            assert payload.project_id == project_id
+            assert payload.session_id == session_id
+            assert payload.task_id == task_id
+            assert payload.learning_space_id == ls_id
+            assert len(payload.distilled_context) > 0
+
+
+# =============================================================================
+# Controller: run_skill_agent tests
+# =============================================================================
+
+
+class TestRunSkillAgent:
+    @pytest.mark.asyncio
+    async def test_learning_space_deleted_rejects(self):
+        """run_skill_agent rejects when learning space is deleted."""
+        project_id = uuid.uuid4()
+        ls_id = uuid.uuid4()
+
+        with (
+            patch(
+                "acontext_core.service.controller.skill_learner.DB_CLIENT"
+            ) as mock_db,
+            patch(
+                "acontext_core.service.controller.skill_learner.LS.get_learning_space",
+                new_callable=AsyncMock,
+                return_value=Result.reject("Not found"),
+            ),
+        ):
+            mock_session = AsyncMock()
+            mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
+                return_value=mock_session
+            )
+            mock_db.get_session_context.return_value.__aexit__ = AsyncMock(
+                return_value=False
+            )
+
+            result = await run_skill_agent(project_id, ls_id, "context")
+            assert not result.ok()
+            _, error = result.unpack()
+            assert "not found" in error.errmsg.lower()
+
+    @pytest.mark.asyncio
+    async def test_runs_agent_with_correct_args(self):
+        """run_skill_agent passes correct args to skill_learner_agent."""
+        project_id = uuid.uuid4()
+        ls_id = uuid.uuid4()
+        user_id = uuid.uuid4()
+        distilled_context = "## Task Analysis (Success)\nTest content"
+
+        mock_ls = _make_learning_space(user_id=user_id)
+
+        with (
+            patch(
+                "acontext_core.service.controller.skill_learner.DB_CLIENT"
+            ) as mock_db,
             patch(
                 "acontext_core.service.controller.skill_learner.LS.get_learning_space",
                 new_callable=AsyncMock,
@@ -408,12 +697,12 @@ class TestControllerErrorPaths:
             patch(
                 "acontext_core.service.controller.skill_learner.LS.get_learning_space_skill_ids",
                 new_callable=AsyncMock,
-                return_value=Result.resolve([]),  # No skills
+                return_value=Result.resolve([]),
             ),
             patch(
                 "acontext_core.service.controller.skill_learner.LS.get_skills_info",
                 new_callable=AsyncMock,
-                return_value=Result.resolve([]),  # No skills
+                return_value=Result.resolve([]),
             ),
             patch(
                 "acontext_core.service.controller.skill_learner.skill_learner_agent",
@@ -429,57 +718,34 @@ class TestControllerErrorPaths:
                 return_value=False
             )
 
-            result = await process_skill_learning(
-                project_id, session_id, task_id, ls_id
-            )
+            result = await run_skill_agent(project_id, ls_id, distilled_context)
             assert result.ok()
-            # Agent must have been called with empty skills_info
             mock_agent.assert_called_once()
             call_kwargs = mock_agent.call_args.kwargs
-            assert call_kwargs["skills_info"] == []
-            assert call_kwargs["user_id"] == mock_ls.user_id
+            assert call_kwargs["project_id"] == project_id
             assert call_kwargs["learning_space_id"] == ls_id
+            assert call_kwargs["user_id"] == user_id
+            assert call_kwargs["distilled_context"] == distilled_context
+            assert call_kwargs["skills_info"] == []
 
     @pytest.mark.asyncio
-    async def test_learning_space_deleted_rejects(self):
-        """Controller rejects when learning space is deleted between publish and consume."""
+    async def test_with_existing_skills(self):
+        """run_skill_agent passes existing skills info to the agent."""
         project_id = uuid.uuid4()
-        session_id = uuid.uuid4()
-        task_id = uuid.uuid4()
         ls_id = uuid.uuid4()
+        skill_id = uuid.uuid4()
+        user_id = uuid.uuid4()
 
-        mock_task = MagicMock()
-        mock_task.status = TaskStatus.SUCCESS
-        mock_task.raw_message_ids = []
-        mock_task.data = TaskData(task_description="Test")
+        mock_ls = _make_learning_space(user_id=user_id)
 
-        mock_tasks = [mock_task]
+        from acontext_core.service.data.learning_space import SkillInfo
 
-        # Mock a successful distillation
-        from pydantic import BaseModel
-        from acontext_core.schema.llm import LLMResponse, LLMToolCall, LLMFunction
-
-        class FakeRaw(BaseModel):
-            pass
-
-        mock_llm_response = LLMResponse(
-            role="assistant",
-            raw_response=FakeRaw(),
-            tool_calls=[
-                LLMToolCall(
-                    id="call_1",
-                    function=LLMFunction(
-                        name="report_success_analysis",
-                        arguments={
-                            "task_goal": "g",
-                            "approach": "a",
-                            "key_decisions": ["d"],
-                            "generalizable_pattern": "p",
-                        },
-                    ),
-                    type="function",
-                )
-            ],
+        mock_skill_info = SkillInfo(
+            id=skill_id,
+            disk_id=uuid.uuid4(),
+            name="db-patterns",
+            description="Database patterns",
+            file_paths=["SKILL.md"],
         )
 
         with (
@@ -487,25 +753,25 @@ class TestControllerErrorPaths:
                 "acontext_core.service.controller.skill_learner.DB_CLIENT"
             ) as mock_db,
             patch(
-                "acontext_core.service.controller.skill_learner.TD.fetch_task",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(mock_task),
-            ),
-            patch(
-                "acontext_core.service.controller.skill_learner.TD.fetch_current_tasks",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(mock_tasks),
-            ),
-            patch(
-                "acontext_core.service.controller.skill_learner.llm_complete",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(mock_llm_response),
-            ),
-            patch(
                 "acontext_core.service.controller.skill_learner.LS.get_learning_space",
                 new_callable=AsyncMock,
-                return_value=Result.reject("Not found"),
+                return_value=Result.resolve(mock_ls),
             ),
+            patch(
+                "acontext_core.service.controller.skill_learner.LS.get_learning_space_skill_ids",
+                new_callable=AsyncMock,
+                return_value=Result.resolve([skill_id]),
+            ),
+            patch(
+                "acontext_core.service.controller.skill_learner.LS.get_skills_info",
+                new_callable=AsyncMock,
+                return_value=Result.resolve([mock_skill_info]),
+            ),
+            patch(
+                "acontext_core.service.controller.skill_learner.skill_learner_agent",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(None),
+            ) as mock_agent,
         ):
             mock_session = AsyncMock()
             mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
@@ -515,12 +781,12 @@ class TestControllerErrorPaths:
                 return_value=False
             )
 
-            result = await process_skill_learning(
-                project_id, session_id, task_id, ls_id
-            )
-            assert not result.ok()
-            _, error = result.unpack()
-            assert "not found" in error.errmsg.lower()
+            result = await run_skill_agent(project_id, ls_id, "context")
+            assert result.ok()
+            mock_agent.assert_called_once()
+            call_kwargs = mock_agent.call_args.kwargs
+            assert len(call_kwargs["skills_info"]) == 1
+            assert call_kwargs["skills_info"][0].name == "db-patterns"
 
 
 # =============================================================================
@@ -528,8 +794,8 @@ class TestControllerErrorPaths:
 # =============================================================================
 
 
-class TestSkillLearnTaskSchema:
-    def test_serialization(self):
+class TestSkillLearnSchemas:
+    def test_skill_learn_task_serialization(self):
         """SkillLearnTask serializes and deserializes correctly."""
         task = SkillLearnTask(
             project_id=uuid.uuid4(),
@@ -542,23 +808,51 @@ class TestSkillLearnTaskSchema:
         assert restored.session_id == task.session_id
         assert restored.task_id == task.task_id
 
+    def test_skill_learn_distilled_serialization(self):
+        """SkillLearnDistilled serializes and deserializes correctly."""
+        distilled = SkillLearnDistilled(
+            project_id=uuid.uuid4(),
+            session_id=uuid.uuid4(),
+            task_id=uuid.uuid4(),
+            learning_space_id=uuid.uuid4(),
+            distilled_context="## Task Analysis (Success)\n**Goal**: Fix bug\n**Approach**: ...",
+        )
+        json_str = distilled.model_dump_json()
+        restored = SkillLearnDistilled.model_validate_json(json_str)
+        assert restored.project_id == distilled.project_id
+        assert restored.session_id == distilled.session_id
+        assert restored.task_id == distilled.task_id
+        assert restored.learning_space_id == distilled.learning_space_id
+        assert restored.distilled_context == distilled.distilled_context
+
+    def test_skill_learn_distilled_context_as_string(self):
+        """SkillLearnDistilled distilled_context is preserved as plain string."""
+        context = "Line 1\nLine 2\n\nSpecial chars: <>&\"'"
+        distilled = SkillLearnDistilled(
+            project_id=uuid.uuid4(),
+            session_id=uuid.uuid4(),
+            task_id=uuid.uuid4(),
+            learning_space_id=uuid.uuid4(),
+            distilled_context=context,
+        )
+        json_str = distilled.model_dump_json()
+        restored = SkillLearnDistilled.model_validate_json(json_str)
+        assert restored.distilled_context == context
+
 
 # =============================================================================
-# End-to-end consumer test
+# End-to-end controller tests
 # =============================================================================
 
 
-class TestConsumerEndToEnd:
-    """Full pipeline: fetch task → distill → fetch LS/skills → agent runs."""
-
+class TestEndToEnd:
     @pytest.mark.asyncio
-    async def test_success_task_full_pipeline(self):
-        """SkillLearnTask with SUCCESS task flows through distillation → agent."""
+    async def test_success_task_distillation_produces_payload(self):
+        """SUCCESS task flows through distillation and produces SkillLearnDistilled."""
         project_id = uuid.uuid4()
         session_id = uuid.uuid4()
         task_id = uuid.uuid4()
         ls_id = uuid.uuid4()
-        user_id = uuid.uuid4()
 
         mock_task = MagicMock()
         mock_task.status = TaskStatus.SUCCESS
@@ -576,15 +870,12 @@ class TestConsumerEndToEnd:
         mock_message.parts = [{"type": "text", "text": "Fix login"}]
         mock_message.task_id = task_id
 
-        mock_ls = _make_learning_space(user_id=user_id)
-
         from pydantic import BaseModel
         from acontext_core.schema.llm import LLMResponse, LLMToolCall, LLMFunction
 
         class FakeRaw(BaseModel):
             pass
 
-        # Distillation LLM response
         distill_response = LLMResponse(
             role="assistant",
             raw_response=FakeRaw(),
@@ -629,26 +920,6 @@ class TestConsumerEndToEnd:
                 new_callable=AsyncMock,
                 return_value=Result.resolve(distill_response),
             ),
-            patch(
-                "acontext_core.service.controller.skill_learner.LS.get_learning_space",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(mock_ls),
-            ),
-            patch(
-                "acontext_core.service.controller.skill_learner.LS.get_learning_space_skill_ids",
-                new_callable=AsyncMock,
-                return_value=Result.resolve([]),
-            ),
-            patch(
-                "acontext_core.service.controller.skill_learner.LS.get_skills_info",
-                new_callable=AsyncMock,
-                return_value=Result.resolve([]),
-            ),
-            patch(
-                "acontext_core.service.controller.skill_learner.skill_learner_agent",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(None),
-            ) as mock_agent,
         ):
             mock_session = AsyncMock()
             mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
@@ -658,24 +929,18 @@ class TestConsumerEndToEnd:
                 return_value=False
             )
 
-            result = await process_skill_learning(
+            result = await process_context_distillation(
                 project_id, session_id, task_id, ls_id
             )
 
             assert result.ok()
-            mock_agent.assert_called_once()
-            call_kwargs = mock_agent.call_args.kwargs
-
-            # Agent receives distilled context, not raw messages
-            assert "## Task Analysis (Success)" in call_kwargs["distilled_context"]
-            assert "Fix login bug" in call_kwargs["distilled_context"]
-            assert "token expiry" in call_kwargs["distilled_context"]
-
-            # Agent receives correct IDs
-            assert call_kwargs["project_id"] == project_id
-            assert call_kwargs["learning_space_id"] == ls_id
-            assert call_kwargs["user_id"] == user_id
-            assert call_kwargs["skills_info"] == []
+            payload, _ = result.unpack()
+            assert isinstance(payload, SkillLearnDistilled)
+            assert "## Task Analysis (Success)" in payload.distilled_context
+            assert "Fix login bug" in payload.distilled_context
+            assert "token expiry" in payload.distilled_context
+            assert payload.project_id == project_id
+            assert payload.learning_space_id == ls_id
 
     @pytest.mark.asyncio
     async def test_failed_task_uses_failure_distillation(self):
@@ -691,7 +956,6 @@ class TestConsumerEndToEnd:
         mock_task.data = TaskData(task_description="Deploy service")
 
         mock_all_tasks = [mock_task]
-        mock_ls = _make_learning_space(user_id=uuid.uuid4())
 
         from pydantic import BaseModel
         from acontext_core.schema.llm import LLMResponse, LLMToolCall, LLMFunction
@@ -746,26 +1010,6 @@ class TestConsumerEndToEnd:
                 new_callable=AsyncMock,
                 side_effect=capturing_llm_complete,
             ),
-            patch(
-                "acontext_core.service.controller.skill_learner.LS.get_learning_space",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(mock_ls),
-            ),
-            patch(
-                "acontext_core.service.controller.skill_learner.LS.get_learning_space_skill_ids",
-                new_callable=AsyncMock,
-                return_value=Result.resolve([]),
-            ),
-            patch(
-                "acontext_core.service.controller.skill_learner.LS.get_skills_info",
-                new_callable=AsyncMock,
-                return_value=Result.resolve([]),
-            ),
-            patch(
-                "acontext_core.service.controller.skill_learner.skill_learner_agent",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(None),
-            ) as mock_agent,
         ):
             mock_session = AsyncMock()
             mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
@@ -775,95 +1019,38 @@ class TestConsumerEndToEnd:
                 return_value=False
             )
 
-            result = await process_skill_learning(
+            result = await process_context_distillation(
                 project_id, session_id, task_id, ls_id
             )
 
             assert result.ok()
+            payload, _ = result.unpack()
+            assert isinstance(payload, SkillLearnDistilled)
 
             # Verify failure distillation prompt was used
             assert len(captured_llm_calls) == 1
             distill_call = captured_llm_calls[0]
             assert "report_failure_analysis" in distill_call["system_prompt"]
 
-            # Agent receives failure-formatted distilled context
-            mock_agent.assert_called_once()
-            distilled = mock_agent.call_args.kwargs["distilled_context"]
-            assert "## Task Analysis (Failure)" in distilled
-            assert "Deploy service" in distilled
-            assert "without backup" in distilled
+            # Payload contains failure-formatted distilled context
+            assert "## Task Analysis (Failure)" in payload.distilled_context
+            assert "Deploy service" in payload.distilled_context
+            assert "without backup" in payload.distilled_context
 
     @pytest.mark.asyncio
-    async def test_full_pipeline_with_existing_skills(self):
-        """Pipeline passes existing skills info to the agent."""
+    async def test_agent_receives_distilled_context_and_runs(self):
+        """run_skill_agent receives distilled context string and runs agent."""
         project_id = uuid.uuid4()
-        session_id = uuid.uuid4()
-        task_id = uuid.uuid4()
         ls_id = uuid.uuid4()
-        skill_id = uuid.uuid4()
+        user_id = uuid.uuid4()
+        distilled_context = "## Task Analysis (Success)\n**Goal**: Optimize\n**Pattern**: Profile first"
 
-        mock_task = MagicMock()
-        mock_task.status = TaskStatus.SUCCESS
-        mock_task.raw_message_ids = []
-        mock_task.data = TaskData(task_description="Optimize query")
-
-        mock_all_tasks = [mock_task]
-        mock_ls = _make_learning_space(user_id=uuid.uuid4())
-
-        from pydantic import BaseModel
-        from acontext_core.schema.llm import LLMResponse, LLMToolCall, LLMFunction
-        from acontext_core.service.data.learning_space import SkillInfo
-
-        class FakeRaw(BaseModel):
-            pass
-
-        distill_response = LLMResponse(
-            role="assistant",
-            raw_response=FakeRaw(),
-            tool_calls=[
-                LLMToolCall(
-                    id="call_d",
-                    function=LLMFunction(
-                        name="report_success_analysis",
-                        arguments={
-                            "task_goal": "Optimize query",
-                            "approach": "Added index.",
-                            "key_decisions": ["Profiled first"],
-                            "generalizable_pattern": "Profile before optimizing.",
-                        },
-                    ),
-                    type="function",
-                )
-            ],
-        )
-
-        mock_skill_info = SkillInfo(
-            id=skill_id,
-            disk_id=uuid.uuid4(),
-            name="db-patterns",
-            description="Database patterns",
-            file_paths=["SKILL.md"],
-        )
+        mock_ls = _make_learning_space(user_id=user_id)
 
         with (
             patch(
                 "acontext_core.service.controller.skill_learner.DB_CLIENT"
             ) as mock_db,
-            patch(
-                "acontext_core.service.controller.skill_learner.TD.fetch_task",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(mock_task),
-            ),
-            patch(
-                "acontext_core.service.controller.skill_learner.TD.fetch_current_tasks",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(mock_all_tasks),
-            ),
-            patch(
-                "acontext_core.service.controller.skill_learner.llm_complete",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(distill_response),
-            ),
             patch(
                 "acontext_core.service.controller.skill_learner.LS.get_learning_space",
                 new_callable=AsyncMock,
@@ -872,12 +1059,12 @@ class TestConsumerEndToEnd:
             patch(
                 "acontext_core.service.controller.skill_learner.LS.get_learning_space_skill_ids",
                 new_callable=AsyncMock,
-                return_value=Result.resolve([skill_id]),
+                return_value=Result.resolve([]),
             ),
             patch(
                 "acontext_core.service.controller.skill_learner.LS.get_skills_info",
                 new_callable=AsyncMock,
-                return_value=Result.resolve([mock_skill_info]),
+                return_value=Result.resolve([]),
             ),
             patch(
                 "acontext_core.service.controller.skill_learner.skill_learner_agent",
@@ -893,13 +1080,12 @@ class TestConsumerEndToEnd:
                 return_value=False
             )
 
-            result = await process_skill_learning(
-                project_id, session_id, task_id, ls_id
-            )
+            result = await run_skill_agent(project_id, ls_id, distilled_context)
 
             assert result.ok()
             mock_agent.assert_called_once()
             call_kwargs = mock_agent.call_args.kwargs
-            # Agent receives the existing skill info
-            assert len(call_kwargs["skills_info"]) == 1
-            assert call_kwargs["skills_info"][0].name == "db-patterns"
+            assert call_kwargs["distilled_context"] == distilled_context
+            assert call_kwargs["project_id"] == project_id
+            assert call_kwargs["learning_space_id"] == ls_id
+            assert call_kwargs["user_id"] == user_id

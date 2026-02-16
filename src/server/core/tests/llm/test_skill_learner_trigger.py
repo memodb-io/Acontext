@@ -327,7 +327,7 @@ class TestAgentLoopDrainPublish:
             # Verify exchange and routing key
             call_args = mock_publish.call_args
             assert call_args[0][0] == EX.learning_skill
-            assert call_args[0][1] == RK.learning_skill_process
+            assert call_args[0][1] == RK.learning_skill_distill
 
     @pytest.mark.asyncio
     async def test_learning_disabled_no_publish(self):

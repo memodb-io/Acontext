@@ -54,10 +54,10 @@ class TestPackSkillLearnerInput:
 
 
 class TestToolSchemas:
-    def test_returns_8_tools(self):
-        """Tool schemas include all 8 expected tools."""
+    def test_returns_9_tools(self):
+        """Tool schemas include all 9 expected tools."""
         schemas = SkillLearnerPrompt.tool_schema()
-        assert len(schemas) == 8
+        assert len(schemas) == 9
 
     def test_tool_names(self):
         """Tool schemas contain all expected tool names."""
@@ -70,6 +70,7 @@ class TestToolSchemas:
             "create_skill_file",
             "create_skill",
             "delete_skill_file",
+            "mv_skill_file",
             "finish",
             "report_thinking",
         }

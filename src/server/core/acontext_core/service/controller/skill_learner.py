@@ -4,6 +4,7 @@ from ...schema.result import Result
 from ...schema.utils import asUUID
 from ...schema.session.task import TaskStatus
 from ...schema.session.message import MessageBlob
+from ...schema.mq.learning import SkillLearnDistilled
 from ..data import task as TD
 from ..data import message as MD
 from ..data import learning_space as LS
@@ -17,12 +18,17 @@ from ...llm.tool.skill_learner_lib.distill import (
 from ...llm.agent.skill_learner import skill_learner_agent
 
 
-async def process_skill_learning(
+async def process_context_distillation(
     project_id: asUUID,
     session_id: asUUID,
     task_id: asUUID,
     learning_space_id: asUUID,
-) -> Result[None]:
+) -> Result[SkillLearnDistilled | None]:
+    """Steps 1-2: Fetch task + raw messages, run context distillation.
+
+    Returns a fully-formed SkillLearnDistilled payload on success.
+    DB session is closed before returning — raw messages are freed from memory.
+    """
     # Step 1: Fetch target task, raw messages, session tasks
     async with DB_CLIENT.get_session_context() as db_session:
         r = await TD.fetch_task(db_session, task_id)
@@ -91,6 +97,26 @@ async def process_skill_learning(
         LOG.warning(f"Skill learning distillation extraction failed: {eil}")
         return Result.reject(f"Distillation extraction failed: {eil}")
 
+    return Result.resolve(
+        SkillLearnDistilled(
+            project_id=project_id,
+            session_id=session_id,
+            task_id=task_id,
+            learning_space_id=learning_space_id,
+            distilled_context=distilled_context,
+        )
+    )
+
+
+async def run_skill_agent(
+    project_id: asUUID,
+    learning_space_id: asUUID,
+    distilled_context: str,
+) -> Result[None]:
+    """Steps 3-4: Fetch learning space (for user_id) + skills, run agent.
+
+    Re-fetches LearningSpace to get user_id (not passed via MQ message).
+    """
     # Step 3: Fetch learning space info and skills
     async with DB_CLIENT.get_session_context() as db_session:
         r = await LS.get_learning_space(db_session, learning_space_id)

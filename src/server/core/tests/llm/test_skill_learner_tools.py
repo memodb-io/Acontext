@@ -1,6 +1,7 @@
 """
 Tests for skill learner tool handlers: get_skill, get_skill_file,
-str_replace_skill_file, create_skill_file, create_skill, delete_skill_file.
+str_replace_skill_file, create_skill_file, create_skill, delete_skill_file,
+mv_skill_file.
 
 Also covers:
 - Thinking guard (has_reported_thinking)
@@ -32,6 +33,9 @@ from acontext_core.llm.tool.skill_learner_lib.create_skill import (
 )
 from acontext_core.llm.tool.skill_learner_lib.delete_skill_file import (
     delete_skill_file_handler,
+)
+from acontext_core.llm.tool.skill_learner_lib.mv_skill_file import (
+    mv_skill_file_handler,
 )
 from acontext_core.llm.tool.skill_learner_tools import (
     _skill_learner_thinking_handler,
@@ -389,9 +393,9 @@ class TestCreateSkillFile:
 
         with (
             patch(
-                "acontext_core.llm.tool.skill_learner_lib.create_skill_file.get_artifact_by_path",
+                "acontext_core.llm.tool.skill_learner_lib.create_skill_file.artifact_exists",
                 new_callable=AsyncMock,
-                return_value=Result.reject("Not found"),
+                return_value=False,
             ),
             patch(
                 "acontext_core.llm.tool.skill_learner_lib.create_skill_file.upsert_artifact",
@@ -436,11 +440,10 @@ class TestCreateSkillFile:
         skill = _make_skill_info()
         ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
 
-        mock_artifact = MagicMock()
         with patch(
-            "acontext_core.llm.tool.skill_learner_lib.create_skill_file.get_artifact_by_path",
+            "acontext_core.llm.tool.skill_learner_lib.create_skill_file.artifact_exists",
             new_callable=AsyncMock,
-            return_value=Result.resolve(mock_artifact),
+            return_value=True,
         ):
             result = await create_skill_file_handler(
                 ctx,
@@ -586,6 +589,253 @@ class TestDeleteSkillFile:
 
 
 # =============================================================================
+# mv_skill_file tests
+# =============================================================================
+
+
+class TestMvSkillFile:
+    @pytest.mark.asyncio
+    async def test_moves_file(self):
+        """mv_skill_file moves artifact and updates context file_paths."""
+        skill = _make_skill_info(file_paths=["SKILL.md", "old-name.md"])
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        mock_artifact = MagicMock()
+        mock_artifact.path = "/"
+        mock_artifact.filename = "old-name.md"
+
+        with (
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.mv_skill_file.get_artifact_by_path",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(mock_artifact),
+            ),
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.mv_skill_file.artifact_exists",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+        ):
+            result = await mv_skill_file_handler(
+                ctx,
+                {
+                    "skill_name": "test-skill",
+                    "source_path": "old-name.md",
+                    "destination_path": "new-name.md",
+                },
+            )
+            assert result.ok()
+            text, _ = result.unpack()
+            assert "moved" in text.lower()
+            assert "old-name.md" not in skill.file_paths
+            assert "new-name.md" in skill.file_paths
+            # Verify artifact was updated
+            assert mock_artifact.path == "/"
+            assert mock_artifact.filename == "new-name.md"
+
+    @pytest.mark.asyncio
+    async def test_moves_to_subdirectory(self):
+        """mv_skill_file can move a file into a subdirectory."""
+        skill = _make_skill_info(file_paths=["SKILL.md", "notes.md"])
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        mock_artifact = MagicMock()
+        mock_artifact.path = "/"
+        mock_artifact.filename = "notes.md"
+
+        with (
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.mv_skill_file.get_artifact_by_path",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(mock_artifact),
+            ),
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.mv_skill_file.artifact_exists",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+        ):
+            result = await mv_skill_file_handler(
+                ctx,
+                {
+                    "skill_name": "test-skill",
+                    "source_path": "notes.md",
+                    "destination_path": "docs/notes.md",
+                },
+            )
+            assert result.ok()
+            assert "notes.md" not in skill.file_paths
+            assert "docs/notes.md" in skill.file_paths
+            assert mock_artifact.path == "docs/"
+            assert mock_artifact.filename == "notes.md"
+
+    @pytest.mark.asyncio
+    async def test_rejects_moving_skill_md(self):
+        """mv_skill_file rejects moving SKILL.md."""
+        skill = _make_skill_info()
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        result = await mv_skill_file_handler(
+            ctx,
+            {
+                "skill_name": "test-skill",
+                "source_path": "SKILL.md",
+                "destination_path": "old-skill.md",
+            },
+        )
+        text, _ = result.unpack()
+        assert "cannot move skill.md" in text.lower()
+
+    @pytest.mark.asyncio
+    async def test_rejects_overwriting_skill_md(self):
+        """mv_skill_file rejects moving a file to SKILL.md."""
+        skill = _make_skill_info(file_paths=["SKILL.md", "other.md"])
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        result = await mv_skill_file_handler(
+            ctx,
+            {
+                "skill_name": "test-skill",
+                "source_path": "other.md",
+                "destination_path": "SKILL.md",
+            },
+        )
+        text, _ = result.unpack()
+        assert "cannot overwrite skill.md" in text.lower()
+
+    @pytest.mark.asyncio
+    async def test_rejects_source_not_found(self):
+        """mv_skill_file rejects when source file doesn't exist."""
+        skill = _make_skill_info()
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        with patch(
+            "acontext_core.llm.tool.skill_learner_lib.mv_skill_file.get_artifact_by_path",
+            new_callable=AsyncMock,
+            return_value=Result.reject("Not found"),
+        ):
+            result = await mv_skill_file_handler(
+                ctx,
+                {
+                    "skill_name": "test-skill",
+                    "source_path": "missing.md",
+                    "destination_path": "new.md",
+                },
+            )
+            text, _ = result.unpack()
+            assert "not found" in text.lower()
+
+    @pytest.mark.asyncio
+    async def test_rejects_destination_exists(self):
+        """mv_skill_file rejects when destination already exists."""
+        skill = _make_skill_info(file_paths=["SKILL.md", "a.md", "b.md"])
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        mock_src = MagicMock()
+
+        with (
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.mv_skill_file.get_artifact_by_path",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(mock_src),
+            ),
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.mv_skill_file.artifact_exists",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+        ):
+            result = await mv_skill_file_handler(
+                ctx,
+                {
+                    "skill_name": "test-skill",
+                    "source_path": "a.md",
+                    "destination_path": "b.md",
+                },
+            )
+            text, _ = result.unpack()
+            assert "already exists" in text.lower()
+
+    @pytest.mark.asyncio
+    async def test_rejects_same_path(self):
+        """mv_skill_file rejects when source and destination are the same."""
+        skill = _make_skill_info()
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        result = await mv_skill_file_handler(
+            ctx,
+            {
+                "skill_name": "test-skill",
+                "source_path": "notes.md",
+                "destination_path": "notes.md",
+            },
+        )
+        text, _ = result.unpack()
+        assert "same" in text.lower()
+
+    @pytest.mark.asyncio
+    async def test_rejects_path_traversal(self):
+        """mv_skill_file rejects paths with '..' traversal."""
+        skill = _make_skill_info()
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        result = await mv_skill_file_handler(
+            ctx,
+            {
+                "skill_name": "test-skill",
+                "source_path": "../escape.md",
+                "destination_path": "safe.md",
+            },
+        )
+        text, _ = result.unpack()
+        assert "traversal" in text.lower()
+
+        result = await mv_skill_file_handler(
+            ctx,
+            {
+                "skill_name": "test-skill",
+                "source_path": "safe.md",
+                "destination_path": "../../etc/passwd",
+            },
+        )
+        text, _ = result.unpack()
+        assert "traversal" in text.lower()
+
+    @pytest.mark.asyncio
+    async def test_rejects_skill_not_found(self):
+        """mv_skill_file rejects when skill doesn't exist."""
+        ctx = _make_ctx(skills={}, has_reported_thinking=True)
+
+        result = await mv_skill_file_handler(
+            ctx,
+            {
+                "skill_name": "nonexistent",
+                "source_path": "a.md",
+                "destination_path": "b.md",
+            },
+        )
+        text, _ = result.unpack()
+        assert "not found" in text.lower()
+
+    @pytest.mark.asyncio
+    async def test_requires_thinking(self):
+        """mv_skill_file requires report_thinking before use."""
+        skill = _make_skill_info()
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=False)
+
+        result = await mv_skill_file_handler(
+            ctx,
+            {
+                "skill_name": "test-skill",
+                "source_path": "a.md",
+                "destination_path": "b.md",
+            },
+        )
+        text, _ = result.unpack()
+        assert "report_thinking" in text
+
+
+# =============================================================================
 # Thinking guard tests
 # =============================================================================
 
@@ -632,6 +882,18 @@ class TestThinkingGuard:
         text, _ = result.unpack()
         assert "report_thinking" in text
 
+        # mv_skill_file
+        result = await mv_skill_file_handler(
+            ctx,
+            {
+                "skill_name": "test-skill",
+                "source_path": "a.md",
+                "destination_path": "b.md",
+            },
+        )
+        text, _ = result.unpack()
+        assert "report_thinking" in text
+
     @pytest.mark.asyncio
     async def test_report_thinking_sets_flag(self):
         """report_thinking sets has_reported_thinking to True."""
@@ -670,9 +932,9 @@ class TestThinkingGuard:
         mock_artifact = MagicMock()
         with (
             patch(
-                "acontext_core.llm.tool.skill_learner_lib.create_skill_file.get_artifact_by_path",
+                "acontext_core.llm.tool.skill_learner_lib.create_skill_file.artifact_exists",
                 new_callable=AsyncMock,
-                return_value=Result.reject("Not found"),
+                return_value=False,
             ),
             patch(
                 "acontext_core.llm.tool.skill_learner_lib.create_skill_file.upsert_artifact",
@@ -779,9 +1041,9 @@ class TestPathValidation:
 
 
 class TestToolPoolRegistration:
-    def test_pool_has_8_tools(self):
-        """SKILL_LEARNER_TOOLS has all 8 tools."""
-        assert len(SKILL_LEARNER_TOOLS) == 8
+    def test_pool_has_9_tools(self):
+        """SKILL_LEARNER_TOOLS has all 9 tools."""
+        assert len(SKILL_LEARNER_TOOLS) == 9
 
     def test_pool_tool_names(self):
         """SKILL_LEARNER_TOOLS has correct tool names."""
@@ -792,6 +1054,7 @@ class TestToolPoolRegistration:
             "create_skill_file",
             "create_skill",
             "delete_skill_file",
+            "mv_skill_file",
             "finish",
             "report_thinking",
         }

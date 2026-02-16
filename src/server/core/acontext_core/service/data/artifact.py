@@ -24,6 +24,18 @@ async def get_artifact_by_path(
     return Result.resolve(artifact)
 
 
+async def artifact_exists(
+    db_session: AsyncSession, disk_id: asUUID, path: str, filename: str
+) -> bool:
+    query = select(func.count()).select_from(Artifact).where(
+        Artifact.disk_id == disk_id,
+        Artifact.path == path,
+        Artifact.filename == filename,
+    )
+    result = await db_session.execute(query)
+    return result.scalar_one() > 0
+
+
 async def list_artifacts_by_path(
     db_session: AsyncSession, disk_id: asUUID, path: str = ""
 ) -> Result[List[Artifact]]:

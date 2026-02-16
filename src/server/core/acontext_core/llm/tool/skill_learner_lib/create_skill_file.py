@@ -2,7 +2,7 @@ import hashlib
 from ..base import Tool
 from ....schema.llm import ToolSchema
 from ....schema.result import Result
-from ....service.data.artifact import upsert_artifact, get_artifact_by_path
+from ....service.data.artifact import upsert_artifact, artifact_exists
 from .ctx import SkillLearnerCtx
 from .get_skill_file import _validate_file_path, _split_file_path
 
@@ -39,9 +39,7 @@ async def create_skill_file_handler(
         return Result.resolve(f"Skill '{skill_name}' not found.")
 
     # Check if file already exists — use str_replace_skill_file to edit existing files
-    r = await get_artifact_by_path(ctx.db_session, skill.disk_id, path, filename)
-    existing, _ = r.unpack()
-    if existing is not None:
+    if await artifact_exists(ctx.db_session, skill.disk_id, path, filename):
         return Result.resolve(
             f"File '{file_path}' already exists in skill '{skill_name}'. "
             f"Use str_replace_skill_file to edit it."
