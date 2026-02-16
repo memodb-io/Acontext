@@ -6,6 +6,7 @@ from ...schema.session.message import MessageBlob
 from ...schema.utils import asUUID
 from ...schema.result import Result
 from ...llm.agent import task as AT
+from ...llm.complete import llm_complete
 from ...env import LOG
 from ...schema.config import ProjectConfig
 from ...telemetry.get_metrics import get_metrics
@@ -14,6 +15,7 @@ from ..data import session as SD
 
 TITLE_INPUT_MAX_CHARS = 512
 TITLE_INPUT_MIN_CHARS = 12
+TITLE_GENERATION_MAX_TOKENS = 24
 NON_INFORMATIVE_TITLE_INPUTS = {
     "hi",
     "hello",
@@ -25,6 +27,14 @@ NON_INFORMATIVE_TITLE_INPUTS = {
     "test",
     "testing",
 }
+TITLE_GENERATION_SYSTEM_PROMPT = """You generate concise session titles.
+Given a user's first message, return one short, informative title.
+Rules:
+- 3 to 8 words.
+- Use plain text only.
+- Do not use quotes.
+- Do not include punctuation at the end.
+"""
 
 
 def normalize_title_input_text(text: str, max_chars: int = TITLE_INPUT_MAX_CHARS) -> str | None:
@@ -63,6 +73,26 @@ def extract_first_user_message_text(messages: list[MessageBlob]) -> str | None:
         if text_parts:
             return normalize_title_input_text("\n".join(text_parts))
     return None
+
+
+async def generate_session_title_candidate(
+    first_user_message_text: str,
+) -> Result[str | None]:
+    r = await llm_complete(
+        system_prompt=TITLE_GENERATION_SYSTEM_PROMPT,
+        history_messages=[{"role": "user", "content": first_user_message_text}],
+        max_tokens=TITLE_GENERATION_MAX_TOKENS,
+        prompt_kwargs={"prompt_id": "session.display_title.first_user"},
+    )
+    llm_response, eil = r.unpack()
+    if eil:
+        return Result.reject(eil.errmsg)
+    if llm_response.content is None:
+        return Result.resolve(None)
+    title_candidate = llm_response.content.strip()
+    if title_candidate == "":
+        return Result.resolve(None)
+    return Result.resolve(title_candidate)
 
 
 async def process_session_pending_message(
@@ -145,11 +175,29 @@ async def process_session_pending_message(
                         f"length={len(first_user_message_text)}"
                     )
 
+        if first_user_message_text is not None:
+            r = await generate_session_title_candidate(first_user_message_text)
+            title_candidate, eil = r.unpack()
+            if eil:
+                LOG.warning(
+                    f"Title generation failed for session {session_id}: {eil.errmsg}"
+                )
+            elif title_candidate is None:
+                LOG.debug(
+                    f"Title generation returned empty content for session {session_id}"
+                )
+            else:
+                LOG.debug(
+                    f"Generated session title candidate for session {session_id}: "
+                    f"{title_candidate[:80]}"
+                )
+
+        ls_session = None
         async with DB_CLIENT.get_session_context() as session:
             r = await LS.get_learning_space_for_session(session, session_id)
-            ls_session, eil = r.unpack()
-            if eil:
-                ls_session = None
+            _ls_session, eil = r.unpack()
+            if eil is None:
+                ls_session = _ls_session
 
         r = await AT.task_agent_curd(
             project_id,
