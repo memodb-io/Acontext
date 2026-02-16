@@ -26,6 +26,7 @@ jobs:
         with:
           go-version-file: ${{ matrix.path }}/go.mod
           cache: true
+          cache-dependency-path: ${{ matrix.path }}/go.sum
       - name: Run govulncheck on ${{ matrix.name }}
         working-directory: ${{ matrix.path }}
         run: |
@@ -45,6 +46,10 @@ jobs:
         uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: |
+            src/server/core/pyproject.toml
+            src/client/acontext-py/pyproject.toml
       - name: Install pip-audit
         run: pip install pip-audit
       - name: Audit Projects
@@ -69,6 +74,8 @@ jobs:
         uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/client/acontext-ts/package-lock.json
       - name: Setup pnpm
         run: npm install -g pnpm
       - name: Audit TS SDK

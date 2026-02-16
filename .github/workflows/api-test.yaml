@@ -36,6 +36,7 @@ jobs:
         with:
           go-version-file: src/server/api/go/go.mod
           cache: true
+          cache-dependency-path: src/server/api/go/go.sum
       - run: go mod tidy
       - name: Run tests with coverage
         run: go test -v -timeout 30m -coverprofile=coverage.out -covermode=atomic ./...

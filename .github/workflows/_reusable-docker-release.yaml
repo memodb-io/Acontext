@@ -64,8 +64,8 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           sbom: true
           provenance: mode=max
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=${{ inputs.image_name }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.image_name }}
 
       - name: Extract version from tag
         id: version
