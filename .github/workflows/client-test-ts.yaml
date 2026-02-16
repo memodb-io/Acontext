@@ -3,18 +3,20 @@ name: TypeScript Client Test
 on:
   push:
     branches:
-      - main
       - dev
     paths:
       - "src/client/acontext-ts/**"
       - ".github/workflows/client-test-ts.yaml"
   pull_request:
     branches:
-      - main
       - dev
     paths:
       - "src/client/acontext-ts/**"
       - ".github/workflows/client-test-ts.yaml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:

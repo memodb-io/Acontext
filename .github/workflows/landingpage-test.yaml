@@ -3,18 +3,20 @@ name: Landing Page Test
 on:
   push:
     branches:
-      - main
       - dev
     paths:
       - "landingpage/**"
       - ".github/workflows/landingpage-test.yaml"
   pull_request:
     branches:
-      - main
       - dev
     paths:
       - "landingpage/**"
       - ".github/workflows/landingpage-test.yaml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   lint-and-build:

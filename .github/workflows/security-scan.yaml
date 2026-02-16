@@ -2,7 +2,7 @@ name: Security Scan
 
 on:
   push:
-    branches: [main, dev]
+    branches: [dev]
     paths:
       - 'src/server/api/go/go.mod'
       - 'src/server/api/go/go.sum'
@@ -21,7 +21,7 @@ on:
       - '.github/workflows/security-scan.yaml'
       - '.github/workflows/security-reusable.yaml'
   pull_request:
-    branches: [main, dev]
+    branches: [dev]
     paths:
       - 'src/server/api/go/go.mod'
       - 'src/server/api/go/go.sum'
@@ -40,6 +40,10 @@ on:
       - '.github/workflows/security-scan.yaml'
       - '.github/workflows/security-reusable.yaml'
   workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   security:

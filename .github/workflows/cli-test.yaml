@@ -3,18 +3,20 @@ name: CLI Test
 on:
   push:
     branches:
-      - main
       - dev
     paths:
       - 'src/client/acontext-cli/**'
       - '.github/workflows/cli-test.yaml'
   pull_request:
     branches:
-      - main
       - dev
     paths:
       - 'src/client/acontext-cli/**'
       - '.github/workflows/cli-test.yaml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -127,6 +129,7 @@ jobs:
           name: acontext-cli-${{ matrix.os }}
           path: |
             ${{ matrix.os == 'windows-latest' && 'src/client/acontext-cli/acontext-cli.exe' || 'src/client/acontext-cli/acontext-cli' }}
+          retention-days: 30
 
   test-install-script:
     name: Test Install Script on ${{ matrix.os }}

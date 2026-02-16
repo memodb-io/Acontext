@@ -3,18 +3,20 @@ name: Core Test
 on:
   push:
     branches:
-      - main
-      - dev 
+      - dev
     paths:
       - 'src/server/core/**'
       - '.github/workflows/core-test.yaml'
   pull_request:
     branches:
-      - main
       - dev
     paths:
       - 'src/server/core/**'
       - '.github/workflows/core-test.yaml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -24,7 +26,8 @@ jobs:
         python-version: [3.13]
         os: [ubuntu-latest]
     runs-on: ${{ matrix.os }}
-    permissions: 
+    timeout-minutes: 30
+    permissions:
       contents: read
     defaults:
       run:
@@ -67,6 +70,7 @@ jobs:
           path: |
             ./src/server/core/junit/test-results-${{ matrix.python-version }}.xml
             ./src/server/core/coverage-${{ matrix.python-version }}.xml
+          retention-days: 30
         if: ${{ always() }}
       
       - name: Stop containers

@@ -3,18 +3,20 @@ name: Go API Test
 on:
   push:
     branches:
-      - main
-      - dev 
+      - dev
     paths:
       - 'src/server/api/go/**'
       - '.github/workflows/api-test.yaml'
   pull_request:
     branches:
-      - main
       - dev
     paths:
       - 'src/server/api/go/**'
       - '.github/workflows/api-test.yaml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -39,3 +41,4 @@ jobs:
         with:
           name: go-api-coverage
           path: src/server/api/go/coverage.out
+          retention-days: 30

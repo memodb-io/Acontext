@@ -3,6 +3,9 @@ name: Security Scan (Reusable)
 on:
   workflow_call:
 
+permissions:
+  contents: read
+
 jobs:
   go-vulncheck:
     name: Go Vulnerability Check
@@ -39,7 +42,7 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.12'
+          python-version: '3.13'
       - name: Install pip-audit
         run: pip install pip-audit
       - name: Audit Projects
