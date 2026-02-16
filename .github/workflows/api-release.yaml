@@ -4,66 +4,17 @@ on:
   push:
     tags:
       - "api/v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
   packages: write
 
 jobs:
-  api-release:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
-        with:
-          images: ghcr.io/memodb-io/acontext-api
-          tags: |
-            type=sha
-            type=semver,pattern={{version}},match=api/v(\d+\.\d+\.\d+)$
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3 
-
-      - name: Build and Push Docker image
-        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
-        with:
-          platforms: linux/amd64,linux/arm64
-          context: ./src/server/api/go
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha
-    
-      - name: Extract version from tag
-        id: version
-        run: |
-          TAG_NAME=${GITHUB_REF#refs/tags/api/v}
-          echo "version=$TAG_NAME" >> $GITHUB_OUTPUT
-
-      - name: Generate Changelog
-        run: |
-          echo "# API v${{ steps.version.outputs.version }}" > ${{ github.workspace }}-CHANGELOG.txt
-          echo "" >> ${{ github.workspace }}-CHANGELOG.txt
-          echo "Published to https://github.com/memodb-io/Acontext/pkgs/container/acontext-api" >> ${{ github.workspace }}-CHANGELOG.txt
-
-      - name: Create Release
-        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
-        with:
-          body_path: ${{ github.workspace }}-CHANGELOG.txt
-
+  release:
+    uses: ./.github/workflows/_reusable-docker-release.yaml
+    with:
+      image_name: acontext-api
+      context: ./src/server/api/go
+      tag_prefix: "api/v"
+      display_name: API
