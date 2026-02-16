@@ -36,6 +36,8 @@ async def update_task_handler(
     t, eil = r.unpack()
     if eil:
         return r
+    if task_status in ("success", "failed"):
+        ctx.learning_task_ids.append(actually_task_id)
     return Result.resolve(f"Task {t.order} updated")
 
 

@@ -146,3 +146,22 @@ async def upsert_artifact(
             f"Artifact not found after upsert: disk={disk_id}, path={path}, filename={filename}"
         )
     return Result.resolve(artifact)
+
+
+async def delete_artifact_by_path(
+    db_session: AsyncSession, disk_id: asUUID, path: str, filename: str
+) -> Result[None]:
+    query = select(Artifact).where(
+        Artifact.disk_id == disk_id,
+        Artifact.path == path,
+        Artifact.filename == filename,
+    )
+    result = await db_session.execute(query)
+    artifact = result.scalars().first()
+    if artifact is None:
+        return Result.reject(
+            f"Artifact not found: disk={disk_id}, path={path}, filename={filename}"
+        )
+    await db_session.delete(artifact)
+    await db_session.flush()
+    return Result.resolve(None)

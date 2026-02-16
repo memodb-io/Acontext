@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from ....infra.db import AsyncSession
 from ....schema.utils import asUUID
 from ....schema.session.task import TaskSchema
@@ -12,3 +12,4 @@ class TaskCtx:
     task_ids_index: list[asUUID]
     task_index: list[TaskSchema]
     message_ids_index: list[asUUID]
+    learning_task_ids: list[asUUID] = field(default_factory=list)

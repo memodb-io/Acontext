@@ -7,6 +7,7 @@ from acontext_core.service.data.artifact import (
     glob_artifacts,
     grep_artifacts,
     upsert_artifact,
+    delete_artifact_by_path,
 )
 from acontext_core.service.data.disk import create_disk
 from acontext_core.service.data.agent_skill import create_skill
@@ -817,5 +818,61 @@ class TestIntegrationSkillFileList:
             assert artifacts[0].filename == "SKILL.md"
             assert artifacts[0].asset_meta["mime"] == "text/markdown"
             assert artifacts[0].asset_meta["content"] == content
+
+            await session.delete(project)
+
+
+class TestDeleteArtifactByPath:
+    @pytest.mark.asyncio
+    async def test_delete_existing_artifact(self, db_client):
+        """Deleting an existing artifact succeeds and removes it."""
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_del_art_hmac_1",
+                secret_key_hash_phc="test_del_art_hash_1",
+            )
+            session.add(project)
+            await session.flush()
+
+            disk = Disk(project_id=project.id)
+            session.add(disk)
+            await session.flush()
+
+            artifact = Artifact(
+                disk_id=disk.id,
+                path="/",
+                filename="to_delete.py",
+                asset_meta={"content": "x", "mime": "text/plain"},
+            )
+            session.add(artifact)
+            await session.flush()
+
+            result = await delete_artifact_by_path(session, disk.id, "/", "to_delete.py")
+            assert result.ok()
+
+            verify = await get_artifact_by_path(session, disk.id, "/", "to_delete.py")
+            assert not verify.ok()
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_delete_nonexistent_artifact(self, db_client):
+        """Deleting a non-existent artifact returns error."""
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_del_art_hmac_2",
+                secret_key_hash_phc="test_del_art_hash_2",
+            )
+            session.add(project)
+            await session.flush()
+
+            disk = Disk(project_id=project.id)
+            session.add(disk)
+            await session.flush()
+
+            result = await delete_artifact_by_path(
+                session, disk.id, "/", "nonexistent.py"
+            )
+            assert not result.ok()
 
             await session.delete(project)
