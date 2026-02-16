@@ -180,42 +180,49 @@ async def process_session_pending_message(
                 )
                 for m in messages
             ]
-            r = await SD.should_generate_session_display_title(session, session_id)
-            should_generate_title, eil = r.unpack()
-            if eil:
-                return r
-            if not should_generate_title:
-                first_user_message_text = None
-                LOG.debug(
-                    f"Session {session_id} already has display_title, "
-                    "skip title-input extraction"
-                )
-            else:
-                first_user_message_text = extract_first_user_message_text(messages_data)
-                is_quality_ok, quality_reason = check_title_input_quality(
-                    first_user_message_text
-                )
-                if not is_quality_ok:
-                    first_user_message_text = None
+            first_user_message_text = None
+            try:
+                r = await SD.should_generate_session_display_title(session, session_id)
+                should_generate_title, eil = r.unpack()
+                if eil:
+                    raise ValueError(eil.errmsg)
+                if not should_generate_title:
                     LOG.debug(
-                        f"Skip title-input generation for session {session_id}: "
-                        f"{quality_reason}"
+                        f"Session {session_id} already has display_title, "
+                        "skip title-input extraction"
                     )
                 else:
-                    LOG.debug(
-                        f"Extracted first user text from pending session {session_id}, "
-                        f"length={len(first_user_message_text)}"
+                    first_user_message_text = extract_first_user_message_text(
+                        messages_data
                     )
+                    is_quality_ok, quality_reason = check_title_input_quality(
+                        first_user_message_text
+                    )
+                    if not is_quality_ok:
+                        first_user_message_text = None
+                        LOG.debug(
+                            f"Skip title-input generation for session {session_id}: "
+                            f"{quality_reason}"
+                        )
+                    else:
+                        LOG.debug(
+                            f"Extracted first user text from pending session {session_id}, "
+                            f"length={len(first_user_message_text)}"
+                        )
+            except Exception as title_gate_err:
+                first_user_message_text = None
+                LOG.warning(
+                    f"Skip title extraction for session {session_id}: {title_gate_err}"
+                )
 
         if first_user_message_text is not None:
-            title_candidate = None
-            r = await generate_session_title_candidate(first_user_message_text)
-            title_candidate_raw, eil = r.unpack()
-            if eil:
-                LOG.warning(
-                    f"Title generation failed for session {session_id}: {eil.errmsg}"
-                )
-            else:
+            try:
+                title_candidate = None
+                r = await generate_session_title_candidate(first_user_message_text)
+                title_candidate_raw, eil = r.unpack()
+                if eil:
+                    raise ValueError(eil.errmsg)
+
                 title_candidate = sanitize_generated_title(
                     title_candidate_raw, first_user_message_text
                 )
@@ -229,15 +236,19 @@ async def process_session_pending_message(
                         f"{title_candidate[:80]}"
                     )
 
-            if title_candidate is not None:
-                async with DB_CLIENT.get_session_context() as session:
-                    r = await SD.update_session_display_title(
-                        session, session_id, title_candidate
-                    )
-                    _, eil = r.unpack()
-                    if eil:
-                        return r
-                LOG.debug(f"Persisted display_title for session {session_id}")
+                if title_candidate is not None:
+                    async with DB_CLIENT.get_session_context() as session:
+                        r = await SD.update_session_display_title(
+                            session, session_id, title_candidate
+                        )
+                        _, eil = r.unpack()
+                        if eil:
+                            raise ValueError(eil.errmsg)
+                    LOG.debug(f"Persisted display_title for session {session_id}")
+            except Exception as title_err:
+                LOG.warning(
+                    f"Skip title generation/persist for session {session_id}: {title_err}"
+                )
 
         ls_session = None
         async with DB_CLIENT.get_session_context() as session:
