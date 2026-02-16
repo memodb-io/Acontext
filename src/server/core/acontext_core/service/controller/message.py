@@ -11,6 +11,17 @@ from ...schema.config import ProjectConfig
 from ...telemetry.get_metrics import get_metrics
 from ...constants import ExcessMetricTags
 
+TITLE_INPUT_MAX_CHARS = 512
+
+
+def normalize_title_input_text(text: str, max_chars: int = TITLE_INPUT_MAX_CHARS) -> str | None:
+    normalized = " ".join(text.strip().split())
+    if normalized == "":
+        return None
+    if len(normalized) > max_chars:
+        normalized = normalized[:max_chars].rstrip()
+    return normalized
+
 
 def extract_first_user_message_text(messages: list[MessageBlob]) -> str | None:
     for message in messages:
@@ -24,7 +35,7 @@ def extract_first_user_message_text(messages: list[MessageBlob]) -> str | None:
             and part.text.strip() != ""
         ]
         if text_parts:
-            return "\n".join(text_parts)
+            return normalize_title_input_text("\n".join(text_parts))
     return None
 
 
@@ -87,7 +98,7 @@ async def process_session_pending_message(
             else:
                 LOG.debug(
                     f"Extracted first user text from pending session {session_id}, "
-                    f"length={(first_user_message_text)}"
+                    f"length={len(first_user_message_text)}"
                 )
 
         async with DB_CLIENT.get_session_context() as session:
