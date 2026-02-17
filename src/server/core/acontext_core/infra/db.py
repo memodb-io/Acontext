@@ -18,6 +18,7 @@ from sqlalchemy.exc import DisconnectionError, OperationalError
 from ..schema.orm import ORM_BASE
 from ..env import LOG as logger
 from ..env import DEFAULT_CORE_CONFIG
+from .schema_migrations import apply_runtime_schema_patches
 
 
 class DatabaseClient:
@@ -196,8 +197,15 @@ class DatabaseClient:
         logger.info("pgvector extension init")
         async with self.engine.begin() as conn:
             await conn.run_sync(ORM_BASE.metadata.create_all)
+        await self._apply_schema_migrations()
 
         self._table_created = True
+
+    async def _apply_schema_migrations(self) -> None:
+        """Apply idempotent schema patches for existing deployments."""
+        async with self.get_session_context() as db_session:
+            patch_names = await apply_runtime_schema_patches(db_session)
+        logger.info(f"Schema patches ensured: {', '.join(patch_names)}")
 
     async def drop_tables(self) -> None:
         """Drop all tables defined in the ORM models."""

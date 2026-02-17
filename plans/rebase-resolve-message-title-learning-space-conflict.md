@@ -20,3 +20,6 @@
 - [x] `message.py` contains no `<<<<<<<`, `=======`, `>>>>>>>` markers.
 - [x] `process_session_pending_message` keeps title generation block and learning-space lookup block.
 - [x] `python3 -m py_compile src/server/core/acontext_core/service/controller/message.py` passes.
+
+## validation notes
+- `pytest -q src/server/core/tests/service/test_process_session_pending_message.py` could not run in this environment because the local `pytest` installation does not provide `pytest.PytestRemovedIn9Warning`, while the repo warning filter expects it.
