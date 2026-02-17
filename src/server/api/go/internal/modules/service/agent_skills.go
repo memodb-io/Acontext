@@ -443,13 +443,13 @@ type ListAgentSkillsInput struct {
 	TimeDesc  bool
 }
 
-// AgentSkillsListItem is a lightweight representation of AgentSkills for list responses.
-// It excludes file_index to reduce response payload size.
+// AgentSkillsListItem is a representation of AgentSkills for list responses.
 type AgentSkillsListItem struct {
 	ID          uuid.UUID              `json:"id"`
 	UserID      *uuid.UUID             `json:"user_id"`
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
+	FileIndex   []model.FileInfo       `json:"file_index"`
 	Meta        map[string]interface{} `json:"meta"`
 	CreatedAt   time.Time              `json:"created_at"`
 	UpdatedAt   time.Time              `json:"updated_at"`
@@ -485,14 +485,22 @@ func (s *agentSkillsService) List(ctx context.Context, in ListAgentSkillsInput) 
 		agentSkills = agentSkills[:in.Limit]
 	}
 
-	// Convert to lightweight list items (excludes file_index)
+	// Convert to list items with file_index populated from artifacts.
 	items := make([]*AgentSkillsListItem, len(agentSkills))
 	for i, skill := range agentSkills {
+		var fileIndex []model.FileInfo
+		artifacts, err := s.artifactSvc.ListByPath(ctx, skill.DiskID, "")
+		if err == nil {
+			fileIndex = artifactsToFileIndex(artifacts)
+		} else {
+			fileIndex = []model.FileInfo{}
+		}
 		items[i] = &AgentSkillsListItem{
 			ID:          skill.ID,
 			UserID:      skill.UserID,
 			Name:        skill.Name,
 			Description: skill.Description,
+			FileIndex:   fileIndex,
 			Meta:        skill.Meta,
 			CreatedAt:   skill.CreatedAt,
 			UpdatedAt:   skill.UpdatedAt,

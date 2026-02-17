@@ -3176,6 +3176,12 @@
           "description" : {
             "type" : "string"
           },
+          "file_index" : {
+            "items" : {
+              "$ref" : "#/components/schemas/model.FileInfo"
+            },
+            "type" : "array"
+          },
           "id" : {
             "type" : "string"
           },

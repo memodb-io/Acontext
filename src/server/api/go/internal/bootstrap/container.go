@@ -309,6 +309,7 @@ func BuildContainer() *do.Injector {
 			do.MustInvoke[repo.AgentSkillsRepo](i),
 			do.MustInvoke[repo.SessionRepo](i),
 			do.MustInvoke[service.AgentSkillsService](i),
+			do.MustInvoke[service.ArtifactService](i),
 			configs.SkillTemplatesFS,
 		), nil
 	})

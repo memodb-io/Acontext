@@ -543,6 +543,10 @@ definitions:
         type: string
       description:
         type: string
+      file_index:
+        items:
+          $ref: '#/definitions/model.FileInfo'
+        type: array
       id:
         type: string
       meta:

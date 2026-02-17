@@ -766,6 +766,12 @@ func TestAgentSkillsService_List(t *testing.T) {
 		skills := []*model.AgentSkills{createTestAgentSkills(), createTestAgentSkills()}
 		m.repo.On("ListWithCursor", mock.Anything, projectID, "", mock.Anything, mock.Anything, 21, false).
 			Return(skills, nil)
+		// Each skill's FileIndex is populated from artifacts
+		for _, sk := range skills {
+			m.artifact.On("ListByPath", ctx, sk.DiskID, "").Return([]*model.Artifact{
+				makeArtifact(sk.DiskID, "/", "SKILL.md", "text/markdown", "disks/hash1"),
+			}, nil)
+		}
 
 		result, err := m.service().List(ctx, ListAgentSkillsInput{ProjectID: projectID, Limit: 20})
 
@@ -773,6 +779,8 @@ func TestAgentSkillsService_List(t *testing.T) {
 		assert.NotNil(t, result)
 		assert.Len(t, result.Items, 2)
 		assert.False(t, result.HasMore)
+		assert.Len(t, result.Items[0].FileIndex, 1)
+		assert.Equal(t, "SKILL.md", result.Items[0].FileIndex[0].Path)
 	})
 
 	t.Run("empty result", func(t *testing.T) {

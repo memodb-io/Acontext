@@ -85,6 +85,7 @@ type learningSpaceService struct {
 	skillsRepo     repo.AgentSkillsRepo
 	sessionRepo    repo.SessionRepo
 	agentSkillsSvc AgentSkillsService
+	artifactSvc    ArtifactService
 	templateFS     fs.ReadFileFS
 }
 
@@ -103,6 +104,7 @@ func NewLearningSpaceService(
 	skillsRepo repo.AgentSkillsRepo,
 	sessionRepo repo.SessionRepo,
 	agentSkillsSvc AgentSkillsService,
+	artifactSvc ArtifactService,
 	templateFS fs.ReadFileFS,
 ) LearningSpaceService {
 	return &learningSpaceService{
@@ -112,6 +114,7 @@ func NewLearningSpaceService(
 		skillsRepo:     skillsRepo,
 		sessionRepo:    sessionRepo,
 		agentSkillsSvc: agentSkillsSvc,
+		artifactSvc:    artifactSvc,
 		templateFS:     templateFS,
 	}
 }
@@ -352,7 +355,21 @@ func (s *learningSpaceService) ListSkills(ctx context.Context, projectID, learni
 		return nil, err
 	}
 
-	return s.lsSkillRepo.ListBySpaceID(ctx, learningSpaceID)
+	skills, err := s.lsSkillRepo.ListBySpaceID(ctx, learningSpaceID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Populate FileIndex for each skill from its disk artifacts.
+	for _, skill := range skills {
+		artifacts, err := s.artifactSvc.ListByPath(ctx, skill.DiskID, "")
+		if err != nil {
+			continue
+		}
+		skill.FileIndex = artifactsToFileIndex(artifacts)
+	}
+
+	return skills, nil
 }
 
 func (s *learningSpaceService) ListSessions(ctx context.Context, projectID, learningSpaceID uuid.UUID) ([]*model.LearningSpaceSession, error) {

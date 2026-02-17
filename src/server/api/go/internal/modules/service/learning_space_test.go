@@ -225,6 +225,7 @@ type lsMocks struct {
 	skillsRepo     *MockAgentSkillsRepo
 	sessionRepo    *MockSessionRepo
 	agentSkillsSvc *MockLSAgentSkillsService
+	artifactSvc    *MockArtifactService
 	templateFS     fstest.MapFS
 }
 
@@ -236,12 +237,13 @@ func newLSMocks() lsMocks {
 		skillsRepo:     &MockAgentSkillsRepo{},
 		sessionRepo:    &MockSessionRepo{},
 		agentSkillsSvc: &MockLSAgentSkillsService{},
+		artifactSvc:    &MockArtifactService{},
 		templateFS:     newTestTemplateFS(),
 	}
 }
 
 func (m lsMocks) service() LearningSpaceService {
-	return NewLearningSpaceService(m.lsRepo, m.lsSkillRepo, m.lsSessRepo, m.skillsRepo, m.sessionRepo, m.agentSkillsSvc, m.templateFS)
+	return NewLearningSpaceService(m.lsRepo, m.lsSkillRepo, m.lsSessRepo, m.skillsRepo, m.sessionRepo, m.agentSkillsSvc, m.artifactSvc, m.templateFS)
 }
 
 // setupInitSkillsExpectations sets up mock expectations for the default skill
@@ -831,15 +833,21 @@ func TestLearningSpaceService_ListSkills(t *testing.T) {
 
 	t.Run("success", func(t *testing.T) {
 		m := newLSMocks()
+		diskID := uuid.New()
 		m.lsRepo.On("GetByID", ctx, projectID, lsID).Return(&model.LearningSpace{ID: lsID, ProjectID: projectID}, nil)
 		m.lsSkillRepo.On("ListBySpaceID", ctx, lsID).Return([]*model.AgentSkills{
-			{ID: uuid.New(), Name: "skill-1"},
+			{ID: uuid.New(), Name: "skill-1", DiskID: diskID},
+		}, nil)
+		m.artifactSvc.On("ListByPath", ctx, diskID, "").Return([]*model.Artifact{
+			makeArtifact(diskID, "/", "SKILL.md", "text/markdown", "disks/hash1"),
 		}, nil)
 
 		result, err := m.service().ListSkills(ctx, projectID, lsID)
 
 		assert.NoError(t, err)
 		assert.Len(t, result, 1)
+		assert.Len(t, result[0].FileIndex, 1)
+		assert.Equal(t, "SKILL.md", result[0].FileIndex[0].Path)
 	})
 
 	t.Run("space not found", func(t *testing.T) {

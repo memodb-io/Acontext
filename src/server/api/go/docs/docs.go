@@ -4022,6 +4022,12 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
+                "file_index": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.FileInfo"
+                    }
+                },
                 "id": {
                     "type": "string"
                 },
