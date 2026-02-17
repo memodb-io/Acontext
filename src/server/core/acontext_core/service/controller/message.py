@@ -134,9 +134,9 @@ async def process_session_pending_message(
 
     pending_message_ids = None
     try:
-        async with DB_CLIENT.get_session_context() as session:
+        async with DB_CLIENT.get_session_context() as db_session:
             r = await MD.get_message_ids(
-                session,
+                db_session,
                 session_id,
                 limit=(
                     project_config.project_session_message_buffer_max_overflow
@@ -154,22 +154,22 @@ async def process_session_pending_message(
                     f"Project {project_id} has disabled new task creation, skip"
                 )
                 await MD.update_message_status_to(
-                    session, pending_message_ids, TaskStatus.FAILED
+                    db_session, pending_message_ids, TaskStatus.FAILED
                 )
                 return Result.resolve(None)
             await MD.update_message_status_to(
-                session, pending_message_ids, TaskStatus.RUNNING
+                db_session, pending_message_ids, TaskStatus.RUNNING
             )
         LOG.info(f"Unpending {len(pending_message_ids)} session messages to process")
 
-        async with DB_CLIENT.get_session_context() as session:
-            r = await MD.fetch_messages_data_by_ids(session, pending_message_ids)
+        async with DB_CLIENT.get_session_context() as db_session:
+            r = await MD.fetch_messages_data_by_ids(db_session, pending_message_ids)
             messages, eil = r.unpack()
             if eil:
                 return r
 
             r = await MD.fetch_previous_messages_by_datetime(
-                session,
+                db_session,
                 session_id,
                 messages[0].created_at,
                 limit=project_config.project_session_message_use_previous_messages_turns,
@@ -182,7 +182,9 @@ async def process_session_pending_message(
             ]
             first_user_message_text = None
             try:
-                r = await SD.should_generate_session_display_title(session, session_id)
+                r = await SD.should_generate_session_display_title(
+                    db_session, session_id
+                )
                 should_generate_title, eil = r.unpack()
                 if eil:
                     raise ValueError(eil.errmsg)
@@ -218,8 +220,10 @@ async def process_session_pending_message(
         if first_user_message_text is not None:
             try:
                 title_candidate = None
-                r = await generate_session_title_candidate(first_user_message_text)
-                title_candidate_raw, eil = r.unpack()
+                title_result = await generate_session_title_candidate(
+                    first_user_message_text
+                )
+                title_candidate_raw, eil = title_result.unpack()
                 if eil:
                     raise ValueError(eil.errmsg)
 
@@ -237,9 +241,9 @@ async def process_session_pending_message(
                     )
 
                 if title_candidate is not None:
-                    async with DB_CLIENT.get_session_context() as session:
+                    async with DB_CLIENT.get_session_context() as db_session:
                         r = await SD.update_session_display_title(
-                            session, session_id, title_candidate
+                            db_session, session_id, title_candidate
                         )
                         _, eil = r.unpack()
                         if eil:
@@ -257,7 +261,7 @@ async def process_session_pending_message(
             if eil is None:
                 ls_session = _ls_session
 
-        r = await AT.task_agent_curd(
+        agent_result = await AT.task_agent_curd(
             project_id,
             session_id,
             messages_data,
@@ -267,21 +271,22 @@ async def process_session_pending_message(
         )
 
         after_status = TaskStatus.SUCCESS
-        if not r.ok():
+        if not agent_result.ok():
             after_status = TaskStatus.FAILED
-        async with DB_CLIENT.get_session_context() as session:
+        async with DB_CLIENT.get_session_context() as db_session:
             await MD.update_message_status_to(
-                session, pending_message_ids, after_status
+                db_session, pending_message_ids, after_status
             )
-        return r
+
+        return agent_result
     except Exception as e:
         if pending_message_ids is None:
             raise e
         LOG.error(
             f"Exception while processing session pending message: {e}, rollback {len(pending_message_ids)} message status to failed"
         )
-        async with DB_CLIENT.get_session_context() as session:
+        async with DB_CLIENT.get_session_context() as db_session:
             await MD.update_message_status_to(
-                session, pending_message_ids, TaskStatus.FAILED
+                db_session, pending_message_ids, TaskStatus.FAILED
             )
         raise e

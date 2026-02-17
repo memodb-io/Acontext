@@ -123,6 +123,16 @@ describe('AcontextClient Unit Tests', () => {
       expect(session.id).toBe(customUuid);
     });
 
+    test('should parse display_title in session response', async () => {
+      const createdSession = mockSession({
+        display_title: 'Plan migration rollout',
+      });
+      client.mock().onPost('/session', () => createdSession);
+
+      const session = await client.sessions.create();
+      expect(session.display_title).toBe('Plan migration rollout');
+    });
+
     test('should store a message in acontext format', async () => {
       const sessionId = 'test-session-id';
       const storedMessage = mockMessage({

@@ -195,6 +195,7 @@ export function mockSession(overrides?: Partial<{
   project_id: string;
   user_id: string | null;
   disable_task_tracking: boolean;
+  display_title: string | null;
   configs: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
@@ -205,6 +206,7 @@ export function mockSession(overrides?: Partial<{
     project_id: overrides?.project_id ?? mockId(),
     user_id: overrides?.user_id ?? null,
     disable_task_tracking: overrides?.disable_task_tracking ?? false,
+    display_title: overrides?.display_title ?? null,
     configs: overrides?.configs ?? {},
     created_at: overrides?.created_at ?? now,
     updated_at: overrides?.updated_at ?? now,
