@@ -21,7 +21,7 @@ type Task struct {
 	IsPlanning bool     `gorm:"not null;default:false" json:"is_planning"`
 
 	// Embedding vector for semantic search
-	Embedding pgvector.Vector `gorm:"type:vector(1536)" json:"-"`
+	Embedding pgvector.Vector `gorm:"type:vector;-:migration" json:"-"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime;not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime;not null;default:CURRENT_TIMESTAMP" json:"updated_at"`

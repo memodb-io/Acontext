@@ -52,3 +52,6 @@ telemetry:
 
 artifact:
   maxUploadSizeBytes: ${ARTIFACT_MAX_UPLOAD_SIZE_BYTES}  # Default 16MB (16 * 1024 * 1024 bytes)
+
+embedding:
+  taskVectorDim: 1536  
