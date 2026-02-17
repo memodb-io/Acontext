@@ -3,10 +3,14 @@ name: Security Scan (Reusable)
 on:
   workflow_call:
 
+permissions:
+  contents: read
+
 jobs:
   go-vulncheck:
     name: Go Vulnerability Check
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         include:
@@ -16,12 +20,13 @@ jobs:
             path: src/client/acontext-cli
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
         with:
           go-version-file: ${{ matrix.path }}/go.mod
           cache: true
+          cache-dependency-path: ${{ matrix.path }}/go.sum
       - name: Run govulncheck on ${{ matrix.name }}
         working-directory: ${{ matrix.path }}
         run: |
@@ -31,15 +36,20 @@ jobs:
   python-audit:
     name: Python Security Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7
       - name: Setup Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
-          python-version: '3.12'
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: |
+            src/server/core/pyproject.toml
+            src/client/acontext-py/pyproject.toml
       - name: Install pip-audit
         run: pip install pip-audit
       - name: Audit Projects
@@ -56,13 +66,16 @@ jobs:
   js-audit:
     name: JS/TS Security Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - name: Setup Node
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/client/acontext-ts/package-lock.json
       - name: Setup pnpm
         run: npm install -g pnpm
       - name: Audit TS SDK

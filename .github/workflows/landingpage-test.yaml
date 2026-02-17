@@ -3,37 +3,40 @@ name: Landing Page Test
 on:
   push:
     branches:
-      - main
       - dev
     paths:
       - "landingpage/**"
       - ".github/workflows/landingpage-test.yaml"
   pull_request:
     branches:
-      - main
       - dev
     paths:
       - "landingpage/**"
       - ".github/workflows/landingpage-test.yaml"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint-and-build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: read
     defaults:
       run:
         working-directory: landingpage
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
         with:
           version: 10
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
         with:
           node-version: "22"
           cache: "pnpm"
@@ -47,6 +50,7 @@ jobs:
 
   test-int:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     needs: lint-and-build
     permissions:
       contents: read
@@ -54,15 +58,15 @@ jobs:
       run:
         working-directory: landingpage
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
         with:
           version: 10
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
         with:
           node-version: "22"
           cache: "pnpm"
@@ -81,6 +85,7 @@ jobs:
 
   test-e2e:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: lint-and-build
     permissions:
       contents: read
@@ -88,15 +93,15 @@ jobs:
       run:
         working-directory: landingpage
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@41ff72655975bd51cab0327fa583b6e92b6d3061 # v4
         with:
           version: 10
 
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
         with:
           node-version: "22"
           cache: "pnpm"
@@ -119,7 +124,7 @@ jobs:
           CI: true
 
       - name: Upload Playwright report
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: ${{ !cancelled() }}
         with:
           name: playwright-report

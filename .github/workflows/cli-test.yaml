@@ -3,36 +3,43 @@ name: CLI Test
 on:
   push:
     branches:
-      - main
       - dev
     paths:
       - 'src/client/acontext-cli/**'
       - '.github/workflows/cli-test.yaml'
   pull_request:
     branches:
-      - main
       - dev
     paths:
       - 'src/client/acontext-cli/**'
       - '.github/workflows/cli-test.yaml'
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: src/client/acontext-cli
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
         with:
           go-version-file: src/client/acontext-cli/go.mod
           cache: true
+          cache-dependency-path: src/client/acontext-cli/go.sum
 
       - name: Download dependencies
         run: go mod download
@@ -41,7 +48,7 @@ jobs:
         run: go test -v -race -coverprofile=coverage.out ./...
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v5
         with:
           file: ./coverage.out
           flags: unittests
@@ -50,19 +57,21 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: src/client/acontext-cli
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
         with:
           go-version-file: src/client/acontext-cli/go.mod
           cache: true
+          cache-dependency-path: src/client/acontext-cli/go.sum
 
       - name: Tidy dependencies
         run: go mod tidy
@@ -71,7 +80,7 @@ jobs:
         run: go build ./...
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v9
+        uses: golangci/golangci-lint-action@1e7e51e771db61008b38414a730f564565cf7c20 # v9
         with:
           version: latest
           working-directory: src/client/acontext-cli
@@ -82,6 +91,7 @@ jobs:
     name: Build
     needs: [test, lint]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: src/client/acontext-cli
@@ -92,13 +102,14 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
         with:
           go-version-file: src/client/acontext-cli/go.mod
           cache: true
+          cache-dependency-path: src/client/acontext-cli/go.sum
 
       - name: Download dependencies
         run: go mod download
@@ -122,15 +133,18 @@ jobs:
           fi
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: ${{ !cancelled() }}
         with:
           name: acontext-cli-${{ matrix.os }}
           path: |
             ${{ matrix.os == 'windows-latest' && 'src/client/acontext-cli/acontext-cli.exe' || 'src/client/acontext-cli/acontext-cli' }}
+          retention-days: 30
 
   test-install-script:
     name: Test Install Script on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: src/client/acontext-cli
@@ -141,13 +155,14 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@7a3fe6cf4cb3a834922a1244abfce67bcef6a0c5 # v6
         with:
           go-version-file: src/client/acontext-cli/go.mod
           cache: true
+          cache-dependency-path: src/client/acontext-cli/go.sum
 
       - name: Test install script syntax
         run: |
