@@ -1,6 +1,6 @@
 ---
 title: Store with User
-description: "Associate Sessions, Disks, and Skills with user identifiers"
+description: "Associate Sessions, Disks, Skills, and Tools with user identifiers"
 ---
 
 Associate resources with user identifiers for multi-tenant apps, per-user isolation, and simplified cleanup.
@@ -12,6 +12,7 @@ Associate resources with user identifiers for multi-tenant apps, per-user isolat
 | Sessions | `user="alice@example.com"` | `user="alice@example.com"` | ✓ |
 | Disks | `user="alice@example.com"` | `user="alice@example.com"` | ✓ |
 | Skills | `user="alice@example.com"` | `user="alice@example.com"` | ✓ |
+| Tools | `user="alice@example.com"` | `user="alice@example.com"` | ✓ |
 
 ## Create Resources with User
 
@@ -34,6 +35,20 @@ with open("skill.zip", "rb") as f:
         file=FileUpload(filename="skill.zip", content=f.read()),
         user="alice@example.com"
     )
+
+# Tool
+tool = client.tools.upsert(
+    user="alice@example.com",
+    openai_schema={
+        "type": "function",
+        "function": {
+            "name": "github_search",
+            "description": "Search GitHub issues and PRs",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
+    config={"tag": "web"},
+)
 ```
 
 ```typescript TypeScript
@@ -56,6 +71,20 @@ const skill = await client.skills.create({
     file: new FileUpload({ filename: "skill.zip", content: fileContent }),
     user: "alice@example.com",
 });
+
+// Tool
+const tool = await client.tools.upsert({
+  user: "alice@example.com",
+  openaiSchema: {
+    type: "function",
+    function: {
+      name: "github_search",
+      description: "Search GitHub issues and PRs",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  config: { tag: "web" },
+});
 ```
 </CodeGroup>
 
@@ -75,6 +104,9 @@ disks = client.disks.list(user="alice@example.com")
 
 # Skills
 skills = client.skills.list_catalog(user="alice@example.com")
+
+# Tools
+tools = client.tools.list(user="alice@example.com")
 ```
 
 ```typescript TypeScript
@@ -86,6 +118,9 @@ const disks = await client.disks.list({ user: "alice@example.com" });
 
 // Skills
 const skills = await client.skills.listCatalog({ user: "alice@example.com" });
+
+// Tools
+const tools = await client.tools.list({ user: "alice@example.com" });
 ```
 </CodeGroup>
 
@@ -99,6 +134,7 @@ resources = client.users.get_resources("alice@example.com")
 print(f"Sessions: {resources.counts.sessions_count}")
 print(f"Disks: {resources.counts.disks_count}")
 print(f"Skills: {resources.counts.skills_count}")
+print(f"Tools: {resources.counts.tools_count}")
 ```
 
 ```typescript TypeScript
@@ -106,12 +142,13 @@ const resources = await client.users.getResources("alice@example.com");
 console.log(`Sessions: ${resources.counts.sessions_count}`);
 console.log(`Disks: ${resources.counts.disks_count}`);
 console.log(`Skills: ${resources.counts.skills_count}`);
+console.log(`Tools: ${resources.counts.tools_count}`);
 ```
 </CodeGroup>
 
 ## Delete User (Cascade)
 
-Deleting a user removes all associated Sessions, Disks, and Skills:
+Deleting a user removes all associated Sessions, Disks, Skills, and Tools:
 
 <CodeGroup>
 ```python Python
@@ -150,6 +187,7 @@ print(f"User has {len(sessions.items)} sessions, {len(disks.items)} disks")
 # Get resource counts
 resources = client.users.get_resources(user_id)
 print(f"Total: {resources.counts.sessions_count} sessions, {resources.counts.disks_count} disks, {resources.counts.skills_count} skills")
+print(f"Tools: {resources.counts.tools_count} tools")
 
 # Delete user and all resources
 client.users.delete(user_id)
@@ -175,6 +213,7 @@ console.log(`User has ${sessions.items.length} sessions, ${disks.items.length} d
 // Get resource counts
 const resources = await client.users.getResources(userId);
 console.log(`Total: ${resources.counts.sessions_count} sessions, ${resources.counts.disks_count} disks, ${resources.counts.skills_count} skills`);
+console.log(`Tools: ${resources.counts.tools_count} tools`);
 
 // Delete user and all resources
 await client.users.delete(userId);
@@ -193,5 +232,8 @@ Message storage API
 </Card>
 <Card title="Skills" icon="wand-magic-sparkles" href="/store/skill">
 Skills storage API
+</Card>
+<Card title="Tools" icon="toolbox" href="/store/tools">
+Tools CRUD + semantic search
 </Card>
 </CardGroup>

@@ -27,6 +27,7 @@ type RouterDeps struct {
 	AgentSkillsHandler *handler.AgentSkillsHandler
 	UserHandler        *handler.UserHandler
 	SandboxHandler     *handler.SandboxHandler
+	ToolHandler        *handler.ToolHandler
 }
 
 func NewRouter(d RouterDeps) *gin.Engine {
@@ -131,6 +132,14 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			sandbox.POST("", d.SandboxHandler.CreateSandbox)
 			sandbox.POST("/:sandbox_id/exec", d.SandboxHandler.ExecCommand)
 			sandbox.DELETE("/:sandbox_id", d.SandboxHandler.KillSandbox)
+		}
+
+		tools := v1.Group("/tools")
+		{
+			tools.POST("", d.ToolHandler.UpsertTool)
+			tools.GET("", d.ToolHandler.ListTools)
+			tools.GET("/search", d.ToolHandler.SearchTools)
+			tools.DELETE("/:name", d.ToolHandler.DeleteTool)
 		}
 	}
 	return r

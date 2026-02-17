@@ -27,6 +27,7 @@ class UserResourceCounts(BaseModel):
     sessions_count: int = Field(..., description="Number of sessions")
     disks_count: int = Field(..., description="Number of disks")
     skills_count: int = Field(..., description="Number of skills")
+    tools_count: int = Field(..., description="Number of tools")
 
 
 class GetUserResourcesOutput(BaseModel):

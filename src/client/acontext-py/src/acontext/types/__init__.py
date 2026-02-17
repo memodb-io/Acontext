@@ -43,6 +43,13 @@ from .user import (
     User,
     UserResourceCounts,
 )
+from .tool import (
+    ListToolsOutput,
+    SearchToolsOutput,
+    Tool,
+    ToolSearchHit,
+    ToolFormat,
+)
 
 __all__ = [
     # Common types
@@ -85,4 +92,10 @@ __all__ = [
     "ListUsersOutput",
     "User",
     "UserResourceCounts",
+    # Tool types
+    "Tool",
+    "ToolFormat",
+    "ListToolsOutput",
+    "ToolSearchHit",
+    "SearchToolsOutput",
 ]

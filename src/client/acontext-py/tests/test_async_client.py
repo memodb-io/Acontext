@@ -926,6 +926,7 @@ async def test_async_users_get_resources(
             "sessions_count": 10,
             "disks_count": 3,
             "skills_count": 2,
+            "tools_count": 4,
         }
     }
 
@@ -941,6 +942,7 @@ async def test_async_users_get_resources(
     assert result.counts.sessions_count == 10
     assert result.counts.disks_count == 3
     assert result.counts.skills_count == 2
+    assert result.counts.tools_count == 4
 
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
@@ -1362,3 +1364,99 @@ async def test_async_patch_configs_deletes_keys_with_none(
     assert kwargs["json_data"] == {"configs": {"deleted_key": None}}
     assert "deleted_key" not in result
     assert result == {"remaining": "value"}
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_tools_upsert(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    mock_request.return_value = {
+        "id": "tool-id",
+        "project_id": "project-id",
+        "user_id": None,
+        "name": "github_search",
+        "description": "Search GitHub",
+        "config": {"tag": "web"},
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "github_search",
+                "description": "Search GitHub",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
+
+    tool = await async_client.tools.upsert(
+        openai_schema={
+            "type": "function",
+            "function": {
+                "name": "github_search",
+                "description": "Search GitHub",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
+        config={"tag": "web"},
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "POST"
+    assert path == "/tools"
+    assert kwargs["json_data"]["openai_schema"]["function"]["name"] == "github_search"
+    assert tool.name == "github_search"
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_tools_list_with_filter_and_format(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    mock_request.return_value = {"items": [], "next_cursor": None, "has_more": False}
+
+    await async_client.tools.list(filter_config={"tag": "web"}, format="anthropic")
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/tools"
+    assert kwargs["params"]["format"] == "anthropic"
+    assert kwargs["params"]["filter_config"] == '{"tag": "web"}'
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_tools_search(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    mock_request.return_value = {"items": []}
+
+    await async_client.tools.search(query="search in slack and save it to CRM")
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/tools/search"
+    assert kwargs["params"]["query"] == "search in slack and save it to CRM"
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_tools_delete(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    mock_request.return_value = {}
+
+    await async_client.tools.delete("github_search")
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "DELETE"
+    assert path == "/tools/github_search"

@@ -26,6 +26,7 @@ export const UserResourceCountsSchema = z.object({
   sessions_count: z.number(),
   disks_count: z.number(),
   skills_count: z.number(),
+  tools_count: z.number(),
 });
 
 export type UserResourceCounts = z.infer<typeof UserResourceCountsSchema>;

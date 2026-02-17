@@ -16,6 +16,7 @@ from .resources.disks import DisksAPI as DisksAPI
 from .resources.sandboxes import SandboxesAPI as SandboxesAPI
 from .resources.sessions import SessionsAPI as SessionsAPI
 from .resources.skills import SkillsAPI as SkillsAPI
+from .resources.tools import ToolsAPI as ToolsAPI
 from .resources.users import UsersAPI as UsersAPI
 
 
@@ -107,6 +108,7 @@ class AcontextClient:
         self.disks = DisksAPI(self)
         self.artifacts = self.disks.artifacts
         self.skills = SkillsAPI(self)
+        self.tools = ToolsAPI(self)
         self.users = UsersAPI(self)
         self.sandboxes = SandboxesAPI(self)
 
