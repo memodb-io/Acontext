@@ -91,12 +91,12 @@ The Go API has `GET /api/v1/agent_skills/{id}/file?file_path=...` which fetches 
 
 ## TODOs
 
-- [ ] **1. Add `disk_id` to the `AgentSkill` TypeScript type**
+- [x] **1. Add `disk_id` to the `AgentSkill` TypeScript type**
   - Files: `src/server/ui/types/index.ts`
   - Add `disk_id: string` field to the `AgentSkill` interface (after the `id` field).
   - The Go model already serializes it as `json:"disk_id"` (`src/server/api/go/internal/modules/model/agent_skills.go` line 20), so the API already returns it — only the TS type is missing.
 
-- [ ] **2. Create `DiskTreeViewer` component**
+- [x] **2. Create `DiskTreeViewer` component**
   - Files: `src/server/ui/components/disk-tree-viewer/disk-tree-viewer.tsx`
   - Extract from `disk/page.tsx`:
     - `TreeNode` interface (lines 68-76)
@@ -120,11 +120,11 @@ The Go API has `GET /api/v1/agent_skills/{id}/file?file_path=...` which fetches 
   - **Error state**: If `getListArtifacts` fails, show inline error message with retry button inside the tree panel.
   - **Empty state**: If root has no files/folders, show "No files found" centered message.
 
-- [ ] **3. Ensure `getAgentSkill` (single-fetch) server action exists**
+- [x] **3. Ensure `getAgentSkill` (single-fetch) server action exists**
   - Files: `src/server/ui/app/agent_skills/actions.ts`
   - The detail page needs to fetch one skill by ID. Check if a `getAgentSkill(id)` action exists; if not, add one calling `GET /api/v1/agent_skills/{id}`.
 
-- [ ] **4. Create skill detail page**
+- [x] **4. Create skill detail page**
   - Files: `src/server/ui/app/agent_skills/[id]/page.tsx`
   - Header section:
     - Back button (`← Back to Skills`) linking to `/agent_skills`
@@ -135,20 +135,20 @@ The Go API has `GET /api/v1/agent_skills/{id}/file?file_path=...` which fetches 
   - Error state: If skill not found (404), show message with back link.
   - Guard: If `disk_id` is missing/empty, show "This skill has no associated file storage" message instead of the tree.
 
-- [ ] **5. Update Agent Skills list page**
+- [x] **5. Update Agent Skills list page**
   - Files: `src/server/ui/app/agent_skills/page.tsx`
   - **Remove** the detail dialog (`detailDialogOpen`, `selectedSkill`, `handleViewDetails`, and the `<Dialog>` block).
   - Change the "Details" button in each table row to navigate to `/agent_skills/[id]` (use `router.push` or `<Link>`).
   - The delete dialog stays on the list page (it's a quick action, doesn't need its own page).
 
-- [ ] **6. Update Learning Space detail page**
+- [x] **6. Update Learning Space detail page**
   - Files: `src/server/ui/app/learning_spaces/[id]/page.tsx`
   - **Add** a "View Files" button alongside the existing "View in Skills" button on each skill card (lines 341-348).
   - "View Files" navigates to `/agent_skills/[skill.id]`.
   - Use `FolderOpen` icon from lucide-react to differentiate from the `ExternalLink` icon on "View in Skills".
   - The "View in Skills" button can be **removed** since the new detail page subsumes its purpose (it currently just navigates to the skills list page, not to a specific skill).
 
-- [ ] **7. Add i18n translations**
+- [x] **7. Add i18n translations**
   - Files: `src/server/ui/messages/en.json`, `src/server/ui/messages/zh.json`
   - Add new `"skillDetail"` section with keys:
 
@@ -170,6 +170,8 @@ The Go API has `GET /api/v1/agent_skills/{id}/file?file_path=...` which fetches 
     | `noAssociatedDisk` | This skill has no associated file storage. | 此技能没有关联的文件存储。 |
     | `notFound` | Skill not found. | 未找到该技能。 |
     | `loadError` | Failed to load files. | 加载文件失败。 |
+    | `preview` | Preview | 预览 |
+    | `previewError` | Failed to load preview. | 加载预览失败。 |
     | `retry` | Retry | 重试 |
 
   - Add `viewFiles` key to the `learningSpaces` i18n section.

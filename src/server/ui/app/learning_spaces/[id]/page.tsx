@@ -43,6 +43,7 @@ import {
   ArrowLeft,
   Plus,
   Trash2,
+  FolderOpen,
   ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -341,10 +342,10 @@ export default function LearningSpaceDetailPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => router.push("/agent_skills")}
+                        onClick={() => router.push(`/agent_skills/${skill.id}`)}
                       >
-                        <ExternalLink className="h-4 w-4" />
-                        {t("viewInSkills")}
+                        <FolderOpen className="h-4 w-4" />
+                        {t("viewFiles")}
                       </Button>
                       <Button
                         variant="ghost"
@@ -362,41 +363,6 @@ export default function LearningSpaceDetailPage() {
                   <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                     {skill.description || t("noDescription")}
                   </p>
-
-                  {/* File index */}
-                  {skill.file_index && skill.file_index.length > 0 && (
-                    <div>
-                      <p className="text-xs font-medium text-muted-foreground mb-1">
-                        {t("fileIndex")}
-                      </p>
-                      <div className="border rounded-md overflow-hidden">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="text-xs">
-                                {t("path")}
-                              </TableHead>
-                              <TableHead className="text-xs">
-                                {t("mime")}
-                              </TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {skill.file_index.map((file, index) => (
-                              <TableRow key={index}>
-                                <TableCell className="font-mono text-xs py-1">
-                                  {file.path}
-                                </TableCell>
-                                <TableCell className="text-xs py-1">
-                                  {file.mime}
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Meta */}
                   {skill.meta &&

@@ -117,6 +117,7 @@ export interface GetDisksResp {
 
 export interface AgentSkill {
   id: string;
+  disk_id: string;
   user_id: string | null;
   name: string;
   description: string;
