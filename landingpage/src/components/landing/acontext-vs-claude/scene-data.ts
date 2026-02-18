@@ -68,7 +68,7 @@ export const scenes: Scene[] = [
   {
     id: 1,
     badge: 'Context Engineering',
-    title: 'Simple Context Storage',
+    title: 'Context Data Platform',
     acontext: {
       title: 'Acontext Sessions',
       subtitle: 'Store · Retrieve · Multi-Provider Format',

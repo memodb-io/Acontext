@@ -326,12 +326,20 @@
     "excludeSuccess": "技能移除成功",
     "learnSuccess": "已成功开始从会话学习",
     "backToList": "返回学习空间列表",
+    "detailTitle": "学习空间",
     "spaceId": "空间 ID",
     "userId": "用户",
     "metaLabel": "元数据",
     "updatedAt": "更新时间",
     "filterByUser": "按用户筛选...",
-    "filterByMeta": "按元数据 JSON 筛选..."
+    "filterByMeta": "按元数据 JSON 筛选...",
+    "status": "状态",
+    "statusValue": {
+      "pending": "等待中",
+      "running": "学习中",
+      "completed": "已完成",
+      "failed": "失败"
+    }
   },
   "skillDetail": {
     "backToSkills": "返回技能列表",

@@ -265,13 +265,16 @@ export default function LearningSpaceDetailPage() {
 
       {/* Header */}
       <div className="shrink-0 space-y-2">
-        <h1 className="text-2xl font-bold">
-          {t("spaceId")}: {space.id.slice(0, 8)}&hellip;
-        </h1>
-        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
-          <span>
-            <span className="font-medium">{t("userId")}:</span> {displayUser}
-          </span>
+        <h1 className="text-2xl font-bold">{t("detailTitle")}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary" className="font-mono text-xs">
+            {space.id}
+          </Badge>
+          {displayUser !== "—" && (
+            <Badge variant="outline">{displayUser}</Badge>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-xs text-muted-foreground">
           <span>
             <span className="font-medium">{t("createdAt")}:</span>{" "}
             {new Date(space.created_at).toLocaleString()}
@@ -281,18 +284,16 @@ export default function LearningSpaceDetailPage() {
             {new Date(space.updated_at).toLocaleString()}
           </span>
         </div>
-        <div>
-          <p className="text-sm font-medium text-muted-foreground mb-1">
-            {t("metaLabel")}:
-          </p>
-          {space.meta !== null ? (
+        {space.meta !== null && Object.keys(space.meta).length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-1">
+              {t("metaLabel")}:
+            </p>
             <pre className="text-xs bg-muted px-3 py-2 rounded overflow-auto max-h-[150px]">
               {JSON.stringify(space.meta, null, 2)}
             </pre>
-          ) : (
-            <p className="text-sm text-muted-foreground">—</p>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -303,7 +304,7 @@ export default function LearningSpaceDetailPage() {
         </TabsList>
 
         {/* Skills Tab */}
-        <TabsContent value="skills" className="flex-1 flex flex-col min-h-0">
+        <TabsContent value="skills" className="flex-1 flex flex-col min-h-0 rounded-md border-2 p-4 mt-2">
           <div className="flex justify-end mb-2 shrink-0">
             <Button
               variant="outline"
@@ -383,7 +384,7 @@ export default function LearningSpaceDetailPage() {
         </TabsContent>
 
         {/* Sessions Tab */}
-        <TabsContent value="sessions" className="flex-1 flex flex-col min-h-0">
+        <TabsContent value="sessions" className="flex-1 flex flex-col min-h-0 rounded-md border-2 p-4 mt-2">
           <div className="flex justify-end mb-2 shrink-0">
             <Button
               variant="outline"
@@ -410,6 +411,7 @@ export default function LearningSpaceDetailPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>{t("sessionId")}</TableHead>
+                    <TableHead className="text-center">{t("status")}</TableHead>
                     <TableHead>{t("createdAt")}</TableHead>
                     <TableHead>{t("actions")}</TableHead>
                   </TableRow>
@@ -419,6 +421,21 @@ export default function LearningSpaceDetailPage() {
                     <TableRow key={session.id}>
                       <TableCell className="font-mono text-sm">
                         {session.session_id.slice(0, 8)}&hellip;
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge
+                          variant={
+                            session.status === "completed"
+                              ? "default"
+                              : session.status === "running"
+                                ? "secondary"
+                                : session.status === "failed"
+                                  ? "destructive"
+                                  : "outline"
+                          }
+                        >
+                          {t(`statusValue.${session.status}`)}
+                        </Badge>
                       </TableCell>
                       <TableCell>
                         {new Date(session.created_at).toLocaleString()}

@@ -326,12 +326,20 @@
     "excludeSuccess": "Skill removed successfully",
     "learnSuccess": "Learning from session started successfully",
     "backToList": "Back to Learning Spaces",
+    "detailTitle": "Learning Space",
     "spaceId": "Space ID",
     "userId": "User",
     "metaLabel": "Metadata",
     "updatedAt": "Updated At",
     "filterByUser": "Filter by user...",
-    "filterByMeta": "Filter by meta JSON..."
+    "filterByMeta": "Filter by meta JSON...",
+    "status": "Status",
+    "statusValue": {
+      "pending": "Pending",
+      "running": "Running",
+      "completed": "Completed",
+      "failed": "Failed"
+    }
   },
   "skillDetail": {
     "backToSkills": "Back to Skills",
