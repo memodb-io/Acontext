@@ -26,8 +26,9 @@ import {
   MessageSquare,
   LayoutDashboard,
   Activity,
-  Wrench,
+  Sparkles,
   Users,
+  BookOpen,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Separator } from "@/components/ui/separator";
@@ -85,7 +86,12 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     {
       title: t("agentSkills"),
       url: "/agent_skills",
-      icon: Wrench,
+      icon: Sparkles,
+    },
+    {
+      title: t("learningSpaces"),
+      url: "/learning_spaces",
+      icon: BookOpen,
     },
   ];
 

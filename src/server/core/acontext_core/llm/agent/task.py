@@ -2,11 +2,14 @@ from typing import List
 from ...env import LOG
 from ...telemetry.log import bound_logging_vars
 from ...infra.db import AsyncSession, DB_CLIENT
+from ...infra.async_mq import publish_mq
 from ...schema.result import Result
 from ...schema.utils import asUUID
 from ...schema.session.task import TaskSchema
 from ...schema.session.message import MessageBlob
+from ...schema.mq.learning import SkillLearnTask
 from ...service.data import task as TD
+from ...service.constants import EX, RK
 from ..complete import llm_complete, response_to_sendable_message
 from ..prompt.task import TaskPrompt, TASK_TOOLS
 from ...util.generate_ids import track_process
@@ -14,11 +17,15 @@ from ..tool.task_lib.ctx import TaskCtx
 from ..tool.task_lib.insert import _insert_task_tool
 from ..tool.task_lib.update import _update_task_tool
 from ..tool.task_lib.append import _append_messages_to_task_tool
+from ..tool.task_lib.progress import _append_task_progress_tool
+from ..tool.task_lib.set_preference import _set_task_user_preference_tool
 
 NEED_UPDATE_CTX = {
     _insert_task_tool.schema.function.name,
     _update_task_tool.schema.function.name,
     _append_messages_to_task_tool.schema.function.name,
+    _append_task_progress_tool.schema.function.name,
+    _set_task_user_preference_tool.schema.function.name,
 }
 
 
@@ -120,6 +127,7 @@ async def task_agent_curd(
     messages: List[MessageBlob],
     max_iterations=3,  # task curd agent only receive one turn of actions
     previous_progress_num: int = 6,
+    enable_skill_learning: bool = False,
 ) -> Result[None]:
     async with DB_CLIENT.get_session_context() as db_session:
         r = await TD.fetch_current_tasks(db_session, session_id)
@@ -138,6 +146,7 @@ async def task_agent_curd(
 
     json_tools = [tool.model_dump() for tool in TaskPrompt.tool_schema()]
     already_iterations = 0
+    _pending_learning_task_ids: list[asUUID] = []
     _messages = [
         {
             "role": "user",
@@ -165,42 +174,84 @@ async def task_agent_curd(
         just_finish = False
         tool_response = []
         USE_CTX = None
-        for tool_call in use_tools:
-            try:
-                tool_name = tool_call.function.name
-                if tool_name == "finish":
-                    just_finish = True
-                    continue
-                tool_arguments = tool_call.function.arguments
-                tool = TASK_TOOLS[tool_name]
-                with bound_logging_vars(tool=tool_name):
-                    async with DB_CLIENT.get_session_context() as db_session:
-                        USE_CTX = await build_task_ctx(
-                            db_session,
-                            project_id,
-                            session_id,
-                            messages,
-                            before_use_ctx=USE_CTX,
+        try:
+            async with DB_CLIENT.get_session_context() as db_session:
+                for tool_call in use_tools:
+                    try:
+                        tool_name = tool_call.function.name
+                        if tool_name == "finish":
+                            just_finish = True
+                            continue
+                        tool_arguments = tool_call.function.arguments
+                        tool = TASK_TOOLS[tool_name]
+                        with bound_logging_vars(tool=tool_name):
+                            USE_CTX = await build_task_ctx(
+                                db_session,
+                                project_id,
+                                session_id,
+                                messages,
+                                before_use_ctx=USE_CTX,
+                            )
+                            r = await tool.handler(USE_CTX, tool_arguments)
+                            t, eil = r.unpack()
+                            if eil:
+                                raise RuntimeError(
+                                    f"Tool {tool_name} rejected: {r.error}"
+                                )
+                        if tool_name != "report_thinking":
+                            LOG.info(
+                                f"Tool Call: {tool_name} - {tool_arguments} -> {t}"
+                            )
+                        tool_response.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": tool_call.id,
+                                "content": t,
+                            }
                         )
-                        r = await tool.handler(USE_CTX, tool_arguments)
-                    t, eil = r.unpack()
-                    if eil:
-                        return r
-                if tool_name != "report_thinking":
-                    LOG.info(f"Tool Call: {tool_name} - {tool_arguments} -> {t}")
-                tool_response.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "content": t,
-                    }
-                )
-                if tool_name in NEED_UPDATE_CTX:
-                    USE_CTX = None
-            except KeyError as e:
-                return Result.reject(f"Tool {tool_name} not found: {str(e)}")
-            except Exception as e:
-                return Result.reject(f"Tool {tool_name} error: {str(e)}")
+                        if tool_name in NEED_UPDATE_CTX:
+                            if USE_CTX and USE_CTX.learning_task_ids:
+                                _pending_learning_task_ids.extend(
+                                    USE_CTX.learning_task_ids
+                                )
+                                USE_CTX.learning_task_ids.clear()
+                            USE_CTX = None
+                    except KeyError as e:
+                        raise RuntimeError(
+                            f"Tool {tool_name} not found: {str(e)}"
+                        ) from e
+                    except RuntimeError:
+                        raise
+                    except Exception as e:
+                        raise RuntimeError(f"Tool {tool_name} error: {str(e)}") from e
+        except RuntimeError as e:
+            _tool_error = e
+            _pending_learning_task_ids.clear()
+        else:
+            _tool_error = None
+        # Drain learning task IDs and publish after DB commit
+        if USE_CTX and USE_CTX.learning_task_ids:
+            _pending_learning_task_ids.extend(USE_CTX.learning_task_ids)
+            USE_CTX.learning_task_ids.clear()
+        if _pending_learning_task_ids and enable_skill_learning:
+            for tid in _pending_learning_task_ids:
+                try:
+                    await publish_mq(
+                        EX.learning_skill,
+                        RK.learning_skill_distill,
+                        SkillLearnTask(
+                            project_id=project_id,
+                            session_id=session_id,
+                            task_id=tid,
+                        ).model_dump_json(),
+                    )
+                except Exception:
+                    LOG.warning(
+                        "Failed to publish skill learning event", task_id=str(tid)
+                    )
+            _pending_learning_task_ids.clear()
+        if _tool_error is not None:
+            return Result.reject(str(_tool_error))
         _messages.extend(tool_response)
         if just_finish:
             LOG.info("finish function is called")

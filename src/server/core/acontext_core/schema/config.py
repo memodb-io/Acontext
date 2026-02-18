@@ -29,6 +29,14 @@ class CoreConfig(BaseModel):
     logging_level: str = "INFO"
     session_message_session_lock_wait_seconds: int = 1
     session_message_processing_timeout_seconds: int = 60
+    session_message_flush_max_retries: int = 60
+    skill_learn_agent_max_iterations: int = 24
+    skill_learn_lock_ttl_seconds: int = (
+        240  # 4 min — agent phase only (5 iters × ~40s + 20% headroom)
+    )
+    skill_learn_agent_retry_delay_seconds: int = (
+        16  # retry delay on lock contention (240s TTL / 16s ≈ 15 retries worst-case)
+    )
 
     # MQ Configuration
     mq_url: str = "amqp://acontext:helloworld@127.0.0.1:15672/"

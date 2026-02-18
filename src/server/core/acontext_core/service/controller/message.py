@@ -1,4 +1,5 @@
 from ..data import message as MD
+from ..data import learning_space as LS
 from ...infra.db import DB_CLIENT
 from ...schema.session.task import TaskStatus
 from ...schema.session.message import MessageBlob
@@ -65,12 +66,19 @@ async def process_session_pending_message(
                 for m in messages
             ]
 
+        async with DB_CLIENT.get_session_context() as session:
+            r = await LS.get_learning_space_for_session(session, session_id)
+            ls_session, eil = r.unpack()
+            if eil:
+                ls_session = None
+
         r = await AT.task_agent_curd(
             project_id,
             session_id,
             messages_data,
             max_iterations=project_config.default_task_agent_max_iterations,
             previous_progress_num=project_config.default_task_agent_previous_progress_num,
+            enable_skill_learning=(ls_session is not None),
         )
 
         after_status = TaskStatus.SUCCESS

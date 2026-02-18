@@ -12,6 +12,7 @@ Associate resources with user identifiers for multi-tenant apps, per-user isolat
 | Sessions | `user="alice@example.com"` | `user="alice@example.com"` | ✓ |
 | Disks | `user="alice@example.com"` | `user="alice@example.com"` | ✓ |
 | Skills | `user="alice@example.com"` | `user="alice@example.com"` | ✓ |
+| Learning Spaces | `user="alice@example.com"` | `user="alice@example.com"` | ✓ |
 
 ## Create Resources with User
 
@@ -34,6 +35,9 @@ with open("skill.zip", "rb") as f:
         file=FileUpload(filename="skill.zip", content=f.read()),
         user="alice@example.com"
     )
+
+# Learning Space
+space = client.learning_spaces.create(user="alice@example.com")
 ```
 
 ```typescript TypeScript
@@ -56,6 +60,9 @@ const skill = await client.skills.create({
     file: new FileUpload({ filename: "skill.zip", content: fileContent }),
     user: "alice@example.com",
 });
+
+// Learning Space
+const space = await client.learningSpaces.create({ user: "alice@example.com" });
 ```
 </CodeGroup>
 
@@ -75,6 +82,9 @@ disks = client.disks.list(user="alice@example.com")
 
 # Skills
 skills = client.skills.list_catalog(user="alice@example.com")
+
+# Learning Spaces
+spaces = client.learning_spaces.list(user="alice@example.com")
 ```
 
 ```typescript TypeScript
@@ -86,6 +96,9 @@ const disks = await client.disks.list({ user: "alice@example.com" });
 
 // Skills
 const skills = await client.skills.listCatalog({ user: "alice@example.com" });
+
+// Learning Spaces
+const spaces = await client.learningSpaces.list({ user: "alice@example.com" });
 ```
 </CodeGroup>
 
@@ -193,5 +206,8 @@ Message storage API
 </Card>
 <Card title="Skills" icon="wand-magic-sparkles" href="/store/skill">
 Skills storage API
+</Card>
+<Card title="Learning Spaces" icon="brain" href="/learn/self-learning">
+Organize agent knowledge by user
 </Card>
 </CardGroup>

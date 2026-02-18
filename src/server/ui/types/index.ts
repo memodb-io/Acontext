@@ -117,6 +117,7 @@ export interface GetDisksResp {
 
 export interface AgentSkill {
   id: string;
+  disk_id: string;
   user_id: string | null;
   name: string;
   description: string;
@@ -152,6 +153,38 @@ export interface UserResources {
     disks_count: number;
     skills_count: number;
   };
+}
+
+// Learning Space types
+
+export interface LearningSpace {
+  id: string;
+  user_id: string | null;
+  meta: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GetLearningSpacesResp {
+  items: LearningSpace[];
+  next_cursor?: string;
+  has_more: boolean;
+}
+
+export interface LearningSpaceSession {
+  id: string;
+  learning_space_id: string;
+  session_id: string;
+  status: "pending" | "running" | "completed" | "failed";
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LearningSpaceSkill {
+  id: string;
+  learning_space_id: string;
+  skill_id: string;
+  created_at: string;
 }
 
 // Message related types

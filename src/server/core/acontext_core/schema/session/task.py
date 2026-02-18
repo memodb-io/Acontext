@@ -27,6 +27,8 @@ class TaskSchema(BaseModel):
     raw_message_ids: list[asUUID]
 
     def to_string(self) -> str:
-        return (
-            f"Task {self.order}: {self.data.task_description} (Status: {self.status})"
-        )
+        base = f"Task {self.order}: {self.data.task_description} (Status: {self.status})"
+        if self.data.user_preferences and len(self.data.user_preferences) > 0:
+            prefs = " | ".join(self.data.user_preferences)
+            base += f' | User Prefs: "{prefs}"'
+        return base

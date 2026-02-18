@@ -1,0 +1,77 @@
+---
+title: What is Agent Observability?
+description: "Understand what your agent does, how it performs, and where it fails"
+---
+
+Acontext observes your agent's conversations in the background — extracting tasks, detecting success or failure, and recording progress — so you always know what your agent is doing without writing any tracking code.
+
+## How It Works
+
+When your agent stores messages in Acontext, a background monitor automatically:
+
+1. **Extracts tasks** from the conversation — when an agent says "My plan is: 1. Search, 2. Create, 3. Deploy", each step becomes a trackable task
+2. **Detects success or failure** — based on agent behavior, error signals, user confirmation, or task abandonment
+3. **Records progress** — what the agent actually did at each step, with specific details like file paths and API calls
+4. **Captures user preferences** — requirements and constraints the user mentioned during the conversation
+
+You don't need to instrument your agent. Just store messages, and Acontext handles the rest.
+
+## Task Lifecycle
+
+```
+pending → running → success
+                  → failed → running (retry)
+```
+
+| Status | Meaning |
+|--------|---------|
+| `pending` | Task identified but not started |
+| `running` | Agent is actively working on it |
+| `success` | Confirmed complete — agent moved on without errors, or user confirmed |
+| `failed` | Explicit errors, user abandonment, or user reported failure |
+
+## What Gets Extracted
+
+Each task contains:
+
+- **Description** — what the user asked for, in their own words
+- **Status** — current lifecycle state
+- **Progress** — step-by-step record of what the agent did
+- **User preferences** — requirements the user mentioned
+
+<Note>
+Tasks represent **user requests**, not agent execution steps. "Book a restaurant in SF" is one task — the agent's sub-steps (search, compare, reserve) are recorded as progress within that task.
+</Note>
+
+## Feeds Into Self-Learning
+
+When a task reaches `success` or `failed`, it can feed into the [self-learning pipeline](/learn/self-learning). Acontext distills the outcome into structured analysis:
+
+- **Success** → extracts the approach, key decisions, and generalizable patterns
+- **Failure** → extracts the failure point, flawed reasoning, and prevention principles
+
+These analyses become reusable agent skills automatically.
+
+<CardGroup cols={2}>
+
+<Card title="Agent Tasks" icon="list-check" href="/observe/agent_tasks">
+Extract and query tasks via SDK.
+</Card>
+
+<Card title="Session Buffer" icon="clock" href="/observe/buffer">
+How message batching and processing timing works.
+</Card>
+
+<Card title="Disable Tracking" icon="toggle-off" href="/observe/disable_tasks">
+Skip task extraction for specific sessions.
+</Card>
+
+<Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
+View messages, tasks, artifacts, and skills visually.
+</Card>
+
+<Card title="Distributed Tracing" icon="wave-pulse" href="/observe/traces">
+Monitor request flows with OpenTelemetry and Jaeger.
+</Card>
+
+</CardGroup>

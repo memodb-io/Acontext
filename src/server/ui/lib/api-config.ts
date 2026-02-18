@@ -25,7 +25,7 @@ export async function handleResponse<T>(response: Response): Promise<ApiResponse
       return {
         code: errorJson.code || 1,
         data: null,
-        message: errorJson.message || "Internal Server Error",
+        message: errorJson.msg || errorJson.message || "Internal Server Error",
       };
     } catch {
       return {
@@ -41,14 +41,14 @@ export async function handleResponse<T>(response: Response): Promise<ApiResponse
     return {
       code: result.code,
       data: null,
-      message: result.message || "Error",
+      message: result.msg || result.message || "Error",
     };
   }
 
   return {
     code: 0,
     data: result.data,
-    message: result.message || "success",
+    message: result.msg || result.message || "success",
   };
 }
 

@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://discord.acontext.io">
-      <img alt="Acontext - Simple Context Storage for Cloud Agents" src="./assets/Acontext-header-banner.png">
+      <img alt="Acontext - Context Data Platform for Cloud Agents" src="./assets/Acontext-header-banner.png">
   </a>
  	<p align="center">
  	  	<a href="https://acontext.io">🌐 Website</a>
@@ -45,7 +45,7 @@ We help agents scale from local demos to production without rebuilding context i
 - **Observe** agent with background monitor to estimate success rate
 
 <div align="center">
-      <img alt="Acontext - Simple Context Storage for Cloud Agents" src="./assets/acontext-components.png">  
+      <img alt="Acontext - Context Data Platform for Cloud Agents" src="./assets/acontext-components.png">  
 </div>
 
 

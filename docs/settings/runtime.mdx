@@ -6,7 +6,7 @@ description: Runtime settings are used to configure the runtime behavior of the 
 
 ### Session Message Buffer
 Acontext will track the agent task and user feedback in the session, 
-the following settings are used to decide how and when the tracking will be conducted.
+the following settings control how and when tracking is conducted.
 
 <ParamField path="PROJECT_SESSION_MESSAGE_USE_PREVIOUS_MESSAGES_TURNS" type="integer" default="3">
 Number of previous message turns to include in the context when processing new incoming messages. 
@@ -25,7 +25,7 @@ and the less total token costs.
 <ParamField path="PROJECT_SESSION_MESSAGE_BUFFER_TTL_SECONDS" type="integer" default="4">
 Time-to-live in seconds for the session buffer. 
 
-If the session buffer haven't received any new messsages for the TTL seconds, it will start the process the current messages.
+If the session buffer hasn't received any new messages for the TTL seconds, it starts processing the current messages.
 This parameter + the max turns parameters make sure the session buffer is not too large and the messages are not too old.
 </ParamField>
 

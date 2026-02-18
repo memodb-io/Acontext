@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,7 @@ import { AgentSkill } from "@/types";
 
 export default function AgentSkillsPage() {
   const t = useTranslations("agentSkills");
+  const router = useRouter();
 
   const [skills, setSkills] = useState<AgentSkill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -56,9 +58,6 @@ export default function AgentSkillsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
-  const [selectedSkill, setSelectedSkill] = useState<AgentSkill | null>(null);
 
   const filteredSkills = skills.filter((skill) =>
     skill.name.toLowerCase().includes(filterText.toLowerCase())
@@ -158,11 +157,6 @@ export default function AgentSkillsPage() {
     }
   };
 
-  const handleViewDetails = (skill: AgentSkill) => {
-    setSelectedSkill(skill);
-    setDetailDialogOpen(true);
-  };
-
   return (
     <div className="h-full bg-background p-6 flex flex-col overflow-hidden space-y-2">
       <div className="shrink-0 space-y-4">
@@ -256,7 +250,7 @@ export default function AgentSkillsPage() {
                         <Button
                           variant="secondary"
                           size="sm"
-                          onClick={() => handleViewDetails(skill)}
+                          onClick={() => router.push(`/agent_skills/${skill.id}`)}
                         >
                           {t("viewDetails")}
                         </Button>
@@ -379,97 +373,6 @@ export default function AgentSkillsPage() {
               ) : (
                 t("upload")
               )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Details Dialog */}
-      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
-          <DialogHeader className="shrink-0">
-            <DialogTitle>{t("detailsTitle")}</DialogTitle>
-          </DialogHeader>
-          {selectedSkill && (
-            <div className="flex-1 overflow-y-auto min-h-0 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">
-                    {t("name")}
-                  </p>
-                  <p className="text-sm bg-muted px-2 py-1 rounded">
-                    {selectedSkill.name}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">
-                    {t("createdAt")}
-                  </p>
-                  <p className="text-sm bg-muted px-2 py-1 rounded">
-                    {new Date(selectedSkill.created_at).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-
-              {selectedSkill.description && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">
-                    {t("skillDescription")}
-                  </p>
-                  <p className="text-sm bg-muted px-2 py-1 rounded whitespace-pre-wrap">
-                    {selectedSkill.description}
-                  </p>
-                </div>
-              )}
-
-              {selectedSkill.file_index && selectedSkill.file_index.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-2">
-                    {t("fileIndex")}
-                  </p>
-                  <div className="border rounded-md overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>{t("path")}</TableHead>
-                          <TableHead>{t("mime")}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {selectedSkill.file_index.map((file, index) => (
-                          <TableRow key={index}>
-                            <TableCell className="font-mono text-xs">
-                              {file.path}
-                            </TableCell>
-                            <TableCell className="text-xs">
-                              {file.mime}
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </div>
-              )}
-
-              {selectedSkill.meta && Object.keys(selectedSkill.meta).length > 0 && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">
-                    {t("meta")}
-                  </p>
-                  <pre className="text-xs bg-muted px-3 py-2 rounded overflow-auto max-h-[200px]">
-                    {JSON.stringify(selectedSkill.meta, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </div>
-          )}
-          <DialogFooter className="shrink-0">
-            <Button
-              variant="outline"
-              onClick={() => setDetailDialogOpen(false)}
-            >
-              {t("close")}
             </Button>
           </DialogFooter>
         </DialogContent>

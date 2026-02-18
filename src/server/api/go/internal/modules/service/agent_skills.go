@@ -24,6 +24,7 @@ import (
 
 type AgentSkillsService interface {
 	Create(ctx context.Context, in CreateAgentSkillsInput) (*model.AgentSkills, error)
+	CreateFromTemplate(ctx context.Context, in CreateFromTemplateInput) (*model.AgentSkills, error)
 	GetByID(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*model.AgentSkills, error)
 	Delete(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error
 	List(ctx context.Context, in ListAgentSkillsInput) (*ListAgentSkillsOutput, error)
@@ -50,6 +51,13 @@ type CreateAgentSkillsInput struct {
 	UserID    *uuid.UUID
 	ZipFile   *multipart.FileHeader
 	Meta      map[string]interface{}
+}
+
+type CreateFromTemplateInput struct {
+	ProjectID uuid.UUID
+	UserID    *uuid.UUID
+	Content   []byte                 // raw SKILL.md content read from embedded FS
+	Meta      map[string]interface{} // nil for default skills
 }
 
 // SkillMetadata represents the YAML structure in SKILL.md
@@ -334,6 +342,67 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 	return agentSkills, nil
 }
 
+func (s *agentSkillsService) CreateFromTemplate(ctx context.Context, in CreateFromTemplateInput) (*model.AgentSkills, error) {
+	// Parse YAML front-matter
+	yamlContent := extractYAMLFrontMatter(in.Content)
+	var metadata SkillMetadata
+	if err := yaml.Unmarshal([]byte(yamlContent), &metadata); err != nil {
+		return nil, fmt.Errorf("parse template SKILL.md YAML: %w", err)
+	}
+
+	if metadata.Name == "" {
+		return nil, errors.New("name is required in template SKILL.md")
+	}
+	if metadata.Description == "" {
+		return nil, errors.New("description is required in template SKILL.md")
+	}
+
+	sanitizedName := sanitizeS3Key(metadata.Name)
+
+	// Create Disk
+	disk, err := s.diskSvc.Create(ctx, in.ProjectID, in.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("create disk: %w", err)
+	}
+
+	success := false
+	defer func() {
+		if !success {
+			s.diskSvc.Delete(context.Background(), in.ProjectID, disk.ID)
+		}
+	}()
+
+	// Create single Artifact
+	artifact, err := s.artifactSvc.CreateFromBytes(ctx, CreateArtifactFromBytesInput{
+		ProjectID: in.ProjectID,
+		DiskID:    disk.ID,
+		Path:      "/",
+		Filename:  "SKILL.md",
+		Content:   in.Content,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create artifact for template SKILL.md: %w", err)
+	}
+
+	// Create DB record
+	agentSkills := &model.AgentSkills{
+		ProjectID:   in.ProjectID,
+		UserID:      in.UserID,
+		Name:        sanitizedName,
+		Description: metadata.Description,
+		DiskID:      disk.ID,
+		Meta:        in.Meta,
+	}
+
+	if err := s.r.Create(ctx, agentSkills); err != nil {
+		return nil, fmt.Errorf("create agent_skills record: %w", err)
+	}
+
+	agentSkills.FileIndex = artifactsToFileIndex([]*model.Artifact{artifact})
+	success = true
+	return agentSkills, nil
+}
+
 func (s *agentSkillsService) GetByID(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*model.AgentSkills, error) {
 	skill, err := s.r.GetByID(ctx, projectID, id)
 	if err != nil {
@@ -374,13 +443,13 @@ type ListAgentSkillsInput struct {
 	TimeDesc  bool
 }
 
-// AgentSkillsListItem is a lightweight representation of AgentSkills for list responses.
-// It excludes file_index to reduce response payload size.
+// AgentSkillsListItem is a representation of AgentSkills for list responses.
 type AgentSkillsListItem struct {
 	ID          uuid.UUID              `json:"id"`
 	UserID      *uuid.UUID             `json:"user_id"`
 	Name        string                 `json:"name"`
 	Description string                 `json:"description"`
+	FileIndex   []model.FileInfo       `json:"file_index"`
 	Meta        map[string]interface{} `json:"meta"`
 	CreatedAt   time.Time              `json:"created_at"`
 	UpdatedAt   time.Time              `json:"updated_at"`
@@ -416,14 +485,22 @@ func (s *agentSkillsService) List(ctx context.Context, in ListAgentSkillsInput) 
 		agentSkills = agentSkills[:in.Limit]
 	}
 
-	// Convert to lightweight list items (excludes file_index)
+	// Convert to list items with file_index populated from artifacts.
 	items := make([]*AgentSkillsListItem, len(agentSkills))
 	for i, skill := range agentSkills {
+		var fileIndex []model.FileInfo
+		artifacts, err := s.artifactSvc.ListByPath(ctx, skill.DiskID, "")
+		if err == nil {
+			fileIndex = artifactsToFileIndex(artifacts)
+		} else {
+			fileIndex = []model.FileInfo{}
+		}
 		items[i] = &AgentSkillsListItem{
 			ID:          skill.ID,
 			UserID:      skill.UserID,
 			Name:        skill.Name,
 			Description: skill.Description,
+			FileIndex:   fileIndex,
 			Meta:        skill.Meta,
 			CreatedAt:   skill.CreatedAt,
 			UpdatedAt:   skill.UpdatedAt,

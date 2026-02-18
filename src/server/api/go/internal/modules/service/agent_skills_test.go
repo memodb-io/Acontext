@@ -766,6 +766,12 @@ func TestAgentSkillsService_List(t *testing.T) {
 		skills := []*model.AgentSkills{createTestAgentSkills(), createTestAgentSkills()}
 		m.repo.On("ListWithCursor", mock.Anything, projectID, "", mock.Anything, mock.Anything, 21, false).
 			Return(skills, nil)
+		// Each skill's FileIndex is populated from artifacts
+		for _, sk := range skills {
+			m.artifact.On("ListByPath", ctx, sk.DiskID, "").Return([]*model.Artifact{
+				makeArtifact(sk.DiskID, "/", "SKILL.md", "text/markdown", "disks/hash1"),
+			}, nil)
+		}
 
 		result, err := m.service().List(ctx, ListAgentSkillsInput{ProjectID: projectID, Limit: 20})
 
@@ -773,6 +779,8 @@ func TestAgentSkillsService_List(t *testing.T) {
 		assert.NotNil(t, result)
 		assert.Len(t, result.Items, 2)
 		assert.False(t, result.HasMore)
+		assert.Len(t, result.Items[0].FileIndex, 1)
+		assert.Equal(t, "SKILL.md", result.Items[0].FileIndex[0].Path)
 	})
 
 	t.Run("empty result", func(t *testing.T) {
@@ -931,6 +939,213 @@ func TestAgentSkillsService_ListFiles(t *testing.T) {
 		assert.Error(t, err)
 		assert.Nil(t, result)
 	})
+}
+
+// ── Service: CreateFromTemplate tests ──
+
+func TestCreateFromTemplate_Success(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+	userID := uuid.New()
+	diskID := uuid.New()
+
+	content := []byte("---\nname: daily-logs\ndescription: Track daily activity logs\n---\n# Daily Logs\n")
+
+	m := newTestMocks()
+	m.disk.On("Create", mock.Anything, projectID, &userID).
+		Return(&model.Disk{ID: diskID, ProjectID: projectID}, nil)
+	m.artifact.On("CreateFromBytes", mock.Anything, mock.MatchedBy(func(in CreateArtifactFromBytesInput) bool {
+		return in.ProjectID == projectID && in.DiskID == diskID && in.Path == "/" && in.Filename == "SKILL.md"
+	})).Return(makeArtifact(diskID, "/", "SKILL.md", "text/markdown", "disks/hash1"), nil)
+	m.repo.On("Create", mock.Anything, mock.MatchedBy(func(as *model.AgentSkills) bool {
+		return as.Name == "daily-logs" && as.Description == "Track daily activity logs" && as.DiskID == diskID && as.UserID != nil && *as.UserID == userID
+	})).Return(nil)
+
+	result, err := m.service().CreateFromTemplate(ctx, CreateFromTemplateInput{
+		ProjectID: projectID,
+		UserID:    &userID,
+		Content:   content,
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Equal(t, "daily-logs", result.Name)
+	assert.Equal(t, "Track daily activity logs", result.Description)
+	assert.Equal(t, diskID, result.DiskID)
+	assert.Len(t, result.FileIndex, 1)
+	assert.Equal(t, "SKILL.md", result.FileIndex[0].Path)
+
+	m.repo.AssertExpectations(t)
+	m.disk.AssertExpectations(t)
+	m.artifact.AssertExpectations(t)
+}
+
+func TestCreateFromTemplate_NilUserID(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+	diskID := uuid.New()
+
+	content := []byte("---\nname: daily-logs\ndescription: Track daily activity logs\n---\n# Daily Logs\n")
+
+	m := newTestMocks()
+	m.disk.On("Create", mock.Anything, projectID, (*uuid.UUID)(nil)).
+		Return(&model.Disk{ID: diskID, ProjectID: projectID}, nil)
+	m.artifact.On("CreateFromBytes", mock.Anything, mock.Anything).
+		Return(makeArtifact(diskID, "/", "SKILL.md", "text/markdown", "disks/hash1"), nil)
+	m.repo.On("Create", mock.Anything, mock.MatchedBy(func(as *model.AgentSkills) bool {
+		return as.UserID == nil && as.Name == "daily-logs"
+	})).Return(nil)
+
+	result, err := m.service().CreateFromTemplate(ctx, CreateFromTemplateInput{
+		ProjectID: projectID,
+		UserID:    nil,
+		Content:   content,
+	})
+
+	assert.NoError(t, err)
+	assert.NotNil(t, result)
+	assert.Nil(t, result.UserID)
+	assert.Equal(t, "daily-logs", result.Name)
+
+	m.disk.AssertExpectations(t)
+}
+
+func TestCreateFromTemplate_MissingFrontMatterMarkers(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+
+	// No --- markers: extractYAMLFrontMatter returns the full content,
+	// yaml.Unmarshal fails to parse markdown as SkillMetadata struct
+	content := []byte("# Just a markdown file with no front matter\nSome content here.\n")
+
+	m := newTestMocks()
+
+	result, err := m.service().CreateFromTemplate(ctx, CreateFromTemplateInput{
+		ProjectID: projectID,
+		Content:   content,
+	})
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+
+	// No Disk/Artifact/DB calls should be made
+	m.disk.AssertNotCalled(t, "Create")
+	m.artifact.AssertNotCalled(t, "CreateFromBytes")
+	m.repo.AssertNotCalled(t, "Create")
+}
+
+func TestCreateFromTemplate_MissingNameOrDescription(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+
+	t.Run("missing name", func(t *testing.T) {
+		content := []byte("---\ndescription: Some description\n---\n# Skill\n")
+
+		m := newTestMocks()
+		result, err := m.service().CreateFromTemplate(ctx, CreateFromTemplateInput{
+			ProjectID: projectID,
+			Content:   content,
+		})
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "name is required")
+		m.disk.AssertNotCalled(t, "Create")
+	})
+
+	t.Run("missing description", func(t *testing.T) {
+		content := []byte("---\nname: test-skill\n---\n# Skill\n")
+
+		m := newTestMocks()
+		result, err := m.service().CreateFromTemplate(ctx, CreateFromTemplateInput{
+			ProjectID: projectID,
+			Content:   content,
+		})
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "description is required")
+		m.disk.AssertNotCalled(t, "Create")
+	})
+}
+
+func TestCreateFromTemplate_DiskFailure(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+
+	content := []byte("---\nname: daily-logs\ndescription: Track daily activity logs\n---\n# Daily Logs\n")
+
+	m := newTestMocks()
+	m.disk.On("Create", mock.Anything, projectID, (*uuid.UUID)(nil)).
+		Return(nil, errors.New("disk creation failed"))
+
+	result, err := m.service().CreateFromTemplate(ctx, CreateFromTemplateInput{
+		ProjectID: projectID,
+		Content:   content,
+	})
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "disk creation failed")
+
+	m.artifact.AssertNotCalled(t, "CreateFromBytes")
+	m.repo.AssertNotCalled(t, "Create")
+}
+
+func TestCreateFromTemplate_ArtifactFailure(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+	diskID := uuid.New()
+
+	content := []byte("---\nname: daily-logs\ndescription: Track daily activity logs\n---\n# Daily Logs\n")
+
+	m := newTestMocks()
+	m.disk.On("Create", mock.Anything, projectID, (*uuid.UUID)(nil)).
+		Return(&model.Disk{ID: diskID, ProjectID: projectID}, nil)
+	m.artifact.On("CreateFromBytes", mock.Anything, mock.Anything).
+		Return(nil, errors.New("S3 upload failed"))
+	// Disk should be cleaned up
+	m.disk.On("Delete", mock.Anything, projectID, diskID).Return(nil)
+
+	result, err := m.service().CreateFromTemplate(ctx, CreateFromTemplateInput{
+		ProjectID: projectID,
+		Content:   content,
+	})
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "S3 upload failed")
+
+	m.disk.AssertCalled(t, "Delete", mock.Anything, projectID, diskID)
+	m.repo.AssertNotCalled(t, "Create")
+}
+
+func TestCreateFromTemplate_DBRecordFailure(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+	diskID := uuid.New()
+
+	content := []byte("---\nname: daily-logs\ndescription: Track daily activity logs\n---\n# Daily Logs\n")
+
+	m := newTestMocks()
+	m.disk.On("Create", mock.Anything, projectID, (*uuid.UUID)(nil)).
+		Return(&model.Disk{ID: diskID, ProjectID: projectID}, nil)
+	m.artifact.On("CreateFromBytes", mock.Anything, mock.Anything).
+		Return(makeArtifact(diskID, "/", "SKILL.md", "text/markdown", "disks/hash1"), nil)
+	m.repo.On("Create", mock.Anything, mock.Anything).Return(errors.New("DB insert failed"))
+	// Disk should be cleaned up
+	m.disk.On("Delete", mock.Anything, projectID, diskID).Return(nil)
+
+	result, err := m.service().CreateFromTemplate(ctx, CreateFromTemplateInput{
+		ProjectID: projectID,
+		Content:   content,
+	})
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "DB insert failed")
+
+	m.disk.AssertCalled(t, "Delete", mock.Anything, projectID, diskID)
 }
 
 // ── Create + Delete in same test (workspace rule) ──

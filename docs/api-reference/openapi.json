@@ -921,6 +921,422 @@
         "x-codegen-request-body-name" : "request"
       }
     },
+    "/learning_spaces" : {
+      "get" : {
+        "description" : "List learning spaces with optional user, meta filter, and cursor pagination.",
+        "parameters" : [ {
+          "description" : "Filter by user identifier",
+          "in" : "query",
+          "name" : "user",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Limit per page, default 20, max 200",
+          "in" : "query",
+          "name" : "limit",
+          "schema" : {
+            "type" : "integer"
+          }
+        }, {
+          "description" : "Cursor for pagination",
+          "in" : "query",
+          "name" : "cursor",
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Order by created_at descending",
+          "in" : "query",
+          "name" : "time_desc",
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "description" : "URL-encoded JSON for JSONB containment filter",
+          "in" : "query",
+          "name" : "filter_by_meta",
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_learning_spaces_get_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "List learning spaces",
+        "tags" : [ "LearningSpaces" ]
+      },
+      "post" : {
+        "description" : "Create a new learning space. Optionally associate with a user.",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/handler.CreateLearningSpaceReq"
+              }
+            }
+          },
+          "description" : "Create learning space request",
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_learning_spaces_post_201_response"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Create learning space",
+        "tags" : [ "LearningSpaces" ],
+        "x-codegen-request-body-name" : "request"
+      }
+    },
+    "/learning_spaces/{id}" : {
+      "delete" : {
+        "description" : "Delete a learning space. Junction records are cascade-deleted by the DB.",
+        "parameters" : [ {
+          "description" : "Learning space UUID",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/serializer.Response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Delete learning space",
+        "tags" : [ "LearningSpaces" ]
+      },
+      "get" : {
+        "description" : "Get a learning space by ID.",
+        "parameters" : [ {
+          "description" : "Learning space UUID",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_learning_spaces_post_201_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Get learning space",
+        "tags" : [ "LearningSpaces" ]
+      },
+      "patch" : {
+        "description" : "Merge provided meta into existing meta. Existing keys not in the request are preserved.",
+        "parameters" : [ {
+          "description" : "Learning space UUID",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/handler.UpdateLearningSpaceReq"
+              }
+            }
+          },
+          "description" : "Patch meta request",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_learning_spaces_post_201_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Update learning space (patch meta)",
+        "tags" : [ "LearningSpaces" ],
+        "x-codegen-request-body-name" : "request"
+      }
+    },
+    "/learning_spaces/{id}/learn" : {
+      "post" : {
+        "description" : "Create an async learning record from a session. Initially stays in pending status.",
+        "parameters" : [ {
+          "description" : "Learning space UUID",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/handler.LearnReq"
+              }
+            }
+          },
+          "description" : "Learn request",
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_learning_spaces__id__learn_post_201_response"
+                }
+              }
+            },
+            "description" : "Created"
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/serializer.Response"
+                }
+              }
+            },
+            "description" : "Not Found"
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/serializer.Response"
+                }
+              }
+            },
+            "description" : "Conflict"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Learn from session",
+        "tags" : [ "LearningSpaces" ],
+        "x-codegen-request-body-name" : "request"
+      }
+    },
+    "/learning_spaces/{id}/sessions" : {
+      "get" : {
+        "description" : "List all learning session records for a space, including their processing status.",
+        "parameters" : [ {
+          "description" : "Learning space UUID",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_learning_spaces__id__sessions_get_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "List sessions in space",
+        "tags" : [ "LearningSpaces" ]
+      }
+    },
+    "/learning_spaces/{id}/skills" : {
+      "get" : {
+        "description" : "List all skills associated with a learning space. Returns full skill data.",
+        "parameters" : [ {
+          "description" : "Learning space UUID",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_learning_spaces__id__skills_get_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "List skills in space",
+        "tags" : [ "LearningSpaces" ]
+      },
+      "post" : {
+        "description" : "Add a skill to a learning space.",
+        "parameters" : [ {
+          "description" : "Learning space UUID",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/handler.IncludeSkillReq"
+              }
+            }
+          },
+          "description" : "Include skill request",
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_learning_spaces__id__skills_post_201_response"
+                }
+              }
+            },
+            "description" : "Created"
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/serializer.Response"
+                }
+              }
+            },
+            "description" : "Not Found"
+          },
+          "409" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/serializer.Response"
+                }
+              }
+            },
+            "description" : "Conflict"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Include skill in space",
+        "tags" : [ "LearningSpaces" ],
+        "x-codegen-request-body-name" : "request"
+      }
+    },
+    "/learning_spaces/{id}/skills/{skill_id}" : {
+      "delete" : {
+        "description" : "Remove a skill from a learning space. Idempotent — silently succeeds if not associated.",
+        "parameters" : [ {
+          "description" : "Learning space UUID",
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Skill UUID",
+          "in" : "path",
+          "name" : "skill_id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/serializer.Response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Exclude skill from space",
+        "tags" : [ "LearningSpaces" ]
+      }
+    },
     "/sandbox" : {
       "post" : {
         "description" : "Create and start a new sandbox for the project",
@@ -2046,6 +2462,19 @@
         },
         "type" : "object"
       },
+      "handler.CreateLearningSpaceReq" : {
+        "properties" : {
+          "meta" : {
+            "properties" : { },
+            "type" : "object"
+          },
+          "user" : {
+            "example" : "alice@acontext.io",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "handler.CreateSessionReq" : {
         "properties" : {
           "configs" : {
@@ -2151,6 +2580,26 @@
         },
         "type" : "object"
       },
+      "handler.IncludeSkillReq" : {
+        "properties" : {
+          "skill_id" : {
+            "example" : "skill-uuid",
+            "type" : "string"
+          }
+        },
+        "required" : [ "skill_id" ],
+        "type" : "object"
+      },
+      "handler.LearnReq" : {
+        "properties" : {
+          "session_id" : {
+            "example" : "session-uuid",
+            "type" : "string"
+          }
+        },
+        "required" : [ "session_id" ],
+        "type" : "object"
+      },
       "handler.ListArtifactsResp" : {
         "properties" : {
           "artifacts" : {
@@ -2253,6 +2702,16 @@
             "$ref" : "#/components/schemas/model.Artifact"
           }
         },
+        "type" : "object"
+      },
+      "handler.UpdateLearningSpaceReq" : {
+        "properties" : {
+          "meta" : {
+            "properties" : { },
+            "type" : "object"
+          }
+        },
+        "required" : [ "meta" ],
         "type" : "object"
       },
       "handler.UpdateSessionConfigsReq" : {
@@ -2419,6 +2878,67 @@
           },
           "path" : {
             "description" : "Relative path from skillName root",
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "model.LearningSpace" : {
+        "properties" : {
+          "created_at" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "meta" : {
+            "properties" : { },
+            "type" : "object"
+          },
+          "updated_at" : {
+            "type" : "string"
+          },
+          "user_id" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "model.LearningSpaceSession" : {
+        "properties" : {
+          "created_at" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "learning_space_id" : {
+            "type" : "string"
+          },
+          "session_id" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "updated_at" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "model.LearningSpaceSkill" : {
+        "properties" : {
+          "created_at" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "learning_space_id" : {
+            "type" : "string"
+          },
+          "skill_id" : {
             "type" : "string"
           }
         },
@@ -2656,6 +3176,12 @@
           "description" : {
             "type" : "string"
           },
+          "file_index" : {
+            "items" : {
+              "$ref" : "#/components/schemas/model.FileInfo"
+            },
+            "type" : "array"
+          },
           "id" : {
             "type" : "string"
           },
@@ -2764,6 +3290,23 @@
           "items" : {
             "items" : {
               "$ref" : "#/components/schemas/model.Disk"
+            },
+            "type" : "array"
+          },
+          "next_cursor" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
+      "service.ListLearningSpacesOutput" : {
+        "properties" : {
+          "has_more" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "items" : {
+              "$ref" : "#/components/schemas/model.LearningSpace"
             },
             "type" : "array"
           },
@@ -2998,6 +3541,84 @@
           "properties" : {
             "data" : {
               "$ref" : "#/components/schemas/handler.ListArtifactsResp"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_learning_spaces_get_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/service.ListLearningSpacesOutput"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_learning_spaces_post_201_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/model.LearningSpace"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_learning_spaces__id__learn_post_201_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/model.LearningSpaceSession"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_learning_spaces__id__sessions_get_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "items" : {
+                "$ref" : "#/components/schemas/model.LearningSpaceSession"
+              },
+              "type" : "array"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_learning_spaces__id__skills_get_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "items" : {
+                "$ref" : "#/components/schemas/model.AgentSkills"
+              },
+              "type" : "array"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_learning_spaces__id__skills_post_201_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "$ref" : "#/components/schemas/model.LearningSpaceSkill"
             }
           },
           "type" : "object"

@@ -1,5 +1,6 @@
 ---
 title: "Async Python Client"
+description: "Use the async Python client for non-blocking Acontext operations"
 ---
 
 
@@ -65,16 +66,14 @@ while True:
     messages.append(message)
 
     if not message.tool_calls:
-        print(f"🤖 Assistant: {message.content}")
+        print(f"Assistant: {message.content}")
         break
 
     # Execute each tool call asynchronously
     for tool_call in message.tool_calls:
-        print(f"⚙️ Called {tool_call.function.name}")
         result = await DISK_TOOLS.async_execute_tool(
             ctx, tool_call.function.name, json.loads(tool_call.function.arguments)
         )
-        print(f"🔍 Result: {result}")
         messages.append(
             {"role": "tool", "tool_call_id": tool_call.id, "content": result}
         )
@@ -117,16 +116,14 @@ while True:
     messages.append(message)
 
     if not message.tool_calls:
-        print(f"🤖 Assistant: {message.content}")
+        print(f"Assistant: {message.content}")
         break
 
     # Execute each tool call asynchronously
     for tool_call in message.tool_calls:
-        print(f"⚙️ Called {tool_call.function.name}")
         result = await SKILL_TOOLS.async_execute_tool(
             ctx, tool_call.function.name, json.loads(tool_call.function.arguments)
         )
-        print(f"🔍 Result: {result}")
         messages.append(
             {"role": "tool", "tool_call_id": tool_call.id, "content": result}
         )
@@ -184,16 +181,14 @@ while True:
     messages.append(message)
 
     if not message.tool_calls:
-        print(f"🤖 Assistant: {message.content}")
+        print(f"Assistant: {message.content}")
         break
 
     # Execute each tool call asynchronously
     for tool_call in message.tool_calls:
-        print(f"⚙️ Called {tool_call.function.name}")
         result = await SANDBOX_TOOLS.async_execute_tool(
             ctx, tool_call.function.name, json.loads(tool_call.function.arguments)
         )
-        print(f"🔍 Result: {result}")
         messages.append(
             {"role": "tool", "tool_call_id": tool_call.id, "content": result}
         )
