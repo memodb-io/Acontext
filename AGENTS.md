@@ -1,5 +1,5 @@
 # Acontext
-Acontext is a simple context storage for building cloud-native AI Agents
+Acontext is a context data platform for building cloud-native AI Agents
 
 ## NAVIGATION GUIDE
 - Python SDK: `src/client/acontext-py/`
