@@ -175,7 +175,7 @@ export interface LearningSpaceSession {
   id: string;
   learning_space_id: string;
   session_id: string;
-  status: "pending" | "done" | "failed";
+  status: "pending" | "running" | "completed" | "failed";
   created_at: string;
   updated_at: string;
 }

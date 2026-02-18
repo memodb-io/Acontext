@@ -31,7 +31,7 @@ async def process_skill_distillation(body: SkillLearnTask, message: Message):
         f"Skill distillation: received task {body.task_id} for session {body.session_id}"
     )
 
-    # Resolve learning_space_id from session
+    # Resolve learning_space_id from session and mark as running
     async with DB_CLIENT.get_session_context() as db_session:
         r = await LS.get_learning_space_for_session(db_session, body.session_id)
         ls_session, eil = r.unpack()
@@ -40,6 +40,8 @@ async def process_skill_distillation(body: SkillLearnTask, message: Message):
                 f"Skill distillation: session {body.session_id} has no learning space, skipping"
             )
             return
+
+        await LS.update_session_status(db_session, body.session_id, "running")
 
     learning_space_id = ls_session.learning_space_id
 
@@ -52,6 +54,8 @@ async def process_skill_distillation(body: SkillLearnTask, message: Message):
         LOG.warning(
             f"Skill distillation: failed for task {body.task_id}: {eil}"
         )
+        async with DB_CLIENT.get_session_context() as db_session:
+            await LS.update_session_status(db_session, body.session_id, "failed")
         return
 
     if distilled_payload is None:
@@ -117,6 +121,15 @@ async def process_skill_agent(body: SkillLearnDistilled, message: Message):
             LOG.warning(
                 f"Skill agent: processing failed for learning space {body.learning_space_id}: {eil}"
             )
+            async with DB_CLIENT.get_session_context() as db_session:
+                await LS.update_session_status(
+                    db_session, body.session_id, "failed"
+                )
+        else:
+            async with DB_CLIENT.get_session_context() as db_session:
+                await LS.update_session_status(
+                    db_session, body.session_id, "completed"
+                )
     finally:
         await release_redis_lock(body.project_id, lock_key)
 

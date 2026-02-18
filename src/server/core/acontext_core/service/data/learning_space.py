@@ -95,6 +95,21 @@ async def get_skills_info(
     return Result.resolve(skill_infos)
 
 
+async def update_session_status(
+    db_session: AsyncSession, session_id: asUUID, status: str
+) -> Result[Optional[LearningSpaceSession]]:
+    query = select(LearningSpaceSession).where(
+        LearningSpaceSession.session_id == session_id,
+    )
+    result = await db_session.execute(query)
+    ls_session = result.scalars().first()
+    if ls_session is None:
+        return Result.reject(f"LearningSpaceSession for session {session_id} not found")
+    ls_session.status = status
+    await db_session.flush()
+    return Result.resolve(ls_session)
+
+
 async def add_skill_to_learning_space(
     db_session: AsyncSession, learning_space_id: asUUID, skill_id: asUUID
 ) -> Result[LearningSpaceSkill]:
