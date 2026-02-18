@@ -308,6 +308,19 @@ mock_artifact_info_meta = {
 
 - **`TestIntegrationSkillFileList.test_skill_file_list`** — This calls `create_skill` directly (from `agent_skill.py`). Add `@patch("acontext_core.service.data.agent_skill.upload_and_build_artifact_meta")` returning `(mock_asset_meta, mock_artifact_info_meta)`.
 
+#### `src/server/core/tests/service/test_agent_skill_data.py`
+
+- **`TestCreateSkill.test_create_skill_success`** — Wrap `create_skill()` call with `@patch("acontext_core.service.data.agent_skill.upload_and_build_artifact_meta")` using `_mock_upload_meta(content)` helper.
+- **`TestCreateSkill.test_create_skill_with_meta`** — Same mock needed.
+- **`TestCreateSkill.test_create_skill_name_sanitization`** — Same mock needed.
+- **`TestCreateSkill.test_create_skill_sha256_and_size_b`** — Same mock needed; helper computes correct sha256/size_b from content.
+- Tests that exercise early-exit paths (e.g., `test_create_skill_invalid_missing_name`, `test_create_skill_invalid_empty_content`) do **NOT** need the mock — they return before reaching the upload call.
+
+#### `src/server/core/tests/llm/test_skill_learner_agent.py`
+
+- **`TestAgentMultiTurn.test_reads_skill_and_edits_file`** — Add `@patch("acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.upload_and_build_artifact_meta")` since the agent exercises `str_replace_skill_file` which now calls the upload helper.
+- **`TestAgentStatePreservation.test_thinking_preserved_across_iterations`** — Same mock needed; verify `upload_and_build_artifact_meta` receives the replaced content.
+
 ## New Deps
 
 None — uses existing `S3_CLIENT` from `acontext_core/infra/s3.py` and standard library (`hashlib`, `datetime`, `os.path`).
@@ -349,6 +362,18 @@ These mock `S3_CLIENT.upload_object` at the S3 client level since they test the 
 ### Integration test (`test_artifact_data.py`)
 
 - [x] `test_skill_file_list` passes with `upload_and_build_artifact_meta` mocked at `agent_skill` level
+
+### Integration test (`test_agent_skill_data.py`)
+
+- [x] `test_create_skill_success` passes with `upload_and_build_artifact_meta` mocked
+- [x] `test_create_skill_with_meta` passes with mock
+- [x] `test_create_skill_name_sanitization` passes with mock
+- [x] `test_create_skill_sha256_and_size_b` passes with mock (helper computes correct sha256/size_b)
+
+### Agent loop tests (`test_skill_learner_agent.py`)
+
+- [x] `test_reads_skill_and_edits_file` passes with `upload_and_build_artifact_meta` mocked at `str_replace_skill_file` level
+- [x] `test_thinking_preserved_across_iterations` passes with mock; verifies upload receives replaced content
 
 ### Manual verification
 

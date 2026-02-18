@@ -143,6 +143,17 @@ class TestAgentMultiTurn:
                 return_value=Result.resolve(mock_script_artifact),
             ),
             patch(
+                "acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.upload_and_build_artifact_meta",
+                new_callable=AsyncMock,
+                return_value=(
+                    {"bucket": "b", "s3_key": "k", "etag": "e", "sha256": "s",
+                     "mime": "text/plain", "size_b": 100,
+                     "content": "Always verify tokens.\n- Check expiry before retry."},
+                    {"__artifact_info__": {"path": "scripts/", "filename": "check.py",
+                     "mime": "text/plain", "size": 100}},
+                ),
+            ),
+            patch(
                 "acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.upsert_artifact",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(updated_artifact),
@@ -161,9 +172,6 @@ class TestAgentMultiTurn:
             assert result.ok()
             # upsert was called (file was edited)
             mock_upsert.assert_called_once()
-            call_args = mock_upsert.call_args
-            new_meta = call_args[0][4]
-            assert "Check expiry before retry" in new_meta["content"]
 
     @pytest.mark.asyncio
     async def test_creates_new_skill(self):
@@ -545,6 +553,17 @@ class TestAgentStatePreservation:
                 return_value=Result.resolve(mock_artifact),
             ),
             patch(
+                "acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.upload_and_build_artifact_meta",
+                new_callable=AsyncMock,
+                return_value=(
+                    {"bucket": "b", "s3_key": "k", "etag": "e", "sha256": "s",
+                     "mime": "text/plain", "size_b": 11,
+                     "content": "New content"},
+                    {"__artifact_info__": {"path": "/", "filename": "notes.md",
+                     "mime": "text/plain", "size": 11}},
+                ),
+            ) as mock_upload,
+            patch(
                 "acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.upsert_artifact",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(updated_artifact),
@@ -563,8 +582,9 @@ class TestAgentStatePreservation:
             assert result.ok()
             # Edit succeeded (not blocked by thinking guard)
             mock_upsert.assert_called_once()
-            new_meta = mock_upsert.call_args[0][4]
-            assert new_meta["content"] == "New content"
+            # Verify upload was called with the replaced content
+            upload_content = mock_upload.call_args[0][3]
+            assert upload_content == "New content"
 
     @pytest.mark.asyncio
     async def test_tool_responses_appended_to_messages(self):

@@ -1,6 +1,7 @@
 import pytest
 import uuid
 import hashlib
+from unittest.mock import AsyncMock, patch
 from sqlalchemy.orm import selectinload
 from sqlalchemy import select
 from acontext_core.service.data.agent_skill import (
@@ -11,6 +12,31 @@ from acontext_core.service.data.agent_skill import (
 from acontext_core.service.data.artifact import get_artifact_by_path
 from acontext_core.schema.orm import Project, Disk, AgentSkill
 from acontext_core.schema.result import Result
+
+
+def _mock_upload_meta(content: str) -> tuple[dict, dict]:
+    """Build mock return value for upload_and_build_artifact_meta matching given content."""
+    content_bytes = content.encode("utf-8")
+    sha256_hex = hashlib.sha256(content_bytes).hexdigest()
+    return (
+        {
+            "bucket": "test-bucket",
+            "s3_key": f"disks/test/2026/01/01/{sha256_hex}.md",
+            "etag": "test-etag",
+            "sha256": sha256_hex,
+            "mime": "text/markdown",
+            "size_b": len(content_bytes),
+            "content": content,
+        },
+        {
+            "__artifact_info__": {
+                "path": "/",
+                "filename": "SKILL.md",
+                "mime": "text/markdown",
+                "size": len(content_bytes),
+            }
+        },
+    )
 
 
 class TestParseSkillMd:
@@ -192,7 +218,12 @@ class TestCreateSkill:
             await session.flush()
 
             content = "---\nname: test-skill\ndescription: A great skill\n---\n# Test\nBody."
-            result = await create_skill(session, project.id, content)
+            with patch(
+                "acontext_core.service.data.agent_skill.upload_and_build_artifact_meta",
+                new_callable=AsyncMock,
+                return_value=_mock_upload_meta(content),
+            ):
+                result = await create_skill(session, project.id, content)
             assert result.ok()
             skill, error = result.unpack()
             assert error is None
@@ -224,12 +255,17 @@ class TestCreateSkill:
             await session.flush()
 
             content = "---\nname: meta-skill\ndescription: With meta\n---"
-            result = await create_skill(
-                session,
-                project.id,
-                content,
-                meta={"version": "1.0"},
-            )
+            with patch(
+                "acontext_core.service.data.agent_skill.upload_and_build_artifact_meta",
+                new_callable=AsyncMock,
+                return_value=_mock_upload_meta(content),
+            ):
+                result = await create_skill(
+                    session,
+                    project.id,
+                    content,
+                    meta={"version": "1.0"},
+                )
             assert result.ok()
             skill, _ = result.unpack()
             assert skill.user_id is None
@@ -249,7 +285,12 @@ class TestCreateSkill:
             await session.flush()
 
             content = '---\nname: "my skill/v2"\ndescription: Sanitize test\n---'
-            result = await create_skill(session, project.id, content)
+            with patch(
+                "acontext_core.service.data.agent_skill.upload_and_build_artifact_meta",
+                new_callable=AsyncMock,
+                return_value=_mock_upload_meta(content),
+            ):
+                result = await create_skill(session, project.id, content)
             assert result.ok()
             skill, _ = result.unpack()
             assert skill.name == "my-skill-v2"
@@ -301,7 +342,12 @@ class TestCreateSkill:
             await session.flush()
 
             content = "---\nname: hash-skill\ndescription: Hash test\n---\n# Content"
-            result = await create_skill(session, project.id, content)
+            with patch(
+                "acontext_core.service.data.agent_skill.upload_and_build_artifact_meta",
+                new_callable=AsyncMock,
+                return_value=_mock_upload_meta(content),
+            ):
+                result = await create_skill(session, project.id, content)
             assert result.ok()
             skill, _ = result.unpack()
 
