@@ -112,6 +112,7 @@ async def run_skill_agent(
     project_id: asUUID,
     learning_space_id: asUUID,
     distilled_context: str,
+    max_iterations: int = 5,
 ) -> Result[None]:
     """Steps 3-4: Fetch learning space (for user_id) + skills, run agent.
 
@@ -143,5 +144,6 @@ async def run_skill_agent(
         user_id=ls.user_id,
         skills_info=skills_info,
         distilled_context=distilled_context,
+        max_iterations=max_iterations,
     )
     return r

@@ -35,14 +35,11 @@ async def skill_learner_agent(
     json_tools = [tool.model_dump() for tool in SkillLearnerPrompt.tool_schema()]
     already_iterations = 0
     has_reported_thinking = False
-    _messages = [
-        {
-            "role": "user",
-            "content": SkillLearnerPrompt.pack_skill_learner_input(
-                distilled_context, available_skills_str
-            ),
-        }
-    ]
+    _user_input = SkillLearnerPrompt.pack_skill_learner_input(
+        distilled_context, available_skills_str
+    )
+    LOG.info(f"Skill Learner Input: {_user_input[:100]}...")
+    _messages = [{"role": "user", "content": _user_input}]
 
     while already_iterations < max_iterations:
         r = await llm_complete(
@@ -55,7 +52,8 @@ async def skill_learner_agent(
         if eil:
             return r
         _messages.append(response_to_sendable_message(llm_return))
-        LOG.info(f"Skill Learner LLM Response: {llm_return.content}...")
+        _content_preview = (llm_return.content or "")[:20]
+        LOG.info(f"Skill Learner LLM Response: {_content_preview}...")
         if not llm_return.tool_calls:
             LOG.info("Skill Learner: No tool calls found, stop iterations")
             break
@@ -91,8 +89,9 @@ async def skill_learner_agent(
                                     f"Tool {tool_name} rejected: {r.error}"
                                 )
                         if tool_name != "report_thinking":
+                            _t_preview = (t or "")[:20]
                             LOG.info(
-                                f"Skill Learner Tool Call: {tool_name} - {tool_arguments} -> {t}"
+                                f"Skill Learner Tool Call: {tool_name} -> {_t_preview}..."
                             )
                         tool_response.append(
                             {
@@ -108,9 +107,7 @@ async def skill_learner_agent(
                     except RuntimeError:
                         raise
                     except Exception as e:
-                        raise RuntimeError(
-                            f"Tool {tool_name} error: {str(e)}"
-                        ) from e
+                        raise RuntimeError(f"Tool {tool_name} error: {str(e)}") from e
 
                 # Preserve has_reported_thinking across DB session rebuilds
                 has_reported_thinking = ctx.has_reported_thinking

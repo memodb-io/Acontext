@@ -284,13 +284,13 @@ function Node({ node, style, dragHandle, loadingNodes, t }: ReadOnlyNodeProps) {
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">{t("mimeType")}</span>
                 <span className="font-mono truncate">
-                  {fileInfo.meta.__artifact_info__.mime}
+                  {fileInfo.meta?.__artifact_info__?.mime ?? "-"}
                 </span>
               </div>
               <div className="flex justify-between gap-4">
                 <span className="text-muted-foreground">{t("size")}</span>
                 <span className="font-mono">
-                  {formatBytes(fileInfo.meta.__artifact_info__.size)}
+                  {fileInfo.meta?.__artifact_info__?.size != null ? formatBytes(fileInfo.meta.__artifact_info__.size) : "-"}
                 </span>
               </div>
               <div className="flex justify-between gap-4">
@@ -565,7 +565,7 @@ export default function DiskTreeViewer({
                   </div>
                 </div>
               ) : imageUrl &&
-                selectedFile.fileInfo.meta.__artifact_info__.mime.startsWith(
+                selectedFile.fileInfo.meta?.__artifact_info__?.mime?.startsWith(
                   "image/"
                 ) ? (
                 <div className="flex-1 flex items-center justify-center p-4 overflow-auto">

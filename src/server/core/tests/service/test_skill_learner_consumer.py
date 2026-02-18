@@ -23,6 +23,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from acontext_core.schema.result import Result
 from acontext_core.schema.session.task import TaskData, TaskStatus
 from acontext_core.schema.mq.learning import SkillLearnTask, SkillLearnDistilled
+from acontext_core.env import DEFAULT_CORE_CONFIG
 from acontext_core.service.skill_learner import (
     process_skill_distillation,
     process_skill_agent,
@@ -100,6 +101,10 @@ class TestDistillationConsumer:
                 return_value=Result.resolve(ls_session),
             ),
             patch(
+                "acontext_core.service.skill_learner.LS.update_session_status",
+                new_callable=AsyncMock,
+            ),
+            patch(
                 "acontext_core.service.skill_learner.SLC.process_context_distillation",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(distilled_payload),
@@ -141,6 +146,10 @@ class TestDistillationConsumer:
                 "acontext_core.service.skill_learner.LS.get_learning_space_for_session",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(ls_session),
+            ),
+            patch(
+                "acontext_core.service.skill_learner.LS.update_session_status",
+                new_callable=AsyncMock,
             ),
             patch(
                 "acontext_core.service.skill_learner.SLC.process_context_distillation",
@@ -221,6 +230,10 @@ class TestDistillationConsumer:
                 return_value=Result.resolve(ls_session),
             ),
             patch(
+                "acontext_core.service.skill_learner.LS.update_session_status",
+                new_callable=AsyncMock,
+            ),
+            patch(
                 "acontext_core.service.skill_learner.SLC.process_context_distillation",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(distilled_payload),
@@ -259,6 +272,10 @@ class TestDistillationConsumer:
                 return_value=Result.resolve(ls_session),
             ),
             patch(
+                "acontext_core.service.skill_learner.LS.update_session_status",
+                new_callable=AsyncMock,
+            ),
+            patch(
                 "acontext_core.service.skill_learner.SLC.process_context_distillation",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(None),
@@ -293,6 +310,11 @@ class TestAgentConsumer:
         mock_message = MagicMock()
 
         with (
+            patch("acontext_core.service.skill_learner.DB_CLIENT") as mock_db,
+            patch(
+                "acontext_core.service.skill_learner.LS.update_session_status",
+                new_callable=AsyncMock,
+            ),
             patch(
                 "acontext_core.service.skill_learner.check_redis_lock_or_set",
                 new_callable=AsyncMock,
@@ -308,12 +330,20 @@ class TestAgentConsumer:
                 return_value=Result.resolve(None),
             ) as mock_agent,
         ):
+            mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
+                return_value=MagicMock()
+            )
+            mock_db.get_session_context.return_value.__aexit__ = AsyncMock(
+                return_value=False
+            )
+
             await process_skill_agent(body, mock_message)
 
             mock_agent.assert_called_once_with(
                 body.project_id,
                 body.learning_space_id,
                 body.distilled_context,
+                max_iterations=DEFAULT_CORE_CONFIG.skill_learn_agent_max_iterations,
             )
             mock_release.assert_called_once()
 
@@ -359,6 +389,11 @@ class TestAgentConsumer:
         mock_message = MagicMock()
 
         with (
+            patch("acontext_core.service.skill_learner.DB_CLIENT") as mock_db,
+            patch(
+                "acontext_core.service.skill_learner.LS.update_session_status",
+                new_callable=AsyncMock,
+            ),
             patch(
                 "acontext_core.service.skill_learner.check_redis_lock_or_set",
                 new_callable=AsyncMock,
@@ -374,6 +409,13 @@ class TestAgentConsumer:
                 return_value=Result.reject("Agent crashed"),
             ),
         ):
+            mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
+                return_value=MagicMock()
+            )
+            mock_db.get_session_context.return_value.__aexit__ = AsyncMock(
+                return_value=False
+            )
+
             await process_skill_agent(body, mock_message)
 
             mock_release.assert_called_once()
@@ -413,6 +455,11 @@ class TestAgentConsumer:
         mock_message = MagicMock()
 
         with (
+            patch("acontext_core.service.skill_learner.DB_CLIENT") as mock_db,
+            patch(
+                "acontext_core.service.skill_learner.LS.update_session_status",
+                new_callable=AsyncMock,
+            ),
             patch(
                 "acontext_core.service.skill_learner.check_redis_lock_or_set",
                 new_callable=AsyncMock,
@@ -428,6 +475,13 @@ class TestAgentConsumer:
                 return_value=Result.resolve(None),
             ),
         ):
+            mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
+                return_value=MagicMock()
+            )
+            mock_db.get_session_context.return_value.__aexit__ = AsyncMock(
+                return_value=False
+            )
+
             await process_skill_agent(body, mock_message)
 
             mock_lock.assert_called_once_with(

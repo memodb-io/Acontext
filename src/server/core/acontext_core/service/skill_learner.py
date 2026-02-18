@@ -114,7 +114,10 @@ async def process_skill_agent(body: SkillLearnDistilled, message: Message):
 
     try:
         r = await SLC.run_skill_agent(
-            body.project_id, body.learning_space_id, body.distilled_context
+            body.project_id,
+            body.learning_space_id,
+            body.distilled_context,
+            max_iterations=DEFAULT_CORE_CONFIG.skill_learn_agent_max_iterations,
         )
         _, eil = r.unpack()
         if eil:
