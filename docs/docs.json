@@ -26,27 +26,33 @@
             "group": "Context Storage",
             "icon": "database",
             "pages": [
+              "store/overview",
               {
-                "group": "Messages",
+                "group": "Features",
                 "pages": [
-                  "store/messages/multi-provider",
-                  "store/messages/multi-modal",
-                  "store/messages/filter-by-configs",
                   {
-                    "group": "Meta",
+                    "group": "Messages",
                     "pages": [
-                      "store/messages/special/message-meta",
-                      "store/messages/special/anthropic",
-                      "store/messages/special/gemini"
+                      "store/messages/multi-provider",
+                      "store/messages/multi-modal",
+                      "store/messages/filter-by-configs",
+                      {
+                        "group": "Meta",
+                        "pages": [
+                          "store/messages/special/message-meta",
+                          "store/messages/special/anthropic",
+                          "store/messages/special/gemini"
+                        ]
+                      },
+                      "store/messages/special/format-conversion"
                     ]
                   },
-                  "store/messages/special/format-conversion"
+                  "store/disk",
+                  "store/skill",
+                  "store/sandbox",
+                  "store/per-user"
                 ]
-              },
-              "store/disk",
-              "store/skill",
-              "store/sandbox",
-              "store/per-user"
+              }
             ]
           },
           {
@@ -54,27 +60,28 @@
             "icon": "scissors",
             "pages": [
               "engineering/whatis",
-              "engineering/agent_skills",
-              "engineering/session_summary",
-              "engineering/editing",
-              "engineering/cache"
+              {
+                "group": "Features",
+                "pages": [
+                  "engineering/agent_skills",
+                  "engineering/session_summary",
+                  "engineering/editing",
+                  "engineering/cache"
+                ]
+              }
             ]
           },
           {
             "group": "Agent Observability",
             "icon": "radar",
             "pages": [
+              "observe/whatis",
               {
-                "group": "Agent Task Monitoring",
+                "group": "Features",
                 "pages": [
                   "observe/agent_tasks",
                   "observe/buffer",
-                  "observe/disable_tasks"
-                ]
-              },
-              {
-                "group": "BI and Traces",
-                "pages": [
+                  "observe/disable_tasks",
                   "observe/dashboard",
                   "observe/traces"
                 ]
@@ -93,8 +100,14 @@
             "icon": "wand-magic-sparkles",
             "pages": [
               "tool/whatis",
-              "tool/bash_tools",
-              "tool/disk_tools"
+              {
+                "group": "Features",
+                "pages": [
+                  "tool/bash_tools",
+                  "tool/disk_tools",
+                  "tool/skill_tools"
+                ]
+              }
             ]
           },
           {
@@ -102,8 +115,8 @@
             "icon": "ellipsis",
             "pages": [
               "chore/async_python",
-              "chore/badge",
-              "tool/skill_tools"
+              "observe/traces",
+              "chore/badge"
             ]
           },
           {
