@@ -1,0 +1,320 @@
+---
+title: Self-Learning Guide
+description: "Auto-generate reusable agent skills from every session"
+---
+
+This guide walks through connecting an agent to a learning space so it automatically learns from task outcomes.
+
+**Scenario**: You have a deploy-assistant agent. You want it to remember what worked and what didn't across sessions.
+
+<Steps>
+<Step title="Create a learning space">
+
+<CodeGroup>
+```python Python
+import os
+from acontext import AcontextClient
+
+client = AcontextClient(
+    api_key=os.getenv("ACONTEXT_API_KEY"),
+)
+
+space = client.learning_spaces.create(
+    user="alice@example.com",
+    meta={"domain": "deployments"},
+)
+# Two default skills (daily-logs, user-general-facts) are created automatically
+```
+
+```typescript TypeScript
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+const space = await client.learningSpaces.create({
+    user: "alice@example.com",
+    meta: { domain: "deployments" },
+});
+// Two default skills (daily-logs, user-general-facts) are created automatically
+```
+</CodeGroup>
+</Step>
+
+<Step title="Create a session and attach it to the space">
+
+Create a session, then immediately call `.learn()` to associate it with the learning space. This must happen **before** the agent runs — when tasks complete during the session, Acontext automatically picks them up for learning.
+
+<CodeGroup>
+```python Python
+session = client.sessions.create(user="alice@example.com")
+
+# Associate with the learning space right away
+result = client.learning_spaces.learn(space.id, session_id=session.id)
+print(f"Status: {result.status}")  # "pending"
+
+# Now run your agent with this session...
+```
+
+```typescript TypeScript
+const session = await client.sessions.create({ user: "alice@example.com" });
+
+// Associate with the learning space right away
+const result = await client.learningSpaces.learn({
+    spaceId: space.id,
+    sessionId: session.id,
+});
+console.log(`Status: ${result.status}`);  // "pending"
+
+// Now run your agent with this session...
+```
+</CodeGroup>
+
+<Note>
+A session can only belong to one learning space. Attempting to learn the same session in another space returns a `409 Conflict` error.
+</Note>
+</Step>
+
+<Step title="Use the session as usual">
+
+Insert messages exactly as you normally would — nothing changes in your agent loop. Acontext extracts tasks from the conversation and learns from them in the background.
+
+<CodeGroup>
+```python Python
+from openai import OpenAI
+llm = OpenAI()
+
+messages = [{"role": "user", "content": "Deploy API v2 to staging"}]
+response = llm.chat.completions.create(model="gpt-4o", messages=messages)
+
+# Store both user and assistant messages
+client.sessions.store_message(session.id, blob=messages[0])
+client.sessions.store_message(session.id, blob=response.choices[0].message)
+```
+
+```typescript TypeScript
+import OpenAI from 'openai';
+const llm = new OpenAI();
+
+const messages = [{ role: "user", content: "Deploy API v2 to staging" }];
+const response = await llm.chat.completions.create({ model: "gpt-4o", messages });
+
+// Store both user and assistant messages
+await client.sessions.storeMessage(session.id, messages[0]);
+await client.sessions.storeMessage(session.id, response.choices[0].message);
+```
+</CodeGroup>
+</Step>
+
+<Step title="Tasks complete → learning happens">
+
+As the agent runs, every task that finishes (success or failure) is automatically sent to the learning pipeline. No extra API call needed.
+
+Track progress:
+
+<CodeGroup>
+```python Python
+sessions = client.learning_spaces.list_sessions(space.id)
+for s in sessions:
+    print(f"Session {s.session_id}: {s.status}")
+    # pending → running → completed
+```
+
+```typescript TypeScript
+const sessions = await client.learningSpaces.listSessions(space.id);
+sessions.forEach(s => {
+    console.log(`Session ${s.session_id}: ${s.status}`);
+});
+```
+</CodeGroup>
+</Step>
+
+<Step title="Inspect what was learned">
+
+Read the skills to see what the agent recorded:
+
+<CodeGroup>
+```python Python
+skills = client.learning_spaces.list_skills(space.id)
+for skill in skills:
+    print(f"{skill.name}: {skill.description}")
+    # Read a specific file
+    content = client.skills.get_file(skill_id=skill.id, file_path="SKILL.md")
+    print(content.content.raw)
+```
+
+```typescript TypeScript
+const skills = await client.learningSpaces.listSkills(space.id);
+for (const skill of skills) {
+    const content = await client.skills.getFile({
+        skillId: skill.id,
+        filePath: "SKILL.md",
+    });
+    console.log(content.content?.raw);
+}
+```
+</CodeGroup>
+</Step>
+</Steps>
+
+<Note>
+**Under the hood:** Acontext first distills each task outcome into a structured summary, then an AI agent decides which skill files to update or create. Each learning space is processed sequentially to avoid conflicts.
+</Note>
+
+## Default Skills
+
+Every learning space starts with two built-in skills:
+
+| Skill | What it captures |
+|-------|-----------------|
+| **daily-logs** | Daily activity summaries — one file per day |
+| **user-general-facts** | User preferences and facts — one file per topic |
+
+<Accordion title="Example: daily-logs output">
+```markdown
+# 2025-06-15
+
+## [14:30] Task: Deploy API v2 to staging
+- **Outcome**: success
+- **Summary**: Blue-green deploy completed, zero downtime
+- **Key Decisions**: Ran DB migration before switching traffic
+- **Learnings**: Set health-check timeout to 30s, not 10s
+
+## [16:00] Task: Roll back staging after test failure
+- **Outcome**: failed
+- **Summary**: Rollback script timed out on large DB
+- **Key Decisions**: Attempted manual rollback
+- **Learnings**: Add rollback timeout flag, pre-test with smaller dataset
+```
+</Accordion>
+
+<Accordion title="Example: user-general-facts output">
+```markdown
+# Coding Preferences
+
+- Prefers Python 3.11+ with type hints
+- Uses pytest, not unittest
+- Wants concise docstrings
+
+# Deploy Preferences
+
+- Always use blue-green deployments
+- Run DB migrations before switching traffic
+- Health-check timeout should be 30s minimum
+```
+</Accordion>
+
+## Adding Custom Skills
+
+You can include your own skills alongside the defaults. The learner will update your custom skills too — as long as they have a valid `SKILL.md` with instructions.
+
+<CodeGroup>
+```python Python
+# Upload a skill ZIP, then include it
+skill = client.skills.create(file=FileUpload(...))
+client.learning_spaces.include_skill(space.id, skill_id=skill.id)
+
+# List all skills in the space
+skills = client.learning_spaces.list_skills(space.id)
+for skill in skills:
+    print(f"  {skill.name}: {skill.description}")
+
+# Remove a skill (idempotent)
+client.learning_spaces.exclude_skill(space.id, skill_id="skill-uuid")
+```
+
+```typescript TypeScript
+// Upload a skill ZIP, then include it
+const skill = await client.skills.create({ file: new FileUpload({...}) });
+await client.learningSpaces.includeSkill({
+    spaceId: space.id,
+    skillId: skill.id,
+});
+
+// List all skills in the space
+const skills = await client.learningSpaces.listSkills(space.id);
+skills.forEach(skill => {
+    console.log(`  ${skill.name}: ${skill.description}`);
+});
+
+// Remove a skill (idempotent)
+await client.learningSpaces.excludeSkill({
+    spaceId: space.id,
+    skillId: "skill-uuid",
+});
+```
+</CodeGroup>
+
+See [Agent Skills](/store/skill) for the SKILL.md format and ZIP structure.
+
+## Managing Learning Spaces
+
+<CodeGroup>
+```python Python
+# List all spaces
+spaces = client.learning_spaces.list(limit=10)
+
+# Filter by user
+spaces = client.learning_spaces.list(user="alice@example.com")
+
+# Filter by meta tags
+spaces = client.learning_spaces.list(
+    filter_by_meta={"domain": "deployments"},
+)
+
+# Paginate
+if spaces.has_more:
+    next_page = client.learning_spaces.list(cursor=spaces.next_cursor)
+
+# Update meta
+updated = client.learning_spaces.update(
+    space.id,
+    meta={"version": "2.0"},
+)
+
+# Delete (skills and sessions are NOT deleted)
+client.learning_spaces.delete(space.id)
+```
+
+```typescript TypeScript
+// List all spaces
+const spaces = await client.learningSpaces.list({ limit: 10 });
+
+// Filter by user
+const userSpaces = await client.learningSpaces.list({
+    user: "alice@example.com",
+});
+
+// Filter by meta tags
+const filtered = await client.learningSpaces.list({
+    filterByMeta: { domain: "deployments" },
+});
+
+// Paginate
+if (spaces.has_more) {
+    const nextPage = await client.learningSpaces.list({
+        cursor: spaces.next_cursor,
+    });
+}
+
+// Update meta
+const updated = await client.learningSpaces.update(space.id, {
+    meta: { version: "2.0" },
+});
+
+// Delete (skills and sessions are NOT deleted)
+await client.learningSpaces.delete(space.id);
+```
+</CodeGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Agent Skills" icon="sparkles" href="/store/skill">
+  Upload and manage skills
+</Card>
+<Card title="Per-User Resources" icon="user" href="/store/per-user">
+  Organize by user
+</Card>
+</CardGroup>
