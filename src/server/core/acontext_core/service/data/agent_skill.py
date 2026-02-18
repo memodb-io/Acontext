@@ -1,4 +1,3 @@
-import hashlib
 import re
 from typing import Optional
 
@@ -10,7 +9,7 @@ from ...schema.orm import AgentSkill
 from ...schema.result import Result
 from ...schema.utils import asUUID
 from .disk import create_disk
-from .artifact import upsert_artifact
+from .artifact import upsert_artifact, upload_and_build_artifact_meta
 
 
 def _parse_skill_md(content: str) -> tuple[str, str]:
@@ -121,19 +120,12 @@ async def create_skill(
     if err is not None:
         return Result.reject(f"Failed to create disk: {err}")
 
-    # 4. Upsert SKILL.md artifact (content stored inline, no S3 upload)
-    content_bytes = content.encode("utf-8")
-    asset_meta = {
-        "bucket": "",
-        "s3_key": "",
-        "etag": "",
-        "sha256": hashlib.sha256(content_bytes).hexdigest(),
-        "mime": "text/markdown",
-        "size_b": len(content_bytes),
-        "content": content,
-    }
+    # 4. Upload to S3 and upsert SKILL.md artifact
+    asset_meta, artifact_info_meta = await upload_and_build_artifact_meta(
+        project_id, "/", "SKILL.md", content
+    )
     artifact_result = await upsert_artifact(
-        db_session, disk.id, "/", "SKILL.md", asset_meta
+        db_session, disk.id, "/", "SKILL.md", asset_meta, meta=artifact_info_meta
     )
     _, err = artifact_result.unpack()
     if err is not None:

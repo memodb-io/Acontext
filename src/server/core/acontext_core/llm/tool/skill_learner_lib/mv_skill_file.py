@@ -62,6 +62,15 @@ async def mv_skill_file_handler(
     # Move by updating path and filename on the ORM object
     artifact.path = dst_dir
     artifact.filename = dst_file
+
+    if artifact.meta and "__artifact_info__" in artifact.meta:
+        updated_meta = dict(artifact.meta)
+        updated_info = dict(updated_meta["__artifact_info__"])
+        updated_info["path"] = dst_dir
+        updated_info["filename"] = dst_file
+        updated_meta["__artifact_info__"] = updated_info
+        artifact.meta = updated_meta
+
     await ctx.db_session.flush()
 
     # Update file_paths in context

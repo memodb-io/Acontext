@@ -1,6 +1,8 @@
 import pytest
+import re
 import uuid
 from typing import Optional
+from unittest.mock import AsyncMock, patch
 from acontext_core.service.data.artifact import (
     get_artifact_by_path,
     list_artifacts_by_path,
@@ -8,6 +10,8 @@ from acontext_core.service.data.artifact import (
     grep_artifacts,
     upsert_artifact,
     delete_artifact_by_path,
+    detect_mime_type,
+    upload_and_build_artifact_meta,
 )
 from acontext_core.service.data.disk import create_disk
 from acontext_core.service.data.agent_skill import create_skill
@@ -787,6 +791,25 @@ class TestIntegrationSkillFileList:
     @pytest.mark.asyncio
     async def test_skill_file_list(self, db_client):
         """Integration: Create a skill, then list its artifacts."""
+        content = "---\nname: test-skill\ndescription: A test skill\n---\n# Test Skill\nBody here."
+        mock_asset_meta = {
+            "bucket": "test-bucket",
+            "s3_key": "disks/test-project/2026/01/01/abc123.md",
+            "etag": "abc123",
+            "sha256": "abc123",
+            "mime": "text/markdown",
+            "size_b": len(content.encode("utf-8")),
+            "content": content,
+        }
+        mock_artifact_info_meta = {
+            "__artifact_info__": {
+                "path": "/",
+                "filename": "SKILL.md",
+                "mime": "text/markdown",
+                "size": len(content.encode("utf-8")),
+            }
+        }
+
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="test_art_hmac_21",
@@ -795,11 +818,14 @@ class TestIntegrationSkillFileList:
             session.add(project)
             await session.flush()
 
-            # Create a skill with known content
-            content = "---\nname: test-skill\ndescription: A test skill\n---\n# Test Skill\nBody here."
             from acontext_core.service.data.agent_skill import get_agent_skill
 
-            skill_result = await create_skill(session, project.id, content)
+            with patch(
+                "acontext_core.service.data.agent_skill.upload_and_build_artifact_meta",
+                new_callable=AsyncMock,
+                return_value=(mock_asset_meta, mock_artifact_info_meta),
+            ):
+                skill_result = await create_skill(session, project.id, content)
             assert skill_result.ok()
             skill, _ = skill_result.unpack()
 
@@ -876,3 +902,141 @@ class TestDeleteArtifactByPath:
             assert not result.ok()
 
             await session.delete(project)
+
+
+class TestDetectMimeType:
+    def test_markdown(self):
+        assert detect_mime_type("SKILL.md") == "text/markdown"
+
+    def test_python(self):
+        assert detect_mime_type("main.py") == "text/x-python"
+
+    def test_yaml(self):
+        assert detect_mime_type("config.yaml") == "text/yaml"
+
+    def test_unknown_extension(self):
+        assert detect_mime_type("unknown.xyz") == "text/plain"
+
+    def test_extensionless(self):
+        assert detect_mime_type("Makefile") == "text/plain"
+
+    def test_case_insensitive_extension(self):
+        assert detect_mime_type("README.MD") == "text/markdown"
+
+
+class TestUploadAndBuildArtifactMeta:
+    @pytest.mark.asyncio
+    async def test_returns_valid_asset_meta(self):
+        """upload_and_build_artifact_meta returns asset_meta with non-empty s3_key, bucket, etag."""
+        project_id = uuid.uuid4()
+        content = "# Hello World"
+
+        with patch(
+            "acontext_core.service.data.artifact.S3_CLIENT"
+        ) as mock_s3:
+            mock_s3.bucket = "my-test-bucket"
+            mock_s3.upload_object = AsyncMock(return_value={"ETag": '"etag123"'})
+
+            asset_meta, info_meta = await upload_and_build_artifact_meta(
+                project_id, "/", "SKILL.md", content
+            )
+
+        assert asset_meta["bucket"] == "my-test-bucket"
+        assert asset_meta["s3_key"] != ""
+        assert asset_meta["etag"] == "etag123"
+        assert asset_meta["sha256"] != ""
+        assert asset_meta["mime"] == "text/markdown"
+        assert asset_meta["size_b"] == len(content.encode("utf-8"))
+        assert asset_meta["content"] == content
+
+    @pytest.mark.asyncio
+    async def test_returns_valid_artifact_info_meta(self):
+        """upload_and_build_artifact_meta returns artifact_info_meta with correct fields."""
+        project_id = uuid.uuid4()
+        content = "print('hello')"
+
+        with patch(
+            "acontext_core.service.data.artifact.S3_CLIENT"
+        ) as mock_s3:
+            mock_s3.bucket = "bucket"
+            mock_s3.upload_object = AsyncMock(return_value={"ETag": '"e"'})
+
+            asset_meta, info_meta = await upload_and_build_artifact_meta(
+                project_id, "scripts/", "main.py", content
+            )
+
+        info = info_meta["__artifact_info__"]
+        assert info["path"] == "scripts/"
+        assert info["filename"] == "main.py"
+        assert info["mime"] == "text/x-python"
+        assert info["size"] == len(content.encode("utf-8"))
+
+    @pytest.mark.asyncio
+    async def test_s3_key_pattern(self):
+        """S3 key follows pattern disks/{project_id}/{YYYY/MM/DD}/{sha256}{ext}."""
+        project_id = uuid.uuid4()
+
+        with patch(
+            "acontext_core.service.data.artifact.S3_CLIENT"
+        ) as mock_s3:
+            mock_s3.bucket = "bucket"
+            mock_s3.upload_object = AsyncMock(return_value={"ETag": '""'})
+
+            asset_meta, _ = await upload_and_build_artifact_meta(
+                project_id, "/", "test.md", "content"
+            )
+
+        s3_key = asset_meta["s3_key"]
+        pattern = rf"^disks/{project_id}/\d{{4}}/\d{{2}}/\d{{2}}/[a-f0-9]{{64}}\.md$"
+        assert re.match(pattern, s3_key), f"S3 key {s3_key} does not match expected pattern"
+
+    @pytest.mark.asyncio
+    async def test_etag_quotes_stripped(self):
+        """ETag in asset_meta has surrounding quotes stripped."""
+        project_id = uuid.uuid4()
+
+        with patch(
+            "acontext_core.service.data.artifact.S3_CLIENT"
+        ) as mock_s3:
+            mock_s3.bucket = "bucket"
+            mock_s3.upload_object = AsyncMock(return_value={"ETag": '"abc123"'})
+
+            asset_meta, _ = await upload_and_build_artifact_meta(
+                project_id, "/", "file.py", "x = 1"
+            )
+
+        assert asset_meta["etag"] == "abc123"
+
+    @pytest.mark.asyncio
+    async def test_raises_on_s3_failure(self):
+        """upload_and_build_artifact_meta raises when S3_CLIENT.upload_object raises."""
+        project_id = uuid.uuid4()
+
+        with patch(
+            "acontext_core.service.data.artifact.S3_CLIENT"
+        ) as mock_s3:
+            mock_s3.bucket = "bucket"
+            mock_s3.upload_object = AsyncMock(side_effect=RuntimeError("S3 down"))
+
+            with pytest.raises(RuntimeError, match="S3 down"):
+                await upload_and_build_artifact_meta(
+                    project_id, "/", "file.py", "content"
+                )
+
+    @pytest.mark.asyncio
+    async def test_extensionless_file_key(self):
+        """Extensionless files get s3_key without trailing extension."""
+        project_id = uuid.uuid4()
+
+        with patch(
+            "acontext_core.service.data.artifact.S3_CLIENT"
+        ) as mock_s3:
+            mock_s3.bucket = "bucket"
+            mock_s3.upload_object = AsyncMock(return_value={"ETag": '""'})
+
+            asset_meta, _ = await upload_and_build_artifact_meta(
+                project_id, "/", "Makefile", "all:\n\techo hi"
+            )
+
+        assert not asset_meta["s3_key"].endswith(".")
+        assert asset_meta["mime"] == "text/plain"

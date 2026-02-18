@@ -187,6 +187,24 @@ class TestGetSkillFile:
 
 
 class TestStrReplaceSkillFile:
+    _mock_asset_meta = {
+        "bucket": "test-bucket",
+        "s3_key": "disks/test-project/2026/01/01/abc123.py",
+        "etag": "abc123",
+        "sha256": "abc123",
+        "mime": "text/x-python",
+        "size_b": 8,
+        "content": "Hi World",
+    }
+    _mock_artifact_info_meta = {
+        "__artifact_info__": {
+            "path": "scripts/",
+            "filename": "main.py",
+            "mime": "text/x-python",
+            "size": 8,
+        }
+    }
+
     @pytest.mark.asyncio
     async def test_replaces_string(self):
         """str_replace_skill_file correctly replaces string in file."""
@@ -195,12 +213,18 @@ class TestStrReplaceSkillFile:
 
         mock_artifact = MagicMock()
         mock_artifact.asset_meta = {"content": "Hello World", "mime": "text/markdown"}
+        mock_artifact.meta = None
 
         with (
             patch(
                 "acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.get_artifact_by_path",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(mock_artifact),
+            ),
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.upload_and_build_artifact_meta",
+                new_callable=AsyncMock,
+                return_value=(self._mock_asset_meta, self._mock_artifact_info_meta),
             ),
             patch(
                 "acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.upsert_artifact",
@@ -220,10 +244,9 @@ class TestStrReplaceSkillFile:
             assert result.ok()
             text, _ = result.unpack()
             assert "updated successfully" in text
-            # Verify upsert was called with new content
+            # Verify upsert was called with meta from upload helper
             call_args = mock_upsert.call_args
-            asset_meta = call_args[0][4]
-            assert asset_meta["content"] == "Hi World"
+            assert call_args.kwargs["meta"] == self._mock_artifact_info_meta
 
     @pytest.mark.asyncio
     async def test_rejects_old_string_not_found(self):
@@ -286,6 +309,7 @@ class TestStrReplaceSkillFile:
         original_content = "---\nname: my-skill\ndescription: Old description\n---\n# Body"
         mock_artifact = MagicMock()
         mock_artifact.asset_meta = {"content": original_content, "mime": "text/markdown"}
+        mock_artifact.meta = None
 
         mock_agent_skill = MagicMock()
         mock_agent_skill.description = "Old description"
@@ -300,6 +324,11 @@ class TestStrReplaceSkillFile:
                 "acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.get_agent_skill",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(mock_agent_skill),
+            ),
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.upload_and_build_artifact_meta",
+                new_callable=AsyncMock,
+                return_value=(self._mock_asset_meta, self._mock_artifact_info_meta),
             ),
             patch(
                 "acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.upsert_artifact",
@@ -383,6 +412,24 @@ class TestStrReplaceSkillFile:
 
 
 class TestCreateSkillFile:
+    _mock_asset_meta = {
+        "bucket": "test-bucket",
+        "s3_key": "disks/test-project/2026/01/01/abc123.py",
+        "etag": "abc123",
+        "sha256": "abc123",
+        "mime": "text/x-python",
+        "size_b": 14,
+        "content": "print('hello')",
+    }
+    _mock_artifact_info_meta = {
+        "__artifact_info__": {
+            "path": "scripts/",
+            "filename": "main.py",
+            "mime": "text/x-python",
+            "size": 14,
+        }
+    }
+
     @pytest.mark.asyncio
     async def test_creates_new_file(self):
         """create_skill_file creates new artifact with correct content."""
@@ -396,6 +443,11 @@ class TestCreateSkillFile:
                 "acontext_core.llm.tool.skill_learner_lib.create_skill_file.artifact_exists",
                 new_callable=AsyncMock,
                 return_value=False,
+            ),
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.create_skill_file.upload_and_build_artifact_meta",
+                new_callable=AsyncMock,
+                return_value=(self._mock_asset_meta, self._mock_artifact_info_meta),
             ),
             patch(
                 "acontext_core.llm.tool.skill_learner_lib.create_skill_file.upsert_artifact",
@@ -416,6 +468,9 @@ class TestCreateSkillFile:
             assert "created" in text.lower()
             # Verify file_paths updated
             assert "scripts/main.py" in skill.file_paths
+            # Verify upsert was called with meta
+            call_args = mock_upsert.call_args
+            assert call_args.kwargs["meta"] == self._mock_artifact_info_meta
 
     @pytest.mark.asyncio
     async def test_rejects_creating_skill_md(self):
@@ -834,6 +889,198 @@ class TestMvSkillFile:
         text, _ = result.unpack()
         assert "report_thinking" in text
 
+    @pytest.mark.asyncio
+    async def test_updates_artifact_info_meta(self):
+        """mv_skill_file updates meta.__artifact_info__.path and filename to destination."""
+        skill = _make_skill_info(file_paths=["SKILL.md", "old-name.md"])
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        mock_artifact = MagicMock()
+        mock_artifact.path = "/"
+        mock_artifact.filename = "old-name.md"
+        mock_artifact.meta = {
+            "__artifact_info__": {
+                "path": "/",
+                "filename": "old-name.md",
+                "mime": "text/markdown",
+                "size": 42,
+            }
+        }
+
+        with (
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.mv_skill_file.get_artifact_by_path",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(mock_artifact),
+            ),
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.mv_skill_file.artifact_exists",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+        ):
+            result = await mv_skill_file_handler(
+                ctx,
+                {
+                    "skill_name": "test-skill",
+                    "source_path": "old-name.md",
+                    "destination_path": "docs/new-name.md",
+                },
+            )
+            assert result.ok()
+            info = mock_artifact.meta["__artifact_info__"]
+            assert info["path"] == "docs/"
+            assert info["filename"] == "new-name.md"
+            # mime and size should be unchanged
+            assert info["mime"] == "text/markdown"
+            assert info["size"] == 42
+
+    @pytest.mark.asyncio
+    async def test_does_not_change_s3_key(self):
+        """mv_skill_file does not change asset_meta.s3_key (content unchanged)."""
+        skill = _make_skill_info(file_paths=["SKILL.md", "a.md"])
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        mock_artifact = MagicMock()
+        mock_artifact.path = "/"
+        mock_artifact.filename = "a.md"
+        mock_artifact.asset_meta = {
+            "s3_key": "disks/proj/2026/01/01/abc.md",
+            "bucket": "test-bucket",
+        }
+        mock_artifact.meta = {
+            "__artifact_info__": {
+                "path": "/",
+                "filename": "a.md",
+                "mime": "text/markdown",
+                "size": 10,
+            }
+        }
+
+        with (
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.mv_skill_file.get_artifact_by_path",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(mock_artifact),
+            ),
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.mv_skill_file.artifact_exists",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+        ):
+            await mv_skill_file_handler(
+                ctx,
+                {
+                    "skill_name": "test-skill",
+                    "source_path": "a.md",
+                    "destination_path": "b.md",
+                },
+            )
+            assert mock_artifact.asset_meta["s3_key"] == "disks/proj/2026/01/01/abc.md"
+
+    @pytest.mark.asyncio
+    async def test_handles_none_meta_gracefully(self):
+        """mv_skill_file handles artifacts with meta=None gracefully (no crash)."""
+        skill = _make_skill_info(file_paths=["SKILL.md", "old.md"])
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        mock_artifact = MagicMock()
+        mock_artifact.path = "/"
+        mock_artifact.filename = "old.md"
+        mock_artifact.meta = None
+
+        with (
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.mv_skill_file.get_artifact_by_path",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(mock_artifact),
+            ),
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.mv_skill_file.artifact_exists",
+                new_callable=AsyncMock,
+                return_value=False,
+            ),
+        ):
+            result = await mv_skill_file_handler(
+                ctx,
+                {
+                    "skill_name": "test-skill",
+                    "source_path": "old.md",
+                    "destination_path": "new.md",
+                },
+            )
+            assert result.ok()
+            # meta should still be None — no crash
+            assert mock_artifact.meta is None
+
+
+# =============================================================================
+# str_replace_skill_file meta merge tests
+# =============================================================================
+
+
+class TestStrReplaceMetaMerge:
+    @pytest.mark.asyncio
+    async def test_preserves_existing_user_meta_keys(self):
+        """str_replace_skill_file preserves existing user meta keys after edit."""
+        skill = _make_skill_info()
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        mock_artifact = MagicMock()
+        mock_artifact.asset_meta = {"content": "Hello World", "mime": "text/plain"}
+        mock_artifact.meta = {"custom_key": "custom_value", "__artifact_info__": {"path": "/", "filename": "test.txt", "mime": "text/plain", "size": 11}}
+
+        mock_asset_meta = {
+            "bucket": "test-bucket",
+            "s3_key": "disks/test/2026/01/01/abc.txt",
+            "etag": "abc",
+            "sha256": "abc",
+            "mime": "text/plain",
+            "size_b": 8,
+            "content": "Hi World",
+        }
+        mock_info_meta = {
+            "__artifact_info__": {
+                "path": "/",
+                "filename": "test.txt",
+                "mime": "text/plain",
+                "size": 8,
+            }
+        }
+
+        with (
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.get_artifact_by_path",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(mock_artifact),
+            ),
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.upload_and_build_artifact_meta",
+                new_callable=AsyncMock,
+                return_value=(mock_asset_meta, mock_info_meta),
+            ),
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.upsert_artifact",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(mock_artifact),
+            ) as mock_upsert,
+        ):
+            result = await str_replace_skill_file_handler(
+                ctx,
+                {
+                    "skill_name": "test-skill",
+                    "file_path": "test.txt",
+                    "old_string": "Hello",
+                    "new_string": "Hi",
+                },
+            )
+            assert result.ok()
+            call_args = mock_upsert.call_args
+            merged = call_args.kwargs["meta"]
+            assert merged["custom_key"] == "custom_value"
+            assert merged["__artifact_info__"]["size"] == 8
+
 
 # =============================================================================
 # Thinking guard tests
@@ -930,11 +1177,33 @@ class TestThinkingGuard:
 
         # Step 2: Editing tool should proceed (not be blocked by thinking guard)
         mock_artifact = MagicMock()
+        mock_asset_meta = {
+            "bucket": "test-bucket",
+            "s3_key": "disks/test/2026/01/01/abc.py",
+            "etag": "abc",
+            "sha256": "abc",
+            "mime": "text/x-python",
+            "size_b": 14,
+            "content": "print('hello')",
+        }
+        mock_info_meta = {
+            "__artifact_info__": {
+                "path": "scripts/",
+                "filename": "new.py",
+                "mime": "text/x-python",
+                "size": 14,
+            }
+        }
         with (
             patch(
                 "acontext_core.llm.tool.skill_learner_lib.create_skill_file.artifact_exists",
                 new_callable=AsyncMock,
                 return_value=False,
+            ),
+            patch(
+                "acontext_core.llm.tool.skill_learner_lib.create_skill_file.upload_and_build_artifact_meta",
+                new_callable=AsyncMock,
+                return_value=(mock_asset_meta, mock_info_meta),
             ),
             patch(
                 "acontext_core.llm.tool.skill_learner_lib.create_skill_file.upsert_artifact",

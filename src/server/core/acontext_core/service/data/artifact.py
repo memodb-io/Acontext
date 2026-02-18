@@ -1,10 +1,86 @@
+import hashlib
+import os
+from datetime import datetime, timezone
 from typing import List, Optional
+
 from sqlalchemy import select, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert
+
+from ...infra.s3 import S3_CLIENT
 from ...schema.orm import Artifact
 from ...schema.result import Result
 from ...schema.utils import asUUID
+
+_EXT_MIME_MAP = {
+    ".md": "text/markdown", ".markdown": "text/markdown",
+    ".yaml": "text/yaml", ".yml": "text/yaml",
+    ".csv": "text/csv", ".json": "application/json",
+    ".xml": "application/xml", ".html": "text/html", ".htm": "text/html",
+    ".css": "text/css", ".js": "text/javascript", ".ts": "text/typescript",
+    ".go": "text/x-go", ".py": "text/x-python",
+    ".rs": "text/x-rust", ".rb": "text/x-ruby",
+    ".java": "text/x-java", ".c": "text/x-c", ".cpp": "text/x-c++",
+    ".h": "text/x-c", ".hpp": "text/x-c++",
+    ".sh": "text/x-shellscript", ".bash": "text/x-shellscript",
+    ".sql": "text/x-sql", ".toml": "text/x-toml",
+    ".ini": "text/x-ini", ".cfg": "text/x-ini", ".conf": "text/x-ini",
+}
+
+
+def detect_mime_type(filename: str) -> str:
+    """Detect MIME type from filename extension, mirroring the API's extMimeMap."""
+    ext = os.path.splitext(filename)[1].lower()
+    return _EXT_MIME_MAP.get(ext, "text/plain")
+
+
+async def upload_and_build_artifact_meta(
+    project_id: asUUID,
+    path: str,
+    filename: str,
+    content: str,
+) -> tuple[dict, dict]:
+    """Upload content to S3 and build asset_meta + meta dicts matching API behavior.
+
+    Args:
+        project_id: Project UUID, used for S3 key prefix.
+        path: Artifact path (e.g., "/" or "/scripts/").
+        filename: Artifact filename (e.g., "SKILL.md" or "main.py").
+        content: Text content of the file.
+
+    Returns:
+        (asset_meta, artifact_info_meta) tuple:
+        - asset_meta: dict for the artifact's asset_meta column
+        - artifact_info_meta: dict for the artifact's meta column (contains __artifact_info__)
+    """
+    content_bytes = content.encode("utf-8")
+    sha256_hex = hashlib.sha256(content_bytes).hexdigest()
+    mime = detect_mime_type(filename)
+    ext = os.path.splitext(filename)[1].lower()
+    date_prefix = datetime.now(timezone.utc).strftime("%Y/%m/%d")
+    s3_key = f"disks/{project_id}/{date_prefix}/{sha256_hex}{ext}"
+
+    response = await S3_CLIENT.upload_object(s3_key, content_bytes, content_type=mime)
+    etag = response.get("ETag", "").strip('"')
+
+    asset_meta = {
+        "bucket": S3_CLIENT.bucket,
+        "s3_key": s3_key,
+        "etag": etag,
+        "sha256": sha256_hex,
+        "mime": mime,
+        "size_b": len(content_bytes),
+        "content": content,
+    }
+    artifact_info_meta = {
+        "__artifact_info__": {
+            "path": path,
+            "filename": filename,
+            "mime": mime,
+            "size": len(content_bytes),
+        }
+    }
+    return asset_meta, artifact_info_meta
 
 
 async def get_artifact_by_path(

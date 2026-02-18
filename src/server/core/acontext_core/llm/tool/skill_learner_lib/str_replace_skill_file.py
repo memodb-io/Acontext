@@ -1,8 +1,7 @@
-import hashlib
 from ..base import Tool
 from ....schema.llm import ToolSchema
 from ....schema.result import Result
-from ....service.data.artifact import get_artifact_by_path, upsert_artifact
+from ....service.data.artifact import get_artifact_by_path, upsert_artifact, upload_and_build_artifact_meta
 from ....service.data.agent_skill import _parse_skill_md, _sanitize_name, get_agent_skill
 from .ctx import SkillLearnerCtx
 from .get_skill_file import _validate_file_path, _split_file_path
@@ -66,17 +65,12 @@ async def str_replace_skill_file_handler(
                 f"(was '{skill.name}', got '{parsed_name}')"
             )
 
-    content_bytes = new_content.encode("utf-8")
-    asset_meta = {
-        "bucket": "",
-        "s3_key": "",
-        "etag": "",
-        "sha256": hashlib.sha256(content_bytes).hexdigest(),
-        "mime": artifact.asset_meta.get("mime", "text/markdown"),
-        "size_b": len(content_bytes),
-        "content": new_content,
-    }
-    r = await upsert_artifact(ctx.db_session, skill.disk_id, path, filename, asset_meta)
+    asset_meta, new_artifact_info_meta = await upload_and_build_artifact_meta(
+        ctx.project_id, path, filename, new_content
+    )
+    merged_meta = dict(artifact.meta) if artifact.meta else {}
+    merged_meta.update(new_artifact_info_meta)
+    r = await upsert_artifact(ctx.db_session, skill.disk_id, path, filename, asset_meta, meta=merged_meta)
     _, eil = r.unpack()
     if eil:
         return Result.resolve(f"Failed to save file: {eil}")

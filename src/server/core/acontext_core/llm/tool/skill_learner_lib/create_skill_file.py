@@ -1,8 +1,7 @@
-import hashlib
 from ..base import Tool
 from ....schema.llm import ToolSchema
 from ....schema.result import Result
-from ....service.data.artifact import upsert_artifact, artifact_exists
+from ....service.data.artifact import upsert_artifact, artifact_exists, upload_and_build_artifact_meta
 from .ctx import SkillLearnerCtx
 from .get_skill_file import _validate_file_path, _split_file_path
 
@@ -45,17 +44,10 @@ async def create_skill_file_handler(
             f"Use str_replace_skill_file to edit it."
         )
 
-    content_bytes = content.encode("utf-8")
-    asset_meta = {
-        "bucket": "",
-        "s3_key": "",
-        "etag": "",
-        "sha256": hashlib.sha256(content_bytes).hexdigest(),
-        "mime": "text/plain",
-        "size_b": len(content_bytes),
-        "content": content,
-    }
-    r = await upsert_artifact(ctx.db_session, skill.disk_id, path, filename, asset_meta)
+    asset_meta, meta = await upload_and_build_artifact_meta(
+        ctx.project_id, path, filename, content
+    )
+    r = await upsert_artifact(ctx.db_session, skill.disk_id, path, filename, asset_meta, meta=meta)
     _, eil = r.unpack()
     if eil:
         return Result.resolve(f"Failed to create file: {eil}")
