@@ -12,8 +12,8 @@ Acontext is a simple context storage for building cloud-native AI Agents
 - Documentation: `docs/`
 
 ## Plan-driven Development
-- Always plan a markdown at plans/ before you code
-- Remember to update the related plans after you finish your work.
+- You must make a markdown plan at plans/ before you implement any my request, otherwise I will reject your implementation.
+- Remember to update the dev plan after you finish coding.
 - When every task is completed, make sure you check the task checkbox in the corresponding plan.
 - A plan should at least contain `features`/`show case`, `designs overview`, `TODOS`, `new deps`, `test cases` sections.
   - always use the features/show case to present what you're going to build.
