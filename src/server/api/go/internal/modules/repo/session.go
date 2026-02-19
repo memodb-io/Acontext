@@ -3,6 +3,7 @@ package repo
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -19,6 +20,9 @@ const (
 	// MaxForkableMessages is the maximum number of messages allowed for synchronous fork
 	MaxForkableMessages = 5000
 )
+
+// ErrSessionTooLarge is returned when a session exceeds MaxForkableMessages.
+var ErrSessionTooLarge = errors.New("session exceeds maximum forkable size")
 
 type SessionRepo interface {
 	Create(ctx context.Context, s *model.Session) error
@@ -434,9 +438,17 @@ func (r *sessionRepo) UpdateMessageMeta(ctx context.Context, messageID uuid.UUID
 // ForkSession creates a complete copy of a session with all its messages and tasks.
 // Uses SELECT FOR UPDATE to lock the session during the fork operation.
 // Returns ForkSessionResult containing old and new session IDs.
+//
+// The operation is split into two phases to keep the lock window small:
+//  1. Transaction: lock session, create new session/messages/tasks, increment partsAsset refs.
+//  2. Post-transaction: download S3 parts to discover per-part assets, increment those refs.
 func (r *sessionRepo) ForkSession(ctx context.Context, sessionID uuid.UUID) (*ForkSessionResult, error) {
 	var result ForkSessionResult
 	result.OldSessionID = sessionID
+
+	// partsAssets collects the parts-envelope assets; populated inside the transaction.
+	var partsAssets []model.Asset
+	var projectID uuid.UUID
 
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Get original session with row-level lock to prevent concurrent modifications
@@ -446,6 +458,7 @@ func (r *sessionRepo) ForkSession(ctx context.Context, sessionID uuid.UUID) (*Fo
 			First(&originalSession).Error; err != nil {
 			return fmt.Errorf("failed to get session: %w", err)
 		}
+		projectID = originalSession.ProjectID
 
 		// Get all messages from original session (ordered by created_at to preserve parent relationships)
 		var originalMessages []model.Message
@@ -457,7 +470,7 @@ func (r *sessionRepo) ForkSession(ctx context.Context, sessionID uuid.UUID) (*Fo
 
 		// Check session size limit (inside transaction after SELECT FOR UPDATE to prevent race conditions)
 		if len(originalMessages) > MaxForkableMessages {
-			return fmt.Errorf("session exceeds maximum forkable size (%d messages)", MaxForkableMessages)
+			return fmt.Errorf("%w (%d messages)", ErrSessionTooLarge, len(originalMessages))
 		}
 
 		// Create new session with copied configs
@@ -472,95 +485,81 @@ func (r *sessionRepo) ForkSession(ctx context.Context, sessionID uuid.UUID) (*Fo
 		}
 		result.NewSessionID = newSession.ID
 
-		// Copy messages with parent ID remapping
-		oldToNewMessageID := make(map[uuid.UUID]uuid.UUID)
-		assetsToIncrement := make([]model.Asset, 0)
+		// Pre-assign new IDs so we can build the parent-ID mapping before inserting.
+		oldToNewMessageID := make(map[uuid.UUID]uuid.UUID, len(originalMessages))
+		for _, oldMsg := range originalMessages {
+			oldToNewMessageID[oldMsg.ID] = uuid.New()
+		}
 
+		// Build the new messages slice with remapped parent IDs.
+		newMessages := make([]model.Message, 0, len(originalMessages))
 		for _, oldMsg := range originalMessages {
 			newMsg := model.Message{
-				SessionID:                oldMsg.SessionID, // Will be updated to newSession.ID
+				ID:                       oldToNewMessageID[oldMsg.ID],
+				SessionID:                newSession.ID,
 				Role:                     oldMsg.Role,
 				PartsAssetMeta:           oldMsg.PartsAssetMeta,
 				Meta:                     oldMsg.Meta,
-				SessionTaskProcessStatus: "pending", // Reset to pending for reprocessing
-				TaskID:                   nil,       // Clear task reference (will be reassigned by core)
+				SessionTaskProcessStatus: "pending",
+				TaskID:                   nil,
 			}
 
-			// Update session ID to new session
-			newMsg.SessionID = newSession.ID
-
-			// Remap parent ID if exists
 			if oldMsg.ParentID != nil {
 				if newParentID, ok := oldToNewMessageID[*oldMsg.ParentID]; ok {
 					newMsg.ParentID = &newParentID
 				} else {
-					// Parent not found in mapping (data corruption or orphaned message)
 					r.log.Warn("message has parent_id not found in mapping",
 						zap.String("message_id", oldMsg.ID.String()),
 						zap.String("parent_id", oldMsg.ParentID.String()))
-					// Continue without parent (orphaned message)
 				}
 			}
 
-			// Create new message
-			if err := tx.Create(&newMsg).Error; err != nil {
-				return fmt.Errorf("failed to create message: %w", err)
-			}
+			newMessages = append(newMessages, newMsg)
 
-			// Track ID mapping for parent remapping
-			oldToNewMessageID[oldMsg.ID] = newMsg.ID
-
-			// Collect assets for reference counting
-			// 1. Parts asset (the JSON file containing message parts)
+			// Collect parts-envelope assets for reference counting.
 			partsAsset := oldMsg.PartsAssetMeta.Data()
 			if partsAsset.SHA256 != "" {
-				assetsToIncrement = append(assetsToIncrement, partsAsset)
-			}
-
-			// 2. Download and parse parts to extract individual part assets
-			if r.s3 != nil && partsAsset.S3Key != "" {
-				parts := []model.Part{}
-				if err := r.s3.DownloadJSON(ctx, partsAsset.S3Key, &parts); err != nil {
-					// Return error to rollback transaction - we need accurate asset reference counting
-					return fmt.Errorf("failed to download parts for asset extraction (s3_key=%s): %w", partsAsset.S3Key, err)
-				}
-
-				// Extract assets from parts
-				for _, part := range parts {
-					if part.Asset != nil && part.Asset.SHA256 != "" {
-						assetsToIncrement = append(assetsToIncrement, *part.Asset)
-					}
-				}
+				partsAssets = append(partsAssets, partsAsset)
 			}
 		}
 
-		// Get all tasks from original session
+		// Batch insert all messages in one go instead of one INSERT per row.
+		if len(newMessages) > 0 {
+			if err := tx.CreateInBatches(newMessages, 100).Error; err != nil {
+				return fmt.Errorf("failed to create messages: %w", err)
+			}
+		}
+
+		// Copy tasks
 		var originalTasks []model.Task
 		if err := tx.Where("session_id = ?", sessionID).
-			Order("\"order\" ASC"). // order is a reserved keyword
+			Order("\"order\" ASC").
 			Find(&originalTasks).Error; err != nil {
 			return fmt.Errorf("failed to get tasks: %w", err)
 		}
 
-		// Copy tasks
-		for _, oldTask := range originalTasks {
-			newTask := model.Task{
-				SessionID:  newSession.ID,
-				ProjectID:  oldTask.ProjectID,
-				Order:      oldTask.Order,
-				Data:       oldTask.Data,
-				Status:     oldTask.Status,
-				IsPlanning: oldTask.IsPlanning,
+		if len(originalTasks) > 0 {
+			newTasks := make([]model.Task, 0, len(originalTasks))
+			for _, oldTask := range originalTasks {
+				newTasks = append(newTasks, model.Task{
+					SessionID:  newSession.ID,
+					ProjectID:  oldTask.ProjectID,
+					Order:      oldTask.Order,
+					Data:       oldTask.Data,
+					Status:     oldTask.Status,
+					IsPlanning: oldTask.IsPlanning,
+				})
 			}
-
-			if err := tx.Create(&newTask).Error; err != nil {
-				return fmt.Errorf("failed to create task: %w", err)
+			if err := tx.CreateInBatches(newTasks, 100).Error; err != nil {
+				return fmt.Errorf("failed to create tasks: %w", err)
 			}
 		}
 
-		// Increment asset references for all collected assets
-		if len(assetsToIncrement) > 0 {
-			if err := r.assetReferenceRepo.BatchIncrementAssetRefs(ctx, originalSession.ProjectID, assetsToIncrement); err != nil {
+		// Increment refs for parts-envelope assets using tx so this is atomic
+		// with the session/message creation above.
+		if len(partsAssets) > 0 {
+			txAssetRepo := NewAssetReferenceRepo(tx, r.s3)
+			if err := txAssetRepo.BatchIncrementAssetRefs(ctx, projectID, partsAssets); err != nil {
 				return fmt.Errorf("failed to increment asset references: %w", err)
 			}
 		}
@@ -570,6 +569,34 @@ func (r *sessionRepo) ForkSession(ctx context.Context, sessionID uuid.UUID) (*Fo
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Phase 2 (post-transaction): download S3 parts to discover per-part assets and
+	// increment their refs. This is done outside the transaction to avoid holding the
+	// session lock during N network round-trips.
+	if r.s3 != nil && len(partsAssets) > 0 {
+		var partLevelAssets []model.Asset
+		for _, partsAsset := range partsAssets {
+			if partsAsset.S3Key == "" {
+				continue
+			}
+			parts := []model.Part{}
+			if err := r.s3.DownloadJSON(ctx, partsAsset.S3Key, &parts); err != nil {
+				r.log.Warn("failed to download parts for asset extraction",
+					zap.Error(err), zap.String("s3_key", partsAsset.S3Key))
+				continue
+			}
+			for _, part := range parts {
+				if part.Asset != nil && part.Asset.SHA256 != "" {
+					partLevelAssets = append(partLevelAssets, *part.Asset)
+				}
+			}
+		}
+		if len(partLevelAssets) > 0 {
+			if err := r.assetReferenceRepo.BatchIncrementAssetRefs(ctx, projectID, partLevelAssets); err != nil {
+				return nil, fmt.Errorf("failed to increment part-level asset references: %w", err)
+			}
+		}
 	}
 
 	return &result, nil

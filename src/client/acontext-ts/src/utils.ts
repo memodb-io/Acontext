@@ -29,7 +29,7 @@ export function buildParams(
 }
 
 /**
- * Validate that a string is a valid UUID v4 format.
+ * Validate that a string is a valid UUID (v1–v5) format.
  * @param uuid - The string to validate.
  * @returns True if valid UUID, false otherwise.
  */

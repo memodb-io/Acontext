@@ -686,7 +686,7 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		// Note: Testing S3 download and part asset extraction requires integration test with real S3
 	})
 
-	t.Run("transaction rollback on message creation failure", func(t *testing.T) {
+	t.Run("fork with single message succeeds", func(t *testing.T) {
 		originalSession := &model.Session{
 			ID:        uuid.New(),
 			ProjectID: project.ID,
@@ -705,23 +705,19 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		require.NoError(t, db.Create(msg).Error)
 
 		mockAssetRepo := &MockAssetReferenceRepoForFork{}
-		// Pass nil for S3 - code will skip S3 download
 		repo := NewSessionRepo(db, mockAssetRepo, nil, logger)
 
-		// Create a constraint violation by trying to fork with duplicate message ID
-		// We'll simulate this by manually creating a message with the same ID before fork
-		// Actually, let's use a different approach: create a message that will cause a constraint violation
-		// But actually, the best way is to test with a real failure scenario
-		// Let's test with asset increment failure instead (see next test)
-
-		// For now, verify successful fork works
 		result, err := repo.ForkSession(ctx, originalSession.ID)
 		require.NoError(t, err)
 
-		// Verify fork succeeded
 		var newSession model.Session
 		require.NoError(t, db.First(&newSession, result.NewSessionID).Error)
 		assert.NotEqual(t, originalSession.ID, newSession.ID)
+
+		// Verify the forked message exists
+		var newMessages []model.Message
+		require.NoError(t, db.Where("session_id = ?", newSession.ID).Find(&newMessages).Error)
+		assert.Len(t, newMessages, 1)
 	})
 
 	t.Run("transaction rollback on asset increment failure", func(t *testing.T) {
@@ -778,9 +774,11 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		}
 		require.NoError(t, db.Create(originalSession).Error)
 
-		// Create MaxForkableMessages + 1 messages
-		for i := 0; i < MaxForkableMessages+1; i++ {
-			msg := &model.Message{
+		// Create MaxForkableMessages + 1 messages using batch insert for speed
+		overLimit := MaxForkableMessages + 1
+		msgs := make([]model.Message, 0, overLimit)
+		for i := 0; i < overLimit; i++ {
+			msgs = append(msgs, model.Message{
 				ID:        uuid.New(),
 				SessionID: originalSession.ID,
 				Role:      "user",
@@ -788,9 +786,9 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 					SHA256: fmt.Sprintf("sha%d", i),
 					S3Key:  fmt.Sprintf("parts/msg%d.json", i),
 				}),
-			}
-			require.NoError(t, db.Create(msg).Error)
+			})
 		}
+		require.NoError(t, db.CreateInBatches(msgs, 500).Error)
 
 		mockAssetRepo := &MockAssetReferenceRepoForFork{}
 		repo := NewSessionRepo(db, mockAssetRepo, nil, logger)

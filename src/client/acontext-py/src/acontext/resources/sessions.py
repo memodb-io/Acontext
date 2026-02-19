@@ -511,8 +511,8 @@ class SessionsAPI:
             ForkSessionResult containing the original and new session IDs.
 
         Raises:
-            ValueError: If session_id is invalid or session doesn't exist.
-            RuntimeError: If session exceeds maximum forkable size (5000 messages).
+            APIError: If the request fails, session is not found, or session exceeds
+                the maximum forkable size (5000 messages).
 
         Example:
             >>> result = client.sessions.fork(session_id)

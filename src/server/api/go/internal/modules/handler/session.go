@@ -27,9 +27,8 @@ import (
 // MaxMetaSize is the maximum allowed size for user-provided message metadata (64KB)
 const MaxMetaSize = 64 * 1024
 
-// MaxForkableMessages is imported from repo package to maintain single source of truth
-// This constant is defined in repo package to avoid circular dependencies
-// Import it via repo.MaxForkableMessages where needed
+// MaxForkableMessages aliases repo.MaxForkableMessages for handler-layer use.
+var MaxForkableMessages = repo.MaxForkableMessages
 
 type SessionHandler struct {
 	svc        service.SessionService

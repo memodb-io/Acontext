@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"mime/multipart"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/bytedance/sonic"
@@ -171,9 +170,9 @@ type StoreMQPublishJSON struct {
 
 type PartIn struct {
 	Type      string                 `json:"type" validate:"required,oneof=text image audio video file tool-call tool-result data thinking"` // "text" | "image" | ...
-	Text      string                 `json:"text,omitempty"`                                                                                 // Text sharding
-	FileField string                 `json:"file_field,omitempty"`                                                                           // File field name in the form
-	Meta      map[string]interface{} `json:"meta,omitempty"`                                                                                 // [Optional] metadata
+	Text      string                 `json:"text,omitempty"`                                                                        // Text sharding
+	FileField string                 `json:"file_field,omitempty"`                                                                  // File field name in the form
+	Meta      map[string]interface{} `json:"meta,omitempty"`                                                                        // [Optional] metadata
 }
 
 func (p *PartIn) Validate() error {
@@ -775,7 +774,7 @@ func (s *sessionService) ForkSession(ctx context.Context, in ForkSessionInput) (
 	result, err := s.sessionRepo.ForkSession(ctx, in.SessionID)
 	if err != nil {
 		// Check for size limit error
-		if strings.Contains(err.Error(), "exceeds maximum forkable size") {
+		if errors.Is(err, repo.ErrSessionTooLarge) {
 			return nil, fmt.Errorf("%w: %v", ErrSessionTooLarge, err)
 		}
 		return nil, fmt.Errorf("%w: %v", ErrForkFailed, err)
