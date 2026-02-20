@@ -3,29 +3,32 @@ name: Python Client Test
 on:
   push:
     branches:
-      - main
       - dev
     paths:
       - 'src/client/acontext-py/**'
       - '.github/workflows/client-test-py.yaml'
   pull_request:
     branches:
-      - main
       - dev
     paths:
       - 'src/client/acontext-py/**'
       - '.github/workflows/client-test-py.yaml'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:  
+  test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions: 
       contents: read
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7
 
       - name: Set up Python
         run: uv python install 3.13

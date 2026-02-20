@@ -9,6 +9,15 @@ updates:
     commit-message:
       prefix: "chore(deps):"
 
+  - package-ecosystem: "gomod"
+    directory: "/src/client/acontext-cli"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    target-branch: "deps"
+    commit-message:
+      prefix: "chore(deps):"
+
   - package-ecosystem: "pip"
     directory: "/src/server/core"
     schedule:
