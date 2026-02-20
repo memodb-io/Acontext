@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pgvector/pgvector-go"
 )
 
 type Task struct {
@@ -18,6 +19,9 @@ type Task struct {
 	Data       TaskData `gorm:"type:jsonb;not null;serializer:json" json:"data"`
 	Status     string   `gorm:"type:text;not null;default:'pending';check:status IN ('success','failed','running','pending');index:ix_task_session_id_status,priority:2" json:"status"`
 	IsPlanning bool     `gorm:"not null;default:false" json:"is_planning"`
+
+	// Embedding vector for semantic search
+	Embedding pgvector.Vector `gorm:"type:vector;-:migration" json:"-"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime;not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime;not null;default:CURRENT_TIMESTAMP" json:"updated_at"`

@@ -110,6 +110,9 @@ func BuildContainer() *do.Injector {
 		//   ALTER TABLE agent_skills DROP COLUMN IF EXISTS asset_meta;
 		//   ALTER TABLE agent_skills DROP COLUMN IF EXISTS file_index;
 		if cfg.Database.AutoMigrate {
+			// Ensure pgvector extension exists
+			_ = d.Exec("CREATE EXTENSION IF NOT EXISTS vector")
+
 			_ = d.AutoMigrate(
 				&model.Project{},
 				&model.User{},
@@ -126,6 +129,19 @@ func BuildContainer() *do.Injector {
 				&model.LearningSpaceSkill{},
 				&model.LearningSpaceSession{},
 			)
+
+			// Create the tasks.embedding vector column with the configured dimension.
+			dim := cfg.Embedding.TaskVectorDim
+			_ = d.Exec(fmt.Sprintf(
+				`DO $$ BEGIN
+					IF NOT EXISTS (
+						SELECT 1 FROM information_schema.columns
+						WHERE table_name='tasks' AND column_name='embedding'
+					) THEN
+						ALTER TABLE tasks ADD COLUMN embedding vector(%d);
+					END IF;
+				END $$;`, dim,
+			))
 		}
 
 		// ensure default project exists

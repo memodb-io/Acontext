@@ -189,18 +189,17 @@ type Message struct {
 	PartsAssetMeta datatypes.JSONType[Asset] `gorm:"type:jsonb;not null" swaggertype:"-" json:"-"`
 	Parts          []Part                    `gorm:"-" swaggertype:"array,object" json:"parts"`
 
-	TaskID *uuid.UUID `gorm:"type:uuid;index" json:"task_id"`
+	// Message <-> Task
+	TaskID *uuid.UUID `gorm:"type:uuid;index:ix_message_task_id;constraint:OnDelete:SET NULL,OnUpdate:CASCADE;" json:"task_id"`
+	Task   *Task      `gorm:"foreignKey:TaskID;references:ID" json:"-"`
 
-	SessionTaskProcessStatus string `gorm:"type:text;not null;default:'pending';check:session_task_process_status IN ('success','failed','running','pending')" json:"session_task_process_status"`
+	SessionTaskProcessStatus string `gorm:"type:text;not null;default:'pending';check:session_task_process_status IN ('pending', 'running', 'success', 'failed')" json:"session_task_process_status"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime;not null;default:CURRENT_TIMESTAMP;index:idx_session_created,priority:2,sort:desc" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime;not null;default:CURRENT_TIMESTAMP" json:"updated_at"`
 
 	// Message <-> Session
 	Session *Session `gorm:"foreignKey:SessionID;references:ID;constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
-
-	// Message <-> Task
-	Task *Task `gorm:"foreignKey:TaskID;references:ID;constraint:OnDelete:SET NULL,OnUpdate:CASCADE;" json:"-"`
 }
 
 func (Message) TableName() string { return "messages" }

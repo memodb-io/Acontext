@@ -394,3 +394,51 @@ func (c *CoreClient) UploadSandboxFile(ctx context.Context, projectID, sandboxID
 
 	return &result, nil
 }
+
+// SessionSearchResponse represents the response from session search
+type SessionSearchResponse struct {
+	SessionIDs []uuid.UUID `json:"session_ids"`
+}
+
+// SessionSearch calls the session search endpoint in Python Core
+func (c *CoreClient) SessionSearch(ctx context.Context, userID string, projectID string, query string, limit int) (*SessionSearchResponse, error) {
+	endpoint := fmt.Sprintf("%s/api/v1/sessions/search", c.BaseURL)
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create request: %w", err)
+	}
+
+	// Add query parameters
+	q := httpReq.URL.Query()
+	q.Add("user_id", userID)
+	q.Add("project_id", projectID)
+	q.Add("query", query)
+	q.Add("limit", fmt.Sprintf("%d", limit))
+	httpReq.URL.RawQuery = q.Encode()
+
+	resp, err := c.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("do request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read response body: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		c.Logger.Error("session_search request failed",
+			zap.Int("status_code", resp.StatusCode),
+			zap.String("body", string(respBody)))
+		return nil, fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(respBody))
+	}
+
+	var result SessionSearchResponse
+	if err := sonic.Unmarshal(respBody, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal response: %w", err)
+	}
+
+	return &result, nil
+}

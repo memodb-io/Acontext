@@ -86,6 +86,10 @@ type ArtifactCfg struct {
 	MaxUploadSizeBytes int64 // Maximum file upload size in bytes
 }
 
+type EmbeddingCfg struct {
+	TaskVectorDim int
+}
+
 type Config struct {
 	App       AppCfg
 	Root      RootCfg
@@ -97,6 +101,7 @@ type Config struct {
 	Core      CoreCfg
 	Telemetry TelemetryCfg
 	Artifact  ArtifactCfg
+	Embedding EmbeddingCfg
 }
 
 func setDefaults(v *viper.Viper) {
@@ -127,6 +132,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("telemetry.enabled", true)
 	v.SetDefault("telemetry.sampleRatio", 1.0)            // Default 100% sampling
 	v.SetDefault("artifact.maxUploadSizeBytes", 16777216) // Default 16MB (16 * 1024 * 1024 bytes)
+	v.SetDefault("embedding.taskVectorDim", 1536)
 }
 
 func Load() (*Config, error) {

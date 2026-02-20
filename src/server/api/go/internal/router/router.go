@@ -62,6 +62,12 @@ func NewRouter(d RouterDeps) *gin.Engine {
 		// ping endpoint
 		v1.GET("/ping", func(c *gin.Context) { c.JSON(http.StatusOK, serializer.Response{Msg: "pong"}) })
 
+		// Sessions search (project-level, without session_id)
+		sessions := v1.Group("/sessions")
+		{
+			sessions.GET("/search", d.SessionHandler.SessionSearch)
+		}
+
 		session := v1.Group("/session")
 		{
 			session.GET("", d.SessionHandler.GetSessions)
