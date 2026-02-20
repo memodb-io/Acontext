@@ -32,7 +32,6 @@ DISTILL_SUCCESS_TOOL = ToolSchema(
                 "approach": {"type": "string"},
                 "key_decisions": {"type": "array", "items": {"type": "string"}},
                 "generalizable_pattern": {"type": "string"},
-                "user_preferences_observed": {"type": "string"},
                 **_WORTH_LEARNING_FIELD,
             },
             "required": [
@@ -58,7 +57,6 @@ DISTILL_FAILURE_TOOL = ToolSchema(
                 "flawed_reasoning": {"type": "string"},
                 "what_should_have_been_done": {"type": "string"},
                 "prevention_principle": {"type": "string"},
-                "user_preferences_observed": {"type": "string"},
                 **_WORTH_LEARNING_FIELD,
             },
             "required": [
@@ -115,10 +113,6 @@ def extract_distillation_result(llm_return: LLMResponse) -> Result[DistillationO
         for decision in args["key_decisions"]:
             lines.append(f"  - {decision}")
         lines.append(f"**Generalizable Pattern:** {args['generalizable_pattern']}")
-        if args.get("user_preferences_observed"):
-            lines.append(
-                f"**User Preferences Observed:** {args['user_preferences_observed']}"
-            )
         return Result.resolve(
             DistillationOutcome(
                 is_worth_learning=is_worth_learning,
@@ -147,10 +141,6 @@ def extract_distillation_result(llm_return: LLMResponse) -> Result[DistillationO
             f"**What Should Have Been Done:** {args['what_should_have_been_done']}",
             f"**Prevention Principle:** {args['prevention_principle']}",
         ]
-        if args.get("user_preferences_observed"):
-            lines.append(
-                f"**User Preferences Observed:** {args['user_preferences_observed']}"
-            )
         return Result.resolve(
             DistillationOutcome(
                 is_worth_learning=is_worth_learning,

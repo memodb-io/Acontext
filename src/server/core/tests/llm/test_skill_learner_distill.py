@@ -82,12 +82,10 @@ class TestDistillSuccessToolSchema:
         assert "key_decisions" in required
         assert "generalizable_pattern" in required
 
-    def test_has_optional_user_preferences(self):
-        """user_preferences_observed is in properties but not required."""
+    def test_no_user_preferences_observed(self):
+        """user_preferences_observed is no longer in properties."""
         props = DISTILL_SUCCESS_TOOL.function.parameters["properties"]
-        required = DISTILL_SUCCESS_TOOL.function.parameters["required"]
-        assert "user_preferences_observed" in props
-        assert "user_preferences_observed" not in required
+        assert "user_preferences_observed" not in props
 
     def test_key_decisions_is_array(self):
         """key_decisions is an array of strings."""
@@ -130,12 +128,10 @@ class TestDistillFailureToolSchema:
         assert "what_should_have_been_done" in required
         assert "prevention_principle" in required
 
-    def test_has_optional_user_preferences(self):
-        """user_preferences_observed is in properties but not required."""
+    def test_no_user_preferences_observed(self):
+        """user_preferences_observed is no longer in properties."""
         props = DISTILL_FAILURE_TOOL.function.parameters["properties"]
-        required = DISTILL_FAILURE_TOOL.function.parameters["required"]
-        assert "user_preferences_observed" in props
-        assert "user_preferences_observed" not in required
+        assert "user_preferences_observed" not in props
 
     def test_has_is_worth_learning_required(self):
         """is_worth_learning is in properties and required."""
@@ -171,7 +167,6 @@ class TestExtractDistillationResultSuccess:
                     "Added token refresh before retry",
                 ],
                 "generalizable_pattern": "Always check token expiry before retrying.",
-                "user_preferences_observed": "User prefers minimal logging.",
                 "is_worth_learning": True,
             },
         )
@@ -186,7 +181,7 @@ class TestExtractDistillationResultSuccess:
         assert "Inspected the auth middleware first" in outcome.distilled_text
         assert "Added token refresh before retry" in outcome.distilled_text
         assert "Always check token expiry" in outcome.distilled_text
-        assert "minimal logging" in outcome.distilled_text
+        assert "User Preferences Observed" not in outcome.distilled_text
 
     def test_success_without_optional_preferences(self):
         """Success extraction handles missing user_preferences_observed."""
@@ -230,7 +225,6 @@ class TestExtractDistillationResultFailure:
                 "flawed_reasoning": "Assumed rollback would work.",
                 "what_should_have_been_done": "Take backup before migration.",
                 "prevention_principle": "Always backup before destructive ops.",
-                "user_preferences_observed": "User wants zero downtime.",
                 "is_worth_learning": True,
             },
         )
@@ -245,7 +239,7 @@ class TestExtractDistillationResultFailure:
         assert "Assumed rollback" in outcome.distilled_text
         assert "Take backup" in outcome.distilled_text
         assert "Always backup" in outcome.distilled_text
-        assert "zero downtime" in outcome.distilled_text
+        assert "User Preferences Observed" not in outcome.distilled_text
 
     def test_failure_without_optional_preferences(self):
         """Failure extraction handles missing user_preferences_observed."""
@@ -448,6 +442,6 @@ class TestPackDistillationInput:
         assert "## Finished Task" in result
         assert "Fix the login bug" in result
         assert "Step 1: read code" in result
-        assert "user prefers TypeScript" in result
+        assert "User Preferences" not in result
         assert "## All Session Tasks" in result
         assert "## Task Messages" in result

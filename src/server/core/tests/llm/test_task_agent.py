@@ -1,9 +1,9 @@
 """
-Tests for the task agent behavior redesign:
-- set_user_preference_for_task data function
-- TaskSchema.to_string() with user preferences
+Tests for the task agent behavior:
+- append_preference_to_planning_task data function
+- TaskSchema.to_string() (no user preferences displayed)
 - append_task_progress tool handler
-- set_task_user_preference tool handler
+- submit_user_preference tool handler
 - simplified append_messages_to_task handler
 """
 
@@ -15,8 +15,8 @@ from acontext_core.schema.result import Result
 from acontext_core.schema.session.task import TaskSchema, TaskData, TaskStatus
 from acontext_core.llm.tool.task_lib.ctx import TaskCtx
 from acontext_core.llm.tool.task_lib.progress import _append_task_progress_handler
-from acontext_core.llm.tool.task_lib.set_preference import (
-    _set_task_user_preference_handler,
+from acontext_core.llm.tool.task_lib.submit_preference import (
+    _submit_user_preference_handler,
 )
 from acontext_core.llm.tool.task_lib.append import _append_messages_to_task_handler
 
@@ -59,21 +59,22 @@ def _make_task(
 
 
 # =============================================================================
-# TaskSchema.to_string() tests
+# TaskSchema.to_string() tests — no longer shows user preferences
 # =============================================================================
 
 
 class TestToStringWithPreferences:
-    def test_single_preference(self):
+    def test_single_preference_not_shown(self):
         task = _make_task(user_preferences=["user wants dark mode"])
         result = task.to_string()
-        assert 'User Prefs: "user wants dark mode"' in result
-        assert result.startswith("Task 1: Test task (Status: running)")
+        assert "User Prefs" not in result
+        assert result == "Task 1: Test task (Status: running)"
 
-    def test_multi_element_legacy_preferences_joined(self):
+    def test_multi_element_preferences_not_shown(self):
         task = _make_task(user_preferences=["wants React", "prefers TypeScript", "uses VSCode"])
         result = task.to_string()
-        assert 'User Prefs: "wants React | prefers TypeScript | uses VSCode"' in result
+        assert "User Prefs" not in result
+        assert result == "Task 1: Test task (Status: running)"
 
     def test_none_preferences_omitted(self):
         task = _make_task(user_preferences=None)
@@ -171,69 +172,110 @@ class TestAppendTaskProgressHandler:
 
 
 # =============================================================================
-# set_task_user_preference handler tests
+# submit_user_preference handler tests
 # =============================================================================
 
 
-class TestSetTaskUserPreferenceHandler:
+class TestSubmitUserPreferenceHandler:
     @pytest.mark.asyncio
-    async def test_sets_preference_correctly(self):
-        task = _make_task(status=TaskStatus.RUNNING)
-        ctx = _make_ctx(tasks=[task])
+    async def test_appends_to_pending_preferences(self):
+        ctx = _make_ctx(tasks=[_make_task()])
 
         with patch(
-            "acontext_core.llm.tool.task_lib.set_preference.TD.set_user_preference_for_task",
+            "acontext_core.llm.tool.task_lib.submit_preference.TD.append_preference_to_planning_task",
             new_callable=AsyncMock,
             return_value=Result.resolve(None),
-        ) as mock_set:
-            result = await _set_task_user_preference_handler(
-                ctx, {"task_order": 1, "user_preference": "user wants dark mode and React"}
+        ):
+            result = await _submit_user_preference_handler(
+                ctx, {"preference": "user prefers TypeScript"}
             )
             assert result.ok()
-            mock_set.assert_called_once_with(
-                ctx.db_session, task.id, "user wants dark mode and React"
+            assert "user prefers TypeScript" in ctx.pending_preferences
+
+    @pytest.mark.asyncio
+    async def test_persists_to_planning_task(self):
+        ctx = _make_ctx(tasks=[_make_task()])
+
+        with patch(
+            "acontext_core.llm.tool.task_lib.submit_preference.TD.append_preference_to_planning_task",
+            new_callable=AsyncMock,
+            return_value=Result.resolve(None),
+        ) as mock_append:
+            result = await _submit_user_preference_handler(
+                ctx, {"preference": "email: user@co.com"}
+            )
+            assert result.ok()
+            mock_append.assert_called_once_with(
+                ctx.db_session, ctx.project_id, ctx.session_id, "email: user@co.com"
             )
 
     @pytest.mark.asyncio
     async def test_rejects_empty_preference(self):
-        task = _make_task()
-        ctx = _make_ctx(tasks=[task])
+        ctx = _make_ctx(tasks=[_make_task()])
 
-        result = await _set_task_user_preference_handler(
-            ctx, {"task_order": 1, "user_preference": "   "}
+        result = await _submit_user_preference_handler(
+            ctx, {"preference": "   "}
+        )
+        data, _ = result.unpack()
+        assert "non-empty" in data.lower()
+        assert len(ctx.pending_preferences) == 0
+
+    @pytest.mark.asyncio
+    async def test_rejects_none_preference(self):
+        ctx = _make_ctx(tasks=[_make_task()])
+
+        result = await _submit_user_preference_handler(
+            ctx, {}
         )
         data, _ = result.unpack()
         assert "non-empty" in data.lower()
 
     @pytest.mark.asyncio
-    async def test_rejects_out_of_range(self):
-        task = _make_task()
-        ctx = _make_ctx(tasks=[task])
+    async def test_db_failure_still_captures_for_mq(self):
+        """Even if DB persist fails, preference is still in pending_preferences."""
+        ctx = _make_ctx(tasks=[_make_task()])
 
-        result = await _set_task_user_preference_handler(
-            ctx, {"task_order": 10, "user_preference": "some pref"}
-        )
-        data, _ = result.unpack()
-        assert "out of range" in data.lower()
+        with patch(
+            "acontext_core.llm.tool.task_lib.submit_preference.TD.append_preference_to_planning_task",
+            new_callable=AsyncMock,
+            return_value=Result.reject("DB error"),
+        ):
+            result = await _submit_user_preference_handler(
+                ctx, {"preference": "prefers dark mode"}
+            )
+            assert result.ok()
+            assert "prefers dark mode" in ctx.pending_preferences
 
     @pytest.mark.asyncio
-    async def test_works_on_any_status(self):
-        """Preferences can be set on any task status, including success/failed."""
-        for status in [TaskStatus.PENDING, TaskStatus.RUNNING, TaskStatus.SUCCESS, TaskStatus.FAILED]:
-            task = _make_task(status=status)
-            ctx = _make_ctx(tasks=[task])
+    async def test_db_exception_still_captures_for_mq(self):
+        """Even if DB raises exception, preference is still in pending_preferences."""
+        ctx = _make_ctx(tasks=[_make_task()])
 
-            with patch(
-                "acontext_core.llm.tool.task_lib.set_preference.TD.set_user_preference_for_task",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(None),
-            ):
-                result = await _set_task_user_preference_handler(
-                    ctx, {"task_order": 1, "user_preference": "user pref"}
-                )
-                assert result.ok()
-                data, _ = result.unpack()
-                assert "set" in data.lower()
+        with patch(
+            "acontext_core.llm.tool.task_lib.submit_preference.TD.append_preference_to_planning_task",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("Connection lost"),
+        ):
+            result = await _submit_user_preference_handler(
+                ctx, {"preference": "uses PostgreSQL"}
+            )
+            assert result.ok()
+            assert "uses PostgreSQL" in ctx.pending_preferences
+
+    @pytest.mark.asyncio
+    async def test_multiple_preferences_accumulate(self):
+        ctx = _make_ctx(tasks=[_make_task()])
+
+        with patch(
+            "acontext_core.llm.tool.task_lib.submit_preference.TD.append_preference_to_planning_task",
+            new_callable=AsyncMock,
+            return_value=Result.resolve(None),
+        ):
+            await _submit_user_preference_handler(ctx, {"preference": "pref 1"})
+            await _submit_user_preference_handler(ctx, {"preference": "pref 2"})
+            await _submit_user_preference_handler(ctx, {"preference": "pref 3"})
+
+        assert ctx.pending_preferences == ["pref 1", "pref 2", "pref 3"]
 
 
 # =============================================================================
@@ -400,20 +442,76 @@ class TestSimplifiedAppendMessagesToTask:
 
 
 # =============================================================================
+# pack_task_input known preferences tests
+# =============================================================================
+
+
+class TestPackTaskInputKnownPreferences:
+    def test_includes_known_preferences_section(self):
+        from acontext_core.llm.prompt.task import TaskPrompt
+
+        result = TaskPrompt.pack_task_input(
+            previous_progress="progress here",
+            current_message_with_ids="messages here",
+            current_tasks="tasks here",
+            known_preferences=["prefers TypeScript", "uses VS Code"],
+        )
+        assert "## Known User Preferences:" in result
+        assert "- prefers TypeScript" in result
+        assert "- uses VS Code" in result
+
+    def test_omits_section_when_no_preferences(self):
+        from acontext_core.llm.prompt.task import TaskPrompt
+
+        result = TaskPrompt.pack_task_input(
+            previous_progress="progress here",
+            current_message_with_ids="messages here",
+            current_tasks="tasks here",
+            known_preferences=None,
+        )
+        assert "Known User Preferences" not in result
+
+    def test_omits_section_when_empty_list(self):
+        from acontext_core.llm.prompt.task import TaskPrompt
+
+        result = TaskPrompt.pack_task_input(
+            previous_progress="progress here",
+            current_message_with_ids="messages here",
+            current_tasks="tasks here",
+            known_preferences=[],
+        )
+        assert "Known User Preferences" not in result
+
+    def test_section_between_progress_and_messages(self):
+        from acontext_core.llm.prompt.task import TaskPrompt
+
+        result = TaskPrompt.pack_task_input(
+            previous_progress="progress here",
+            current_message_with_ids="messages here",
+            current_tasks="tasks here",
+            known_preferences=["pref1"],
+        )
+        progress_pos = result.index("progress here")
+        prefs_pos = result.index("Known User Preferences")
+        messages_pos = result.index("messages here")
+        assert progress_pos < prefs_pos < messages_pos
+
+
+# =============================================================================
 # Data layer tests (DB-backed)
 # =============================================================================
 
 
-class TestSetUserPreferenceForTaskData:
+class TestAppendPreferenceToPlanningTaskData:
     @pytest.mark.asyncio
-    async def test_replaces_existing_preferences(self, db_client):
-        from acontext_core.service.data.task import set_user_preference_for_task
+    async def test_creates_planning_task_and_appends(self, db_client):
+        from acontext_core.service.data.task import append_preference_to_planning_task
         from acontext_core.schema.orm import Task, Project, Session
 
         async with db_client.get_session_context() as session:
             project = Project(
-                secret_key_hmac="test_pref_replace",
-                secret_key_hash_phc="test_pref_replace",
+                secret_key_hmac="test_pref_planning_create",
+                secret_key_hash_phc="test_pref_planning_create",
             )
             session.add(project)
             await session.flush()
@@ -422,39 +520,34 @@ class TestSetUserPreferenceForTaskData:
             session.add(test_session)
             await session.flush()
 
-            task = Task(
-                session_id=test_session.id,
-                project_id=project.id,
-                order=1,
-                data={
-                    "task_description": "Test",
-                    "user_preferences": ["old pref"],
-                },
-                status="running",
-            )
-            session.add(task)
-            await session.flush()
-
-            result = await set_user_preference_for_task(
-                session, task.id, "new complete preference"
+            result = await append_preference_to_planning_task(
+                session, project.id, test_session.id, "prefers TypeScript"
             )
             data, error = result.unpack()
             assert error is None
 
-            await session.refresh(task)
-            assert task.data["user_preferences"] == ["new complete preference"]
+            from sqlalchemy import select
+            query = (
+                select(Task)
+                .where(Task.session_id == test_session.id)
+                .where(Task.is_planning == True)  # noqa: E712
+            )
+            res = await session.execute(query)
+            planning = res.scalars().first()
+            assert planning is not None
+            assert planning.data["user_preferences"] == ["prefers TypeScript"]
 
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_works_when_none(self, db_client):
-        from acontext_core.service.data.task import set_user_preference_for_task
+    async def test_appends_to_existing_planning_task(self, db_client):
+        from acontext_core.service.data.task import append_preference_to_planning_task
         from acontext_core.schema.orm import Task, Project, Session
 
         async with db_client.get_session_context() as session:
             project = Project(
-                secret_key_hmac="test_pref_none",
-                secret_key_hash_phc="test_pref_none",
+                secret_key_hmac="test_pref_planning_append",
+                secret_key_hash_phc="test_pref_planning_append",
             )
             session.add(project)
             await session.flush()
@@ -463,36 +556,40 @@ class TestSetUserPreferenceForTaskData:
             session.add(test_session)
             await session.flush()
 
-            task = Task(
-                session_id=test_session.id,
+            planning_task = Task(
                 project_id=project.id,
-                order=1,
-                data={"task_description": "Test"},  # No user_preferences key
-                status="running",
+                session_id=test_session.id,
+                order=0,
+                data={
+                    "task_description": "collecting planning&requirments",
+                    "user_preferences": ["existing pref"],
+                },
+                status="pending",
+                is_planning=True,
             )
-            session.add(task)
+            session.add(planning_task)
             await session.flush()
 
-            result = await set_user_preference_for_task(
-                session, task.id, "first preference"
+            result = await append_preference_to_planning_task(
+                session, project.id, test_session.id, "new pref"
             )
             data, error = result.unpack()
             assert error is None
 
-            await session.refresh(task)
-            assert task.data["user_preferences"] == ["first preference"]
+            await session.refresh(planning_task)
+            assert planning_task.data["user_preferences"] == ["existing pref", "new pref"]
 
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_replaces_legacy_multi_element(self, db_client):
-        from acontext_core.service.data.task import set_user_preference_for_task
+    async def test_initializes_list_when_absent(self, db_client):
+        from acontext_core.service.data.task import append_preference_to_planning_task
         from acontext_core.schema.orm import Task, Project, Session
 
         async with db_client.get_session_context() as session:
             project = Project(
-                secret_key_hmac="test_pref_legacy",
-                secret_key_hash_phc="test_pref_legacy",
+                secret_key_hmac="test_pref_planning_init",
+                secret_key_hash_phc="test_pref_planning_init",
             )
             session.add(project)
             await session.flush()
@@ -501,39 +598,37 @@ class TestSetUserPreferenceForTaskData:
             session.add(test_session)
             await session.flush()
 
-            task = Task(
-                session_id=test_session.id,
+            planning_task = Task(
                 project_id=project.id,
-                order=1,
-                data={
-                    "task_description": "Test",
-                    "user_preferences": ["a", "b", "c"],
-                },
-                status="running",
+                session_id=test_session.id,
+                order=0,
+                data={"task_description": "collecting planning&requirments"},
+                status="pending",
+                is_planning=True,
             )
-            session.add(task)
+            session.add(planning_task)
             await session.flush()
 
-            result = await set_user_preference_for_task(
-                session, task.id, "new single pref"
+            result = await append_preference_to_planning_task(
+                session, project.id, test_session.id, "first pref"
             )
             data, error = result.unpack()
             assert error is None
 
-            await session.refresh(task)
-            assert task.data["user_preferences"] == ["new single pref"]
+            await session.refresh(planning_task)
+            assert planning_task.data["user_preferences"] == ["first pref"]
 
             await session.delete(project)
 
     @pytest.mark.asyncio
-    async def test_works_with_empty_list(self, db_client):
-        from acontext_core.service.data.task import set_user_preference_for_task
+    async def test_multiple_appends_accumulate(self, db_client):
+        from acontext_core.service.data.task import append_preference_to_planning_task
         from acontext_core.schema.orm import Task, Project, Session
 
         async with db_client.get_session_context() as session:
             project = Project(
-                secret_key_hmac="test_pref_empty",
-                secret_key_hash_phc="test_pref_empty",
+                secret_key_hmac="test_pref_planning_multi",
+                secret_key_hash_phc="test_pref_planning_multi",
             )
             session.add(project)
             await session.flush()
@@ -542,27 +637,28 @@ class TestSetUserPreferenceForTaskData:
             session.add(test_session)
             await session.flush()
 
-            task = Task(
-                session_id=test_session.id,
-                project_id=project.id,
-                order=1,
-                data={
-                    "task_description": "Test",
-                    "user_preferences": [],
-                },
-                status="running",
+            r1 = await append_preference_to_planning_task(
+                session, project.id, test_session.id, "pref A"
             )
-            session.add(task)
-            await session.flush()
-
-            result = await set_user_preference_for_task(
-                session, task.id, "pref from empty"
+            assert r1.ok()
+            r2 = await append_preference_to_planning_task(
+                session, project.id, test_session.id, "pref B"
             )
-            data, error = result.unpack()
-            assert error is None
+            assert r2.ok()
+            r3 = await append_preference_to_planning_task(
+                session, project.id, test_session.id, "pref C"
+            )
+            assert r3.ok()
 
-            await session.refresh(task)
-            assert task.data["user_preferences"] == ["pref from empty"]
+            from sqlalchemy import select
+            query = (
+                select(Task)
+                .where(Task.session_id == test_session.id)
+                .where(Task.is_planning == True)  # noqa: E712
+            )
+            res = await session.execute(query)
+            planning = res.scalars().first()
+            assert planning.data["user_preferences"] == ["pref A", "pref B", "pref C"]
 
             await session.delete(project)
 
@@ -570,10 +666,10 @@ class TestSetUserPreferenceForTaskData:
 class TestProgressAndPreferenceSameSession:
     @pytest.mark.asyncio
     async def test_both_jsonb_fields_updated(self, db_client):
-        """Test append_task_progress + set_user_preference_for_task on same task in same session."""
+        """Test append_task_progress + append_preference_to_planning_task on same session."""
         from acontext_core.service.data.task import (
             append_progress_to_task,
-            set_user_preference_for_task,
+            append_preference_to_planning_task,
         )
         from acontext_core.schema.orm import Task, Project, Session
 
@@ -599,16 +695,27 @@ class TestProgressAndPreferenceSameSession:
             session.add(task)
             await session.flush()
 
-            # Both operations in same session
             r1 = await append_progress_to_task(session, task.id, "Step 1 done")
             assert r1.ok()
 
-            r2 = await set_user_preference_for_task(session, task.id, "user wants X")
+            r2 = await append_preference_to_planning_task(
+                session, project.id, test_session.id, "user wants X"
+            )
             assert r2.ok()
 
             await session.refresh(task)
             assert task.data["progresses"] == ["Step 1 done"]
-            assert task.data["user_preferences"] == ["user wants X"]
+
+            from sqlalchemy import select
+            query = (
+                select(Task)
+                .where(Task.session_id == test_session.id)
+                .where(Task.is_planning == True)  # noqa: E712
+            )
+            res = await session.execute(query)
+            planning = res.scalars().first()
+            assert planning is not None
+            assert planning.data["user_preferences"] == ["user wants X"]
 
             await session.delete(project)
 
@@ -618,7 +725,6 @@ class TestAppendProgressNoUserPreferenceParam:
     async def test_no_user_preference_parameter(self, db_client):
         """Verify append_progress_to_task no longer accepts user_preference."""
         from acontext_core.service.data.task import append_progress_to_task
-        from acontext_core.schema.orm import Task, Project, Session
         import inspect
 
         sig = inspect.signature(append_progress_to_task)
@@ -638,7 +744,8 @@ class TestToolRegistryAndWiring:
         from acontext_core.llm.tool.task_tools import TASK_TOOLS
 
         assert "append_task_progress" in TASK_TOOLS
-        assert "set_task_user_preference" in TASK_TOOLS
+        assert "submit_user_preference" in TASK_TOOLS
+        assert "set_task_user_preference" not in TASK_TOOLS
 
     def test_tool_schema_returns_8_tools(self):
         from acontext_core.llm.prompt.task import TaskPrompt
@@ -647,10 +754,40 @@ class TestToolRegistryAndWiring:
         assert len(schemas) == 8
         names = [s.function.name for s in schemas]
         assert "append_task_progress" in names
-        assert "set_task_user_preference" in names
+        assert "submit_user_preference" in names
+        assert "set_task_user_preference" not in names
 
-    def test_need_update_ctx_has_new_tools(self):
+    def test_need_update_ctx_does_not_have_preference_tool(self):
         from acontext_core.llm.agent.task import NEED_UPDATE_CTX
 
         assert "append_task_progress" in NEED_UPDATE_CTX
-        assert "set_task_user_preference" in NEED_UPDATE_CTX
+        assert "submit_user_preference" not in NEED_UPDATE_CTX
+        assert "set_task_user_preference" not in NEED_UPDATE_CTX
+
+
+# =============================================================================
+# TaskData schema backward compat
+# =============================================================================
+
+
+class TestTaskDataSchemaCompat:
+    def test_user_preferences_field_exists(self):
+        data = TaskData(
+            task_description="Test",
+            user_preferences=["old pref"],
+        )
+        assert data.user_preferences == ["old pref"]
+
+    def test_user_preferences_none_by_default(self):
+        data = TaskData(task_description="Test")
+        assert data.user_preferences is None
+
+    def test_old_regular_task_data_deserializes(self):
+        raw = {
+            "task_description": "Legacy task",
+            "progresses": ["step 1"],
+            "user_preferences": ["legacy pref"],
+        }
+        data = TaskData(**raw)
+        assert data.user_preferences == ["legacy pref"]
+        assert data.progresses == ["step 1"]

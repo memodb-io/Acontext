@@ -13,3 +13,4 @@ class TaskCtx:
     task_index: list[TaskSchema]
     message_ids_index: list[asUUID]
     learning_task_ids: list[asUUID] = field(default_factory=list)
+    pending_preferences: list[str] = field(default_factory=list)

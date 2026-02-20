@@ -10,14 +10,14 @@ class TaskPrompt(BasePrompt):
         return """You are an autonomous Task Management Agent that analyzes conversations to track and manage task statuses.
 
 ## Task Structure
-- Tasks have: description, status, user preferences, and sequential order (`task_order=1, 2, ...`)
+- Tasks have: description, status, and sequential order (`task_order=1, 2, ...`)
 - Messages link to tasks via their IDs
 - Statuses: `pending` | `running` | `success` | `failed`
-- Each task displays its current user preference (if any) in the listing
 
 ## Input Format
-- `## Current Existing Tasks`: existing tasks with orders, descriptions, statuses, and user preferences
+- `## Current Existing Tasks`: existing tasks with orders, descriptions, and statuses
 - `## Previous Progress`: context from prior task progress
+- `## Known User Preferences`: previously submitted user preferences (if any) — do not re-submit these
 - `## Current Message with IDs`: messages to analyze, formatted as `<message id=N>content</message>`
 
 ## Workflow
@@ -54,12 +54,18 @@ class TaskPrompt(BasePrompt):
   - Bad: "Started working on the login feature"
   - Bad: "Encountered errors"
 
-### 5. Record User Preferences
-- Use `set_task_user_preference` when messages contain user preferences, requirements, or relevant personal info for a task
-- The current preference (if any) is shown in the task listing as `User Prefs: "..."`
-- This tool REPLACES the entire preference — provide the complete, updated preference string
-- If the user's new preference conflicts with the existing one, write a merged/resolved version that reflects the user's latest intent
-- Include relevant user info (email, tech stack choices, constraints, etc.)
+### 5. Submit User Preferences
+- Use `submit_user_preference` when messages reveal user preferences, personal info, or general constraints
+- These are **task-independent** — submit them regardless of which task (if any) they relate to
+- Examples of what to submit:
+  - Tech stack preferences ("I prefer TypeScript", "we use PostgreSQL")
+  - Coding style ("always use 2-space indentation", "prefer functional style")
+  - Personal info ("my name is John", "my email is john@co.com")
+  - Tool/workflow preferences ("I use VS Code", "deploy to AWS")
+  - Project constraints ("must support IE11", "no external dependencies")
+- Each call submits one preference — be specific and self-contained
+- Do NOT skip preferences just because they seem unrelated to the current task
+- Check `## Known User Preferences` first — do NOT re-submit preferences already listed there
 
 ### 6. Update Status
 - `pending`: Task not started
@@ -79,7 +85,7 @@ Before calling tools, use `report_thinking` to briefly address:
 3. How do existing tasks relate to current messages?
 4. New tasks to create? (each task = one user request, NOT agent sub-steps; use user's exact words)
 5. Which messages contribute to planning vs. specific tasks?
-6. User preferences to set or update for which tasks?
+6. Any user preferences, personal info, or general constraints to submit?
 7. What specific progress to record for which tasks? (agent plan steps go here, not as new tasks)
 8. Which task statuses to update?
 9. Which tools can be called concurrently?
@@ -89,14 +95,23 @@ Before calling `finish`, verify all actions are covered.
 
     @classmethod
     def pack_task_input(
-        cls, previous_progress: str, current_message_with_ids: str, current_tasks: str
+        cls,
+        previous_progress: str,
+        current_message_with_ids: str,
+        current_tasks: str,
+        known_preferences: list[str] = None,
     ) -> str:
+        known_prefs_section = ""
+        if known_preferences:
+            prefs_lines = "\n".join(f"- {p}" for p in known_preferences)
+            known_prefs_section = f"\n## Known User Preferences:\n{prefs_lines}\n"
+
         return f"""## Current Existing Tasks:
 {current_tasks}
 
 ## Previous Progress:
 {previous_progress}
-
+{known_prefs_section}
 ## Current Message with IDs:
 {current_message_with_ids}
 
@@ -116,7 +131,7 @@ Please analyze the above information and determine the actions.
         ].schema
         append_messages_to_task_tool = TASK_TOOLS["append_messages_to_task"].schema
         append_task_progress_tool = TASK_TOOLS["append_task_progress"].schema
-        set_task_user_preference_tool = TASK_TOOLS["set_task_user_preference"].schema
+        submit_user_preference_tool = TASK_TOOLS["submit_user_preference"].schema
         finish_tool = TASK_TOOLS["finish"].schema
         thinking_tool = TASK_TOOLS["report_thinking"].schema
         return [
@@ -125,7 +140,7 @@ Please analyze the above information and determine the actions.
             append_messages_to_planning_tool,
             append_messages_to_task_tool,
             append_task_progress_tool,
-            set_task_user_preference_tool,
+            submit_user_preference_tool,
             finish_tool,
             thinking_tool,
         ]

@@ -1,4 +1,5 @@
-from typing import List
+import uuid as _uuid
+from typing import List, Optional
 from ...env import LOG
 from ...telemetry.log import bound_logging_vars
 from ...infra.db import AsyncSession, DB_CLIENT
@@ -7,7 +8,7 @@ from ...schema.result import Result
 from ...schema.utils import asUUID
 from ...schema.session.task import TaskSchema
 from ...schema.session.message import MessageBlob
-from ...schema.mq.learning import SkillLearnTask
+from ...schema.mq.learning import SkillLearnTask, SkillLearnDistilled
 from ...service.data import task as TD
 from ...service.constants import EX, RK
 from ..complete import llm_complete, response_to_sendable_message
@@ -18,14 +19,12 @@ from ..tool.task_lib.insert import _insert_task_tool
 from ..tool.task_lib.update import _update_task_tool
 from ..tool.task_lib.append import _append_messages_to_task_tool
 from ..tool.task_lib.progress import _append_task_progress_tool
-from ..tool.task_lib.set_preference import _set_task_user_preference_tool
 
 NEED_UPDATE_CTX = {
     _insert_task_tool.schema.function.name,
     _update_task_tool.schema.function.name,
     _append_messages_to_task_tool.schema.function.name,
     _append_task_progress_tool.schema.function.name,
-    _set_task_user_preference_tool.schema.function.name,
 }
 
 
@@ -127,13 +126,20 @@ async def task_agent_curd(
     messages: List[MessageBlob],
     max_iterations=3,  # task curd agent only receive one turn of actions
     previous_progress_num: int = 6,
-    enable_skill_learning: bool = False,
+    learning_space_id: Optional[asUUID] = None,
 ) -> Result[None]:
     async with DB_CLIENT.get_session_context() as db_session:
         r = await TD.fetch_current_tasks(db_session, session_id)
         tasks, eil = r.unpack()
         if eil:
             return r
+        r_plan = await TD.fetch_planning_task(db_session, session_id)
+        planning_task, _ = r_plan.unpack()
+        known_preferences = (
+            (planning_task.data.user_preferences or [])
+            if planning_task is not None
+            else []
+        )
 
     task_section = pack_task_section(tasks)
     previous_progress_section = pack_previous_progress_section(
@@ -147,11 +153,15 @@ async def task_agent_curd(
     json_tools = [tool.model_dump() for tool in TaskPrompt.tool_schema()]
     already_iterations = 0
     _pending_learning_task_ids: list[asUUID] = []
+    _pending_preferences: list[str] = []
     _messages = [
         {
             "role": "user",
             "content": TaskPrompt.pack_task_input(
-                previous_progress_section, current_messages_section, task_section
+                previous_progress_section,
+                current_messages_section,
+                task_section,
+                known_preferences=known_preferences or None,
             ),
         }
     ]
@@ -215,6 +225,11 @@ async def task_agent_curd(
                                     USE_CTX.learning_task_ids
                                 )
                                 USE_CTX.learning_task_ids.clear()
+                            if USE_CTX and USE_CTX.pending_preferences:
+                                _pending_preferences.extend(
+                                    USE_CTX.pending_preferences
+                                )
+                                USE_CTX.pending_preferences.clear()
                             USE_CTX = None
                     except KeyError as e:
                         raise RuntimeError(
@@ -227,13 +242,20 @@ async def task_agent_curd(
         except RuntimeError as e:
             _tool_error = e
             _pending_learning_task_ids.clear()
+            # NOTE: _pending_preferences are NOT cleared on error —
+            # preferences are user facts that remain true regardless of tool errors
         else:
             _tool_error = None
-        # Drain learning task IDs and publish after DB commit
+        # Final drain: learning task IDs
         if USE_CTX and USE_CTX.learning_task_ids:
             _pending_learning_task_ids.extend(USE_CTX.learning_task_ids)
             USE_CTX.learning_task_ids.clear()
-        if _pending_learning_task_ids and enable_skill_learning:
+        # Final drain: pending preferences
+        if USE_CTX and USE_CTX.pending_preferences:
+            _pending_preferences.extend(USE_CTX.pending_preferences)
+            USE_CTX.pending_preferences.clear()
+        # Publish learning task IDs
+        if _pending_learning_task_ids and learning_space_id is not None:
             for tid in _pending_learning_task_ids:
                 try:
                     await publish_mq(
@@ -250,6 +272,25 @@ async def task_agent_curd(
                         "Failed to publish skill learning event", task_id=str(tid)
                     )
             _pending_learning_task_ids.clear()
+        # Publish pending preferences directly to skill agent
+        if _pending_preferences and learning_space_id is not None:
+            pref_lines = "\n".join(f"- {p}" for p in _pending_preferences)
+            distilled_context = f"## User Preferences Observed\n{pref_lines}"
+            try:
+                await publish_mq(
+                    EX.learning_skill,
+                    RK.learning_skill_agent,
+                    SkillLearnDistilled(
+                        project_id=project_id,
+                        session_id=session_id,
+                        task_id=_uuid.UUID(int=0),
+                        learning_space_id=learning_space_id,
+                        distilled_context=distilled_context,
+                    ).model_dump_json(),
+                )
+            except Exception:
+                LOG.warning("Failed to publish user preferences to skill agent")
+            _pending_preferences.clear()
         if _tool_error is not None:
             return Result.reject(str(_tool_error))
         _messages.extend(tool_response)

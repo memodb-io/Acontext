@@ -77,7 +77,7 @@ _append_messages_to_task_tool = (
             function={
                 "name": "append_messages_to_task",
                 "description": """Link a range of message ids to a task. This tool ONLY links messages and auto-sets the task status to 'running'.
-- Use separate tools for recording progress (append_task_progress) and user preferences (set_task_user_preference).
+- Use separate tools for recording progress (append_task_progress) and user preferences (submit_user_preference).
 - If you decide to link messages to a task marked as 'success' or 'failed', update its status to 'running' first.""",
                 "parameters": {
                     "type": "object",

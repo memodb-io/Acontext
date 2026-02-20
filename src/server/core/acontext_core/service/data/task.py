@@ -214,21 +214,36 @@ async def append_progress_to_task(
     return Result.resolve(None)
 
 
-async def set_user_preference_for_task(
+async def append_preference_to_planning_task(
     db_session: AsyncSession,
-    task_id: asUUID,
-    user_preference: str,
+    project_id: asUUID,
+    session_id: asUUID,
+    preference: str,
 ) -> Result[None]:
-    query = select(Task).where(Task.id == task_id)
+    query = (
+        select(Task)
+        .where(Task.session_id == session_id)
+        .where(Task.is_planning == True)  # noqa: E712
+    )
     result = await db_session.execute(query)
-    task = result.scalars().first()
+    planning_task = result.scalars().first()
+    if planning_task is None:
+        planning_task = Task(
+            project_id=project_id,
+            session_id=session_id,
+            order=0,
+            data={"task_description": "collecting planning&requirments"},
+            status="pending",
+            is_planning=True,
+        )
+        db_session.add(planning_task)
+        await db_session.flush()
 
-    if task is None:
-        return Result.reject(f"Task {task_id} not found")
+    if "user_preferences" not in planning_task.data:
+        planning_task.data["user_preferences"] = []
+    planning_task.data["user_preferences"].append(preference)
 
-    task.data["user_preferences"] = [user_preference]
-
-    flag_modified(task, "data")
+    flag_modified(planning_task, "data")
     await db_session.flush()
     return Result.resolve(None)
 
