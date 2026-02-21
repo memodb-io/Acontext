@@ -1,6 +1,7 @@
 plans/
 .claude
 .cursorrules
+plans/
 .DS_Store
 .agents
 skills-lock.json
