@@ -152,6 +152,26 @@ async def test_async_sessions_create_with_use_uuid_and_user(
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
 @pytest.mark.asyncio
+async def test_async_sessions_create_parses_display_title(
+    mock_request, async_client: AcontextAsyncClient
+) -> None:
+    """Test that display_title from API is available on Session model."""
+    mock_request.return_value = {
+        "id": "session-id",
+        "project_id": "project-id",
+        "display_title": "Plan migration rollout",
+        "configs": {},
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
+
+    session = await async_client.sessions.create()
+
+    assert session.display_title == "Plan migration rollout"
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
 async def test_async_store_message_with_files_uses_multipart_payload(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:

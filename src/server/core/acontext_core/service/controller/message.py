@@ -6,10 +6,125 @@ from ...schema.session.message import MessageBlob
 from ...schema.utils import asUUID
 from ...schema.result import Result
 from ...llm.agent import task as AT
+from ...llm.complete import llm_complete
 from ...env import LOG
 from ...schema.config import ProjectConfig
 from ...telemetry.get_metrics import get_metrics
 from ...constants import ExcessMetricTags
+from ..data import session as SD
+
+TITLE_INPUT_MAX_CHARS = 512
+TITLE_INPUT_MIN_CHARS = 12
+TITLE_GENERATION_MAX_TOKENS = 24
+TITLE_OUTPUT_MAX_CHARS = 80
+NON_INFORMATIVE_TITLE_INPUTS = {
+    "hi",
+    "hello",
+    "hey",
+    "ok",
+    "okay",
+    "thanks",
+    "thank you",
+    "test",
+    "testing",
+}
+TITLE_GENERATION_SYSTEM_PROMPT = """You generate concise session titles.
+Given a user's first message, return one short, informative title.
+Rules:
+- 3 to 8 words.
+- Use plain text only.
+- Do not use quotes.
+- Do not include punctuation at the end.
+"""
+
+
+def normalize_title_input_text(text: str, max_chars: int = TITLE_INPUT_MAX_CHARS) -> str | None:
+    normalized = " ".join(text.strip().split())
+    if normalized == "":
+        return None
+    if len(normalized) > max_chars:
+        normalized = normalized[:max_chars].rstrip()
+    return normalized
+
+
+def check_title_input_quality(text: str | None) -> tuple[bool, str]:
+    if text is None:
+        return False, "empty"
+    normalized = normalize_title_input_text(text)
+    if normalized is None:
+        return False, "empty"
+    if len(normalized) < TITLE_INPUT_MIN_CHARS:
+        return False, "too_short"
+    if normalized.lower() in NON_INFORMATIVE_TITLE_INPUTS:
+        return False, "non_informative"
+    return True, "ok"
+
+
+def extract_first_user_message_text(messages: list[MessageBlob]) -> str | None:
+    for message in messages:
+        if message.role != "user":
+            continue
+        text_parts = [
+            part.text.strip()
+            for part in message.parts
+            if part.type == "text"
+            and isinstance(part.text, str)
+            and part.text.strip() != ""
+        ]
+        if text_parts:
+            return normalize_title_input_text("\n".join(text_parts))
+    return None
+
+
+def sanitize_generated_title(
+    title_candidate: str | None,
+    fallback_text: str | None,
+    max_chars: int = TITLE_OUTPUT_MAX_CHARS,
+) -> str | None:
+    def _clean(text: str | None) -> str | None:
+        if text is None:
+            return None
+        cleaned = " ".join(text.replace("\n", " ").replace("\r", " ").split())
+        cleaned = cleaned.strip("`'\"“”‘’ ").strip()
+        if cleaned == "":
+            return None
+        if len(cleaned) > max_chars:
+            cleaned = cleaned[:max_chars].rstrip()
+        cleaned = cleaned.strip("`'\"“”‘’ ").strip()
+        if cleaned == "":
+            return None
+        if not any(ch.isalnum() for ch in cleaned):
+            return None
+        return cleaned
+
+    cleaned_title = _clean(title_candidate)
+    if cleaned_title is not None:
+        return cleaned_title
+
+    cleaned_fallback = _clean(fallback_text)
+    if cleaned_fallback is None:
+        return None
+    return " ".join(cleaned_fallback.split()[:8])
+
+
+async def generate_session_title_candidate(
+    first_user_message_text: str,
+) -> Result[str | None]:
+    r = await llm_complete(
+        system_prompt=TITLE_GENERATION_SYSTEM_PROMPT,
+        history_messages=[{"role": "user", "content": first_user_message_text}],
+        max_tokens=TITLE_GENERATION_MAX_TOKENS,
+        prompt_kwargs={"prompt_id": "session.display_title.first_user"},
+    )
+    llm_response, eil = r.unpack()
+    if eil:
+        return Result.reject(eil.errmsg)
+    if llm_response.content is None:
+        return Result.resolve(None)
+    title_candidate = llm_response.content.strip()
+    if title_candidate == "":
+        return Result.resolve(None)
+    return Result.resolve(title_candidate)
 
 
 async def process_session_pending_message(
@@ -19,9 +134,9 @@ async def process_session_pending_message(
 
     pending_message_ids = None
     try:
-        async with DB_CLIENT.get_session_context() as session:
+        async with DB_CLIENT.get_session_context() as db_session:
             r = await MD.get_message_ids(
-                session,
+                db_session,
                 session_id,
                 limit=(
                     project_config.project_session_message_buffer_max_overflow
@@ -39,22 +154,22 @@ async def process_session_pending_message(
                     f"Project {project_id} has disabled new task creation, skip"
                 )
                 await MD.update_message_status_to(
-                    session, pending_message_ids, TaskStatus.FAILED
+                    db_session, pending_message_ids, TaskStatus.FAILED
                 )
                 return Result.resolve(None)
             await MD.update_message_status_to(
-                session, pending_message_ids, TaskStatus.RUNNING
+                db_session, pending_message_ids, TaskStatus.RUNNING
             )
         LOG.info(f"Unpending {len(pending_message_ids)} session messages to process")
 
-        async with DB_CLIENT.get_session_context() as session:
-            r = await MD.fetch_messages_data_by_ids(session, pending_message_ids)
+        async with DB_CLIENT.get_session_context() as db_session:
+            r = await MD.fetch_messages_data_by_ids(db_session, pending_message_ids)
             messages, eil = r.unpack()
             if eil:
                 return r
 
             r = await MD.fetch_previous_messages_by_datetime(
-                session,
+                db_session,
                 session_id,
                 messages[0].created_at,
                 limit=project_config.project_session_message_use_previous_messages_turns,
@@ -65,14 +180,88 @@ async def process_session_pending_message(
                 )
                 for m in messages
             ]
+            first_user_message_text = None
+            try:
+                r = await SD.should_generate_session_display_title(
+                    db_session, session_id
+                )
+                should_generate_title, eil = r.unpack()
+                if eil:
+                    raise ValueError(eil.errmsg)
+                if not should_generate_title:
+                    LOG.debug(
+                        f"Session {session_id} already has display_title, "
+                        "skip title-input extraction"
+                    )
+                else:
+                    first_user_message_text = extract_first_user_message_text(
+                        messages_data
+                    )
+                    is_quality_ok, quality_reason = check_title_input_quality(
+                        first_user_message_text
+                    )
+                    if not is_quality_ok:
+                        first_user_message_text = None
+                        LOG.debug(
+                            f"Skip title-input generation for session {session_id}: "
+                            f"{quality_reason}"
+                        )
+                    else:
+                        LOG.debug(
+                            f"Extracted first user text from pending session {session_id}, "
+                            f"length={len(first_user_message_text)}"
+                        )
+            except Exception as title_gate_err:
+                first_user_message_text = None
+                LOG.warning(
+                    f"Skip title extraction for session {session_id}: {title_gate_err}"
+                )
 
+        if first_user_message_text is not None:
+            try:
+                title_candidate = None
+                title_result = await generate_session_title_candidate(
+                    first_user_message_text
+                )
+                title_candidate_raw, eil = title_result.unpack()
+                if eil:
+                    raise ValueError(eil.errmsg)
+
+                title_candidate = sanitize_generated_title(
+                    title_candidate_raw, first_user_message_text
+                )
+                if title_candidate is None:
+                    LOG.debug(
+                        f"Title generation produced unusable content for session {session_id}"
+                    )
+                else:
+                    LOG.debug(
+                        f"Generated session title candidate for session {session_id}: "
+                        f"{title_candidate[:80]}"
+                    )
+
+                if title_candidate is not None:
+                    async with DB_CLIENT.get_session_context() as db_session:
+                        r = await SD.update_session_display_title(
+                            db_session, session_id, title_candidate
+                        )
+                        _, eil = r.unpack()
+                        if eil:
+                            raise ValueError(eil.errmsg)
+                    LOG.debug(f"Persisted display_title for session {session_id}")
+            except Exception as title_err:
+                LOG.warning(
+                    f"Skip title generation/persist for session {session_id}: {title_err}"
+                )
+
+        ls_session = None
         async with DB_CLIENT.get_session_context() as session:
             r = await LS.get_learning_space_for_session(session, session_id)
-            ls_session, eil = r.unpack()
-            if eil:
-                ls_session = None
+            _ls_session, eil = r.unpack()
+            if eil is None:
+                ls_session = _ls_session
 
-        r = await AT.task_agent_curd(
+        agent_result = await AT.task_agent_curd(
             project_id,
             session_id,
             messages_data,
@@ -82,21 +271,22 @@ async def process_session_pending_message(
         )
 
         after_status = TaskStatus.SUCCESS
-        if not r.ok():
+        if not agent_result.ok():
             after_status = TaskStatus.FAILED
-        async with DB_CLIENT.get_session_context() as session:
+        async with DB_CLIENT.get_session_context() as db_session:
             await MD.update_message_status_to(
-                session, pending_message_ids, after_status
+                db_session, pending_message_ids, after_status
             )
-        return r
+
+        return agent_result
     except Exception as e:
         if pending_message_ids is None:
             raise e
         LOG.error(
             f"Exception while processing session pending message: {e}, rollback {len(pending_message_ids)} message status to failed"
         )
-        async with DB_CLIENT.get_session_context() as session:
+        async with DB_CLIENT.get_session_context() as db_session:
             await MD.update_message_status_to(
-                session, pending_message_ids, TaskStatus.FAILED
+                db_session, pending_message_ids, TaskStatus.FAILED
             )
         raise e
