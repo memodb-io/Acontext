@@ -1845,6 +1845,87 @@
         "x-codegen-request-body-name" : "payload"
       }
     },
+    "/session/{session_id}/copy" : {
+      "post" : {
+        "description" : "Create a complete copy of a session with all its messages and tasks. The copied session will be independent and can be modified without affecting the original.",
+        "parameters" : [ {
+          "description" : "Session ID",
+          "in" : "path",
+          "name" : "session_id",
+          "required" : true,
+          "schema" : {
+            "format" : "uuid",
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_session__session_id__copy_post_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/serializer.Response"
+                }
+              }
+            },
+            "description" : "Invalid session ID"
+          },
+          "404" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/serializer.Response"
+                }
+              }
+            },
+            "description" : "Session not found"
+          },
+          "413" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/serializer.Response"
+                }
+              }
+            },
+            "description" : "Session exceeds maximum copyable size"
+          },
+          "500" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/serializer.Response"
+                }
+              }
+            },
+            "description" : "Failed to copy session"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Copy session",
+        "tags" : [ "session" ],
+        "x-code-samples" : [ {
+          "label" : "Python",
+          "lang" : "python",
+          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Copy a session\nresult = client.sessions.copy(session_id='session-uuid')\nprint(f\"Copied session: {result.new_session_id}\")\nprint(f\"Original session: {result.old_session_id}\")\n"
+        }, {
+          "label" : "JavaScript",
+          "lang" : "javascript",
+          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Copy a session\nconst result = await client.sessions.copy('session-uuid');\nconsole.log(`Copied session: ${result.newSessionId}`);\nconsole.log(`Original session: ${result.oldSessionId}`);\n"
+        } ]
+      }
+    },
     "/session/{session_id}/flush" : {
       "post" : {
         "description" : "Flush the session buffer for a given session",
@@ -1883,87 +1964,6 @@
           "label" : "JavaScript",
           "lang" : "javascript",
           "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Flush session buffer\nconst result = await client.sessions.flush('session-uuid');\nconsole.log(result.status);\n"
-        } ]
-      }
-    },
-    "/session/{session_id}/fork" : {
-      "post" : {
-        "description" : "Create a complete copy of a session with all its messages and tasks. The forked session will be independent and can be modified without affecting the original.",
-        "parameters" : [ {
-          "description" : "Session ID",
-          "in" : "path",
-          "name" : "session_id",
-          "required" : true,
-          "schema" : {
-            "format" : "uuid",
-            "type" : "string"
-          }
-        } ],
-        "responses" : {
-          "200" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/_session__session_id__fork_post_200_response"
-                }
-              }
-            },
-            "description" : "OK"
-          },
-          "400" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/serializer.Response"
-                }
-              }
-            },
-            "description" : "Invalid session ID"
-          },
-          "404" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/serializer.Response"
-                }
-              }
-            },
-            "description" : "Session not found"
-          },
-          "413" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/serializer.Response"
-                }
-              }
-            },
-            "description" : "Session exceeds maximum forkable size"
-          },
-          "500" : {
-            "content" : {
-              "application/json" : {
-                "schema" : {
-                  "$ref" : "#/components/schemas/serializer.Response"
-                }
-              }
-            },
-            "description" : "Failed to fork session"
-          }
-        },
-        "security" : [ {
-          "BearerAuth" : [ ]
-        } ],
-        "summary" : "Fork session",
-        "tags" : [ "session" ],
-        "x-code-samples" : [ {
-          "label" : "Python",
-          "lang" : "python",
-          "source" : "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Fork a session\nresult = client.sessions.fork(session_id='session-uuid')\nprint(f\"Forked session: {result.new_session_id}\")\nprint(f\"Original session: {result.old_session_id}\")\n"
-        }, {
-          "label" : "JavaScript",
-          "lang" : "javascript",
-          "source" : "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Fork a session\nconst result = await client.sessions.fork('session-uuid');\nconsole.log(`Forked session: ${result.newSessionId}`);\nconsole.log(`Original session: ${result.oldSessionId}`);\n"
         } ]
       }
     },
@@ -2534,6 +2534,17 @@
         },
         "type" : "object"
       },
+      "handler.CopySessionResp" : {
+        "properties" : {
+          "new_session_id" : {
+            "type" : "string"
+          },
+          "old_session_id" : {
+            "type" : "string"
+          }
+        },
+        "type" : "object"
+      },
       "handler.CreateDiskReq" : {
         "properties" : {
           "user" : {
@@ -2645,17 +2656,6 @@
           }
         },
         "required" : [ "command" ],
-        "type" : "object"
-      },
-      "handler.ForkSessionResp" : {
-        "properties" : {
-          "new_session_id" : {
-            "type" : "string"
-          },
-          "old_session_id" : {
-            "type" : "string"
-          }
-        },
         "type" : "object"
       },
       "handler.GetArtifactResp" : {
@@ -3800,13 +3800,13 @@
           "type" : "object"
         } ]
       },
-      "_session__session_id__fork_post_200_response" : {
+      "_session__session_id__copy_post_200_response" : {
         "allOf" : [ {
           "$ref" : "#/components/schemas/serializer.Response"
         }, {
           "properties" : {
             "data" : {
-              "$ref" : "#/components/schemas/handler.ForkSessionResp"
+              "$ref" : "#/components/schemas/handler.CopySessionResp"
             }
           },
           "type" : "object"
