@@ -10,7 +10,7 @@ from ..client_types import RequesterProtocol
 from ..messages import AcontextMessage
 from ..types.session import (
     EditStrategy,
-    ForkSessionResult,
+    CopySessionResult,
     GetMessagesOutput,
     GetTasksOutput,
     ListSessionsOutput,
@@ -498,26 +498,26 @@ class SessionsAPI:
         )
         return data.get("configs", {})  # type: ignore
 
-    def fork(self, session_id: str) -> ForkSessionResult:
-        """Fork (duplicate) a session with all its messages and tasks.
+    def copy(self, session_id: str) -> CopySessionResult:
+        """Copy (duplicate) a session with all its messages and tasks.
 
         Creates a complete copy of the session including all messages, tasks, and configurations.
-        The forked session will be independent and modifications to it won't affect the original.
+        The copied session will be independent and modifications to it won't affect the original.
 
         Args:
-            session_id: The UUID of the session to fork.
+            session_id: The UUID of the session to copy.
 
         Returns:
-            ForkSessionResult containing the original and new session IDs.
+            CopySessionResult containing the original and new session IDs.
 
         Raises:
             APIError: If the request fails, session is not found, or session exceeds
-                the maximum forkable size (5000 messages).
+                the maximum copyable size (5000 messages).
 
         Example:
-            >>> result = client.sessions.fork(session_id)
-            >>> print(f"Forked session: {result.new_session_id}")
+            >>> result = client.sessions.copy(session_id)
+            >>> print(f"Copied session: {result.new_session_id}")
             >>> print(f"Original session: {result.old_session_id}")
         """
-        data = self._requester.request("POST", f"/session/{session_id}/fork")
-        return ForkSessionResult.model_validate(data)
+        data = self._requester.request("POST", f"/session/{session_id}/copy")
+        return CopySessionResult.model_validate(data)

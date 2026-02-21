@@ -27,8 +27,8 @@ import (
 // MaxMetaSize is the maximum allowed size for user-provided message metadata (64KB)
 const MaxMetaSize = 64 * 1024
 
-// MaxForkableMessages aliases repo.MaxForkableMessages for handler-layer use.
-var MaxForkableMessages = repo.MaxForkableMessages
+// MaxCopyableMessages aliases repo.MaxCopyableMessages for handler-layer use.
+var MaxCopyableMessages = repo.MaxCopyableMessages
 
 type SessionHandler struct {
 	svc        service.SessionService
@@ -668,7 +668,7 @@ type PatchSessionConfigsResp struct {
 	Configs map[string]interface{} `json:"configs"`
 }
 
-type ForkSessionResp struct {
+type CopySessionResp struct {
 	OldSessionID string `json:"old_session_id"`
 	NewSessionID string `json:"new_session_id"`
 }
@@ -788,23 +788,23 @@ func (h *SessionHandler) PatchConfigs(c *gin.Context) {
 	c.JSON(http.StatusOK, serializer.Response{Data: PatchSessionConfigsResp{Configs: updatedConfigs}})
 }
 
-// ForkSession godoc
+// CopySession godoc
 //
-//	@Summary		Fork session
-//	@Description	Create a complete copy of a session with all its messages and tasks. The forked session will be independent and can be modified without affecting the original.
+//	@Summary		Copy session
+//	@Description	Create a complete copy of a session with all its messages and tasks. The copied session will be independent and can be modified without affecting the original.
 //	@Tags			session
 //	@Accept			json
 //	@Produce		json
 //	@Param			session_id	path	string	true	"Session ID"	format(uuid)
 //	@Security		BearerAuth
-//	@Success		200	{object}	serializer.Response{data=handler.ForkSessionResp}
+//	@Success		200	{object}	serializer.Response{data=handler.CopySessionResp}
 //	@Failure		400	{object}	serializer.Response	"Invalid session ID"
 //	@Failure		404	{object}	serializer.Response	"Session not found"
-//	@Failure		413	{object}	serializer.Response	"Session exceeds maximum forkable size"
-//	@Failure		500	{object}	serializer.Response	"Failed to fork session"
-//	@Router			/session/{session_id}/fork [post]
-//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Fork a session\nresult = client.sessions.fork(session_id='session-uuid')\nprint(f\"Forked session: {result.new_session_id}\")\nprint(f\"Original session: {result.old_session_id}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Fork a session\nconst result = await client.sessions.fork('session-uuid');\nconsole.log(`Forked session: ${result.newSessionId}`);\nconsole.log(`Original session: ${result.oldSessionId}`);\n","label":"JavaScript"}]
-func (h *SessionHandler) ForkSession(c *gin.Context) {
+//	@Failure		413	{object}	serializer.Response	"Session exceeds maximum copyable size"
+//	@Failure		500	{object}	serializer.Response	"Failed to copy session"
+//	@Router			/session/{session_id}/copy [post]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Copy a session\nresult = client.sessions.copy(session_id='session-uuid')\nprint(f\"Copied session: {result.new_session_id}\")\nprint(f\"Original session: {result.old_session_id}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Copy a session\nconst result = await client.sessions.copy('session-uuid');\nconsole.log(`Copied session: ${result.newSessionId}`);\nconsole.log(`Original session: ${result.oldSessionId}`);\n","label":"JavaScript"}]
+func (h *SessionHandler) CopySession(c *gin.Context) {
 	// Parse and validate session ID
 	sessionID, err := uuid.Parse(c.Param("session_id"))
 	if err != nil {
@@ -819,8 +819,8 @@ func (h *SessionHandler) ForkSession(c *gin.Context) {
 		return
 	}
 
-	// Call service to fork session
-	result, err := h.svc.ForkSession(c.Request.Context(), service.ForkSessionInput{
+	// Call service to copy session
+	result, err := h.svc.CopySession(c.Request.Context(), service.CopySessionInput{
 		ProjectID: project.ID,
 		SessionID: sessionID,
 	})
@@ -834,7 +834,7 @@ func (h *SessionHandler) ForkSession(c *gin.Context) {
 			c.JSON(http.StatusRequestEntityTooLarge, serializer.Err(
 				http.StatusRequestEntityTooLarge,
 				"SESSION_TOO_LARGE",
-				fmt.Errorf("Session exceeds maximum forkable size (%d messages). Consider using async fork.", repo.MaxForkableMessages),
+				fmt.Errorf("Session exceeds maximum copyable size (%d messages).", repo.MaxCopyableMessages),
 			))
 			return
 		}
@@ -843,7 +843,7 @@ func (h *SessionHandler) ForkSession(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, serializer.Response{
-		Data: ForkSessionResp{
+		Data: CopySessionResp{
 			OldSessionID: result.OldSessionID.String(),
 			NewSessionID: result.NewSessionID.String(),
 		},

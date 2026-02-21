@@ -4,10 +4,10 @@ import "errors"
 
 // Service layer errors for better error handling
 var (
-	// Fork-related errors
+	// Copy-related errors
 	ErrSessionNotFound = errors.New("session not found")
-	ErrSessionTooLarge = errors.New("session exceeds maximum forkable size")
-	ErrForkFailed      = errors.New("failed to fork session")
+	ErrSessionTooLarge = errors.New("session exceeds maximum copyable size")
+	ErrCopyFailed      = errors.New("failed to copy session")
 
 	// General session errors
 	ErrUnauthorized = errors.New("unauthorized access to session")

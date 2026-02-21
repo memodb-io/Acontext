@@ -36,15 +36,15 @@ type SessionService interface {
 	GetSessionObservingStatus(ctx context.Context, sessionID string) (*model.MessageObservingStatus, error)
 	PatchMessageMeta(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, messageID uuid.UUID, patchMeta map[string]interface{}) (map[string]interface{}, error)
 	PatchConfigs(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, patchConfigs map[string]interface{}) (map[string]interface{}, error)
-	ForkSession(ctx context.Context, in ForkSessionInput) (*ForkSessionOutput, error)
+	CopySession(ctx context.Context, in CopySessionInput) (*CopySessionOutput, error)
 }
 
-type ForkSessionInput struct {
+type CopySessionInput struct {
 	ProjectID uuid.UUID
 	SessionID uuid.UUID
 }
 
-type ForkSessionOutput struct {
+type CopySessionOutput struct {
 	OldSessionID uuid.UUID `json:"old_session_id"`
 	NewSessionID uuid.UUID `json:"new_session_id"`
 }
@@ -755,9 +755,9 @@ func (s *sessionService) PatchConfigs(
 	return existingConfigs, nil
 }
 
-// ForkSession creates a complete copy of a session with all its messages and tasks.
-// Returns ForkSessionOutput containing old and new session IDs.
-func (s *sessionService) ForkSession(ctx context.Context, in ForkSessionInput) (*ForkSessionOutput, error) {
+// CopySession creates a complete copy of a session with all its messages and tasks.
+// Returns CopySessionOutput containing old and new session IDs.
+func (s *sessionService) CopySession(ctx context.Context, in CopySessionInput) (*CopySessionOutput, error) {
 	// Verify session exists and belongs to project
 	session, err := s.sessionRepo.Get(ctx, &model.Session{ID: in.SessionID})
 	if err != nil {
@@ -770,17 +770,17 @@ func (s *sessionService) ForkSession(ctx context.Context, in ForkSessionInput) (
 		return nil, ErrSessionNotFound
 	}
 
-	// Perform fork operation (size limit check is done atomically inside the transaction)
-	result, err := s.sessionRepo.ForkSession(ctx, in.SessionID)
+	// Perform copy operation (size limit check is done atomically inside the transaction)
+	result, err := s.sessionRepo.CopySession(ctx, in.SessionID)
 	if err != nil {
 		// Check for size limit error
 		if errors.Is(err, repo.ErrSessionTooLarge) {
 			return nil, fmt.Errorf("%w: %v", ErrSessionTooLarge, err)
 		}
-		return nil, fmt.Errorf("%w: %v", ErrForkFailed, err)
+		return nil, fmt.Errorf("%w: %v", ErrCopyFailed, err)
 	}
 
-	return &ForkSessionOutput{
+	return &CopySessionOutput{
 		OldSessionID: result.OldSessionID,
 		NewSessionID: result.NewSessionID,
 	}, nil

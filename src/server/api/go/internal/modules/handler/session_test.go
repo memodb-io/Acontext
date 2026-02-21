@@ -107,12 +107,12 @@ func (m *MockSessionService) PatchConfigs(ctx context.Context, projectID uuid.UU
 	return args.Get(0).(map[string]interface{}), args.Error(1)
 }
 
-func (m *MockSessionService) ForkSession(ctx context.Context, in service.ForkSessionInput) (*service.ForkSessionOutput, error) {
+func (m *MockSessionService) CopySession(ctx context.Context, in service.CopySessionInput) (*service.CopySessionOutput, error) {
 	args := m.Called(ctx, in)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*service.ForkSessionOutput), args.Error(1)
+	return args.Get(0).(*service.CopySessionOutput), args.Error(1)
 }
 
 func setupSessionRouter() *gin.Engine {
@@ -3837,9 +3837,9 @@ func TestSessionHandler_PatchConfigs_InvalidRequest(t *testing.T) {
 	mockService.AssertNotCalled(t, "PatchConfigs")
 }
 
-// Fork Session Tests
+// Copy Session Tests
 
-func TestSessionHandler_ForkSession_Success(t *testing.T) {
+func TestSessionHandler_CopySession_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	projectID := uuid.New()
@@ -3849,12 +3849,12 @@ func TestSessionHandler_ForkSession_Success(t *testing.T) {
 	mockService := new(MockSessionService)
 	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 
-	expectedOutput := &service.ForkSessionOutput{
+	expectedOutput := &service.CopySessionOutput{
 		OldSessionID: sessionID,
 		NewSessionID: newSessionID,
 	}
 
-	mockService.On("ForkSession", mock.Anything, service.ForkSessionInput{
+	mockService.On("CopySession", mock.Anything, service.CopySessionInput{
 		ProjectID: projectID,
 		SessionID: sessionID,
 	}).Return(expectedOutput, nil)
@@ -3865,10 +3865,10 @@ func TestSessionHandler_ForkSession_Success(t *testing.T) {
 	c.Params = gin.Params{
 		{Key: "session_id", Value: sessionID.String()},
 	}
-	req, _ := http.NewRequest("POST", "/session/"+sessionID.String()+"/fork", nil)
+	req, _ := http.NewRequest("POST", "/session/"+sessionID.String()+"/copy", nil)
 	c.Request = req
 
-	handler.ForkSession(c)
+	handler.CopySession(c)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
@@ -3883,7 +3883,7 @@ func TestSessionHandler_ForkSession_Success(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestSessionHandler_ForkSession_SessionNotFound(t *testing.T) {
+func TestSessionHandler_CopySession_SessionNotFound(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	projectID := uuid.New()
@@ -3892,7 +3892,7 @@ func TestSessionHandler_ForkSession_SessionNotFound(t *testing.T) {
 	mockService := new(MockSessionService)
 	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 
-	mockService.On("ForkSession", mock.Anything, service.ForkSessionInput{
+	mockService.On("CopySession", mock.Anything, service.CopySessionInput{
 		ProjectID: projectID,
 		SessionID: sessionID,
 	}).Return(nil, service.ErrSessionNotFound)
@@ -3903,10 +3903,10 @@ func TestSessionHandler_ForkSession_SessionNotFound(t *testing.T) {
 	c.Params = gin.Params{
 		{Key: "session_id", Value: sessionID.String()},
 	}
-	req, _ := http.NewRequest("POST", "/session/"+sessionID.String()+"/fork", nil)
+	req, _ := http.NewRequest("POST", "/session/"+sessionID.String()+"/copy", nil)
 	c.Request = req
 
-	handler.ForkSession(c)
+	handler.CopySession(c)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
 
@@ -3918,7 +3918,7 @@ func TestSessionHandler_ForkSession_SessionNotFound(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestSessionHandler_ForkSession_SessionTooLarge(t *testing.T) {
+func TestSessionHandler_CopySession_SessionTooLarge(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	projectID := uuid.New()
@@ -3927,7 +3927,7 @@ func TestSessionHandler_ForkSession_SessionTooLarge(t *testing.T) {
 	mockService := new(MockSessionService)
 	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 
-	mockService.On("ForkSession", mock.Anything, service.ForkSessionInput{
+	mockService.On("CopySession", mock.Anything, service.CopySessionInput{
 		ProjectID: projectID,
 		SessionID: sessionID,
 	}).Return(nil, service.ErrSessionTooLarge)
@@ -3938,10 +3938,10 @@ func TestSessionHandler_ForkSession_SessionTooLarge(t *testing.T) {
 	c.Params = gin.Params{
 		{Key: "session_id", Value: sessionID.String()},
 	}
-	req, _ := http.NewRequest("POST", "/session/"+sessionID.String()+"/fork", nil)
+	req, _ := http.NewRequest("POST", "/session/"+sessionID.String()+"/copy", nil)
 	c.Request = req
 
-	handler.ForkSession(c)
+	handler.CopySession(c)
 
 	assert.Equal(t, http.StatusRequestEntityTooLarge, w.Code)
 
@@ -3953,7 +3953,7 @@ func TestSessionHandler_ForkSession_SessionTooLarge(t *testing.T) {
 	mockService.AssertExpectations(t)
 }
 
-func TestSessionHandler_ForkSession_InvalidUUID(t *testing.T) {
+func TestSessionHandler_CopySession_InvalidUUID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	projectID := uuid.New()
@@ -3968,10 +3968,10 @@ func TestSessionHandler_ForkSession_InvalidUUID(t *testing.T) {
 	c.Params = gin.Params{
 		{Key: "session_id", Value: invalidSessionID},
 	}
-	req, _ := http.NewRequest("POST", "/session/"+invalidSessionID+"/fork", nil)
+	req, _ := http.NewRequest("POST", "/session/"+invalidSessionID+"/copy", nil)
 	c.Request = req
 
-	handler.ForkSession(c)
+	handler.CopySession(c)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 
@@ -3980,10 +3980,10 @@ func TestSessionHandler_ForkSession_InvalidUUID(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "INVALID_SESSION_ID", response["msg"])
 
-	mockService.AssertNotCalled(t, "ForkSession")
+	mockService.AssertNotCalled(t, "CopySession")
 }
 
-func TestSessionHandler_ForkSession_InternalError(t *testing.T) {
+func TestSessionHandler_CopySession_InternalError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	projectID := uuid.New()
@@ -3992,7 +3992,7 @@ func TestSessionHandler_ForkSession_InternalError(t *testing.T) {
 	mockService := new(MockSessionService)
 	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 
-	mockService.On("ForkSession", mock.Anything, service.ForkSessionInput{
+	mockService.On("CopySession", mock.Anything, service.CopySessionInput{
 		ProjectID: projectID,
 		SessionID: sessionID,
 	}).Return(nil, errors.New("database connection failed"))
@@ -4003,10 +4003,10 @@ func TestSessionHandler_ForkSession_InternalError(t *testing.T) {
 	c.Params = gin.Params{
 		{Key: "session_id", Value: sessionID.String()},
 	}
-	req, _ := http.NewRequest("POST", "/session/"+sessionID.String()+"/fork", nil)
+	req, _ := http.NewRequest("POST", "/session/"+sessionID.String()+"/copy", nil)
 	c.Request = req
 
-	handler.ForkSession(c)
+	handler.CopySession(c)
 
 	assert.Equal(t, http.StatusInternalServerError, w.Code)
 

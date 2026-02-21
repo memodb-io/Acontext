@@ -305,8 +305,8 @@ class MessageObservingStatus(BaseModel):
     updated_at: str = Field(..., description="Timestamp when the status was retrieved")
 
 
-class ForkSessionResult(BaseModel):
-    """Response model for forking a session."""
+class CopySessionResult(BaseModel):
+    """Response model for copying a session."""
 
     old_session_id: str = Field(..., description="UUID of the original session")
-    new_session_id: str = Field(..., description="UUID of the forked (new) session")
+    new_session_id: str = Field(..., description="UUID of the copied (new) session")

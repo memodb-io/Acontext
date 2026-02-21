@@ -1,12 +1,12 @@
 """
-Example demonstrating session forking functionality.
+Example demonstrating session copy functionality.
 
 This script demonstrates:
 1. Creating a session and adding messages
-2. Forking a session to create an independent copy
-3. Modifying the forked session without affecting the original
-4. Comparing results between original and forked sessions
-5. Using fork for experimentation and checkpointing
+2. Copying a session to create an independent copy
+3. Modifying the copied session without affecting the original
+4. Comparing results between original and copied sessions
+5. Using copy for experimentation and checkpointing
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ def main() -> None:
         print(f"✓ Server ping: {client.ping()}")
 
         original_session_id: str | None = None
-        forked_session_id: str | None = None
+        copied_session_id: str | None = None
 
         try:
             # Create an original session
@@ -68,59 +68,59 @@ def main() -> None:
             )
             print(f"\nOriginal session has {len(original_messages.items)} messages")
 
-            # Fork the session
-            print("\n--- Forking session ---")
-            fork_result = client.sessions.fork(session_id=original_session_id)
-            forked_session_id = fork_result.new_session_id
-            print("✓ Forked session created")
-            print(f"  Original session ID: {fork_result.old_session_id}")
-            print(f"  Forked session ID: {fork_result.new_session_id}")
+            # Copy the session
+            print("\n--- Copying session ---")
+            copy_result = client.sessions.copy(session_id=original_session_id)
+            copied_session_id = copy_result.new_session_id
+            print("✓ Copied session created")
+            print(f"  Original session ID: {copy_result.old_session_id}")
+            print(f"  Copied session ID: {copy_result.new_session_id}")
 
-            # Verify forked session has the same messages
-            print("\n--- Verifying forked session ---")
-            forked_messages = client.sessions.get_messages(
-                session_id=forked_session_id, limit=100
+            # Verify copied session has the same messages
+            print("\n--- Verifying copied session ---")
+            copied_messages = client.sessions.get_messages(
+                session_id=copied_session_id, limit=100
             )
-            print(f"Forked session has {len(forked_messages.items)} messages")
+            print(f"Copied session has {len(copied_messages.items)} messages")
             assert (
-                len(forked_messages.items) == len(original_messages.items)
-            ), "Forked session should have same number of messages"
+                len(copied_messages.items) == len(original_messages.items)
+            ), "Copied session should have same number of messages"
 
-            # Add a new message to the forked session
-            print("\n--- Modifying forked session (independent) ---")
+            # Add a new message to the copied session
+            print("\n--- Modifying copied session (independent) ---")
             client.sessions.store_message(
-                forked_session_id,
+                copied_session_id,
                 blob={"role": "user", "content": "What is 3+3?"},
                 format="openai",
             )
-            print("✓ Added new message to forked session")
+            print("✓ Added new message to copied session")
 
             # Verify original session is unchanged
             print("\n--- Verifying original session unchanged ---")
             original_messages_after = client.sessions.get_messages(
                 session_id=original_session_id, limit=100
             )
-            forked_messages_after = client.sessions.get_messages(
-                session_id=forked_session_id, limit=100
+            copied_messages_after = client.sessions.get_messages(
+                session_id=copied_session_id, limit=100
             )
 
             print(f"Original session still has {len(original_messages_after.items)} messages")
-            print(f"Forked session now has {len(forked_messages_after.items)} messages")
+            print(f"Copied session now has {len(copied_messages_after.items)} messages")
             assert (
                 len(original_messages_after.items) == len(original_messages.items)
             ), "Original session should be unchanged"
             assert (
-                len(forked_messages_after.items) > len(original_messages.items)
-            ), "Forked session should have more messages"
+                len(copied_messages_after.items) > len(original_messages.items)
+            ), "Copied session should have more messages"
 
             # Demonstrate experimentation use case
             print("\n--- Experimentation use case ---")
-            print("You can now try different approaches in the forked session")
+            print("You can now try different approaches in the copied session")
             print("without affecting the original conversation.")
 
             # Demonstrate checkpointing use case
             print("\n--- Checkpointing use case ---")
-            checkpoint_result = client.sessions.fork(session_id=original_session_id)
+            checkpoint_result = client.sessions.copy(session_id=original_session_id)
             checkpoint_id = checkpoint_result.new_session_id
             print(f"✓ Created checkpoint: {checkpoint_id}")
             print("You can always return to this checkpoint if needed.")
@@ -130,30 +130,30 @@ def main() -> None:
             original_tokens = client.sessions.get_token_counts(
                 session_id=original_session_id
             )
-            forked_tokens = client.sessions.get_token_counts(session_id=forked_session_id)
+            copied_tokens = client.sessions.get_token_counts(session_id=copied_session_id)
             checkpoint_tokens = client.sessions.get_token_counts(session_id=checkpoint_id)
 
             print(f"Original session: {original_tokens.total_tokens} tokens")
-            print(f"Forked session: {forked_tokens.total_tokens} tokens")
+            print(f"Copied session: {copied_tokens.total_tokens} tokens")
             print(f"Checkpoint session: {checkpoint_tokens.total_tokens} tokens")
 
-            print("\n✓ Fork session example completed successfully!")
+            print("\n✓ Copy session example completed successfully!")
             print("\nSession IDs:")
             print(f"  Original: {original_session_id}")
-            print(f"  Forked: {forked_session_id}")
+            print(f"  Copied: {copied_session_id}")
             print(f"  Checkpoint: {checkpoint_id}")
 
         except APIError as exc:
             print(f"\n[API error] status={exc.status_code} message={exc.message}")
             if exc.status_code == 413:
-                print("Session is too large to fork synchronously (>5000 messages)")
+                print("Session is too large to copy synchronously (>5000 messages)")
             elif exc.status_code == 404:
                 print("Session not found or access denied")
             raise
 
 
 def demonstrate_error_handling() -> None:
-    """Demonstrate error handling for fork operations."""
+    """Demonstrate error handling for copy operations."""
     api_key, base_url = resolve_credentials()
 
     with AcontextClient(api_key=api_key, base_url=base_url) as client:
@@ -161,7 +161,7 @@ def demonstrate_error_handling() -> None:
 
         # Invalid UUID format
         try:
-            client.sessions.fork(session_id="invalid-uuid")
+            client.sessions.copy(session_id="invalid-uuid")
         except APIError as exc:
             print(f"✓ Invalid UUID handled: {exc.message}")
 
@@ -170,7 +170,7 @@ def demonstrate_error_handling() -> None:
             import uuid
 
             fake_id = str(uuid.uuid4())
-            client.sessions.fork(session_id=fake_id)
+            client.sessions.copy(session_id=fake_id)
         except APIError as exc:
             if exc.status_code == 404:
                 print(f"✓ Non-existent session handled: {exc.message}")

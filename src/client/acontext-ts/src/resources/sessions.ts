@@ -9,8 +9,8 @@ import { buildParams, validateUUID } from '../utils';
 import {
   EditStrategy,
   EditStrategySchema,
-  ForkSessionResult,
-  ForkSessionResultSchema,
+  CopySessionResult,
+  CopySessionResultSchema,
   GetMessagesOutput,
   GetMessagesOutputSchema,
   GetTasksOutput,
@@ -442,24 +442,24 @@ export class SessionsAPI {
   }
 
   /**
-   * Fork (duplicate) a session with all its messages and tasks.
+   * Copy (duplicate) a session with all its messages and tasks.
    *
    * Creates a complete copy of the session including all messages, tasks, and configurations.
-   * The forked session will be independent and modifications to it won't affect the original.
+   * The copied session will be independent and modifications to it won't affect the original.
    *
-   * @param sessionId - The UUID of the session to fork.
-   * @returns ForkSessionResult containing the original and new session IDs.
+   * @param sessionId - The UUID of the session to copy.
+   * @returns CopySessionResult containing the original and new session IDs.
    * @throws {Error} If session_id is invalid or session doesn't exist.
-   * @throws {Error} If session exceeds maximum forkable size (5000 messages).
+   * @throws {Error} If session exceeds maximum copyable size (5000 messages).
    *
    * @example
-   * const result = await client.sessions.fork(sessionId);
-   * console.log(`Forked session: ${result.newSessionId}`);
+   * const result = await client.sessions.copy(sessionId);
+   * console.log(`Copied session: ${result.newSessionId}`);
    * console.log(`Original session: ${result.oldSessionId}`);
    */
-  async fork(sessionId: string): Promise<ForkSessionResult> {
+  async copy(sessionId: string): Promise<CopySessionResult> {
     validateUUID(sessionId, 'sessionId');
-    const data = await this.requester.request('POST', `/session/${sessionId}/fork`);
-    return ForkSessionResultSchema.parse(data);
+    const data = await this.requester.request('POST', `/session/${sessionId}/copy`);
+    return CopySessionResultSchema.parse(data);
   }
 }

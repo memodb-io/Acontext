@@ -17,12 +17,12 @@ import (
 )
 
 const (
-	// MaxForkableMessages is the maximum number of messages allowed for synchronous fork
-	MaxForkableMessages = 5000
+	// MaxCopyableMessages is the maximum number of messages allowed for synchronous copy
+	MaxCopyableMessages = 5000
 )
 
-// ErrSessionTooLarge is returned when a session exceeds MaxForkableMessages.
-var ErrSessionTooLarge = errors.New("session exceeds maximum forkable size")
+// ErrSessionTooLarge is returned when a session exceeds MaxCopyableMessages.
+var ErrSessionTooLarge = errors.New("session exceeds maximum copyable size")
 
 type SessionRepo interface {
 	Create(ctx context.Context, s *model.Session) error
@@ -38,11 +38,11 @@ type SessionRepo interface {
 	PopGeminiCallIDAndName(ctx context.Context, sessionID uuid.UUID) (string, string, error)
 	GetMessageByID(ctx context.Context, sessionID uuid.UUID, messageID uuid.UUID) (*model.Message, error)
 	UpdateMessageMeta(ctx context.Context, messageID uuid.UUID, meta datatypes.JSONType[map[string]interface{}]) error
-	ForkSession(ctx context.Context, sessionID uuid.UUID) (*ForkSessionResult, error)
+	CopySession(ctx context.Context, sessionID uuid.UUID) (*CopySessionResult, error)
 }
 
-// ForkSessionResult contains the result of a fork operation
-type ForkSessionResult struct {
+// CopySessionResult contains the result of a copy operation
+type CopySessionResult struct {
 	OldSessionID uuid.UUID
 	NewSessionID uuid.UUID
 }
@@ -435,15 +435,15 @@ func (r *sessionRepo) UpdateMessageMeta(ctx context.Context, messageID uuid.UUID
 		Update("meta", meta).Error
 }
 
-// ForkSession creates a complete copy of a session with all its messages and tasks.
-// Uses SELECT FOR UPDATE to lock the session during the fork operation.
-// Returns ForkSessionResult containing old and new session IDs.
+// CopySession creates a complete copy of a session with all its messages and tasks.
+// Uses SELECT FOR UPDATE to lock the session during the copy operation.
+// Returns CopySessionResult containing old and new session IDs.
 //
 // The operation is split into two phases to keep the lock window small:
 //  1. Transaction: lock session, create new session/messages/tasks, increment partsAsset refs.
 //  2. Post-transaction: download S3 parts to discover per-part assets, increment those refs.
-func (r *sessionRepo) ForkSession(ctx context.Context, sessionID uuid.UUID) (*ForkSessionResult, error) {
-	var result ForkSessionResult
+func (r *sessionRepo) CopySession(ctx context.Context, sessionID uuid.UUID) (*CopySessionResult, error) {
+	var result CopySessionResult
 	result.OldSessionID = sessionID
 
 	// partsAssets collects the parts-envelope assets; populated inside the transaction.
@@ -469,7 +469,7 @@ func (r *sessionRepo) ForkSession(ctx context.Context, sessionID uuid.UUID) (*Fo
 		}
 
 		// Check session size limit (inside transaction after SELECT FOR UPDATE to prevent race conditions)
-		if len(originalMessages) > MaxForkableMessages {
+		if len(originalMessages) > MaxCopyableMessages {
 			return fmt.Errorf("%w (%d messages)", ErrSessionTooLarge, len(originalMessages))
 		}
 

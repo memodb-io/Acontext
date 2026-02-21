@@ -1,5 +1,5 @@
 ---
-title: Fork Session
+title: Copy Session
 description: "Duplicate sessions to experiment safely or create conversation branches"
 ---
 
@@ -21,13 +21,13 @@ import os
 
 client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
 
-# Fork a session
-result = client.sessions.fork(session_id="session-uuid")
+# Copy a session
+result = client.sessions.copy(session_id="session-uuid")
 
 print(f"Original session: {result.old_session_id}")
-print(f"Forked session: {result.new_session_id}")
+print(f"Copied session: {result.new_session_id}")
 
-# Now you can modify the forked session independently
+# Now you can modify the copied session independently
 client.sessions.store_message(
     session_id=result.new_session_id,
     blob={"role": "user", "content": "Let's try a different approach"},
@@ -42,13 +42,13 @@ const client = new AcontextClient({
     apiKey: process.env.ACONTEXT_API_KEY,
 });
 
-// Fork a session
-const result = await client.sessions.fork("session-uuid");
+// Copy a session
+const result = await client.sessions.copy("session-uuid");
 
 console.log(`Original session: ${result.oldSessionId}`);
-console.log(`Forked session: ${result.newSessionId}`);
+console.log(`Copied session: ${result.newSessionId}`);
 
-// Now you can modify the forked session independently
+// Now you can modify the copied session independently
 await client.sessions.storeMessage(
     result.newSessionId,
     { role: "user", content: "Let's try a different approach" },
@@ -65,52 +65,52 @@ from acontext import AsyncAcontextClient
 import os
 import asyncio
 
-async def fork_example():
+async def copy_example():
     async with AsyncAcontextClient(api_key=os.getenv("ACONTEXT_API_KEY")) as client:
-        result = await client.sessions.fork(session_id="session-uuid")
-        print(f"Forked session: {result.new_session_id}")
+        result = await client.sessions.copy(session_id="session-uuid")
+        print(f"Copied session: {result.new_session_id}")
 
-asyncio.run(fork_example())
+asyncio.run(copy_example())
 ```
 </CodeGroup>
 
 ## What Gets Copied
 
-When you fork a session, the following are duplicated:
+When you copy a session, the following are duplicated:
 
 - **Messages**: All messages with preserved parent-child relationships
 - **Tasks**: All tasks with their order, status, and data
 - **Configurations**: Session configs and settings
-- **User association**: The forked session belongs to the same project
+- **User association**: The copied session belongs to the same project
 
 ## What Doesn't Get Copied
 
 - **Asset files**: S3 assets are shared (not duplicated) between sessions for efficiency
-- **Message processing status**: Forked messages are marked as "pending" for reprocessing
+- **Message processing status**: Copied messages are marked as "pending" for reprocessing
 - **Task-message links**: These are cleared and will be reassigned by the core service
 
 ## Independence
 
-The forked session is completely independent:
+The copied session is completely independent:
 
-- Changes to the original session don't affect the fork
-- Changes to the fork don't affect the original
+- Changes to the original session don't affect the copy
+- Changes to the copy don't affect the original
 - Each session can have different messages, tasks, and configs going forward
 
 ## Limitations
 
 ### Size Limit
 
-Sessions with more than **5,000 messages** cannot be forked synchronously. You'll receive an error:
+Sessions with more than **5,000 messages** cannot be copied synchronously. You'll receive an error:
 
 ```json
 {
   "error": "SESSION_TOO_LARGE",
-  "message": "Session exceeds maximum forkable size (5000 messages). Consider using async fork."
+  "message": "Session exceeds maximum copyable size (5000 messages). Consider using async copy."
 }
 ```
 
-For large sessions, async fork support is planned for a future release.
+For large sessions, async copy support is planned for a future release.
 
 ## Error Handling
 
@@ -122,14 +122,14 @@ from acontext.exceptions import AcontextError
 client = AcontextClient(api_key="...")
 
 try:
-    result = client.sessions.fork(session_id="invalid-uuid")
+    result = client.sessions.copy(session_id="invalid-uuid")
 except AcontextError as e:
     if "SESSION_NOT_FOUND" in str(e):
         print("Session does not exist or you don't have access")
     elif "SESSION_TOO_LARGE" in str(e):
-        print("Session is too large to fork synchronously")
+        print("Session is too large to copy synchronously")
     else:
-        print(f"Fork failed: {e}")
+        print(f"Copy failed: {e}")
 ```
 
 ```typescript TypeScript
@@ -138,16 +138,16 @@ import { AcontextClient } from '@acontext/acontext';
 const client = new AcontextClient({ apiKey: "..." });
 
 try {
-    const result = await client.sessions.fork("invalid-uuid");
+    const result = await client.sessions.copy("invalid-uuid");
 } catch (error) {
     const message = error.message || String(error);
     
     if (message.includes("SESSION_NOT_FOUND")) {
         console.log("Session does not exist or you don't have access");
     } else if (message.includes("SESSION_TOO_LARGE")) {
-        console.log("Session is too large to fork synchronously");
+        console.log("Session is too large to copy synchronously");
     } else {
-        console.log(`Fork failed: ${error}`);
+        console.log(`Copy failed: ${error}`);
     }
 }
 ```
@@ -157,14 +157,14 @@ try {
 
 ### Experiment and Compare
 
-Fork a session to try different approaches, then compare results:
+Copy a session to try different approaches, then compare results:
 
 ```python
-# Fork the original session
-result = client.sessions.fork(session_id=original_id)
+# Copy the original session
+result = client.sessions.copy(session_id=original_id)
 experimental_id = result.new_session_id
 
-# Try a different approach in the fork
+# Try a different approach in the copy
 client.sessions.store_message(
     session_id=experimental_id,
     blob={"role": "user", "content": "Alternative approach..."},
@@ -185,7 +185,7 @@ Create a checkpoint before making significant changes:
 
 ```python
 # Create checkpoint
-checkpoint = client.sessions.fork(session_id=session_id)
+checkpoint = client.sessions.copy(session_id=session_id)
 print(f"Checkpoint created: {checkpoint.new_session_id}")
 
 # Make major changes to original
@@ -200,7 +200,7 @@ client.sessions.store_message(
 
 ### Template Sessions
 
-Create a base session as a template and fork it for each new conversation:
+Create a base session as a template and copy it for each new conversation:
 
 ```python
 # Set up template session once
@@ -211,15 +211,15 @@ client.sessions.store_message(
     format="openai"
 )
 
-# Fork for each new conversation
-new_conversation = client.sessions.fork(session_id=template_id)
+# Copy for each new conversation
+new_conversation = client.sessions.copy(session_id=template_id)
 ```
 
 ## Performance
 
-Fork operations typically complete in:
+Copy operations typically complete in:
 - **< 1 second**: Sessions with < 100 messages
 - **< 3 seconds**: Sessions with < 1000 messages
 - **< 5 seconds**: Sessions with < 5000 messages
 
-The operation is atomic - either the entire fork succeeds or fails with no partial state.
+The operation is atomic - either the entire copy succeeds or fails with no partial state.

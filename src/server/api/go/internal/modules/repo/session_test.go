@@ -402,32 +402,32 @@ func TestSessionRepo_PopGeminiCallIDAndName(t *testing.T) {
 	})
 }
 
-// MockAssetReferenceRepoForFork is a mock implementation of AssetReferenceRepo for fork tests
-type MockAssetReferenceRepoForFork struct {
+// MockAssetReferenceRepoForCopy is a mock implementation of AssetReferenceRepo for copy tests
+type MockAssetReferenceRepoForCopy struct {
 	BatchIncrementAssetRefsFunc func(ctx context.Context, projectID uuid.UUID, assets []model.Asset) error
 }
 
-func (m *MockAssetReferenceRepoForFork) IncrementAssetRef(ctx context.Context, projectID uuid.UUID, asset model.Asset) error {
+func (m *MockAssetReferenceRepoForCopy) IncrementAssetRef(ctx context.Context, projectID uuid.UUID, asset model.Asset) error {
 	return nil
 }
 
-func (m *MockAssetReferenceRepoForFork) DecrementAssetRef(ctx context.Context, projectID uuid.UUID, asset model.Asset) error {
+func (m *MockAssetReferenceRepoForCopy) DecrementAssetRef(ctx context.Context, projectID uuid.UUID, asset model.Asset) error {
 	return nil
 }
 
-func (m *MockAssetReferenceRepoForFork) BatchIncrementAssetRefs(ctx context.Context, projectID uuid.UUID, assets []model.Asset) error {
+func (m *MockAssetReferenceRepoForCopy) BatchIncrementAssetRefs(ctx context.Context, projectID uuid.UUID, assets []model.Asset) error {
 	if m.BatchIncrementAssetRefsFunc != nil {
 		return m.BatchIncrementAssetRefsFunc(ctx, projectID, assets)
 	}
 	return nil
 }
 
-func (m *MockAssetReferenceRepoForFork) BatchDecrementAssetRefs(ctx context.Context, projectID uuid.UUID, assets []model.Asset) error {
+func (m *MockAssetReferenceRepoForCopy) BatchDecrementAssetRefs(ctx context.Context, projectID uuid.UUID, assets []model.Asset) error {
 	return nil
 }
 
-// TestSessionRepo_ForkSession tests the ForkSession method with comprehensive scenarios
-func TestSessionRepo_ForkSession(t *testing.T) {
+// TestSessionRepo_CopySession tests the CopySession method with comprehensive scenarios
+func TestSessionRepo_CopySession(t *testing.T) {
 	db := setupSessionTestDB(t)
 	if db == nil {
 		return // Test was skipped
@@ -448,7 +448,7 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 	// Auto migrate required tables
 	require.NoError(t, db.AutoMigrate(&model.Message{}, &model.Task{}, &model.AssetReference{}))
 
-	t.Run("successful fork with messages and tasks", func(t *testing.T) {
+	t.Run("successful copy with messages and tasks", func(t *testing.T) {
 		// Create original session
 		originalSession := &model.Session{
 			ID:                  uuid.New(),
@@ -496,7 +496,7 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		require.NoError(t, db.Create(task1).Error)
 
 		// Setup mocks
-		mockAssetRepo := &MockAssetReferenceRepoForFork{
+		mockAssetRepo := &MockAssetReferenceRepoForCopy{
 			BatchIncrementAssetRefsFunc: func(ctx context.Context, projectID uuid.UUID, assets []model.Asset) error {
 				assert.Equal(t, project.ID, projectID)
 				assert.GreaterOrEqual(t, len(assets), 2) // At least two parts assets
@@ -506,8 +506,8 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		// Pass nil for S3 - code will skip S3 download and only collect parts assets
 		repo := NewSessionRepo(db, mockAssetRepo, nil, logger)
 
-		// Fork session
-		result, err := repo.ForkSession(ctx, originalSession.ID)
+		// Copy session
+		result, err := repo.CopySession(ctx, originalSession.ID)
 		require.NoError(t, err)
 		assert.Equal(t, originalSession.ID, result.OldSessionID)
 		assert.NotEqual(t, originalSession.ID, result.NewSessionID)
@@ -542,7 +542,7 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		assert.Len(t, originalMessages, 2)
 	})
 
-	t.Run("fork empty session", func(t *testing.T) {
+	t.Run("copy empty session", func(t *testing.T) {
 		// Create empty session
 		originalSession := &model.Session{
 			ID:        uuid.New(),
@@ -550,11 +550,11 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		}
 		require.NoError(t, db.Create(originalSession).Error)
 
-		mockAssetRepo := &MockAssetReferenceRepoForFork{}
+		mockAssetRepo := &MockAssetReferenceRepoForCopy{}
 		repo := NewSessionRepo(db, mockAssetRepo, nil, logger)
 
-		// Fork session
-		result, err := repo.ForkSession(ctx, originalSession.ID)
+		// Copy session
+		result, err := repo.CopySession(ctx, originalSession.ID)
 		require.NoError(t, err)
 
 		// Verify new session exists
@@ -571,7 +571,7 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		assert.Len(t, newTasks, 0)
 	})
 
-	t.Run("fork with parent-child message relationships", func(t *testing.T) {
+	t.Run("copy with parent-child message relationships", func(t *testing.T) {
 		// Create session with complex parent-child structure
 		originalSession := &model.Session{
 			ID:        uuid.New(),
@@ -615,12 +615,12 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		}
 		require.NoError(t, db.Create(msg3).Error)
 
-		mockAssetRepo := &MockAssetReferenceRepoForFork{}
+		mockAssetRepo := &MockAssetReferenceRepoForCopy{}
 		// Pass nil for S3 - code will skip S3 download
 		repo := NewSessionRepo(db, mockAssetRepo, nil, logger)
 
-		// Fork session
-		result, err := repo.ForkSession(ctx, originalSession.ID)
+		// Copy session
+		result, err := repo.CopySession(ctx, originalSession.ID)
 		require.NoError(t, err)
 
 		// Verify messages with correct parent relationships
@@ -642,7 +642,7 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		assert.Equal(t, newMessages[1].ID, *newMessages[2].ParentID) // msg3.parent = msg2
 	})
 
-	t.Run("fork collects parts assets for reference counting", func(t *testing.T) {
+	t.Run("copy collects parts assets for reference counting", func(t *testing.T) {
 		originalSession := &model.Session{
 			ID:        uuid.New(),
 			ProjectID: project.ID,
@@ -662,7 +662,7 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 
 		// Track which assets were incremented
 		incrementedAssets := make([]model.Asset, 0)
-		mockAssetRepo := &MockAssetReferenceRepoForFork{
+		mockAssetRepo := &MockAssetReferenceRepoForCopy{
 			BatchIncrementAssetRefsFunc: func(ctx context.Context, projectID uuid.UUID, assets []model.Asset) error {
 				incrementedAssets = append(incrementedAssets, assets...)
 				return nil
@@ -672,8 +672,8 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		// Pass nil for S3 - code will skip S3 download but still collect parts assets
 		repo := NewSessionRepo(db, mockAssetRepo, nil, logger)
 
-		// Fork session
-		_, err := repo.ForkSession(ctx, originalSession.ID)
+		// Copy session
+		_, err := repo.CopySession(ctx, originalSession.ID)
 		require.NoError(t, err)
 
 		// Verify parts assets were collected for reference counting
@@ -686,7 +686,7 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		// Note: Testing S3 download and part asset extraction requires integration test with real S3
 	})
 
-	t.Run("fork with single message succeeds", func(t *testing.T) {
+	t.Run("copy with single message succeeds", func(t *testing.T) {
 		originalSession := &model.Session{
 			ID:        uuid.New(),
 			ProjectID: project.ID,
@@ -704,17 +704,17 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		}
 		require.NoError(t, db.Create(msg).Error)
 
-		mockAssetRepo := &MockAssetReferenceRepoForFork{}
+		mockAssetRepo := &MockAssetReferenceRepoForCopy{}
 		repo := NewSessionRepo(db, mockAssetRepo, nil, logger)
 
-		result, err := repo.ForkSession(ctx, originalSession.ID)
+		result, err := repo.CopySession(ctx, originalSession.ID)
 		require.NoError(t, err)
 
 		var newSession model.Session
 		require.NoError(t, db.First(&newSession, result.NewSessionID).Error)
 		assert.NotEqual(t, originalSession.ID, newSession.ID)
 
-		// Verify the forked message exists
+		// Verify the copied message exists
 		var newMessages []model.Message
 		require.NoError(t, db.Where("session_id = ?", newSession.ID).Find(&newMessages).Error)
 		assert.Len(t, newMessages, 1)
@@ -739,7 +739,7 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		require.NoError(t, db.Create(msg).Error)
 
 		// Mock asset repo to fail
-		mockAssetRepo := &MockAssetReferenceRepoForFork{
+		mockAssetRepo := &MockAssetReferenceRepoForCopy{
 			BatchIncrementAssetRefsFunc: func(ctx context.Context, projectID uuid.UUID, assets []model.Asset) error {
 				return fmt.Errorf("asset increment failed")
 			},
@@ -747,8 +747,8 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		// Pass nil for S3 - code will skip S3 download
 		repo := NewSessionRepo(db, mockAssetRepo, nil, logger)
 
-		// Fork should fail
-		result, err := repo.ForkSession(ctx, originalSession.ID)
+		// Copy should fail
+		result, err := repo.CopySession(ctx, originalSession.ID)
 		require.Error(t, err)
 		assert.Nil(t, result)
 		assert.Contains(t, err.Error(), "asset increment failed")
@@ -763,7 +763,7 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		// Note: This test requires S3Deps to be mockable or integration test with real S3
 		// Since S3Deps is a concrete type, we can't easily mock it in unit tests
 		// This scenario should be tested in integration tests or with dependency injection refactoring
-		// For now, we verify the code path exists by checking the error handling in ForkSession
+		// For now, we verify the code path exists by checking the error handling in CopySession
 		t.Skip("S3 failure testing requires integration test or refactoring to use interface")
 	})
 
@@ -774,8 +774,8 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		}
 		require.NoError(t, db.Create(originalSession).Error)
 
-		// Create MaxForkableMessages + 1 messages using batch insert for speed
-		overLimit := MaxForkableMessages + 1
+		// Create MaxCopyableMessages + 1 messages using batch insert for speed
+		overLimit := MaxCopyableMessages + 1
 		msgs := make([]model.Message, 0, overLimit)
 		for i := 0; i < overLimit; i++ {
 			msgs = append(msgs, model.Message{
@@ -790,14 +790,14 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		}
 		require.NoError(t, db.CreateInBatches(msgs, 500).Error)
 
-		mockAssetRepo := &MockAssetReferenceRepoForFork{}
+		mockAssetRepo := &MockAssetReferenceRepoForCopy{}
 		repo := NewSessionRepo(db, mockAssetRepo, nil, logger)
 
-		// Fork should fail with size limit error
-		result, err := repo.ForkSession(ctx, originalSession.ID)
+		// Copy should fail with size limit error
+		result, err := repo.CopySession(ctx, originalSession.ID)
 		require.Error(t, err)
 		assert.Nil(t, result)
-		assert.Contains(t, err.Error(), "exceeds maximum forkable size")
+		assert.Contains(t, err.Error(), "exceeds maximum copyable size")
 
 		// Verify no new session was created
 		var count int64
@@ -805,7 +805,7 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		assert.Equal(t, int64(0), count)
 	})
 
-	t.Run("fork with orphaned parent references", func(t *testing.T) {
+	t.Run("copy with orphaned parent references", func(t *testing.T) {
 		originalSession := &model.Session{
 			ID:        uuid.New(),
 			ProjectID: project.ID,
@@ -826,12 +826,12 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		}
 		require.NoError(t, db.Create(msg).Error)
 
-		mockAssetRepo := &MockAssetReferenceRepoForFork{}
+		mockAssetRepo := &MockAssetReferenceRepoForCopy{}
 		// Pass nil for S3 - code will skip S3 download
 		repo := NewSessionRepo(db, mockAssetRepo, nil, logger)
 
-		// Fork should succeed but log warning about orphaned parent
-		result, err := repo.ForkSession(ctx, originalSession.ID)
+		// Copy should succeed but log warning about orphaned parent
+		result, err := repo.CopySession(ctx, originalSession.ID)
 		require.NoError(t, err)
 
 		// Verify message was copied without parent
@@ -841,7 +841,7 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		assert.Nil(t, newMessages[0].ParentID, "orphaned parent should be cleared")
 	})
 
-	t.Run("concurrent fork prevention with SELECT FOR UPDATE", func(t *testing.T) {
+	t.Run("concurrent copy prevention with SELECT FOR UPDATE", func(t *testing.T) {
 		originalSession := &model.Session{
 			ID:        uuid.New(),
 			ProjectID: project.ID,
@@ -859,28 +859,28 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		}
 		require.NoError(t, db.Create(msg).Error)
 
-		mockAssetRepo := &MockAssetReferenceRepoForFork{}
+		mockAssetRepo := &MockAssetReferenceRepoForCopy{}
 		// Pass nil for S3 - code will skip S3 download
 		repo := NewSessionRepo(db, mockAssetRepo, nil, logger)
 
-		// Start two concurrent forks
+		// Start two concurrent copies
 		results := make(chan struct {
-			result *ForkSessionResult
+			result *CopySessionResult
 			err    error
 		}, 2)
 
 		go func() {
-			result, err := repo.ForkSession(ctx, originalSession.ID)
+			result, err := repo.CopySession(ctx, originalSession.ID)
 			results <- struct {
-				result *ForkSessionResult
+				result *CopySessionResult
 				err    error
 			}{result, err}
 		}()
 
 		go func() {
-			result, err := repo.ForkSession(ctx, originalSession.ID)
+			result, err := repo.CopySession(ctx, originalSession.ID)
 			results <- struct {
-				result *ForkSessionResult
+				result *CopySessionResult
 				err    error
 			}{result, err}
 		}()
@@ -903,7 +903,7 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		require.NoError(t, db.First(&session2, result2.result.NewSessionID).Error)
 	})
 
-	t.Run("fork preserves task order and status", func(t *testing.T) {
+	t.Run("copy preserves task order and status", func(t *testing.T) {
 		originalSession := &model.Session{
 			ID:        uuid.New(),
 			ProjectID: project.ID,
@@ -932,11 +932,11 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		}
 		require.NoError(t, db.Create(task2).Error)
 
-		mockAssetRepo := &MockAssetReferenceRepoForFork{}
+		mockAssetRepo := &MockAssetReferenceRepoForCopy{}
 		repo := NewSessionRepo(db, mockAssetRepo, nil, logger)
 
-		// Fork session
-		result, err := repo.ForkSession(ctx, originalSession.ID)
+		// Copy session
+		result, err := repo.CopySession(ctx, originalSession.ID)
 		require.NoError(t, err)
 
 		// Verify tasks were copied in correct order
@@ -952,7 +952,7 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		assert.Equal(t, "Task 2", newTasks[1].Data.TaskDescription)
 	})
 
-	t.Run("fork preserves session configs", func(t *testing.T) {
+	t.Run("copy preserves session configs", func(t *testing.T) {
 		originalSession := &model.Session{
 			ID:        uuid.New(),
 			ProjectID: project.ID,
@@ -964,11 +964,11 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		}
 		require.NoError(t, db.Create(originalSession).Error)
 
-		mockAssetRepo := &MockAssetReferenceRepoForFork{}
+		mockAssetRepo := &MockAssetReferenceRepoForCopy{}
 		repo := NewSessionRepo(db, mockAssetRepo, nil, logger)
 
-		// Fork session
-		result, err := repo.ForkSession(ctx, originalSession.ID)
+		// Copy session
+		result, err := repo.CopySession(ctx, originalSession.ID)
 		require.NoError(t, err)
 
 		// Verify configs were preserved
@@ -978,7 +978,7 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		assert.Equal(t, originalSession.Configs, newSession.Configs)
 	})
 
-	t.Run("fork preserves disable_task_tracking flag", func(t *testing.T) {
+	t.Run("copy preserves disable_task_tracking flag", func(t *testing.T) {
 		originalSession := &model.Session{
 			ID:                  uuid.New(),
 			ProjectID:           project.ID,
@@ -986,11 +986,11 @@ func TestSessionRepo_ForkSession(t *testing.T) {
 		}
 		require.NoError(t, db.Create(originalSession).Error)
 
-		mockAssetRepo := &MockAssetReferenceRepoForFork{}
+		mockAssetRepo := &MockAssetReferenceRepoForCopy{}
 		repo := NewSessionRepo(db, mockAssetRepo, nil, logger)
 
-		// Fork session
-		result, err := repo.ForkSession(ctx, originalSession.ID)
+		// Copy session
+		result, err := repo.CopySession(ctx, originalSession.ID)
 		require.NoError(t, err)
 
 		// Verify flag was preserved

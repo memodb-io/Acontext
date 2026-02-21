@@ -105,12 +105,12 @@ func (m *MockSessionRepo) UpdateMessageMeta(ctx context.Context, messageID uuid.
 	return args.Error(0)
 }
 
-func (m *MockSessionRepo) ForkSession(ctx context.Context, sessionID uuid.UUID) (*repo.ForkSessionResult, error) {
+func (m *MockSessionRepo) CopySession(ctx context.Context, sessionID uuid.UUID) (*repo.CopySessionResult, error) {
 	args := m.Called(ctx, sessionID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*repo.ForkSessionResult), args.Error(1)
+	return args.Get(0).(*repo.CopySessionResult), args.Error(1)
 }
 
 // MockAssetReferenceRepo is a mock implementation of AssetReferenceRepo
