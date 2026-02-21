@@ -548,7 +548,8 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	if len(in.EditStrategies) > 0 {
 		applyEditStrategies := true
 		triggerChecks := buildEditingTriggerChecks(in.EditingTrigger)
-		if len(triggerChecks) > 0 {
+		triggerEvaluated := len(triggerChecks) > 0
+		if triggerEvaluated {
 			// Evaluate trigger on the same editable prefix used by pin_editing_strategies_at_message.
 			triggerMessages := out.Items
 			if in.PinEditingStrategiesAtMessage != "" {
@@ -579,15 +580,6 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 				}
 			}
 
-			// TODO(maintainers): clarify final semantics for edit_at_message_id when trigger does not fire.
-			// Should it remain empty (strict "strategies were applied" meaning), or keep a reusable pin hint?
-			// if !applyEditStrategies && len(out.Items) > 0 {
-			// 	if effectivePin != "" {
-			// 		out.EditAtMessageID = effectivePin
-			// 	} else {
-			// 		out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
-			// 	}
-			// }
 		}
 
 		if applyEditStrategies {
@@ -598,6 +590,9 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 			strategiesApplied = true
 			out.Items = result.Messages
 			out.EditAtMessageID = result.EditAtMessageID
+		} else if triggerEvaluated && in.PinEditingStrategiesAtMessage != "" {
+			// Trigger skipped editing; preserve caller-provided boundary for future requests.
+			out.EditAtMessageID = in.PinEditingStrategiesAtMessage
 		} else if out.EditAtMessageID == "" && len(out.Items) > 0 {
 			out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
 		}

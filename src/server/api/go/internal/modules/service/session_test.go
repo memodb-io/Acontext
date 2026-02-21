@@ -1569,3 +1569,454 @@ func TestSessionService_GetMessages_TriggerTokenErrorsAreWrapped(t *testing.T) {
 
 	repo.AssertExpectations(t)
 }
+
+func TestSessionService_GetMessages_TriggerFalseKeepsProvidedPin(t *testing.T) {
+	ctx := context.Background()
+	sessionID := uuid.New()
+	triggerThreshold := 100000
+
+	err := tokenizer.Init(zap.NewNop())
+	assert.NoError(t, err)
+
+	pinMsgID := uuid.New()
+	lastMsgID := uuid.New()
+	repoMessages := []model.Message{
+		{
+			ID:        pinMsgID,
+			SessionID: sessionID,
+			Role:      model.RoleUser,
+			Parts: []model.Part{
+				model.NewTextPart("short message"),
+			},
+		},
+		{
+			ID:        lastMsgID,
+			SessionID: sessionID,
+			Role:      model.RoleUser,
+			Parts: []model.Part{
+				model.NewTextPart("another short message"),
+			},
+		},
+	}
+
+	repo := &MockSessionRepo{}
+	repo.On("ListAllMessagesBySession", ctx, sessionID).Return(repoMessages, nil)
+
+	service := NewSessionService(repo, &MockAssetReferenceRepo{}, zap.NewNop(), nil, nil, &config.Config{}, nil)
+	out, err := service.GetMessages(ctx, GetMessagesInput{
+		SessionID: sessionID,
+		Limit:     0,
+		EditStrategies: []editor.StrategyConfig{
+			{
+				Type: "remove_tool_result",
+				Params: map[string]interface{}{
+					"keep_recent_n_tool_results": 0,
+				},
+			},
+		},
+		PinEditingStrategiesAtMessage: pinMsgID.String(),
+		EditingTrigger: &EditingTrigger{
+			TokenGte: &triggerThreshold,
+		},
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, out)
+	assert.Equal(t, pinMsgID.String(), out.EditAtMessageID)
+	assert.NotEqual(t, lastMsgID.String(), out.EditAtMessageID)
+
+	repo.AssertExpectations(t)
+}
+
+func TestSessionService_GetMessages_EditTriggerBranchCoverage(t *testing.T) {
+	ctx := context.Background()
+	sessionID := uuid.New()
+	now := time.Now()
+
+	err := tokenizer.Init(zap.NewNop())
+	assert.NoError(t, err)
+
+	msgID1 := uuid.MustParse("00000000-0000-0000-0000-000000000101")
+	msgID2 := uuid.MustParse("00000000-0000-0000-0000-000000000102")
+	msgID3 := uuid.MustParse("00000000-0000-0000-0000-000000000103")
+	missingPinID := "00000000-0000-0000-0000-000000000999"
+	highThreshold := 100000
+	lowThreshold := 1
+	zeroThreshold := 0
+
+	makeToolResultMessages := func() []model.Message {
+		return []model.Message{
+			{
+				ID:        msgID1,
+				SessionID: sessionID,
+				Role:      model.RoleAssistant,
+				CreatedAt: now.Add(1 * time.Minute),
+				Parts: []model.Part{
+					{
+						Type: model.PartTypeToolResult,
+						Text: "payload-one",
+					},
+				},
+			},
+			{
+				ID:        msgID2,
+				SessionID: sessionID,
+				Role:      model.RoleAssistant,
+				CreatedAt: now.Add(2 * time.Minute),
+				Parts: []model.Part{
+					{
+						Type: model.PartTypeToolResult,
+						Text: "payload-two",
+					},
+				},
+			},
+			{
+				ID:        msgID3,
+				SessionID: sessionID,
+				Role:      model.RoleAssistant,
+				CreatedAt: now.Add(3 * time.Minute),
+				Parts: []model.Part{
+					{
+						Type: model.PartTypeToolResult,
+						Text: "payload-three",
+					},
+				},
+			},
+		}
+	}
+
+	makeUserMessages := func() []model.Message {
+		return []model.Message{
+			{
+				ID:        msgID1,
+				SessionID: sessionID,
+				Role:      model.RoleUser,
+				CreatedAt: now.Add(1 * time.Minute),
+				Parts: []model.Part{
+					model.NewTextPart("first"),
+				},
+			},
+			{
+				ID:        msgID2,
+				SessionID: sessionID,
+				Role:      model.RoleUser,
+				CreatedAt: now.Add(2 * time.Minute),
+				Parts: []model.Part{
+					model.NewTextPart("second"),
+				},
+			},
+			{
+				ID:        msgID3,
+				SessionID: sessionID,
+				Role:      model.RoleUser,
+				CreatedAt: now.Add(3 * time.Minute),
+				Parts: []model.Part{
+					model.NewTextPart("third"),
+				},
+			},
+		}
+	}
+
+	editStrategies := []editor.StrategyConfig{
+		{
+			Type: "remove_tool_result",
+			Params: map[string]interface{}{
+				"keep_recent_n_tool_results": 0,
+			},
+		},
+	}
+
+	tests := []struct {
+		name              string
+		input             GetMessagesInput
+		repoMode          string // all|paged
+		repoMessages      []model.Message
+		wantEditAt        string
+		wantPartsText     []string
+		wantItemsLen      int
+		wantHasMore       bool
+		wantNextCursorSet bool
+	}{
+		{
+			name: "no edit strategies sets last message id",
+			input: GetMessagesInput{
+				SessionID: sessionID,
+				Limit:     0,
+			},
+			repoMode:      "all",
+			repoMessages:  makeUserMessages(),
+			wantEditAt:    msgID3.String(),
+			wantItemsLen:  3,
+			wantPartsText: []string{"first", "second", "third"},
+		},
+		{
+			name: "no trigger configured applies strategies",
+			input: GetMessagesInput{
+				SessionID:      sessionID,
+				Limit:          0,
+				EditStrategies: editStrategies,
+			},
+			repoMode:      "all",
+			repoMessages:  makeToolResultMessages(),
+			wantEditAt:    msgID3.String(),
+			wantItemsLen:  3,
+			wantPartsText: []string{"Done", "Done", "Done"},
+		},
+		{
+			name: "trigger false without pin skips strategies and uses last message id",
+			input: GetMessagesInput{
+				SessionID:      sessionID,
+				Limit:          0,
+				EditStrategies: editStrategies,
+				EditingTrigger: &EditingTrigger{
+					TokenGte: &highThreshold,
+				},
+			},
+			repoMode:      "all",
+			repoMessages:  makeToolResultMessages(),
+			wantEditAt:    msgID3.String(),
+			wantItemsLen:  3,
+			wantPartsText: []string{"payload-one", "payload-two", "payload-three"},
+		},
+		{
+			name: "trigger false with pin preserves provided pin",
+			input: GetMessagesInput{
+				SessionID:                     sessionID,
+				Limit:                         0,
+				EditStrategies:                editStrategies,
+				PinEditingStrategiesAtMessage: msgID1.String(),
+				EditingTrigger: &EditingTrigger{
+					TokenGte: &highThreshold,
+				},
+			},
+			repoMode:      "all",
+			repoMessages:  makeToolResultMessages(),
+			wantEditAt:    msgID1.String(),
+			wantItemsLen:  3,
+			wantPartsText: []string{"payload-one", "payload-two", "payload-three"},
+		},
+		{
+			name: "trigger true with pin found applies only up to pin message",
+			input: GetMessagesInput{
+				SessionID:                     sessionID,
+				Limit:                         0,
+				EditStrategies:                editStrategies,
+				PinEditingStrategiesAtMessage: msgID1.String(),
+				EditingTrigger: &EditingTrigger{
+					TokenGte: &lowThreshold,
+				},
+			},
+			repoMode:      "all",
+			repoMessages:  makeToolResultMessages(),
+			wantEditAt:    msgID1.String(),
+			wantItemsLen:  3,
+			wantPartsText: []string{"Done", "payload-two", "payload-three"},
+		},
+		{
+			name: "trigger true with pin not found applies to all messages",
+			input: GetMessagesInput{
+				SessionID:                     sessionID,
+				Limit:                         0,
+				EditStrategies:                editStrategies,
+				PinEditingStrategiesAtMessage: missingPinID,
+				EditingTrigger: &EditingTrigger{
+					TokenGte: &lowThreshold,
+				},
+			},
+			repoMode:      "all",
+			repoMessages:  makeToolResultMessages(),
+			wantEditAt:    msgID3.String(),
+			wantItemsLen:  3,
+			wantPartsText: []string{"Done", "Done", "Done"},
+		},
+		{
+			name: "non-positive token threshold behaves as trigger not configured",
+			input: GetMessagesInput{
+				SessionID:      sessionID,
+				Limit:          0,
+				EditStrategies: editStrategies,
+				EditingTrigger: &EditingTrigger{
+					TokenGte: &zeroThreshold,
+				},
+			},
+			repoMode:      "all",
+			repoMessages:  makeToolResultMessages(),
+			wantEditAt:    msgID3.String(),
+			wantItemsLen:  3,
+			wantPartsText: []string{"Done", "Done", "Done"},
+		},
+		{
+			name: "pagination window excludes pin and follows pin-not-found branch",
+			input: GetMessagesInput{
+				SessionID:                     sessionID,
+				Limit:                         2,
+				EditStrategies:                editStrategies,
+				PinEditingStrategiesAtMessage: msgID3.String(),
+				EditingTrigger: &EditingTrigger{
+					TokenGte: &lowThreshold,
+				},
+			},
+			repoMode:          "paged",
+			repoMessages:      makeToolResultMessages(),
+			wantEditAt:        msgID2.String(),
+			wantItemsLen:      2,
+			wantPartsText:     []string{"Done", "Done"},
+			wantHasMore:       true,
+			wantNextCursorSet: true,
+		},
+		{
+			name: "empty messages with trigger false and pin keeps pin",
+			input: GetMessagesInput{
+				SessionID:                     sessionID,
+				Limit:                         0,
+				EditStrategies:                editStrategies,
+				PinEditingStrategiesAtMessage: msgID1.String(),
+				EditingTrigger: &EditingTrigger{
+					TokenGte: &highThreshold,
+				},
+			},
+			repoMode:      "all",
+			repoMessages:  []model.Message{},
+			wantEditAt:    msgID1.String(),
+			wantItemsLen:  0,
+			wantPartsText: []string{},
+		},
+		{
+			name: "empty messages with no strategies keeps edit_at_message_id empty",
+			input: GetMessagesInput{
+				SessionID: sessionID,
+				Limit:     0,
+			},
+			repoMode:      "all",
+			repoMessages:  []model.Message{},
+			wantEditAt:    "",
+			wantItemsLen:  0,
+			wantPartsText: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &MockSessionRepo{}
+			if tt.repoMode == "paged" {
+				repo.On("ListBySessionWithCursor", ctx, sessionID, time.Time{}, uuid.UUID{}, tt.input.Limit+1, tt.input.TimeDesc).Return(tt.repoMessages, nil)
+			} else {
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return(tt.repoMessages, nil)
+			}
+
+			service := NewSessionService(repo, &MockAssetReferenceRepo{}, zap.NewNop(), nil, nil, &config.Config{}, nil)
+			out, err := service.GetMessages(ctx, tt.input)
+			assert.NoError(t, err)
+			assert.NotNil(t, out)
+
+			assert.Equal(t, tt.wantEditAt, out.EditAtMessageID)
+			assert.Equal(t, tt.wantItemsLen, len(out.Items))
+			assert.Equal(t, tt.wantHasMore, out.HasMore)
+			if tt.wantNextCursorSet {
+				assert.NotEmpty(t, out.NextCursor)
+			}
+			if !tt.wantNextCursorSet {
+				assert.Empty(t, out.NextCursor)
+			}
+
+			gotPartsText := make([]string, 0, len(out.Items))
+			for _, msg := range out.Items {
+				if len(msg.Parts) > 0 {
+					gotPartsText = append(gotPartsText, msg.Parts[0].Text)
+				}
+			}
+			assert.Equal(t, tt.wantPartsText, gotPartsText)
+			if len(out.Items) > 0 {
+				assert.Greater(t, out.ThisTimeTokens, 0)
+			} else {
+				assert.Equal(t, 0, out.ThisTimeTokens)
+			}
+
+			repo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestBuildEditingTriggerChecks_Branches(t *testing.T) {
+	ctx := context.Background()
+
+	err := tokenizer.Init(zap.NewNop())
+	assert.NoError(t, err)
+
+	positive := 1
+	zero := 0
+
+	msg := model.Message{
+		ID:   uuid.New(),
+		Role: model.RoleUser,
+		Parts: []model.Part{
+			model.NewTextPart("hello world"),
+		},
+	}
+
+	t.Run("nil trigger returns no checks", func(t *testing.T) {
+		checks := buildEditingTriggerChecks(nil)
+		assert.Len(t, checks, 0)
+	})
+
+	t.Run("nil token_gte returns no checks", func(t *testing.T) {
+		checks := buildEditingTriggerChecks(&EditingTrigger{})
+		assert.Len(t, checks, 0)
+	})
+
+	t.Run("non-positive token_gte returns no checks", func(t *testing.T) {
+		checks := buildEditingTriggerChecks(&EditingTrigger{TokenGte: &zero})
+		assert.Len(t, checks, 0)
+	})
+
+	t.Run("positive token_gte adds a check and evaluates", func(t *testing.T) {
+		checks := buildEditingTriggerChecks(&EditingTrigger{TokenGte: &positive})
+		assert.Len(t, checks, 1)
+
+		eval := &editingTriggerEval{
+			sessionID: uuid.New(),
+			messages:  []model.Message{msg},
+		}
+
+		ok, err := checks[0](ctx, eval)
+		assert.NoError(t, err)
+		assert.True(t, ok)
+		assert.NotNil(t, eval.tokenCount)
+	})
+}
+
+func TestEditingTriggerEvalTokens_UsesCachedValue(t *testing.T) {
+	expected := 123
+	eval := &editingTriggerEval{
+		sessionID:  uuid.New(),
+		messages:   nil,
+		tokenCount: &expected,
+	}
+
+	tokens, err := eval.Tokens(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, expected, tokens)
+}
+
+func TestSameMessageOrderByID_Branches(t *testing.T) {
+	id1 := uuid.MustParse("00000000-0000-0000-0000-000000000201")
+	id2 := uuid.MustParse("00000000-0000-0000-0000-000000000202")
+	id3 := uuid.MustParse("00000000-0000-0000-0000-000000000203")
+
+	t.Run("length mismatch returns false", func(t *testing.T) {
+		a := []model.Message{{ID: id1}}
+		b := []model.Message{{ID: id1}, {ID: id2}}
+		assert.False(t, sameMessageOrderByID(a, b))
+	})
+
+	t.Run("id mismatch returns false", func(t *testing.T) {
+		a := []model.Message{{ID: id1}, {ID: id2}}
+		b := []model.Message{{ID: id1}, {ID: id3}}
+		assert.False(t, sameMessageOrderByID(a, b))
+	})
+
+	t.Run("same order returns true", func(t *testing.T) {
+		a := []model.Message{{ID: id1}, {ID: id2}}
+		b := []model.Message{{ID: id1}, {ID: id2}}
+		assert.True(t, sameMessageOrderByID(a, b))
+	})
+}
