@@ -363,7 +363,7 @@ export function Hero() {
         {/* Open Source badge */}
         <div className="flex justify-center pt-4">
           <span className="inline-flex items-center px-4 py-1.5 rounded-full text-sm font-medium bg-primary/10 text-primary border border-primary/20">
-            <span className="font-bold open-source-gradient">Open Source</span>&nbsp;Alternative to Claude Skills API
+            <span className="font-bold open-source-gradient">Open Source</span>&nbsp;Alternative to Claude Computer Use
           </span>
         </div>
 

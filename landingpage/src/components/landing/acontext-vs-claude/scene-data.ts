@@ -145,7 +145,7 @@ export const scenes: Scene[] = [
         { content: 'disk = client.disks.create()', type: 'function' },
         { content: 'ctx = SANDBOX_TOOLS.format_context(client, sandbox.sandbox_id, disk.id, mount_skills=[skill.id])', type: 'function' },
         { content: '' },
-        { content: '# 3. Use ANY LLM via OpenRouter', type: 'comment' },
+        { content: '# 3. Use ANY LLM via OpenRouter or any OpenAI-compatible API', type: 'comment' },
         { content: 'response = llm.chat.completions.create(', type: 'function' },
         { content: '    model="openai/gpt-4o",  # Or anthropic/claude-3.5-sonnet, deepseek/deepseek-r1...', type: 'comment' },
         { content: '    messages=[{"role": "system", "content": ctx.get_context_prompt()},', type: 'string' },
@@ -190,7 +190,7 @@ export const scenes: Scene[] = [
     title: 'Any LLM + Skills + SANDBOX TOOLS',
     acontext: {
       title: 'Acontext',
-      subtitle: 'OpenAI · Anthropic · Gemini · OpenRouter',
+      subtitle: 'OpenAI · Anthropic · Gemini · OpenRouter · any compatible API',
       description: 'Mount skills, get context prompt, use any LLM with tool schemas.',
       isHighlighted: true,
       code: [[
@@ -205,7 +205,7 @@ export const scenes: Scene[] = [
         { content: '# Mount skills via SANDBOX_TOOLS', type: 'comment' },
         { content: 'ctx = SANDBOX_TOOLS.format_context(client, sandbox.sandbox_id, disk.id, mount_skills=[skill.id])', type: 'function' },
         { content: '' },
-        { content: '# Use ANY LLM via OpenRouter', type: 'comment' },
+        { content: '# Use ANY LLM via OpenRouter or any OpenAI-compatible API', type: 'comment' },
         { content: 'llm = OpenAI(base_url="https://openrouter.ai/api/v1")', type: 'normal' },
         { content: 'response = llm.chat.completions.create(', type: 'function' },
         { content: '    model="deepseek/deepseek-r1",', type: 'string' },

@@ -374,7 +374,7 @@ export function SandboxCodeComparison() {
       <div className="w-full max-w-[768px] lg:max-w-[1200px] mx-auto">
         {/* Section header */}
         <div className="text-center space-y-4 mb-16">
-          <h2 className="text-3xl sm:text-4xl font-bold">Acontext Skills Execution vs Claude Skills API</h2>
+          <h2 className="text-3xl sm:text-4xl font-bold">Acontext Skills Execution vs Claude Computer Use</h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
             Compare the complexity of traditional approaches with Acontext&apos;s unified SDK
           </p>
