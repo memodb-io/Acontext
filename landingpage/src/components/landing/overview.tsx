@@ -37,7 +37,7 @@ const TABS: FeatureTab[] = [
   },
   {
     id: 'skills',
-    title: 'Agent Skills',
+    title: 'Learn',
     subtitle: 'Skill Sandbox',
     description: 'Package reusable agent skills with instructions and scripts. Mount and execute them in isolated sandboxes.',
     color: TAB_COLORS.skills,
@@ -131,10 +131,10 @@ export function FeaturesOverview() {
       <div className="w-full max-w-[768px] lg:max-w-[1200px] mx-auto mb-8 sm:mb-12">
         <div className="flex flex-col items-center gap-2 lg:gap-3">
           <h2 className="max-w-xl text-3xl sm:text-4xl lg:text-5xl leading-[1.1] text-center font-semibold text-foreground">
-            Features
+            How It Works
           </h2>
           <p className="max-w-xl text-sm sm:text-base lg:text-lg text-center text-muted-foreground">
-            Everything you need to store, observe, and evolve your agent context — from local dev to production.
+            The capabilities that power production AI agents — store context, observe behavior, learn from experience, and monitor everything.
           </p>
         </div>
       </div>
@@ -159,9 +159,10 @@ export function FeaturesOverview() {
                     onClick={() => switchTab(i)}
                     className={cn(
                       'relative px-4 sm:px-5 py-3 sm:py-4 text-left transition-colors flex-1',
+                      tab.id === 'dashboard' && 'opacity-70',
                       isActive
-                        ? 'bg-muted dark:bg-neutral-900'
-                        : 'hover:bg-muted/50 dark:hover:bg-neutral-900/50',
+                        ? 'bg-muted dark:bg-neutral-900 opacity-100'
+                        : 'hover:bg-muted/50 dark:hover:bg-neutral-900/50 hover:opacity-100',
                       i > 0 && 'border-l lg:border-l-0 lg:border-t border-border dark:border-neutral-800',
                     )}
                   >
