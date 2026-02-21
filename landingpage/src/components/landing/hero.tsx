@@ -214,15 +214,15 @@ export function Hero() {
           </p>
           <div className="cursor-pointer flex flex-wrap items-center justify-center gap-x-2 sm:gap-x-3 gap-y-2 text-xs sm:text-sm md:text-base text-muted-foreground/80">
             <span className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-muted/50 border border-border/50 transition-all duration-200 hover:bg-muted/80 hover:border-foreground/40 hover:text-foreground/90">
-              Unified Storage
+              Multi-modal Storage
             </span>
             <span className="text-muted-foreground/40 hidden sm:inline">·</span>
             <span className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-muted/50 border border-border/50 transition-all duration-200 hover:bg-muted/80 hover:border-foreground/40 hover:text-foreground/90">
-              Context Engineering
+              Real-time Observation
             </span>
             <span className="text-muted-foreground/40 hidden sm:inline">·</span>
             <span className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-muted/50 border border-border/50 transition-all duration-200 hover:bg-muted/80 hover:border-foreground/40 hover:text-foreground/90">
-              Observability
+              Skill Learning
             </span>
           </div>
           <p className="text-xs sm:text-sm md:text-base text-muted-foreground/70 leading-relaxed max-w-2xl mx-auto">

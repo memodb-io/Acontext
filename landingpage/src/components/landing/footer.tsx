@@ -8,7 +8,7 @@ const footerLinks = {
     { name: 'Blog', href: '/blog' },
     { name: 'Docs', href: 'https://docs.acontext.io' },
     { name: 'API Reference', href: 'https://docs.acontext.io/api-reference/introduction' },
-    { name: 'Dashboard', href: 'https://docs.acontext.io/observe/dashboard' },
+    { name: 'Dashboard', href: 'https://dash.acontext.io' },
   ],
   company: [{ name: 'Privacy Policy', href: '/privacy' }],
   network: [
