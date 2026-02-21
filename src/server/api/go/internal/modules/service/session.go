@@ -16,6 +16,7 @@ import (
 	mq "github.com/memodb-io/Acontext/internal/infra/queue"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
+	"github.com/memodb-io/Acontext/internal/pkg/editingtrigger"
 	"github.com/memodb-io/Acontext/internal/pkg/editor"
 	"github.com/memodb-io/Acontext/internal/pkg/paging"
 	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
@@ -173,9 +174,9 @@ type StoreMQPublishJSON struct {
 
 type PartIn struct {
 	Type      string                 `json:"type" validate:"required,oneof=text image audio video file tool-call tool-result data thinking"` // "text" | "image" | ...
-	Text      string                 `json:"text,omitempty"`                                                                        // Text sharding
-	FileField string                 `json:"file_field,omitempty"`                                                                  // File field name in the form
-	Meta      map[string]interface{} `json:"meta,omitempty"`                                                                        // [Optional] metadata
+	Text      string                 `json:"text,omitempty"`                                                                                 // Text sharding
+	FileField string                 `json:"file_field,omitempty"`                                                                           // File field name in the form
+	Meta      map[string]interface{} `json:"meta,omitempty"`                                                                                 // [Optional] metadata
 }
 
 func (p *PartIn) Validate() error {
@@ -406,67 +407,7 @@ type GetMessagesInput struct {
 	EditingTrigger *EditingTrigger `json:"editing_trigger,omitempty"`
 }
 
-// EditingTrigger defines trigger configuration for applying edit_strategies.
-// v0 supports only token_gte.
-type EditingTrigger struct {
-	// TokenGte triggers edit strategies when the token count is greater than or equal to this value.
-	TokenGte *int `json:"token_gte,omitempty"`
-}
-
-type editingTriggerEval struct {
-	sessionID uuid.UUID
-	messages  []model.Message
-
-	tokenCount *int
-}
-
-func (e *editingTriggerEval) Tokens(ctx context.Context) (int, error) {
-	if e.tokenCount != nil {
-		return *e.tokenCount, nil
-	}
-
-	tokens, err := tokenizer.CountMessagePartsTokens(ctx, e.messages)
-	if err != nil {
-		return 0, fmt.Errorf("%w: failed to count tokens for editing_trigger session_id=%s: %v", ErrGetMessagesTokenCount, e.sessionID, err)
-	}
-
-	e.tokenCount = &tokens
-	return tokens, nil
-}
-
-type editingTriggerCheck func(ctx context.Context, eval *editingTriggerEval) (bool, error)
-
-func buildEditingTriggerChecks(trigger *EditingTrigger) []editingTriggerCheck {
-	checks := make([]editingTriggerCheck, 0, 1)
-	if trigger == nil {
-		return checks
-	}
-
-	if trigger.TokenGte != nil && *trigger.TokenGte > 0 {
-		threshold := *trigger.TokenGte
-		checks = append(checks, func(ctx context.Context, eval *editingTriggerEval) (bool, error) {
-			tokens, err := eval.Tokens(ctx)
-			if err != nil {
-				return false, err
-			}
-			return tokens >= threshold, nil
-		})
-	}
-
-	return checks
-}
-
-func sameMessageOrderByID(a, b []model.Message) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i].ID != b[i].ID {
-			return false
-		}
-	}
-	return true
-}
+type EditingTrigger = editingtrigger.Trigger
 
 type PublicURL struct {
 	URL      string    `json:"url"`
@@ -543,11 +484,11 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	}
 
 	// Apply edit strategies if provided (before format conversion)
-	var triggerEval *editingTriggerEval
+	var triggerEval *editingtrigger.Eval
 	strategiesApplied := false
 	if len(in.EditStrategies) > 0 {
 		applyEditStrategies := true
-		triggerChecks := buildEditingTriggerChecks(in.EditingTrigger)
+		triggerChecks := editingtrigger.BuildChecks(in.EditingTrigger)
 		triggerEvaluated := len(triggerChecks) > 0
 		if triggerEvaluated {
 			// Evaluate trigger on the same editable prefix used by pin_editing_strategies_at_message.
@@ -567,7 +508,17 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 
 			// OR semantics: apply when any trigger check passes.
 			applyEditStrategies = false
-			eval := &editingTriggerEval{sessionID: in.SessionID, messages: triggerMessages}
+			eval := editingtrigger.NewEval(
+				in.SessionID,
+				triggerMessages,
+				func(ctx context.Context, messages []model.Message) (int, error) {
+					tokens, err := tokenizer.CountMessagePartsTokens(ctx, messages)
+					if err != nil {
+						return 0, fmt.Errorf("%w: failed to count tokens for editing_trigger session_id=%s: %v", ErrGetMessagesTokenCount, in.SessionID, err)
+					}
+					return tokens, nil
+				},
+			)
 			triggerEval = eval
 			for _, check := range triggerChecks {
 				ok, err := check(ctx, eval)
@@ -621,15 +572,18 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 		}
 	}
 
-	if triggerEval != nil && triggerEval.tokenCount != nil && !strategiesApplied && sameMessageOrderByID(triggerEval.messages, out.Items) {
-		out.ThisTimeTokens = *triggerEval.tokenCount
-	} else {
-		thisTimeTokens, err := tokenizer.CountMessagePartsTokens(ctx, out.Items)
-		if err != nil {
-			return nil, fmt.Errorf("%w: session_id=%s: %v", ErrGetMessagesTokenCount, in.SessionID, err)
+	if triggerEval != nil {
+		if cachedTokens, ok := triggerEval.CachedTokens(); ok && !strategiesApplied && editingtrigger.SameMessageOrderByID(triggerEval.Messages(), out.Items) {
+			out.ThisTimeTokens = cachedTokens
+			return out, nil
 		}
-		out.ThisTimeTokens = thisTimeTokens
 	}
+
+	thisTimeTokens, err := tokenizer.CountMessagePartsTokens(ctx, out.Items)
+	if err != nil {
+		return nil, fmt.Errorf("%w: session_id=%s: %v", ErrGetMessagesTokenCount, in.SessionID, err)
+	}
+	out.ThisTimeTokens = thisTimeTokens
 
 	return out, nil
 }
