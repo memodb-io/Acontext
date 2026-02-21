@@ -1,5 +1,6 @@
 .claude
 .cursorrules
+plans/
 .DS_Store
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
