@@ -1,38 +1,55 @@
 'use client'
 
 import { useRef, useEffect, useState } from 'react'
-import { Sparkles, Layers, HardDrive, Github, Database, Activity, Plug } from 'lucide-react'
+import { Layers, HardDrive, Github, Database, Activity, Plug } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-type FeatureTheme = 'sparkles' | 'layers' | 'disk' | 'github' | 'database' | 'activity' | 'plug'
+type FeatureTheme = 'layers' | 'disk' | 'github' | 'database' | 'activity' | 'plug'
 
 interface Feature {
   title: string
   description: string
-  Icon: typeof Sparkles
+  Icon: typeof Layers
   theme: FeatureTheme
 }
 
 const leftFeatures: Feature[] = [
   {
-    title: 'Sandbox Skills',
-    description:
-      'Enable agents to practice and learn in isolated environments. Capture successful tool-calling patterns and transform them into reusable skills.',
-    Icon: Sparkles,
-    theme: 'sparkles',
-  },
-  {
     title: 'Context Engineering',
-    description: 'Reduction, Compression, Offloading, Claude skills …… all in one backend',
+    description: 'Edit, compress, and summarize context on-the-fly — token_limit, middle_out, and session summary strategies keep your agents efficient without modifying stored messages.',
     Icon: Layers,
     theme: 'layers',
   },
   {
+    title: 'Multimodal Context Storage',
+    description:
+      'Unified, persistent storage for all agent data — messages, files, and skills — eliminating fragmented backends (DB, S3, Redis).',
+    Icon: Database,
+    theme: 'database',
+  },
+  {
     title: 'Artifact Disk',
     description:
-      'Filesystem-like workspace to store and share multi-modal outputs (.md, code, reports), ready for multiple agents collaboration.',
+      'Filesystem-like workspace to store and share multi-modal outputs (.md, code, reports), ready for multi-agent collaboration.',
     Icon: HardDrive,
     theme: 'disk',
+  },
+]
+
+const rightFeatures: Feature[] = [
+  {
+    title: 'Background Observer',
+    description:
+      'Automatically extracts tasks from agent conversations and tracks their status in real-time — from pending to running to success or failure.',
+    Icon: Activity,
+    theme: 'activity',
+  },
+  {
+    title: 'SDKs & Integrations',
+    description:
+      'Ready to use with OpenAI, Anthropic, LangGraph, Agno, and other popular agent frameworks.',
+    Icon: Plug,
+    theme: 'plug',
   },
   {
     title: 'Open Source',
@@ -40,30 +57,6 @@ const leftFeatures: Feature[] = [
       'Architecture built on community standards. Every major dependency has a direct open-source alternative to ensure stack portability.',
     Icon: Github,
     theme: 'github',
-  },
-]
-
-const rightFeatures: Feature[] = [
-  {
-    title: 'Multimodal Context Storage',
-    description:
-      'Unified, persistent storage for all agent data, eliminating fragmented backends (DB, S3, Redis).',
-    Icon: Database,
-    theme: 'database',
-  },
-  {
-    title: 'Background Observer',
-    description:
-      'An intelligent scratchpad for long-running tasks, trace agent status and success rates in real-time.',
-    Icon: Activity,
-    theme: 'activity',
-  },
-  {
-    title: 'SDKs & Integrations',
-    description:
-      'Ready to use with OpenAI, Anthropic, LangGraph, Agno, and other popular agent frameworks',
-    Icon: Plug,
-    theme: 'plug',
   },
 ]
 
@@ -119,17 +112,6 @@ function FeatureCanvas({ theme, isHovered }: { theme: FeatureTheme; isHovered: b
       const h = rect.height
 
       switch (theme) {
-        case 'sparkles':
-          particlesRef.current = Array.from({ length: 20 }, () => ({
-            x: Math.random() * w,
-            y: Math.random() * h,
-            size: Math.random() * 3 + 1,
-            alpha: Math.random(),
-            speed: Math.random() * 0.02 + 0.01,
-            phase: Math.random() * Math.PI * 2,
-          }))
-          break
-
         case 'layers':
           particlesRef.current = Array.from({ length: 5 }, (_, i) => ({
             y: h * 0.3 + i * (h * 0.12),
@@ -205,40 +187,6 @@ function FeatureCanvas({ theme, isHovered }: { theme: FeatureTheme; isHovered: b
       const color = (alpha: number) => `rgba(${rgb}, ${alpha})`
 
       switch (theme) {
-        case 'sparkles': {
-          const particles = particlesRef.current as {
-            x: number
-            y: number
-            size: number
-            alpha: number
-            speed: number
-            phase: number
-          }[]
-          particles.forEach((p) => {
-            p.phase += p.speed * speedMultiplier
-            const twinkle = (Math.sin(p.phase) + 1) / 2
-            ctx.beginPath()
-            ctx.arc(p.x, p.y, p.size * (0.5 + twinkle * 0.5), 0, Math.PI * 2)
-            ctx.fillStyle = color(twinkle * baseAlpha)
-            ctx.fill()
-
-            // Draw sparkle rays
-            if (twinkle > 0.7) {
-              ctx.strokeStyle = color((twinkle - 0.7) * baseAlpha * 2)
-              ctx.lineWidth = 0.5
-              const rayLen = p.size * 2
-              for (let i = 0; i < 4; i++) {
-                const angle = (i / 4) * Math.PI * 2 + time * 0.5
-                ctx.beginPath()
-                ctx.moveTo(p.x, p.y)
-                ctx.lineTo(p.x + Math.cos(angle) * rayLen, p.y + Math.sin(angle) * rayLen)
-                ctx.stroke()
-              }
-            }
-          })
-          break
-        }
-
         case 'layers': {
           const layers = particlesRef.current as {
             y: number
@@ -556,28 +504,27 @@ export function Features() {
         {/* Section header */}
         <div className="text-center space-y-4 mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold">
-            Context Data Platform for Self-learning Agents
+            Platform Capabilities
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            Everything you need to build, deploy, and scale production-ready AI agents
+            The production-grade infrastructure your agents need — storage, observability, integrations, and more.
           </p>
         </div>
 
-        {/* Bento grid - two columns */}
+        {/* Bento grid - two columns, 3+3 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Left column - 4 cards */}
+          {/* Left column - 3 cards */}
           <div className="flex flex-col gap-4">
             <BentoCard feature={leftFeatures[0]} className="min-h-[180px]" />
-            <BentoCard feature={leftFeatures[1]} className="min-h-[160px]" />
-            <BentoCard feature={leftFeatures[2]} className="min-h-[160px]" />
-            <BentoCard feature={leftFeatures[3]} className="min-h-[160px]" />
+            <BentoCard feature={leftFeatures[1]} className="min-h-[180px]" />
+            <BentoCard feature={leftFeatures[2]} className="min-h-[180px]" />
           </div>
 
           {/* Right column - 3 cards */}
           <div className="flex flex-col gap-4">
             <BentoCard feature={rightFeatures[0]} className="min-h-[180px]" />
-            <BentoCard feature={rightFeatures[1]} className="min-h-[200px]" />
-            <BentoCard feature={rightFeatures[2]} className="flex-1 min-h-[200px]" />
+            <BentoCard feature={rightFeatures[1]} className="min-h-[180px]" />
+            <BentoCard feature={rightFeatures[2]} className="flex-1 min-h-[180px]" />
           </div>
         </div>
       </div>
