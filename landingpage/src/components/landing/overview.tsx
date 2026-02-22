@@ -38,11 +38,11 @@ const TABS: FeatureTab[] = [
   {
     id: 'skills',
     title: 'Learn',
-    subtitle: 'Skill Sandbox',
-    description: 'Package reusable agent skills with instructions and scripts. Mount and execute them in isolated sandboxes.',
+    subtitle: 'Skill Learning',
+    description: 'Attach a session to a Learning Space and Acontext automatically distills successful task outcomes into reusable skills — your agents improve with every run.',
     color: TAB_COLORS.skills,
     icon: Sparkles,
-    duration: 12_000,
+    duration: 11_000,
     Demo: SkillsDemo,
   },
   {

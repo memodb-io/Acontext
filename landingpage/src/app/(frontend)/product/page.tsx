@@ -11,7 +11,7 @@ const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://acontext.io'
 export const metadata: Metadata = {
   title: 'Product - Acontext',
   description:
-    'Explore Acontext features - Context Data Platform for AI Agents with multi-modal storage, observability, and experience learning',
+    'Explore Acontext features - Context Data Platform that Learns Skills with multi-modal storage, observability, and automatic skill learning',
   alternates: {
     canonical: `${baseUrl}/product`,
   },
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 export default function ProductPage() {
   const softwareJsonLd = createSoftwareApplicationJsonLd(
     'Acontext',
-    'Context Data Platform for AI Agents - Unifies multi-modal context data storage, observability, and experience learning for production agents.',
+    'Context Data Platform that Learns Skills - Unifies multi-modal context data storage, observability, and automatic skill learning for production agents.',
     baseUrl,
     {
       applicationCategory: 'BusinessApplication',

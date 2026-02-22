@@ -30,6 +30,7 @@ import {
   Edit3,
   FileCode,
   Gauge,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -112,6 +113,13 @@ const availableFeatures: Feature[] = [
     icon: Layers,
     status: 'available',
     docsUrl: 'https://docs.acontext.io/store/skill',
+  },
+  {
+    title: 'Learning Spaces',
+    description: 'Automatic skill learning from agent sessions — distills task outcomes into reusable skills',
+    icon: Sparkles,
+    status: 'available',
+    docsUrl: 'https://docs.acontext.io/learn/self-learning',
   },
   {
     title: 'Task Monitoring',

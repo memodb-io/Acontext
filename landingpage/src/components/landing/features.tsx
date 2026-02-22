@@ -1,10 +1,10 @@
 'use client'
 
 import { useRef, useEffect, useState } from 'react'
-import { Layers, HardDrive, Github, Database, Activity, Plug } from 'lucide-react'
+import { Layers, HardDrive, Database, Activity, Plug, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-type FeatureTheme = 'layers' | 'disk' | 'github' | 'database' | 'activity' | 'plug'
+type FeatureTheme = 'layers' | 'disk' | 'database' | 'activity' | 'plug' | 'sparkles'
 
 interface Feature {
   title: string
@@ -45,18 +45,18 @@ const rightFeatures: Feature[] = [
     theme: 'activity',
   },
   {
+    title: 'Self-Learning',
+    description:
+      'Attach sessions to a Learning Space and Acontext automatically distills successful task outcomes into skills — agents improve with every run without manual curation.',
+    Icon: Sparkles,
+    theme: 'sparkles',
+  },
+  {
     title: 'SDKs & Integrations',
     description:
       'Ready to use with OpenAI, Anthropic, LangGraph, Agno, and other popular agent frameworks.',
     Icon: Plug,
     theme: 'plug',
-  },
-  {
-    title: 'Open Source',
-    description:
-      'Architecture built on community standards. Every major dependency has a direct open-source alternative to ensure stack portability.',
-    Icon: Github,
-    theme: 'github',
   },
 ]
 
@@ -131,16 +131,6 @@ function FeatureCanvas({ theme, isHovered }: { theme: FeatureTheme; isHovered: b
           }))
           break
 
-        case 'github':
-          particlesRef.current = Array.from({ length: 12 }, () => ({
-            x: Math.random() * w,
-            y: Math.random() * h,
-            vx: (Math.random() - 0.5) * 0.3,
-            vy: (Math.random() - 0.5) * 0.3,
-            size: 3 + Math.random() * 2,
-          }))
-          break
-
         case 'database':
           particlesRef.current = Array.from({ length: 15 }, () => ({
             x: w * 0.3 + Math.random() * w * 0.4,
@@ -166,6 +156,17 @@ function FeatureCanvas({ theme, isHovered }: { theme: FeatureTheme; isHovered: b
             targetY: h * 0.3 + Math.floor((i + 1) / 3) * (h * 0.4),
             progress: Math.random(),
             speed: 0.005 + Math.random() * 0.005,
+          }))
+          break
+
+        case 'sparkles':
+          particlesRef.current = Array.from({ length: 20 }, () => ({
+            x: Math.random() * w,
+            y: Math.random() * h,
+            size: 1 + Math.random() * 3,
+            phase: Math.random() * Math.PI * 2,
+            speed: 0.02 + Math.random() * 0.03,
+            vy: -0.2 - Math.random() * 0.3,
           }))
           break
       }
@@ -246,47 +247,6 @@ function FeatureCanvas({ theme, isHovered }: { theme: FeatureTheme; isHovered: b
             const y = centerY + Math.sin(d.angle) * d.radius
             ctx.beginPath()
             ctx.arc(x, y, d.size, 0, Math.PI * 2)
-            ctx.fillStyle = color(baseAlpha)
-            ctx.fill()
-          })
-          break
-        }
-
-        case 'github': {
-          const nodes = particlesRef.current as {
-            x: number
-            y: number
-            vx: number
-            vy: number
-            size: number
-          }[]
-          // Move nodes
-          nodes.forEach((n) => {
-            n.x += n.vx * speedMultiplier
-            n.y += n.vy * speedMultiplier
-            if (n.x < 0 || n.x > w) n.vx *= -1
-            if (n.y < 0 || n.y > h) n.vy *= -1
-          })
-
-          // Draw connections
-          ctx.strokeStyle = color(baseAlpha * 0.4)
-          ctx.lineWidth = 0.5
-          nodes.forEach((n1, i) => {
-            nodes.slice(i + 1).forEach((n2) => {
-              const dist = Math.hypot(n1.x - n2.x, n1.y - n2.y)
-              if (dist < 80) {
-                ctx.beginPath()
-                ctx.moveTo(n1.x, n1.y)
-                ctx.lineTo(n2.x, n2.y)
-                ctx.stroke()
-              }
-            })
-          })
-
-          // Draw nodes
-          nodes.forEach((n) => {
-            ctx.beginPath()
-            ctx.arc(n.x, n.y, n.size, 0, Math.PI * 2)
             ctx.fillStyle = color(baseAlpha)
             ctx.fill()
           })
@@ -427,6 +387,31 @@ function FeatureCanvas({ theme, isHovered }: { theme: FeatureTheme; isHovered: b
           })
           break
         }
+
+        case 'sparkles': {
+          const stars = particlesRef.current as {
+            x: number
+            y: number
+            size: number
+            phase: number
+            speed: number
+            vy: number
+          }[]
+          stars.forEach((s) => {
+            s.phase += s.speed * speedMultiplier
+            s.y += s.vy * speedMultiplier
+            if (s.y < -10) {
+              s.y = h + 10
+              s.x = Math.random() * w
+            }
+            const alpha = ((Math.sin(s.phase) + 1) / 2) * baseAlpha
+            ctx.beginPath()
+            ctx.arc(s.x, s.y, s.size, 0, Math.PI * 2)
+            ctx.fillStyle = color(alpha)
+            ctx.fill()
+          })
+          break
+        }
       }
 
       time++
@@ -507,7 +492,7 @@ export function Features() {
             Platform Capabilities
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            The production-grade infrastructure your agents need — storage, observability, integrations, and more.
+            The production-grade infrastructure your agents need — storage, observability, self-learning, and more.
           </p>
         </div>
 

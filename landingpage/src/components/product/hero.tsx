@@ -387,7 +387,7 @@ export function Hero() {
           <span className="hero-text-gradient">Context Data Platform</span>
         </h1>
         <p className="text-lg sm:text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-          Store, observe, and learn from your AI agents
+          Store, observe, and let your agents learn and grow from every run
         </p>
       </div>
     </section>

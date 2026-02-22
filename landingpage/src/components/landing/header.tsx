@@ -353,6 +353,25 @@ export function Header() {
                             <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                           </div>
                         </Link>
+                        <Link
+                          href="https://docs.acontext.io/learn/self-learning"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
+                          aria-label="Learning Spaces (opens in new tab)"
+                        >
+                          <div className="flex items-center justify-between gap-2.5">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded bg-pink-500/10 shrink-0 flex items-center justify-center">
+                                <Sparkles className="h-4 w-4 text-pink-500" />
+                              </div>
+                              <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                                Learning Spaces
+                              </span>
+                            </div>
+                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                          </div>
+                        </Link>
                       </div>
                       {/* Right Column */}
                       <div className="flex-1 py-1">
@@ -888,6 +907,25 @@ export function Header() {
                     <span className="flex w-full items-center justify-between">
                       <span className="flex items-center gap-x-0.5 text-base font-normal text-foreground">
                         Product Spotlight
+                      </span>
+                      <Sparkles className="size-5 opacity-50" />
+                    </span>
+                  </div>
+                </div>
+              </Link>
+              <Link
+                href="https://docs.acontext.io/learn/self-learning"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={handleMobileLinkClick}
+                className="group outline-none w-full"
+                aria-label="Learning Spaces (opens in new tab)"
+              >
+                <div className="flex gap-x-1 text-center font-sans transition justify-center items-center shrink-0 select-none group-focus:outline-none group-disabled:opacity-75 group-disabled:pointer-events-none disabled:opacity-50 text-xs border-b border-border py-3 w-full">
+                  <div className="w-full transition">
+                    <span className="flex w-full items-center justify-between">
+                      <span className="flex items-center gap-x-0.5 text-base font-normal text-foreground">
+                        Learning Spaces
                       </span>
                       <Sparkles className="size-5 opacity-50" />
                     </span>
