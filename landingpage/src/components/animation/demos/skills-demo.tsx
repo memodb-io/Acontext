@@ -4,14 +4,13 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import {
   Sparkles,
-  Upload,
-  Package,
-  FileText,
-  FolderOpen,
-  Play,
   Check,
-  Terminal,
   BookOpen,
+  Brain,
+  CheckCircle2,
+  RefreshCw,
+  FileText,
+  Plus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ToolCallLog } from './shared'
@@ -20,31 +19,31 @@ import { ToolCallLog } from './shared'
 
 type Stage =
   | 'init'
-  | 'show-package'
-  | 'uploading'
-  | 'uploaded'
-  | 'logged-upload'
-  | 'catalog'
-  | 'logged-catalog'
-  | 'sandbox-mount'
-  | 'logged-mount'
-  | 'executing'
-  | 'success'
-  | 'logged-success'
+  | 'show-task'
+  | 'task-done'
+  | 'attach'
+  | 'logged-attach'
+  | 'distilling'
+  | 'logged-distill'
+  | 'skill-update'
+  | 'logged-update'
+  | 'skill-create'
+  | 'logged-create'
+  | 'complete'
 
 const TIMELINE: Record<Stage, number> = {
   'init': 0,
-  'show-package': 600,
-  'uploading': 1400,
-  'uploaded': 2800,
-  'logged-upload': 3400,
-  'catalog': 4200,
-  'logged-catalog': 5000,
-  'sandbox-mount': 5800,
-  'logged-mount': 6600,
-  'executing': 7400,
-  'success': 9200,
-  'logged-success': 10000,
+  'show-task': 500,
+  'task-done': 1500,
+  'attach': 2500,
+  'logged-attach': 3200,
+  'distilling': 4000,
+  'logged-distill': 5200,
+  'skill-update': 6200,
+  'logged-update': 7000,
+  'skill-create': 8000,
+  'logged-create': 8800,
+  'complete': 10000,
 }
 
 const STAGES: Stage[] = Object.keys(TIMELINE) as Stage[]
@@ -52,39 +51,38 @@ const STAGES: Stage[] = Object.keys(TIMELINE) as Stage[]
 // ─── Tool calls ─────────────────────────────────────────────────────────────
 
 const TOOL_CALLS = [
-  { id: '1', message: 'Uploaded skill: data-extraction', label: 'Skills', icon: Upload },
-  { id: '2', message: 'Skill available in catalog', label: 'Skills', icon: Sparkles },
-  { id: '3', message: 'Mounted to sandbox env-42', label: 'Sandbox', icon: Package },
-  { id: '4', message: 'Executed successfully', label: 'Skills', icon: Check, iconClassName: 'text-emerald-400' },
+  { id: '1', message: 'Session attached to Learning Space', label: 'Learning', icon: Sparkles },
+  { id: '2', message: 'Distilling task outcomes...', label: 'Learning', icon: Brain },
+  { id: '3', message: 'Updated skill: deployment-sop', label: 'Skills', icon: RefreshCw },
+  { id: '4', message: 'Created skill: api-docs-checklist', label: 'Skills', icon: Plus },
 ]
 
 const STAGE_TO_LOG: Record<Stage, number> = {
-  'init': 0, 'show-package': 0, 'uploading': 0,
-  'uploaded': 0, 'logged-upload': 1,
-  'catalog': 1, 'logged-catalog': 2,
-  'sandbox-mount': 2, 'logged-mount': 3,
-  'executing': 3, 'success': 3, 'logged-success': 4,
+  'init': 0, 'show-task': 0, 'task-done': 0,
+  'attach': 0, 'logged-attach': 1,
+  'distilling': 1, 'logged-distill': 2,
+  'skill-update': 2, 'logged-update': 3,
+  'skill-create': 3, 'logged-create': 4,
+  'complete': 4,
 }
 
-// ─── Skill package files ─────────────────────────────────────────────────────
+// ─── Skill entries ──────────────────────────────────────────────────────────
 
-const SKILL_FILES = [
-  { name: 'SKILL.md', icon: BookOpen, type: 'instructions' },
-  { name: 'scripts/extract.py', icon: Play, type: 'script' },
-  { name: 'resources/template.json', icon: FileText, type: 'resource' },
-]
+interface SkillEntry {
+  name: string
+  status: 'default' | 'updated' | 'new'
+  entries: number
+}
 
 // ─── Main Skills Demo ───────────────────────────────────────────────────────
 
 export function SkillsDemo() {
   const [stage, setStage] = useState<Stage>('init')
   const [logCount, setLogCount] = useState(0)
-  const [uploadProgress, setUploadProgress] = useState(0)
 
   useEffect(() => {
     setStage('init')
     setLogCount(0)
-    setUploadProgress(0)
 
     const timers: ReturnType<typeof setTimeout>[] = []
     for (const [s, delay] of Object.entries(TIMELINE)) {
@@ -101,52 +99,41 @@ export function SkillsDemo() {
     return () => timers.forEach(clearTimeout)
   }, [])
 
-  // Upload progress bar
-  useEffect(() => {
-    if (stage !== 'uploading') return
-    setUploadProgress(0)
-    const start = Date.now()
-    const dur = 1200
-    const tick = () => {
-      const p = Math.min((Date.now() - start) / dur, 1)
-      setUploadProgress(p)
-      if (p < 1) requestAnimationFrame(tick)
-    }
-    requestAnimationFrame(tick)
-  }, [stage])
-
   const si = STAGES.indexOf(stage)
-  const showPackage = si >= STAGES.indexOf('show-package')
-  const isUploading = si >= STAGES.indexOf('uploading')
-  const isUploaded = si >= STAGES.indexOf('uploaded')
-  const showCatalog = si >= STAGES.indexOf('catalog')
-  const showSandbox = si >= STAGES.indexOf('sandbox-mount')
-  const isExecuting = si >= STAGES.indexOf('executing')
-  const showSuccess = si >= STAGES.indexOf('success')
+  const showTask = si >= STAGES.indexOf('show-task')
+  const taskDone = si >= STAGES.indexOf('task-done')
+  const showAttach = si >= STAGES.indexOf('attach')
+  const isDistilling = si >= STAGES.indexOf('distilling')
+  const showSkillUpdate = si >= STAGES.indexOf('skill-update')
+  const showSkillCreate = si >= STAGES.indexOf('skill-create')
+  const isComplete = si >= STAGES.indexOf('complete')
+
+  const skills: SkillEntry[] = [
+    { name: 'daily-logs', status: 'default', entries: 12 },
+    { name: 'user-general-facts', status: 'default', entries: 8 },
+    {
+      name: 'deployment-sop',
+      status: showSkillUpdate ? 'updated' : 'default',
+      entries: showSkillUpdate ? 6 : 5,
+    },
+    ...(showSkillCreate
+      ? [{ name: 'api-docs-checklist', status: 'new' as const, entries: 1 }]
+      : []),
+  ]
 
   return (
     <div className="h-full flex items-center justify-center p-3 sm:p-4">
       <div className="w-full max-w-4xl flex flex-col lg:flex-row gap-4">
-        {/* Left: Skill flow */}
+        {/* Left: Session + Learning Space */}
         <div className="flex-3 min-w-0 flex flex-col gap-3">
-          {/* Skill Package */}
+          {/* Completed Task */}
           <div className="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden bg-white dark:bg-zinc-950 shadow-md dark:shadow-2xl">
             <div className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center px-3 py-2">
-              <Package className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 mr-2" />
-              <span className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400">Skill Package</span>
-              {isUploading && !isUploaded && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="ml-auto flex items-center gap-1.5"
-                >
-                  <Upload className="w-3 h-3 text-violet-500 animate-pulse" />
-                  <span className="text-[10px] sm:text-xs text-violet-600 dark:text-violet-400">
-                    Uploading...
-                  </span>
-                </motion.div>
-              )}
-              {isUploaded && (
+              <CheckCircle2 className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 mr-2" />
+              <span className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400">
+                Session Task
+              </span>
+              {taskDone && (
                 <motion.div
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -154,65 +141,60 @@ export function SkillsDemo() {
                 >
                   <Check className="w-3 h-3 text-emerald-500" />
                   <span className="text-[10px] sm:text-xs text-emerald-600 dark:text-emerald-400">
-                    Stored
+                    Success
                   </span>
                 </motion.div>
               )}
             </div>
             <div className="p-3 sm:p-4">
               <AnimatePresence>
-                {showPackage && (
+                {showTask && (
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className="space-y-2"
                   >
-                    {/* Skill name header */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <Sparkles className="w-4 h-4 text-violet-500" />
-                      <span className="text-xs sm:text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                        data-extraction
+                    <div className="flex items-center gap-2 p-2 border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/30 rounded">
+                      <FileText className="w-3 h-3 text-zinc-400 dark:text-zinc-500 shrink-0" />
+                      <span className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 flex-1">
+                        Deploy API to staging
                       </span>
-                      <span className="text-[10px] text-zinc-400 dark:text-zinc-600">v1.0</span>
+                      <motion.span
+                        key={taskDone ? 'done' : 'running'}
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className={cn(
+                          'text-[10px] sm:text-xs px-1.5 py-0.5 border font-mono uppercase',
+                          taskDone
+                            ? 'bg-emerald-100/50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
+                            : 'bg-blue-100/50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border-blue-300 dark:border-blue-700',
+                        )}
+                      >
+                        {taskDone ? 'success' : 'running'}
+                      </motion.span>
+                    </div>
+                    <div className="flex items-center gap-2 p-2 border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/30 rounded">
+                      <FileText className="w-3 h-3 text-zinc-400 dark:text-zinc-500 shrink-0" />
+                      <span className="text-xs sm:text-sm text-zinc-700 dark:text-zinc-300 flex-1">
+                        Update API documentation
+                      </span>
+                      <motion.span
+                        key={taskDone ? 'done2' : 'pending'}
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className={cn(
+                          'text-[10px] sm:text-xs px-1.5 py-0.5 border font-mono uppercase',
+                          taskDone
+                            ? 'bg-emerald-100/50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-700'
+                            : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 border-zinc-300 dark:border-zinc-700',
+                        )}
+                      >
+                        {taskDone ? 'success' : 'pending'}
+                      </motion.span>
                     </div>
 
-                    {/* File list */}
-                    {SKILL_FILES.map((file, i) => (
-                      <motion.div
-                        key={file.name}
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.15, type: 'spring', stiffness: 300, damping: 20 }}
-                        className="flex items-center gap-2 px-2 py-1.5 border border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/30 rounded"
-                      >
-                        <file.icon className="w-3 h-3 text-zinc-400 dark:text-zinc-500 shrink-0" />
-                        <span className="text-xs text-zinc-600 dark:text-zinc-400 font-mono truncate">
-                          {file.name}
-                        </span>
-                        <span className="text-[10px] text-zinc-400 dark:text-zinc-600 ml-auto capitalize">
-                          {file.type}
-                        </span>
-                      </motion.div>
-                    ))}
-
-                    {/* Upload progress */}
-                    {isUploading && !isUploaded && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="mt-2"
-                      >
-                        <div className="h-1 bg-zinc-200 dark:bg-zinc-800 rounded-full overflow-hidden">
-                          <motion.div
-                            className="h-full bg-violet-500 rounded-full"
-                            style={{ width: `${uploadProgress * 100}%` }}
-                          />
-                        </div>
-                      </motion.div>
-                    )}
-
-                    {/* Catalog badge after upload */}
-                    {showCatalog && (
+                    {/* Attach indicator */}
+                    {showAttach && (
                       <motion.div
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -221,11 +203,25 @@ export function SkillsDemo() {
                       >
                         <Sparkles className="w-3 h-3 text-violet-500 dark:text-violet-400" />
                         <span className="text-[10px] sm:text-xs text-violet-600 dark:text-violet-400">
-                          Available in skill catalog
+                          Attached to Learning Space
                         </span>
-                        <span className="text-[10px] text-violet-400 dark:text-violet-600 ml-auto">
-                          3 files
-                        </span>
+                        {isDistilling && (
+                          <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="ml-auto flex items-center gap-1"
+                          >
+                            <motion.div
+                              animate={{ rotate: 360 }}
+                              transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                            >
+                              <Brain className="w-3 h-3 text-violet-400 dark:text-violet-500" />
+                            </motion.div>
+                            <span className="text-[10px] text-violet-400 dark:text-violet-500">
+                              {isComplete ? 'Done' : 'Distilling...'}
+                            </span>
+                          </motion.div>
+                        )}
                       </motion.div>
                     )}
                   </motion.div>
@@ -234,9 +230,9 @@ export function SkillsDemo() {
             </div>
           </div>
 
-          {/* Sandbox Execution */}
+          {/* Learning Space */}
           <AnimatePresence>
-            {showSandbox && (
+            {showAttach && (
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -244,10 +240,11 @@ export function SkillsDemo() {
                 className="border border-zinc-200 dark:border-zinc-700 rounded-lg overflow-hidden bg-white dark:bg-zinc-950 shadow-md dark:shadow-2xl"
               >
                 <div className="bg-zinc-50 dark:bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800 flex items-center px-3 py-2">
-                  <Terminal className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 mr-2" />
-                  <span className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400">Sandbox</span>
-                  <span className="text-[10px] text-zinc-400 dark:text-zinc-600 ml-2 font-mono">env-42</span>
-                  {showSuccess && (
+                  <BookOpen className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 mr-2" />
+                  <span className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400">
+                    Learning Space
+                  </span>
+                  {isComplete && (
                     <motion.div
                       initial={{ scale: 0 }}
                       animate={{ scale: 1 }}
@@ -257,82 +254,60 @@ export function SkillsDemo() {
                     </motion.div>
                   )}
                 </div>
-                <div className="p-3 sm:p-4">
-                  {/* Mounted skill path */}
-                  <div className="flex items-center gap-2 mb-2">
-                    <FolderOpen className="w-3 h-3 text-zinc-400 dark:text-zinc-500" />
-                    <span className="text-[10px] sm:text-xs text-zinc-400 dark:text-zinc-500 font-mono">
-                      /skills/data-extraction/
-                    </span>
-                  </div>
-
-                  {/* Terminal output */}
-                  <div className="font-mono text-[10px] sm:text-xs space-y-0.5">
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="text-zinc-400 dark:text-zinc-500"
+                <div className="p-3 sm:p-4 space-y-1.5">
+                  {skills.map((skill, i) => (
+                    <motion.div
+                      key={skill.name}
+                      initial={
+                        skill.status === 'new' ? { opacity: 0, x: -8 } : { opacity: 1, x: 0 }
+                      }
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                      className={cn(
+                        'flex items-center gap-2 px-2 py-1.5 rounded border',
+                        skill.status === 'updated'
+                          ? 'border-violet-300/50 dark:border-violet-700/50 bg-violet-50/30 dark:bg-violet-950/20'
+                          : skill.status === 'new'
+                            ? 'border-emerald-300/50 dark:border-emerald-700/50 bg-emerald-50/30 dark:bg-emerald-950/20'
+                            : 'border-zinc-200/60 dark:border-zinc-800/60 bg-zinc-50/50 dark:bg-zinc-900/30',
+                      )}
                     >
-                      $ cat SKILL.md | head -3
-                    </motion.p>
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.2 }}
-                      className="text-zinc-600 dark:text-zinc-400"
-                    >
-                      name: data-extraction
-                    </motion.p>
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.35 }}
-                      className="text-zinc-600 dark:text-zinc-400"
-                    >
-                      description: Extract structured data from docs
-                    </motion.p>
-
-                    {isExecuting && (
-                      <>
-                        <motion.p
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ delay: 0.1 }}
-                          className="text-zinc-400 dark:text-zinc-500 mt-1"
+                      <Sparkles
+                        className={cn(
+                          'w-3 h-3 shrink-0',
+                          skill.status === 'updated'
+                            ? 'text-violet-500'
+                            : skill.status === 'new'
+                              ? 'text-emerald-500'
+                              : 'text-zinc-400 dark:text-zinc-500',
+                        )}
+                      />
+                      <span className="text-xs text-zinc-600 dark:text-zinc-400 font-mono truncate flex-1">
+                        {skill.name}
+                      </span>
+                      {skill.status === 'updated' && (
+                        <motion.span
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="text-[10px] text-violet-500 dark:text-violet-400 font-medium"
                         >
-                          $ python scripts/extract.py --input docs/
-                        </motion.p>
-                        <motion.p
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ delay: 0.3 }}
-                          className="text-zinc-600 dark:text-zinc-400"
+                          +1 entry
+                        </motion.span>
+                      )}
+                      {skill.status === 'new' && (
+                        <motion.span
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="text-[10px] text-emerald-500 dark:text-emerald-400 font-medium"
                         >
-                          Processing 3 documents...
-                        </motion.p>
-                      </>
-                    )}
-
-                    {showSuccess && (
-                      <>
-                        <motion.p
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="text-zinc-600 dark:text-zinc-400"
-                        >
-                          Extracted 12 records to output.json
-                        </motion.p>
-                        <motion.p
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ delay: 0.15 }}
-                          className="text-emerald-400"
-                        >
-                          Done in 0.8s
-                        </motion.p>
-                      </>
-                    )}
-                  </div>
+                          NEW
+                        </motion.span>
+                      )}
+                      <span className="text-[10px] text-zinc-400 dark:text-zinc-600">
+                        {skill.entries} entries
+                      </span>
+                    </motion.div>
+                  ))}
                 </div>
               </motion.div>
             )}

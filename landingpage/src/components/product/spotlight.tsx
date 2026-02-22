@@ -3,12 +3,12 @@
 import { useState } from 'react'
 import {
   MessageSquare,
-  FileText,
   BarChart3,
   BookOpen,
   ArrowRight,
   Terminal,
   HardDrive,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -63,12 +63,12 @@ const spotlightCards: SpotlightCard[] = [
     gradient: 'from-indigo-500/20 to-blue-500/20',
   },
   {
-    title: 'Dashboard',
+    title: 'Learning Spaces',
     description:
-      'View Context, Artifacts, Tasks and Skills in a unified dashboard. Monitor agent performance and manage resources with an intuitive interface.',
-    icon: FileText,
-    href: 'https://dash.acontext.io',
-    gradient: 'from-purple-500/20 to-pink-500/20',
+      'Create a learning space and attach sessions. Acontext automatically extracts successful task patterns and builds reusable skills from each run.',
+    icon: Sparkles,
+    href: 'https://docs.acontext.io/learn/self-learning',
+    gradient: 'from-pink-500/20 to-rose-500/20',
   },
 ]
 
