@@ -43,9 +43,9 @@ Each task contains:
 Tasks represent **user requests**, not agent execution steps. "Book a restaurant in SF" is one task — the agent's sub-steps (search, compare, reserve) are recorded as progress within that task.
 </Note>
 
-## Feeds Into Self-Learning
+## Feeds Into Skill Memory
 
-When a task reaches `success` or `failed`, it can feed into the [self-learning pipeline](/learn/self-learning). Acontext distills the outcome into structured analysis:
+When a task reaches `success` or `failed`, it can feed into the [skill memory pipeline](/learn/quick). Acontext distills the outcome into structured analysis:
 
 - **Success** → extracts the approach, key decisions, and generalizable patterns
 - **Failure** → extracts the failure point, flawed reasoning, and prevention principles

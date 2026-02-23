@@ -57,7 +57,7 @@ await client.sessions.storeMessage(
 ```
 </CodeGroup>
 
-## Async Python SDK
+## Async Usage
 
 <CodeGroup>
 ```python Python (Async)
@@ -71,6 +71,17 @@ async def copy_example():
         print(f"Copied session: {result.new_session_id}")
 
 asyncio.run(copy_example())
+```
+
+```typescript TypeScript
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+const result = await client.sessions.copy("session-uuid");
+console.log(`Copied session: ${result.newSessionId}`);
 ```
 </CodeGroup>
 
@@ -159,19 +170,17 @@ try {
 
 Copy a session to try different approaches, then compare results:
 
-```python
-# Copy the original session
+<CodeGroup>
+```python Python
 result = client.sessions.copy(session_id=original_id)
 experimental_id = result.new_session_id
 
-# Try a different approach in the copy
 client.sessions.store_message(
     session_id=experimental_id,
     blob={"role": "user", "content": "Alternative approach..."},
     format="openai"
 )
 
-# Compare token counts
 original = client.sessions.get_token_counts(session_id=original_id)
 experimental = client.sessions.get_token_counts(session_id=experimental_id)
 
@@ -179,31 +188,58 @@ print(f"Original: {original.total_tokens} tokens")
 print(f"Experimental: {experimental.total_tokens} tokens")
 ```
 
+```typescript TypeScript
+const result = await client.sessions.copy(originalId);
+const experimentalId = result.newSessionId;
+
+await client.sessions.storeMessage(
+    experimentalId,
+    { role: "user", content: "Alternative approach..." },
+    { format: "openai" }
+);
+
+const original = await client.sessions.getTokenCounts(originalId);
+const experimental = await client.sessions.getTokenCounts(experimentalId);
+
+console.log(`Original: ${original.totalTokens} tokens`);
+console.log(`Experimental: ${experimental.totalTokens} tokens`);
+```
+</CodeGroup>
+
 ### Checkpoint Before Major Changes
 
 Create a checkpoint before making significant changes:
 
-```python
-# Create checkpoint
+<CodeGroup>
+```python Python
 checkpoint = client.sessions.copy(session_id=session_id)
 print(f"Checkpoint created: {checkpoint.new_session_id}")
 
-# Make major changes to original
 client.sessions.store_message(
     session_id=session_id,
     blob={"role": "user", "content": "Major change..."},
     format="openai"
 )
-
-# If needed, you can always go back to the checkpoint
 ```
+
+```typescript TypeScript
+const checkpoint = await client.sessions.copy(sessionId);
+console.log(`Checkpoint created: ${checkpoint.newSessionId}`);
+
+await client.sessions.storeMessage(
+    sessionId,
+    { role: "user", content: "Major change..." },
+    { format: "openai" }
+);
+```
+</CodeGroup>
 
 ### Template Sessions
 
 Create a base session as a template and copy it for each new conversation:
 
-```python
-# Set up template session once
+<CodeGroup>
+```python Python
 template_id = "template-session-uuid"
 client.sessions.store_message(
     session_id=template_id,
@@ -211,9 +247,20 @@ client.sessions.store_message(
     format="openai"
 )
 
-# Copy for each new conversation
 new_conversation = client.sessions.copy(session_id=template_id)
 ```
+
+```typescript TypeScript
+const templateId = "template-session-uuid";
+await client.sessions.storeMessage(
+    templateId,
+    { role: "system", content: "You are a helpful assistant..." },
+    { format: "openai" }
+);
+
+const newConversation = await client.sessions.copy(templateId);
+```
+</CodeGroup>
 
 ## Performance
 

@@ -30,13 +30,25 @@ await client.sessions.storeMessage(
 
 The `metas` array in `get_messages` response contains metadata for each message in the same order as `items` and `ids`.
 
-```python
+<CodeGroup>
+```python Python
 result = client.sessions.get_messages(session_id=session.id, format="openai")
 
 for i, msg in enumerate(result.items):
     meta = result.metas[i]
     print(f"Message: {msg}, Meta: {meta}")
 ```
+
+```typescript TypeScript
+const result = await client.sessions.getMessages(session.id, { format: "openai" });
+
+for (let i = 0; i < result.items.length; i++) {
+    const msg = result.items[i];
+    const meta = result.metas[i];
+    console.log(`Message: ${JSON.stringify(msg)}, Meta: ${JSON.stringify(meta)}`);
+}
+```
+</CodeGroup>
 
 ## Update Metadata
 

@@ -23,6 +23,16 @@
             ]
           },
           {
+            "group": "Skill Memory",
+            "icon": "brain",
+            "pages": [
+              "learn/skill-memory",
+              "learn/quick",
+              "learn/custom-memory",
+              "learn/learning-spaces"
+            ]
+          },
+          {
             "group": "Context Storage",
             "icon": "database",
             "pages": [
@@ -87,13 +97,6 @@
                   "observe/traces"
                 ]
               }
-            ]
-          },
-          {
-            "group": "Self-learning",
-            "icon": "brain",
-            "pages": [
-              "learn/self-learning"
             ]
           },
           {

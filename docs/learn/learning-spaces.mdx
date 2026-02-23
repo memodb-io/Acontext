@@ -1,0 +1,107 @@
+---
+title: Managing Learning Spaces
+description: "Default skills, custom skills, and managing learning spaces"
+---
+
+A learning space is the container where Acontext organizes skill memory for your agent. Each space comes with default skills and supports custom ones.
+
+## Default Skills
+
+Every learning space starts with two built-in skills:
+
+| Skill | What it captures |
+|-------|-----------------|
+| **daily-logs** | Daily activity summaries — one file per day |
+| **user-general-facts** | User preferences and facts — one file per topic |
+
+<Accordion title="Example: daily-logs output">
+```markdown
+# 2025-06-15
+
+## Deploy API v2 to staging
+- **Outcome**: success
+- **Summary**: Blue-green deploy completed, zero downtime
+- **Key Decisions**: Ran DB migration before switching traffic
+- **Learnings**: Set health-check timeout to 30s, not 10s
+
+## Roll back staging after test failure
+- **Outcome**: failed
+- **Summary**: Rollback script timed out on large DB
+- **Key Decisions**: Attempted manual rollback
+- **Learnings**: Add rollback timeout flag, pre-test with smaller dataset
+```
+</Accordion>
+
+<Accordion title="Example: user-general-facts output">
+```markdown
+# Personal Info
+- username: gus
+```
+</Accordion>
+
+## Adding Custom Skills
+
+Include your own skills alongside the defaults. The learner updates them too — as long as they have a valid `SKILL.md`.
+
+<CodeGroup>
+```python Python
+skill = client.skills.create(file=FileUpload(...))
+client.learning_spaces.include_skill(space.id, skill_id=skill.id)
+
+# Remove a skill (idempotent)
+client.learning_spaces.exclude_skill(space.id, skill_id="skill-uuid")
+```
+
+```typescript TypeScript
+const skill = await client.skills.create({ file: new FileUpload(...) });
+await client.learningSpaces.includeSkill({ spaceId: space.id, skillId: skill.id });
+
+// Remove a skill (idempotent)
+await client.learningSpaces.excludeSkill({ spaceId: space.id, skillId: "skill-uuid" });
+```
+</CodeGroup>
+
+See [Agent Skills](/store/skill) for the SKILL.md format and ZIP structure.
+
+## Managing Learning Spaces
+
+<CodeGroup>
+```python Python
+# List, filter, paginate
+spaces = client.learning_spaces.list(user="alice@example.com", limit=10)
+
+# Filter by meta
+spaces = client.learning_spaces.list(filter_by_meta={"domain": "deployments"})
+
+# Update meta
+client.learning_spaces.update(space.id, meta={"version": "2.0"})
+
+# Delete (skills and sessions are NOT deleted)
+client.learning_spaces.delete(space.id)
+```
+
+```typescript TypeScript
+// List, filter, paginate
+const spaces = await client.learningSpaces.list({ user: "alice@example.com", limit: 10 });
+
+// Filter by meta
+const filtered = await client.learningSpaces.list({ filterByMeta: { domain: "deployments" } });
+
+// Update meta
+await client.learningSpaces.update(space.id, { meta: { version: "2.0" } });
+
+// Delete (skills and sessions are NOT deleted)
+await client.learningSpaces.delete(space.id);
+```
+</CodeGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="What is Skill Memory?" icon="brain" href="/learn/skill-memory">
+  Understand how skill memory compares to other approaches
+</Card>
+<Card title="Agent Skills" icon="sparkles" href="/store/skill">
+  Upload and manage skills
+</Card>
+</CardGroup>

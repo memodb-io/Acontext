@@ -9,7 +9,8 @@ Acontext stores messages in OpenAI, Anthropic, or Gemini format and automaticall
 
 <Steps>
 <Step title="Create a session">
-```python
+<CodeGroup>
+```python Python
 import os
 from acontext import AcontextClient
 
@@ -18,6 +19,16 @@ client = AcontextClient(
 )
 session = client.sessions.create()
 ```
+
+```typescript TypeScript
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+const session = await client.sessions.create();
+```
+</CodeGroup>
 
 <Tip>
 You can create a session with a specific UUID:
@@ -40,17 +51,27 @@ This is useful for correlating sessions with external systems. A 409 Conflict er
 
 <Tabs>
 <Tab title="OpenAI">
-```python
+<CodeGroup>
+```python Python
 client.sessions.store_message(
     session_id=session.id,
     blob={"role": "user", "content": "What is the capital of France?"},
     format="openai"
 )
 ```
+
+```typescript TypeScript
+await client.sessions.storeMessage(session.id,
+    { role: "user", content: "What is the capital of France?" },
+    { format: "openai" }
+);
+```
+</CodeGroup>
 </Tab>
 
 <Tab title="Anthropic">
-```python
+<CodeGroup>
+```python Python
 client.sessions.store_message(
     session_id=session.id,
     blob={
@@ -60,10 +81,19 @@ client.sessions.store_message(
     format="anthropic"
 )
 ```
+
+```typescript TypeScript
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    content: [{ type: "text", text: "Explain quantum computing" }]
+}, { format: "anthropic" });
+```
+</CodeGroup>
 </Tab>
 
 <Tab title="Gemini">
-```python
+<CodeGroup>
+```python Python
 client.sessions.store_message(
     session_id=session.id,
     blob={
@@ -73,6 +103,14 @@ client.sessions.store_message(
     format="gemini"
 )
 ```
+
+```typescript TypeScript
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    parts: [{ text: "Explain quantum computing" }]
+}, { format: "gemini" });
+```
+</CodeGroup>
 </Tab>
 </Tabs>
 
@@ -107,7 +145,8 @@ This is useful for tracking message origin, request IDs, or any application-spec
 
 Retrieve in any format—Acontext converts automatically:
 
-```python
+<CodeGroup>
+```python Python
 # Stored as OpenAI, retrieve as Anthropic
 result = client.sessions.get_messages(session_id=session.id, format="anthropic")
 
@@ -115,11 +154,27 @@ for msg in result.items:
     print(f"{msg.role}: {msg.content}")
 ```
 
+```typescript TypeScript
+// Stored as OpenAI, retrieve as Anthropic
+const result = await client.sessions.getMessages(session.id, { format: "anthropic" });
+
+for (const msg of result.items) {
+    console.log(`${msg.role}: ${msg.content}`);
+}
+```
+</CodeGroup>
+
 ## Delete Session
 
-```python
+<CodeGroup>
+```python Python
 client.sessions.delete(session_id)
 ```
+
+```typescript TypeScript
+await client.sessions.delete(sessionId);
+```
+</CodeGroup>
 
 <Warning>
 Deleting a session permanently removes all messages.

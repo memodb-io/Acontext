@@ -161,7 +161,7 @@ Mounting skills modifies the context prompt. Always call `get_context_prompt()` 
 
 ### bash_execution_sandbox
 
-```python
+```json
 {"command": "python3 script.py", "timeout": 30}
 ```
 
@@ -177,7 +177,7 @@ Returns: `{"stdout": "...", "stderr": "...", "exit_code": 0}`
 
 ### export_file_sandbox
 
-```python
+```json
 {"sandbox_path": "/workspace/", "sandbox_filename": "output.txt"}
 ```
 

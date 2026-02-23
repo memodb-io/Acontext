@@ -5,6 +5,7 @@
 - Each doc should start with 1-2 straightforward sentences that convey the core value of the doc.
 - Use step components to make your guidance clearer, and always provide a folded, complete code snippet (runnable) at the end of each step.
 - Do not add extra explanations or best practice sections; maintain the clear value of each doc.
+- Always write the py and ts code snippet at the same time.
 
 ### connect the right docs at the end
 always find the related docs. if any, write a next step section to guide the user to those docs.

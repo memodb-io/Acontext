@@ -1,0 +1,56 @@
+---
+title: "What is Skill Memory?"
+description: "Agent memory stored as structured skill files — filesystem-compatible, configurable, and human-readable"
+---
+
+Skill memory is Acontext's approach to agent memory: instead of opaque embeddings or unstructured text, your agents store memory as **skill files** — plain markdown organized by configurable schemas you control.
+
+## The Problem with Traditional AI Memory
+
+Most agent memory systems fall into three categories — vector stores, knowledge graphs, and plain-text memory (used by products like Mem0 and Letta). They all share common limitations:
+
+- **Vector stores** encode memory as embeddings you can't inspect, edit, or version control
+- **Knowledge graphs** require complex schemas upfront and are hard to modify once built
+- **Plain-text files** are readable and filesystem-native, but lack organization and indexing — agents struggle to quickly find what they need as memory grows
+- **Common pain point**: you can't inspect what your agent actually learned, control how memory is structured, or integrate it into your existing dev workflow
+
+## Skill Memory — A Different Approach
+
+Acontext organizes agent memory as **skills** — file collections where each skill has:
+
+- A **SKILL.md** that defines its schema, purpose, and guidelines
+- **Data files** in plain markdown, organized by the skill's own rules
+
+For example:
+- `daily-logs` — one file per day, capturing what happened
+- `user-general-facts` — one file per topic, storing user preferences
+- Domain SOPs — structured procedures the agent learned from past runs
+
+## Three Advantages
+
+| Advantage | What it means |
+|-----------|--------------|
+| **Filesystem-compatible** | Skills are real files — mount in sandboxes, sync to disk, version control, `cat` and `grep` them |
+| **Configurable** | Each SKILL.md defines its own schema — you control how memory is organized, not the platform |
+| **Human-friendly** | Plain markdown files — read, edit, review, and audit your agent's memory directly |
+
+## Comparison
+
+| | Skill Memory (Acontext) | Vector Store | Knowledge Graph | Plain-text Files |
+|--|--|--|--|--|
+| Storage format | Markdown files | Embeddings | Nodes & edges | Text files |
+| Human-readable | Yes | No | Partially | Partially |
+| Configurable schema | Yes (SKILL.md) | No | Complex upfront | No |
+| Filesystem-native | Yes | No | No | Yes |
+| Version controllable | Yes | No | No | No |
+
+## Next Steps
+
+<CardGroup>
+<Card title="Quickstart" icon="rocket" href="/learn/quick">
+Set up skill memory for your agent in 3 steps.
+</Card>
+<Card title="Agent Skills" icon="book-open" href="/engineering/agent_skills">
+Load and use skills in your agent's context.
+</Card>
+</CardGroup>
