@@ -227,7 +227,7 @@ class TestContextRebuildWithinTransaction:
         # 2nd call: rebuild after insert_task sets USE_CTX=None (before_use_ctx=None)
         build_ctx_db_sessions = []
 
-        async def fake_build_task_ctx(db_session, proj_id, sess_id, msgs, before_use_ctx=None):
+        async def fake_build_task_ctx(db_session, proj_id, sess_id, msgs, before_use_ctx=None, **kwargs):
             build_ctx_db_sessions.append(db_session)
             return TaskCtx(
                 db_session=db_session,
