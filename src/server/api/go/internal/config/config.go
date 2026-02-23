@@ -46,10 +46,12 @@ type RedisCfg struct {
 
 type MQExchangeName struct {
 	SessionMessage string
+	LearningSkill  string
 }
 
 type MQRoutingKey struct {
 	SessionMessageInsert string
+	LearningSkillDistill string
 }
 type MQCfg struct {
 	URL          string
@@ -121,7 +123,9 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("rabbitmq.url", "amqp://acontext:helloworld@127.0.0.1:15672/%2F")
 	v.SetDefault("rabbitmq.enableTLS", false)
 	v.SetDefault("rabbitmq.exchangeName.sessionMessage", "session.message")
+	v.SetDefault("rabbitmq.exchangeName.learningSkill", "learning.skill")
 	v.SetDefault("rabbitmq.routingKey.sessionMessageInsert", "session.message.insert")
+	v.SetDefault("rabbitmq.routingKey.learningSkillDistill", "learning.skill.distill")
 	v.SetDefault("core.baseURL", "http://127.0.0.1:8019")
 	v.SetDefault("telemetry.otlpEndpoint", "http://127.0.0.1:4317")
 	v.SetDefault("telemetry.enabled", true)

@@ -1,5 +1,6 @@
 from ..data import message as MD
 from ..data import learning_space as LS
+from ..data import session as SD
 from ...infra.db import DB_CLIENT
 from ...schema.session.task import TaskStatus
 from ...schema.session.message import MessageBlob
@@ -72,6 +73,14 @@ async def process_session_pending_message(
             if eil:
                 ls_session = None
 
+            r_sess = await SD.fetch_session(session, session_id)
+            sess_obj, eil = r_sess.unpack()
+            if eil:
+                LOG.warning(f"Failed to fetch session {session_id} for disable_task_status_change check: {eil}")
+            disable_task_status_change = (
+                sess_obj.disable_task_status_change if sess_obj else False
+            )
+
         r = await AT.task_agent_curd(
             project_id,
             session_id,
@@ -79,6 +88,7 @@ async def process_session_pending_message(
             max_iterations=project_config.default_task_agent_max_iterations,
             previous_progress_num=project_config.default_task_agent_previous_progress_num,
             learning_space_id=ls_session.learning_space_id if ls_session is not None else None,
+            disable_task_status_change=disable_task_status_change,
         )
 
         after_status = TaskStatus.SUCCESS

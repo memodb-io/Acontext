@@ -51,6 +51,13 @@ class Session(CommonMixin):
         },
     )
 
+    disable_task_status_change: bool = field(
+        default=False,
+        metadata={
+            "db": Column(Boolean, nullable=False, default=False, server_default="false")
+        },
+    )
+
     configs: Optional[dict] = field(
         default=None, metadata={"db": Column(JSONB, nullable=True)}
     )

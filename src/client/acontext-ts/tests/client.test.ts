@@ -272,6 +272,96 @@ describe('AcontextClient Unit Tests', () => {
       expect(result.has_more).toBeDefined();
     });
 
+    test('should create a session with disableTaskStatusChange', async () => {
+      const createdSession = mockSession({
+        disable_task_status_change: true,
+      });
+      client.mock().onPost('/session', (options) => {
+        const data = options?.jsonData as Record<string, unknown>;
+        expect(data?.disable_task_status_change).toBe(true);
+        return createdSession;
+      });
+
+      const session = await client.sessions.create({
+        disableTaskStatusChange: true,
+      });
+      expect(session).toBeDefined();
+      expect(session.disable_task_status_change).toBe(true);
+    });
+
+    test('should not send disableTaskStatusChange when not provided', async () => {
+      const createdSession = mockSession();
+      client.mock().onPost('/session', (options) => {
+        const data = options?.jsonData as Record<string, unknown>;
+        expect(data?.disable_task_status_change).toBeUndefined();
+        return createdSession;
+      });
+
+      const session = await client.sessions.create();
+      expect(session).toBeDefined();
+      expect(session.disable_task_status_change).toBe(false);
+    });
+
+    test('should update task status to success', async () => {
+      const sessionId = 'test-session-id';
+      const taskId = 'test-task-id';
+      const updatedTask = mockTask({
+        id: taskId,
+        session_id: sessionId,
+        status: 'success',
+      });
+      client.mock().onPatch(`/session/${sessionId}/task/${taskId}/status`, (options) => {
+        expect(options?.jsonData).toEqual({ status: 'success' });
+        return updatedTask;
+      });
+
+      const result = await client.sessions.updateTaskStatus(sessionId, taskId, {
+        status: 'success',
+      });
+      expect(result).toBeDefined();
+      expect(result.status).toBe('success');
+      expect(result.id).toBe(taskId);
+    });
+
+    test('should update task status to failed', async () => {
+      const sessionId = 'test-session-id';
+      const taskId = 'test-task-id';
+      const updatedTask = mockTask({
+        id: taskId,
+        session_id: sessionId,
+        status: 'failed',
+      });
+      client.mock().onPatch(`/session/${sessionId}/task/${taskId}/status`, (options) => {
+        expect(options?.jsonData).toEqual({ status: 'failed' });
+        return updatedTask;
+      });
+
+      const result = await client.sessions.updateTaskStatus(sessionId, taskId, {
+        status: 'failed',
+      });
+      expect(result).toBeDefined();
+      expect(result.status).toBe('failed');
+    });
+
+    test('should update task status to running', async () => {
+      const sessionId = 'test-session-id';
+      const taskId = 'test-task-id';
+      const updatedTask = mockTask({
+        id: taskId,
+        session_id: sessionId,
+        status: 'running',
+      });
+      client.mock().onPatch(`/session/${sessionId}/task/${taskId}/status`, (options) => {
+        expect(options?.jsonData).toEqual({ status: 'running' });
+        return updatedTask;
+      });
+
+      const result = await client.sessions.updateTaskStatus(sessionId, taskId, {
+        status: 'running',
+      });
+      expect(result.status).toBe('running');
+    });
+
     test('should get token counts', async () => {
       const sessionId = 'test-session-id';
       const tokenCounts = { total_tokens: 1234 };

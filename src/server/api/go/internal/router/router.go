@@ -87,6 +87,7 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			task := session.Group("/:session_id/task")
 			{
 				task.GET("", d.TaskHandler.GetTasks)
+				task.PATCH("/:task_id/status", d.TaskHandler.UpdateTaskStatus)
 			}
 		}
 

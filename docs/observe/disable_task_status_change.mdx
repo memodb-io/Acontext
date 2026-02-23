@@ -1,0 +1,110 @@
+---
+title: "Control the Task Status"
+description: "Disable automatic status updates and manually control task outcomes"
+---
+
+Keep task extraction running while preventing the task agent from automatically marking tasks as `success` or `failed`. You decide when to finalize task outcomes via `update_task_status`, which triggers the [self-learning pipeline](/learn/self-learning).
+
+<CodeGroup>
+```python Python
+session = client.sessions.create(disable_task_status_change=True)
+```
+
+```typescript TypeScript
+const session = await client.sessions.create({ disableTaskStatusChange: true });
+```
+</CodeGroup>
+
+**What happens:**
+- Tasks are still created with descriptions and progress
+- Messages are still linked to tasks
+- Status remains at `running` — the agent cannot set `success` or `failed`
+- Learning is only triggered when you call `update_task_status`
+
+## Typical Flow
+
+<Steps>
+<Step title="Create session with manual control">
+
+<CodeGroup>
+```python Python
+import os
+from acontext import AcontextClient
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+session = client.sessions.create(disable_task_status_change=True)
+```
+
+```typescript TypeScript
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({ apiKey: process.env.ACONTEXT_API_KEY });
+const session = await client.sessions.create({ disableTaskStatusChange: true });
+```
+</CodeGroup>
+</Step>
+
+<Step title="Store conversation and extract tasks">
+
+<CodeGroup>
+```python Python
+for msg in conversation_messages:
+    client.sessions.store_message(session_id=session.id, blob=msg, format="openai")
+client.sessions.flush(session.id)
+
+tasks = client.sessions.get_tasks(session.id)
+```
+
+```typescript TypeScript
+for (const msg of conversationMessages) {
+    await client.sessions.storeMessage(session.id, msg, { format: "openai" });
+}
+await client.sessions.flush(session.id);
+
+const tasks = await client.sessions.getTasks(session.id);
+```
+</CodeGroup>
+</Step>
+
+<Step title="Manually set task outcome">
+
+Setting status to `success` or `failed` triggers the self-learning pipeline.
+
+<CodeGroup>
+```python Python
+client.sessions.update_task_status(
+    session_id=session.id,
+    task_id=tasks.items[0].id,
+    status="success",
+)
+```
+
+```typescript TypeScript
+await client.sessions.updateTaskStatus(session.id, tasks.items[0].id, {
+    status: "success",
+});
+```
+</CodeGroup>
+</Step>
+</Steps>
+
+## How It Differs from `disable_task_tracking`
+
+| | `disable_task_tracking` | `disable_task_status_change` |
+|---|---|---|
+| **What's blocked** | Entire task extraction | Only status transitions to `success`/`failed` |
+| **Tasks created?** | No | Yes |
+| **Progress tracked?** | No | Yes |
+| **Messages linked?** | No | Yes |
+| **Learning triggered?** | Never | Only via manual `update_task_status` |
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Agent Tasks" icon="list-check" href="/observe/agent_tasks">
+How task extraction works
+</Card>
+<Card title="Self-Learning" icon="brain" href="/learn/self-learning">
+Learn agent skills from past sessions
+</Card>
+</CardGroup>
