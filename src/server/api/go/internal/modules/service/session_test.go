@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
+	"github.com/memodb-io/Acontext/internal/pkg/editor"
+	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
@@ -1423,6 +1426,509 @@ func TestSessionService_GetMessages_SortOrder(t *testing.T) {
 						"Messages should be sorted from old to new: message[%d] (%v) should be before or equal to message[%d] (%v)",
 						i-1, prevTime, i, currTime)
 				}
+			}
+
+			repo.AssertExpectations(t)
+		})
+	}
+}
+
+func TestSessionService_GetMessages_ComputesThisTimeTokens(t *testing.T) {
+	ctx := context.Background()
+	sessionID := uuid.New()
+
+	err := tokenizer.Init(zap.NewNop())
+	assert.NoError(t, err)
+
+	repo := &MockSessionRepo{}
+	repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+		{
+			ID:        uuid.New(),
+			SessionID: sessionID,
+			Role:      model.RoleUser,
+			Parts: []model.Part{
+				model.NewTextPart("hello from acontext"),
+			},
+		},
+	}, nil)
+
+	mockAssetRefRepo := &MockAssetReferenceRepo{}
+	service := NewSessionService(repo, mockAssetRefRepo, zap.NewNop(), nil, nil, &config.Config{}, nil)
+
+	out, err := service.GetMessages(ctx, GetMessagesInput{
+		SessionID: sessionID,
+		Limit:     0,
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, out)
+	assert.Greater(t, out.ThisTimeTokens, 0)
+
+	repo.AssertExpectations(t)
+}
+
+func TestSessionService_GetMessages_ThisTimeTokensMatchesEditedOutput(t *testing.T) {
+	ctx := context.Background()
+	sessionID := uuid.New()
+	triggerThreshold := 1
+
+	err := tokenizer.Init(zap.NewNop())
+	assert.NoError(t, err)
+
+	repo := &MockSessionRepo{}
+	repoMessages := []model.Message{
+		{
+			ID:        uuid.New(),
+			SessionID: sessionID,
+			Role:      model.RoleAssistant,
+			Parts: []model.Part{
+				{
+					Type: model.PartTypeToolResult,
+					Text: strings.Repeat("very large tool result payload ", 200),
+				},
+			},
+		},
+	}
+	repo.On("ListAllMessagesBySession", ctx, sessionID).Return(repoMessages, nil)
+
+	preEditTokens, err := tokenizer.CountMessagePartsTokens(ctx, repoMessages)
+	assert.NoError(t, err)
+	assert.Greater(t, preEditTokens, 0)
+
+	service := NewSessionService(repo, &MockAssetReferenceRepo{}, zap.NewNop(), nil, nil, &config.Config{}, nil)
+	out, err := service.GetMessages(ctx, GetMessagesInput{
+		SessionID: sessionID,
+		Limit:     0,
+		EditStrategies: []editor.StrategyConfig{
+			{
+				Type: "remove_tool_result",
+				Params: map[string]interface{}{
+					"keep_recent_n_tool_results": 0,
+				},
+			},
+		},
+		EditingTrigger: &EditingTrigger{
+			TokenGte: &triggerThreshold,
+		},
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, out)
+	assert.Len(t, out.Items, 1)
+	assert.Equal(t, "Done", out.Items[0].Parts[0].Text)
+
+	finalTokens, err := tokenizer.CountMessagePartsTokens(ctx, out.Items)
+	assert.NoError(t, err)
+	assert.Equal(t, finalTokens, out.ThisTimeTokens)
+	assert.Less(t, out.ThisTimeTokens, preEditTokens)
+
+	repo.AssertExpectations(t)
+}
+
+func TestSessionService_GetMessages_TriggerTokenErrorsAreWrapped(t *testing.T) {
+	ctx := context.Background()
+	sessionID := uuid.New()
+	triggerThreshold := 1
+
+	repo := &MockSessionRepo{}
+	repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+		{
+			ID:        uuid.New(),
+			SessionID: sessionID,
+			Role:      model.RoleAssistant,
+			Parts: []model.Part{
+				{
+					Type: model.PartTypeToolCall,
+					Meta: map[string]interface{}{
+						model.MetaKeyName:      "bad_tool",
+						model.MetaKeyArguments: func() {},
+					},
+				},
+			},
+		},
+	}, nil)
+
+	service := NewSessionService(repo, &MockAssetReferenceRepo{}, zap.NewNop(), nil, nil, &config.Config{}, nil)
+	out, err := service.GetMessages(ctx, GetMessagesInput{
+		SessionID: sessionID,
+		Limit:     0,
+		EditStrategies: []editor.StrategyConfig{
+			{
+				Type: "token_limit",
+				Params: map[string]interface{}{
+					"limit_tokens": 10,
+				},
+			},
+		},
+		EditingTrigger: &EditingTrigger{
+			TokenGte: &triggerThreshold,
+		},
+	})
+
+	assert.Nil(t, out)
+	assert.Error(t, err)
+	assert.ErrorIs(t, err, ErrGetMessagesTokenCount)
+
+	repo.AssertExpectations(t)
+}
+
+func TestSessionService_GetMessages_TriggerFalseKeepsProvidedPin(t *testing.T) {
+	ctx := context.Background()
+	sessionID := uuid.New()
+	triggerThreshold := 100000
+
+	err := tokenizer.Init(zap.NewNop())
+	assert.NoError(t, err)
+
+	pinMsgID := uuid.New()
+	lastMsgID := uuid.New()
+	repoMessages := []model.Message{
+		{
+			ID:        pinMsgID,
+			SessionID: sessionID,
+			Role:      model.RoleUser,
+			Parts: []model.Part{
+				model.NewTextPart("short message"),
+			},
+		},
+		{
+			ID:        lastMsgID,
+			SessionID: sessionID,
+			Role:      model.RoleUser,
+			Parts: []model.Part{
+				model.NewTextPart("another short message"),
+			},
+		},
+	}
+
+	repo := &MockSessionRepo{}
+	repo.On("ListAllMessagesBySession", ctx, sessionID).Return(repoMessages, nil)
+
+	service := NewSessionService(repo, &MockAssetReferenceRepo{}, zap.NewNop(), nil, nil, &config.Config{}, nil)
+	out, err := service.GetMessages(ctx, GetMessagesInput{
+		SessionID: sessionID,
+		Limit:     0,
+		EditStrategies: []editor.StrategyConfig{
+			{
+				Type: "remove_tool_result",
+				Params: map[string]interface{}{
+					"keep_recent_n_tool_results": 0,
+				},
+			},
+		},
+		PinEditingStrategiesAtMessage: pinMsgID.String(),
+		EditingTrigger: &EditingTrigger{
+			TokenGte: &triggerThreshold,
+		},
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, out)
+	assert.Equal(t, pinMsgID.String(), out.EditAtMessageID)
+	assert.NotEqual(t, lastMsgID.String(), out.EditAtMessageID)
+
+	repo.AssertExpectations(t)
+}
+
+func TestSessionService_GetMessages_EditTriggerBranchCoverage(t *testing.T) {
+	ctx := context.Background()
+	sessionID := uuid.New()
+	now := time.Now()
+
+	err := tokenizer.Init(zap.NewNop())
+	assert.NoError(t, err)
+
+	msgID1 := uuid.MustParse("00000000-0000-0000-0000-000000000101")
+	msgID2 := uuid.MustParse("00000000-0000-0000-0000-000000000102")
+	msgID3 := uuid.MustParse("00000000-0000-0000-0000-000000000103")
+	missingPinID := "00000000-0000-0000-0000-000000000999"
+	highThreshold := 100000
+	lowThreshold := 1
+	zeroThreshold := 0
+
+	makeToolResultMessages := func() []model.Message {
+		return []model.Message{
+			{
+				ID:        msgID1,
+				SessionID: sessionID,
+				Role:      model.RoleAssistant,
+				CreatedAt: now.Add(1 * time.Minute),
+				Parts: []model.Part{
+					{
+						Type: model.PartTypeToolResult,
+						Text: "payload-one",
+					},
+				},
+			},
+			{
+				ID:        msgID2,
+				SessionID: sessionID,
+				Role:      model.RoleAssistant,
+				CreatedAt: now.Add(2 * time.Minute),
+				Parts: []model.Part{
+					{
+						Type: model.PartTypeToolResult,
+						Text: "payload-two",
+					},
+				},
+			},
+			{
+				ID:        msgID3,
+				SessionID: sessionID,
+				Role:      model.RoleAssistant,
+				CreatedAt: now.Add(3 * time.Minute),
+				Parts: []model.Part{
+					{
+						Type: model.PartTypeToolResult,
+						Text: "payload-three",
+					},
+				},
+			},
+		}
+	}
+
+	makeUserMessages := func() []model.Message {
+		return []model.Message{
+			{
+				ID:        msgID1,
+				SessionID: sessionID,
+				Role:      model.RoleUser,
+				CreatedAt: now.Add(1 * time.Minute),
+				Parts: []model.Part{
+					model.NewTextPart("first"),
+				},
+			},
+			{
+				ID:        msgID2,
+				SessionID: sessionID,
+				Role:      model.RoleUser,
+				CreatedAt: now.Add(2 * time.Minute),
+				Parts: []model.Part{
+					model.NewTextPart("second"),
+				},
+			},
+			{
+				ID:        msgID3,
+				SessionID: sessionID,
+				Role:      model.RoleUser,
+				CreatedAt: now.Add(3 * time.Minute),
+				Parts: []model.Part{
+					model.NewTextPart("third"),
+				},
+			},
+		}
+	}
+
+	editStrategies := []editor.StrategyConfig{
+		{
+			Type: "remove_tool_result",
+			Params: map[string]interface{}{
+				"keep_recent_n_tool_results": 0,
+			},
+		},
+	}
+
+	tests := []struct {
+		name              string
+		input             GetMessagesInput
+		repoMode          string // all|paged
+		repoMessages      []model.Message
+		wantEditAt        string
+		wantPartsText     []string
+		wantItemsLen      int
+		wantHasMore       bool
+		wantNextCursorSet bool
+	}{
+		{
+			name: "no edit strategies sets last message id",
+			input: GetMessagesInput{
+				SessionID: sessionID,
+				Limit:     0,
+			},
+			repoMode:      "all",
+			repoMessages:  makeUserMessages(),
+			wantEditAt:    msgID3.String(),
+			wantItemsLen:  3,
+			wantPartsText: []string{"first", "second", "third"},
+		},
+		{
+			name: "no trigger configured applies strategies",
+			input: GetMessagesInput{
+				SessionID:      sessionID,
+				Limit:          0,
+				EditStrategies: editStrategies,
+			},
+			repoMode:      "all",
+			repoMessages:  makeToolResultMessages(),
+			wantEditAt:    msgID3.String(),
+			wantItemsLen:  3,
+			wantPartsText: []string{"Done", "Done", "Done"},
+		},
+		{
+			name: "trigger false without pin skips strategies and uses last message id",
+			input: GetMessagesInput{
+				SessionID:      sessionID,
+				Limit:          0,
+				EditStrategies: editStrategies,
+				EditingTrigger: &EditingTrigger{
+					TokenGte: &highThreshold,
+				},
+			},
+			repoMode:      "all",
+			repoMessages:  makeToolResultMessages(),
+			wantEditAt:    msgID3.String(),
+			wantItemsLen:  3,
+			wantPartsText: []string{"payload-one", "payload-two", "payload-three"},
+		},
+		{
+			name: "trigger false with pin preserves provided pin",
+			input: GetMessagesInput{
+				SessionID:                     sessionID,
+				Limit:                         0,
+				EditStrategies:                editStrategies,
+				PinEditingStrategiesAtMessage: msgID1.String(),
+				EditingTrigger: &EditingTrigger{
+					TokenGte: &highThreshold,
+				},
+			},
+			repoMode:      "all",
+			repoMessages:  makeToolResultMessages(),
+			wantEditAt:    msgID1.String(),
+			wantItemsLen:  3,
+			wantPartsText: []string{"payload-one", "payload-two", "payload-three"},
+		},
+		{
+			name: "trigger true with pin found applies only up to pin message",
+			input: GetMessagesInput{
+				SessionID:                     sessionID,
+				Limit:                         0,
+				EditStrategies:                editStrategies,
+				PinEditingStrategiesAtMessage: msgID1.String(),
+				EditingTrigger: &EditingTrigger{
+					TokenGte: &lowThreshold,
+				},
+			},
+			repoMode:      "all",
+			repoMessages:  makeToolResultMessages(),
+			wantEditAt:    msgID1.String(),
+			wantItemsLen:  3,
+			wantPartsText: []string{"Done", "payload-two", "payload-three"},
+		},
+		{
+			name: "trigger true with pin not found applies to all messages",
+			input: GetMessagesInput{
+				SessionID:                     sessionID,
+				Limit:                         0,
+				EditStrategies:                editStrategies,
+				PinEditingStrategiesAtMessage: missingPinID,
+				EditingTrigger: &EditingTrigger{
+					TokenGte: &lowThreshold,
+				},
+			},
+			repoMode:      "all",
+			repoMessages:  makeToolResultMessages(),
+			wantEditAt:    msgID3.String(),
+			wantItemsLen:  3,
+			wantPartsText: []string{"Done", "Done", "Done"},
+		},
+		{
+			name: "non-positive token threshold behaves as trigger not configured",
+			input: GetMessagesInput{
+				SessionID:      sessionID,
+				Limit:          0,
+				EditStrategies: editStrategies,
+				EditingTrigger: &EditingTrigger{
+					TokenGte: &zeroThreshold,
+				},
+			},
+			repoMode:      "all",
+			repoMessages:  makeToolResultMessages(),
+			wantEditAt:    msgID3.String(),
+			wantItemsLen:  3,
+			wantPartsText: []string{"Done", "Done", "Done"},
+		},
+		{
+			name: "pagination window excludes pin and follows pin-not-found branch",
+			input: GetMessagesInput{
+				SessionID:                     sessionID,
+				Limit:                         2,
+				EditStrategies:                editStrategies,
+				PinEditingStrategiesAtMessage: msgID3.String(),
+				EditingTrigger: &EditingTrigger{
+					TokenGte: &lowThreshold,
+				},
+			},
+			repoMode:          "paged",
+			repoMessages:      makeToolResultMessages(),
+			wantEditAt:        msgID2.String(),
+			wantItemsLen:      2,
+			wantPartsText:     []string{"Done", "Done"},
+			wantHasMore:       true,
+			wantNextCursorSet: true,
+		},
+		{
+			name: "empty messages with trigger false and pin keeps pin",
+			input: GetMessagesInput{
+				SessionID:                     sessionID,
+				Limit:                         0,
+				EditStrategies:                editStrategies,
+				PinEditingStrategiesAtMessage: msgID1.String(),
+				EditingTrigger: &EditingTrigger{
+					TokenGte: &highThreshold,
+				},
+			},
+			repoMode:      "all",
+			repoMessages:  []model.Message{},
+			wantEditAt:    msgID1.String(),
+			wantItemsLen:  0,
+			wantPartsText: []string{},
+		},
+		{
+			name: "empty messages with no strategies keeps edit_at_message_id empty",
+			input: GetMessagesInput{
+				SessionID: sessionID,
+				Limit:     0,
+			},
+			repoMode:      "all",
+			repoMessages:  []model.Message{},
+			wantEditAt:    "",
+			wantItemsLen:  0,
+			wantPartsText: []string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &MockSessionRepo{}
+			if tt.repoMode == "paged" {
+				repo.On("ListBySessionWithCursor", ctx, sessionID, time.Time{}, uuid.UUID{}, tt.input.Limit+1, tt.input.TimeDesc).Return(tt.repoMessages, nil)
+			} else {
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return(tt.repoMessages, nil)
+			}
+
+			service := NewSessionService(repo, &MockAssetReferenceRepo{}, zap.NewNop(), nil, nil, &config.Config{}, nil)
+			out, err := service.GetMessages(ctx, tt.input)
+			assert.NoError(t, err)
+			assert.NotNil(t, out)
+
+			assert.Equal(t, tt.wantEditAt, out.EditAtMessageID)
+			assert.Equal(t, tt.wantItemsLen, len(out.Items))
+			assert.Equal(t, tt.wantHasMore, out.HasMore)
+			if tt.wantNextCursorSet {
+				assert.NotEmpty(t, out.NextCursor)
+			}
+			if !tt.wantNextCursorSet {
+				assert.Empty(t, out.NextCursor)
+			}
+
+			gotPartsText := make([]string, 0, len(out.Items))
+			for _, msg := range out.Items {
+				if len(msg.Parts) > 0 {
+					gotPartsText = append(gotPartsText, msg.Parts[0].Text)
+				}
+			}
+			assert.Equal(t, tt.wantPartsText, gotPartsText)
+			if len(out.Items) > 0 {
+				assert.Greater(t, out.ThisTimeTokens, 0)
+			} else {
+				assert.Equal(t, 0, out.ThisTimeTokens)
 			}
 
 			repo.AssertExpectations(t)

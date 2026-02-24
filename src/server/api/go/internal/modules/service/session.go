@@ -16,8 +16,10 @@ import (
 	mq "github.com/memodb-io/Acontext/internal/infra/queue"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
+	"github.com/memodb-io/Acontext/internal/pkg/editingtrigger"
 	"github.com/memodb-io/Acontext/internal/pkg/editor"
 	"github.com/memodb-io/Acontext/internal/pkg/paging"
+	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/datatypes"
@@ -58,6 +60,8 @@ type sessionService struct {
 	cfg                *config.Config
 	redis              *redis.Client
 }
+
+var ErrGetMessagesTokenCount = errors.New("get messages token count error")
 
 const (
 	// Redis key prefix for message parts cache
@@ -398,7 +402,12 @@ type GetMessagesInput struct {
 	TimeDesc                      bool                    `json:"time_desc"`
 	EditStrategies                []editor.StrategyConfig `json:"edit_strategies,omitempty"`
 	PinEditingStrategiesAtMessage string                  `json:"pin_editing_strategies_at_message,omitempty"`
+
+	// EditingTrigger holds optional trigger config for applying edit_strategies.
+	EditingTrigger *EditingTrigger `json:"editing_trigger,omitempty"`
 }
+
+type EditingTrigger = editingtrigger.Trigger
 
 type PublicURL struct {
 	URL      string    `json:"url"`
@@ -410,6 +419,7 @@ type GetMessagesOutput struct {
 	NextCursor      string               `json:"next_cursor,omitempty"`
 	HasMore         bool                 `json:"has_more"`
 	PublicURLs      map[string]PublicURL `json:"public_urls,omitempty"` // file_name -> url
+	ThisTimeTokens  int                  `json:"this_time_tokens"`
 	EditAtMessageID string               `json:"edit_at_message_id,omitempty"`
 }
 
@@ -474,13 +484,69 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	}
 
 	// Apply edit strategies if provided (before format conversion)
+	var triggerEval *editingtrigger.Eval
+	strategiesApplied := false
 	if len(in.EditStrategies) > 0 {
-		result, err := editor.ApplyStrategiesWithPin(out.Items, in.EditStrategies, in.PinEditingStrategiesAtMessage)
-		if err != nil {
-			return nil, fmt.Errorf("failed to apply edit strategies: %w", err)
+		applyEditStrategies := true
+		triggerChecks := editingtrigger.BuildChecks(in.EditingTrigger)
+		triggerEvaluated := len(triggerChecks) > 0
+		if triggerEvaluated {
+			// Evaluate trigger on the same editable prefix used by pin_editing_strategies_at_message.
+			triggerMessages := out.Items
+			if in.PinEditingStrategiesAtMessage != "" {
+				pinIndex := -1
+				for i := range out.Items {
+					if out.Items[i].ID.String() == in.PinEditingStrategiesAtMessage {
+						pinIndex = i
+						break
+					}
+				}
+				if pinIndex != -1 {
+					triggerMessages = out.Items[:pinIndex+1]
+				}
+			}
+
+			// OR semantics: apply when any trigger check passes.
+			applyEditStrategies = false
+			eval := editingtrigger.NewEval(
+				in.SessionID,
+				triggerMessages,
+				func(ctx context.Context, messages []model.Message) (int, error) {
+					tokens, err := tokenizer.CountMessagePartsTokens(ctx, messages)
+					if err != nil {
+						return 0, fmt.Errorf("%w: failed to count tokens for editing_trigger session_id=%s: %v", ErrGetMessagesTokenCount, in.SessionID, err)
+					}
+					return tokens, nil
+				},
+			)
+			triggerEval = eval
+			for _, check := range triggerChecks {
+				ok, err := check(ctx, eval)
+				if err != nil {
+					return nil, err
+				}
+				if ok {
+					applyEditStrategies = true
+					break
+				}
+			}
+
 		}
-		out.Items = result.Messages
-		out.EditAtMessageID = result.EditAtMessageID
+
+		if applyEditStrategies {
+			result, err := editor.ApplyStrategiesWithPin(out.Items, in.EditStrategies, in.PinEditingStrategiesAtMessage)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply edit strategies: %w", err)
+			}
+			strategiesApplied = true
+			out.Items = result.Messages
+			out.EditAtMessageID = result.EditAtMessageID
+		} else if triggerEvaluated && in.PinEditingStrategiesAtMessage != "" {
+			// Trigger skipped editing; preserve caller-provided boundary for future requests.
+			out.EditAtMessageID = in.PinEditingStrategiesAtMessage
+		} else if out.EditAtMessageID == "" && len(out.Items) > 0 {
+			out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
+		}
 	} else if len(out.Items) > 0 {
 		// No strategies, but still set EditAtMessageID to the last message
 		out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
@@ -505,6 +571,19 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 			}
 		}
 	}
+
+	if triggerEval != nil {
+		if cachedTokens, ok := triggerEval.CachedTokens(); ok && !strategiesApplied && editingtrigger.SameMessageOrderByID(triggerEval.Messages(), out.Items) {
+			out.ThisTimeTokens = cachedTokens
+			return out, nil
+		}
+	}
+
+	thisTimeTokens, err := tokenizer.CountMessagePartsTokens(ctx, out.Items)
+	if err != nil {
+		return nil, fmt.Errorf("%w: session_id=%s: %v", ErrGetMessagesTokenCount, in.SessionID, err)
+	}
+	out.ThisTimeTokens = thisTimeTokens
 
 	return out, nil
 }

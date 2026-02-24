@@ -9,32 +9,25 @@ Apply edit strategies when retrieving messages to manage context window size. Th
 
 The `get_messages` response includes `this_time_tokens` - the total token count of returned messages. Use this to:
 - Check current context window size
-- Decide when to apply edit strategies
+- Apply edit strategies only when needed
 - Determine when to [reset the prompt cache](/engineering/cache)
 
 <CodeGroup>
 ```python Python
-result = client.sessions.get_messages(session_id="session-uuid")
+result = client.sessions.get_messages(
+    session_id="session-uuid",
+    edit_strategies=[{"type": "token_limit", "params": {"limit_tokens": 30000}}],
+    editing_trigger={"token_gte": 50000},
+)
 print(f"Current tokens: {result.this_time_tokens}")
-
-if result.this_time_tokens > 50000:
-    # Apply strategies to reduce context
-    result = client.sessions.get_messages(
-        session_id="session-uuid",
-        edit_strategies=[{"type": "token_limit", "params": {"limit_tokens": 30000}}]
-    )
 ```
 
 ```typescript TypeScript
-let result = await client.sessions.getMessages("session-uuid");
+const result = await client.sessions.getMessages("session-uuid", {
+    editStrategies: [{ type: "token_limit", params: { limit_tokens: 30000 } }],
+    editingTrigger: { token_gte: 50000 },
+});
 console.log(`Current tokens: ${result.thisTimeTokens}`);
-
-if (result.thisTimeTokens > 50000) {
-    // Apply strategies to reduce context
-    result = await client.sessions.getMessages("session-uuid", {
-        editStrategies: [{ type: "token_limit", params: { limit_tokens: 30000 } }],
-    });
-}
 ```
 </CodeGroup>
 
