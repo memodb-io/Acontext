@@ -155,7 +155,7 @@ export function Hero() {
           style={{ transformStyle: 'preserve-3d' }}
         >
           <p className="text-lg sm:text-xl text-muted-foreground hero-tagline">
-            Skill Memory Platform for AI Agents
+            Context Data Platform for AI Agents
           </p>
           <h1
             ref={titleRef}

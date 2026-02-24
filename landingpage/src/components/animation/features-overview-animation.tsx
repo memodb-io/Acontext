@@ -836,7 +836,7 @@ export function FeaturesOverviewAnimation() {
                       transform: 'translateY(-10px)',
                     }}
                   >
-                    Skill Memory Platform for AI Agents
+                    Context Data Platform for AI Agents
                   </p>
 
                   <div className="flex gap-8 justify-center items-center">

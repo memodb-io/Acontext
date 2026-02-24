@@ -542,7 +542,7 @@ export function TutorialVideo() {
                     className="text-lg mb-10"
                     style={{ color: colors.textMuted, opacity: 0 }}
                   >
-                    skill memory platform for AI agents
+                    context data platform for AI agents
                   </div>
 
                   <div className="flex justify-center gap-12 mb-12">

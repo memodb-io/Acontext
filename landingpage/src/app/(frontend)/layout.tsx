@@ -22,7 +22,7 @@ const jetbrainsMono = JetBrains_Mono({
 const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://acontext.io'
 
 export const metadata: Metadata = {
-  title: 'Skill Memory Platform for AI Agents | Acontext',
+  title: 'Context Data Platform for AI Agents | Acontext',
   description:
     'Unifies context storage, observability, and skill memory for production AI agents — filesystem-compatible, configurable, and human-readable.',
   keywords: [
@@ -57,7 +57,7 @@ export const metadata: Metadata = {
     apple: '/ico_black.svg',
   },
   openGraph: {
-    title: 'Skill Memory Platform for AI Agents | Acontext',
+    title: 'Context Data Platform for AI Agents | Acontext',
     description:
       'Unifies context storage, observability, and skill memory for production AI agents — filesystem-compatible, configurable, and human-readable.',
     url: 'https://acontext.io',
@@ -68,14 +68,14 @@ export const metadata: Metadata = {
         url: 'https://assets.memodb.io/Acontext/page-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'Acontext - Skill Memory Platform for AI Agents',
+        alt: 'Acontext - Context Data Platform for AI Agents',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
     site: '@acontext_io',
-    title: 'Skill Memory Platform for AI Agents | Acontext',
+    title: 'Context Data Platform for AI Agents | Acontext',
     description:
       'Unifies context storage, observability, and skill memory for production AI agents — filesystem-compatible, configurable, and human-readable.',
     images: ['https://assets.memodb.io/Acontext/page-image.jpg'],
