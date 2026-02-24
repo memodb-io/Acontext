@@ -6,6 +6,7 @@
 import { RequesterProtocol } from '../src/client-types';
 import { SessionsAPI } from '../src/resources/sessions';
 import { DisksAPI } from '../src/resources/disks';
+import { SandboxesAPI } from '../src/resources/sandboxes';
 import { SkillsAPI } from '../src/resources/skills';
 import { UsersAPI } from '../src/resources/users';
 
@@ -86,6 +87,7 @@ export class MockRequester implements RequesterProtocol {
       data?: Record<string, string>;
       files?: Record<string, { filename: string; content: Buffer | NodeJS.ReadableStream; contentType: string }>;
       unwrap?: boolean;
+      timeout?: number;
     }
   ): Promise<T> {
     // Record the call
@@ -118,6 +120,7 @@ export class MockAcontextClient {
   public sessions: SessionsAPI;
   public disks: DisksAPI;
   public artifacts: DisksAPI['artifacts'];
+  public sandboxes: SandboxesAPI;
   public skills: SkillsAPI;
   public users: UsersAPI;
 
@@ -126,6 +129,7 @@ export class MockAcontextClient {
     this.sessions = new SessionsAPI(this.requester);
     this.disks = new DisksAPI(this.requester);
     this.artifacts = this.disks.artifacts;
+    this.sandboxes = new SandboxesAPI(this.requester);
     this.skills = new SkillsAPI(this.requester);
     this.users = new UsersAPI(this.requester);
   }

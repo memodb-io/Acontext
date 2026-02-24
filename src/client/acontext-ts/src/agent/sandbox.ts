@@ -119,7 +119,8 @@ export class BashTool extends AbstractBaseTool {
 
   async execute(ctx: SandboxContext, llmArguments: Record<string, unknown>): Promise<string> {
     const command = llmArguments.command as string;
-    const timeout = (llmArguments.timeout as number) ?? this._timeout;
+    const timeoutSec = (llmArguments.timeout as number) ?? this._timeout;
+    const timeout = timeoutSec != null ? timeoutSec * 1000 : undefined;
 
     if (!command) {
       throw new Error('command is required');
@@ -188,6 +189,7 @@ export class TextEditorTool extends AbstractBaseTool {
   async execute(ctx: SandboxContext, llmArguments: Record<string, unknown>): Promise<string> {
     const command = llmArguments.command as string;
     const path = llmArguments.path as string;
+    const timeoutMs = this._timeout != null ? this._timeout * 1000 : undefined;
 
     if (!command) {
       throw new Error('command is required');
@@ -198,14 +200,14 @@ export class TextEditorTool extends AbstractBaseTool {
 
     if (command === 'view') {
       const viewRange = llmArguments.view_range as number[] | null;
-      const result = await viewFile(ctx, path, viewRange, this._timeout);
+      const result = await viewFile(ctx, path, viewRange, timeoutMs);
       return JSON.stringify(result);
     } else if (command === 'create') {
       const fileText = llmArguments.file_text as string;
       if (fileText === null || fileText === undefined) {
         throw new Error('file_text is required for create command');
       }
-      const result = await createFile(ctx, path, fileText, this._timeout);
+      const result = await createFile(ctx, path, fileText, timeoutMs);
       return JSON.stringify(result);
     } else if (command === 'str_replace') {
       const oldStr = llmArguments.old_str as string;
@@ -216,7 +218,7 @@ export class TextEditorTool extends AbstractBaseTool {
       if (newStr === null || newStr === undefined) {
         throw new Error('new_str is required for str_replace command');
       }
-      const result = await strReplace(ctx, path, oldStr, newStr, this._timeout);
+      const result = await strReplace(ctx, path, oldStr, newStr, timeoutMs);
       return JSON.stringify(result);
     } else {
       throw new Error(`Unknown command: ${command}. Must be 'view', 'create', or 'str_replace'`);
