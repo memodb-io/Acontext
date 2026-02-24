@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://discord.acontext.io">
-      <img alt="Acontext - Skill Memory Platform for AI Agents" src="./assets/Acontext-header-banner.png">
+      <img alt="Acontext - Context Data Platform for AI Agents" src="./assets/Acontext-header-banner.png">
   </a>
  	<p align="center">
  	  	<a href="https://acontext.io">🌐 Website</a>
@@ -23,7 +23,7 @@
 
 
 
-Acontext is a skill memory platform for production AI agents. Think of it as Supabase for agent context — with skill-based memory your agents build and humans can actually read.
+Acontext is a context data platform for production AI agents. Think of it as Supabase for agent context — with skill-based memory your agents build and humans can actually read.
 
 Unifies context storage, observability, and skill memory for production AI agents — filesystem-compatible, configurable, and human-readable.
 
@@ -46,7 +46,7 @@ Unifies context storage, observability, and skill memory for production AI agent
 - **Built-in observability** — replay trajectories, track success rates, and monitor agents in real-time
 
 <div align="center">
-      <img alt="Acontext - Skill Memory Platform for AI Agents" src="./assets/acontext-components.png">  
+      <img alt="Acontext - Context Data Platform for AI Agents" src="./assets/acontext-components.png">  
 </div>
 
 
