@@ -585,6 +585,101 @@ describe('Agent Tools Unit Tests', () => {
     });
   });
 
+  describe('Sandbox Timeout Conversion', () => {
+    const sandboxId = 'test-sandbox-id';
+    const diskId = 'test-disk-id';
+
+    function createSandboxCtx(client: MockAcontextClient) {
+      return {
+        client: client as unknown as import('../src/index').AcontextClient,
+        sandboxId,
+        diskId,
+        mountedSkillPaths: new Map(),
+        getContextPrompt: () => '',
+        formatMountedSkills: () => '',
+        mountSkills: async () => {},
+      };
+    }
+
+    function mockExecRoute(client: MockAcontextClient) {
+      client.mock().onPost(new RegExp(`/sandbox/.+/exec`), () => ({
+        stdout: '',
+        stderr: '',
+        exit_code: 0,
+      }));
+    }
+
+    test('BashTool should convert LLM timeout (seconds) to milliseconds', async () => {
+      const tool = new BashTool();
+      mockExecRoute(mockClient);
+      const ctx = createSandboxCtx(mockClient);
+
+      await tool.execute(ctx, { command: 'echo hi', timeout: 60 });
+
+      const call = mockClient.requester.calls.find(
+        (c) => c.method === 'POST' && c.path.includes('/exec')
+      );
+      expect(call).toBeDefined();
+      expect((call!.options as any).timeout).toBe(60000);
+    });
+
+    test('BashTool should convert constructor default timeout (seconds) to milliseconds', async () => {
+      const tool = new BashTool(30);
+      mockExecRoute(mockClient);
+      const ctx = createSandboxCtx(mockClient);
+
+      await tool.execute(ctx, { command: 'echo hi' });
+
+      const call = mockClient.requester.calls.find(
+        (c) => c.method === 'POST' && c.path.includes('/exec')
+      );
+      expect(call).toBeDefined();
+      expect((call!.options as any).timeout).toBe(30000);
+    });
+
+    test('BashTool should pass undefined timeout when none provided', async () => {
+      const tool = new BashTool();
+      mockExecRoute(mockClient);
+      const ctx = createSandboxCtx(mockClient);
+
+      await tool.execute(ctx, { command: 'echo hi' });
+
+      const call = mockClient.requester.calls.find(
+        (c) => c.method === 'POST' && c.path.includes('/exec')
+      );
+      expect(call).toBeDefined();
+      expect((call!.options as any).timeout).toBeUndefined();
+    });
+
+    test('TextEditorTool should convert constructor timeout (seconds) to milliseconds', async () => {
+      const tool = new TextEditorTool(45);
+      mockExecRoute(mockClient);
+      const ctx = createSandboxCtx(mockClient);
+
+      await tool.execute(ctx, { command: 'view', path: '/workspace/test.txt' });
+
+      const call = mockClient.requester.calls.find(
+        (c) => c.method === 'POST' && c.path.includes('/exec')
+      );
+      expect(call).toBeDefined();
+      expect((call!.options as any).timeout).toBe(45000);
+    });
+
+    test('TextEditorTool should pass undefined timeout when none provided', async () => {
+      const tool = new TextEditorTool();
+      mockExecRoute(mockClient);
+      const ctx = createSandboxCtx(mockClient);
+
+      await tool.execute(ctx, { command: 'view', path: '/workspace/test.txt' });
+
+      const call = mockClient.requester.calls.find(
+        (c) => c.method === 'POST' && c.path.includes('/exec')
+      );
+      expect(call).toBeDefined();
+      expect((call!.options as any).timeout).toBeUndefined();
+    });
+  });
+
   describe('OpenAI Schema Array Validation', () => {
     /**
      * Validates that all array types in schema properties have 'items' defined.
