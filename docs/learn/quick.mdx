@@ -1,9 +1,22 @@
 ---
-title: Quickstart
-description: "Set up long-term skill for your agent in 3 steps"
+title: "What is Long-term Skill"
+description: "Persistent agent memory stored as structured skill files — filesystem-compatible, configurable, and human-readable"
 ---
 
-Create a learning space, run your agent, and Acontext automatically builds long-term skills from completed tasks.
+Long-term skill is Acontext's approach to persistent agent memory: your agents store memory as **skill files** — plain markdown organized by configurable schemas you control.
+
+```
+Session messages ──► Task extraction 
+                        └► Learner ──► Skill files
+                ┌─────────────────────┘
+                ▼
+                social-contacts/
+                ├── SKILL.md          (your schema)
+                ├── alice-chen.md     (learner-created)
+                └── bob-martinez.md   (learner-created)
+```
+
+## Quickstart
 
 <Steps>
 <Step title="Create a learning space and run a session">
@@ -48,7 +61,7 @@ await client.sessions.storeMessage(session.id, { role: "user", content: "My name
 </CodeGroup>
 
 <Note>
-Call `.learn()` before the agent runs. When tasks complete during the session, Acontext automatically picks them up for learning.
+Call `.learn()` before the agent runs. When [tasks](/observe/agent_tasks) complete during the session, Acontext automatically picks them up for learning. A **task** is a unit of work the agent completes — Acontext extracts them from session messages automatically.
 </Note>
 </Step>
 
@@ -116,15 +129,116 @@ for (const skill of skills) {
 ```
 </CodeGroup>
 </Step>
+
+<Step title="Use learned skills in your agent">
+
+Give your agent access to the learned skills via [Skill Content Tools](/tool/skill_tools). The agent can then look up what it learned in previous sessions:
+
+<CodeGroup>
+```python Python
+from acontext.agent.skill import SKILL_TOOLS
+from openai import OpenAI
+import json
+
+openai_client = OpenAI()
+
+# Get skill IDs from the learning space
+skills = client.learning_spaces.list_skills(space.id)
+skill_ids = [s.id for s in skills]
+
+# Give the agent access to those skills
+ctx = SKILL_TOOLS.format_context(client, skill_ids)
+tools = SKILL_TOOLS.to_openai_tool_schema()
+
+messages = [
+    {"role": "system", "content": f"You have access to skills from past sessions.\n\n{ctx.get_context_prompt()}"},
+    {"role": "user", "content": "Do you know my name?"}
+]
+
+while True:
+    response = openai_client.chat.completions.create(
+        model="gpt-4.1", messages=messages, tools=tools
+    )
+    message = response.choices[0].message
+    messages.append(message)
+
+    if not message.tool_calls:
+        print(f"Assistant: {message.content}")
+        break
+
+    for tc in message.tool_calls:
+        result = SKILL_TOOLS.execute_tool(ctx, tc.function.name, json.loads(tc.function.arguments))
+        messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+```
+
+```typescript TypeScript
+import { SKILL_TOOLS } from '@acontext/acontext';
+import OpenAI from 'openai';
+
+const openai = new OpenAI();
+
+// Get skill IDs from the learning space
+const skills = await client.learningSpaces.listSkills(space.id);
+const skillIds = skills.map(s => s.id);
+
+// Give the agent access to those skills
+const ctx = await SKILL_TOOLS.formatContext(client, skillIds);
+const tools = SKILL_TOOLS.toOpenAIToolSchema();
+
+const messages: OpenAI.ChatCompletionMessageParam[] = [
+    { role: "system", content: `You have access to skills from past sessions.\n\n${ctx.getContextPrompt()}` },
+    { role: "user", content: "Do you know my name?" },
+];
+
+while (true) {
+    const response = await openai.chat.completions.create({
+        model: "gpt-4.1",
+        messages,
+        tools,
+    });
+    const message = response.choices[0].message;
+    messages.push(message);
+
+    if (!message.tool_calls) {
+        console.log(`Assistant: ${message.content}`);
+        break;
+    }
+
+    for (const tc of message.tool_calls) {
+        const result = await SKILL_TOOLS.executeTool(ctx, tc.function.name, JSON.parse(tc.function.arguments));
+        messages.push({ role: "tool", tool_call_id: tc.id, content: result });
+    }
+}
+```
+</CodeGroup>
+
+</Step>
 </Steps>
+
+## Why Skill Files?
+
+<Accordion title="Comparison with other memory approaches">
+
+| | Long-term Skill (Acontext) | Vector Store | Knowledge Graph | Plain-text Files |
+|--|--|--|--|--|
+| Storage format | Markdown files | Embeddings | Nodes & edges | Text files |
+| Human-readable | Yes | No | Partially | Partially |
+| Configurable schema | Yes (SKILL.md) | No | Complex upfront | No |
+| Filesystem-native | Yes | No | No | Yes |
+| Version controllable | Yes | No | No | No |
+
+</Accordion>
 
 ## Next Steps
 
-<CardGroup cols={2}>
-<Card title="What is Long-term Skill?" icon="brain" href="/learn/skill-memory">
-  Understand how long-term skill compares to other approaches
+<CardGroup cols={3}>
+<Card title="Custom Skills" icon="sparkles" href="/learn/custom-memory">
+  Define your own memory schemas with SKILL.md
 </Card>
-<Card title="Learning Spaces" icon="sparkles" href="/learn/learning-spaces">
+<Card title="Learning Spaces" icon="brain" href="/learn/learning-spaces">
   Default skills, custom skills, and managing learning spaces
+</Card>
+<Card title="Skill Content Tools" icon="wand-magic-sparkles" href="/tool/skill_tools">
+  Full reference for the skill reading tools
 </Card>
 </CardGroup>

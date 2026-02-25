@@ -23,6 +23,7 @@ from .session import (
     TokenCounts,
 )
 from .skill import (
+    DownloadSkillResp,
     FileInfo,
     GetSkillFileResp,
     ListSkillsOutput,
@@ -74,6 +75,7 @@ __all__ = [
     "TaskData",
     "TokenCounts",
     # Skill types
+    "DownloadSkillResp",
     "FileInfo",
     "Skill",
     "SkillCatalogItem",

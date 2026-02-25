@@ -244,6 +244,49 @@ const storage = new ClaudeAgentStorage({
 | **ResultMessage** | No | Fallback session-id source. |
 | **StreamEvent** | No | Fallback session-id source. |
 
+## Learn and Download Skills
+
+Acontext can automatically learn [long-term skills](/learn/quick) from the stored messages — extracting patterns, user preferences, and domain knowledge into structured markdown files. You can then download these skills to your local filesystem:
+
+<Tabs>
+<Tab title="Python">
+```python
+# Create a learning space and learn from the session
+space = await acontext_client.learning_spaces.create()
+await acontext_client.learning_spaces.learn(space.id, session_id=storage.session_id)
+# your agent runs as usual...
+# ...
+
+
+# Download learned skills to local
+skills = await acontext_client.learning_spaces.list_skills(space.id)
+for skill in skills:
+    result = await acontext_client.skills.download(skill_id=skill.id, path=f"./skills/{skill.name}")
+    print(f"Downloaded {result.name} to {result.dir_path}")
+    print(f"Files: {result.files}")
+```
+</Tab>
+
+<Tab title="TypeScript">
+```typescript
+// Create a learning space and learn from the session
+const space = await client.learningSpaces.create();
+await client.learningSpaces.learn({ spaceId: space.id, sessionId: storage.sessionId });
+
+// your agent runs as usual...
+// ...
+
+// Download learned skills to local
+const skills = await client.learningSpaces.listSkills(space.id);
+for (const skill of skills) {
+    const result = await client.skills.download(skill.id, { path: `./skills/${skill.name}` });
+    console.log(`Downloaded ${result.name} to ${result.dirPath}`);
+    console.log(`Files: ${result.files}`);
+}
+```
+</Tab>
+</Tabs>
+
 ## Next Steps
 
 <CardGroup cols={2}>
@@ -253,8 +296,8 @@ Anthropic message storage details
 <Card title="Message meta" icon="tag" href="/store/messages/special/message-meta">
 Working with message metadata
 </Card>
-<Card title="Mid-term State" icon="eye" href="/observe/agent_tasks">
-Monitor agent tasks and mid-term state
+<Card title="Long-term Skill" icon="brain" href="/learn/quick">
+Learn skills from agent sessions automatically
 </Card>
 <Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
 View all interactions

@@ -87,11 +87,10 @@
             "group": "Long-term Skill",
             "icon": "brain",
             "pages": [
-              "learn/skill-memory",
+              "learn/quick",
               {
                 "group": "Features",
                 "pages": [
-                  "learn/quick",
                   "learn/custom-memory",
                   "learn/learning-spaces"
                 ]

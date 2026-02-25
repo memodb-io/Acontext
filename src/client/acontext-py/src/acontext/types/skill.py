@@ -75,3 +75,16 @@ class DownloadSkillToSandboxResp(BaseModel):
     )
     name: str = Field(..., description="Skill name")
     description: str = Field(..., description="Skill description")
+
+
+class DownloadSkillResp(BaseModel):
+    """Response model for downloading a skill to a local path."""
+
+    name: str = Field(..., description="Skill name")
+    description: str = Field(..., description="Skill description")
+    dir_path: str = Field(
+        ..., description="Absolute path to the download directory"
+    )
+    files: list[str] = Field(
+        ..., description="List of relative file paths downloaded"
+    )
