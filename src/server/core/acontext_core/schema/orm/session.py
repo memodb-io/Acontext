@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from sqlalchemy import ForeignKey, Index, Column, Boolean
+from sqlalchemy import ForeignKey, Index, Column, Boolean, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from typing import TYPE_CHECKING, Optional, List
@@ -53,6 +53,10 @@ class Session(CommonMixin):
 
     configs: Optional[dict] = field(
         default=None, metadata={"db": Column(JSONB, nullable=True)}
+    )
+
+    display_title: Optional[str] = field(
+        default=None, metadata={"db": Column(Text, nullable=True)}
     )
 
     # Relationships
