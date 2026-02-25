@@ -1,8 +1,10 @@
 # SkillsBench × Acontext Evaluation
+github repo: https://github.com/benchflow-ai/skillsbench
+paper: https://arxiv.org/pdf/2602.12670
+trajectories: https://huggingface.co/datasets/xdotli/skillsbench-trajectories
 
 ## Features / Showcase
-
-Evaluate Acontext's self-learning skill feature using the SkillsBench benchmark, demonstrating that experience-based skill learning outperforms zero-shot self-generation and can improve upon human-curated skills.
+Evaluate Acontext's self-learning skill feature using the SkillsBench benchmark, demonstrating that experience-based skill learning can improve upon human-curated skills.
 
 ### Hypothesis
 
@@ -11,13 +13,19 @@ SkillsBench (Li et al., 2026) showed:
 - Self-generated skills (agent writes skills before solving, with no prior experience) provide **-1.3 pp** (no benefit)
 
 Acontext's skill learner is structurally different from SkillsBench's self-generated condition — it learns from **actual task outcomes** (distilling success/failure trajectories), not from imagination. We hypothesize that Acontext-learned skills will:
-1. Provide positive improvement over baseline (unlike self-generated's -1.3pp)
-2. Close part of the gap between "no skills" and "curated skills"
-3. Potentially improve upon curated skills by adding failure-derived anti-patterns
+1. Improve upon curated skills by adding failure-derived anti-patterns and success-derived SOPs
+2. Reduce the 16/84 tasks where curated skills hurt performance (by learning what to avoid)
 
 ### Key Metric: Pass@2-Adaptive
 
 This is not standard pass@k (k independent attempts). Round 2 is **informed by Round 1** via Acontext's learning pipeline. We call this **pass@2-adaptive** — a sequential, experience-augmented retry.
+
+### Scope: Condition B Only (Curated Skills)
+
+We use pre-existing trajectories from the SkillsBench HuggingFace dataset (`xdotli/skillsbench-trajectories`). The `skillsbench-with-skills/` folder contains Condition B (Curated Skills) trajectories run with **Claude Code + Opus 4.5** (`claude-opus-4-5@20251101`). This lets us skip Round 1 entirely and focus on:
+- Can Acontext learn from curated-skills trajectories and produce **even better** skills?
+
+Condition A (No Skills) trajectories are not available in the dataset. We can add them in a future iteration if needed.
 
 ## Design Overview
 
@@ -25,31 +33,36 @@ This is not standard pass@k (k independent attempts). Round 2 is **informed by R
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ ROUND 1: Standard SkillsBench Evaluation                    │
+│ DATA SOURCE: Pre-existing SkillsBench Trajectories          │
 │                                                             │
-│  Condition A: No Skills         → 5 trials × 84 tasks      │
-│  Condition B: Curated Skills    → 5 trials × 84 tasks      │
+│  Downloaded from HuggingFace:                               │
+│    xdotli/skillsbench-trajectories/skillsbench-with-skills/ │
 │                                                             │
-│  Output: trajectories with pass/fail per trial              │
+│  Condition B: Curated Skills, Claude Code + Opus 4.5        │
+│  Per trial: result.json (pass/fail), agent/claude-code.txt  │
+│             (full trajectory), config.json                  │
+│                                                             │
+│  No Round 1 execution needed — trajectories are reused.     │
 └───────────────────────┬─────────────────────────────────────┘
                         │
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ LEARNING PHASE: Acontext Skill Learning                     │
 │                                                             │
-│  Per task, per trial (per-task learning, learn from all 5): │
+│  Per task, per trial (learn from all available trials):     │
 │                                                             │
 │  For each task:                                             │
-│    For each of the 5 trials:                                │
+│    For each trial:                                          │
 │      1. Create Acontext session                             │
+│         (disable_task_status_change=True)                   │
 │      2. Store trajectory as messages                        │
-│      3. Create task, set status = success/failed            │
-│         (uses new update_task_status SDK)                   │
-│      4. Acontext distills → skill agent runs                │
-│      5. Skills accumulate in learning space                 │
+│      3. Flush → task extracted                              │
+│      4. Set task status = success/failed                    │
+│         (uses update_task_status SDK)                       │
+│      5. Acontext distills → skill agent runs                │
+│      6. Skills accumulate in learning space                 │
 │                                                             │
-│  Two learning spaces:                                       │
-│    LS-A: learns from Condition A trajectories (no skills)   │
+│  One learning space:                                        │
 │    LS-B: learns from Condition B trajectories (curated)     │
 └───────────────────────┬─────────────────────────────────────┘
                         │
@@ -57,22 +70,19 @@ This is not standard pass@k (k independent attempts). Round 2 is **informed by R
 ┌─────────────────────────────────────────────────────────────┐
 │ SKILL EXPORT: Download Learned Skills                       │
 │                                                             │
-│  For each learning space:                                   │
-│    1. List skills via SDK: client.skills.list_catalog()     │
-│    2. Download each skill's files via client.skills.get_file│
-│       or client.skills.download_to_sandbox()                │
+│  From LS-B:                                                 │
+│    1. List skills: client.learning_spaces.list_skills()     │
+│    2. Download each: client.skills.download(skill_id, path) │
 │    3. Package into SkillsBench-compatible skills/ directory  │
 │                                                             │
 │  Output:                                                    │
-│    skills-A/  (learned from no-skills trajectories)         │
-│    skills-B/  (curated + learned from curated trajectories) │
+│    skills-B/  (curated + Acontext-learned from trajectories)│
 └───────────────────────┬─────────────────────────────────────┘
                         │
                         ▼
 ┌─────────────────────────────────────────────────────────────┐
 │ ROUND 2: Re-run SkillsBench with Learned Skills             │
 │                                                             │
-│  Condition A': Acontext-learned skills     → 5 trials × 84 │
 │  Condition B': Curated + Acontext-learned  → 5 trials × 84 │
 │                                                             │
 │  Skills injected via SkillsBench standard mechanism:        │
@@ -85,38 +95,36 @@ This is not standard pass@k (k independent attempts). Round 2 is **informed by R
 ┌─────────────────────────────────────────────────────────────┐
 │ ANALYSIS                                                    │
 │                                                             │
-│  Primary comparisons:                                       │
-│    A' vs A  — Does learning from failure help?              │
+│  Primary comparison:                                        │
 │    B' vs B  — Can Acontext improve curated skills?          │
-│    A' vs B  — Can learned-from-scratch match human-curated? │
-│    B' vs A' — Does starting point (curated vs nothing)      │
-│               affect learned skill quality?                  │
 │                                                             │
 │  Secondary analysis:                                        │
 │    - Per-domain breakdown (which domains learn best?)       │
 │    - Skill content comparison (learned vs curated)          │
 │    - Failure mode shift analysis (Round 1 → Round 2)        │
 │    - Learning efficiency by difficulty tier                  │
+│    - Tasks where curated skills hurt (16/84): does          │
+│      Acontext learning fix them?                            │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### SkillsBench Summary
 
-| Item | Detail |
-|------|--------|
-| Paper | SkillsBench (Li et al., Feb 2026, arXiv:2602.12670) |
-| Tasks | 84 evaluated tasks across 11 domains |
-| Difficulty | Core (17, <60min), Extended (43, 1-4h), Extreme (26, >4h) |
-| Conditions | No Skills, Curated Skills, Self-Generated Skills |
-| Harnesses | Claude Code, Gemini CLI, Codex CLI |
-| Models | Claude Opus 4.5/4.6, Sonnet 4.5, Haiku 4.5, GPT-5.2, Gemini 3 Pro/Flash |
-| Trials | 5 per task per condition (3 for self-generated) |
-| Verification | Deterministic pytest assertions, binary pass/fail |
-| Key result | Curated: +16.2pp, Self-generated: -1.3pp |
-| Infrastructure | Docker containers (ubuntu:24.04), Harbor framework |
-| Task structure | instruction.md, task.toml, environment/, solution/, tests/ |
-| Skill injection | Copy to /root/.claude/skills, /root/.codex/skills, etc. |
-| Metrics | Pass rate, normalized gain g, absolute Δ |
+| Item            | Detail                                                                  |
+| --------------- | ----------------------------------------------------------------------- |
+| Paper           | SkillsBench (Li et al., Feb 2026, arXiv:2602.12670)                     |
+| Tasks           | 84 evaluated tasks across 11 domains                                    |
+| Difficulty      | Core (17, <60min), Extended (43, 1-4h), Extreme (26, >4h)               |
+| Conditions      | No Skills, Curated Skills, Self-Generated Skills                        |
+| Harnesses       | Claude Code, Gemini CLI, Codex CLI                                      |
+| Models          | Claude Opus 4.5/4.6, Sonnet 4.5, Haiku 4.5, GPT-5.2, Gemini 3 Pro/Flash |
+| Trials          | 5 per task per condition (3 for self-generated)                         |
+| Verification    | Deterministic pytest assertions, binary pass/fail                       |
+| Key result      | Curated: +16.2pp, Self-generated: -1.3pp                                |
+| Infrastructure  | Docker containers (ubuntu:24.04), Harbor framework                      |
+| Task structure  | instruction.md, task.toml, environment/, solution/, tests/              |
+| Skill injection | Copy to /root/.claude/skills, /root/.codex/skills, etc.                 |
+| Metrics         | Pass rate, normalized gain g, absolute Δ                                |
 
 ### Key SkillsBench Findings Relevant to This Evaluation
 
@@ -126,9 +134,19 @@ This is not standard pass@k (k independent attempts). Round 2 is **informed by R
 4. **Healthcare (+51.9pp) and Manufacturing (+41.9pp) benefit most** — domains with specialized procedural knowledge underrepresented in pretraining. These are the best domains to test Acontext learning.
 5. **16/84 tasks show negative skill delta** — skills can hurt. Does Acontext avoid this by learning from failures?
 
+### HuggingFace Trajectory Format
+
+Each trial in `skillsbench-with-skills/{task_name}__{trial_id}/` contains:
+- `result.json` — `verifier_result.rewards.reward` (0.0 = fail, 1.0 = pass), timestamps, agent config
+- `config.json` — agent name (`claude-code`), model (`claude-opus-4-5@20251101`), env config
+- `agent/claude-code.txt` — full Claude Code agent transcript (~100-300KB)
+- `agent/sessions/` — Claude Code internal session data
+- `agent/command-*/` — individual command I/O
+- `verifier/` — verifier output
+
 ### Trajectory → Acontext Session Adaptation
 
-SkillsBench trajectories are terminal interaction logs (agent sends shell commands, gets output). These need to be adapted into Acontext's expected format:
+The `agent/claude-code.txt` transcripts need to be adapted into Acontext's expected format:
 
 ```python
 # For each SkillsBench trajectory:
@@ -164,32 +182,31 @@ client.sessions.update_task_status(
 # This triggers the full pipeline: distillation → skill agent → skill stored
 ```
 
-**Trajectory summary format**: The raw terminal log may be too long. We should distill it into a concise summary:
+**Trajectory summary format**: The raw `claude-code.txt` transcript can be 100-300KB. We should distill it into a concise summary:
 - For success: what commands were run, what approach worked, what the output was
 - For failure: what was attempted, where it failed, what error occurred
+- Consider using an LLM to summarize long transcripts (or truncate to the last N lines)
 
 ### Agent Harness Selection
 
 For practical scope, we recommend starting with **one harness-model configuration**:
 
-| Option | Rationale |
-|--------|-----------|
+| Option                 | Rationale                                                                                                   |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------- |
 | Claude Code + Opus 4.6 | Highest normalized gain (29.9%), native skill integration, supports self-generated condition for comparison |
-| Gemini CLI + Flash | Highest absolute pass rate (48.7%), cheapest per trial ($0.57) |
+| Gemini CLI + Flash     | Highest absolute pass rate (48.7%), cheapest per trial ($0.57)                                              |
 
 **Recommendation**: Start with **Claude Code + Opus 4.6** — it has the best skill utilization and Acontext's skill format aligns with Claude Code's native skill spec.
 
 ### Learning Space Setup
 
-Two independent learning spaces per harness-model configuration:
+One learning space for this iteration:
 
-- **LS-A** (No Skills path): Empty at start. Learns from Round 1 Condition A trajectories.
-  - Expected: Creates new skills from scratch based on failure/success analysis
-  - Tests: Can Acontext build useful procedural knowledge from zero?
-
-- **LS-B** (Curated Skills path): Pre-loaded with SkillsBench curated skills. Learns from Round 1 Condition B trajectories.
+- **LS-B** (Curated Skills path): Pre-loaded with SkillsBench curated skills. Learns from Condition B trajectories downloaded from HuggingFace.
   - Expected: Updates curated skills with SOPs from successes and warnings from failures
   - Tests: Can Acontext enhance already-good skills?
+
+> **Future work**: Add LS-A (empty, learns from no-skills trajectories) once Condition A trajectory data is available.
 
 ### Per-Task Learning Order
 
@@ -200,49 +217,49 @@ Within each learning space, tasks are processed sequentially. All 5 trials for a
 ## TODOs
 
 ### Prerequisites
-- [ ] **Disable task status change** — implement session-level `disable_task_status_change` flag (see `plans/disable-task-status-change.md`)
-- [ ] **Task status update SDK** — implement the `update_task_status` feature (see `plans/task-status-update-sdk.md`)
-- [ ] **SkillsBench access** — obtain the benchmark tasks, environments, and verifiers from the SkillsBench repository
+- [x] **Disable task status change** — session-level `disable_task_status_change` flag (see `plans/disable-task-status-change.md`)
+- [x] **Task status update SDK** — `update_task_status` / `updateTaskStatus` exists in both Python and TypeScript SDKs
+- [ ] **SkillsBench access** — clone repo (`benchflow-ai/skillsbench`), obtain task definitions, environments, and verifiers
 
-### Phase 1: Trajectory Collection (Round 1)
-- [ ] **Set up SkillsBench infrastructure** — Docker, Harbor framework, agent harness configuration
-- [ ] **Run Round 1 Condition A** — No Skills, 5 trials × 84 tasks on chosen harness-model
-- [ ] **Run Round 1 Condition B** — Curated Skills, 5 trials × 84 tasks on chosen harness-model
-- [ ] **Collect and store trajectories** — save terminal logs, pass/fail results, verifier output per trial
+### Phase 1: Download Trajectories (No Round 1 Execution)
+- [ ] **Download HuggingFace dataset** — `huggingface-cli download xdotli/skillsbench-trajectories` (694 MB)
+- [ ] **Audit dataset coverage** — enumerate tasks in `skillsbench-with-skills/`, verify which of the 84 tasks have trials, count trials per task
+- [ ] **Parse result.json files** — extract pass/fail (`verifier_result.rewards.reward`), task name, agent config per trial
+- [ ] **Parse agent trajectories** — read `agent/claude-code.txt` per trial, determine trajectory format and length
 
 ### Phase 2: Acontext Learning
-- [ ] **Build trajectory adapter script** — converts SkillsBench terminal logs into Acontext session format (messages + task status)
-- [ ] **Create learning spaces** — LS-A (empty), LS-B (pre-loaded with curated skills)
-- [ ] **Run learning pipeline for LS-A** — process all Condition A trajectories (84 tasks × 5 trials, ordered by domain then difficulty)
-- [ ] **Run learning pipeline for LS-B** — process all Condition B trajectories (same ordering)
-- [ ] **Audit learned skills** — list all skills in each learning space, review content quality
+- [ ] **Build trajectory adapter script** — converts `claude-code.txt` + `result.json` into Acontext session format (messages + task status). Files: `eval/adapter.py`
+  - Parse `claude-code.txt` into a trajectory summary (truncate/distill if too long)
+  - Read `instruction.md` from the SkillsBench tasks repo for each task
+  - Read `result.json` for pass/fail status
+- [ ] **Create learning space LS-B** — pre-loaded with SkillsBench curated skills
+- [ ] **Run learning pipeline for LS-B** — process all Condition B trajectories (ordered by domain then difficulty). Files: `eval/learn.py`
+- [ ] **Audit learned skills** — list all skills in LS-B, review content quality
 
 ### Phase 3: Skill Export & Round 2
-- [ ] **Export skills from LS-A** — download all skill files, package into SkillsBench `skills/` directory format
-- [ ] **Export skills from LS-B** — download curated + learned skills, package into `skills/` directory format
-- [ ] **Run Round 2 Condition A'** — Acontext-learned skills (from LS-A), 5 trials × 84 tasks
-- [ ] **Run Round 2 Condition B'** — Curated + Acontext-learned skills (from LS-B), 5 trials × 84 tasks
+- [ ] **Export skills from LS-B** — `client.skills.download(skill_id, path="./skills-B/")` for each skill, package into SkillsBench `skills/` directory format. Files: `eval/export.py`
+- [ ] **Run Round 2 Condition B'** — Curated + Acontext-learned skills (from LS-B), 5 trials × 84 tasks via Harbor
 
 ### Phase 4: Analysis
-- [ ] **Compute pass rates** — Round 1 vs Round 2, all conditions, using SkillsBench's Method D scoring (84-task fixed denominator, average over 5 trials)
-- [ ] **Primary comparisons** — A' vs A, B' vs B, A' vs B, B' vs A'
+- [ ] **Compute pass rates** — Round 1 (from HF data) vs Round 2, using SkillsBench's Method D scoring (84-task fixed denominator, average over 5 trials). Files: `eval/analyze.py`
+- [ ] **Primary comparison: B' vs B** — can Acontext improve curated skills?
 - [ ] **Per-domain breakdown** — which domains does Acontext learning help most?
 - [ ] **Failure mode analysis** — compare failure categories (timeout, execution, coherence, verification) between rounds
 - [ ] **Skill content analysis** — qualitative comparison of Acontext-learned vs SkillsBench curated skills
-- [ ] **Task-level analysis** — identify which specific tasks improved/degraded
+- [ ] **Task-level analysis** — identify which specific tasks improved/degraded, focus on the 16/84 where curated skills hurt
 
 ## New Deps
 
-- SkillsBench benchmark suite (Harbor framework, task definitions, verifiers)
-- Docker environment for running SkillsBench containers
-- Agent harness (Claude Code / Gemini CLI / Codex CLI)
-- API keys for chosen model
+- SkillsBench benchmark suite (Harbor framework, task definitions, verifiers) — for Round 2 only
+- Docker environment for running SkillsBench containers — for Round 2 only
+- `huggingface-cli` or `huggingface_hub` — for downloading trajectory dataset
+- Agent harness (Claude Code) — for Round 2 only
+- API keys for Claude Opus model — for Round 2 only
 
 ## Test Cases
 
-- [ ] Trajectory adapter correctly converts SkillsBench terminal logs to Acontext session format
+- [ ] Trajectory adapter correctly parses `claude-code.txt` and `result.json` into Acontext session format
 - [ ] `update_task_status` correctly triggers distillation for success and failure
-- [ ] Skill learner produces non-empty skills from Condition A (no skills) trajectories
 - [ ] Skill learner correctly updates curated skills from Condition B trajectories
 - [ ] Exported skills maintain valid SKILL.md format with YAML frontmatter
 - [ ] Exported skills directory structure is SkillsBench-compatible (works when copied to container)
