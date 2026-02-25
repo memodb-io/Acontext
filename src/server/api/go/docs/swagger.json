@@ -1278,7 +1278,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "LearningSpaces"
+                    "learning_spaces"
                 ],
                 "summary": "List learning spaces",
                 "parameters": [
@@ -1332,7 +1332,19 @@
                             ]
                         }
                     }
-                }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List learning spaces\nresult = client.learning_spaces.list(limit=20, time_desc=True)\nfor space in result.items:\n    print(f\"{space.id}: {space.meta}\")\n\n# List with user filter\nresult = client.learning_spaces.list(user='alice@acontext.io')\n\n# List with meta filter\nresult = client.learning_spaces.list(\n    filter_by_meta={'version': '1.0'}\n)\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List learning spaces\nconst result = await client.learningSpaces.list({ limit: 20, timeDesc: true });\nfor (const space of result.items) {\n  console.log(`${space.id}: ${JSON.stringify(space.meta)}`);\n}\n\n// List with user filter\nconst userSpaces = await client.learningSpaces.list({ user: 'alice@acontext.io' });\n\n// List with meta filter\nconst filtered = await client.learningSpaces.list({\n  filterByMeta: { version: '1.0' }\n});\n"
+                    }
+                ]
             },
             "post": {
                 "security": [
@@ -1348,7 +1360,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "LearningSpaces"
+                    "learning_spaces"
                 ],
                 "summary": "Create learning space",
                 "parameters": [
@@ -1381,7 +1393,19 @@
                             ]
                         }
                     }
-                }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Create a learning space\nspace = client.learning_spaces.create(\n    user='alice@acontext.io',\n    meta={'version': '1.0'}\n)\nprint(f\"Created space: {space.id}\")\n\n# Create a learning space without a user\nspace = client.learning_spaces.create()\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Create a learning space\nconst space = await client.learningSpaces.create({\n  user: 'alice@acontext.io',\n  meta: { version: '1.0' }\n});\nconsole.log(`Created space: ${space.id}`);\n\n// Create a learning space without a user\nconst space2 = await client.learningSpaces.create();\n"
+                    }
+                ]
             }
         },
         "/learning_spaces/{id}": {
@@ -1399,7 +1423,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "LearningSpaces"
+                    "learning_spaces"
                 ],
                 "summary": "Get learning space",
                 "parameters": [
@@ -1430,7 +1454,19 @@
                             ]
                         }
                     }
-                }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get a learning space by ID\nspace = client.learning_spaces.get('space-uuid')\nprint(f\"Space: {space.id}\")\nprint(f\"Meta: {space.meta}\")\nprint(f\"Created at: {space.created_at}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get a learning space by ID\nconst space = await client.learningSpaces.get('space-uuid');\nconsole.log(`Space: ${space.id}`);\nconsole.log(`Meta: ${JSON.stringify(space.meta)}`);\nconsole.log(`Created at: ${space.created_at}`);\n"
+                    }
+                ]
             },
             "delete": {
                 "security": [
@@ -1446,7 +1482,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "LearningSpaces"
+                    "learning_spaces"
                 ],
                 "summary": "Delete learning space",
                 "parameters": [
@@ -1465,7 +1501,19 @@
                             "$ref": "#/definitions/serializer.Response"
                         }
                     }
-                }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Delete a learning space\nclient.learning_spaces.delete('space-uuid')\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Delete a learning space\nawait client.learningSpaces.delete('space-uuid');\n"
+                    }
+                ]
             },
             "patch": {
                 "security": [
@@ -1481,7 +1529,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "LearningSpaces"
+                    "learning_spaces"
                 ],
                 "summary": "Update learning space (patch meta)",
                 "parameters": [
@@ -1521,7 +1569,19 @@
                             ]
                         }
                     }
-                }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Update a learning space's meta (patch semantics)\nspace = client.learning_spaces.update(\n    'space-uuid',\n    meta={'version': '2.0', 'environment': 'production'}\n)\nprint(f\"Updated meta: {space.meta}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Update a learning space's meta (patch semantics)\nconst space = await client.learningSpaces.update('space-uuid', {\n  meta: { version: '2.0', environment: 'production' }\n});\nconsole.log(`Updated meta: ${JSON.stringify(space.meta)}`);\n"
+                    }
+                ]
             }
         },
         "/learning_spaces/{id}/learn": {
@@ -1539,7 +1599,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "LearningSpaces"
+                    "learning_spaces"
                 ],
                 "summary": "Learn from session",
                 "parameters": [
@@ -1591,7 +1651,19 @@
                             "$ref": "#/definitions/serializer.Response"
                         }
                     }
-                }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Learn from a session\nrecord = client.learning_spaces.learn(\n    'space-uuid',\n    session_id='session-uuid'\n)\nprint(f\"Learning record: {record.id}, status: {record.status}\")\n\n# Wait for learning to complete\nresult = client.learning_spaces.wait_for_learning(\n    'space-uuid',\n    session_id='session-uuid',\n    timeout=120.0\n)\nprint(f\"Final status: {result.status}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Learn from a session\nconst record = await client.learningSpaces.learn({\n  spaceId: 'space-uuid',\n  sessionId: 'session-uuid'\n});\nconsole.log(`Learning record: ${record.id}, status: ${record.status}`);\n\n// Wait for learning to complete\nconst result = await client.learningSpaces.waitForLearning({\n  spaceId: 'space-uuid',\n  sessionId: 'session-uuid',\n  timeout: 120\n});\nconsole.log(`Final status: ${result.status}`);\n"
+                    }
+                ]
             }
         },
         "/learning_spaces/{id}/sessions": {
@@ -1609,7 +1681,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "LearningSpaces"
+                    "learning_spaces"
                 ],
                 "summary": "List sessions in space",
                 "parameters": [
@@ -1643,7 +1715,99 @@
                             ]
                         }
                     }
-                }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List all learning sessions in a space\nsessions = client.learning_spaces.list_sessions('space-uuid')\nfor s in sessions:\n    print(f\"Session {s.session_id}: {s.status}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List all learning sessions in a space\nconst sessions = await client.learningSpaces.listSessions('space-uuid');\nfor (const s of sessions) {\n  console.log(`Session ${s.session_id}: ${s.status}`);\n}\n"
+                    }
+                ]
+            }
+        },
+        "/learning_spaces/{id}/sessions/{session_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a single learning session record by session ID within a learning space.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "learning_spaces"
+                ],
+                "summary": "Get session in space",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Learning space UUID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Session UUID",
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.LearningSpaceSession"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/serializer.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/serializer.Response"
+                        }
+                    }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get a learning session record\nsession = client.learning_spaces.get_session(\n    'space-uuid',\n    session_id='session-uuid'\n)\nprint(f\"Session {session.session_id}: {session.status}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get a learning session record\nconst session = await client.learningSpaces.getSession({\n  spaceId: 'space-uuid',\n  sessionId: 'session-uuid'\n});\nconsole.log(`Session ${session.session_id}: ${session.status}`);\n"
+                    }
+                ]
             }
         },
         "/learning_spaces/{id}/skills": {
@@ -1661,7 +1825,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "LearningSpaces"
+                    "learning_spaces"
                 ],
                 "summary": "List skills in space",
                 "parameters": [
@@ -1695,7 +1859,19 @@
                             ]
                         }
                     }
-                }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List all skills in a learning space\nskills = client.learning_spaces.list_skills('space-uuid')\nfor skill in skills:\n    print(f\"{skill.name}: {skill.description}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List all skills in a learning space\nconst skills = await client.learningSpaces.listSkills('space-uuid');\nfor (const skill of skills) {\n  console.log(`${skill.name}: ${skill.description}`);\n}\n"
+                    }
+                ]
             },
             "post": {
                 "security": [
@@ -1711,7 +1887,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "LearningSpaces"
+                    "learning_spaces"
                 ],
                 "summary": "Include skill in space",
                 "parameters": [
@@ -1763,7 +1939,19 @@
                             "$ref": "#/definitions/serializer.Response"
                         }
                     }
-                }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Include a skill in a learning space\nrecord = client.learning_spaces.include_skill(\n    'space-uuid',\n    skill_id='skill-uuid'\n)\nprint(f\"Linked skill {record.skill_id} to space {record.learning_space_id}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Include a skill in a learning space\nconst record = await client.learningSpaces.includeSkill({\n  spaceId: 'space-uuid',\n  skillId: 'skill-uuid'\n});\nconsole.log(`Linked skill ${record.skill_id} to space ${record.learning_space_id}`);\n"
+                    }
+                ]
             }
         },
         "/learning_spaces/{id}/skills/{skill_id}": {
@@ -1781,7 +1969,7 @@
                     "application/json"
                 ],
                 "tags": [
-                    "LearningSpaces"
+                    "learning_spaces"
                 ],
                 "summary": "Exclude skill from space",
                 "parameters": [
@@ -1807,7 +1995,19 @@
                             "$ref": "#/definitions/serializer.Response"
                         }
                     }
-                }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Exclude a skill from a learning space (idempotent)\nclient.learning_spaces.exclude_skill(\n    'space-uuid',\n    skill_id='skill-uuid'\n)\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Exclude a skill from a learning space (idempotent)\nawait client.learningSpaces.excludeSkill({\n  spaceId: 'space-uuid',\n  skillId: 'skill-uuid'\n});\n"
+                    }
+                ]
             }
         },
         "/sandbox": {

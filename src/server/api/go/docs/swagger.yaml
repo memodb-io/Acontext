@@ -1863,7 +1863,47 @@ paths:
       - BearerAuth: []
       summary: List learning spaces
       tags:
-      - LearningSpaces
+      - learning_spaces
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # List learning spaces
+          result = client.learning_spaces.list(limit=20, time_desc=True)
+          for space in result.items:
+              print(f"{space.id}: {space.meta}")
+
+          # List with user filter
+          result = client.learning_spaces.list(user='alice@acontext.io')
+
+          # List with meta filter
+          result = client.learning_spaces.list(
+              filter_by_meta={'version': '1.0'}
+          )
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // List learning spaces
+          const result = await client.learningSpaces.list({ limit: 20, timeDesc: true });
+          for (const space of result.items) {
+            console.log(`${space.id}: ${JSON.stringify(space.meta)}`);
+          }
+
+          // List with user filter
+          const userSpaces = await client.learningSpaces.list({ user: 'alice@acontext.io' });
+
+          // List with meta filter
+          const filtered = await client.learningSpaces.list({
+            filterByMeta: { version: '1.0' }
+          });
     post:
       consumes:
       - application/json
@@ -1891,7 +1931,40 @@ paths:
       - BearerAuth: []
       summary: Create learning space
       tags:
-      - LearningSpaces
+      - learning_spaces
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Create a learning space
+          space = client.learning_spaces.create(
+              user='alice@acontext.io',
+              meta={'version': '1.0'}
+          )
+          print(f"Created space: {space.id}")
+
+          # Create a learning space without a user
+          space = client.learning_spaces.create()
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Create a learning space
+          const space = await client.learningSpaces.create({
+            user: 'alice@acontext.io',
+            meta: { version: '1.0' }
+          });
+          console.log(`Created space: ${space.id}`);
+
+          // Create a learning space without a user
+          const space2 = await client.learningSpaces.create();
   /learning_spaces/{id}:
     delete:
       consumes:
@@ -1915,7 +1988,26 @@ paths:
       - BearerAuth: []
       summary: Delete learning space
       tags:
-      - LearningSpaces
+      - learning_spaces
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Delete a learning space
+          client.learning_spaces.delete('space-uuid')
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Delete a learning space
+          await client.learningSpaces.delete('space-uuid');
     get:
       consumes:
       - application/json
@@ -1942,7 +2034,32 @@ paths:
       - BearerAuth: []
       summary: Get learning space
       tags:
-      - LearningSpaces
+      - learning_spaces
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Get a learning space by ID
+          space = client.learning_spaces.get('space-uuid')
+          print(f"Space: {space.id}")
+          print(f"Meta: {space.meta}")
+          print(f"Created at: {space.created_at}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Get a learning space by ID
+          const space = await client.learningSpaces.get('space-uuid');
+          console.log(`Space: ${space.id}`);
+          console.log(`Meta: ${JSON.stringify(space.meta)}`);
+          console.log(`Created at: ${space.created_at}`);
     patch:
       consumes:
       - application/json
@@ -1976,7 +2093,33 @@ paths:
       - BearerAuth: []
       summary: Update learning space (patch meta)
       tags:
-      - LearningSpaces
+      - learning_spaces
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Update a learning space's meta (patch semantics)
+          space = client.learning_spaces.update(
+              'space-uuid',
+              meta={'version': '2.0', 'environment': 'production'}
+          )
+          print(f"Updated meta: {space.meta}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Update a learning space's meta (patch semantics)
+          const space = await client.learningSpaces.update('space-uuid', {
+            meta: { version: '2.0', environment: 'production' }
+          });
+          console.log(`Updated meta: ${JSON.stringify(space.meta)}`);
   /learning_spaces/{id}/learn:
     post:
       consumes:
@@ -2019,7 +2162,50 @@ paths:
       - BearerAuth: []
       summary: Learn from session
       tags:
-      - LearningSpaces
+      - learning_spaces
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Learn from a session
+          record = client.learning_spaces.learn(
+              'space-uuid',
+              session_id='session-uuid'
+          )
+          print(f"Learning record: {record.id}, status: {record.status}")
+
+          # Wait for learning to complete
+          result = client.learning_spaces.wait_for_learning(
+              'space-uuid',
+              session_id='session-uuid',
+              timeout=120.0
+          )
+          print(f"Final status: {result.status}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Learn from a session
+          const record = await client.learningSpaces.learn({
+            spaceId: 'space-uuid',
+            sessionId: 'session-uuid'
+          });
+          console.log(`Learning record: ${record.id}, status: ${record.status}`);
+
+          // Wait for learning to complete
+          const result = await client.learningSpaces.waitForLearning({
+            spaceId: 'space-uuid',
+            sessionId: 'session-uuid',
+            timeout: 120
+          });
+          console.log(`Final status: ${result.status}`);
   /learning_spaces/{id}/sessions:
     get:
       consumes:
@@ -2050,7 +2236,100 @@ paths:
       - BearerAuth: []
       summary: List sessions in space
       tags:
-      - LearningSpaces
+      - learning_spaces
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # List all learning sessions in a space
+          sessions = client.learning_spaces.list_sessions('space-uuid')
+          for s in sessions:
+              print(f"Session {s.session_id}: {s.status}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // List all learning sessions in a space
+          const sessions = await client.learningSpaces.listSessions('space-uuid');
+          for (const s of sessions) {
+            console.log(`Session ${s.session_id}: ${s.status}`);
+          }
+  /learning_spaces/{id}/sessions/{session_id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a single learning session record by session ID within a learning
+        space.
+      parameters:
+      - description: Learning space UUID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Session UUID
+        in: path
+        name: session_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/model.LearningSpaceSession'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/serializer.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/serializer.Response'
+      security:
+      - BearerAuth: []
+      summary: Get session in space
+      tags:
+      - learning_spaces
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Get a learning session record
+          session = client.learning_spaces.get_session(
+              'space-uuid',
+              session_id='session-uuid'
+          )
+          print(f"Session {session.session_id}: {session.status}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Get a learning session record
+          const session = await client.learningSpaces.getSession({
+            spaceId: 'space-uuid',
+            sessionId: 'session-uuid'
+          });
+          console.log(`Session ${session.session_id}: ${session.status}`);
   /learning_spaces/{id}/skills:
     get:
       consumes:
@@ -2081,7 +2360,31 @@ paths:
       - BearerAuth: []
       summary: List skills in space
       tags:
-      - LearningSpaces
+      - learning_spaces
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # List all skills in a learning space
+          skills = client.learning_spaces.list_skills('space-uuid')
+          for skill in skills:
+              print(f"{skill.name}: {skill.description}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // List all skills in a learning space
+          const skills = await client.learningSpaces.listSkills('space-uuid');
+          for (const skill of skills) {
+            console.log(`${skill.name}: ${skill.description}`);
+          }
     post:
       consumes:
       - application/json
@@ -2122,7 +2425,34 @@ paths:
       - BearerAuth: []
       summary: Include skill in space
       tags:
-      - LearningSpaces
+      - learning_spaces
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Include a skill in a learning space
+          record = client.learning_spaces.include_skill(
+              'space-uuid',
+              skill_id='skill-uuid'
+          )
+          print(f"Linked skill {record.skill_id} to space {record.learning_space_id}")
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Include a skill in a learning space
+          const record = await client.learningSpaces.includeSkill({
+            spaceId: 'space-uuid',
+            skillId: 'skill-uuid'
+          });
+          console.log(`Linked skill ${record.skill_id} to space ${record.learning_space_id}`);
   /learning_spaces/{id}/skills/{skill_id}:
     delete:
       consumes:
@@ -2151,7 +2481,32 @@ paths:
       - BearerAuth: []
       summary: Exclude skill from space
       tags:
-      - LearningSpaces
+      - learning_spaces
+      x-code-samples:
+      - label: Python
+        lang: python
+        source: |
+          from acontext import AcontextClient
+
+          client = AcontextClient(api_key='sk_project_token')
+
+          # Exclude a skill from a learning space (idempotent)
+          client.learning_spaces.exclude_skill(
+              'space-uuid',
+              skill_id='skill-uuid'
+          )
+      - label: JavaScript
+        lang: javascript
+        source: |
+          import { AcontextClient } from '@acontext/acontext';
+
+          const client = new AcontextClient({ apiKey: 'sk_project_token' });
+
+          // Exclude a skill from a learning space (idempotent)
+          await client.learningSpaces.excludeSkill({
+            spaceId: 'space-uuid',
+            skillId: 'skill-uuid'
+          });
   /sandbox:
     post:
       consumes:
