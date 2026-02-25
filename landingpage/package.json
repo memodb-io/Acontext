@@ -55,14 +55,14 @@
     "tailwindcss": "^4.2.1"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3.3.3",
+    "@eslint/eslintrc": "^3.3.4",
     "@playwright/test": "1.58.2",
     "@testing-library/react": "16.3.2",
     "@types/node": "^22.19.11",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "4.7.0",
-    "eslint": "^9.39.2",
+    "eslint": "^9.39.3",
     "eslint-config-next": "15.5.12",
     "jsdom": "26.1.0",
     "playwright": "1.58.2",
@@ -72,7 +72,7 @@
     "typescript": "5.9.3",
     "vite-tsconfig-paths": "5.1.4",
     "vitest": "3.2.4",
-    "wrangler": "~4.66.0"
+    "wrangler": "~4.68.1"
   },
   "engines": {
     "node": "^18.20.2 || >=20.9.0",
