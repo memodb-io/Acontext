@@ -1,14 +1,8 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import {
-  Database,
-  Eye,
-  Sparkles,
-  LayoutDashboard,
-  Monitor,
-  Check,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'

@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useRouter, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import {
   Github,
   ArrowRight,
@@ -15,15 +15,12 @@ import {
   Bot,
   Menu,
   X,
-  PlayCircle,
-  Box,
   DollarSign,
-  Sparkles,
-  Terminal,
-  HardDrive,
   BarChart3,
+  Brain,
+  Box,
 } from 'lucide-react'
-import type { Media } from '@/payload-types'
+
 import { useTheme } from 'next-themes'
 import { useEffect, useState, useRef } from 'react'
 import { Button } from '@/components/ui/button'
@@ -33,7 +30,6 @@ import type { Post } from '@/payload-types'
 import { AnimatedLogo } from '@/components/animation/animated-logo'
 
 export function Header() {
-  const router = useRouter()
   const pathname = usePathname()
   const { resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
@@ -43,27 +39,13 @@ export function Header() {
   const [latestPosts, setLatestPosts] = useState<Post[]>([])
   const [postsLoaded, setPostsLoaded] = useState(false)
   const [starCount, setStarCount] = useState<number | null>(null)
-  const [isMobile, setIsMobile] = useState(false)
+  const [_isMobile, setIsMobile] = useState(false)
   const [logoCollapsed, setLogoCollapsed] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const dropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const docsDropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const productDropdownTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const mobileMenuRef = useRef<HTMLDivElement | null>(null)
-
-  const scrollToHowItWorks = (smooth = true) => {
-    const element = document.getElementById('how-it-works')
-    if (element) {
-      const headerOffset = 64 // Header height
-      const elementPosition = element.getBoundingClientRect().top
-      const offsetPosition = elementPosition + window.scrollY - headerOffset
-
-      window.scrollTo({
-        top: offsetPosition,
-        behavior: smooth ? 'smooth' : 'instant',
-      })
-    }
-  }
 
   useEffect(() => {
     setMounted(true)
@@ -105,18 +87,6 @@ export function Header() {
       window.removeEventListener('scroll', handleScroll)
     }
   }, [])
-
-  // Handle hash navigation - separate effect to avoid re-running on every pathname change
-  useEffect(() => {
-    if (pathname === '/' && window.location.hash === '#how-it-works') {
-      // Use requestAnimationFrame to wait for paint, then scroll instantly (no flash)
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          scrollToHowItWorks(false) // Instant scroll, no smooth animation
-        })
-      })
-    }
-  }, [pathname])
 
   // Close mobile menu when clicking outside
   useEffect(() => {
@@ -202,25 +172,11 @@ export function Header() {
     }, 150)
   }
 
-  const handleHowItWorksClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    e.preventDefault()
-
-    // If not on home page, navigate first (the useEffect will handle scrolling)
-    if (pathname !== '/') {
-      router.push('/#how-it-works')
-    } else {
-      // Already on home page, smooth scroll
-      scrollToHowItWorks(true)
-    }
-    // Close mobile menu if open
-    setShowMobileMenu(false)
-  }
-
   const handleMobileLinkClick = () => {
     setShowMobileMenu(false)
   }
 
-  const isDark = mounted ? resolvedTheme === 'dark' : true
+  const _isDark = mounted ? resolvedTheme === 'dark' : true
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-header border-b border-border/50">
@@ -243,14 +199,6 @@ export function Header() {
 
             {/* Navigation - left aligned next to logo */}
             <nav className="hidden md:flex items-center gap-6">
-              <Link
-                href="#how-it-works"
-                onClick={handleHowItWorksClick}
-                className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
-                aria-label="View how it works"
-              >
-                How it works
-              </Link>
               <div
                 className="relative"
                 onMouseEnter={handleProductMouseEnter}
@@ -260,7 +208,7 @@ export function Header() {
                   href="/product"
                   className={cn(
                     'text-sm font-medium transition-colors',
-                    pathname === '/product' || pathname === '/product/sandbox'
+                    pathname === '/product' || pathname.startsWith('/product/')
                       ? 'text-primary'
                       : 'text-muted-foreground hover:text-primary',
                   )}
@@ -271,14 +219,12 @@ export function Header() {
 
                 {/* Product Dropdown */}
                 <div
-                  className={`absolute left-1/2 -translate-x-1/2 top-full pt-2 transition-all duration-200 ${
-                    showProductDropdown
+                  className={`absolute left-1/2 -translate-x-1/2 top-full pt-2 transition-all duration-200 ${showProductDropdown
                       ? 'opacity-100 visible translate-y-0'
                       : 'opacity-0 invisible -translate-y-1'
-                  }`}
+                    }`}
                 >
-                  <div className="w-[520px] bg-popover border border-border rounded-lg shadow-xl overflow-hidden">
-                    {/* Header */}
+                  <div className="w-[280px] bg-popover border border-border rounded-lg shadow-xl overflow-hidden">
                     <div className="px-3 py-2 border-b border-border/50 bg-muted/20 flex items-center justify-between">
                       <span className="text-sm font-semibold text-foreground uppercase tracking-wide">
                         Product
@@ -292,145 +238,94 @@ export function Header() {
                         <ArrowRight className="h-3 w-3" />
                       </Link>
                     </div>
-                    {/* Two Column Layout */}
-                    <div className="flex">
-                      {/* Left Column */}
-                      <div className="flex-1 border-r border-border/50 py-1">
-                        <Link
-                          href="https://docs.acontext.io/store/messages/multi-provider"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
-                          aria-label="Sessions (opens in new tab)"
-                        >
-                          <div className="flex items-center justify-between gap-2.5">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded bg-blue-500/10 shrink-0 flex items-center justify-center">
-                                <MessageSquare className="h-4 w-4 text-blue-500" />
-                              </div>
-                              <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                                Sessions
-                              </span>
+                    <div className="py-1">
+                      <Link
+                        href="/product/short-term-memory"
+                        className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
+                        aria-label="Go to Short-term Memory page"
+                      >
+                        <div className="flex items-center justify-between gap-2.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded bg-blue-500/10 shrink-0 flex items-center justify-center">
+                              <MessageSquare className="h-4 w-4 text-blue-500" />
                             </div>
-                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                              Short-term Memory
+                            </span>
                           </div>
-                        </Link>
-                        <Link
-                          href="https://docs.acontext.io/store/disk"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
-                          aria-label="Disk & Artifacts (opens in new tab)"
-                        >
-                          <div className="flex items-center justify-between gap-2.5">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded bg-green-500/10 shrink-0 flex items-center justify-center">
-                                <HardDrive className="h-4 w-4 text-green-500" />
-                              </div>
-                              <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                                Disk & Artifacts
-                              </span>
+                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </Link>
+                      <Link
+                        href="/product/mid-term-state"
+                        className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
+                        aria-label="Go to Mid-term State page"
+                      >
+                        <div className="flex items-center justify-between gap-2.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded bg-indigo-500/10 shrink-0 flex items-center justify-center">
+                              <BarChart3 className="h-4 w-4 text-indigo-500" />
                             </div>
-                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                              Mid-term State
+                            </span>
                           </div>
-                        </Link>
-                        <Link
-                          href="https://docs.acontext.io/store/skill"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
-                          aria-label="Agent Skills (opens in new tab)"
-                        >
-                          <div className="flex items-center justify-between gap-2.5">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded bg-violet-500/10 shrink-0 flex items-center justify-center">
-                                <BookOpen className="h-4 w-4 text-violet-500" />
-                              </div>
-                              <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                                Agent Skills
-                              </span>
+                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </Link>
+                      <Link
+                        href="/product/long-term-skill"
+                        className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
+                        aria-label="Go to Long-term Skill page"
+                      >
+                        <div className="flex items-center justify-between gap-2.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded bg-pink-500/10 shrink-0 flex items-center justify-center">
+                              <Brain className="h-4 w-4 text-pink-500" />
                             </div>
-                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                              Long-term Skill
+                            </span>
                           </div>
-                        </Link>
-                        <Link
-                          href="https://docs.acontext.io/learn/self-learning"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
-                          aria-label="Learning Spaces (opens in new tab)"
-                        >
-                          <div className="flex items-center justify-between gap-2.5">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded bg-pink-500/10 shrink-0 flex items-center justify-center">
-                                <Sparkles className="h-4 w-4 text-pink-500" />
-                              </div>
-                              <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                                Learning Spaces
-                              </span>
+                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </Link>
+                      <Link
+                        href="/product/sandbox"
+                        className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
+                        aria-label="Go to Sandbox page"
+                      >
+                        <div className="flex items-center justify-between gap-2.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded bg-emerald-500/10 shrink-0 flex items-center justify-center">
+                              <Box className="h-4 w-4 text-emerald-500" />
                             </div>
-                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                              Sandbox
+                            </span>
                           </div>
-                        </Link>
-                      </div>
-                      {/* Right Column */}
-                      <div className="flex-1 py-1">
-                        <Link
-                          href="/product/sandbox"
-                          className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
-                          aria-label="Go to Sandbox page"
-                        >
-                          <div className="flex items-center justify-between gap-2.5">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded bg-amber-500/10 shrink-0 flex items-center justify-center">
-                                <Terminal className="h-4 w-4 text-amber-500" />
-                              </div>
-                              <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                                Sandbox
-                              </span>
+                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </Link>
+                      <Link
+                        href="https://dash.acontext.io"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
+                        aria-label="Dashboard (opens in new tab)"
+                      >
+                        <div className="flex items-center justify-between gap-2.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded bg-purple-500/10 shrink-0 flex items-center justify-center">
+                              <LayoutDashboard className="h-4 w-4 text-purple-500" />
                             </div>
-                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
+                              Dashboard
+                            </span>
                           </div>
-                        </Link>
-                        <Link
-                          href="https://docs.acontext.io/observe/dashboard"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
-                          aria-label="Observability (opens in new tab)"
-                        >
-                          <div className="flex items-center justify-between gap-2.5">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded bg-indigo-500/10 shrink-0 flex items-center justify-center">
-                                <BarChart3 className="h-4 w-4 text-indigo-500" />
-                              </div>
-                              <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                                Observability
-                              </span>
-                            </div>
-                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </div>
-                        </Link>
-                        <Link
-                          href="https://dash.acontext.io"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
-                          aria-label="Dashboard (opens in new tab)"
-                        >
-                          <div className="flex items-center justify-between gap-2.5">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded bg-purple-500/10 shrink-0 flex items-center justify-center">
-                                <LayoutDashboard className="h-4 w-4 text-purple-500" />
-                              </div>
-                              <span className="text-sm font-medium text-foreground group-hover:text-primary transition-colors">
-                                Dashboard
-                              </span>
-                            </div>
-                            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                          </div>
-                        </Link>
-                      </div>
+                          <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -453,7 +348,7 @@ export function Header() {
                 onMouseLeave={handleDocsMouseLeave}
               >
                 <Link
-                  href="https://docs.acontext.io"
+                  href="https://docs.acontext.app"
                   className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
                   aria-label="Go to documentation (opens in new tab)"
                 >
@@ -462,11 +357,10 @@ export function Header() {
 
                 {/* Docs Dropdown */}
                 <div
-                  className={`absolute left-1/2 -translate-x-1/2 top-full pt-2 transition-all duration-200 ${
-                    showDocsDropdown
+                  className={`absolute left-1/2 -translate-x-1/2 top-full pt-2 transition-all duration-200 ${showDocsDropdown
                       ? 'opacity-100 visible translate-y-0'
                       : 'opacity-0 invisible -translate-y-1'
-                  }`}
+                    }`}
                 >
                   <div className="w-[480px] bg-popover border border-border rounded-lg shadow-xl overflow-hidden">
                     {/* Two Column Layout */}
@@ -480,7 +374,7 @@ export function Header() {
                         </div>
                         <div className="py-1">
                           <Link
-                            href="https://docs.acontext.io/api-reference/introduction"
+                            href="https://docs.acontext.app/api-reference/introduction"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
@@ -499,7 +393,7 @@ export function Header() {
                             </div>
                           </Link>
                           <Link
-                            href="https://docs.acontext.io/api-reference/agent_skills/create-agent-skill"
+                            href="https://docs.acontext.app/api-reference/agent_skills/create-agent-skill"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
@@ -518,7 +412,7 @@ export function Header() {
                             </div>
                           </Link>
                           <Link
-                            href="https://docs.acontext.io/api-reference/artifact/get-artifact"
+                            href="https://docs.acontext.app/api-reference/artifact/get-artifact"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
@@ -537,7 +431,7 @@ export function Header() {
                             </div>
                           </Link>
                           <Link
-                            href="https://docs.acontext.io/api-reference/disk/create-disk"
+                            href="https://docs.acontext.app/api-reference/disk/create-disk"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
@@ -556,7 +450,7 @@ export function Header() {
                             </div>
                           </Link>
                           <Link
-                            href="https://docs.acontext.io/api-reference/sessions/create-session"
+                            href="https://docs.acontext.app/api-reference/sessions/create-session"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
@@ -575,7 +469,7 @@ export function Header() {
                             </div>
                           </Link>
                           <Link
-                            href="https://docs.acontext.io/api-reference/sandbox/create-a-new-sandbox"
+                            href="https://docs.acontext.app/api-reference/sandbox/create-a-new-sandbox"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
@@ -603,7 +497,7 @@ export function Header() {
                             Guides
                           </span>
                           <Link
-                            href="https://docs.acontext.io"
+                            href="https://docs.acontext.app"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
@@ -615,7 +509,7 @@ export function Header() {
                         </div>
                         <div className="py-1">
                           <Link
-                            href="https://docs.acontext.io/store/messages"
+                            href="https://docs.acontext.app/store/messages"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
@@ -634,7 +528,7 @@ export function Header() {
                             </div>
                           </Link>
                           <Link
-                            href="https://docs.acontext.io/store/artifacts"
+                            href="https://docs.acontext.app/store/artifacts"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
@@ -653,7 +547,7 @@ export function Header() {
                             </div>
                           </Link>
                           <Link
-                            href="https://docs.acontext.io/observe/dashboard"
+                            href="https://docs.acontext.app/observe/dashboard"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
@@ -672,7 +566,7 @@ export function Header() {
                             </div>
                           </Link>
                           <Link
-                            href="https://docs.acontext.io/observe/traces"
+                            href="https://docs.acontext.app/observe/traces"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
@@ -691,7 +585,7 @@ export function Header() {
                             </div>
                           </Link>
                           <Link
-                            href="https://docs.acontext.io/observe/agent_tasks"
+                            href="https://docs.acontext.app/observe/agent_tasks"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="block px-3 py-1 hover:bg-muted/50 transition-colors group"
@@ -730,11 +624,10 @@ export function Header() {
 
                 {/* Blog Dropdown */}
                 <div
-                  className={`absolute left-1/2 -translate-x-1/2 top-full pt-2 transition-all duration-200 ${
-                    showBlogDropdown
+                  className={`absolute left-1/2 -translate-x-1/2 top-full pt-2 transition-all duration-200 ${showBlogDropdown
                       ? 'opacity-100 visible translate-y-0'
                       : 'opacity-0 invisible -translate-y-1'
-                  }`}
+                    }`}
                 >
                   <div className="w-96 bg-popover border border-border rounded-lg shadow-xl overflow-hidden">
                     {/* Header */}
@@ -867,67 +760,70 @@ export function Header() {
       {/* Mobile Menu */}
       <div
         ref={mobileMenuRef}
-        className={`fixed left-0 top-16 flex h-[calc(100vh-4rem)] w-full origin-top bg-background text-foreground md:hidden z-100 transition-all duration-300 ease-in-out ${
-          showMobileMenu
+        className={`fixed left-0 top-16 flex h-[calc(100vh-4rem)] w-full origin-top bg-background text-foreground md:hidden z-100 transition-all duration-300 ease-in-out ${showMobileMenu
             ? 'opacity-100 scale-y-100 translate-y-0'
             : 'opacity-0 scale-y-95 -translate-y-4 pointer-events-none'
-        }`}
+          }`}
       >
         <div className="flex h-full max-h-full w-full flex-col px-3">
           <div className="flex h-full max-h-full flex-col overflow-y-auto px-3 pb-40">
             <nav className="w-full space-y-0">
               <Link
-                href="#how-it-works"
-                onClick={handleHowItWorksClick}
-                className="group outline-none w-full"
-                aria-label="View how it works"
-              >
-                <div className="flex gap-x-1 text-center font-sans transition justify-center items-center shrink-0 select-none group-focus:outline-none group-disabled:opacity-75 group-disabled:pointer-events-none disabled:opacity-50 text-xs border-b border-border py-3 w-full">
-                  <div className="w-full transition">
-                    <span className="flex w-full items-center justify-between">
-                      <span className="flex items-center gap-x-0.5 text-base font-normal text-foreground">
-                        How it works
-                      </span>
-                      <PlayCircle className="size-5 opacity-50" />
-                    </span>
-                  </div>
-                </div>
-              </Link>
-              <Link
-                href="/product"
+                href="/product/short-term-memory"
                 onClick={handleMobileLinkClick}
                 className={cn(
                   'group outline-none w-full',
-                  pathname === '/product' && 'text-primary',
+                  pathname === '/product/short-term-memory' && 'text-primary',
                 )}
-                aria-label="Go to product page"
+                aria-label="Go to Short-term Memory page"
               >
                 <div className="flex gap-x-1 text-center font-sans transition justify-center items-center shrink-0 select-none group-focus:outline-none group-disabled:opacity-75 group-disabled:pointer-events-none disabled:opacity-50 text-xs border-b border-border py-3 w-full">
                   <div className="w-full transition">
                     <span className="flex w-full items-center justify-between">
                       <span className="flex items-center gap-x-0.5 text-base font-normal text-foreground">
-                        Product Spotlight
+                        Short-term Memory
                       </span>
-                      <Sparkles className="size-5 opacity-50" />
+                      <MessageSquare className="size-5 opacity-50" />
                     </span>
                   </div>
                 </div>
               </Link>
               <Link
-                href="https://docs.acontext.io/learn/self-learning"
-                target="_blank"
-                rel="noopener noreferrer"
+                href="/product/mid-term-state"
                 onClick={handleMobileLinkClick}
-                className="group outline-none w-full"
-                aria-label="Learning Spaces (opens in new tab)"
+                className={cn(
+                  'group outline-none w-full',
+                  pathname === '/product/mid-term-state' && 'text-primary',
+                )}
+                aria-label="Go to Mid-term State page"
               >
                 <div className="flex gap-x-1 text-center font-sans transition justify-center items-center shrink-0 select-none group-focus:outline-none group-disabled:opacity-75 group-disabled:pointer-events-none disabled:opacity-50 text-xs border-b border-border py-3 w-full">
                   <div className="w-full transition">
                     <span className="flex w-full items-center justify-between">
                       <span className="flex items-center gap-x-0.5 text-base font-normal text-foreground">
-                        Learning Spaces
+                        Mid-term State
                       </span>
-                      <Sparkles className="size-5 opacity-50" />
+                      <BarChart3 className="size-5 opacity-50" />
+                    </span>
+                  </div>
+                </div>
+              </Link>
+              <Link
+                href="/product/long-term-skill"
+                onClick={handleMobileLinkClick}
+                className={cn(
+                  'group outline-none w-full',
+                  pathname === '/product/long-term-skill' && 'text-primary',
+                )}
+                aria-label="Go to Long-term Skill page"
+              >
+                <div className="flex gap-x-1 text-center font-sans transition justify-center items-center shrink-0 select-none group-focus:outline-none group-disabled:opacity-75 group-disabled:pointer-events-none disabled:opacity-50 text-xs border-b border-border py-3 w-full">
+                  <div className="w-full transition">
+                    <span className="flex w-full items-center justify-between">
+                      <span className="flex items-center gap-x-0.5 text-base font-normal text-foreground">
+                        Long-term Skill
+                      </span>
+                      <Brain className="size-5 opacity-50" />
                     </span>
                   </div>
                 </div>
@@ -939,7 +835,7 @@ export function Header() {
                   'group outline-none w-full',
                   pathname === '/product/sandbox' && 'text-primary',
                 )}
-                aria-label="Go to sandbox page"
+                aria-label="Go to Sandbox page"
               >
                 <div className="flex gap-x-1 text-center font-sans transition justify-center items-center shrink-0 select-none group-focus:outline-none group-disabled:opacity-75 group-disabled:pointer-events-none disabled:opacity-50 text-xs border-b border-border py-3 w-full">
                   <div className="w-full transition">
@@ -947,11 +843,30 @@ export function Header() {
                       <span className="flex items-center gap-x-0.5 text-base font-normal text-foreground">
                         Sandbox
                       </span>
-                      <Terminal className="size-5 opacity-50" />
+                      <Box className="size-5 opacity-50" />
                     </span>
                   </div>
                 </div>
               </Link>
+              <a
+                href="https://dash.acontext.io"
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={handleMobileLinkClick}
+                className="group outline-none w-full"
+                aria-label="Dashboard (opens in new tab)"
+              >
+                <div className="flex gap-x-1 text-center font-sans transition justify-center items-center shrink-0 select-none group-focus:outline-none group-disabled:opacity-75 group-disabled:pointer-events-none disabled:opacity-50 text-xs border-b border-border py-3 w-full">
+                  <div className="w-full transition">
+                    <span className="flex w-full items-center justify-between">
+                      <span className="flex items-center gap-x-0.5 text-base font-normal text-foreground">
+                        Dashboard
+                      </span>
+                      <LayoutDashboard className="size-5 opacity-50" />
+                    </span>
+                  </div>
+                </div>
+              </a>
               <Link
                 href="/pricing"
                 onClick={handleMobileLinkClick}
@@ -973,7 +888,7 @@ export function Header() {
                 </div>
               </Link>
               <Link
-                href="https://docs.acontext.io"
+                href="https://docs.acontext.app"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={handleMobileLinkClick}

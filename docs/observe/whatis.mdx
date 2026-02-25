@@ -1,56 +1,46 @@
 ---
-title: What is Agent Observability?
-description: "Understand what your agent does, how it performs, and where it fails"
+title: What is Mid-term State?
+description: "Automatic task tracking, progress recording, and session summaries — zero instrumentation"
 ---
 
-Acontext observes your agent's conversations in the background — extracting tasks, detecting success or failure, and recording progress — so you always know what your agent is doing without writing any tracking code.
+Store messages → Acontext automatically extracts tasks, tracks progress, and detects success/failure. No tracking code needed.
 
-## How It Works
+## 30-Second Example
 
-When your agent stores messages in Acontext, a background monitor automatically:
+Your agent stores a conversation where the user asks: *"Deploy the new API to staging"*
 
-1. **Extracts tasks** from the conversation — when an agent says "My plan is: 1. Search, 2. Create, 3. Deploy", each step becomes a trackable task
-2. **Detects success or failure** — based on agent behavior, error signals, user confirmation, or task abandonment
-3. **Records progress** — what the agent actually did at each step, with specific details like file paths and API calls
-4. **Captures user preferences** — requirements and constraints the user mentioned during the conversation
-
-You don't need to instrument your agent. Just store messages, and Acontext handles the rest.
-
-## Task Lifecycle
+Acontext's background monitor extracts:
 
 ```
-pending → running → success
-                  → failed → running (retry)
+Task: "Deploy the new API to staging"
+Status: success
+Progress:
+  1. Built Docker image from Dockerfile
+  2. Pushed to registry at gcr.io/my-project/api:v2.1
+  3. Deployed to staging cluster via kubectl
+User preferences:
+  1. Always run tests before deploying
 ```
 
-| Status | Meaning |
-|--------|---------|
-| `pending` | Task identified but not started |
-| `running` | Agent is actively working on it |
-| `success` | Confirmed complete — agent moved on without errors, or user confirmed |
-| `failed` | Explicit errors, user abandonment, or user reported failure |
+You didn't write any of that. It came from the conversation automatically.
 
-## What Gets Extracted
+## What Gets Tracked
 
-Each task contains:
+| Field | Example |
+|-------|---------|
+| **Task** | "Deploy the new API to staging" |
+| **Status** | `pending` → `running` → `success` or `failed` |
+| **Progress** | Step-by-step record of what the agent did |
+| **User preferences** | Constraints the user mentioned |
 
-- **Description** — what the user asked for, in their own words
-- **Status** — current lifecycle state
-- **Progress** — step-by-step record of what the agent did
-- **User preferences** — requirements the user mentioned
+## Feeds Into Long-term Skill
 
-<Note>
-Tasks represent **user requests**, not agent execution steps. "Book a restaurant in SF" is one task — the agent's sub-steps (search, compare, reserve) are recorded as progress within that task.
-</Note>
+Completed tasks feed into the [long-term skill pipeline](/learn/quick):
 
-## Feeds Into Self-Learning
+- **Success** → extracts the approach and generalizable patterns
+- **Failure** → extracts the failure point and prevention principles
 
-When a task reaches `success` or `failed`, it can feed into the [self-learning pipeline](/learn/self-learning). Acontext distills the outcome into structured analysis:
-
-- **Success** → extracts the approach, key decisions, and generalizable patterns
-- **Failure** → extracts the failure point, flawed reasoning, and prevention principles
-
-These analyses become reusable agent skills automatically.
+These become reusable agent skills automatically.
 
 <CardGroup cols={2}>
 
@@ -60,10 +50,6 @@ Extract and query tasks via SDK.
 
 <Card title="Session Buffer" icon="clock" href="/observe/buffer">
 How message batching and processing timing works.
-</Card>
-
-<Card title="Disable Tracking" icon="toggle-off" href="/observe/disable_tasks">
-Skip task extraction for specific sessions.
 </Card>
 
 <Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">

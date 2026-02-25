@@ -22,9 +22,9 @@ const jetbrainsMono = JetBrains_Mono({
 const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://acontext.io'
 
 export const metadata: Metadata = {
-  title: 'Context Data Platform for AI Agents | Acontext',
+  title: 'The Agent Memory Stack | Acontext',
   description:
-    'Build smarter, more reliable AI agents with Acontext, which unifies multi-modal context data storage, observability, and experience learning for production agents.',
+    'Unifies short-term memory, mid-term state, and long-term skill for production AI agents — filesystem-compatible, configurable, and human-readable.',
   keywords: [
     'AI agents',
     'context engineering',
@@ -32,6 +32,10 @@ export const metadata: Metadata = {
     'LLM',
     'autonomous agents',
     'open source',
+    'agent memory',
+    'short-term memory',
+    'mid-term state',
+    'long-term skill',
   ],
   alternates: {
     canonical: baseUrl,
@@ -55,9 +59,9 @@ export const metadata: Metadata = {
     apple: '/ico_black.svg',
   },
   openGraph: {
-    title: 'Context Data Platform for AI Agents | Acontext',
+    title: 'The Agent Memory Stack | Acontext',
     description:
-      'Build smarter, more reliable AI agents with Acontext, which unifies multi-modal context data storage, observability, and experience learning for production agents.',
+      'Unifies short-term memory, mid-term state, and long-term skill for production AI agents — filesystem-compatible, configurable, and human-readable.',
     url: 'https://acontext.io',
     siteName: 'Acontext',
     type: 'website',
@@ -66,16 +70,16 @@ export const metadata: Metadata = {
         url: 'https://assets.memodb.io/Acontext/page-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'Acontext - Context Data Platform for AI Agents',
+        alt: 'Acontext - The Agent Memory Stack',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
     site: '@acontext_io',
-    title: 'Context Data Platform for AI Agents | Acontext',
+    title: 'The Agent Memory Stack | Acontext',
     description:
-      'Build smarter, more reliable AI agents with Acontext, which unifies multi-modal context data storage, observability, and experience learning for production agents.',
+      'Unifies short-term memory, mid-term state, and long-term skill for production AI agents — filesystem-compatible, configurable, and human-readable.',
     images: ['https://assets.memodb.io/Acontext/page-image.jpg'],
   },
 }

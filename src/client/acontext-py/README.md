@@ -16,4 +16,4 @@ pip install acontext
 
 # 🔍 Document
 
-To understand more about this SDK, please view [our docs](https://docs.acontext.io/) and [api references](https://docs.acontext.io/api-reference/introduction)
+To understand more about this SDK, please view [our docs](https://docs.acontext.app/) and [api references](https://docs.acontext.app/api-reference/introduction)

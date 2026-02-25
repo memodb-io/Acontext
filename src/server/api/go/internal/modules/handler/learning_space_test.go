@@ -87,6 +87,14 @@ func (m *MockLearningSpaceService) ListSkills(ctx context.Context, projectID, le
 	return args.Get(0).([]*model.AgentSkills), args.Error(1)
 }
 
+func (m *MockLearningSpaceService) GetSession(ctx context.Context, projectID, learningSpaceID, sessionID uuid.UUID) (*model.LearningSpaceSession, error) {
+	args := m.Called(ctx, projectID, learningSpaceID, sessionID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.LearningSpaceSession), args.Error(1)
+}
+
 func (m *MockLearningSpaceService) ListSessions(ctx context.Context, projectID, learningSpaceID uuid.UUID) ([]*model.LearningSpaceSession, error) {
 	args := m.Called(ctx, projectID, learningSpaceID)
 	if args.Get(0) == nil {
@@ -855,6 +863,86 @@ func TestLearningSpaceHandler_ExcludeSkill(t *testing.T) {
 			})
 
 			req := httptest.NewRequest("DELETE", "/learning_spaces/"+tt.id+"/skills/"+tt.skillIDParam, nil)
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+			mockSvc.AssertExpectations(t)
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Tests: GetSession
+// ---------------------------------------------------------------------------
+
+func TestLearningSpaceHandler_GetSession(t *testing.T) {
+	projectID := uuid.New()
+	lsID := uuid.New()
+	sessionID := uuid.New()
+
+	tests := []struct {
+		name           string
+		id             string
+		sessionID      string
+		setup          func(*MockLearningSpaceService)
+		expectedStatus int
+	}{
+		{
+			name:      "successful get session",
+			id:        lsID.String(),
+			sessionID: sessionID.String(),
+			setup: func(svc *MockLearningSpaceService) {
+				svc.On("GetSession", mock.Anything, projectID, lsID, sessionID).Return(&model.LearningSpaceSession{
+					ID:              uuid.New(),
+					LearningSpaceID: lsID,
+					SessionID:       sessionID,
+					Status:          "completed",
+					CreatedAt:       time.Now(),
+					UpdatedAt:       time.Now(),
+				}, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "invalid space UUID",
+			id:             "invalid-uuid",
+			sessionID:      sessionID.String(),
+			setup:          func(svc *MockLearningSpaceService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "invalid session UUID",
+			id:             lsID.String(),
+			sessionID:      "invalid-uuid",
+			setup:          func(svc *MockLearningSpaceService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:      "not found",
+			id:        lsID.String(),
+			sessionID: sessionID.String(),
+			setup: func(svc *MockLearningSpaceService) {
+				svc.On("GetSession", mock.Anything, projectID, lsID, sessionID).Return(nil, errors.New("learning space session not found"))
+			},
+			expectedStatus: http.StatusNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockSvc := &MockLearningSpaceService{}
+			tt.setup(mockSvc)
+			handler := NewLearningSpaceHandler(mockSvc, &MockUserService{})
+
+			router := setupLearningSpaceRouter()
+			router.GET("/learning_spaces/:id/sessions/:session_id", func(c *gin.Context) {
+				c.Set("project", &model.Project{ID: projectID})
+				handler.GetSession(c)
+			})
+
+			req := httptest.NewRequest("GET", "/learning_spaces/"+tt.id+"/sessions/"+tt.sessionID, nil)
 			w := httptest.NewRecorder()
 
 			router.ServeHTTP(w, req)

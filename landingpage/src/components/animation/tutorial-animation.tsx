@@ -542,7 +542,7 @@ export function TutorialVideo() {
                     className="text-lg mb-10"
                     style={{ color: colors.textMuted, opacity: 0 }}
                   >
-                    data platform for context engineering
+                    the agent memory stack
                   </div>
 
                   <div className="flex justify-center gap-12 mb-12">
@@ -578,7 +578,7 @@ export function TutorialVideo() {
                     </div>
                     <div className="flex flex-col gap-2 mt-4">
                       <CTALink>⭐ Star on GitHub</CTALink>
-                      <CTALink>📚 docs.acontext.io</CTALink>
+                      <CTALink>📚 docs.acontext.app</CTALink>
                       <CTALink>💬 discord.acontext.io</CTALink>
                     </div>
                   </div>

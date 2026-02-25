@@ -53,3 +53,14 @@ export class TransportError extends AcontextError {
   }
 }
 
+/**
+ * Raised when a polling operation exceeds the configured timeout.
+ */
+export class TimeoutError extends AcontextError {
+  constructor(message: string = 'operation timed out') {
+    super(message);
+    this.name = 'TimeoutError';
+    Object.setPrototypeOf(this, TimeoutError.prototype);
+  }
+}
+

@@ -13,7 +13,6 @@ import {
   DESIGN_WIDTH,
   DESIGN_HEIGHT,
 } from '@/components/animation/shared'
-import type { ColorPalette } from '@/components/animation/shared'
 
 // Phase configuration - LLM-centric workflow
 const PHASES = [

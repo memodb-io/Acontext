@@ -4,11 +4,13 @@ Learning Spaces endpoints (async).
 
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import Mapping
 from typing import Any
 
 from .._utils import build_params
+from ..errors import TimeoutError
 from ..client_types import AsyncRequesterProtocol
 from ..types.learning_space import (
     LearningSpace,
@@ -141,6 +143,62 @@ class AsyncLearningSpacesAPI:
             "POST", f"/learning_spaces/{space_id}/learn", json_data=payload
         )
         return LearningSpaceSession.model_validate(data)
+
+    async def get_session(
+        self,
+        space_id: str,
+        *,
+        session_id: str,
+    ) -> LearningSpaceSession:
+        """Get a single learning session record by session ID.
+
+        Args:
+            space_id: The UUID of the learning space.
+            session_id: The UUID of the session.
+
+        Returns:
+            LearningSpaceSession record.
+        """
+        data = await self._requester.request(
+            "GET", f"/learning_spaces/{space_id}/sessions/{session_id}"
+        )
+        return LearningSpaceSession.model_validate(data)
+
+    async def wait_for_learning(
+        self,
+        space_id: str,
+        *,
+        session_id: str,
+        timeout: float = 120.0,
+        poll_interval: float = 1.0,
+    ) -> LearningSpaceSession:
+        """Poll until a learning session reaches a terminal status.
+
+        Args:
+            space_id: The UUID of the learning space.
+            session_id: The UUID of the session.
+            timeout: Maximum seconds to wait (default 120).
+            poll_interval: Seconds between polls (default 1).
+
+        Returns:
+            LearningSpaceSession when status is ``completed`` or ``failed``.
+
+        Raises:
+            TimeoutError: If timeout elapses before reaching a terminal status.
+        """
+        terminal = {"completed", "failed"}
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while True:
+            session = await self.get_session(space_id, session_id=session_id)
+            if session.status in terminal:
+                return session
+            if loop.time() >= deadline:
+                raise TimeoutError(
+                    f"learning session {session_id} did not complete within {timeout}s "
+                    f"(last status: {session.status})"
+                )
+            await asyncio.sleep(poll_interval)
 
     async def list_sessions(self, space_id: str) -> list[LearningSpaceSession]:
         """List all learning session records for a space.

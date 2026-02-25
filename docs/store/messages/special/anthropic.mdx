@@ -7,7 +7,8 @@ Acontext preserves Anthropic-specific flags like `cache_control` for [prompt cac
 
 ## Prompt Cache
 
-```python
+<CodeGroup>
+```python Python
 client.sessions.store_message(
     session_id=session.id,
     blob={
@@ -27,11 +28,29 @@ client.sessions.store_message(
 messages = client.sessions.get_messages(session_id=session.id, format="anthropic")
 ```
 
+```typescript TypeScript
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    content: [
+        {
+            type: "text",
+            text: "<the entire contents of Pride and Prejudice>",
+            cache_control: { type: "ephemeral" }
+        }
+    ]
+}, { format: "anthropic" });
+
+// Retrieved messages preserve the cache_control flag
+const messages = await client.sessions.getMessages(session.id, { format: "anthropic" });
+```
+</CodeGroup>
+
 ## Thinking Blocks
 
 Acontext natively stores `thinking` blocks from Claude's extended thinking feature. The `signature` is preserved for multi-turn conversation continuity.
 
-```python
+<CodeGroup>
+```python Python
 client.sessions.store_message(
     session_id=session.id,
     blob={
@@ -54,6 +73,27 @@ client.sessions.store_message(
 # Retrieved in Anthropic or Gemini format: thinking blocks round-trip as native thinking blocks
 # Retrieved in OpenAI format: thinking content is downgraded to plain text
 ```
+
+```typescript TypeScript
+await client.sessions.storeMessage(session.id, {
+    role: "assistant",
+    content: [
+        {
+            type: "thinking",
+            thinking: "Let me reason step by step...",
+            signature: "EqoBCkgIAxgCIkD..."
+        },
+        {
+            type: "text",
+            text: "The answer is 42."
+        }
+    ]
+}, { format: "anthropic" });
+
+// Retrieved in Anthropic or Gemini format: thinking blocks round-trip as native thinking blocks
+// Retrieved in OpenAI format: thinking content is downgraded to plain text
+```
+</CodeGroup>
 
 <Tip>
 If you're using the Claude Agent SDK, see [ClaudeAgentStorage](/integrations/claude-agent#include-thinking-blocks) for automatic thinking block handling.

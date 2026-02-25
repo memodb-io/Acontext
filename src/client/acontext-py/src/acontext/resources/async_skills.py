@@ -4,11 +4,15 @@ Skills endpoints (async).
 
 import json
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any, BinaryIO, cast
+
+import httpx
 
 from .._utils import build_params
 from ..client_types import AsyncRequesterProtocol
 from ..types.skill import (
+    DownloadSkillResp,
     DownloadSkillToSandboxResp,
     GetSkillFileResp,
     ListSkillsOutput,
@@ -134,6 +138,52 @@ class AsyncSkillsAPI:
 
         data = await self._requester.request("GET", endpoint, params=params)
         return GetSkillFileResp.model_validate(data)
+
+    async def download(
+        self,
+        *,
+        skill_id: str,
+        path: str,
+    ) -> DownloadSkillResp:
+        """Download all files from a skill to a local directory.
+
+        Recursively downloads every file in the skill's file_index,
+        preserving the directory structure.
+
+        Args:
+            skill_id: The UUID of the skill.
+            path: Local directory path to download files into.
+
+        Returns:
+            DownloadSkillResp with skill name, description, resolved dir_path,
+            and list of downloaded file paths.
+        """
+        skill = await self.get(skill_id)
+        dest = Path(path).resolve()
+        dest.mkdir(parents=True, exist_ok=True)
+
+        downloaded: list[str] = []
+        for fi in skill.file_index:
+            resp = await self.get_file(skill_id=skill_id, file_path=fi.path)
+            file_dest = dest / fi.path
+            file_dest.parent.mkdir(parents=True, exist_ok=True)
+
+            if resp.content is not None:
+                file_dest.write_text(resp.content.raw, encoding="utf-8")
+            elif resp.url is not None:
+                async with httpx.AsyncClient() as http:
+                    r = await http.get(resp.url)
+                    r.raise_for_status()
+                    file_dest.write_bytes(r.content)
+
+            downloaded.append(fi.path)
+
+        return DownloadSkillResp(
+            name=skill.name,
+            description=skill.description,
+            dir_path=str(dest),
+            files=downloaded,
+        )
 
     async def download_to_sandbox(
         self,

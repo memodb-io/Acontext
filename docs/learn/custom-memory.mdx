@@ -1,0 +1,492 @@
+---
+title: Custom Skills for Long-term Memory
+description: "Define how your agent remembers by writing SKILL.md files"
+---
+
+Every skill in a learning space has a `SKILL.md` that tells the learner how to organize information. By writing different SKILL.md files, you define different memory algorithms — each with its own rules for what to capture, how to name files, and how to structure entries.
+
+## How It Works
+
+When a session completes, Acontext's learning pipeline:
+
+1. Reads each skill's `SKILL.md` to understand its purpose and rules
+2. Decides which skills are relevant to the session outcome
+3. Creates or updates files **following the instructions you wrote**
+
+This means you control the memory format. The learner is just the executor.
+
+## Example Skills
+
+### social-contacts
+
+One file per person — captures who the user knows, relationship context, and preferences for interacting with them.
+
+<Accordion title="SKILL.md">
+```markdown
+---
+name: "social-contacts"
+description: "Track people the user interacts with — one file per person"
+---
+# Social Contacts
+
+Maintain a file for each person the user mentions or interacts with.
+Capture relationship context, communication preferences, and notable interactions.
+
+## File Structure
+
+One file per person, named [first-last].md (lowercase, hyphenated).
+Create a new file the first time a person is mentioned; update it when new information surfaces.
+
+File format for [first-last].md:
+  # [Full Name]
+  ## Basics — Relationship, Role, Company
+  ## Notes — notable facts, preferences, or context about this person
+
+## Guidelines
+
+- One person per file — do not combine people
+- Only record information explicitly mentioned by the user
+- Update existing entries when corrections are provided
+- Keep entries factual and concise
+```
+</Accordion>
+
+### project-runbooks
+
+One file per project — captures deployment steps, architecture decisions, and recurring issues.
+
+<Accordion title="SKILL.md">
+```markdown
+---
+name: "project-runbooks"
+description: "Operational knowledge per project — deploy steps, architecture, common issues"
+---
+# Project Runbooks
+
+Maintain a runbook for each project the user works on.
+Capture deployment procedures, architecture decisions, and solutions to recurring problems.
+
+## File Structure
+
+One file per project, named [project-name].md (lowercase, hyphenated).
+
+File format for [project-name].md:
+  # [Project Name]
+  ## Architecture — key components, services, dependencies
+  ## Deploy — step-by-step deployment procedure
+  ## Common Issues — each issue with Symptom and Fix
+
+## Guidelines
+
+- One project per file
+- Update deploy steps when procedures change — do not keep stale instructions
+- Add new issues as they are encountered and resolved
+- Keep architecture notes high-level — link to external docs for details
+```
+</Accordion>
+
+### api-error-patterns
+
+Accumulated patterns organized by error category — captures what went wrong and how to fix it.
+
+<Accordion title="SKILL.md">
+```markdown
+---
+name: "api-error-patterns"
+description: "Reusable patterns for handling API errors — organized by category"
+---
+# API Error Patterns
+
+Collect error-handling patterns discovered during development.
+Organize by error category so the agent can quickly find relevant solutions.
+
+## File Structure
+
+One file per error category, named [category].md (e.g., auth.md, rate-limits.md, timeouts.md).
+
+File format for [category].md:
+  # [Category] Errors
+  ## [Pattern title] (date: YYYY-MM-DD) — with Symptom, Root Cause, Fix, Prevention
+
+## Guidelines
+
+- Group related errors in the same file — do not create one file per error
+- Include the date so patterns can be reviewed for staleness
+- Focus on reusable patterns, not one-off bugs
+```
+</Accordion>
+
+## Walkthrough: Using social-contacts
+
+<Steps>
+<Step title="Create the SKILL.md file">
+
+Create a file called `SKILL.md` with the following content:
+
+```markdown SKILL.md
+---
+name: "social-contacts"
+description: "Track people the user interacts with — one file per person"
+---
+# Social Contacts
+
+Maintain a file for each person the user mentions or interacts with.
+
+## File Structure
+
+One file per person, named [first-last].md (lowercase, hyphenated).
+Each file has: # [Full Name], ## Basics (Relationship, Role, Company), ## Notes.
+
+## Guidelines
+
+- One person per file — do not combine people
+- Only record information explicitly mentioned by the user
+- Update existing entries when corrections are provided
+- Keep entries factual and concise
+```
+
+</Step>
+
+<Step title="Zip and upload the skill">
+
+<CodeGroup>
+```python Python
+import os, zipfile, io
+from acontext import AcontextClient, FileUpload
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+
+# Read the SKILL.md you created
+with open("SKILL.md", "r") as f:
+    skill_md = f.read()
+
+buf = io.BytesIO()
+with zipfile.ZipFile(buf, "w") as zf:
+    zf.writestr("SKILL.md", skill_md)
+buf.seek(0)
+
+skill = client.skills.create(
+    file=FileUpload(filename="social-contacts.zip", content=buf.read()),
+)
+print(f"Created skill: {skill.name} ({skill.id})")
+```
+
+```typescript TypeScript
+import { AcontextClient, FileUpload } from '@acontext/acontext';
+import * as fs from 'fs';
+import JSZip from 'jszip';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+const skillMd = fs.readFileSync("SKILL.md", "utf-8");
+
+const zip = new JSZip();
+zip.file("SKILL.md", skillMd);
+const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
+
+const skill = await client.skills.create({
+    file: new FileUpload({ filename: "social-contacts.zip", content: zipBuffer }),
+});
+console.log(`Created skill: ${skill.name} (${skill.id})`);
+```
+</CodeGroup>
+</Step>
+
+<Step title="Add the skill to a learning space">
+
+<CodeGroup>
+```python Python
+space = client.learning_spaces.create()
+client.learning_spaces.include_skill(space.id, skill_id=skill.id)
+
+skills = client.learning_spaces.list_skills(space.id)
+for s in skills:
+    print(f"  {s.name}: {s.description}")
+```
+
+```typescript TypeScript
+const space = await client.learningSpaces.create();
+await client.learningSpaces.includeSkill({ spaceId: space.id, skillId: skill.id });
+
+const skills = await client.learningSpaces.listSkills(space.id);
+for (const s of skills) {
+    console.log(`  ${s.name}: ${s.description}`);
+}
+```
+</CodeGroup>
+</Step>
+
+<Step title="Run a session with mock messages">
+
+<CodeGroup>
+```python Python
+session = client.sessions.create()
+client.learning_spaces.learn(space.id, session_id=session.id)
+
+messages = [
+    {"role": "user", "content": "Set up a meeting with Alice Chen — she's our new product manager at Acme Corp. She prefers morning slots."},
+    {"role": "assistant", "content": "I've scheduled a meeting with Alice Chen for tomorrow at 10 AM."},
+    {"role": "user", "content": "Also remind me that Bob Martinez from the DevOps team helped us fix the staging deploy issue last week."},
+    {"role": "assistant", "content": "Noted — Bob Martinez from DevOps helped resolve the staging deployment issue."},
+]
+
+for msg in messages:
+    client.sessions.store_message(session.id, blob=msg)
+```
+
+```typescript TypeScript
+const session = await client.sessions.create();
+await client.learningSpaces.learn({ spaceId: space.id, sessionId: session.id });
+
+const messages = [
+    { role: "user", content: "Set up a meeting with Alice Chen — she's our new product manager at Acme Corp. She prefers morning slots." },
+    { role: "assistant", content: "I've scheduled a meeting with Alice Chen for tomorrow at 10 AM." },
+    { role: "user", content: "Also remind me that Bob Martinez from the DevOps team helped us fix the staging deploy issue last week." },
+    { role: "assistant", content: "Noted — Bob Martinez from DevOps helped resolve the staging deployment issue." },
+];
+
+for (const msg of messages) {
+    await client.sessions.storeMessage(session.id, msg);
+}
+```
+</CodeGroup>
+
+<Note>
+Learning is asynchronous. After the session's tasks complete, the learner reads your `SKILL.md` and creates files like `alice-chen.md` and `bob-martinez.md` following your rules.
+</Note>
+</Step>
+
+<Step title="Inspect what the learner created">
+
+<CodeGroup>
+```python Python
+client.learning_spaces.wait_for_learning(space.id, session_id=session.id)
+
+skills = client.learning_spaces.list_skills(space.id)
+for s in skills:
+    if s.name == "social-contacts":
+        for f in s.file_index:
+            if f.path == "SKILL.md":
+                continue
+            print(f"\n--- {f.path} ---")
+            content = client.skills.get_file(skill_id=s.id, file_path=f.path)
+            print(content.content.raw)
+```
+
+```typescript TypeScript
+await client.learningSpaces.waitForLearning({ spaceId: space.id, sessionId: session.id });
+
+const updatedSkills = await client.learningSpaces.listSkills(space.id);
+for (const s of updatedSkills) {
+    if (s.name === "social-contacts") {
+        for (const f of s.fileIndex) {
+            if (f.path === "SKILL.md") continue;
+            console.log(`\n--- ${f.path} ---`);
+            const content = await client.skills.getFile({ skillId: s.id, filePath: f.path });
+            console.log(content.content?.raw);
+        }
+    }
+}
+```
+</CodeGroup>
+
+Expected output — files created by the learner following your SKILL.md rules:
+
+```markdown alice-chen.md
+# Alice Chen
+
+## Basics
+- Relationship: colleague
+- Role: Product Manager
+- Company: Acme Corp
+
+## Notes
+- Prefers morning meeting slots
+```
+
+```markdown bob-martinez.md
+# Bob Martinez
+
+## Basics
+- Relationship: colleague
+- Role: DevOps team
+
+## Notes
+- Helped resolve a staging deployment issue
+```
+</Step>
+</Steps>
+
+## Full Code
+
+<AccordionGroup>
+<Accordion title="Python — complete runnable script">
+```python
+import os, zipfile, io
+from acontext import AcontextClient, FileUpload
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+
+# 1. Create the SKILL.md and ZIP it
+skill_md = """---
+name: "social-contacts"
+description: "Track people the user interacts with — one file per person"
+---
+# Social Contacts
+
+Maintain a file for each person the user mentions or interacts with.
+
+## File Structure
+
+One file per person, named [first-last].md (lowercase, hyphenated).
+Each file has: # [Full Name], ## Basics (Relationship, Role, Company), ## Notes.
+
+## Guidelines
+
+- One person per file — do not combine people
+- Only record information explicitly mentioned by the user
+- Update existing entries when corrections are provided
+- Keep entries factual and concise
+"""
+
+buf = io.BytesIO()
+with zipfile.ZipFile(buf, "w") as zf:
+    zf.writestr("SKILL.md", skill_md)
+buf.seek(0)
+
+skill = client.skills.create(
+    file=FileUpload(filename="social-contacts.zip", content=buf.read()),
+)
+print(f"Created skill: {skill.name} ({skill.id})")
+
+# 2. Create a learning space and include the skill
+space = client.learning_spaces.create()
+client.learning_spaces.include_skill(space.id, skill_id=skill.id)
+
+skills = client.learning_spaces.list_skills(space.id)
+for s in skills:
+    print(f"  {s.name}: {s.description}")
+
+# 3. Create a session and run mock messages
+session = client.sessions.create()
+client.learning_spaces.learn(space.id, session_id=session.id)
+
+messages = [
+    {"role": "user", "content": "Set up a meeting with Alice Chen — she's our new product manager at Acme Corp. She prefers morning slots."},
+    {"role": "assistant", "content": "I've scheduled a meeting with Alice Chen for tomorrow at 10 AM."},
+    {"role": "user", "content": "Also remind me that Bob Martinez from the DevOps team helped us fix the staging deploy issue last week."},
+    {"role": "assistant", "content": "Noted — Bob Martinez from DevOps helped resolve the staging deployment issue."},
+]
+
+for msg in messages:
+    client.sessions.store_message(session.id, blob=msg)
+
+# 4. Wait for learning pipeline, then inspect results
+client.learning_spaces.wait_for_learning(space.id, session_id=session.id)
+
+skills = client.learning_spaces.list_skills(space.id)
+for s in skills:
+    if s.name == "social-contacts":
+        for f in s.file_index:
+            if f.path == "SKILL.md":
+                continue
+            print(f"\n--- {f.path} ---")
+            content = client.skills.get_file(skill_id=s.id, file_path=f.path)
+            print(content.content.raw)
+```
+</Accordion>
+
+<Accordion title="TypeScript — complete runnable script">
+```typescript
+import { AcontextClient, FileUpload } from '@acontext/acontext';
+import JSZip from 'jszip';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+// 1. Create the SKILL.md and ZIP it
+const skillMd = `---
+name: "social-contacts"
+description: "Track people the user interacts with — one file per person"
+---
+# Social Contacts
+
+Maintain a file for each person the user mentions or interacts with.
+
+## File Structure
+
+One file per person, named [first-last].md (lowercase, hyphenated).
+Each file has: # [Full Name], ## Basics (Relationship, Role, Company), ## Notes.
+
+## Guidelines
+
+- One person per file — do not combine people
+- Only record information explicitly mentioned by the user
+- Update existing entries when corrections are provided
+- Keep entries factual and concise
+`;
+
+const zip = new JSZip();
+zip.file("SKILL.md", skillMd);
+const zipBuffer = await zip.generateAsync({ type: "nodebuffer" });
+
+const skill = await client.skills.create({
+    file: new FileUpload({ filename: "social-contacts.zip", content: zipBuffer }),
+});
+console.log(`Created skill: ${skill.name} (${skill.id})`);
+
+// 2. Create a learning space and include the skill
+const space = await client.learningSpaces.create();
+await client.learningSpaces.includeSkill({ spaceId: space.id, skillId: skill.id });
+
+const skills = await client.learningSpaces.listSkills(space.id);
+for (const s of skills) {
+    console.log(`  ${s.name}: ${s.description}`);
+}
+
+// 3. Create a session and run mock messages
+const session = await client.sessions.create();
+await client.learningSpaces.learn({ spaceId: space.id, sessionId: session.id });
+
+const messages = [
+    { role: "user", content: "Set up a meeting with Alice Chen — she's our new product manager at Acme Corp. She prefers morning slots." },
+    { role: "assistant", content: "I've scheduled a meeting with Alice Chen for tomorrow at 10 AM." },
+    { role: "user", content: "Also remind me that Bob Martinez from the DevOps team helped us fix the staging deploy issue last week." },
+    { role: "assistant", content: "Noted — Bob Martinez from DevOps helped resolve the staging deployment issue." },
+];
+
+for (const msg of messages) {
+    await client.sessions.storeMessage(session.id, msg);
+}
+
+// 4. Wait for learning pipeline, then inspect results
+await client.learningSpaces.waitForLearning({ spaceId: space.id, sessionId: session.id });
+
+const updatedSkills = await client.learningSpaces.listSkills(space.id);
+for (const s of updatedSkills) {
+    if (s.name === "social-contacts") {
+        for (const f of s.fileIndex) {
+            if (f.path === "SKILL.md") continue;
+            console.log(`\n--- ${f.path} ---`);
+            const content = await client.skills.getFile({ skillId: s.id, filePath: f.path });
+            console.log(content.content?.raw);
+        }
+    }
+}
+```
+</Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Agent Skills" icon="sparkles" href="/store/skill">
+  SKILL.md format and ZIP structure
+</Card>
+<Card title="Learning Spaces" icon="brain" href="/learn/learning-spaces">
+  Default skills, custom skills, and managing learning spaces
+</Card>
+</CardGroup>

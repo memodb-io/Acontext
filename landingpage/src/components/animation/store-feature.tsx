@@ -135,7 +135,7 @@ export function StoreFeature() {
       <div className="grid grid-cols-5 gap-8 h-full">
         {/* Code section - 3 columns */}
         <div className="col-span-3 flex flex-col">
-          <TerminalWindow title="Context Storage API" style={{ flex: 1 }}>
+          <TerminalWindow title="Short-term Memory API" style={{ flex: 1 }}>
             <CodeContainer>
               <CodeLine comment># Create session with user association</CodeLine>
               <CodeLine>

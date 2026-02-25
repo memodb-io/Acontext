@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { ArrowDown, Github, Rocket } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MagneticButton } from '@/components/ui/magnetic-button'
-import { CopyCommand } from './copy-command'
 import { ParticleCanvas } from './particle-canvas'
 import gsap from 'gsap'
 
@@ -13,7 +13,6 @@ export function Hero() {
   const titleRef = useRef<HTMLHeadingElement>(null)
   const taglineRef = useRef<HTMLDivElement>(null)
   const spotlightRef = useRef<HTMLDivElement>(null)
-  const badgeRef = useRef<HTMLDivElement>(null)
   const descRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -21,7 +20,6 @@ export function Hero() {
     const title = titleRef.current
     const tagline = taglineRef.current
     const spotlight = spotlightRef.current
-    const badge = badgeRef.current
     const desc = descRef.current
 
     if (!section || !title || !tagline || !spotlight) return
@@ -64,16 +62,6 @@ export function Hero() {
         ease: 'power2.out',
       })
 
-      // Parallax for badge (moves opposite, subtle)
-      if (badge) {
-        gsap.to(badge, {
-          x: -normalizedX * 10,
-          y: -normalizedY * 5,
-          duration: 0.6,
-          ease: 'power2.out',
-        })
-      }
-
       // Parallax for description (follows, subtle)
       if (desc) {
         gsap.to(desc, {
@@ -110,15 +98,6 @@ export function Hero() {
         duration: 0.8,
         ease: 'power2.out',
       })
-
-      if (badge) {
-        gsap.to(badge, {
-          x: 0,
-          y: 0,
-          duration: 0.6,
-          ease: 'elastic.out(1, 0.5)',
-        })
-      }
 
       if (desc) {
         gsap.to(desc, {
@@ -169,24 +148,6 @@ export function Hero() {
 
       {/* Main content */}
       <div className="w-full max-w-[1400px] lg:max-w-[1200px] md:max-w-[768px] mx-auto text-center space-y-8 md:pt-16 md:pb-24">
-        {/* Badge */}
-        <div
-          ref={badgeRef}
-          className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-primary/10 border border-primary/20 text-xs sm:text-sm font-medium will-change-transform select-none"
-        >
-          <span className="relative flex h-1.5 w-1.5 sm:h-2 sm:w-2 shrink-0">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-full w-full bg-primary"></span>
-          </span>
-          <span className="whitespace-nowrap">Open-source, one command to launch</span>
-        </div>
-
-        {/* Install command */}
-        <CopyCommand
-          command="curl -fsSL https://install.acontext.io | sh"
-          className="max-w-lg mx-auto"
-        />
-
         {/* Tagline with 3D tilt */}
         <div
           ref={taglineRef}
@@ -194,13 +155,13 @@ export function Hero() {
           style={{ transformStyle: 'preserve-3d' }}
         >
           <p className="text-lg sm:text-xl text-muted-foreground hero-tagline">
-            Context Data Platform that Learns Skills
+            Store, Observe, Learn
           </p>
           <h1
             ref={titleRef}
             className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight hero-title will-change-transform"
           >
-            <span className="hero-text-gradient cursor-default">Store, Observe, Learn</span>
+            <span className="hero-text-gradient cursor-default">The Agent Memory Stack</span>
           </h1>
         </div>
 
@@ -210,27 +171,27 @@ export function Hero() {
           className="max-w-3xl mx-auto space-y-3 sm:space-y-4 animate-fade-in animation-delay-600 px-2 sm:px-0 will-change-transform"
         >
           <p className="text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed">
-            Think of it as Supabase for agent context — with built-in skill learning that improves your agents over time.
+            Think of it as Supabase for agent memory.
           </p>
-          <div className="cursor-pointer flex flex-wrap items-center justify-center gap-x-2 sm:gap-x-3 gap-y-2 text-xs sm:text-sm md:text-base text-muted-foreground/80">
-            <span className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-muted/50 border border-border/50 transition-all duration-200 hover:bg-muted/80 hover:border-foreground/40 hover:text-foreground/90">
-              Multi-modal Storage
-            </span>
+          <div className="flex flex-wrap items-center justify-center gap-x-2 sm:gap-x-3 gap-y-2 text-xs sm:text-sm md:text-base text-muted-foreground/80">
+            <Link href="/product/short-term-memory" className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-muted/50 border border-border/50 transition-all duration-200 hover:bg-muted/80 hover:border-foreground/40 hover:text-foreground/90">
+              Short-term Memory
+            </Link>
             <span className="text-muted-foreground/40 hidden sm:inline">·</span>
-            <span className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-muted/50 border border-border/50 transition-all duration-200 hover:bg-muted/80 hover:border-foreground/40 hover:text-foreground/90">
-              Real-time Observation
-            </span>
+            <Link href="/product/mid-term-state" className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-muted/50 border border-border/50 transition-all duration-200 hover:bg-muted/80 hover:border-foreground/40 hover:text-foreground/90">
+              Mid-term State
+            </Link>
             <span className="text-muted-foreground/40 hidden sm:inline">·</span>
-            <span className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-muted/50 border border-border/50 transition-all duration-200 hover:bg-muted/80 hover:border-foreground/40 hover:text-foreground/90">
-              Skill Learning
-            </span>
+            <Link href="/product/long-term-skill" className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-muted/50 border border-border/50 transition-all duration-200 hover:bg-muted/80 hover:border-foreground/40 hover:text-foreground/90">
+              Long-term Skill
+            </Link>
           </div>
           <p className="text-xs sm:text-sm md:text-base text-muted-foreground/70 leading-relaxed max-w-2xl mx-auto">
             Scale from local demos to production without rebuilding context infrastructure —{' '}
             <span className="font-medium text-foreground/90 sm:whitespace-nowrap">
-              messages, files, skills
+              a three-layer memory stack
             </span>{' '}
-            all in one place with built-in context management.
+            that cover anything your agents need to remember.
           </p>
         </div>
 
@@ -263,6 +224,7 @@ export function Hero() {
             </Button>
           </MagneticButton>
         </div>
+
       </div>
 
       {/* Scroll indicator - bottom only */}

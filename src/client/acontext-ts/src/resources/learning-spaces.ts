@@ -3,6 +3,7 @@
  */
 
 import { RequesterProtocol } from '../client-types';
+import { TimeoutError } from '../errors';
 import { buildParams } from '../utils';
 import {
   LearningSpace,
@@ -107,6 +108,52 @@ export class LearningSpacesAPI {
       { jsonData: { session_id: options.sessionId } }
     );
     return LearningSpaceSessionSchema.parse(data);
+  }
+
+  /**
+   * Get a single learning session record by session ID.
+   */
+  async getSession(options: {
+    spaceId: string;
+    sessionId: string;
+  }): Promise<LearningSpaceSession> {
+    const data = await this.requester.request(
+      'GET',
+      `/learning_spaces/${options.spaceId}/sessions/${options.sessionId}`
+    );
+    return LearningSpaceSessionSchema.parse(data);
+  }
+
+  /**
+   * Poll until a learning session reaches a terminal status.
+   */
+  async waitForLearning(options: {
+    spaceId: string;
+    sessionId: string;
+    timeout?: number;
+    pollInterval?: number;
+  }): Promise<LearningSpaceSession> {
+    const timeout = options.timeout ?? 120;
+    const pollInterval = options.pollInterval ?? 1;
+    const terminal = new Set(['completed', 'failed']);
+    const deadline = Date.now() + timeout * 1000;
+
+    while (true) {
+      const session = await this.getSession({
+        spaceId: options.spaceId,
+        sessionId: options.sessionId,
+      });
+      if (terminal.has(session.status)) {
+        return session;
+      }
+      if (Date.now() >= deadline) {
+        throw new TimeoutError(
+          `learning session ${options.sessionId} did not complete within ${timeout}s ` +
+            `(last status: ${session.status})`
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, pollInterval * 1000));
+    }
   }
 
   /**

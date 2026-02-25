@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from acontext.async_client import AcontextAsyncClient
+from acontext.errors import TimeoutError
 
 
 # ---------------------------------------------------------------------------
@@ -285,3 +286,91 @@ async def test_async_exclude_skill(mock_request) -> None:
     method, path = args
     assert method == "DELETE"
     assert path == "/learning_spaces/ls-1/skills/skill-1"
+
+
+# ---------------------------------------------------------------------------
+# Get Session
+# ---------------------------------------------------------------------------
+
+
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_get_session(mock_request) -> None:
+    mock_request.return_value = SAMPLE_LS_SESSION
+
+    async with AcontextAsyncClient(api_key="token") as client:
+        result = await client.learning_spaces.get_session("ls-1", session_id="sess-1")
+
+    args, _ = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/learning_spaces/ls-1/sessions/sess-1"
+    assert result.session_id == "sess-1"
+    assert result.status == "pending"
+
+
+# ---------------------------------------------------------------------------
+# Wait for Learning
+# ---------------------------------------------------------------------------
+
+
+@patch("asyncio.sleep", new_callable=AsyncMock)
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_wait_for_learning_immediate_completion(mock_request, mock_sleep) -> None:
+    mock_request.return_value = {**SAMPLE_LS_SESSION, "status": "completed"}
+
+    async with AcontextAsyncClient(api_key="token") as client:
+        result = await client.learning_spaces.wait_for_learning("ls-1", session_id="sess-1")
+
+    assert result.status == "completed"
+    mock_sleep.assert_not_called()
+
+
+@patch("asyncio.sleep", new_callable=AsyncMock)
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_wait_for_learning_polls_then_completes(mock_request, mock_sleep) -> None:
+    mock_request.side_effect = [
+        {**SAMPLE_LS_SESSION, "status": "pending"},
+        {**SAMPLE_LS_SESSION, "status": "running"},
+        {**SAMPLE_LS_SESSION, "status": "completed"},
+    ]
+
+    async with AcontextAsyncClient(api_key="token") as client:
+        result = await client.learning_spaces.wait_for_learning("ls-1", session_id="sess-1")
+
+    assert result.status == "completed"
+    assert mock_request.call_count == 3
+    assert mock_sleep.call_count == 2
+
+
+@patch("asyncio.sleep", new_callable=AsyncMock)
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_wait_for_learning_failed_status(mock_request, mock_sleep) -> None:
+    mock_request.return_value = {**SAMPLE_LS_SESSION, "status": "failed"}
+
+    async with AcontextAsyncClient(api_key="token") as client:
+        result = await client.learning_spaces.wait_for_learning("ls-1", session_id="sess-1")
+
+    assert result.status == "failed"
+    mock_sleep.assert_not_called()
+
+
+@patch("asyncio.get_event_loop")
+@patch("asyncio.sleep", new_callable=AsyncMock)
+@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
+@pytest.mark.asyncio
+async def test_async_wait_for_learning_timeout(mock_request, mock_sleep, mock_loop) -> None:
+    mock_request.return_value = {**SAMPLE_LS_SESSION, "status": "pending"}
+    mock_time = type("MockLoop", (), {"time": lambda self: mock_time._counter()})()
+    call_count = iter([0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0])
+    mock_time._counter = lambda: next(call_count)
+    mock_loop.return_value = mock_time
+
+    async with AcontextAsyncClient(api_key="token") as client:
+        with pytest.raises(TimeoutError):
+            await client.learning_spaces.wait_for_learning(
+                "ls-1", session_id="sess-1", timeout=3.0, poll_interval=1.0
+            )

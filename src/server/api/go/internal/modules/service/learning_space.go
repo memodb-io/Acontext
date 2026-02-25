@@ -27,6 +27,7 @@ type LearningSpaceService interface {
 	Learn(ctx context.Context, in LearnInput) (*model.LearningSpaceSession, error)
 	IncludeSkill(ctx context.Context, in IncludeSkillInput) (*model.LearningSpaceSkill, error)
 	ListSkills(ctx context.Context, projectID, learningSpaceID uuid.UUID) ([]*model.AgentSkills, error)
+	GetSession(ctx context.Context, projectID, learningSpaceID, sessionID uuid.UUID) (*model.LearningSpaceSession, error)
 	ListSessions(ctx context.Context, projectID, learningSpaceID uuid.UUID) ([]*model.LearningSpaceSession, error)
 	ExcludeSkill(ctx context.Context, projectID, learningSpaceID, skillID uuid.UUID) error
 }
@@ -370,6 +371,21 @@ func (s *learningSpaceService) ListSkills(ctx context.Context, projectID, learni
 	}
 
 	return skills, nil
+}
+
+func (s *learningSpaceService) GetSession(ctx context.Context, projectID, learningSpaceID, sessionID uuid.UUID) (*model.LearningSpaceSession, error) {
+	if _, err := s.GetByID(ctx, projectID, learningSpaceID); err != nil {
+		return nil, err
+	}
+
+	lss, err := s.lsSessRepo.GetBySpaceAndSessionID(ctx, learningSpaceID, sessionID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, fmt.Errorf("learning space session not found")
+		}
+		return nil, err
+	}
+	return lss, nil
 }
 
 func (s *learningSpaceService) ListSessions(ctx context.Context, projectID, learningSpaceID uuid.UUID) ([]*model.LearningSpaceSession, error) {

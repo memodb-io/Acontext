@@ -1,6 +1,7 @@
 import Script from 'next/script'
 import type { Metadata } from 'next'
 import { Hero, SandboxOverview, SandboxCodeComparison } from '@/components/sandbox'
+import { StandaloneComparison, scenes } from '@/components/landing/acontext-vs-claude'
 import { createSoftwareApplicationJsonLd, generateJsonLdScript } from '@/lib/jsonld'
 
 const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://acontext.io'
@@ -60,8 +61,9 @@ export default function SandboxPage() {
         }}
       />
       <Hero />
-      {/* Features tabs with custom cursor - colors auto-adapt to theme */}
       <SandboxOverview />
+      <StandaloneComparison scene={scenes[1]} />
+      <StandaloneComparison scene={scenes[2]} />
       <SandboxCodeComparison />
     </>
   )

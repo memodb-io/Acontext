@@ -23,7 +23,7 @@
             ]
           },
           {
-            "group": "Context Storage",
+            "group": "Short-term Memory",
             "icon": "database",
             "pages": [
               "store/overview",
@@ -50,30 +50,24 @@
                   "store/disk",
                   "store/skill",
                   "store/sandbox",
-                  "store/per-user"
+                  "store/per-user",
+                  {
+                    "group": "Context Engineering",
+                    "pages": [
+                      "engineering/whatis",
+                      "engineering/agent_skills",
+                      "engineering/session_summary",
+                      "engineering/editing",
+                      "engineering/cache",
+                      "engineering/copy_session"
+                    ]
+                  }
                 ]
               }
             ]
           },
           {
-            "group": "Context Engineering",
-            "icon": "scissors",
-            "pages": [
-              "engineering/whatis",
-              {
-                "group": "Features",
-                "pages": [
-                  "engineering/agent_skills",
-                  "engineering/session_summary",
-                  "engineering/editing",
-                  "engineering/cache",
-                  "engineering/copy_session"
-                ]
-              }
-            ]
-          },
-          {
-            "group": "Agent Observability",
+            "group": "Mid-term State",
             "icon": "radar",
             "pages": [
               "observe/whatis",
@@ -90,10 +84,17 @@
             ]
           },
           {
-            "group": "Self-learning",
+            "group": "Long-term Skill",
             "icon": "brain",
             "pages": [
-              "learn/self-learning"
+              "learn/quick",
+              {
+                "group": "Features",
+                "pages": [
+                  "learn/custom-memory",
+                  "learn/learning-spaces"
+                ]
+              }
             ]
           },
           {
@@ -180,12 +181,12 @@
         },
         {
           "anchor": "Integrations",
-          "href": "https://docs.acontext.io/integrations",
+          "href": "https://docs.acontext.app/integrations",
           "icon": "plug"
         },
         {
           "anchor": "API",
-          "href": "https://docs.acontext.io/api-reference",
+          "href": "https://docs.acontext.app/api-reference",
           "icon": "code"
         }
       ]

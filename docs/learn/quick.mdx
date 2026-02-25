@@ -1,0 +1,244 @@
+---
+title: "What is Long-term Skill"
+description: "Persistent agent memory stored as structured skill files — filesystem-compatible, configurable, and human-readable"
+---
+
+Long-term skill is Acontext's approach to persistent agent memory: your agents store memory as **skill files** — plain markdown organized by configurable schemas you control.
+
+```
+Session messages ──► Task extraction 
+                        └► Learner ──► Skill files
+                ┌─────────────────────┘
+                ▼
+                social-contacts/
+                ├── SKILL.md          (your schema)
+                ├── alice-chen.md     (learner-created)
+                └── bob-martinez.md   (learner-created)
+```
+
+## Quickstart
+
+<Steps>
+<Step title="Create a learning space and run a session">
+
+<CodeGroup>
+```python Python
+import os
+from acontext import AcontextClient
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+
+# Create a learning space
+space = client.learning_spaces.create()
+
+# Create a session and associate it with the space
+session = client.sessions.create()
+client.learning_spaces.learn(space.id, session_id=session.id)
+
+# Run your agent as usual — store messages along the way
+client.sessions.store_message(session.id, blob={"role": "user", "content": "My name is Gus"})
+# ... agent runs and completes the task ...
+```
+
+```typescript TypeScript
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+// Create a learning space
+const space = await client.learningSpaces.create();
+
+// Create a session and associate it with the space
+const session = await client.sessions.create();
+await client.learningSpaces.learn({ spaceId: space.id, sessionId: session.id });
+
+// Run your agent as usual — store messages along the way
+await client.sessions.storeMessage(session.id, { role: "user", content: "My name is Gus" });
+// ... agent runs and completes the task ...
+```
+</CodeGroup>
+
+<Note>
+Call `.learn()` before the agent runs. When [tasks](/observe/agent_tasks) complete during the session, Acontext automatically picks them up for learning. A **task** is a unit of work the agent completes — Acontext extracts them from session messages automatically.
+</Note>
+</Step>
+
+<Step title="Learning happens automatically">
+
+As tasks complete, Acontext distills outcomes into skill files in the background. Use `wait_for_learning` to block until it finishes:
+
+<CodeGroup>
+```python Python
+result = client.learning_spaces.wait_for_learning(space.id, session_id=session.id)
+print(f"Session {result.session_id}: {result.status}")
+# "completed" or "failed"
+```
+
+```typescript TypeScript
+const result = await client.learningSpaces.waitForLearning({
+    spaceId: space.id,
+    sessionId: session.id,
+});
+console.log(`Session ${result.session_id}: ${result.status}`);
+// "completed" or "failed"
+```
+</CodeGroup>
+
+<Tip>
+`wait_for_learning` / `waitForLearning` polls every 1 second (configurable via `poll_interval` / `pollInterval`) and times out after 120 seconds by default (configurable via `timeout`).
+</Tip>
+</Step>
+
+<Step title="Inspect the learned skills">
+
+Skills are plain markdown files you can read directly:
+
+<CodeGroup>
+```python Python
+# Ensure learning has finished (called in Step 2, repeated here for completeness)
+client.learning_spaces.wait_for_learning(space.id, session_id=session.id)
+
+skills = client.learning_spaces.list_skills(space.id)
+for skill in skills:
+    print(f"\n=== {skill.name} ===")
+    print(f"Description: {skill.description}")
+    print(f"Files:")
+    for f in skill.file_index:
+        print(f"  {f.path}")
+        content = client.skills.get_file(skill_id=skill.id, file_path=f.path)
+        print(content.content.raw)
+```
+
+```typescript TypeScript
+// Ensure learning has finished (called in Step 2, repeated here for completeness)
+await client.learningSpaces.waitForLearning({ spaceId: space.id, sessionId: session.id });
+
+const skills = await client.learningSpaces.listSkills(space.id);
+for (const skill of skills) {
+    console.log(`\n=== ${skill.name} ===`);
+    console.log(`Description: ${skill.description}`);
+    console.log(`Files:`);
+    for (const f of skill.fileIndex) {
+        console.log(`  ${f.path}`);
+        const content = await client.skills.getFile({ skillId: skill.id, filePath: f.path });
+        console.log(content.content.raw);
+    }
+}
+```
+</CodeGroup>
+</Step>
+
+<Step title="Use learned skills in your agent">
+
+Give your agent access to the learned skills via [Skill Content Tools](/tool/skill_tools). The agent can then look up what it learned in previous sessions:
+
+<CodeGroup>
+```python Python
+from acontext.agent.skill import SKILL_TOOLS
+from openai import OpenAI
+import json
+
+openai_client = OpenAI()
+
+# Get skill IDs from the learning space
+skills = client.learning_spaces.list_skills(space.id)
+skill_ids = [s.id for s in skills]
+
+# Give the agent access to those skills
+ctx = SKILL_TOOLS.format_context(client, skill_ids)
+tools = SKILL_TOOLS.to_openai_tool_schema()
+
+messages = [
+    {"role": "system", "content": f"You have access to skills from past sessions.\n\n{ctx.get_context_prompt()}"},
+    {"role": "user", "content": "Do you know my name?"}
+]
+
+while True:
+    response = openai_client.chat.completions.create(
+        model="gpt-4.1", messages=messages, tools=tools
+    )
+    message = response.choices[0].message
+    messages.append(message)
+
+    if not message.tool_calls:
+        print(f"Assistant: {message.content}")
+        break
+
+    for tc in message.tool_calls:
+        result = SKILL_TOOLS.execute_tool(ctx, tc.function.name, json.loads(tc.function.arguments))
+        messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
+```
+
+```typescript TypeScript
+import { SKILL_TOOLS } from '@acontext/acontext';
+import OpenAI from 'openai';
+
+const openai = new OpenAI();
+
+// Get skill IDs from the learning space
+const skills = await client.learningSpaces.listSkills(space.id);
+const skillIds = skills.map(s => s.id);
+
+// Give the agent access to those skills
+const ctx = await SKILL_TOOLS.formatContext(client, skillIds);
+const tools = SKILL_TOOLS.toOpenAIToolSchema();
+
+const messages: OpenAI.ChatCompletionMessageParam[] = [
+    { role: "system", content: `You have access to skills from past sessions.\n\n${ctx.getContextPrompt()}` },
+    { role: "user", content: "Do you know my name?" },
+];
+
+while (true) {
+    const response = await openai.chat.completions.create({
+        model: "gpt-4.1",
+        messages,
+        tools,
+    });
+    const message = response.choices[0].message;
+    messages.push(message);
+
+    if (!message.tool_calls) {
+        console.log(`Assistant: ${message.content}`);
+        break;
+    }
+
+    for (const tc of message.tool_calls) {
+        const result = await SKILL_TOOLS.executeTool(ctx, tc.function.name, JSON.parse(tc.function.arguments));
+        messages.push({ role: "tool", tool_call_id: tc.id, content: result });
+    }
+}
+```
+</CodeGroup>
+
+</Step>
+</Steps>
+
+## Why Skill Files?
+
+<Accordion title="Comparison with other memory approaches">
+
+| | Long-term Skill (Acontext) | Vector Store | Knowledge Graph | Plain-text Files |
+|--|--|--|--|--|
+| Storage format | Markdown files | Embeddings | Nodes & edges | Text files |
+| Human-readable | Yes | No | Partially | Partially |
+| Configurable schema | Yes (SKILL.md) | No | Complex upfront | No |
+| Filesystem-native | Yes | No | No | Yes |
+| Version controllable | Yes | No | No | No |
+
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={3}>
+<Card title="Custom Skills" icon="sparkles" href="/learn/custom-memory">
+  Define your own memory schemas with SKILL.md
+</Card>
+<Card title="Learning Spaces" icon="brain" href="/learn/learning-spaces">
+  Default skills, custom skills, and managing learning spaces
+</Card>
+<Card title="Skill Content Tools" icon="wand-magic-sparkles" href="/tool/skill_tools">
+  Full reference for the skill reading tools
+</Card>
+</CardGroup>

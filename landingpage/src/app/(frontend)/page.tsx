@@ -1,5 +1,5 @@
 import Script from 'next/script'
-import { Hero, Features, CommunityCTA, FeaturesOverview, AcontextVsClaude } from '@/components/landing'
+import { Hero, Features, Quickstart, CommunityCTA, FeaturesOverview, SelfHostCTA } from '@/components/landing'
 import { WithCustomCursor } from '@/components/with-custom-cursor'
 import { createOrganizationJsonLd, createWebSiteJsonLd, generateJsonLdScript } from '@/lib/jsonld'
 
@@ -8,14 +8,14 @@ const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://acontext.io'
 export default function HomePage() {
   const organizationJsonLd = createOrganizationJsonLd('Acontext', baseUrl, {
     description:
-      'Context Data Platform for AI Agents - Unifies multi-modal context data storage, observability, and experience learning for production agents.',
+      'The Agent Memory Stack - Unifies short-term memory, mid-term state, and long-term skill for production AI agents.',
     logo: `${baseUrl}/ACONTEXT_white.svg`,
     socialLinks: ['https://twitter.com/acontext_io'],
   })
 
   const websiteJsonLd = createWebSiteJsonLd('Acontext', baseUrl, {
     description:
-      'Build smarter, more reliable AI agents with Acontext, which unifies multi-modal context data storage, observability, and experience learning for production agents.',
+      'Unifies short-term memory, mid-term state, and long-term skill for production AI agents — filesystem-compatible, configurable, and human-readable.',
   })
 
   return (
@@ -45,8 +45,9 @@ export default function HomePage() {
       >
         <FeaturesOverview />
       </WithCustomCursor>
+      <Quickstart />
       <Features />
-      <AcontextVsClaude />
+      <SelfHostCTA />
       <CommunityCTA />
     </>
   )

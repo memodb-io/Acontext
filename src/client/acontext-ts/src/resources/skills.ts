@@ -2,10 +2,14 @@
  * Skills endpoints.
  */
 
+import * as fs from 'fs/promises';
+import * as path from 'path';
+
 import { RequesterProtocol } from '../client-types';
 import { FileUpload, normalizeFileUpload } from '../uploads';
 import { buildParams } from '../utils';
 import {
+  DownloadSkillResp,
   DownloadSkillToSandboxResp,
   DownloadSkillToSandboxRespSchema,
   GetSkillFileResp,
@@ -123,6 +127,53 @@ export class SkillsAPI {
     });
 
     return GetSkillFileRespSchema.parse(data);
+  }
+
+  /**
+   * Download all files from a skill to a local directory.
+   *
+   * Recursively downloads every file in the skill's file_index,
+   * preserving the directory structure.
+   *
+   * @param skillId - The UUID of the skill
+   * @param options - Download options
+   * @param options.path - Local directory path to download files into
+   * @returns DownloadSkillResp with skill name, description, resolved dirPath, and list of downloaded file paths
+   */
+  async download(
+    skillId: string,
+    options: { path: string }
+  ): Promise<DownloadSkillResp> {
+    const skill = await this.get(skillId);
+    const dest = path.resolve(options.path);
+    await fs.mkdir(dest, { recursive: true });
+
+    const downloaded: string[] = [];
+    for (const fi of skill.file_index) {
+      const resp = await this.getFile({ skillId, filePath: fi.path });
+      const fileDest = path.join(dest, fi.path);
+      await fs.mkdir(path.dirname(fileDest), { recursive: true });
+
+      if (resp.content) {
+        await fs.writeFile(fileDest, resp.content.raw, 'utf-8');
+      } else if (resp.url) {
+        const r = await fetch(resp.url);
+        if (!r.ok) {
+          throw new Error(`Failed to download ${fi.path}: ${r.status} ${r.statusText}`);
+        }
+        const buffer = Buffer.from(await r.arrayBuffer());
+        await fs.writeFile(fileDest, buffer);
+      }
+
+      downloaded.push(fi.path);
+    }
+
+    return {
+      name: skill.name,
+      description: skill.description,
+      dirPath: dest,
+      files: downloaded,
+    };
   }
 
   /**

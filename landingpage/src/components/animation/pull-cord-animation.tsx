@@ -50,6 +50,7 @@ function SimpleRope({ height = 160, pullThreshold = 50, onPull }: RopeProps) {
     }
     points.current = arr
     initialHandleY.current = arr[arr.length - 1].y
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   /** Verlet integration update */
@@ -136,6 +137,7 @@ function SimpleRope({ height = 160, pullThreshold = 50, onPull }: RopeProps) {
 
     loop()
     return () => cancelAnimationFrame(raf)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -225,7 +227,7 @@ export function PullCordAnimation({
   pullThreshold = 50,
   onPull,
   isHovered = false,
-  className,
+  className: _className,
 }: RopeProps) {
   const [isVisible, setIsVisible] = useState(false)
   const hasShownRef = useRef(false)

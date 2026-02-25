@@ -107,31 +107,31 @@ while (true) {
 
 ### write_file_disk
 
-```python
+```json
 {"filename": "notes.md", "content": "# Notes", "file_path": "/docs/"}
 ```
 
 ### read_file_disk
 
-```python
+```json
 {"filename": "notes.md", "file_path": "/docs/", "line_offset": 0, "line_limit": 100}
 ```
 
 ### replace_string_disk
 
-```python
+```json
 {"filename": "notes.md", "old_string": "TODO", "new_string": "DONE", "file_path": "/"}
 ```
 
 ### list_disk
 
-```python
+```json
 {"file_path": "/docs/"}
 ```
 
 ### download_file_disk
 
-```python
+```json
 {"filename": "report.pdf", "file_path": "/", "expire": 3600}
 ```
 
@@ -139,7 +139,7 @@ while (true) {
 
 Search file contents with regex:
 
-```python
+```json
 {"query": "TODO.*", "limit": 100}
 ```
 
@@ -151,7 +151,7 @@ Uses **regex** syntax: `.*` means any characters, `*` alone means zero or more o
 
 Find files by path pattern:
 
-```python
+```json
 {"query": "**/*.md", "limit": 100}
 ```
 

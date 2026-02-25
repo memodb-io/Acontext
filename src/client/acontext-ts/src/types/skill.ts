@@ -60,3 +60,12 @@ export const DownloadSkillToSandboxRespSchema = z.object({
 
 export type DownloadSkillToSandboxResp = z.infer<typeof DownloadSkillToSandboxRespSchema>;
 
+export const DownloadSkillRespSchema = z.object({
+  name: z.string(),
+  description: z.string(),
+  dirPath: z.string(),
+  files: z.array(z.string()),
+});
+
+export type DownloadSkillResp = z.infer<typeof DownloadSkillRespSchema>;
+

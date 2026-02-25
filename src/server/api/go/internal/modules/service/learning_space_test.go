@@ -121,6 +121,14 @@ func (m *MockLearningSpaceSessionRepo) ExistsBySessionID(ctx context.Context, se
 	return args.Bool(0), args.Error(1)
 }
 
+func (m *MockLearningSpaceSessionRepo) GetBySpaceAndSessionID(ctx context.Context, learningSpaceID, sessionID uuid.UUID) (*model.LearningSpaceSession, error) {
+	args := m.Called(ctx, learningSpaceID, sessionID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.LearningSpaceSession), args.Error(1)
+}
+
 func (m *MockLearningSpaceSessionRepo) ListBySpaceID(ctx context.Context, learningSpaceID uuid.UUID) ([]*model.LearningSpaceSession, error) {
 	args := m.Called(ctx, learningSpaceID)
 	if args.Get(0) == nil {
@@ -858,6 +866,55 @@ func TestLearningSpaceService_ListSkills(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
+	})
+}
+
+func TestLearningSpaceService_GetSession(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+	lsID := uuid.New()
+	sessionID := uuid.New()
+
+	t.Run("success", func(t *testing.T) {
+		m := newLSMocks()
+		m.lsRepo.On("GetByID", ctx, projectID, lsID).Return(&model.LearningSpace{ID: lsID, ProjectID: projectID}, nil)
+		m.lsSessRepo.On("GetBySpaceAndSessionID", ctx, lsID, sessionID).Return(&model.LearningSpaceSession{
+			ID:              uuid.New(),
+			LearningSpaceID: lsID,
+			SessionID:       sessionID,
+			Status:          "completed",
+		}, nil)
+
+		result, err := m.service().GetSession(ctx, projectID, lsID, sessionID)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, "completed", result.Status)
+		m.lsRepo.AssertExpectations(t)
+		m.lsSessRepo.AssertExpectations(t)
+	})
+
+	t.Run("space not found", func(t *testing.T) {
+		m := newLSMocks()
+		m.lsRepo.On("GetByID", ctx, projectID, lsID).Return(nil, gorm.ErrRecordNotFound)
+
+		result, err := m.service().GetSession(ctx, projectID, lsID, sessionID)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "not found")
+	})
+
+	t.Run("session not found", func(t *testing.T) {
+		m := newLSMocks()
+		m.lsRepo.On("GetByID", ctx, projectID, lsID).Return(&model.LearningSpace{ID: lsID, ProjectID: projectID}, nil)
+		m.lsSessRepo.On("GetBySpaceAndSessionID", ctx, lsID, sessionID).Return(nil, gorm.ErrRecordNotFound)
+
+		result, err := m.service().GetSession(ctx, projectID, lsID, sessionID)
+
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "not found")
 	})
 }
 

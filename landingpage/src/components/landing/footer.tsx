@@ -6,8 +6,8 @@ const footerLinks = {
     { name: 'Product', href: '/product' },
     { name: 'Pricing', href: '/pricing' },
     { name: 'Blog', href: '/blog' },
-    { name: 'Docs', href: 'https://docs.acontext.io' },
-    { name: 'API Reference', href: 'https://docs.acontext.io/api-reference/introduction' },
+    { name: 'Docs', href: 'https://docs.acontext.app' },
+    { name: 'API Reference', href: 'https://docs.acontext.app/api-reference/introduction' },
     { name: 'Dashboard', href: 'https://dash.acontext.io' },
   ],
   company: [{ name: 'Privacy Policy', href: '/privacy' }],
@@ -83,11 +83,11 @@ export function Footer() {
                 const ariaLabel = isExternal ? `${link.name} (opens in new tab)` : link.name
                 const props = isExternal
                   ? {
-                      href: link.href,
-                      target: '_blank',
-                      rel: 'noopener noreferrer',
-                      'aria-label': ariaLabel,
-                    }
+                    href: link.href,
+                    target: '_blank',
+                    rel: 'noopener noreferrer',
+                    'aria-label': ariaLabel,
+                  }
                   : { href: link.href, 'aria-label': ariaLabel }
 
                 return (

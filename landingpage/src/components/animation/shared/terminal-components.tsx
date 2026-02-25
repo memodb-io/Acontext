@@ -98,7 +98,7 @@ export function StorageBox({
   title,
   description,
   icon,
-  color,
+  color: _color,
 }: {
   title: string
   description: string

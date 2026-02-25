@@ -15,8 +15,8 @@ Organize facts into topic-specific files named `[TOPIC].md`. Create a new file w
 ```
 # [Topic Name]
 
-- [fact or preference statement]
-- [fact or preference statement]
+- [third-person fact about the user, e.g. "The user prefers TypeScript"]
+- [third-person fact about the user, e.g. "The user's name is Gus"]
 ```
 
 ### Example Topics
@@ -35,3 +35,4 @@ Organize facts into topic-specific files named `[TOPIC].md`. Create a new file w
 - Update existing facts when corrections are provided — do not keep stale information
 - Keep facts concise, objective, and actionable
 - Only record facts explicitly stated or clearly demonstrated by the user — do not speculate
+- **Always use third-person pronouns** when referring to the user. Write "The user prefers X" or "The user's name is Y", never "I prefer X" or "My name is Y". These files are read by agents who would mistake first-person "I" as referring to themselves.

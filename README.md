@@ -1,11 +1,11 @@
 <div align="center">
   <a href="https://discord.acontext.io">
-      <img alt="Acontext - Context Data Platform for Cloud Agents" src="./assets/Acontext-header-banner.png">
+      <img alt="Acontext - The Agent Memory Stack" src="./assets/Acontext-header-banner.png">
   </a>
  	<p align="center">
  	  	<a href="https://acontext.io">🌐 Website</a>
       |
- 	  	<a href="https://docs.acontext.io">📚 Document</a>
+ 	  	<a href="https://docs.acontext.app">📚 Document</a>
   </p>
   <p align="center">
     <a href="https://pypi.org/project/acontext/"><img src="https://img.shields.io/pypi/v/acontext.svg"></a>
@@ -23,53 +23,48 @@
 
 
 
-Acontext is a context data platform for production AI agents. Think of it as Supabase, but purpose-built for agent context.
 
-We help agents scale from local demos to production without rebuilding context infrastructure — giving you unified storage, built-in context engineering, and context observability out of the box.
+
+Acontext is the **memory stack** for production AI agents. Think of it as Supabase for agent memory.
+
+Unifies **short-term memory, mid-term state, and long-term skill** for production AI agents.
 
 
 
 # ❓ Why use Acontext
 
-#### Challenges in Building Agents
+#### The Problem
 
-- Context data like **llm messages, files, and skills are scattered** across different storages
-- **Long-running agents need context management**, and you have to build it yourself
-- **Tracking states from multi-modal, multi-llm Agents is a nightmare**, how you know your agent is great?
+- **Context data is scattered** — messages, files, and skills live in different storages with no unified interface
+- **No observability on agent state** — you can't track success rates, replay trajectories, or know if your agent is actually working
+- **Your agent's memory is a black box** — vector stores and key-value memory are opaque, not inspectable, and not version controllable
 
-#### How Acontext Solves It
+#### Acontext's Approach
 
-- **One unified storage** for messages, files, skills, and more. Integrated with Claude Agent SDK, AI-SDK, OpenAI SDK...
-- **Built-in context management** methods — just one argument, zero code
-- **Replay** agent trajectory in Dashboard
-- **Observe** agent with background monitor to estimate success rate
+- **Short-term Memory** — unified storage for messages, files, and artifacts — integrated with Claude Agent SDK, AI-SDK, OpenAI SDK...
+- **Mid-term State** — replay trajectories, track success rates, and monitor agents in real-time
+- **Long-term Skill** — agents distill successful/failed task outcomes into reusable, human-readable skill files, improving with every run
 
 <div align="center">
-      <img alt="Acontext - Context Data Platform for Cloud Agents" src="./assets/acontext-components.png">  
+      <img alt="Acontext - The Agent Memory Stack" src="./assets/acontext-components.png">  
 </div>
 
 
 # 💡 Core Features
 
-- **Context Storage**
-  - [Session](https://docs.acontext.io/store/messages/multi-provider): save agent history from any llm, any modal.
-    - [Context Editing](https://docs.acontext.io/engineering/editing) - edit context window in one api.
-  - [Disk](https://docs.acontext.io/store/disk): virtual, persistent filesystem,
-  - [Agent Skills](https://docs.acontext.io/store/skill) - manage skills in server-side.
-  - [Sandbox](https://docs.acontext.io/store/sandbox) - run code, analyze data, export artifacts.
-
-
-- **Context Observability**
-  - [Session Summary](https://docs.acontext.io/observe/agent_tasks): asynchronously summarize agent's progress and user feedback.
-  - [State Tracking](https://docs.acontext.io/observe/agent_tasks): collect agent's working status in near real-time.
-- **View everything in one [dashboard](https://docs.acontext.io/observe/dashboard)**
+- **Short-term Memory**
+  - [Session](https://docs.acontext.app/store/messages/multi-provider): save agent history from any LLM, any modality
+- **Mid-term State**
+  - [State Tracking](https://docs.acontext.app/observe/agent_tasks): collect agent tasks and results in near real-time
+- **Long-term Skill**
+  - [Skill Memory](https://docs.acontext.app/learn/skill-memory) - agents automatically build and update skills from successful/failed sessions
 
 <div align="center">
     <picture>
       <img alt="Dashboard" src="./docs/images/dashboard/BI.png" width="80%">
     </picture>
-  <p>Dashboard of Agent Success Rate and Other Metrics</p>
 </div>
+
 
 
 
@@ -153,162 +148,43 @@ client = AcontextClient(
 
 
 
-### Store & Get Messages
+### The Memory Stack in 3 Steps
 
-> [Docs](https://docs.acontext.io/store/messages/multi-provider)
-
-Store messages in OpenAI, Anthropic, or Gemini format. Auto-converts on retrieval.
+Store a message, get agent state, and retrieve learned skills — one API for each layer.
 
 ```python
-# Create session and store messages
 session = client.sessions.create()
+space = client.learning_spaces.create()
+client.learning_spaces.learn(space.id, session_id=session.id)
 
-# Store text, image, file, etc.
+# 1. Short-term Memory — store messages in any LLM format
 client.sessions.store_message(
     session_id=session.id,
-    blob={"role": "user", "content": "Hello!"},
-    format="openai"
+    blob={"role": "user", "content": "Deploy the new API to staging"},
 )
+# ... your agent runs ...
+msgs = client.sessions.get_messages(session_id=session.id)
 
-# Retrieve in any format (auto-converts)
-result = client.sessions.get_messages(session_id=session.id, format="anthropic")
+# 2. Mid-term State — flush to trigger processing, then get state
+client.sessions.flush(session.id)
+summary = client.sessions.get_session_summary(session_id=session.id)
+print(summary)
+
+# 3. Long-term Skill — wait for learning, then retrieve skills
+client.learning_spaces.wait_for_learning(space.id, session_id=session.id)
+skills = client.learning_spaces.list_skills(space.id)
+for skill in skills:
+    print(f"{skill.name}: {skill.description}")
 ```
 
-### Context Engineering
+> `flush` and `wait_for_learning` are blocking helpers for demo purposes. In production, task extraction and learning run in the background automatically — your agent never waits.
 
-> [Session Summary](https://docs.acontext.io/engineering/session_summary) | [Context Editing](https://docs.acontext.io/engineering/editing)
+### More Features
 
-Compress context with summaries and edit strategies. Original messages unchanged.
-
-```python
-# Session summary for prompt injection
-summary = client.sessions.get_session_summary(session_id)
-system_prompt = f"Previous tasks:\n{summary}\n\nContinue helping."
-
-# Context editing - limit tokens on retrieval
-result = client.sessions.get_messages(
-    session_id=session_id,
-    edit_strategies=[
-        {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}},
-        {"type": "token_limit", "params": {"limit_tokens": 30000}}
-    ]
-)
-```
-
-### Agent Storage Tools
-<details>
-<summary>Disk Tool</summary>
-
-
-
-> [Tool Docs](https://docs.acontext.io/tool/disk_tools) | [SDK Docs](https://docs.acontext.io/store/disk)
-> 
-Persistent file storage for agents. Supports read, write, grep, glob.
-
-```python
-from acontext.agent.disk import DISK_TOOLS
-from openai import OpenAI
-
-disk = client.disks.create()
-ctx = DISK_TOOLS.format_context(client, disk.id)
-
-# Pass to LLM
-response = OpenAI().chat.completions.create(
-    model="gpt-4.1",
-    messages=[
-        {"role": "system", "content": f"You have disk access.\n\n{ctx.get_context_prompt()}"},
-        {"role": "user", "content": "Create a todo.md with 3 tasks"}
-    ],
-    tools=DISK_TOOLS.to_openai_tool_schema()
-)
-
-# Execute tool calls
-for tc in response.choices[0].message.tool_calls:
-    result = DISK_TOOLS.execute_tool(ctx, tc.function.name, json.loads(tc.function.arguments))
-```
-
-</details>
-
-
-<details>
-<summary>Sandbox Tool</summary>
-
-
-> [Tool Docs](https://docs.acontext.io/tool/bash_tools) | [SDK Docs](https://docs.acontext.io/store/sandbox)
->
-> Isolated code execution environment with bash, Python, and common tools.
-
-```python
-from acontext.agent.sandbox import SANDBOX_TOOLS
-from openai import OpenAI
-
-sandbox = client.sandboxes.create()
-disk = client.disks.create()
-ctx = SANDBOX_TOOLS.format_context(client, sandbox.sandbox_id, disk.id)
-
-# Pass to LLM
-response = OpenAI().chat.completions.create(
-    model="gpt-4.1",
-    messages=[
-        {"role": "system", "content": f"You have sandbox access.\n\n{ctx.get_context_prompt()}"},
-        {"role": "user", "content": "Run a Python hello world script"}
-    ],
-    tools=SANDBOX_TOOLS.to_openai_tool_schema()
-)
-
-# Execute tool calls
-for tc in response.choices[0].message.tool_calls:
-    result = SANDBOX_TOOLS.execute_tool(ctx, tc.function.name, json.loads(tc.function.arguments))
-```
-
-</details>
-
-<details>
-<summary>Sandbox with Skills</summary>
-
-
-
-> [Tool Docs](https://docs.acontext.io/tool/bash_tools#mounting-skills-in-sandbox) | [SDK Docs](https://docs.acontext.io/store/skill)
->
-> Mount reusable Agent Skills into sandbox at `/skills/{name}/`. [Download xlsx skill](https://github.com/memodb-io/Acontext-Examples/raw/refs/heads/main/python/interactive-agent-skill/xlsx.zip).
-
-```python
-from acontext import FileUpload
-
-# Upload a skill ZIP (e.g., xlsx.zip)
-with open("web-artifacts-builder.zip", "rb") as f:
-    skill = client.skills.create(file=FileUpload(filename="xlsx.zip", content=f.read()))
-
-# Mount into sandbox
-ctx = SANDBOX_TOOLS.format_context(
-    client, sandbox.sandbox_id, disk.id,
-    mount_skills=[skill.id]  # Available at /skills/{skill.name}/
-)
-
-# Context prompt includes skill instructions
-response = OpenAI().chat.completions.create(
-    model="gpt-4.1",
-    messages=[
-        {"role": "system", "content": f"You have sandbox access.\n\n{ctx.get_context_prompt()}"},
-        {"role": "user", "content": "Create an Excel file with a simple budget spreadsheet and export it"}
-    ],
-    tools=SANDBOX_TOOLS.to_openai_tool_schema()
-)
-
-# Execute tool calls
-for tc in response.choices[0].message.tool_calls:
-    result = SANDBOX_TOOLS.execute_tool(ctx, tc.function.name, json.loads(tc.function.arguments))
-```
-
-You can download a full skill interactive demo with `acontext-cli`:
-
-```shell
-acontext create my-skill --template-path "python/interactive-agent-skill"
-```
-
-
-
-</details>
+- **[Context Engineering](https://docs.acontext.app/engineering/editing)** — Compress context with summaries and edit strategies
+- **[Disk](https://docs.acontext.app/store/disk)** — Virtual, persistent filesystem for agents
+- **[Sandbox](https://docs.acontext.app/store/sandbox)** — Isolated code execution with bash, Python, and [mountable skills](https://docs.acontext.app/tool/bash_tools#mounting-skills-in-sandbox)
+- **[Agent Tools](https://docs.acontext.app/tool/whatis)** — Disk tools, sandbox tools, and skill tools for LLM function calling
 
 
 
@@ -358,7 +234,7 @@ More examples on Typescript:
 
 # 🔍 Document
 
-To understand what Acontext can do better, please view [our docs](https://docs.acontext.io/)
+To learn more about long-term skill and what Acontext can do, visit [our docs](https://docs.acontext.app/) or start with [What is Long-term Skill?](https://docs.acontext.app/learn/skill-memory)
 
 
 

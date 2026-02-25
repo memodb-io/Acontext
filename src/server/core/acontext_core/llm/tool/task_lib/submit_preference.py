@@ -48,13 +48,14 @@ _submit_user_preference_tool = (
                 "description": """Submit a user preference, personal info, or general constraint for learning. These are task-independent — submit them regardless of which task (if any) they relate to.
 - Examples: tech stack preferences, coding style, personal info (name, email), tool/workflow preferences, project constraints.
 - Each call submits one preference — be specific and self-contained.
-- Do NOT skip preferences just because they seem unrelated to the current task.""",
+- Do NOT skip preferences just because they seem unrelated to the current task.
+- IMPORTANT: Always write in third-person ("The user prefers X", "The user's name is Y"). Never use first-person pronouns (I, my, me) — these memories will be read by other agents who would confuse "I" with themselves.""",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "preference": {
                             "type": "string",
-                            "description": "A specific, self-contained user preference, personal info, or constraint statement.",
+                            "description": "A specific, self-contained user preference, personal info, or constraint statement. Must use third-person (e.g. 'The user prefers TypeScript', NOT 'I prefer TypeScript').",
                         },
                     },
                     "required": ["preference"],

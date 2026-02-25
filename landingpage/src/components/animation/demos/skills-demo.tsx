@@ -255,7 +255,7 @@ export function SkillsDemo() {
                   )}
                 </div>
                 <div className="p-3 sm:p-4 space-y-1.5">
-                  {skills.map((skill, i) => (
+                  {skills.map((skill, _i) => (
                     <motion.div
                       key={skill.name}
                       initial={

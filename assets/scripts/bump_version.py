@@ -120,11 +120,6 @@ def main() -> None:
         print("\n[dry-run] No changes made.")
         return
 
-    # --- Write new versions ---
-    write_py_version(py_old, py_new)
-    write_ts_version(ts_new)
-
-    print("\nVersions updated.")
     print(f"\nTags to create: sdk-ts/v{ts_new}, sdk-py/v{py_new}")
 
     # --- Confirm before committing ---
@@ -132,6 +127,11 @@ def main() -> None:
     if answer not in ("y", "yes"):
         print("Aborted. Files were updated but NOT committed.")
         sys.exit(0)
+
+    # --- Write new versions ---
+    print("\nVersions updated.")
+    write_py_version(py_old, py_new)
+    write_ts_version(ts_new)
 
     # --- Git commit & tag ---
     git_commit_and_tag(py_old, py_new, ts_old, ts_new)

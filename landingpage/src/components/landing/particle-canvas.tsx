@@ -411,7 +411,7 @@ export function ParticleCanvas({ className }: ParticleCanvasProps) {
       const particles = particlesRef.current
       time += 0.01
 
-      particles.forEach((p, i) => {
+      particles.forEach((p, _i) => {
         // Physics update
         p.x += p.vx
         p.y += p.vy

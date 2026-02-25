@@ -547,7 +547,8 @@ function StaticGridBackground({ scale }: { scale: number }) {
       }
       pendingStateUpdateRef.current = false
     }
-  }, [gridData?.points, gridData?.svgSize]) // 只在 points 或 svgSize 变化时重新初始化
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gridData?.points, gridData?.svgSize])
 
   if (!gridData) return null
 

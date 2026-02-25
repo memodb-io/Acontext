@@ -248,7 +248,7 @@ export function FeaturesOverviewAnimation() {
         )
         .to('[data-scene="1"]', { opacity: 0, duration: 0.3 }, 7.7)
 
-      // SCENE 2: Context Storage (8-20s) - Extended duration
+      // SCENE 2: Short-term Memory (8-20s) - Extended duration
       const scene2 = gsap.timeline()
       scene2
         .to('[data-scene="2"]', { opacity: 1, duration: 0.3 }, 0)
@@ -667,6 +667,7 @@ export function FeaturesOverviewAnimation() {
     }, container)
 
     return () => ctx.revert()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [colors])
 
   return (
@@ -835,7 +836,7 @@ export function FeaturesOverviewAnimation() {
                       transform: 'translateY(-10px)',
                     }}
                   >
-                    Context Data Platform for AI Agents
+                    The Agent Memory Stack
                   </p>
 
                   <div className="flex gap-8 justify-center items-center">
@@ -843,7 +844,7 @@ export function FeaturesOverviewAnimation() {
                       dataPillar="store"
                       icon="💾"
                       title="Store"
-                      description="Context storage & editing"
+                      description="Short-term memory & editing"
                       color={colors.primary}
                     />
                     <Pillar
@@ -857,14 +858,14 @@ export function FeaturesOverviewAnimation() {
                       dataPillar="learn"
                       icon="🧠"
                       title="Learn"
-                      description="Experience & skills"
+                      description="Long-term skill"
                       color={colors.accent}
                     />
                   </div>
                 </div>
               </Scene>
 
-              {/* SCENE 2: Context Storage */}
+              {/* SCENE 2: Short-term Memory */}
               <Scene scene="2">
                 <div className="flex flex-col items-center justify-start w-full px-12 pt-8">
                   <h3
@@ -876,7 +877,7 @@ export function FeaturesOverviewAnimation() {
                       transform: 'translateY(-20px)',
                     }}
                   >
-                    Context Storage Architecture
+                    Short-term Memory Architecture
                   </h3>
 
                   <div className="grid grid-cols-2 gap-6 w-full max-w-5xl mb-6">
@@ -1019,7 +1020,7 @@ export function FeaturesOverviewAnimation() {
                       transform: 'translateY(-20px)',
                     }}
                   >
-                    Task Monitoring & Observability
+                    Task Monitoring & Mid-term State
                   </h3>
 
                   <div className="grid grid-cols-2 gap-6 w-full max-w-5xl mb-6">
@@ -1080,7 +1081,7 @@ export function FeaturesOverviewAnimation() {
                       transform: 'translateY(-20px)',
                     }}
                   >
-                    Experience Learning & Skills
+                    Long-term Skill
                   </h3>
 
                   <div className="grid grid-cols-2 gap-6 w-full max-w-5xl mb-6">
@@ -1255,7 +1256,7 @@ function Pillar({
   icon,
   title,
   description,
-  color,
+  color: _color,
 }: {
   dataPillar: string
   icon: string
@@ -1332,7 +1333,7 @@ function StorageBox({
   description,
   icon,
   initialX,
-  color,
+  color: _color,
 }: {
   dataStorage: string
   title: string
@@ -1364,6 +1365,7 @@ function StorageBox({
   )
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function Arrow({ dataFlow }: { dataFlow: string }) {
   const colors = useColors()
   return (
@@ -1412,7 +1414,7 @@ function TaskBox({
   title,
   status,
   progress,
-  color,
+  color: _color,
 }: {
   dataTask?: boolean
   title: string
@@ -1493,7 +1495,8 @@ function ExperienceBox({
   )
 }
 
-function SearchButton({ dataQuery, color }: { dataQuery: string; color: string }) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function SearchButton({ dataQuery, color: _color }: { dataQuery: string; color: string }) {
   const colors = useColors()
   return (
     <button
@@ -1511,6 +1514,7 @@ function SearchButton({ dataQuery, color }: { dataQuery: string; color: string }
   )
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function SearchResult({
   dataResult,
   title,
@@ -1545,7 +1549,7 @@ function SkillBox({
   title,
   description,
   icon,
-  color,
+  color: _color,
 }: {
   dataSkill: string
   title: string
@@ -1594,7 +1598,7 @@ function SkillBox({
   )
 }
 
-function SkillArrow({ dataSkill, color }: { dataSkill: string; color: string }) {
+function SkillArrow({ dataSkill, color: _color }: { dataSkill: string; color: string }) {
   const colors = useColors()
   return (
     <svg

@@ -10,7 +10,8 @@ Acontext stores multi-modal content (images, audio, PDFs) as base64 within messa
 <Tabs>
 <Tab title="OpenAI Format">
 
-```python
+<CodeGroup>
+```python Python
 import os
 import base64
 from acontext import AcontextClient
@@ -47,11 +48,41 @@ client.sessions.store_message(
     format="openai"
 )
 ```
+
+```typescript TypeScript
+import { AcontextClient } from '@acontext/acontext';
+import * as fs from 'fs';
+
+const client = new AcontextClient({ apiKey: process.env.ACONTEXT_API_KEY });
+const session = await client.sessions.create();
+
+// From URL
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    content: [
+        { type: "text", text: "What's in this image?" },
+        { type: "image_url", image_url: { url: "https://example.com/image.png" } }
+    ]
+}, { format: "openai" });
+
+// From base64
+const imageData = fs.readFileSync("image.png").toString("base64");
+
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    content: [
+        { type: "text", text: "Describe this" },
+        { type: "image_url", image_url: { url: `data:image/png;base64,${imageData}` } }
+    ]
+}, { format: "openai" });
+```
+</CodeGroup>
 </Tab>
 
 <Tab title="Anthropic Format">
 
-```python
+<CodeGroup>
+```python Python
 import os
 import base64
 from acontext import AcontextClient
@@ -77,12 +108,35 @@ client.sessions.store_message(
     format="anthropic"
 )
 ```
+
+```typescript TypeScript
+import { AcontextClient } from '@acontext/acontext';
+import * as fs from 'fs';
+
+const client = new AcontextClient({ apiKey: process.env.ACONTEXT_API_KEY });
+const session = await client.sessions.create();
+
+const imageData = fs.readFileSync("image.png").toString("base64");
+
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    content: [
+        { type: "text", text: "Describe this image" },
+        {
+            type: "image",
+            source: { type: "base64", media_type: "image/png", data: imageData }
+        }
+    ]
+}, { format: "anthropic" });
+```
+</CodeGroup>
 </Tab>
 </Tabs>
 
 ## Audio
 
-```python
+<CodeGroup>
+```python Python
 import base64
 
 with open("audio.wav", "rb") as f:
@@ -101,12 +155,28 @@ client.sessions.store_message(
 )
 ```
 
+```typescript TypeScript
+import * as fs from 'fs';
+
+const audioData = fs.readFileSync("audio.wav").toString("base64");
+
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    content: [
+        { type: "text", text: "Transcribe this audio" },
+        { type: "input_audio", input_audio: { data: audioData, format: "wav" } }
+    ]
+}, { format: "openai" });
+```
+</CodeGroup>
+
 ## Documents
 
 <Tabs>
 <Tab title="OpenAI Format">
 
-```python
+<CodeGroup>
+```python Python
 import base64
 
 with open("document.pdf", "rb") as f:
@@ -124,11 +194,27 @@ client.sessions.store_message(
     format="openai"
 )
 ```
+
+```typescript TypeScript
+import * as fs from 'fs';
+
+const pdfData = fs.readFileSync("document.pdf").toString("base64");
+
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    content: [
+        { type: "text", text: "Summarize this PDF" },
+        { type: "file", file: { file_data: pdfData, filename: "document.pdf" } }
+    ]
+}, { format: "openai" });
+```
+</CodeGroup>
 </Tab>
 
 <Tab title="Anthropic Format">
 
-```python
+<CodeGroup>
+```python Python
 import base64
 
 with open("report.pdf", "rb") as f:
@@ -146,6 +232,21 @@ client.sessions.store_message(
     format="anthropic"
 )
 ```
+
+```typescript TypeScript
+import * as fs from 'fs';
+
+const pdfData = fs.readFileSync("report.pdf").toString("base64");
+
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    content: [
+        { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfData } },
+        { type: "text", text: "Summarize the key findings" }
+    ]
+}, { format: "anthropic" });
+```
+</CodeGroup>
 </Tab>
 </Tabs>
 
@@ -153,7 +254,8 @@ client.sessions.store_message(
 
 Base64 content is returned as-is. Format conversion is automatic:
 
-```python
+<CodeGroup>
+```python Python
 # Store as Anthropic, retrieve as OpenAI
 result = client.sessions.get_messages(session_id=session.id, format="openai")
 
@@ -161,6 +263,18 @@ for msg in result.items:
     for part in msg.content:
         print(f"Type: {part.get('type')}")
 ```
+
+```typescript TypeScript
+// Store as Anthropic, retrieve as OpenAI
+const result = await client.sessions.getMessages(session.id, { format: "openai" });
+
+for (const msg of result.items) {
+    for (const part of msg.content as any[]) {
+        console.log(`Type: ${part.type}`);
+    }
+}
+```
+</CodeGroup>
 
 ## Next Steps
 

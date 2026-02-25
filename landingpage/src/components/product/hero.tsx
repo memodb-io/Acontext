@@ -384,7 +384,7 @@ export function Hero() {
           ref={titleRef}
           className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight"
         >
-          <span className="hero-text-gradient">Context Data Platform</span>
+          <span className="hero-text-gradient">Agent Memory Stack</span>
         </h1>
         <p className="text-lg sm:text-xl md:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
           Store, observe, and let your agents learn and grow from every run

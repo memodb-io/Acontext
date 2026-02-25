@@ -1,6 +1,6 @@
 {
   "name": "@acontext/acontext",
-  "version": "0.1.11",
+  "version": "0.1.14",
   "description": "TypeScript SDK for the Acontext API",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

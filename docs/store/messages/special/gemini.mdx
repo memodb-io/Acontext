@@ -9,7 +9,8 @@ Acontext handles Gemini-specific features including `thinking` parts for [Gemini
 
 Acontext natively stores Gemini thinking parts. The `ThoughtSignature` is base64-encoded and preserved for multi-turn continuity.
 
-```python
+<CodeGroup>
+```python Python
 client.sessions.store_message(
     session_id=session.id,
     blob={
@@ -33,11 +34,33 @@ client.sessions.store_message(
 # Retrieved in OpenAI format: thinking content is downgraded to plain text
 ```
 
+```typescript TypeScript
+await client.sessions.storeMessage(session.id, {
+    role: "model",
+    parts: [
+        {
+            text: "Let me reason step by step...",
+            thought: true,
+            thoughtSignature: "Z2VtaW5pLXRob3VnaHQtc2ln..."
+        },
+        {
+            text: "The answer is 42."
+        }
+    ]
+}, { format: "gemini" });
+
+// Retrieved in Gemini format: thinking parts round-trip with Thought flag and ThoughtSignature
+// Retrieved in Anthropic format: thinking parts round-trip as native thinking blocks
+// Retrieved in OpenAI format: thinking content is downgraded to plain text
+```
+</CodeGroup>
+
 ## Function Call ID Generation
 
 Gemini `FunctionCall` parts may omit the `id` field. Acontext automatically generates a unique ID (format: `call_<8-char-hex>`) for each function call without one, and stores the ID-to-name mapping in message metadata so that `FunctionResponse` parts can be matched back correctly.
 
-```python
+<CodeGroup>
+```python Python
 # Store a model message with a FunctionCall (no ID needed)
 client.sessions.store_message(
     session_id=session.id,
@@ -72,6 +95,35 @@ client.sessions.store_message(
     format="gemini"
 )
 ```
+
+```typescript TypeScript
+// Store a model message with a FunctionCall (no ID needed)
+await client.sessions.storeMessage(session.id, {
+    role: "model",
+    parts: [
+        {
+            functionCall: {
+                name: "get_weather",
+                args: { city: "San Francisco" }
+            }
+        }
+    ]
+}, { format: "gemini" });
+
+// Store the FunctionResponse — Acontext resolves the tool_call_id automatically
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    parts: [
+        {
+            functionResponse: {
+                name: "get_weather",
+                response: { temperature: "72°F", condition: "sunny" }
+            }
+        }
+    ]
+}, { format: "gemini" });
+```
+</CodeGroup>
 
 <Tip>
 Thinking parts stored from any provider (Anthropic or Gemini) are cross-compatible. Retrieve in any format and Acontext converts automatically. See [Multi-provider Messages](/store/messages/multi-provider) for details.

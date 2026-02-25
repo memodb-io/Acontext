@@ -8,7 +8,7 @@ export type { AcontextClientOptions } from './client';
 export { FileUpload } from './uploads';
 export { MessagePart, AcontextMessage, buildAcontextMessage } from './messages';
 
-export { APIError, TransportError, AcontextError } from './errors';
+export { APIError, TransportError, AcontextError, TimeoutError } from './errors';
 
 export * from './types';
 export * from './resources';

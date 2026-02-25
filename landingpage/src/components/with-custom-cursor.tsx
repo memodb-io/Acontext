@@ -58,8 +58,8 @@ function CustomCursor({
   hideOnLeave = true,
 }: CustomCursorProps) {
   const cursorRef = useRef<HTMLDivElement>(null)
-  const [isVisible, setIsVisible] = useState(false)
-  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+  const [_isVisible, setIsVisible] = useState(false)
+  const [_mousePos, setMousePos] = useState({ x: 0, y: 0 })
 
   useEffect(() => {
     if (!enabled || !containerRef.current || !cursorRef.current) return

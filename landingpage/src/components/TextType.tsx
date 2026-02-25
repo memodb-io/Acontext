@@ -162,6 +162,7 @@ const TextType = ({
     loop,
     initialDelay,
     isVisible,
+    getRandomSpeed,
     reverseMode,
     variableSpeed,
     onSentenceComplete

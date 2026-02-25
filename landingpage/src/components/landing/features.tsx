@@ -21,7 +21,7 @@ const leftFeatures: Feature[] = [
     theme: 'layers',
   },
   {
-    title: 'Multimodal Context Storage',
+    title: 'Multimodal Short-term Memory',
     description:
       'Unified, persistent storage for all agent data — messages, files, and skills — eliminating fragmented backends (DB, S3, Redis).',
     Icon: Database,
@@ -492,7 +492,7 @@ export function Features() {
             Platform Capabilities
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            The production-grade infrastructure your agents need — storage, observability, self-learning, and more.
+            The production-grade infrastructure your agents need — short-term memory, mid-term state, long-term skill, and more.
           </p>
         </div>
 

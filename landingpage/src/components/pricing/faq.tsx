@@ -46,7 +46,7 @@ const defaultFAQs: FAQItem[] = [
       <>
         Yes, you can use {' '}
         <Link
-          href="https://docs.acontext.io/quick#self-hosted"
+          href="https://docs.acontext.app/quick#self-hosted"
           target="_blank"
           rel="noopener noreferrer"
           className="text-primary hover:underline font-medium"

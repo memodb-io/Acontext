@@ -168,6 +168,7 @@ func (r *learningSpaceSkillRepo) ExistsByName(ctx context.Context, learningSpace
 type LearningSpaceSessionRepo interface {
 	Create(ctx context.Context, lss *model.LearningSpaceSession) error
 	ExistsBySessionID(ctx context.Context, sessionID uuid.UUID) (bool, error)
+	GetBySpaceAndSessionID(ctx context.Context, learningSpaceID, sessionID uuid.UUID) (*model.LearningSpaceSession, error)
 	ListBySpaceID(ctx context.Context, learningSpaceID uuid.UUID) ([]*model.LearningSpaceSession, error)
 }
 
@@ -189,6 +190,17 @@ func (r *learningSpaceSessionRepo) ExistsBySessionID(ctx context.Context, sessio
 		Where("session_id = ?", sessionID).
 		Count(&count).Error
 	return count > 0, err
+}
+
+func (r *learningSpaceSessionRepo) GetBySpaceAndSessionID(ctx context.Context, learningSpaceID, sessionID uuid.UUID) (*model.LearningSpaceSession, error) {
+	var lss model.LearningSpaceSession
+	err := r.db.WithContext(ctx).
+		Where("learning_space_id = ? AND session_id = ?", learningSpaceID, sessionID).
+		First(&lss).Error
+	if err != nil {
+		return nil, err
+	}
+	return &lss, nil
 }
 
 func (r *learningSpaceSessionRepo) ListBySpaceID(ctx context.Context, learningSpaceID uuid.UUID) ([]*model.LearningSpaceSession, error) {

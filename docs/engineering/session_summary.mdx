@@ -14,6 +14,9 @@ from acontext import AcontextClient
 
 client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
 
+# Ensure all messages have been processed
+client.sessions.flush(session_id)
+
 summary = client.sessions.get_session_summary(session_id)
 
 system_prompt = f"""You are a helpful assistant.
@@ -31,6 +34,9 @@ import { AcontextClient } from '@acontext/acontext';
 const client = new AcontextClient({
     apiKey: process.env.ACONTEXT_API_KEY,
 });
+
+// Ensure all messages have been processed
+await client.sessions.flush(sessionId);
 
 const summary = await client.sessions.getSessionSummary(sessionId);
 
@@ -62,11 +68,13 @@ Continue helping the user.
 
 <CodeGroup>
 ```python Python
+client.sessions.flush(session_id)
 # Limit to last 5 tasks
 summary = client.sessions.get_session_summary(session_id, limit=5)
 ```
 
 ```typescript TypeScript
+await client.sessions.flush(sessionId);
 // Limit to last 5 tasks
 const summary = await client.sessions.getSessionSummary(sessionId, { limit: 5 });
 ```
@@ -85,7 +93,7 @@ How tasks are extracted
 <Card title="Context Editing" icon="scissors" href="/engineering/editing">
 Manage context window size
 </Card>
-<Card title="Self-Learning" icon="brain" href="/learn/self-learning">
-Learn agent skills from past sessions
+<Card title="Long-term Skill" icon="brain" href="/learn/quick">
+Build long-term skills from agent sessions
 </Card>
 </CardGroup>

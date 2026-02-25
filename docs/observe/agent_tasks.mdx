@@ -3,7 +3,7 @@ title: "Agent Tasks"
 description: "Automatic task extraction from agent conversations"
 ---
 
-Acontext extracts tasks from agent conversations. When an agent says "My plan is: 1. Search, 2. Create, 3. Deploy", each step becomes a trackable task.
+Acontext extracts tasks from agent conversations based on **user requirements**. Each distinct request the user makes becomes a separate, trackable task — the agent's plan steps are tracked as progress within that task.
 
 ## Quick Start
 
@@ -15,10 +15,12 @@ from acontext import AcontextClient
 client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
 session = client.sessions.create()
 
-# Store conversation
+# Store conversation — each user request becomes a separate task
 messages = [
-    {"role": "user", "content": "Write a landing page for iPhone 15"},
-    {"role": "assistant", "content": "My plan:\n1. Research iPhone 15 features\n2. Create Next.js project\n3. Deploy to website"}
+    {"role": "user", "content": "Research iPhone 15 specs and summarize the key features"},
+    {"role": "assistant", "content": "Here are the key iPhone 15 specs:\n- A16 chip, 48MP camera, USB-C..."},
+    {"role": "user", "content": "Now create a comparison table with iPhone 14"},
+    {"role": "assistant", "content": "| Feature | iPhone 14 | iPhone 15 |\n|---|---|---|\n| Chip | A15 | A16 |..."},
 ]
 for msg in messages:
     client.sessions.store_message(session_id=session.id, blob=msg, format="openai")
@@ -26,7 +28,7 @@ for msg in messages:
 # Wait for extraction
 client.sessions.flush(session.id)
 
-# Get tasks
+# Get tasks — one per user request
 tasks = client.sessions.get_tasks(session.id)
 for task in tasks.items:
     print(f"Task #{task.order}: {task.data.task_description} | Status: {task.status}")
@@ -40,10 +42,12 @@ const client = new AcontextClient({
 });
 const session = await client.sessions.create();
 
-// Store conversation
+// Store conversation — each user request becomes a separate task
 const messages = [
-    { role: "user", content: "Write a landing page for iPhone 15" },
-    { role: "assistant", content: "My plan:\n1. Research iPhone 15 features\n2. Create Next.js project\n3. Deploy to website" },
+    { role: "user", content: "Research iPhone 15 specs and summarize the key features" },
+    { role: "assistant", content: "Here are the key iPhone 15 specs:\n- A16 chip, 48MP camera, USB-C..." },
+    { role: "user", content: "Now create a comparison table with iPhone 14" },
+    { role: "assistant", content: "| Feature | iPhone 14 | iPhone 15 |\n|---|---|---|\n| Chip | A15 | A16 |..." },
 ];
 for (const msg of messages) {
     await client.sessions.storeMessage(session.id, msg, { format: "openai" });
@@ -52,10 +56,10 @@ for (const msg of messages) {
 // Wait for extraction
 await client.sessions.flush(session.id);
 
-// Get tasks
+// Get tasks — one per user request
 const tasks = await client.sessions.getTasks(session.id);
 for (const task of tasks.items) {
-    console.log(`Task #${task.order}: ${task.data.taskDescription} | Status: ${task.status}`);
+    console.log(`Task #${task.order}: ${task.data.task_description} | Status: ${task.status}`);
 }
 ```
 </CodeGroup>
@@ -84,7 +88,7 @@ for task in tasks.items:
 
 ```typescript TypeScript
 for (const task of tasks.items) {
-    console.log(`Task: ${task.data.taskDescription}`);
+    console.log(`Task: ${task.data.task_description}`);
     
     if (task.data.progresses) {
         for (const p of task.data.progresses) {
@@ -92,8 +96,8 @@ for (const task of tasks.items) {
         }
     }
     
-    if (task.data.userPreferences) {
-        for (const pref of task.data.userPreferences) {
+    if (task.data.user_preferences) {
+        for (const pref of task.data.user_preferences) {
             console.log(`  Preference: ${pref}`);
         }
     }
@@ -120,7 +124,7 @@ Understand task extraction timing
 <Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
 View all agent data
 </Card>
-<Card title="Self-Learning" icon="brain" href="/learn/self-learning">
-Learn agent skills from past sessions
+<Card title="Long-term Skill" icon="brain" href="/learn/quick">
+Build long-term skills from agent sessions
 </Card>
 </CardGroup>

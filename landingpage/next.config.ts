@@ -5,7 +5,25 @@ const nextConfig = {
   // Packages with Cloudflare Workers (workerd) specific code
   // Read more: https://opennext.js.org/cloudflare/howtos/workerd
   serverExternalPackages: ['jose', 'pg-cloudflare'],
-  // Your Next.js config here
+  async redirects() {
+    return [
+      {
+        source: '/product/context-storage',
+        destination: '/product/short-term-memory',
+        permanent: true,
+      },
+      {
+        source: '/product/context-observability',
+        destination: '/product/mid-term-state',
+        permanent: true,
+      },
+      {
+        source: '/product/skill-memory',
+        destination: '/product/long-term-skill',
+        permanent: true,
+      },
+    ]
+  },
   images: {
     remotePatterns: [
       {

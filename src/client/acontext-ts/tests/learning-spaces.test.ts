@@ -3,6 +3,7 @@
  */
 
 import { LearningSpacesAPI } from '../src/resources/learning-spaces';
+import { TimeoutError } from '../src/errors';
 import {
   createMockClient,
   MockAcontextClient,
@@ -339,6 +340,128 @@ describe('LearningSpacesAPI Unit Tests', () => {
           skillId: 'skill-1',
         })
       ).resolves.toBeUndefined();
+    });
+  });
+
+  // ── Get Session ──
+
+  describe('getSession', () => {
+    test('should get a session by ID', async () => {
+      const session = mockLearningSpaceSession({ status: 'completed' });
+      client
+        .mock()
+        .onGet(
+          new RegExp(`/learning_spaces/.+/sessions/.+`),
+          () => session
+        );
+
+      const result = await client.learningSpaces.getSession({
+        spaceId: 'space-id',
+        sessionId: 'sess-id',
+      });
+
+      expect(result).toBeDefined();
+      expect(result.status).toBe('completed');
+    });
+  });
+
+  // ── Wait for Learning ──
+
+  describe('waitForLearning', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    test('should return immediately when already completed', async () => {
+      const session = mockLearningSpaceSession({ status: 'completed' });
+      client
+        .mock()
+        .onGet(
+          new RegExp(`/learning_spaces/.+/sessions/.+`),
+          () => session
+        );
+
+      const result = await client.learningSpaces.waitForLearning({
+        spaceId: 'space-id',
+        sessionId: 'sess-id',
+      });
+
+      expect(result.status).toBe('completed');
+    });
+
+    test('should return on failed status', async () => {
+      const session = mockLearningSpaceSession({ status: 'failed' });
+      client
+        .mock()
+        .onGet(
+          new RegExp(`/learning_spaces/.+/sessions/.+`),
+          () => session
+        );
+
+      const result = await client.learningSpaces.waitForLearning({
+        spaceId: 'space-id',
+        sessionId: 'sess-id',
+      });
+
+      expect(result.status).toBe('failed');
+    });
+
+    test('should poll until completed', async () => {
+      let callCount = 0;
+      const responses = [
+        mockLearningSpaceSession({ status: 'pending' }),
+        mockLearningSpaceSession({ status: 'running' }),
+        mockLearningSpaceSession({ status: 'completed' }),
+      ];
+      client
+        .mock()
+        .onGet(
+          new RegExp(`/learning_spaces/.+/sessions/.+`),
+          () => responses[callCount++]
+        );
+
+      const promise = client.learningSpaces.waitForLearning({
+        spaceId: 'space-id',
+        sessionId: 'sess-id',
+        pollInterval: 1,
+      });
+
+      await jest.advanceTimersByTimeAsync(1000);
+      await jest.advanceTimersByTimeAsync(1000);
+
+      const result = await promise;
+      expect(result.status).toBe('completed');
+      expect(callCount).toBe(3);
+    });
+
+    test('should throw TimeoutError on timeout', async () => {
+      const session = mockLearningSpaceSession({ status: 'pending' });
+      client
+        .mock()
+        .onGet(
+          new RegExp(`/learning_spaces/.+/sessions/.+`),
+          () => session
+        );
+
+      const promise = client.learningSpaces.waitForLearning({
+        spaceId: 'space-id',
+        sessionId: 'sess-id',
+        timeout: 3,
+        pollInterval: 1,
+      });
+
+      const errorPromise = promise.catch((e: unknown) => e);
+
+      for (let i = 0; i < 5; i++) {
+        await jest.advanceTimersByTimeAsync(1000);
+      }
+
+      const error = await errorPromise;
+      expect(error).toBeInstanceOf(TimeoutError);
     });
   });
 });

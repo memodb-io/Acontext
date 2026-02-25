@@ -224,17 +224,17 @@ export function ObserveFeature() {
         <div className="col-span-3 flex flex-col">
           <TerminalWindow title="Agent Observability API" style={{ flex: 1 }}>
             <CodeContainer>
-              <CodeLine comment># Store agent response with task plan</CodeLine>
+              <CodeLine comment># Store user request</CodeLine>
               <CodeLine>
                 client.<Fn>sessions</Fn>.<Fn>store_message</Fn>(session.<Fn>id</Fn>,
               </CodeLine>
               <CodeLine indent={2}>
                 <Str>blob</Str>={'{'}
-                <Str>&quot;role&quot;</Str>: <Str>&quot;assistant&quot;</Str>,
+                <Str>&quot;role&quot;</Str>: <Str>&quot;user&quot;</Str>,
               </CodeLine>
               <CodeLine indent={2}>
                 {'        '}
-                <Str>&quot;content&quot;</Str>: <Str>&quot;My plan: 1. Research...&quot;</Str>
+                <Str>&quot;content&quot;</Str>: <Str>&quot;Build a landing page for iPhone 15&quot;</Str>
                 {'}'})
               </CodeLine>
 
@@ -273,19 +273,19 @@ export function ObserveFeature() {
         {/* Tasks section */}
         <div className="col-span-2 flex flex-col gap-4">
           <TaskItem
-            title="Research iPhone 15 features"
+            title="Build iPhone 15 landing page"
             status="success"
-            progress="Extracted key specs"
+            progress="Created Next.js project with specs"
             time="2m ago"
           />
           <TaskItem
-            title="Create Next.js project"
+            title="Add product comparison section"
             status="processing"
-            progress="Setting up components..."
+            progress="Researching iPhone 14 specs..."
             time="1m ago"
           />
           <TaskItem
-            title="Deploy to Cloudflare"
+            title="Deploy site to Cloudflare"
             status="pending"
             progress="Waiting for build"
             time="just now"

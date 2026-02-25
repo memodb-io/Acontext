@@ -42,3 +42,11 @@ class APIError(AcontextError):
 
 class TransportError(AcontextError):
     """Raised when the underlying HTTP transport failed before receiving a response."""
+
+
+class TimeoutError(AcontextError):
+    """Raised when a polling operation exceeds the configured timeout."""
+
+    def __init__(self, message: str = "operation timed out") -> None:
+        self.message = message
+        super().__init__(message)

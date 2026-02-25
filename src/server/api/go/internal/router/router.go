@@ -147,6 +147,7 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			learningSpaces.POST("/:id/skills", d.LearningSpaceHandler.IncludeSkill)
 			learningSpaces.GET("/:id/skills", d.LearningSpaceHandler.ListSkills)
 			learningSpaces.DELETE("/:id/skills/:skill_id", d.LearningSpaceHandler.ExcludeSkill)
+			learningSpaces.GET("/:id/sessions/:session_id", d.LearningSpaceHandler.GetSession)
 			learningSpaces.GET("/:id/sessions", d.LearningSpaceHandler.ListSessions)
 		}
 	}

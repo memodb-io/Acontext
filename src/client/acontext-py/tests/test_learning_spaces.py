@@ -8,6 +8,7 @@ from unittest.mock import patch
 import pytest
 
 from acontext.client import AcontextClient
+from acontext.errors import TimeoutError
 
 
 # ---------------------------------------------------------------------------
@@ -275,3 +276,78 @@ def test_exclude_skill(mock_request, client: AcontextClient) -> None:
     method, path = args
     assert method == "DELETE"
     assert path == "/learning_spaces/ls-1/skills/skill-1"
+
+
+# ---------------------------------------------------------------------------
+# Get Session
+# ---------------------------------------------------------------------------
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_get_session(mock_request, client: AcontextClient) -> None:
+    mock_request.return_value = SAMPLE_LS_SESSION
+
+    result = client.learning_spaces.get_session("ls-1", session_id="sess-1")
+
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/learning_spaces/ls-1/sessions/sess-1"
+    assert result.session_id == "sess-1"
+    assert result.status == "pending"
+
+
+# ---------------------------------------------------------------------------
+# Wait for Learning
+# ---------------------------------------------------------------------------
+
+
+@patch("time.sleep")
+@patch("acontext.client.AcontextClient.request")
+def test_wait_for_learning_immediate_completion(mock_request, mock_sleep, client: AcontextClient) -> None:
+    mock_request.return_value = {**SAMPLE_LS_SESSION, "status": "completed"}
+
+    result = client.learning_spaces.wait_for_learning("ls-1", session_id="sess-1")
+
+    assert result.status == "completed"
+    mock_sleep.assert_not_called()
+
+
+@patch("time.sleep")
+@patch("acontext.client.AcontextClient.request")
+def test_wait_for_learning_polls_then_completes(mock_request, mock_sleep, client: AcontextClient) -> None:
+    mock_request.side_effect = [
+        {**SAMPLE_LS_SESSION, "status": "pending"},
+        {**SAMPLE_LS_SESSION, "status": "running"},
+        {**SAMPLE_LS_SESSION, "status": "completed"},
+    ]
+
+    result = client.learning_spaces.wait_for_learning("ls-1", session_id="sess-1")
+
+    assert result.status == "completed"
+    assert mock_request.call_count == 3
+    assert mock_sleep.call_count == 2
+
+
+@patch("time.sleep")
+@patch("acontext.client.AcontextClient.request")
+def test_wait_for_learning_failed_status(mock_request, mock_sleep, client: AcontextClient) -> None:
+    mock_request.return_value = {**SAMPLE_LS_SESSION, "status": "failed"}
+
+    result = client.learning_spaces.wait_for_learning("ls-1", session_id="sess-1")
+
+    assert result.status == "failed"
+    mock_sleep.assert_not_called()
+
+
+@patch("time.monotonic")
+@patch("time.sleep")
+@patch("acontext.client.AcontextClient.request")
+def test_wait_for_learning_timeout(mock_request, mock_sleep, mock_monotonic, client: AcontextClient) -> None:
+    mock_request.return_value = {**SAMPLE_LS_SESSION, "status": "pending"}
+    mock_monotonic.side_effect = [0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0]
+
+    with pytest.raises(TimeoutError):
+        client.learning_spaces.wait_for_learning(
+            "ls-1", session_id="sess-1", timeout=3.0, poll_interval=1.0
+        )

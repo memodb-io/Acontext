@@ -57,12 +57,12 @@ class TaskPrompt(BasePrompt):
 ### 5. Submit User Preferences
 - Use `submit_user_preference` when messages reveal user preferences, personal info, or general constraints
 - These are **task-independent** — submit them regardless of which task (if any) they relate to
+- **Always write in third-person** ("The user prefers X", "The user's name is Y"). Never use first-person pronouns (I, my, me) — these memories are read by other agents who would confuse "I" with themselves.
 - Examples of what to submit:
-  - Tech stack preferences ("I prefer TypeScript", "we use PostgreSQL")
-  - Coding style ("always use 2-space indentation", "prefer functional style")
-  - Personal info ("my name is John", "my email is john@co.com")
-  - Tool/workflow preferences ("I use VS Code", "deploy to AWS")
-  - Project constraints ("must support IE11", "no external dependencies")
+  - Tech stack preferences ("The user prefers TypeScript", "The user's team uses PostgreSQL")
+  - Coding style ("The user prefers 2-space indentation", "The user prefers functional style")
+  - Personal info ("The user's name is John", "The user's email is john@co.com")
+  - Tool/workflow preferences ("The user uses VS Code", "The user deploys to AWS")
 - Each call submits one preference — be specific and self-contained
 - Do NOT skip preferences just because they seem unrelated to the current task
 - Check `## Known User Preferences` first — do NOT re-submit preferences already listed there
