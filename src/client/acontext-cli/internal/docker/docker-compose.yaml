@@ -173,7 +173,7 @@ services:
       S3_ENDPOINT: http://acontext-server-seaweedfs:9000
       OTEL_EXPORTER_OTLP_ENDPOINT: acontext-server-jaeger:4317
       SANDBOX_TYPE: cloudflare
-      CLOUDFLARE_WORKER_URL: http://localhost:8787
+      CLOUDFLARE_WORKER_URL: ${CLOUDFLARE_WORKER_URL:-http://host.docker.internal:8787}
     ports:
       - "${CORE_EXPORT_PORT:-8019}:8000"
     volumes:
