@@ -38,7 +38,7 @@ async def skill_learner_agent(
     _user_input = SkillLearnerPrompt.pack_skill_learner_input(
         distilled_context, available_skills_str
     )
-    LOG.info(f"Skill Learner Input: {_user_input[:100]}...")
+    LOG.info(f"Skill Learner Input:\n{_user_input}")
     _messages = [{"role": "user", "content": _user_input}]
 
     while already_iterations < max_iterations:

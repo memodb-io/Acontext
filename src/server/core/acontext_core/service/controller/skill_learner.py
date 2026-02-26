@@ -11,10 +11,11 @@ from ..data import learning_space as LS
 from ...llm.complete import llm_complete
 from ...llm.prompt.skill_distillation import SkillDistillationPrompt
 from ...llm.tool.skill_learner_lib.distill import (
+    DISTILL_SKIP_TOOL,
     DISTILL_SUCCESS_TOOL,
+    DISTILL_FACTUAL_TOOL,
     DISTILL_FAILURE_TOOL,
     extract_distillation_result,
-    DistillationOutcome,
 )
 from ...llm.agent.skill_learner import skill_learner_agent
 
@@ -30,7 +31,7 @@ async def process_context_distillation(
     Returns a fully-formed SkillLearnDistilled payload on success.
     DB session is closed before returning — raw messages are freed from memory.
     """
-    # Step 1: Fetch target task, raw messages, session tasks
+    # Step 1: Fetch target task, raw messages, session tasks, and skill descriptions
     async with DB_CLIENT.get_session_context() as db_session:
         r = await TD.fetch_task(db_session, task_id)
         finished_task, eil = r.unpack()
@@ -69,22 +70,38 @@ async def process_context_distillation(
                     for m in messages
                 ]
 
+        # Fetch skill descriptions so distillation can assess relevance
+        skill_descriptions = []
+        r = await LS.get_learning_space_skill_ids(db_session, learning_space_id)
+        skill_ids, eil = r.unpack()
+        if not eil and skill_ids:
+            r = await LS.get_skills_info(db_session, skill_ids)
+            skills_info, eil = r.unpack()
+            if not eil and skills_info:
+                skill_descriptions = [
+                    (si.name, si.description) for si in skills_info
+                ]
+
     # Step 2: Context Distillation
     if finished_task.status == TaskStatus.SUCCESS:
-        tool_schema = DISTILL_SUCCESS_TOOL
+        tools = [
+            DISTILL_SKIP_TOOL.model_dump(),
+            DISTILL_SUCCESS_TOOL.model_dump(),
+            DISTILL_FACTUAL_TOOL.model_dump(),
+        ]
         distill_system_prompt = SkillDistillationPrompt.success_distillation_prompt()
     else:
-        tool_schema = DISTILL_FAILURE_TOOL
+        tools = [DISTILL_FAILURE_TOOL.model_dump()]
         distill_system_prompt = SkillDistillationPrompt.failure_distillation_prompt()
 
     user_content = SkillDistillationPrompt.pack_distillation_input(
-        finished_task, task_messages, all_tasks
+        finished_task, task_messages, all_tasks, skill_descriptions
     )
 
     r = await llm_complete(
         system_prompt=distill_system_prompt,
         history_messages=[{"role": "user", "content": user_content}],
-        tools=[tool_schema.model_dump()],
+        tools=tools,
         prompt_kwargs={"prompt_id": "distill.skill_learner"},
     )
     llm_return, eil = r.unpack()
@@ -104,6 +121,8 @@ async def process_context_distillation(
             f"reason: {outcome.skip_reason or 'not specified'}"
         )
         return Result.resolve(None)
+
+    LOG.info(f"Skill learning distillation output:\n{outcome.distilled_text}")
 
     return Result.resolve(
         SkillLearnDistilled(

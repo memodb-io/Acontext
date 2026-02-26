@@ -1,46 +1,43 @@
 from .base import BasePrompt
 from ...schema.session.task import TaskSchema
 from ...schema.session.message import MessageBlob
-from typing import List
+from typing import List, Tuple
 
 
 class SkillDistillationPrompt(BasePrompt):
 
-    _TRIVIALITY_ASSESSMENT = """
-Assess whether this task is worth learning from:
-- Worth learning: tasks involving multi-step procedures, meaningful decisions, debugging, configuration, domain-specific knowledge, or user preferences.
-- NOT worth learning: simple factual lookups, small talk, one-shot calculations, generic Q&A, trivial status checks, or tasks where no real procedure or decision was involved.
-
-Set is_worth_learning accordingly. If false, provide a brief skip_reason."""
-
     @classmethod
     def success_distillation_prompt(cls) -> str:
-        return f"""Analyze this successful task and call `report_success_analysis` with:
+        return """Analyze this successful task and choose the appropriate tool:
 
+**Use `skip_learning`** if the task is trivial and not worth recording — e.g. simple factual lookups ("what is 2+2"), small talk, one-shot calculations, generic Q&A with no domain content, or trivial status checks. Consider the learning space's skills (if listed): if the task's content is relevant to any skill, it is NOT trivial.
+
+**Use `report_success_analysis`** when the task involved a multi-step procedure, debugging, configuration, or a meaningful decision process:
 - task_goal: what the user wanted (1 sentence)
 - approach: strategy that worked (2-3 sentences)
 - key_decisions: actions that mattered (list, 1 sentence each)
 - generalizable_pattern: reusable SOP for similar future tasks (2-3 sentences)
-- is_worth_learning: whether this task is worth recording as a skill (see below)
-- skip_reason: if not worth learning, briefly explain why
 
-Cite actual actions, not vague summaries.
-{cls._TRIVIALITY_ASSESSMENT}"""
+**Use `report_factual_content`** when the task is primarily about recording information — people, facts, preferences, entities, or domain knowledge — rather than a procedure:
+- task_goal: brief context of the conversation (1 sentence)
+- facts: list of concise, self-contained factual statements in third-person (e.g. "Bob Martinez is on the DevOps team", "Alice Chen prefers morning meetings")
+
+Pick the tool that best fits. Do NOT inflate simple factual content into fake procedures. If someone mentions a person or a fact, use `report_factual_content`. If the task involved real steps and decisions, use `report_success_analysis`.
+
+"The user" refers to the person sending messages (role: user). People mentioned within messages are third parties, not the user."""
 
     @classmethod
     def failure_distillation_prompt(cls) -> str:
-        return f"""Analyze this failed task and call `report_failure_analysis` with:
+        return """Analyze this failed task and call `report_failure_analysis` with:
 
 - task_goal: what the user wanted (1 sentence)
 - failure_point: where the approach went wrong, cite specific actions (2-3 sentences)
 - flawed_reasoning: the incorrect assumption or bad action (2-3 sentences)
 - what_should_have_been_done: the correct approach — most valuable field (2-3 sentences)
 - prevention_principle: general rule to prevent this failure class (1-2 sentences)
-- is_worth_learning: whether this task is worth recording as a skill (see below)
-- skip_reason: if not worth learning, briefly explain why
 
 Focus on actionable lessons, not blame.
-{cls._TRIVIALITY_ASSESSMENT}"""
+"The user" refers to the person sending messages (role: user). People mentioned within messages are third parties, not the user."""
 
     @classmethod
     def pack_distillation_input(
@@ -48,6 +45,7 @@ Focus on actionable lessons, not blame.
         finished_task: TaskSchema,
         task_messages: List[MessageBlob],
         all_tasks: List[TaskSchema],
+        skill_descriptions: List[Tuple[str, str]] | None = None,
     ) -> str:
         task_info = (
             f"## Finished Task\n"
@@ -70,4 +68,10 @@ Focus on actionable lessons, not blame.
                 f"---\n{m.to_string(tool_mappings, truncate_chars=512)}\n"
             )
 
-        return f"{task_info}\n{all_tasks_section}\n{messages_section}"
+        skills_section = ""
+        if skill_descriptions:
+            skills_section = "\n## Learning Space Skills\n"
+            for name, desc in skill_descriptions:
+                skills_section += f"- **{name}**: {desc}\n"
+
+        return f"{task_info}\n{all_tasks_section}\n{messages_section}{skills_section}"

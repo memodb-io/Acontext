@@ -594,6 +594,11 @@ class TestProcessContextDistillation:
                 return_value=Result.resolve(mock_tasks),
             ),
             patch(
+                "acontext_core.service.controller.skill_learner.LS.get_learning_space_skill_ids",
+                new_callable=AsyncMock,
+                return_value=Result.resolve([]),
+            ),
+            patch(
                 "acontext_core.service.controller.skill_learner.llm_complete",
                 new_callable=AsyncMock,
                 return_value=Result.reject("LLM timeout"),
@@ -648,7 +653,6 @@ class TestProcessContextDistillation:
                             "approach": "approach",
                             "key_decisions": ["d1"],
                             "generalizable_pattern": "pattern",
-                            "is_worth_learning": True,
                         },
                     ),
                     type="function",
@@ -669,6 +673,11 @@ class TestProcessContextDistillation:
                 "acontext_core.service.controller.skill_learner.TD.fetch_current_tasks",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(mock_tasks),
+            ),
+            patch(
+                "acontext_core.service.controller.skill_learner.LS.get_learning_space_skill_ids",
+                new_callable=AsyncMock,
+                return_value=Result.resolve([]),
             ),
             patch(
                 "acontext_core.service.controller.skill_learner.llm_complete",
@@ -698,7 +707,7 @@ class TestProcessContextDistillation:
 
     @pytest.mark.asyncio
     async def test_returns_none_when_not_worth_learning(self):
-        """Controller returns Result.resolve(None) when distillation says not worth learning."""
+        """Controller returns Result.resolve(None) when distillation calls skip_learning."""
         project_id = uuid.uuid4()
         session_id = uuid.uuid4()
         task_id = uuid.uuid4()
@@ -724,14 +733,9 @@ class TestProcessContextDistillation:
                 LLMToolCall(
                     id="call_trivial",
                     function=LLMFunction(
-                        name="report_success_analysis",
+                        name="skip_learning",
                         arguments={
-                            "task_goal": "What time is it?",
-                            "approach": "Looked up the time.",
-                            "key_decisions": ["None"],
-                            "generalizable_pattern": "None",
-                            "is_worth_learning": False,
-                            "skip_reason": "simple factual lookup",
+                            "reason": "simple factual lookup",
                         },
                     ),
                     type="function",
@@ -752,6 +756,11 @@ class TestProcessContextDistillation:
                 "acontext_core.service.controller.skill_learner.TD.fetch_current_tasks",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(mock_tasks),
+            ),
+            patch(
+                "acontext_core.service.controller.skill_learner.LS.get_learning_space_skill_ids",
+                new_callable=AsyncMock,
+                return_value=Result.resolve([]),
             ),
             patch(
                 "acontext_core.service.controller.skill_learner.llm_complete",
@@ -776,7 +785,7 @@ class TestProcessContextDistillation:
 
     @pytest.mark.asyncio
     async def test_returns_distilled_when_worth_learning(self):
-        """Controller returns SkillLearnDistilled when distillation says worth learning."""
+        """Controller returns SkillLearnDistilled when distillation reports analysis."""
         project_id = uuid.uuid4()
         session_id = uuid.uuid4()
         task_id = uuid.uuid4()
@@ -808,7 +817,6 @@ class TestProcessContextDistillation:
                             "approach": "Used blue-green deployment with health checks.",
                             "key_decisions": ["Ran migrations first"],
                             "generalizable_pattern": "Always run migrations before switching traffic.",
-                            "is_worth_learning": True,
                         },
                     ),
                     type="function",
@@ -829,6 +837,11 @@ class TestProcessContextDistillation:
                 "acontext_core.service.controller.skill_learner.TD.fetch_current_tasks",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(mock_tasks),
+            ),
+            patch(
+                "acontext_core.service.controller.skill_learner.LS.get_learning_space_skill_ids",
+                new_callable=AsyncMock,
+                return_value=Result.resolve([]),
             ),
             patch(
                 "acontext_core.service.controller.skill_learner.llm_complete",
@@ -1102,7 +1115,6 @@ class TestEndToEnd:
                             "approach": "Checked token expiry and fixed refresh.",
                             "key_decisions": ["Inspected auth middleware"],
                             "generalizable_pattern": "Always check token expiry.",
-                            "is_worth_learning": True,
                         },
                     ),
                     type="function",
@@ -1128,6 +1140,11 @@ class TestEndToEnd:
                 "acontext_core.service.controller.skill_learner.MD.fetch_messages_data_by_ids",
                 new_callable=AsyncMock,
                 return_value=Result.resolve([mock_message]),
+            ),
+            patch(
+                "acontext_core.service.controller.skill_learner.LS.get_learning_space_skill_ids",
+                new_callable=AsyncMock,
+                return_value=Result.resolve([]),
             ),
             patch(
                 "acontext_core.service.controller.skill_learner.llm_complete",
@@ -1191,7 +1208,6 @@ class TestEndToEnd:
                             "flawed_reasoning": "Assumed rollback would work.",
                             "what_should_have_been_done": "Take backup first.",
                             "prevention_principle": "Always backup before destructive ops.",
-                            "is_worth_learning": True,
                         },
                     ),
                     type="function",
@@ -1219,6 +1235,11 @@ class TestEndToEnd:
                 "acontext_core.service.controller.skill_learner.TD.fetch_current_tasks",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(mock_all_tasks),
+            ),
+            patch(
+                "acontext_core.service.controller.skill_learner.LS.get_learning_space_skill_ids",
+                new_callable=AsyncMock,
+                return_value=Result.resolve([]),
             ),
             patch(
                 "acontext_core.service.controller.skill_learner.llm_complete",
