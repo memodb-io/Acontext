@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import {
   Github,
   ArrowRight,
+  ArrowUpRight,
   FileText,
   BookOpen,
   MessageSquare,
@@ -703,6 +704,16 @@ export function Header() {
 
           {/* Right side buttons */}
           <div className="flex items-center gap-3">
+            <a
+              href="https://cal.com/acontext/30min"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden md:flex items-center gap-0.5 text-sm font-medium text-muted-foreground relative transition-all duration-200 hover:text-foreground after:content-[''] after:absolute after:bottom-[-2px] after:left-0 after:w-0 after:h-px after:bg-foreground after:transition-all after:duration-200 hover:after:w-full"
+              aria-label="Talk to Founder (opens in new tab)"
+            >
+              Talk to Founder
+              <ArrowUpRight className="h-4 w-4" />
+            </a>
             <ThemeToggle />
             <Button variant="ghost" size="sm" asChild className="gap-1.5 px-2.5">
               <a
