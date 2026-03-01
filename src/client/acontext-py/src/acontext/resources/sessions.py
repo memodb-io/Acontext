@@ -17,6 +17,7 @@ from ..types.session import (
     Message,
     MessageObservingStatus,
     Session,
+    Task,
     TokenCounts,
 )
 from ..uploads import FileUpload, normalize_file_upload
@@ -84,6 +85,7 @@ class SessionsAPI:
         *,
         user: str | None = None,
         disable_task_tracking: bool | None = None,
+        disable_task_status_change: bool | None = None,
         configs: Mapping[str, Any] | None = None,
         use_uuid: str | None = None,
     ) -> Session:
@@ -92,6 +94,8 @@ class SessionsAPI:
         Args:
             user: Optional user identifier string. Defaults to None.
             disable_task_tracking: Whether to disable task tracking for this session. Defaults to None (server default: False).
+            disable_task_status_change: Whether to disable automatic task status changes. When True,
+                the task agent will not set tasks to success/failed automatically. Defaults to None (server default: False).
             configs: Optional session configuration dictionary. Defaults to None.
             use_uuid: Optional UUID string to use as the session ID. If not provided, a UUID will be auto-generated.
                 If a session with this UUID already exists, a 409 Conflict error will be raised.
@@ -107,6 +111,8 @@ class SessionsAPI:
             payload["user"] = user
         if disable_task_tracking is not None:
             payload["disable_task_tracking"] = disable_task_tracking
+        if disable_task_status_change is not None:
+            payload["disable_task_status_change"] = disable_task_status_change
         if configs is not None:
             payload["configs"] = configs
         if use_uuid is not None:
@@ -177,6 +183,33 @@ class SessionsAPI:
             params=params or None,
         )
         return GetTasksOutput.model_validate(data)
+
+    def update_task_status(
+        self,
+        session_id: str,
+        task_id: str,
+        *,
+        status: str,
+    ) -> Task:
+        """Update a task's status.
+
+        Setting status to "success" or "failed" triggers the skill learning pipeline.
+
+        Args:
+            session_id: The UUID of the session.
+            task_id: The UUID of the task.
+            status: New status for the task. Must be one of: "success", "failed", "running", "pending".
+
+        Returns:
+            The updated Task object.
+        """
+        payload = {"status": status}
+        data = self._requester.request(
+            "PATCH",
+            f"/session/{session_id}/task/{task_id}/status",
+            json_data=payload,
+        )
+        return Task.model_validate(data)
 
     def get_session_summary(
         self,

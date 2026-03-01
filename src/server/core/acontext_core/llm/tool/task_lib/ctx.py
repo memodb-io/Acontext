@@ -14,3 +14,4 @@ class TaskCtx:
     message_ids_index: list[asUUID]
     learning_task_ids: list[asUUID] = field(default_factory=list)
     pending_preferences: list[str] = field(default_factory=list)
+    disable_task_status_change: bool = False

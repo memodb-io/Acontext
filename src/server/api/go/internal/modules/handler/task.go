@@ -2,9 +2,11 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
 )
@@ -63,4 +65,66 @@ func (h *TaskHandler) GetTasks(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, serializer.Response{Data: out})
+}
+
+type UpdateTaskStatusReq struct {
+	Status string `json:"status" binding:"required,oneof=success failed running pending"`
+}
+
+// UpdateTaskStatus godoc
+//
+//	@Summary		Update task status
+//	@Description	Update a task's status. Setting status to "success" or "failed" triggers the skill learning pipeline.
+//	@Tags			task
+//	@Accept			json
+//	@Produce		json
+//	@Param			session_id	path	string					true	"Session ID"	format(uuid)
+//	@Param			task_id		path	string					true	"Task ID"		format(uuid)
+//	@Param			body		body	UpdateTaskStatusReq		true	"Status update"
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response{data=model.Task}
+//	@Failure		400	{object}	serializer.Response
+//	@Failure		404	{object}	serializer.Response
+//	@Router			/session/{session_id}/task/{task_id}/status [patch]
+func (h *TaskHandler) UpdateTaskStatus(c *gin.Context) {
+	req := UpdateTaskStatusReq{}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid status value, must be one of: success, failed, running, pending", err))
+		return
+	}
+
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("project not found", nil))
+		return
+	}
+
+	sessionID, err := uuid.Parse(c.Param("session_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid session_id", err))
+		return
+	}
+
+	taskID, err := uuid.Parse(c.Param("task_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid task_id", err))
+		return
+	}
+
+	task, err := h.svc.UpdateTaskStatus(c.Request.Context(), service.UpdateTaskStatusInput{
+		ProjectID: project.ID,
+		SessionID: sessionID,
+		TaskID:    taskID,
+		Status:    req.Status,
+	})
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, err.Error(), nil))
+			return
+		}
+		c.JSON(http.StatusBadRequest, serializer.DBErr("", err))
+		return
+	}
+
+	c.JSON(http.StatusOK, serializer.Response{Data: task})
 }

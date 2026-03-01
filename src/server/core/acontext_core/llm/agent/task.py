@@ -96,6 +96,7 @@ async def build_task_ctx(
     session_id: asUUID,
     messages: list[MessageBlob],
     before_use_ctx: TaskCtx = None,
+    disable_task_status_change: bool = False,
 ) -> TaskCtx:
     if before_use_ctx is not None:
         before_use_ctx.db_session = db_session
@@ -115,6 +116,7 @@ async def build_task_ctx(
         task_ids_index=[t.id for t in current_tasks],
         task_index=current_tasks,
         message_ids_index=[m.message_id for m in messages],
+        disable_task_status_change=disable_task_status_change,
     )
     return use_ctx
 
@@ -127,6 +129,7 @@ async def task_agent_curd(
     max_iterations=3,  # task curd agent only receive one turn of actions
     previous_progress_num: int = 6,
     learning_space_id: Optional[asUUID] = None,
+    disable_task_status_change: bool = False,
 ) -> Result[None]:
     async with DB_CLIENT.get_session_context() as db_session:
         r = await TD.fetch_current_tasks(db_session, session_id)
@@ -201,6 +204,7 @@ async def task_agent_curd(
                                 session_id,
                                 messages,
                                 before_use_ctx=USE_CTX,
+                                disable_task_status_change=disable_task_status_change,
                             )
                             r = await tool.handler(USE_CTX, tool_arguments)
                             t, eil = r.unpack()

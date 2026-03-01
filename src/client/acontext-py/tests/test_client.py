@@ -728,6 +728,151 @@ def test_sessions_get_token_counts(mock_request, client: AcontextClient) -> None
 
 
 @patch("acontext.client.AcontextClient.request")
+def test_sessions_create_with_disable_task_status_change(
+    mock_request, client: AcontextClient
+) -> None:
+    """Test that disable_task_status_change is sent to API when provided."""
+    mock_request.return_value = {
+        "id": "session-id",
+        "project_id": "project-id",
+        "disable_task_tracking": False,
+        "disable_task_status_change": True,
+        "configs": {},
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
+
+    result = client.sessions.create(disable_task_status_change=True)
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "POST"
+    assert path == "/session"
+    assert kwargs["json_data"]["disable_task_status_change"] is True
+    assert result.disable_task_status_change is True
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sessions_create_without_disable_task_status_change(
+    mock_request, client: AcontextClient
+) -> None:
+    """Test that disable_task_status_change is not sent when not provided."""
+    mock_request.return_value = {
+        "id": "session-id",
+        "project_id": "project-id",
+        "disable_task_tracking": False,
+        "disable_task_status_change": False,
+        "configs": {},
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
+
+    client.sessions.create()
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    assert "disable_task_status_change" not in (kwargs.get("json_data") or {})
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sessions_update_task_status_success(
+    mock_request, client: AcontextClient
+) -> None:
+    """Test update_task_status sends correct PATCH request and returns Task."""
+    mock_request.return_value = {
+        "id": "task-uuid",
+        "session_id": "session-uuid",
+        "project_id": "project-uuid",
+        "order": 1,
+        "data": {
+            "task_description": "Implement auth",
+            "progresses": ["Created login form"],
+        },
+        "status": "success",
+        "is_planning": False,
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
+
+    result = client.sessions.update_task_status(
+        session_id="session-uuid",
+        task_id="task-uuid",
+        status="success",
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "PATCH"
+    assert path == "/session/session-uuid/task/task-uuid/status"
+    assert kwargs["json_data"] == {"status": "success"}
+    assert result.id == "task-uuid"
+    assert result.status == "success"
+    assert result.data.task_description == "Implement auth"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sessions_update_task_status_failed(
+    mock_request, client: AcontextClient
+) -> None:
+    """Test update_task_status with failed status."""
+    mock_request.return_value = {
+        "id": "task-uuid",
+        "session_id": "session-uuid",
+        "project_id": "project-uuid",
+        "order": 1,
+        "data": {"task_description": "Fix bug"},
+        "status": "failed",
+        "is_planning": False,
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
+
+    result = client.sessions.update_task_status(
+        session_id="session-uuid",
+        task_id="task-uuid",
+        status="failed",
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "PATCH"
+    assert path == "/session/session-uuid/task/task-uuid/status"
+    assert kwargs["json_data"] == {"status": "failed"}
+    assert result.status == "failed"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sessions_update_task_status_running(
+    mock_request, client: AcontextClient
+) -> None:
+    """Test update_task_status with running status (no learning triggered)."""
+    mock_request.return_value = {
+        "id": "task-uuid",
+        "session_id": "session-uuid",
+        "project_id": "project-uuid",
+        "order": 1,
+        "data": {"task_description": "Process data"},
+        "status": "running",
+        "is_planning": False,
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
+
+    result = client.sessions.update_task_status(
+        session_id="session-uuid",
+        task_id="task-uuid",
+        status="running",
+    )
+
+    assert result.status == "running"
+    args, kwargs = mock_request.call_args
+    assert kwargs["json_data"] == {"status": "running"}
+
+
+@patch("acontext.client.AcontextClient.request")
 def test_disks_create_hits_disk_endpoint(mock_request, client: AcontextClient) -> None:
     mock_request.return_value = {
         "id": "disk",
