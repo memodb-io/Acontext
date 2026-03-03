@@ -23,7 +23,7 @@
             ]
           },
           {
-            "group": "Short-term Memory",
+            "group": "Session Storage",
             "icon": "database",
             "pages": [
               "store/overview",
@@ -67,7 +67,7 @@
             ]
           },
           {
-            "group": "Mid-term State",
+            "group": "Task Tracking",
             "icon": "radar",
             "pages": [
               "observe/whatis",
@@ -84,7 +84,7 @@
             ]
           },
           {
-            "group": "Long-term Skill",
+            "group": "Skill Memory",
             "icon": "brain",
             "pages": [
               "learn/quick",

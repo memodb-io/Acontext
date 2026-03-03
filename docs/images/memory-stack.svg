@@ -15,11 +15,11 @@
     text { font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; }
   </style>
 
-  <!-- CARD 1: SHORT-TERM MEMORY -->
+  <!-- CARD 1: SESSION STORAGE -->
   <rect x="30" y="30" width="240" height="200" rx="12" fill="url(#cardBg)" stroke="#334155" stroke-width="1"/>
   <rect x="52" y="52" width="26" height="26" rx="6" fill="#3B82F6" fill-opacity="0.15"/>
   <path d="M60,60 h10 M60,65 h10 M60,70 h7" stroke="#3B82F6" stroke-width="1.5" stroke-linecap="round"/>
-  <text x="86" y="64" fill="#E2E8F0" font-size="13" font-weight="700">Short-term Memory</text>
+  <text x="86" y="64" fill="#E2E8F0" font-size="13" font-weight="700">Session Storage</text>
   <text x="86" y="78" fill="#3B82F6" font-size="10" font-weight="600" letter-spacing="1">STORE</text>
   <line x1="48" y1="92" x2="252" y2="92" stroke="#334155" stroke-width="1"/>
   <circle cx="58" cy="114" r="2.5" fill="#3B82F6"/>
@@ -29,13 +29,13 @@
   <circle cx="58" cy="170" r="2.5" fill="#3B82F6"/>
   <text x="68" y="174" fill="#CBD5E1" font-size="12">Skills (injected)</text>
 
-  <!-- CARD 2: MID-TERM STATE -->
+  <!-- CARD 2: TASK TRACKING -->
   <rect x="340" y="30" width="240" height="200" rx="12" fill="url(#cardBg)" stroke="#334155" stroke-width="1"/>
   <rect x="362" y="52" width="26" height="26" rx="6" fill="#F59E0B" fill-opacity="0.15"/>
   <circle cx="375" cy="65" r="5.5" stroke="#F59E0B" stroke-width="1.5" fill="none"/>
   <circle cx="375" cy="65" r="1.8" fill="#F59E0B"/>
-  <text x="396" y="64" fill="#E2E8F0" font-size="13" font-weight="700">Mid-term State</text>
-  <text x="396" y="78" fill="#F59E0B" font-size="10" font-weight="600" letter-spacing="1">OBSERVE</text>
+  <text x="396" y="64" fill="#E2E8F0" font-size="13" font-weight="700">Task Tracking</text>
+  <text x="396" y="78" fill="#F59E0B" font-size="10" font-weight="600" letter-spacing="1">TRACK</text>
   <line x1="358" y1="92" x2="562" y2="92" stroke="#334155" stroke-width="1"/>
   <circle cx="368" cy="114" r="2.5" fill="#F59E0B"/>
   <text x="378" y="118" fill="#CBD5E1" font-size="12">Tasks</text>
@@ -44,12 +44,12 @@
   <circle cx="368" cy="170" r="2.5" fill="#F59E0B"/>
   <text x="378" y="174" fill="#CBD5E1" font-size="12">Summaries</text>
 
-  <!-- CARD 3: LONG-TERM SKILL -->
+  <!-- CARD 3: SKILL MEMORY -->
   <rect x="650" y="30" width="240" height="200" rx="12" fill="url(#cardBg)" stroke="#334155" stroke-width="1"/>
   <rect x="672" y="52" width="26" height="26" rx="6" fill="#3ECF8E" fill-opacity="0.15"/>
   <path d="M680,68 Q685,56 690,68" stroke="#3ECF8E" stroke-width="1.5" fill="none" stroke-linecap="round"/>
   <path d="M683,72 Q685,65 687,72" stroke="#3ECF8E" stroke-width="1.2" fill="none" stroke-linecap="round"/>
-  <text x="706" y="64" fill="#E2E8F0" font-size="13" font-weight="700">Long-term Skill</text>
+  <text x="706" y="64" fill="#E2E8F0" font-size="13" font-weight="700">Skill Memory</text>
   <text x="706" y="78" fill="#3ECF8E" font-size="10" font-weight="600" letter-spacing="1">LEARN</text>
   <line x1="668" y1="92" x2="872" y2="92" stroke="#334155" stroke-width="1"/>
   <circle cx="678" cy="114" r="2.5" fill="#3ECF8E"/>

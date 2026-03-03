@@ -1,29 +1,25 @@
 ---
 title: "What is Acontext?"
-description: "The agent memory stack for production AI Agents"
+description: "Skill memory for AI agents — learns from runs, writes Markdown skill files, reuses them on the next run"
 ---
-Acontext is the agent memory stack for production AI Agents. It lets you:
-- Store and edit session-scoped data (messages, files, artifacts) with built-in context engineering
-- Track agent progress, task status, and summaries
-- Learn persistent skills from past sessions to improve over time
-- Provide tools like sandbox, filesystem, and skills
+Acontext is skill memory for AI agents. It automatically captures learnings from agent runs, stores them as Markdown files, and lets agents reuse those skills on the next run.
 
 <Frame>
-  <img src="/images/memory-stack.svg" alt="Acontext Memory Stack — Short-term, Mid-term, Long-term" />
+  <img src="/images/memory-stack.svg" alt="Acontext — Session Storage, Task Tracking, Skill Memory" />
 </Frame>
 
 <CardGroup>
 
-<Card title="Short-term Memory" icon="database" href="/store/overview">
+<Card title="Session Storage" icon="database" href="/store/overview">
 Session-scoped storage for messages, files, artifacts, and sandboxes — with context engineering built in.
 </Card>
 
-<Card title="Mid-term State" icon="eye" href="/observe/whatis">
+<Card title="Task Tracking" icon="radar" href="/observe/whatis">
 Task status, progress tracking, and automatic summaries.
 </Card>
 
-<Card title="Long-term Skill" icon="brain" href="/learn/quick">
-Persistent skills learned across sessions — filesystem-compatible, configurable, and human-readable.
+<Card title="Skill Memory" icon="brain" href="/learn/quick">
+Persistent skills learned across sessions — Markdown-native, configurable, and human-readable.
 </Card>
 
 </CardGroup>
