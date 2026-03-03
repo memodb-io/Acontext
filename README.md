@@ -25,45 +25,79 @@
 
 
 
-Acontext is the **memory stack** for production AI agents. Think of it as Supabase for agent memory.
+## What Is Acontext?
 
-Unifies **short-term memory, mid-term state, and long-term skill** for production AI agents.
+Acontext is an open-source Agent Skills as a Memory Layer: skill memory that **automatically** captures learnings from agent runs and stores knowledge as **Markdown files**. You can read, edit, and share those files across agents, LLMs and frameworks.
 
+---
 
+## Who Is It For?
 
-# ❓ Why use Acontext
+For developers whose agents **repeat the same mistakes** or **fail to reuse what worked** — and who want that learning to come from runs and live in **files you can read and move**, not in embeddings or an opaque API. 
 
-#### The Problem
+Also for those **manually turning successful runs into runbooks** and wanting that **automated**.
 
-- **Context data is scattered** — messages, files, and skills live in different storages with no unified interface
-- **No observability on agent state** — you can't track success rates, replay trajectories, or know if your agent is actually working
-- **Your agent's memory is a black box** — vector stores and key-value memory are opaque, not inspectable, and not version controllable
+You may not need it if you only need in-session chat memory or chat-based retrieval.
 
-#### Acontext's Approach
+---
 
-- **Short-term Memory** — unified storage for messages, files, and artifacts — integrated with Claude Agent SDK, AI-SDK, OpenAI SDK...
-- **Mid-term State** — replay trajectories, track success rates, and monitor agents in real-time
-- **Long-term Skill** — agents distill successful/failed task outcomes into reusable, human-readable skill files, improving with every run
+## Why Not Other Memory?
 
-<div align="center">
-      <img alt="Acontext Memory Stack — Short-term, Mid-term, Long-term" src="./docs/images/memory-stack.svg" width="90%">  
-</div>
+Other memory (e.g. Mem0, Zep, vector stores, RAG) stores or retrieves from **conversations** or **static docs**. If you need a layer that learns from **what the agent did** (task outcomes) and turns that into reusable SOPs and warnings, that's **Agent Skills as a memory layer**.
 
+The difference in one line: others store *what was said* or *what was ingested*; the skill layer stores *what the agent did and how it turned out*. Three dimensions that matter when choosing a layer:
 
-# 💡 Core Features
+| | Skill memory (Agent Skills layer) | Other memory (e.g. Mem0 / Zep) | Vector store / RAG |
+|--|-----------------------------------|--------------------------------|---------------------|
+| **Captures** | What the agent *did* + outcome → procedures, preferences, warnings | What was *said* → facts, preferences | What you *ingested* → chunks |
+| **Stored as** | Markdown files (human-readable, portable) | Embeddings / graph | Embeddings |
+| **Retrieval** | Agent calls tools, gets full units (e.g. whole files) | Semantic or chat recall | Similarity search over chunks |
 
-- **Short-term Memory**
-  - [Session](https://docs.acontext.app/store/messages/multi-provider): save agent history from any LLM, any modality
-- **Mid-term State**
-  - [State Tracking](https://docs.acontext.app/observe/agent_tasks): collect agent tasks and results in near real-time
-- **Long-term Skill**
-  - [Skill Memory](https://docs.acontext.app/learn/skill-memory) - agents automatically build and update skills from successful/failed sessions
+**In short:** Other memory stores and retrieves chat or ingested docs as-is. Acontext also takes session messages (and execution) as input, but distills from them *what the agent did and how it turned out* — then writes that as structured skill files that grow with every run.
 
-<div align="center">
-    <picture>
-      <img alt="Dashboard" src="./docs/images/dashboard/BI.png" width="80%">
-    </picture>
-</div>
+**Why it matters:** When you need "learn from what the agent did, not just recall what was said," a dedicated skill layer keeps that in one place — reusable SOPs and preferences instead of re-explaining or re-fixing the same issues.
+
+**What about Cursor Rules / Claude Skills?** They're hand-written and static; you maintain them. Acontext accumulates skills **automatically** and writes Markdown you can reuse in any IDE or model.
+
+---
+
+## What Acontext Does
+
+- **Plain Markdown, any framework** — Skill memories are Markdown files. Use them with LangGraph, Claude, AI SDK, or anything that reads files. No embeddings, no API lock-in. Git, grep, and mount to the sandbox.
+- **You design the structure** — `SKILL.md` defines schema, naming, and file layout. Examples: one file per contact, per project, per runbook.
+- **Tool-based recall, not embeddings** — The agent uses `get_skill` and `get_skill_file` to fetch what it needs. Retrieval is by tool use and reasoning, not semantic top-k. Full units (e.g. whole files), not chunked fragments.
+- **Download as ZIP, reuse anywhere** — Export skill files as ZIP. Run locally, in another agent, or with another LLM. No vendor lock-in; no re-embedding or migration step.
+
+---
+
+## How It Works
+
+### Store — How skills get written
+
+```mermaid
+flowchart LR
+  A[Session messages] --> B[Task extraction]
+  B --> C[Task complete/failed]
+  C --> D[Distillation]
+  D --> E[Skill Agent]
+  E --> F[Markdown files]
+```
+
+- **Session messages** — Conversation (and optionally tool calls, artifacts) is the raw input. Tasks are extracted from the message stream automatically (or inferred from explicit outcome reporting).
+- **Task complete or failed** — When a task is marked done or failed (e.g. by agent report or automatic detection), that outcome is the trigger for learning.
+- **Distillation** — An LLM pass infers from the conversation and execution trace what worked, what failed, and user preferences.
+- **Skill Agent** — Decides where to store (existing skill or new) and writes according to your `SKILL.md` schema.
+- **Markdown files** — Skills are updated. You define the structure in `SKILL.md`; the system does extraction, routing, and writing.
+
+### Recall — How the agent uses skills on the next run
+
+```mermaid
+flowchart LR
+  E[Agent runs] --> F[get_skill / get_skill_file]
+  F --> G[Use in context]
+```
+
+Give your agent **Skill Content Tools** (`get_skill`, `get_skill_file`). The agent decides what it needs, calls the tools, and gets the skill content. No embedding search — **tool-based retrieval**, agent in the loop.
 
 
 
@@ -148,36 +182,34 @@ client = AcontextClient(
 
 
 
-### The Memory Stack in 3 Steps
+### Skill Memory in Action
 
-Store a message, get agent state, and retrieve learned skills — one API for each layer.
+Create a learning space, attach a session, and let the agent learn — skills are written as Markdown files automatically.
 
 ```python
 session = client.sessions.create()
 space = client.learning_spaces.create()
 client.learning_spaces.learn(space.id, session_id=session.id)
 
-# 1. Short-term Memory — store messages in any LLM format
+# Store messages — your agent runs as usual
 client.sessions.store_message(
     session_id=session.id,
     blob={"role": "user", "content": "Deploy the new API to staging"},
 )
-# ... your agent runs ...
-msgs = client.sessions.get_messages(session_id=session.id)
+# ... agent completes or fails the task ...
 
-# 2. Mid-term State — flush to trigger processing, then get state
-client.sessions.flush(session.id)
-summary = client.sessions.get_session_summary(session_id=session.id)
-print(summary)
-
-# 3. Long-term Skill — wait for learning, then retrieve skills
+# Skills are distilled and written automatically
 client.learning_spaces.wait_for_learning(space.id, session_id=session.id)
 skills = client.learning_spaces.list_skills(space.id)
 for skill in skills:
     print(f"{skill.name}: {skill.description}")
+
+# On the next run, agent retrieves and reuses skills
+skill = client.skills.get(skill_id=skills[0].id)
+file_content = client.skills.get_file(skill_id=skill.id, file_path="deploy-sop.md")
 ```
 
-> `flush` and `wait_for_learning` are blocking helpers for demo purposes. In production, task extraction and learning run in the background automatically — your agent never waits.
+> `wait_for_learning` is a blocking helper for demo purposes. In production, task extraction and learning run in the background automatically — your agent never waits.
 
 ### More Features
 
@@ -234,7 +266,7 @@ More examples on Typescript:
 
 # 🔍 Document
 
-To learn more about long-term skill and what Acontext can do, visit [our docs](https://docs.acontext.app/) or start with [What is Long-term Skill?](https://docs.acontext.app/learn/skill-memory)
+To learn more about skill memory and what Acontext can do, visit [our docs](https://docs.acontext.app/) or start with [What is Skill Memory?](https://docs.acontext.app/learn/skill-memory)
 
 
 
