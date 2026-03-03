@@ -187,10 +187,10 @@ export function DashboardDemo() {
               <Lightbulb className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500 dark:text-amber-400 shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs sm:text-sm text-amber-700 dark:text-amber-300 font-medium">
-                  Task completion rate up 12% this week
+                  Skill reuse rate up 18% this week
                 </p>
                 <p className="text-[10px] sm:text-xs text-amber-600/70 dark:text-amber-500/70">
-                  Driven by improved skill reuse across 8 agents
+                  Agents completing tasks 2x faster with learned skills
                 </p>
               </div>
               <Check className="w-4 h-4 text-amber-500/50 dark:text-amber-500/50 shrink-0" />
