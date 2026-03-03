@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { Database, Sparkles, Activity, ArrowRight, Check, Copy } from 'lucide-react'
+import { Sparkles, ArrowRight, Check, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { HighlightedCode } from '@/components/ui/highlighted-code'
 
@@ -18,7 +18,7 @@ interface TabSnippet {
 interface Tab {
   id: string
   label: string
-  Icon: typeof Database
+  Icon: typeof Sparkles
   dotColor: string
   headerDotColor: string
   activeColor: string
@@ -29,186 +29,63 @@ interface Tab {
 
 const TABS: Tab[] = [
   {
-    id: 'short-term-memory',
-    label: 'Short-term Memory',
-    Icon: Database,
-    dotColor: 'bg-blue-400',
-    headerDotColor: 'bg-blue-500/60',
-    activeColor: 'border-blue-500 text-blue-400',
-    description:
-      'Store and retrieve agent messages in any LLM format — OpenAI, Anthropic, Gemini.',
-    docsUrl: 'https://docs.acontext.app/store/messages',
-    snippets: {
-      python: {
-        filename: 'store.py',
-        language: 'python',
-        install: 'pip install acontext',
-        code: `from acontext import AcontextClient
-
-client = AcontextClient(api_key="sk-ac-...")
-
-# Create a session
-session = client.sessions.create()
-
-# Store messages (any provider format)
-client.sessions.store_message(
-    session.id,
-    blob={"role": "user", "content": "Hello!"}
-)
-
-# Retrieve in any format: openai, anthropic, gemini
-messages = client.sessions.get_messages(
-    session.id, format="anthropic"
-)`,
-      },
-      typescript: {
-        filename: 'store.ts',
-        language: 'typescript',
-        install: 'npm install @acontext/acontext',
-        code: `import { AcontextClient } from "@acontext/acontext"
-
-const client = new AcontextClient({ apiKey: "sk-ac-..." })
-
-// Create a session
-const session = await client.sessions.create()
-
-// Store messages (any provider format)
-await client.sessions.storeMessage(session.id,
-  { role: "user", content: "Hello!" }
-)
-
-// Retrieve in any format: openai, anthropic, gemini
-const messages = await client.sessions.getMessages(
-  session.id, { format: "anthropic" }
-)`,
-      },
-    },
-  },
-  {
-    id: 'mid-term-state',
-    label: 'Mid-term State',
-    Icon: Activity,
-    dotColor: 'bg-amber-400',
-    headerDotColor: 'bg-amber-500/60',
-    activeColor: 'border-amber-500 text-amber-400',
-    description:
-      'Auto-extract tasks from conversations and generate token-efficient session summaries.',
-    docsUrl: 'https://docs.acontext.app/observe/agent_tasks',
-    snippets: {
-      python: {
-        filename: 'observe.py',
-        language: 'python',
-        install: 'pip install acontext',
-        code: `from acontext import AcontextClient
-
-client = AcontextClient(api_key="sk-ac-...")
-
-# Flush to trigger task extraction (demo only —
-# in production this runs in the background)
-client.sessions.flush(session.id)
-
-# Get auto-extracted tasks from a session
-tasks = client.sessions.get_tasks(session.id)
-for task in tasks.items:
-    print(f"#{task.order}: {task.data.task_description} [{task.status}]")
-
-# Get a token-efficient session summary
-summary = client.sessions.get_session_summary(
-    session.id, limit=5
-)
-system_prompt = f"Previous context:\\n{summary}"`,
-      },
-      typescript: {
-        filename: 'observe.ts',
-        language: 'typescript',
-        install: 'npm install @acontext/acontext',
-        code: `import { AcontextClient } from "@acontext/acontext"
-
-const client = new AcontextClient({ apiKey: "sk-ac-..." })
-
-// Flush to trigger task extraction (demo only —
-// in production this runs in the background)
-await client.sessions.flush(session.id)
-
-// Get auto-extracted tasks from a session
-const tasks = await client.sessions.getTasks(session.id)
-for (const task of tasks.items) {
-  console.log(\`#\${task.order}: \${task.data.task_description} [\${task.status}]\`)
-}
-
-// Get a token-efficient session summary
-const summary = await client.sessions.getSessionSummary(
-  session.id, { limit: 5 }
-)
-const systemPrompt = \`Previous context:\\n\${summary}\``,
-      },
-    },
-  },
-  {
-    id: 'long-term-skill',
-    label: 'Long-term Skill',
+    id: 'skill-memory',
+    label: 'Skill Memory',
     Icon: Sparkles,
     dotColor: 'bg-emerald-400',
     headerDotColor: 'bg-emerald-500/60',
     activeColor: 'border-emerald-500 text-emerald-400',
     description:
-      'Agents learn from every session. Skills are plain markdown you can read, edit, and version.',
+      'Create a learning space, attach a session, and Acontext builds skill files from successful runs.',
     docsUrl: 'https://docs.acontext.app/learn/quick',
     snippets: {
       python: {
-        filename: 'learn.py',
+        filename: 'skill_memory.py',
         language: 'python',
         install: 'pip install acontext',
         code: `from acontext import AcontextClient
 
 client = AcontextClient(api_key="sk-ac-...")
 
-# 1. Create a learning space
+# Create a learning space and attach a session
 space = client.learning_spaces.create()
-
-# 2. Attach a session — your agent runs as usual
 session = client.sessions.create()
 client.learning_spaces.learn(space.id, session_id=session.id)
 
-# ... agent stores messages during its run ...
+# Run your agent, store messages — when tasks complete, learning runs automatically
+client.sessions.store_message(session.id, blob={"role": "user", "content": "My name is Gus"})
+# ... agent runs ...
 
-# 3. Wait for learning, then view learned skills
-# (demo only — in production this runs in the background)
-client.learning_spaces.wait_for_learning(
-    space.id, session_id=session.id
-)
-skills = client.learning_spaces.list_skills(space.id)
-for skill in skills:
-    print(f"{skill.name}: {skill.description}")`,
+# List and read learned skills (Markdown files)
+client.learning_spaces.wait_for_learning(space.id, session_id=session.id)
+skills = client.learning_spaces.list_skills(space.id)`,
       },
       typescript: {
-        filename: 'learn.ts',
+        filename: 'skill_memory.ts',
         language: 'typescript',
         install: 'npm install @acontext/acontext',
         code: `import { AcontextClient } from "@acontext/acontext"
 
 const client = new AcontextClient({ apiKey: "sk-ac-..." })
 
-// 1. Create a learning space
+// Create a learning space and attach a session
 const space = await client.learningSpaces.create()
-
-// 2. Attach a session — your agent runs as usual
 const session = await client.sessions.create()
 await client.learningSpaces.learn({
   spaceId: space.id, sessionId: session.id
 })
 
-// ... agent stores messages during its run ...
+// Run your agent, store messages — when tasks complete, learning runs automatically
+await client.sessions.storeMessage(session.id,
+  { role: "user", content: "My name is Gus" }
+)
+// ... agent runs ...
 
-// 3. Wait for learning, then view learned skills
-// (demo only — in production this runs in the background)
+// List and read learned skills (Markdown files)
 await client.learningSpaces.waitForLearning({
   spaceId: space.id, sessionId: session.id
 })
-const skills = await client.learningSpaces.listSkills(space.id)
-for (const skill of skills) {
-  console.log(\`\${skill.name}: \${skill.description}\`)
-}`,
+const skills = await client.learningSpaces.listSkills(space.id)`,
       },
     },
   },
@@ -246,9 +123,8 @@ function InlineCopyButton({ code }: { code: string }) {
 }
 
 export function Quickstart() {
-  const [activeTab, setActiveTab] = useState(0)
   const [lang, setLang] = useState<Lang>('python')
-  const tab = TABS[activeTab]
+  const tab = TABS[0]
   const snippet = tab.snippets[lang]
 
   return (
@@ -297,49 +173,33 @@ export function Quickstart() {
 
         {/* Two-column layout: left description + right code */}
         <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] lg:grid-cols-[320px_1fr] gap-6 max-w-4xl mx-auto">
-          {/* Left column — tabs + description */}
+          {/* Left column — description */}
           <div className="flex flex-col gap-3">
-            {/* Tab buttons — 2x2 grid on mobile, vertical stack on desktop */}
-            <div className="grid grid-cols-2 md:grid-cols-1 gap-2">
-              {TABS.map((t, i) => (
-                <button
-                  key={t.id}
-                  onClick={() => setActiveTab(i)}
-                  className={cn(
-                    'flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200',
-                    'border text-left',
-                    i === activeTab
-                      ? `${t.activeColor} bg-card shadow-sm`
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/50',
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'w-2 h-2 rounded-full transition-colors shrink-0',
-                      i === activeTab ? t.dotColor : 'bg-muted-foreground/30',
-                    )}
-                  />
-                  <t.Icon className="h-4 w-4 shrink-0 hidden sm:block" />
-                  <span className="truncate">{t.label}</span>
-                </button>
-              ))}
+            <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl text-xs sm:text-sm font-medium border border-emerald-500 text-emerald-400 bg-card shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+              <tab.Icon className="h-4 w-4 shrink-0 hidden sm:block" />
+              <span className="truncate">{tab.label}</span>
             </div>
 
-            {/* Description — hidden on mobile, shown below tabs on desktop */}
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={tab.id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
-                className="hidden md:block px-1 space-y-3"
-              >
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {tab.description}
-                </p>
+            <div className="hidden md:block px-1 space-y-3">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {tab.description}
+              </p>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                List and read learned skills as Markdown — use them in your agent with get_skill / get_skill_file.
+              </p>
+              <div className="flex flex-col gap-2">
                 <a
-                  href={tab.docsUrl}
+                  href="https://docs.acontext.app/learn/quick"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                >
+                  What is skill memory?
+                  <ArrowRight className="h-3 w-3" />
+                </a>
+                <a
+                  href="https://docs.acontext.app"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
@@ -347,8 +207,8 @@ export function Quickstart() {
                   Read the docs
                   <ArrowRight className="h-3 w-3" />
                 </a>
-              </motion.div>
-            </AnimatePresence>
+              </div>
+            </div>
           </div>
 
           {/* Right column — code panel */}
@@ -389,29 +249,20 @@ export function Quickstart() {
           </div>
 
           {/* Mobile-only description — below code panel */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={`mobile-${tab.id}`}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              className="flex md:hidden items-start justify-between gap-3"
+          <div className="flex md:hidden items-start justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              {tab.description}
+            </p>
+            <a
+              href={tab.docsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
             >
-              <p className="text-xs text-muted-foreground">
-                {tab.description}
-              </p>
-              <a
-                href={tab.docsUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="shrink-0 text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
-              >
-                Docs
-                <ArrowRight className="h-3 w-3" />
-              </a>
-            </motion.div>
-          </AnimatePresence>
+              Docs
+              <ArrowRight className="h-3 w-3" />
+            </a>
+          </div>
         </div>
       </div>
     </section>

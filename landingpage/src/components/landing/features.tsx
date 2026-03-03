@@ -1,53 +1,23 @@
 'use client'
 
 import { useRef, useEffect, useState } from 'react'
-import { Layers, HardDrive, Database, Activity, Plug, Sparkles } from 'lucide-react'
+import { Plug, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-type FeatureTheme = 'layers' | 'disk' | 'database' | 'activity' | 'plug' | 'sparkles'
+type FeatureTheme = 'sparkles' | 'plug'
 
 interface Feature {
   title: string
   description: string
-  Icon: typeof Layers
+  Icon: typeof Sparkles
   theme: FeatureTheme
 }
 
-const leftFeatures: Feature[] = [
+const FEATURES: Feature[] = [
   {
-    title: 'Context Engineering',
-    description: 'Edit, compress, and summarize context on-the-fly — token_limit, middle_out, and session summary strategies keep your agents efficient without modifying stored messages.',
-    Icon: Layers,
-    theme: 'layers',
-  },
-  {
-    title: 'Multimodal Short-term Memory',
+    title: 'Skill Memory',
     description:
-      'Unified, persistent storage for all agent data — messages, files, and skills — eliminating fragmented backends (DB, S3, Redis).',
-    Icon: Database,
-    theme: 'database',
-  },
-  {
-    title: 'Artifact Disk',
-    description:
-      'Filesystem-like workspace to store and share multi-modal outputs (.md, code, reports), ready for multi-agent collaboration.',
-    Icon: HardDrive,
-    theme: 'disk',
-  },
-]
-
-const rightFeatures: Feature[] = [
-  {
-    title: 'Background Observer',
-    description:
-      'Automatically extracts tasks from agent conversations and tracks their status in real-time — from pending to running to success or failure.',
-    Icon: Activity,
-    theme: 'activity',
-  },
-  {
-    title: 'Self-Learning',
-    description:
-      'Attach sessions to a Learning Space and Acontext automatically distills successful task outcomes into skills — agents improve with every run without manual curation.',
+      'Learns from task outcomes → writes Markdown files (SKILL.md schema) → agent recalls via get_skill / get_skill_file. Human-readable, portable, no embeddings. Export as ZIP, use in any framework.',
     Icon: Sparkles,
     theme: 'sparkles',
   },
@@ -105,49 +75,12 @@ function FeatureCanvas({ theme, isHovered }: { theme: FeatureTheme; isHovered: b
     resizeCanvas()
     window.addEventListener('resize', resizeCanvas)
 
-    // Initialize particles based on theme
     const initParticles = () => {
       const rect = canvas.getBoundingClientRect()
       const w = rect.width
       const h = rect.height
 
       switch (theme) {
-        case 'layers':
-          particlesRef.current = Array.from({ length: 5 }, (_, i) => ({
-            y: h * 0.3 + i * (h * 0.12),
-            width: w * (0.3 + Math.random() * 0.4),
-            x: Math.random() * w * 0.3,
-            speed: (Math.random() - 0.5) * 0.3,
-            alpha: 0.3 + i * 0.1,
-          }))
-          break
-
-        case 'disk':
-          particlesRef.current = Array.from({ length: 8 }, (_, i) => ({
-            angle: (i / 8) * Math.PI * 2,
-            radius: 30 + Math.random() * 20,
-            speed: 0.005 + Math.random() * 0.005,
-            size: 2 + Math.random() * 2,
-          }))
-          break
-
-        case 'database':
-          particlesRef.current = Array.from({ length: 15 }, () => ({
-            x: w * 0.3 + Math.random() * w * 0.4,
-            y: Math.random() * h,
-            speed: 0.3 + Math.random() * 0.5,
-            size: 2 + Math.random() * 3,
-            alpha: Math.random(),
-          }))
-          break
-
-        case 'activity':
-          particlesRef.current = [
-            { offset: 0, amplitude: 15, frequency: 0.02 },
-            { offset: Math.PI, amplitude: 10, frequency: 0.025 },
-          ]
-          break
-
         case 'plug':
           particlesRef.current = Array.from({ length: 6 }, (_, i) => ({
             x: w * 0.2 + (i % 3) * (w * 0.3),
@@ -173,8 +106,6 @@ function FeatureCanvas({ theme, isHovered }: { theme: FeatureTheme; isHovered: b
     }
 
     initParticles()
-    let time = 0
-
     const animate = () => {
       const rect = canvas.getBoundingClientRect()
       const w = rect.width
@@ -188,136 +119,6 @@ function FeatureCanvas({ theme, isHovered }: { theme: FeatureTheme; isHovered: b
       const color = (alpha: number) => `rgba(${rgb}, ${alpha})`
 
       switch (theme) {
-        case 'layers': {
-          const layers = particlesRef.current as {
-            y: number
-            width: number
-            x: number
-            speed: number
-            alpha: number
-          }[]
-          layers.forEach((l) => {
-            l.x += l.speed * speedMultiplier
-            if (l.x > w * 0.3) l.speed = -Math.abs(l.speed)
-            if (l.x < 0) l.speed = Math.abs(l.speed)
-
-            ctx.fillStyle = color(l.alpha * baseAlpha)
-            // Draw rounded rectangle manually for better compatibility
-            const radius = 2
-            const height = 4
-            ctx.beginPath()
-            ctx.moveTo(l.x + radius, l.y)
-            ctx.lineTo(l.x + l.width - radius, l.y)
-            ctx.arc(l.x + l.width - radius, l.y + radius, radius, -Math.PI / 2, 0)
-            ctx.lineTo(l.x + l.width, l.y + height - radius)
-            ctx.arc(l.x + l.width - radius, l.y + height - radius, radius, 0, Math.PI / 2)
-            ctx.lineTo(l.x + radius, l.y + height)
-            ctx.arc(l.x + radius, l.y + height - radius, radius, Math.PI / 2, Math.PI)
-            ctx.lineTo(l.x, l.y + radius)
-            ctx.arc(l.x + radius, l.y + radius, radius, Math.PI, -Math.PI / 2)
-            ctx.closePath()
-            ctx.fill()
-          })
-          break
-        }
-
-        case 'disk': {
-          const centerX = w * 0.7
-          const centerY = h * 0.5
-
-          // Draw disk circles
-          ctx.strokeStyle = color(baseAlpha * 0.5)
-          ctx.lineWidth = 1
-          ;[30, 50, 70].forEach((radius) => {
-            ctx.beginPath()
-            ctx.arc(centerX, centerY, radius, 0, Math.PI * 2)
-            ctx.stroke()
-          })
-
-          // Orbiting dots
-          const dots = particlesRef.current as {
-            angle: number
-            radius: number
-            speed: number
-            size: number
-          }[]
-          dots.forEach((d) => {
-            d.angle += d.speed * speedMultiplier
-            const x = centerX + Math.cos(d.angle) * d.radius
-            const y = centerY + Math.sin(d.angle) * d.radius
-            ctx.beginPath()
-            ctx.arc(x, y, d.size, 0, Math.PI * 2)
-            ctx.fillStyle = color(baseAlpha)
-            ctx.fill()
-          })
-          break
-        }
-
-        case 'database': {
-          const data = particlesRef.current as {
-            x: number
-            y: number
-            speed: number
-            size: number
-            alpha: number
-          }[]
-          data.forEach((d) => {
-            d.y -= d.speed * speedMultiplier
-            if (d.y < -10) {
-              d.y = h + 10
-              d.x = w * 0.3 + Math.random() * w * 0.4
-            }
-            ctx.fillStyle = color(d.alpha * baseAlpha)
-            ctx.fillRect(d.x - d.size / 2, d.y - d.size / 2, d.size, d.size)
-          })
-
-          // Draw database outline
-          ctx.strokeStyle = color(baseAlpha * 0.5)
-          ctx.lineWidth = 1
-          const dbX = w * 0.35
-          const dbW = w * 0.3
-          ctx.beginPath()
-          ctx.ellipse(dbX + dbW / 2, h * 0.25, dbW / 2, 10, 0, 0, Math.PI * 2)
-          ctx.stroke()
-          ctx.beginPath()
-          ctx.ellipse(dbX + dbW / 2, h * 0.75, dbW / 2, 10, 0, 0, Math.PI * 2)
-          ctx.stroke()
-          ctx.beginPath()
-          ctx.moveTo(dbX, h * 0.25)
-          ctx.lineTo(dbX, h * 0.75)
-          ctx.moveTo(dbX + dbW, h * 0.25)
-          ctx.lineTo(dbX + dbW, h * 0.75)
-          ctx.stroke()
-          break
-        }
-
-        case 'activity': {
-          const waves = particlesRef.current as {
-            offset: number
-            amplitude: number
-            frequency: number
-          }[]
-          waves.forEach((wave, idx) => {
-            ctx.beginPath()
-            ctx.strokeStyle = color(baseAlpha * (1 - idx * 0.3))
-            ctx.lineWidth = 2 - idx * 0.5
-
-            for (let x = 0; x < w; x += 2) {
-              const y =
-                h / 2 +
-                Math.sin(x * wave.frequency + time * speedMultiplier * 0.05 + wave.offset) *
-                  wave.amplitude
-              if (x === 0) {
-                ctx.moveTo(x, y)
-              } else {
-                ctx.lineTo(x, y)
-              }
-            }
-            ctx.stroke()
-          })
-          break
-        }
-
         case 'plug': {
           const plugs = particlesRef.current as {
             x: number
@@ -414,7 +215,6 @@ function FeatureCanvas({ theme, isHovered }: { theme: FeatureTheme; isHovered: b
         }
       }
 
-      time++
       animationRef.current = requestAnimationFrame(animate)
     }
 
@@ -489,29 +289,24 @@ export function Features() {
         {/* Section header */}
         <div className="text-center space-y-4 mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold">
-            Platform Capabilities
+            Supporting Skill Memory
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto">
-            The production-grade infrastructure your agents need — short-term memory, mid-term state, long-term skill, and more.
+            What we offer: skill memory — and the SDKs to use it.
           </p>
         </div>
 
-        {/* Bento grid - two columns, 3+3 */}
+        {/* Two cards side by side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Left column - 3 cards */}
-          <div className="flex flex-col gap-4">
-            <BentoCard feature={leftFeatures[0]} className="min-h-[180px]" />
-            <BentoCard feature={leftFeatures[1]} className="min-h-[180px]" />
-            <BentoCard feature={leftFeatures[2]} className="min-h-[180px]" />
-          </div>
-
-          {/* Right column - 3 cards */}
-          <div className="flex flex-col gap-4">
-            <BentoCard feature={rightFeatures[0]} className="min-h-[180px]" />
-            <BentoCard feature={rightFeatures[1]} className="min-h-[180px]" />
-            <BentoCard feature={rightFeatures[2]} className="flex-1 min-h-[180px]" />
-          </div>
+          {FEATURES.map((feature) => (
+            <BentoCard key={feature.title} feature={feature} className="min-h-[180px]" />
+          ))}
         </div>
+
+        {/* Closing statement */}
+        <p className="text-center text-muted-foreground mt-12 max-w-2xl mx-auto">
+          All of this exists to feed one thing: a skill memory layer you can read, edit, and move.
+        </p>
       </div>
     </section>
   )

@@ -8,14 +8,14 @@ const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://acontext.io'
 export default function HomePage() {
   const organizationJsonLd = createOrganizationJsonLd('Acontext', baseUrl, {
     description:
-      'The Agent Memory Stack - Unifies short-term memory, mid-term state, and long-term skill for production AI agents.',
+      'Skill memory for AI agents — learns from runs, writes Markdown skill files, and reuses them on the next run.',
     logo: `${baseUrl}/ACONTEXT_white.svg`,
     socialLinks: ['https://twitter.com/acontext_io'],
   })
 
   const websiteJsonLd = createWebSiteJsonLd('Acontext', baseUrl, {
     description:
-      'Unifies short-term memory, mid-term state, and long-term skill for production AI agents — filesystem-compatible, configurable, and human-readable.',
+      'Skill memory for AI agents — learns from runs, writes Markdown skill files, and reuses them on the next run. Human-readable, portable, no embeddings.',
   })
 
   return (

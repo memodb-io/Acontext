@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
-import { Database, Eye, Sparkles, LayoutDashboard } from 'lucide-react'
+import { Brain, FileText, RotateCcw, LayoutDashboard } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 import { StoreDemo } from '../animation/demos/store-demo'
@@ -17,31 +17,31 @@ import { TAB_COLORS } from '../animation/demos/shared'
 const TABS: FeatureTab[] = [
   {
     id: 'store',
-    title: 'Store',
-    subtitle: 'Short-term Memory',
-    description: 'Session-scoped storage for messages, files, and artifacts — retrieve in OpenAI, Anthropic, or Gemini format with automatic conversion.',
+    title: 'Learn',
+    subtitle: '',
+    description: 'From every run and task outcome. We extract what worked and what failed, then feed that into skill distillation.',
     color: TAB_COLORS.store,
-    icon: Database,
+    icon: Brain,
     duration: 14_000,
     Demo: StoreDemo,
   },
   {
     id: 'observe',
-    title: 'Observe',
-    subtitle: 'Mid-term State',
-    description: 'Track task status, progress, and summaries across agent sessions with auto-extraction and real-time observation.',
+    title: 'Write',
+    subtitle: '',
+    description: 'Skills are written as Markdown files following your SKILL.md schema. Human-readable, filesystem-friendly, portable.',
     color: TAB_COLORS.observe,
-    icon: Eye,
+    icon: FileText,
     duration: 16_000,
     Demo: ObserveDemo,
   },
   {
     id: 'skills',
-    title: 'Learn',
-    subtitle: 'Long-term Skill',
-    description: 'Attach a session to a Learning Space and Acontext automatically builds long-term skills from successful outcomes — your agents improve with every run.',
+    title: 'Reuse',
+    subtitle: '',
+    description: 'The agent uses get_skill / get_skill_file to fetch what it learned. Next run reuses that knowledge — no embedding search, tool-based retrieval.',
     color: TAB_COLORS.skills,
-    icon: Sparkles,
+    icon: RotateCcw,
     duration: 11_000,
     Demo: SkillsDemo,
   },
@@ -49,7 +49,7 @@ const TABS: FeatureTab[] = [
     id: 'dashboard',
     title: 'Dashboard',
     subtitle: 'Analytics',
-    description: 'Real-time analytics, task tracking, and actionable insights across all your agents.',
+    description: 'Sessions and task tracking power the pipeline; see everything in the dashboard.',
     color: TAB_COLORS.dashboard,
     icon: LayoutDashboard,
     duration: 10_000,
@@ -131,10 +131,10 @@ export function FeaturesOverview() {
       <div className="w-full max-w-[768px] lg:max-w-[1200px] mx-auto mb-8 sm:mb-12">
         <div className="flex flex-col items-center gap-2 lg:gap-3">
           <h2 className="max-w-xl text-3xl sm:text-4xl lg:text-5xl leading-[1.1] text-center font-semibold text-foreground">
-            How It Works
+            How Skill Memory Works
           </h2>
           <p className="max-w-xl text-sm sm:text-base lg:text-lg text-center text-muted-foreground">
-            The capabilities that power production AI agents — store context, observe behavior, learn from experience, and monitor everything.
+            Learn from runs. Write as Markdown. Reuse anywhere. Skill memory that turns what your agents did into files they can read and use again.
           </p>
         </div>
       </div>
@@ -179,9 +179,11 @@ export function FeaturesOverview() {
                           {tab.title}
                         </span>
                       </div>
-                      <span className="text-xs text-muted-foreground hidden lg:block">
-                        {tab.subtitle}
-                      </span>
+                      {tab.subtitle && (
+                        <span className="text-xs text-muted-foreground hidden lg:block">
+                          {tab.subtitle}
+                        </span>
+                      )}
                       <p className="text-xs text-muted-foreground/60 hidden lg:block mt-1 line-clamp-2">
                         {tab.description}
                       </p>

@@ -22,20 +22,20 @@ const jetbrainsMono = JetBrains_Mono({
 const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://acontext.io'
 
 export const metadata: Metadata = {
-  title: 'The Agent Memory Stack | Acontext',
+  title: 'Agent Skills as a Memory Layer | Acontext',
   description:
-    'Unifies short-term memory, mid-term state, and long-term skill for production AI agents — filesystem-compatible, configurable, and human-readable.',
+    'Skill memory for AI agents — learns from runs, writes Markdown skill files, and reuses them on the next run. Human-readable, portable, no embeddings.',
   keywords: [
     'AI agents',
-    'context engineering',
+    'skill memory',
+    'agent skills',
     'machine learning',
     'LLM',
     'autonomous agents',
     'open source',
+    'learning space',
+    'SKILL.md',
     'agent memory',
-    'short-term memory',
-    'mid-term state',
-    'long-term skill',
   ],
   alternates: {
     canonical: baseUrl,
@@ -59,9 +59,9 @@ export const metadata: Metadata = {
     apple: '/ico_black.svg',
   },
   openGraph: {
-    title: 'The Agent Memory Stack | Acontext',
+    title: 'Agent Skills as a Memory Layer | Acontext',
     description:
-      'Unifies short-term memory, mid-term state, and long-term skill for production AI agents — filesystem-compatible, configurable, and human-readable.',
+      'Skill memory for AI agents — learns from runs, writes Markdown skill files, and reuses them on the next run. Human-readable, portable, no embeddings.',
     url: 'https://acontext.io',
     siteName: 'Acontext',
     type: 'website',
@@ -70,16 +70,16 @@ export const metadata: Metadata = {
         url: 'https://assets.memodb.io/Acontext/page-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'Acontext - The Agent Memory Stack',
+        alt: 'Acontext - Agent Skills as a Memory Layer',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
     site: '@acontext_io',
-    title: 'The Agent Memory Stack | Acontext',
+    title: 'Agent Skills as a Memory Layer | Acontext',
     description:
-      'Unifies short-term memory, mid-term state, and long-term skill for production AI agents — filesystem-compatible, configurable, and human-readable.',
+      'Skill memory for AI agents — learns from runs, writes Markdown skill files, and reuses them on the next run. Human-readable, portable, no embeddings.',
     images: ['https://assets.memodb.io/Acontext/page-image.jpg'],
   },
 }
