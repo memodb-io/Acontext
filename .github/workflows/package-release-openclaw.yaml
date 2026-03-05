@@ -1,0 +1,129 @@
+name: Package OpenClaw Plugin Release
+
+on:
+  push:
+    tags:
+      - 'package-openclaw/v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: src/packages/openclaw
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: 'npm'
+          cache-dependency-path: src/packages/openclaw/package.json
+
+      - name: Update npm
+        run: npm install -g npm@latest
+
+      - name: Extract version from package.json
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Package version: $VERSION"
+
+      - name: Extract version from tag
+        id: tag_version
+        env:
+          GIT_REF: ${{ github.ref }}
+        run: |
+          if [[ "$GIT_REF" == refs/tags/* ]]; then
+            TAG_NAME=${GIT_REF#refs/tags/package-openclaw/v}
+            echo "tag_version=$TAG_NAME" >> $GITHUB_OUTPUT
+            echo "Tag version: $TAG_NAME"
+          else
+            echo "tag_version=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Verify version matches tag
+        if: steps.tag_version.outputs.tag_version != ''
+        env:
+          PKG_VERSION: ${{ steps.version.outputs.version }}
+          TAG_VERSION: ${{ steps.tag_version.outputs.tag_version }}
+        run: |
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "Error: Package version ($PKG_VERSION) does not match tag version ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "Version match: $PKG_VERSION"
+
+      - name: Check if version exists on npm
+        id: check_version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if npm view "@acontext/openclaw@$VERSION" version > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Version $VERSION already exists on npm"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Version $VERSION does not exist on npm"
+          fi
+
+      - name: Publish to npm
+        if: steps.check_version.outputs.exists == 'false'
+        run: npm publish --access public
+
+      - name: Publish skipped (version exists)
+        if: steps.check_version.outputs.exists == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          echo "Publishing skipped - version $VERSION already exists on npm"
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: publish
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Extract version from tag
+        id: version
+        env:
+          GIT_REF: ${{ github.ref }}
+        run: |
+          TAG_NAME=${GIT_REF#refs/tags/package-openclaw/v}
+          echo "version=$TAG_NAME" >> $GITHUB_OUTPUT
+
+      - name: Generate Changelog
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          CHANGELOG_FILE: ${{ github.workspace }}-CHANGELOG.txt
+        run: |
+          cat > "$CHANGELOG_FILE" << EOF
+          # OpenClaw Plugin v${VERSION}
+
+          Published to npm as @acontext/openclaw@${VERSION}
+
+          ## Installation
+
+          \`\`\`bash
+          openclaw plugins install @acontext/openclaw@${VERSION}
+          \`\`\`
+          EOF
+
+      - name: Create Release
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
+        with:
+          body_path: ${{ github.workspace }}-CHANGELOG.txt

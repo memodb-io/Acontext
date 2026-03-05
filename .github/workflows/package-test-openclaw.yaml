@@ -1,0 +1,80 @@
+name: OpenClaw Plugin Test
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - "src/packages/openclaw/**"
+      - ".github/workflows/package-test-openclaw.yaml"
+  pull_request:
+    branches:
+      - dev
+    paths:
+      - "src/packages/openclaw/**"
+      - ".github/workflows/package-test-openclaw.yaml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: src/packages/openclaw
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
+        with:
+          node-version: "20"
+
+      - name: Validate package.json
+        run: node -e "const pkg = require('./package.json'); if (!pkg.name || !pkg.version) { process.exit(1); } console.log(pkg.name + '@' + pkg.version)"
+
+      - name: Verify openclaw extension entry
+        run: |
+          node -e "
+            const pkg = require('./package.json');
+            const ext = pkg.openclaw?.extensions;
+            if (!ext || !ext.length) { console.error('Missing openclaw.extensions'); process.exit(1); }
+            const fs = require('fs');
+            for (const e of ext) {
+              if (!fs.existsSync(e)) { console.error('Extension not found: ' + e); process.exit(1); }
+              console.log('OK: ' + e);
+            }
+          "
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Run unit tests
+        run: npm test
+        env:
+          CI: true
+
+      - name: Verify exports structure
+        run: |
+          node -e "
+            const fs = require('fs');
+            const src = fs.readFileSync('index.ts', 'utf8');
+            if (!src.includes('export default')) { console.error('Missing default export'); process.exit(1); }
+            if (!src.includes('before_agent_start')) { console.error('Missing recall hook'); process.exit(1); }
+            if (!src.includes('agent_end')) { console.error('Missing capture hook'); process.exit(1); }
+            if (!src.includes('registerTool')) { console.error('Missing tool registration'); process.exit(1); }
+            if (!src.includes('registerCli')) { console.error('Missing CLI registration'); process.exit(1); }
+            if (!src.includes('registerService')) { console.error('Missing service registration'); process.exit(1); }
+            console.log('All plugin entry points verified');
+          "
+
+      - name: Dry-run pack
+        run: npm pack --dry-run
