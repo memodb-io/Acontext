@@ -85,6 +85,19 @@ updates:
         update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
+    directory: "/src/server/sandbox/cloudflare"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    target-branch: "deps"
+    commit-message:
+      prefix: "chore(deps):"
+    groups:
+      dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "npm"
     directory: "/src/packages/sandbox-cloudflare"
     schedule:
       interval: "weekly"

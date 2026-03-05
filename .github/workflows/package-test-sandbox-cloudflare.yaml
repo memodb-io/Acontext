@@ -1,0 +1,42 @@
+name: Sandbox Cloudflare Worker Test
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - "src/server/sandbox/cloudflare/**"
+      - ".github/workflows/package-test-sandbox-cloudflare.yaml"
+  pull_request:
+    branches:
+      - dev
+    paths:
+      - "src/server/sandbox/cloudflare/**"
+      - ".github/workflows/package-test-sandbox-cloudflare.yaml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: src/server/sandbox/cloudflare
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@6044e13b5dc448c55e2357c09f80417699197238 # v6
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build check (dry-run deploy)
+        run: npx wrangler deploy --dry-run --outdir=dist
