@@ -573,7 +573,7 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	}
 
 	if triggerEval != nil {
-		if cachedTokens, ok := triggerEval.CachedTokens(); ok && !strategiesApplied && editingtrigger.SameMessageOrderByID(triggerEval.Messages(), out.Items) {
+		if cachedTokens, ok := triggerEval.CachedTokens(); ok && !strategiesApplied && sameMessageOrderByID(triggerEval.Messages(), out.Items) {
 			out.ThisTimeTokens = cachedTokens
 			return out, nil
 		}
@@ -586,6 +586,18 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	out.ThisTimeTokens = thisTimeTokens
 
 	return out, nil
+}
+
+func sameMessageOrderByID(a, b []model.Message) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i].ID != b[i].ID {
+			return false
+		}
+	}
+	return true
 }
 
 // cachePartsInRedis stores message parts in Redis with a fixed TTL
