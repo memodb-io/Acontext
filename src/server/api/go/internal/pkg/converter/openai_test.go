@@ -111,6 +111,98 @@ func TestOpenAIConverter_Convert_ThinkingDowngradedToText(t *testing.T) {
 	})
 }
 
+func TestOpenAIConverter_Convert_ImagePartFromMetaURL(t *testing.T) {
+	converter := &OpenAIConverter{}
+
+	t.Run("image with external URL in meta", func(t *testing.T) {
+		messages := []model.Message{
+			createTestMessage(model.RoleUser, []model.Part{
+				{Type: model.PartTypeText, Text: "What is in this image?"},
+				{
+					Type: model.PartTypeImage,
+					Meta: map[string]any{
+						model.MetaKeyURL:    "https://example.com/cat.png",
+						model.MetaKeyDetail: "high",
+					},
+				},
+			}, nil),
+		}
+
+		result, err := converter.Convert(messages, nil)
+		require.NoError(t, err)
+
+		msgs := result.([]openai.ChatCompletionMessageParamUnion)
+		require.Len(t, msgs, 1)
+
+		user := msgs[0].OfUser
+		require.NotNil(t, user)
+
+		parts := user.Content.OfArrayOfContentParts
+		require.Len(t, parts, 2, "should have text + image parts")
+
+		assert.NotNil(t, parts[0].OfText)
+		assert.Equal(t, "What is in this image?", parts[0].OfText.Text)
+
+		assert.NotNil(t, parts[1].OfImageURL)
+		assert.Equal(t, "https://example.com/cat.png", parts[1].OfImageURL.ImageURL.URL)
+		assert.Equal(t, "high", parts[1].OfImageURL.ImageURL.Detail)
+	})
+
+	t.Run("image with data URL in meta", func(t *testing.T) {
+		dataURL := "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+		messages := []model.Message{
+			createTestMessage(model.RoleUser, []model.Part{
+				{
+					Type: model.PartTypeImage,
+					Meta: map[string]any{
+						model.MetaKeyURL:    dataURL,
+						model.MetaKeyDetail: "low",
+					},
+				},
+			}, nil),
+		}
+
+		result, err := converter.Convert(messages, nil)
+		require.NoError(t, err)
+
+		msgs := result.([]openai.ChatCompletionMessageParamUnion)
+		require.Len(t, msgs, 1)
+
+		user := msgs[0].OfUser
+		require.NotNil(t, user)
+
+		parts := user.Content.OfArrayOfContentParts
+		require.Len(t, parts, 1, "should have image part")
+
+		assert.NotNil(t, parts[0].OfImageURL)
+		assert.Equal(t, dataURL, parts[0].OfImageURL.ImageURL.URL)
+		assert.Equal(t, "low", parts[0].OfImageURL.ImageURL.Detail)
+	})
+
+	t.Run("image with nil asset and no meta URL is skipped", func(t *testing.T) {
+		messages := []model.Message{
+			createTestMessage(model.RoleUser, []model.Part{
+				{Type: model.PartTypeText, Text: "Hello"},
+				{Type: model.PartTypeImage, Meta: map[string]any{}},
+			}, nil),
+		}
+
+		result, err := converter.Convert(messages, nil)
+		require.NoError(t, err)
+
+		msgs := result.([]openai.ChatCompletionMessageParamUnion)
+		require.Len(t, msgs, 1)
+
+		user := msgs[0].OfUser
+		require.NotNil(t, user)
+
+		parts := user.Content.OfArrayOfContentParts
+		require.Len(t, parts, 1, "empty image should be skipped, leaving only text")
+		assert.NotNil(t, parts[0].OfText)
+		assert.Equal(t, "Hello", parts[0].OfText.Text)
+	})
+}
+
 func TestOpenAIConverter_Convert_ToolResult(t *testing.T) {
 	converter := &OpenAIConverter{}
 
