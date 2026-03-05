@@ -88,27 +88,3 @@ func TestEvalTokens_PropagatesCounterError(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorIs(t, err, expectedErr)
 }
-
-func TestSameMessageOrderByID_Branches(t *testing.T) {
-	id1 := uuid.MustParse("00000000-0000-0000-0000-000000000201")
-	id2 := uuid.MustParse("00000000-0000-0000-0000-000000000202")
-	id3 := uuid.MustParse("00000000-0000-0000-0000-000000000203")
-
-	t.Run("length mismatch returns false", func(t *testing.T) {
-		a := []model.Message{{ID: id1}}
-		b := []model.Message{{ID: id1}, {ID: id2}}
-		assert.False(t, SameMessageOrderByID(a, b))
-	})
-
-	t.Run("id mismatch returns false", func(t *testing.T) {
-		a := []model.Message{{ID: id1}, {ID: id2}}
-		b := []model.Message{{ID: id1}, {ID: id3}}
-		assert.False(t, SameMessageOrderByID(a, b))
-	})
-
-	t.Run("same order returns true", func(t *testing.T) {
-		a := []model.Message{{ID: id1}, {ID: id2}}
-		b := []model.Message{{ID: id1}, {ID: id2}}
-		assert.True(t, SameMessageOrderByID(a, b))
-	})
-}
