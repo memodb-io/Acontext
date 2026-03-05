@@ -77,6 +77,7 @@
                   "observe/agent_tasks",
                   "observe/buffer",
                   "observe/disable_tasks",
+                  "observe/disable_task_status_change",
                   "observe/dashboard",
                   "observe/traces"
                 ]

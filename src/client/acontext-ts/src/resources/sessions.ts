@@ -23,6 +23,8 @@ import {
   MessageSchema,
   Session,
   SessionSchema,
+  Task,
+  TaskSchema,
   TokenCounts,
   TokenCountsSchema,
 } from '../types';
@@ -81,6 +83,8 @@ export class SessionsAPI {
    * @param options - Options for creating a session.
    * @param options.user - Optional user identifier string.
    * @param options.disableTaskTracking - Whether to disable task tracking for this session.
+   * @param options.disableTaskStatusChange - Whether to disable automatic task status changes.
+   *   When true, the task agent will not set tasks to success/failed automatically.
    * @param options.configs - Optional session configuration dictionary.
    * @param options.useUuid - Optional UUID string to use as the session ID. If not provided, a UUID will be auto-generated.
    *   If a session with this UUID already exists, a 409 Conflict error will be raised.
@@ -89,6 +93,7 @@ export class SessionsAPI {
   async create(options?: {
     user?: string | null;
     disableTaskTracking?: boolean | null;
+    disableTaskStatusChange?: boolean | null;
     configs?: Record<string, unknown>;
     useUuid?: string | null;
   }): Promise<Session> {
@@ -98,6 +103,9 @@ export class SessionsAPI {
     }
     if (options?.disableTaskTracking !== undefined && options?.disableTaskTracking !== null) {
       payload.disable_task_tracking = options.disableTaskTracking;
+    }
+    if (options?.disableTaskStatusChange !== undefined && options?.disableTaskStatusChange !== null) {
+      payload.disable_task_status_change = options.disableTaskStatusChange;
     }
     if (options?.configs !== undefined) {
       payload.configs = options.configs;
@@ -149,6 +157,29 @@ export class SessionsAPI {
       params: Object.keys(params).length > 0 ? params : undefined,
     });
     return GetTasksOutputSchema.parse(data);
+  }
+
+  /**
+   * Update a task's status.
+   *
+   * Setting status to "success" or "failed" triggers the skill learning pipeline.
+   *
+   * @param sessionId - The UUID of the session.
+   * @param taskId - The UUID of the task.
+   * @param options - Options containing the new status.
+   * @param options.status - New status: "success", "failed", "running", or "pending".
+   * @returns The updated Task object.
+   */
+  async updateTaskStatus(
+    sessionId: string,
+    taskId: string,
+    options: { status: string }
+  ): Promise<Task> {
+    const payload = { status: options.status };
+    const data = await this.requester.request('PATCH', `/session/${sessionId}/task/${taskId}/status`, {
+      jsonData: payload,
+    });
+    return TaskSchema.parse(data);
   }
 
   /**

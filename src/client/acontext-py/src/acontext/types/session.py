@@ -177,6 +177,10 @@ class Session(BaseModel):
     disable_task_tracking: bool = Field(
         False, description="Whether task tracking is disabled for this session"
     )
+    disable_task_status_change: bool = Field(
+        False,
+        description="Whether automatic task status changes are disabled for this session",
+    )
     configs: dict[str, Any] | None = Field(
         None, description="Session configuration dictionary"
     )

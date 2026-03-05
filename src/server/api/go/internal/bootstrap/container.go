@@ -282,6 +282,9 @@ func BuildContainer() *do.Injector {
 	do.Provide(inj, func(i *do.Injector) (service.TaskService, error) {
 		return service.NewTaskService(
 			do.MustInvoke[repo.TaskRepo](i),
+			do.MustInvoke[repo.LearningSpaceSessionRepo](i),
+			do.MustInvoke[*mq.Publisher](i),
+			do.MustInvoke[*config.Config](i),
 			do.MustInvoke[*zap.Logger](i),
 		), nil
 	})

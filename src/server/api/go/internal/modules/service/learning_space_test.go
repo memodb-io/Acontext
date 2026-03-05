@@ -221,8 +221,8 @@ description: "Capture and recall general facts about the user"
 
 func newTestTemplateFS() fstest.MapFS {
 	return fstest.MapFS{
-		"skill_templates/daily-logs/SKILL.md":          &fstest.MapFile{Data: []byte(testDailyLogsTemplate)},
-		"skill_templates/user-general-facts/SKILL.md":  &fstest.MapFile{Data: []byte(testUserFactsTemplate)},
+		"skill_templates/daily-logs/SKILL.md":         &fstest.MapFile{Data: []byte(testDailyLogsTemplate)},
+		"skill_templates/user-general-facts/SKILL.md": &fstest.MapFile{Data: []byte(testUserFactsTemplate)},
 	}
 }
 

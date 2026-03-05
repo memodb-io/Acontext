@@ -184,6 +184,155 @@ class TestUpdateTaskCollectsLearningIds:
 
 
 # =============================================================================
+# disable_task_status_change guard tests
+# =============================================================================
+
+
+class TestDisableTaskStatusChange:
+    @pytest.mark.asyncio
+    async def test_flag_blocks_success_status(self):
+        """With disable_task_status_change=True, status='success' is stripped."""
+        task = _make_task()
+        ctx = _make_ctx(tasks=[task])
+        ctx.disable_task_status_change = True
+
+        mock_updated = MagicMock()
+        mock_updated.order = 1
+
+        with patch(
+            "acontext_core.llm.tool.task_lib.update.TD.update_task",
+            new_callable=AsyncMock,
+            return_value=Result.resolve(mock_updated),
+        ) as mock_update:
+            result = await update_task_handler(
+                ctx, {"task_order": 1, "task_status": "success"}
+            )
+            assert result.ok()
+            # status should have been passed as None
+            call_kwargs = mock_update.call_args
+            assert call_kwargs[1]["status"] is None or call_kwargs[0][2] is None
+            assert len(ctx.learning_task_ids) == 0
+
+    @pytest.mark.asyncio
+    async def test_flag_blocks_failed_status(self):
+        """With disable_task_status_change=True, status='failed' is stripped."""
+        task = _make_task()
+        ctx = _make_ctx(tasks=[task])
+        ctx.disable_task_status_change = True
+
+        mock_updated = MagicMock()
+        mock_updated.order = 1
+
+        with patch(
+            "acontext_core.llm.tool.task_lib.update.TD.update_task",
+            new_callable=AsyncMock,
+            return_value=Result.resolve(mock_updated),
+        ):
+            result = await update_task_handler(
+                ctx, {"task_order": 1, "task_status": "failed"}
+            )
+            assert result.ok()
+            assert len(ctx.learning_task_ids) == 0
+
+    @pytest.mark.asyncio
+    async def test_flag_allows_running_status(self):
+        """With disable_task_status_change=True, status='running' is NOT blocked."""
+        task = _make_task()
+        ctx = _make_ctx(tasks=[task])
+        ctx.disable_task_status_change = True
+
+        mock_updated = MagicMock()
+        mock_updated.order = 1
+
+        with patch(
+            "acontext_core.llm.tool.task_lib.update.TD.update_task",
+            new_callable=AsyncMock,
+            return_value=Result.resolve(mock_updated),
+        ) as mock_update:
+            result = await update_task_handler(
+                ctx, {"task_order": 1, "task_status": "running"}
+            )
+            assert result.ok()
+            _, kwargs = mock_update.call_args
+            assert kwargs.get("status") == "running" or mock_update.call_args[0][2] == "running"
+
+    @pytest.mark.asyncio
+    async def test_flag_allows_description_update(self):
+        """With disable_task_status_change=True, description updates still work."""
+        task = _make_task()
+        ctx = _make_ctx(tasks=[task])
+        ctx.disable_task_status_change = True
+
+        mock_updated = MagicMock()
+        mock_updated.order = 1
+
+        with patch(
+            "acontext_core.llm.tool.task_lib.update.TD.update_task",
+            new_callable=AsyncMock,
+            return_value=Result.resolve(mock_updated),
+        ) as mock_update:
+            result = await update_task_handler(
+                ctx,
+                {"task_order": 1, "task_status": "success", "task_description": "New desc"},
+            )
+            assert result.ok()
+            _, kwargs = mock_update.call_args
+            assert kwargs.get("patch_data") == {"task_description": "New desc"}
+            assert kwargs.get("status") is None
+            assert len(ctx.learning_task_ids) == 0
+
+    @pytest.mark.asyncio
+    async def test_flag_false_allows_success(self):
+        """With disable_task_status_change=False (default), success works normally."""
+        task = _make_task()
+        ctx = _make_ctx(tasks=[task])
+        assert ctx.disable_task_status_change is False
+
+        mock_updated = MagicMock()
+        mock_updated.order = 1
+
+        with patch(
+            "acontext_core.llm.tool.task_lib.update.TD.update_task",
+            new_callable=AsyncMock,
+            return_value=Result.resolve(mock_updated),
+        ):
+            result = await update_task_handler(
+                ctx, {"task_order": 1, "task_status": "success"}
+            )
+            assert result.ok()
+            assert task.id in ctx.learning_task_ids
+
+    @pytest.mark.asyncio
+    async def test_flag_blocks_success_but_no_learning_ids(self):
+        """With flag enabled, learning_task_ids stays empty even for success/failed."""
+        task1 = _make_task(order=1)
+        task2 = _make_task(order=2)
+        ctx = _make_ctx(tasks=[task1, task2])
+        ctx.disable_task_status_change = True
+
+        mock_updated1 = MagicMock()
+        mock_updated1.order = 1
+        mock_updated2 = MagicMock()
+        mock_updated2.order = 2
+
+        with patch(
+            "acontext_core.llm.tool.task_lib.update.TD.update_task",
+            new_callable=AsyncMock,
+            side_effect=[
+                Result.resolve(mock_updated1),
+                Result.resolve(mock_updated2),
+            ],
+        ):
+            await update_task_handler(
+                ctx, {"task_order": 1, "task_status": "success"}
+            )
+            await update_task_handler(
+                ctx, {"task_order": 2, "task_status": "failed"}
+            )
+            assert len(ctx.learning_task_ids) == 0
+
+
+# =============================================================================
 # TaskCtx default tests
 # =============================================================================
 

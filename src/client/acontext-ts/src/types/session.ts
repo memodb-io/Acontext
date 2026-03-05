@@ -49,6 +49,7 @@ export const SessionSchema = z.object({
   project_id: z.string(),
   user_id: z.string().nullable().optional(),
   disable_task_tracking: z.boolean(),
+  disable_task_status_change: z.boolean(),
   configs: z.record(z.string(), z.unknown()).nullable(),
   created_at: z.string(),
   updated_at: z.string(),

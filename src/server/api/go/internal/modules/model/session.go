@@ -11,7 +11,8 @@ type Session struct {
 	ID                  uuid.UUID         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
 	ProjectID           uuid.UUID         `gorm:"type:uuid;not null;index" json:"project_id"`
 	UserID              *uuid.UUID        `gorm:"type:uuid;index" json:"user_id"`
-	DisableTaskTracking bool              `gorm:"not null;default:false" json:"disable_task_tracking"`
+	DisableTaskTracking     bool              `gorm:"not null;default:false" json:"disable_task_tracking"`
+	DisableTaskStatusChange bool              `gorm:"not null;default:false" json:"disable_task_status_change"`
 	Configs             datatypes.JSONMap `gorm:"type:jsonb;index:idx_sessions_configs,type:gin" swaggertype:"object" json:"configs"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime;not null;default:CURRENT_TIMESTAMP" json:"created_at"`

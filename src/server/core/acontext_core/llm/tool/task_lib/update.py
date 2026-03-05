@@ -21,6 +21,12 @@ async def update_task_handler(
     actually_task_id = ctx.task_ids_index[task_order - 1]
     task_status = llm_arguments.get("task_status", None)
     task_description = llm_arguments.get("task_description", None)
+
+    status_skipped = False
+    if ctx.disable_task_status_change and task_status in ("success", "failed"):
+        task_status = None
+        status_skipped = True
+
     r = await TD.update_task(
         ctx.db_session,
         actually_task_id,
@@ -36,7 +42,7 @@ async def update_task_handler(
     t, eil = r.unpack()
     if eil:
         return r
-    if task_status in ("success", "failed"):
+    if not status_skipped and task_status in ("success", "failed"):
         ctx.learning_task_ids.append(actually_task_id)
     return Result.resolve(f"Task {t.order} updated")
 

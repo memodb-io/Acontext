@@ -45,10 +45,11 @@ func NewSessionHandler(s service.SessionService, userSvc service.UserService, co
 }
 
 type CreateSessionReq struct {
-	User                string                 `form:"user" json:"user" example:"alice@acontext.io"`
-	DisableTaskTracking *bool                  `form:"disable_task_tracking" json:"disable_task_tracking" example:"false"`
-	Configs             map[string]interface{} `form:"configs" json:"configs"`
-	UseUUID             *string                `form:"use_uuid" json:"use_uuid" example:"123e4567-e89b-12d3-a456-426614174000"`
+	User                    string                 `form:"user" json:"user" example:"alice@acontext.io"`
+	DisableTaskTracking     *bool                  `form:"disable_task_tracking" json:"disable_task_tracking" example:"false"`
+	DisableTaskStatusChange *bool                  `form:"disable_task_status_change" json:"disable_task_status_change" example:"false"`
+	Configs                 map[string]interface{} `form:"configs" json:"configs"`
+	UseUUID                 *string                `form:"use_uuid" json:"use_uuid" example:"123e4567-e89b-12d3-a456-426614174000"`
 }
 
 type GetSessionsReq struct {
@@ -172,6 +173,9 @@ func (h *SessionHandler) CreateSession(c *gin.Context) {
 
 	if req.DisableTaskTracking != nil {
 		session.DisableTaskTracking = *req.DisableTaskTracking
+	}
+	if req.DisableTaskStatusChange != nil {
+		session.DisableTaskStatusChange = *req.DisableTaskStatusChange
 	}
 	if err := h.svc.Create(c.Request.Context(), &session); err != nil {
 		// Check for duplicate key error (PostgreSQL unique violation)
