@@ -62,14 +62,22 @@ func (e *Eval) CachedTokens() (int, bool) {
 type Check func(ctx context.Context, eval *Eval) (bool, error)
 
 func BuildChecks(trigger *Trigger) []Check {
-	builders := listCheckBuilders()
-	checks := make([]Check, 0, len(builders))
-	for _, builder := range builders {
-		check, ok := builder(trigger)
-		if ok {
-			checks = append(checks, check)
-		}
+	if trigger == nil {
+		return nil
 	}
+
+	checks := make([]Check, 0, 1)
+	if trigger.TokenGte != nil && *trigger.TokenGte > 0 {
+		threshold := *trigger.TokenGte
+		checks = append(checks, func(ctx context.Context, eval *Eval) (bool, error) {
+			tokens, err := eval.Tokens(ctx)
+			if err != nil {
+				return false, err
+			}
+			return tokens >= threshold, nil
+		})
+	}
+
 	return checks
 }
 
