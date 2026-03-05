@@ -1720,7 +1720,7 @@ func TestSessionService_GetMessages_ThisTimeTokensMatchesEditedOutput(t *testing
 	assert.NoError(t, err)
 	assert.Greater(t, preEditTokens, 0)
 
-	service := NewSessionService(repo, &MockAssetReferenceRepo{}, zap.NewNop(), nil, nil, &config.Config{}, nil)
+	service := NewSessionService(repo, nil, &MockAssetReferenceRepo{}, nil, zap.NewNop(), nil, nil, &config.Config{}, nil, nil)
 	out, err := service.GetMessages(ctx, GetMessagesInput{
 		SessionID: sessionID,
 		Limit:     0,
@@ -1772,7 +1772,7 @@ func TestSessionService_GetMessages_TriggerTokenErrorsAreWrapped(t *testing.T) {
 		},
 	}, nil)
 
-	service := NewSessionService(repo, &MockAssetReferenceRepo{}, zap.NewNop(), nil, nil, &config.Config{}, nil)
+	service := NewSessionService(repo, nil, &MockAssetReferenceRepo{}, nil, zap.NewNop(), nil, nil, &config.Config{}, nil, nil)
 	out, err := service.GetMessages(ctx, GetMessagesInput{
 		SessionID: sessionID,
 		Limit:     0,
@@ -1828,7 +1828,7 @@ func TestSessionService_GetMessages_TriggerFalseKeepsProvidedPin(t *testing.T) {
 	repo := &MockSessionRepo{}
 	repo.On("ListAllMessagesBySession", ctx, sessionID).Return(repoMessages, nil)
 
-	service := NewSessionService(repo, &MockAssetReferenceRepo{}, zap.NewNop(), nil, nil, &config.Config{}, nil)
+	service := NewSessionService(repo, nil, &MockAssetReferenceRepo{}, nil, zap.NewNop(), nil, nil, &config.Config{}, nil, nil)
 	out, err := service.GetMessages(ctx, GetMessagesInput{
 		SessionID: sessionID,
 		Limit:     0,
@@ -2129,7 +2129,7 @@ func TestSessionService_GetMessages_EditTriggerBranchCoverage(t *testing.T) {
 				repo.On("ListAllMessagesBySession", ctx, sessionID).Return(tt.repoMessages, nil)
 			}
 
-			service := NewSessionService(repo, &MockAssetReferenceRepo{}, zap.NewNop(), nil, nil, &config.Config{}, nil)
+			service := NewSessionService(repo, nil, &MockAssetReferenceRepo{}, nil, zap.NewNop(), nil, nil, &config.Config{}, nil, nil)
 			out, err := service.GetMessages(ctx, tt.input)
 			assert.NoError(t, err)
 			assert.NotNil(t, out)
@@ -2160,4 +2160,28 @@ func TestSessionService_GetMessages_EditTriggerBranchCoverage(t *testing.T) {
 			repo.AssertExpectations(t)
 		})
 	}
+}
+
+func TestSameMessageOrderByID_Branches(t *testing.T) {
+	id1 := uuid.MustParse("00000000-0000-0000-0000-000000000201")
+	id2 := uuid.MustParse("00000000-0000-0000-0000-000000000202")
+	id3 := uuid.MustParse("00000000-0000-0000-0000-000000000203")
+
+	t.Run("length mismatch returns false", func(t *testing.T) {
+		a := []model.Message{{ID: id1}}
+		b := []model.Message{{ID: id1}, {ID: id2}}
+		assert.False(t, sameMessageOrderByID(a, b))
+	})
+
+	t.Run("id mismatch returns false", func(t *testing.T) {
+		a := []model.Message{{ID: id1}, {ID: id2}}
+		b := []model.Message{{ID: id1}, {ID: id3}}
+		assert.False(t, sameMessageOrderByID(a, b))
+	})
+
+	t.Run("same order returns true", func(t *testing.T) {
+		a := []model.Message{{ID: id1}, {ID: id2}}
+		b := []model.Message{{ID: id1}, {ID: id2}}
+		assert.True(t, sameMessageOrderByID(a, b))
+	})
 }

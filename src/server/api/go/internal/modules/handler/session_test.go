@@ -4357,12 +4357,16 @@ func TestSessionHandler_GetMessages_UsesServiceThisTimeTokens(t *testing.T) {
 func TestSessionHandler_GetMessages_RejectsEmptyEditingTrigger(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
+	projectID := uuid.New()
 	sessionID := uuid.New()
 	mockService := &MockSessionService{}
 
 	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 	router := setupSessionRouter()
-	router.GET("/session/:session_id/messages", handler.GetMessages)
+	router.GET("/session/:session_id/messages", func(c *gin.Context) {
+		c.Set("project", &model.Project{ID: projectID})
+		handler.GetMessages(c)
+	})
 
 	editStrategies := `[{"type":"token_limit","params":{"limit_tokens":100}}]`
 	reqURL := "/session/" + sessionID.String() + "/messages?limit=20&edit_strategies=" +

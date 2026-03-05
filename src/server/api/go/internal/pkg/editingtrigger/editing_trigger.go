@@ -80,15 +80,3 @@ func BuildChecks(trigger *Trigger) []Check {
 
 	return checks
 }
-
-func SameMessageOrderByID(a, b []model.Message) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i].ID != b[i].ID {
-			return false
-		}
-	}
-	return true
-}
