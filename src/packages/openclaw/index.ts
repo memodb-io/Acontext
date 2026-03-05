@@ -145,6 +145,11 @@ export interface BridgeLogger {
   warn: (message: string) => void;
 }
 
+export type LearnResult =
+  | { status: "learned"; id: string }
+  | { status: "skipped" }
+  | { status: "error" };
+
 type SkillMeta = {
   id: string;
   name: string;
@@ -191,6 +196,8 @@ export class AcontextBridge {
   private skillsMetadata: SkillMeta[] | null = null;
   private skillsSynced = false;
   private syncInProgress: Promise<SkillMeta[]> | null = null;
+  private learnedSessions = new Set<string>();
+  private learnedSessionsLoaded = false;
   private static MANIFEST_STALE_MS = 30 * 60 * 1000; // 30 minutes
 
   constructor(private readonly cfg: AcontextConfig, dataDir: string, skillsDir: string, logger?: BridgeLogger) {
@@ -204,6 +211,29 @@ export class AcontextBridge {
 
   private manifestPath(): string {
     return path.join(this.dataDir, ".manifest.json");
+  }
+
+  private learnedSessionsPath(): string {
+    return path.join(this.dataDir, ".learned-sessions.json");
+  }
+
+  private async loadLearnedSessions(): Promise<void> {
+    try {
+      const raw = await fs.readFile(this.learnedSessionsPath(), "utf-8");
+      const ids = JSON.parse(raw) as string[];
+      for (const id of ids) this.learnedSessions.add(id);
+    } catch {
+      // file doesn't exist yet — that's fine
+    }
+  }
+
+  private async persistLearnedSessions(): Promise<void> {
+    await fs.mkdir(this.dataDir, { recursive: true });
+    await fs.writeFile(
+      this.learnedSessionsPath(),
+      JSON.stringify([...this.learnedSessions]),
+      "utf-8",
+    );
   }
 
   private skillDir(skillName: string): string {
@@ -525,7 +555,16 @@ export class AcontextBridge {
 
   // -- Learn -------------------------------------------------------------------
 
-  async learnFromSession(sessionId: string): Promise<string | null> {
+  async learnFromSession(sessionId: string): Promise<LearnResult> {
+    if (!this.learnedSessionsLoaded) {
+      await this.loadLearnedSessions();
+      this.learnedSessionsLoaded = true;
+    }
+
+    if (this.learnedSessions.has(sessionId)) {
+      return { status: "skipped" };
+    }
+
     const client = await this.ensureClient();
     const spaceId = await this.ensureLearningSpace();
     try {
@@ -533,11 +572,21 @@ export class AcontextBridge {
         spaceId,
         sessionId,
       });
+      this.learnedSessions.add(sessionId);
+      await this.persistLearnedSessions();
       this.invalidateSkillCaches();
-      return result.id;
+      return { status: "learned", id: result.id };
     } catch (err) {
-      this.logger.warn(`acontext: learnFromSession failed for ${sessionId}: ${String(err)}`);
-      return null;
+      const msg = String(err);
+      if (msg.includes("already learned")) {
+        this.learnedSessions.add(sessionId);
+        await this.persistLearnedSessions();
+        this.invalidateSkillCaches();
+        this.logger.info(`acontext: session ${sessionId} already learned, skipping`);
+        return { status: "skipped" };
+      }
+      this.logger.warn(`acontext: learnFromSession failed for ${sessionId}: ${msg}`);
+      return { status: "error" };
     }
   }
 
@@ -780,10 +829,21 @@ const acontextPlugin = {
 
             await bridge.flush(currentAcontextSessionId);
 
-            const learningId = await bridge.learnFromSession(
+            const result = await bridge.learnFromSession(
               currentAcontextSessionId,
             );
-            if (!learningId) {
+            if (result.status === "skipped") {
+              return {
+                content: [
+                  {
+                    type: "text",
+                    text: "This session has already been learned.",
+                  },
+                ],
+                details: { skipped: true, sessionId: currentAcontextSessionId },
+              };
+            }
+            if (result.status === "error") {
               return {
                 content: [
                   {
@@ -799,10 +859,10 @@ const acontextPlugin = {
               content: [
                 {
                   type: "text",
-                  text: `Learning triggered (id: ${learningId}). Skills will be available in ${cfg.skillsDir} once processing completes.`,
+                  text: `Learning triggered (id: ${result.id}). Skills will be available in ${cfg.skillsDir} once processing completes.`,
                 },
               ],
-              details: { learningId, sessionId: currentAcontextSessionId },
+              details: { learningId: result.id, sessionId: currentAcontextSessionId },
             };
           } catch (err) {
             return {
@@ -896,9 +956,9 @@ const acontextPlugin = {
         if (!currentAcontextSessionId || !cfg.autoLearn) return;
         try {
           await bridge.flush(currentAcontextSessionId);
-          const learningId = await bridge.learnFromSession(currentAcontextSessionId);
-          if (learningId) {
-            api.logger.info(`acontext: pre-clear learn triggered (learning: ${learningId})`);
+          const result = await bridge.learnFromSession(currentAcontextSessionId);
+          if (result.status === "learned") {
+            api.logger.info(`acontext: pre-clear learn triggered (learning: ${result.id})`);
           }
         } catch (err) {
           api.logger.warn(`acontext: pre-clear flush/learn failed: ${String(err)}`);
@@ -984,10 +1044,10 @@ const acontextPlugin = {
             bridge
               .flush(learnSessionId)
               .then(() => bridge.learnFromSession(learnSessionId))
-              .then((learningId) => {
-                if (learningId) {
+              .then((result) => {
+                if (result.status === "learned") {
                   api.logger.info(
-                    `acontext: auto-learn triggered (learning: ${learningId})`,
+                    `acontext: auto-learn triggered (learning: ${result.id})`,
                   );
                 }
               })

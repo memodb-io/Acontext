@@ -17,6 +17,7 @@ import {
   AcontextBridge,
   type AcontextConfig,
   type BridgeLogger,
+  type LearnResult,
 } from "../index";
 
 // ============================================================================
@@ -567,6 +568,94 @@ describe("AcontextBridge", () => {
       (bridge as any).skillsSynced = false;
       await bridge.syncSkillsToLocal();
       expect(mockClient.learningSpaces.listSkills).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("learnFromSession", () => {
+    test("returns learned status with ID on success and persists to disk", async () => {
+      const mockClient = createMockClient();
+      const bridge = createBridge(mockClient);
+
+      const result = await bridge.learnFromSession("sess-1");
+
+      expect(result).toEqual({ status: "learned", id: "learn-1" });
+      expect(mockClient.learningSpaces.learn).toHaveBeenCalledWith({
+        spaceId: "space-1",
+        sessionId: "sess-1",
+      });
+
+      const raw = await fs.readFile(path.join(dataDir, ".learned-sessions.json"), "utf-8");
+      expect(JSON.parse(raw)).toContain("sess-1");
+    });
+
+    test("returns skipped for already-learned session (in-memory)", async () => {
+      const mockClient = createMockClient();
+      const bridge = createBridge(mockClient);
+
+      await bridge.learnFromSession("sess-1");
+      mockClient.learningSpaces.learn.mockClear();
+
+      const result = await bridge.learnFromSession("sess-1");
+
+      expect(result).toEqual({ status: "skipped" });
+      expect(mockClient.learningSpaces.learn).not.toHaveBeenCalled();
+    });
+
+    test("returns skipped for session persisted by a previous bridge instance", async () => {
+      const mockClient = createMockClient();
+      const bridge1 = createBridge(mockClient);
+      await bridge1.learnFromSession("sess-1");
+
+      mockClient.learningSpaces.learn.mockClear();
+      const bridge2 = createBridge(mockClient);
+      const result = await bridge2.learnFromSession("sess-1");
+
+      expect(result).toEqual({ status: "skipped" });
+      expect(mockClient.learningSpaces.learn).not.toHaveBeenCalled();
+    });
+
+    test("returns skipped on 'already learned' API error and persists", async () => {
+      const mockClient = createMockClient();
+      mockClient.learningSpaces.learn.mockRejectedValue(
+        new Error("APIError: session already learned by another space"),
+      );
+      const bridge = createBridge(mockClient);
+
+      const result = await bridge.learnFromSession("sess-2");
+
+      expect(result).toEqual({ status: "skipped" });
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        expect.stringContaining("already learned"),
+      );
+      expect(mockLogger.warn).not.toHaveBeenCalledWith(
+        expect.stringContaining("sess-2"),
+      );
+
+      const raw = await fs.readFile(path.join(dataDir, ".learned-sessions.json"), "utf-8");
+      expect(JSON.parse(raw)).toContain("sess-2");
+
+      mockClient.learningSpaces.learn.mockClear();
+      const secondResult = await bridge.learnFromSession("sess-2");
+      expect(secondResult).toEqual({ status: "skipped" });
+      expect(mockClient.learningSpaces.learn).not.toHaveBeenCalled();
+    });
+
+    test("returns error status for other errors without persisting", async () => {
+      const mockClient = createMockClient();
+      mockClient.learningSpaces.learn.mockRejectedValue(
+        new Error("network timeout"),
+      );
+      const bridge = createBridge(mockClient);
+
+      const result = await bridge.learnFromSession("sess-3");
+
+      expect(result).toEqual({ status: "error" });
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("sess-3"),
+      );
+
+      const fileExists = await fs.access(path.join(dataDir, ".learned-sessions.json")).then(() => true, () => false);
+      expect(fileExists).toBe(false);
     });
   });
 });
