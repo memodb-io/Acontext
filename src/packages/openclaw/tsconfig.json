@@ -7,9 +7,8 @@
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "strict": true,
-    "skipLibCheck": true,
-    "typeRoots": ["./node_modules/@types", "."]
+    "skipLibCheck": true
   },
-  "include": ["index.ts"],
+  "include": ["index.ts", "openclaw-plugin-sdk.d.ts"],
   "exclude": ["node_modules", "tests"]
 }

@@ -630,7 +630,7 @@ const acontextPlugin = {
             Type.Number({ description: "Max results (default: 10)" }),
           ),
         }),
-        async execute(_toolCallId, params) {
+        async execute(_toolCallId: string, params: Record<string, unknown>) {
           const { query, limit = 10 } = params as {
             query: string;
             limit?: number;
@@ -736,7 +736,7 @@ const acontextPlugin = {
             }),
           ),
         }),
-        async execute(_toolCallId, params) {
+        async execute(_toolCallId: string, params: Record<string, unknown>) {
           const { skillName, filePath } = params as {
             skillName: string;
             filePath?: string;
@@ -831,7 +831,7 @@ const acontextPlugin = {
             }),
           ),
         }),
-        async execute(_toolCallId, params) {
+        async execute(_toolCallId: string, params: Record<string, unknown>) {
           const { limit } = params as { limit?: number };
 
           try {
@@ -939,7 +939,7 @@ const acontextPlugin = {
     // ========================================================================
 
     api.registerCli(
-      ({ program }) => {
+      ({ program }: { program: any }) => {
         const ac = program
           .command("acontext")
           .description("Acontext skill memory commands");
