@@ -2,6 +2,8 @@ plans/
 .claude
 .cursorrules
 plans/
+.env.local-api
+src/server/.env.local-api
 .DS_Store
 .agents
 skills-lock.json
