@@ -162,13 +162,21 @@ interface SkillManifest {
 /**
  * Sanitize a skill name for use as a directory name.
  * Replaces non-alphanumeric characters (except hyphens/underscores) with hyphens.
+ * Throws if the result is empty to prevent operating on the skills root directory.
+ *
+ * Note: different names can collide (e.g. "My Skill!" and "my--skill" both → "my-skill").
+ * In practice this is rare since skill names come from the Acontext API which enforces uniqueness.
  */
-function sanitizeSkillName(name: string): string {
-  return name
+export function sanitizeSkillName(name: string): string {
+  const sanitized = name
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9_-]+/g, "-")
     .replace(/^-+|-+$/g, "");
+  if (!sanitized) {
+    throw new Error(`Cannot sanitize skill name to valid directory name: "${name}"`);
+  }
+  return sanitized;
 }
 
 export class AcontextBridge {
@@ -182,6 +190,7 @@ export class AcontextBridge {
 
   private skillsMetadata: SkillMeta[] | null = null;
   private skillsSynced = false;
+  private syncInProgress: Promise<SkillMeta[]> | null = null;
   private static MANIFEST_STALE_MS = 30 * 60 * 1000; // 30 minutes
 
   constructor(private readonly cfg: AcontextConfig, dataDir: string, skillsDir: string, logger?: BridgeLogger) {
@@ -226,7 +235,11 @@ export class AcontextBridge {
     for (const fi of skill.fileIndex) {
       if (!fi.path.endsWith(".md")) continue;
 
-      const fileDest = path.join(dir, fi.path);
+      const fileDest = path.resolve(dir, fi.path);
+      if (!fileDest.startsWith(dir + path.sep)) {
+        this.logger.warn(`acontext: skipping file with path traversal: ${fi.path} (skill: ${skill.name})`);
+        continue;
+      }
       await fs.mkdir(path.dirname(fileDest), { recursive: true });
 
       try {
@@ -250,8 +263,19 @@ export class AcontextBridge {
   /**
    * Sync skills from API to OpenClaw's native skill directory.
    * Uses updated_at for incremental sync — only downloads new or changed skills.
+   * Concurrent calls are deduplicated via a promise guard.
    */
   async syncSkillsToLocal(): Promise<SkillMeta[]> {
+    if (this.syncInProgress) return this.syncInProgress;
+    this.syncInProgress = this._doSync();
+    try {
+      return await this.syncInProgress;
+    } finally {
+      this.syncInProgress = null;
+    }
+  }
+
+  private async _doSync(): Promise<SkillMeta[]> {
     const client = await this.ensureClient();
     const spaceId = await this.ensureLearningSpace();
     const rawSkills = await client.learningSpaces.listSkills(spaceId);
@@ -284,12 +308,13 @@ export class AcontextBridge {
           const oldDir = this.skillDir(local.name);
           await fs.rm(oldDir, { recursive: true, force: true }).catch(() => {});
         }
+        const targetDir = this.skillDir(skill.name);
+        await fs.rm(targetDir, { recursive: true, force: true }).catch(() => {});
         await this.downloadSkillFiles(skill);
         downloadCount++;
       }
     }
 
-    // Remove skills that no longer exist on the server
     for (const [id, local] of localMap) {
       if (!remoteIds.has(id)) {
         const dir = this.skillDir(local.name);
@@ -769,13 +794,11 @@ const acontextPlugin = {
               };
             }
 
-            await bridge.syncSkillsToLocal();
-
             return {
               content: [
                 {
                   type: "text",
-                  text: `Learning triggered (id: ${learningId}). Skills synced to ${cfg.skillsDir}.`,
+                  text: `Learning triggered (id: ${learningId}). Skills will be available in ${cfg.skillsDir} once processing completes.`,
                 },
               ],
               details: { learningId, sessionId: currentAcontextSessionId },
@@ -942,7 +965,6 @@ const acontextPlugin = {
                     `acontext: auto-learn triggered (learning: ${learningId})`,
                   );
                 }
-                return bridge.syncSkillsToLocal();
               })
               .catch((err) => {
                 api.logger.warn(

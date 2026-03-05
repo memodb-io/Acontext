@@ -5,11 +5,18 @@
  * and plugin hook behavior using mocks.
  */
 
-import { jest, describe, test, expect, beforeEach, afterAll } from "@jest/globals";
+import { jest, describe, test, expect, beforeEach, afterEach, afterAll } from "@jest/globals";
+import * as fs from "node:fs/promises";
+import * as os from "node:os";
+import * as path from "node:path";
 import {
   resolveEnvVars,
   assertAllowedKeys,
   configSchema,
+  sanitizeSkillName,
+  AcontextBridge,
+  type AcontextConfig,
+  type BridgeLogger,
 } from "../index";
 
 // ============================================================================
@@ -172,6 +179,395 @@ describe("configSchema.parse", () => {
       baseUrl: "${BASE}",
     });
     expect(cfg.baseUrl).toBe("http://custom:9000");
+  });
+});
+
+// ============================================================================
+// sanitizeSkillName
+// ============================================================================
+
+describe("sanitizeSkillName", () => {
+  test("lowercases and replaces spaces with hyphens", () => {
+    expect(sanitizeSkillName("My Cool Skill")).toBe("my-cool-skill");
+  });
+
+  test("preserves underscores and hyphens", () => {
+    expect(sanitizeSkillName("skill_v2-beta")).toBe("skill_v2-beta");
+  });
+
+  test("trims whitespace", () => {
+    expect(sanitizeSkillName("  spaces  ")).toBe("spaces");
+  });
+
+  test("collapses consecutive special characters into single hyphen", () => {
+    expect(sanitizeSkillName("hello...world")).toBe("hello-world");
+  });
+
+  test("strips leading and trailing hyphens after sanitization", () => {
+    expect(sanitizeSkillName("--valid--")).toBe("valid");
+  });
+
+  test("throws on all-special-characters name", () => {
+    expect(() => sanitizeSkillName("@#$")).toThrow("Cannot sanitize skill name");
+  });
+
+  test("throws on empty string", () => {
+    expect(() => sanitizeSkillName("")).toThrow("Cannot sanitize skill name");
+  });
+
+  test("throws on whitespace-only string", () => {
+    expect(() => sanitizeSkillName("   ")).toThrow("Cannot sanitize skill name");
+  });
+
+  test("throws on hyphens-only string (stripped by trailing cleanup)", () => {
+    expect(() => sanitizeSkillName("---")).toThrow("Cannot sanitize skill name");
+  });
+
+  test("handles non-ascii unicode by replacing with hyphens", () => {
+    expect(sanitizeSkillName("\u2603\u2764-test")).toBe("test");
+  });
+
+  test("handles mixed non-ascii and latin", () => {
+    expect(sanitizeSkillName("abc \u2603 xyz")).toBe("abc-xyz");
+  });
+});
+
+// ============================================================================
+// AcontextBridge — sync, download, path traversal
+// ============================================================================
+
+describe("AcontextBridge", () => {
+  let tmpDir: string;
+  let dataDir: string;
+  let skillsDir: string;
+  let mockLogger: BridgeLogger;
+  let loggedWarnings: string[];
+
+  const baseCfg: AcontextConfig = {
+    apiKey: "sk-ac-test",
+    baseUrl: "http://localhost:3000",
+    userId: "testuser",
+    skillsDir: "",
+    autoCapture: true,
+    autoLearn: true,
+    minTurnsForLearn: 4,
+  };
+
+  function createMockClient(overrides?: {
+    listSkills?: () => Promise<any[]>;
+    getFile?: (opts: any) => Promise<any>;
+  }) {
+    return {
+      sessions: {
+        list: jest.fn<any>().mockResolvedValue({ items: [], has_more: false }),
+        create: jest.fn<any>().mockResolvedValue({ id: "mock-session" }),
+        storeMessage: jest.fn<any>().mockResolvedValue({}),
+        flush: jest.fn<any>().mockResolvedValue({ status: 0, errmsg: "" }),
+        messagesObservingStatus: jest.fn<any>().mockResolvedValue({ observed: 0, in_process: 0, pending: 0 }),
+        getSessionSummary: jest.fn<any>().mockResolvedValue(""),
+      },
+      learningSpaces: {
+        list: jest.fn<any>().mockResolvedValue({ items: [{ id: "space-1" }], has_more: false }),
+        create: jest.fn<any>().mockResolvedValue({ id: "space-1" }),
+        listSkills: overrides?.listSkills
+          ? jest.fn<any>().mockImplementation(overrides.listSkills)
+          : jest.fn<any>().mockResolvedValue([]),
+        learn: jest.fn<any>().mockResolvedValue({ id: "learn-1" }),
+      },
+      skills: {
+        getFile: overrides?.getFile
+          ? jest.fn<any>().mockImplementation(overrides.getFile)
+          : jest.fn<any>().mockResolvedValue({ content: { type: "text", raw: "# Skill content" }, url: null }),
+      },
+      artifacts: {
+        grepArtifacts: jest.fn<any>().mockResolvedValue([]),
+      },
+    };
+  }
+
+  function createBridge(mockClient: ReturnType<typeof createMockClient>): AcontextBridge {
+    const cfg = { ...baseCfg, skillsDir };
+    const bridge = new AcontextBridge(cfg, dataDir, skillsDir, mockLogger);
+    (bridge as any).client = mockClient;
+    (bridge as any).initPromise = Promise.resolve();
+    (bridge as any).learningSpaceId = "space-1";
+    return bridge;
+  }
+
+  beforeEach(async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-test-"));
+    dataDir = path.join(tmpDir, "data");
+    skillsDir = path.join(tmpDir, "skills");
+    await fs.mkdir(dataDir, { recursive: true });
+    await fs.mkdir(skillsDir, { recursive: true });
+    loggedWarnings = [];
+    mockLogger = {
+      info: jest.fn(),
+      warn: jest.fn((...args: unknown[]) => { loggedWarnings.push(String(args[0])); }),
+    };
+  });
+
+  afterEach(async () => {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  });
+
+  describe("syncSkillsToLocal", () => {
+    test("downloads new skills and writes to skillsDir", async () => {
+      const mockClient = createMockClient({
+        listSkills: async () => [{
+          id: "s1", name: "My Skill", description: "desc",
+          disk_id: "d1", file_index: [{ path: "SKILL.md", mime: "text/markdown" }],
+          updated_at: "2026-01-01T00:00:00Z",
+        }],
+      });
+      const bridge = createBridge(mockClient);
+
+      const skills = await bridge.syncSkillsToLocal();
+      expect(skills).toHaveLength(1);
+      expect(skills[0].name).toBe("My Skill");
+
+      const content = await fs.readFile(path.join(skillsDir, "my-skill", "SKILL.md"), "utf-8");
+      expect(content).toBe("# Skill content");
+    });
+
+    test("skips unchanged skills (incremental sync)", async () => {
+      const mockClient = createMockClient({
+        listSkills: async () => [{
+          id: "s1", name: "cached-skill", description: "desc",
+          disk_id: "d1", file_index: [{ path: "SKILL.md", mime: "text/markdown" }],
+          updated_at: "2026-01-01T00:00:00Z",
+        }],
+      });
+      const bridge = createBridge(mockClient);
+
+      await bridge.syncSkillsToLocal();
+      expect(mockClient.skills.getFile).toHaveBeenCalledTimes(1);
+
+      mockClient.skills.getFile.mockClear();
+      await bridge.syncSkillsToLocal();
+      expect(mockClient.skills.getFile).toHaveBeenCalledTimes(0);
+    });
+
+    test("re-downloads skills when updatedAt changes", async () => {
+      let updatedAt = "2026-01-01T00:00:00Z";
+      const mockClient = createMockClient({
+        listSkills: async () => [{
+          id: "s1", name: "evolving-skill", description: "desc",
+          disk_id: "d1", file_index: [{ path: "SKILL.md", mime: "text/markdown" }],
+          updated_at: updatedAt,
+        }],
+      });
+      const bridge = createBridge(mockClient);
+
+      await bridge.syncSkillsToLocal();
+      expect(mockClient.skills.getFile).toHaveBeenCalledTimes(1);
+
+      mockClient.skills.getFile.mockClear();
+      updatedAt = "2026-02-01T00:00:00Z";
+      (bridge as any).skillsMetadata = null;
+      (bridge as any).skillsSynced = false;
+      await bridge.syncSkillsToLocal();
+      expect(mockClient.skills.getFile).toHaveBeenCalledTimes(1);
+    });
+
+    test("removes deleted skills from disk", async () => {
+      const mockClient = createMockClient({
+        listSkills: async () => [{
+          id: "s1", name: "will-delete", description: "desc",
+          disk_id: "d1", file_index: [{ path: "SKILL.md", mime: "text/markdown" }],
+          updated_at: "2026-01-01T00:00:00Z",
+        }],
+      });
+      const bridge = createBridge(mockClient);
+      await bridge.syncSkillsToLocal();
+
+      const skillPath = path.join(skillsDir, "will-delete", "SKILL.md");
+      await expect(fs.access(skillPath)).resolves.toBeUndefined();
+
+      // Now remote returns empty — skill deleted server-side
+      mockClient.learningSpaces.listSkills.mockResolvedValue([]);
+      (bridge as any).skillsMetadata = null;
+      (bridge as any).skillsSynced = false;
+      await bridge.syncSkillsToLocal();
+
+      await expect(fs.access(skillPath)).rejects.toThrow();
+    });
+
+    test("handles skill rename (removes old dir, creates new dir)", async () => {
+      let skillName = "old-name";
+      const mockClient = createMockClient({
+        listSkills: async () => [{
+          id: "s1", name: skillName, description: "desc",
+          disk_id: "d1", file_index: [{ path: "SKILL.md", mime: "text/markdown" }],
+          updated_at: skillName === "old-name" ? "2026-01-01T00:00:00Z" : "2026-02-01T00:00:00Z",
+        }],
+      });
+      const bridge = createBridge(mockClient);
+      await bridge.syncSkillsToLocal();
+
+      await expect(fs.access(path.join(skillsDir, "old-name", "SKILL.md"))).resolves.toBeUndefined();
+
+      // Rename
+      skillName = "new-name";
+      (bridge as any).skillsMetadata = null;
+      (bridge as any).skillsSynced = false;
+      await bridge.syncSkillsToLocal();
+
+      await expect(fs.access(path.join(skillsDir, "new-name", "SKILL.md"))).resolves.toBeUndefined();
+      await expect(fs.access(path.join(skillsDir, "old-name"))).rejects.toThrow();
+    });
+
+    test("cleans stale files when skill content updates in-place", async () => {
+      let fileIndex = [
+        { path: "guide.md", mime: "text/markdown" },
+        { path: "faq.md", mime: "text/markdown" },
+      ];
+      let updatedAt = "2026-01-01T00:00:00Z";
+      const mockClient = createMockClient({
+        listSkills: async () => [{
+          id: "s1", name: "my-skill", description: "desc",
+          disk_id: "d1", file_index: fileIndex, updated_at: updatedAt,
+        }],
+      });
+      const bridge = createBridge(mockClient);
+      await bridge.syncSkillsToLocal();
+
+      await expect(fs.access(path.join(skillsDir, "my-skill", "guide.md"))).resolves.toBeUndefined();
+      await expect(fs.access(path.join(skillsDir, "my-skill", "faq.md"))).resolves.toBeUndefined();
+
+      // v2: faq.md removed
+      fileIndex = [{ path: "guide.md", mime: "text/markdown" }];
+      updatedAt = "2026-02-01T00:00:00Z";
+      (bridge as any).skillsMetadata = null;
+      (bridge as any).skillsSynced = false;
+      await bridge.syncSkillsToLocal();
+
+      await expect(fs.access(path.join(skillsDir, "my-skill", "guide.md"))).resolves.toBeUndefined();
+      await expect(fs.access(path.join(skillsDir, "my-skill", "faq.md"))).rejects.toThrow();
+    });
+  });
+
+  describe("downloadSkillFiles — path traversal", () => {
+    test("rejects path traversal attempts", async () => {
+      const mockClient = createMockClient({
+        listSkills: async () => [{
+          id: "s1", name: "evil-skill", description: "desc",
+          disk_id: "d1",
+          file_index: [{ path: "../../etc/passwd.md", mime: "text/markdown" }],
+          updated_at: "2026-01-01T00:00:00Z",
+        }],
+      });
+      const bridge = createBridge(mockClient);
+      await bridge.syncSkillsToLocal();
+
+      expect(mockClient.skills.getFile).not.toHaveBeenCalled();
+      expect(loggedWarnings.some((w) => w.includes("path traversal"))).toBe(true);
+    });
+
+    test("accepts normal nested paths", async () => {
+      const mockClient = createMockClient({
+        listSkills: async () => [{
+          id: "s1", name: "good-skill", description: "desc",
+          disk_id: "d1",
+          file_index: [{ path: "docs/guide.md", mime: "text/markdown" }],
+          updated_at: "2026-01-01T00:00:00Z",
+        }],
+      });
+      const bridge = createBridge(mockClient);
+      await bridge.syncSkillsToLocal();
+
+      expect(mockClient.skills.getFile).toHaveBeenCalledTimes(1);
+      const content = await fs.readFile(path.join(skillsDir, "good-skill", "docs", "guide.md"), "utf-8");
+      expect(content).toBe("# Skill content");
+    });
+  });
+
+  describe("listSkills — manifest caching", () => {
+    test("returns cached skills without re-syncing", async () => {
+      const mockClient = createMockClient({
+        listSkills: async () => [{
+          id: "s1", name: "cached", description: "desc",
+          disk_id: "d1", file_index: [], updated_at: "2026-01-01T00:00:00Z",
+        }],
+      });
+      const bridge = createBridge(mockClient);
+
+      await bridge.syncSkillsToLocal();
+      expect(mockClient.learningSpaces.listSkills).toHaveBeenCalledTimes(1);
+
+      const skills = await bridge.listSkills();
+      expect(skills).toHaveLength(1);
+      expect(mockClient.learningSpaces.listSkills).toHaveBeenCalledTimes(1);
+    });
+
+    test("re-syncs after invalidateSkillCaches + stale manifest", async () => {
+      const mockClient = createMockClient({
+        listSkills: async () => [{
+          id: "s1", name: "cached", description: "desc",
+          disk_id: "d1", file_index: [], updated_at: "2026-01-01T00:00:00Z",
+        }],
+      });
+      const bridge = createBridge(mockClient);
+
+      await bridge.syncSkillsToLocal();
+      bridge.invalidateSkillCaches();
+
+      // Manually make manifest stale by setting syncedAt to past
+      const manifestPath = path.join(dataDir, ".manifest.json");
+      const manifest = JSON.parse(await fs.readFile(manifestPath, "utf-8"));
+      manifest.syncedAt = Date.now() - 60 * 60 * 1000;
+      await fs.writeFile(manifestPath, JSON.stringify(manifest), "utf-8");
+
+      await bridge.listSkills();
+      expect(mockClient.learningSpaces.listSkills).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("syncSkillsToLocal — concurrent deduplication", () => {
+    test("deduplicates concurrent sync calls into one API request", async () => {
+      let resolveListSkills!: (value: any[]) => void;
+      const listSkillsPromise = new Promise<any[]>((resolve) => {
+        resolveListSkills = resolve;
+      });
+      const mockClient = createMockClient({
+        listSkills: () => listSkillsPromise,
+      });
+      const bridge = createBridge(mockClient);
+
+      const p1 = bridge.syncSkillsToLocal();
+      const p2 = bridge.syncSkillsToLocal();
+      const p3 = bridge.syncSkillsToLocal();
+
+      resolveListSkills([{
+        id: "s1", name: "skill-a", description: "desc",
+        disk_id: "d1", file_index: [], updated_at: "2026-01-01T00:00:00Z",
+      }]);
+
+      const [r1, r2, r3] = await Promise.all([p1, p2, p3]);
+
+      expect(mockClient.learningSpaces.listSkills).toHaveBeenCalledTimes(1);
+      expect(r1).toBe(r2);
+      expect(r2).toBe(r3);
+      expect(r1).toHaveLength(1);
+    });
+
+    test("allows a new sync after the previous one completes", async () => {
+      const mockClient = createMockClient({
+        listSkills: async () => [{
+          id: "s1", name: "skill-a", description: "desc",
+          disk_id: "d1", file_index: [], updated_at: "2026-01-01T00:00:00Z",
+        }],
+      });
+      const bridge = createBridge(mockClient);
+
+      await bridge.syncSkillsToLocal();
+      expect(mockClient.learningSpaces.listSkills).toHaveBeenCalledTimes(1);
+
+      (bridge as any).skillsMetadata = null;
+      (bridge as any).skillsSynced = false;
+      await bridge.syncSkillsToLocal();
+      expect(mockClient.learningSpaces.listSkills).toHaveBeenCalledTimes(2);
+    });
   });
 });
 
