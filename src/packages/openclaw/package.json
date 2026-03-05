@@ -21,6 +21,12 @@
 	"bugs": {
 		"url": "https://github.com/memodb-io/Acontext/issues"
 	},
+	"files": [
+		"index.ts",
+		"openclaw-plugin-sdk.d.ts",
+		"README.md",
+		"PUBLISH.md"
+	],
 	"scripts": {
 		"test": "node --experimental-vm-modules node_modules/.bin/jest --forceExit"
 	},
