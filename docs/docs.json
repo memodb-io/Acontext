@@ -141,7 +141,8 @@
           "integrations/openai-typescript",
           "integrations/openai_agent",
           "integrations/claude-agent",
-          "integrations/ai-sdk"
+          "integrations/ai-sdk",
+          "integrations/openclaw"
         ]
       },
       {
