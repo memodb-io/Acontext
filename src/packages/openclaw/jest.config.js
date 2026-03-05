@@ -5,6 +5,7 @@ export default {
   moduleNameMapper: {
     "^(\\.{1,2}/.*)\\.js$": "$1",
     // Stub out external modules that aren't available in test env
+    "^openclaw/plugin-sdk/core$": "<rootDir>/tests/__mocks__/openclaw-plugin-sdk.ts",
     "^openclaw/plugin-sdk$": "<rootDir>/tests/__mocks__/openclaw-plugin-sdk.ts",
     "^@acontext/acontext$": "<rootDir>/tests/__mocks__/acontext-sdk.ts",
   },

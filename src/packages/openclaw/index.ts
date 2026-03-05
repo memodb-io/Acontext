@@ -16,7 +16,7 @@ import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
 import { Type } from "@sinclair/typebox";
-import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
+import type { OpenClawPluginApi } from "openclaw/plugin-sdk/core";
 
 // ============================================================================
 // Types
@@ -141,8 +141,8 @@ export const configSchema = {
 // ============================================================================
 
 export interface BridgeLogger {
-  info: (...args: unknown[]) => void;
-  warn: (...args: unknown[]) => void;
+  info: (message: string) => void;
+  warn: (message: string) => void;
 }
 
 type SkillMeta = {
@@ -582,6 +582,7 @@ export class AcontextBridge {
 const acontextPlugin = {
   id: "acontext",
   name: "Acontext Skill Memory",
+  version: "0.1.3",
   description:
     "Acontext skill memory — auto-capture, auto-learn, sync skills to OpenClaw native directory",
   kind: "memory" as const,
@@ -889,6 +890,30 @@ const acontextPlugin = {
       }
     });
 
+    // Flush + learn before session is compacted or reset to avoid losing data
+    if (cfg.autoCapture) {
+      const flushAndLearnIfActive = async () => {
+        if (!currentAcontextSessionId || !cfg.autoLearn) return;
+        try {
+          await bridge.flush(currentAcontextSessionId);
+          const learningId = await bridge.learnFromSession(currentAcontextSessionId);
+          if (learningId) {
+            api.logger.info(`acontext: pre-clear learn triggered (learning: ${learningId})`);
+          }
+        } catch (err) {
+          api.logger.warn(`acontext: pre-clear flush/learn failed: ${String(err)}`);
+        }
+      };
+
+      api.on("before_compaction", async (_event, _ctx) => {
+        await flushAndLearnIfActive();
+      });
+
+      api.on("before_reset", async (_event, _ctx) => {
+        await flushAndLearnIfActive();
+      });
+    }
+
     // Auto-capture + auto-learn: store messages and trigger learning
     if (cfg.autoCapture) {
       api.on("agent_end", async (event, ctx) => {
@@ -984,7 +1009,7 @@ const acontextPlugin = {
 
     api.registerService({
       id: "acontext",
-      start: () => {
+      start: (_ctx) => {
         api.logger.info(
           `acontext: service started (user: ${cfg.userId}, autoCapture: ${cfg.autoCapture}, autoLearn: ${cfg.autoLearn})`,
         );
@@ -992,7 +1017,7 @@ const acontextPlugin = {
           api.logger.warn(`acontext: initial skill sync failed: ${String(err)}`);
         });
       },
-      stop: () => {
+      stop: (_ctx) => {
         api.logger.info("acontext: service stopped");
       },
     });

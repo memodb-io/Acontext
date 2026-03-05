@@ -55,27 +55,33 @@
         "type": "string"
       },
       "baseUrl": {
-        "type": "string"
+        "type": "string",
+        "default": "https://api.acontext.app/api/v1"
       },
       "userId": {
-        "type": "string"
+        "type": "string",
+        "default": "default"
       },
       "learningSpaceId": {
         "type": "string"
       },
       "skillsDir": {
-        "type": "string"
+        "type": "string",
+        "default": "~/.openclaw/skills"
       },
       "autoCapture": {
-        "type": "boolean"
+        "type": "boolean",
+        "default": true
       },
       "autoLearn": {
-        "type": "boolean"
+        "type": "boolean",
+        "default": true
       },
       "minTurnsForLearn": {
-        "type": "number"
+        "type": "number",
+        "default": 4
       }
     },
-    "required": []
+    "required": ["apiKey"]
   }
 }

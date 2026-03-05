@@ -48,7 +48,7 @@ When releasing a new version of an SDK or package, follow these steps in order:
 1. **Bump the version number** in the package manifest:
    - TypeScript SDK: update `"version"` in `src/client/acontext-ts/package.json`
    - Python SDK: update `version` in `src/client/acontext-py/pyproject.toml`
-   - OpenClaw Plugin: update `"version"` in `src/packages/openclaw/package.json`
+   - OpenClaw Plugin: update `"version"` in `src/packages/openclaw/package.json` **and** `version` in `src/packages/openclaw/index.ts` (the plugin object)
    - Sandbox Cloudflare: update `"version"` in `src/packages/sandbox-cloudflare/package.json`
 2. **Regenerate the lock file** so it stays in sync:
    - TypeScript SDK: run `npm install` in `src/client/acontext-ts/` (updates `package-lock.json`)

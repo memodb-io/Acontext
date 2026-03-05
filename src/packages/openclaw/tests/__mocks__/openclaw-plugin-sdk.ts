@@ -1,16 +1,30 @@
 /**
- * Stub for openclaw/plugin-sdk — only the type is imported in index.ts.
+ * Stub for openclaw/plugin-sdk — matches the upstream OpenClawPluginApi surface.
  */
 export interface OpenClawPluginApi {
-  pluginConfig: unknown;
+  id: string;
+  name: string;
+  version?: string;
+  description?: string;
+  source: string;
+  config: unknown;
+  pluginConfig?: Record<string, unknown>;
+  runtime: unknown;
   logger: {
-    info: (...args: unknown[]) => void;
-    warn: (...args: unknown[]) => void;
-    error: (...args: unknown[]) => void;
+    debug?: (message: string) => void;
+    info: (message: string) => void;
+    warn: (message: string) => void;
+    error: (message: string) => void;
   };
-  resolvePath: (p: string) => string;
   registerTool: (...args: unknown[]) => void;
+  registerHook: (...args: unknown[]) => void;
+  registerHttpRoute: (...args: unknown[]) => void;
+  registerChannel: (...args: unknown[]) => void;
+  registerGatewayMethod: (...args: unknown[]) => void;
   registerCli: (...args: unknown[]) => void;
   registerService: (...args: unknown[]) => void;
-  on: (event: string, handler: (...args: unknown[]) => unknown) => void;
+  registerProvider: (...args: unknown[]) => void;
+  registerCommand: (...args: unknown[]) => void;
+  resolvePath: (input: string) => string;
+  on: (event: string, handler: (...args: unknown[]) => unknown, opts?: unknown) => void;
 }

@@ -626,8 +626,11 @@ describe("plugin registration", () => {
     expect(toolNames).not.toContain("acontext_read_skill");
 
     // before_agent_start for skill sync check + agent_end for capture
+    // + before_compaction and before_reset for pre-clear learning
     expect(hooks["before_agent_start"]).toHaveLength(1);
     expect(hooks["agent_end"]).toHaveLength(1);
+    expect(hooks["before_compaction"]).toHaveLength(1);
+    expect(hooks["before_reset"]).toHaveLength(1);
 
     // CLI registered
     expect(api.registerCli).toHaveBeenCalledTimes(1);
@@ -649,8 +652,10 @@ describe("plugin registration", () => {
 
     // before_agent_start always registered (for skill sync)
     expect(hooks["before_agent_start"]).toHaveLength(1);
-    // agent_end not registered when autoCapture=false
+    // agent_end, before_compaction, before_reset not registered when autoCapture=false
     expect(hooks["agent_end"]).toBeUndefined();
+    expect(hooks["before_compaction"]).toBeUndefined();
+    expect(hooks["before_reset"]).toBeUndefined();
   });
 
   test("logs on registration", async () => {
@@ -802,10 +807,87 @@ describe("auto-capture hook", () => {
 // ============================================================================
 
 describe("plugin metadata", () => {
-  test("exports correct id and kind", async () => {
+  test("exports correct id, kind, and version", async () => {
     const { default: plugin } = await import("../index");
     expect(plugin.id).toBe("acontext");
     expect(plugin.kind).toBe("memory");
     expect(plugin.name).toBe("Acontext Skill Memory");
+    expect(plugin.version).toBe("0.1.3");
+  });
+});
+
+// ============================================================================
+// Before-Compaction / Before-Reset Hook Behavior
+// ============================================================================
+
+describe("before_compaction and before_reset hooks", () => {
+  function createMockApi(pluginConfig: unknown) {
+    const hooks: Record<string, Function[]> = {};
+    const api = {
+      pluginConfig,
+      logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
+      resolvePath: (p: string) => p,
+      registerTool: jest.fn(),
+      registerCli: jest.fn(),
+      registerService: jest.fn(),
+      on: jest.fn((event: string, handler: Function) => {
+        if (!hooks[event]) hooks[event] = [];
+        hooks[event].push(handler);
+      }),
+    };
+    return { api, hooks };
+  }
+
+  test("before_compaction hook is registered when autoCapture=true", async () => {
+    const { default: plugin } = await import("../index");
+    const { api, hooks } = createMockApi({ apiKey: "sk-ac-test" });
+
+    plugin.register(api as any);
+
+    expect(hooks["before_compaction"]).toHaveLength(1);
+  });
+
+  test("before_reset hook is registered when autoCapture=true", async () => {
+    const { default: plugin } = await import("../index");
+    const { api, hooks } = createMockApi({ apiKey: "sk-ac-test" });
+
+    plugin.register(api as any);
+
+    expect(hooks["before_reset"]).toHaveLength(1);
+  });
+
+  test("before_compaction does not throw when no active session", async () => {
+    const { default: plugin } = await import("../index");
+    const { api, hooks } = createMockApi({ apiKey: "sk-ac-test" });
+
+    plugin.register(api as any);
+
+    const hook = hooks["before_compaction"][0];
+    const result = await hook({ messageCount: 10 }, {});
+    expect(result).toBeUndefined();
+  });
+
+  test("before_reset does not throw when no active session", async () => {
+    const { default: plugin } = await import("../index");
+    const { api, hooks } = createMockApi({ apiKey: "sk-ac-test" });
+
+    plugin.register(api as any);
+
+    const hook = hooks["before_reset"][0];
+    const result = await hook({}, {});
+    expect(result).toBeUndefined();
+  });
+
+  test("hooks not registered when autoCapture=false", async () => {
+    const { default: plugin } = await import("../index");
+    const { api, hooks } = createMockApi({
+      apiKey: "sk-ac-test",
+      autoCapture: false,
+    });
+
+    plugin.register(api as any);
+
+    expect(hooks["before_compaction"]).toBeUndefined();
+    expect(hooks["before_reset"]).toBeUndefined();
   });
 });
