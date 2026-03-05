@@ -1,0 +1,45 @@
+{
+	"name": "@acontext/openclaw",
+	"version": "0.1.0",
+	"type": "module",
+	"main": "./index.ts",
+	"description": "Acontext skill memory plugin for OpenClaw — auto-capture, auto-recall, auto-learn",
+	"license": "Apache-2.0",
+	"keywords": [
+		"openclaw",
+		"plugin",
+		"memory",
+		"acontext",
+		"skill-memory",
+		"long-term-memory"
+	],
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/memodb-io/Acontext"
+	},
+	"homepage": "https://github.com/memodb-io/Acontext",
+	"bugs": {
+		"url": "https://github.com/memodb-io/Acontext/issues"
+	},
+	"scripts": {
+		"test": "node --experimental-vm-modules node_modules/.bin/jest --forceExit"
+	},
+	"dependencies": {
+		"@acontext/acontext": "^0.1.14",
+		"@sinclair/typebox": "0.34.47"
+	},
+	"devDependencies": {
+		"@types/jest": "^30.0.0",
+		"jest": "^30.2.0",
+		"ts-jest": "^29.4.6",
+		"typescript": "^5.9.3"
+	},
+	"openclaw": {
+		"extensions": [
+			"./index.ts"
+		]
+	},
+	"publishConfig": {
+		"access": "public"
+	}
+}
