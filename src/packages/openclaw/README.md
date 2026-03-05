@@ -26,15 +26,26 @@ export ACONTEXT_API_KEY=sk-ac-your-api-key
 Add to your `openclaw.json`:
 
 ```json5
-// plugins.entries
-"acontext": {
-  "enabled": true,
-  "config": {
-    "apiKey": "${ACONTEXT_API_KEY}",
-    "userId": "your-user-id"
+{
+  plugins: {
+    // Select Acontext as the active memory plugin
+    slots: {
+      memory: "acontext"
+    },
+    entries: {
+      "acontext": {
+        enabled: true,
+        config: {
+          "apiKey": "${ACONTEXT_API_KEY}",
+          "userId": "your-user-id"
+        }
+      }
+    }
   }
 }
 ```
+
+> **Note:** OpenClaw only loads one memory plugin at a time. Setting `plugins.slots.memory` to `"acontext"` replaces the default (`memory-core`). To switch back, set it to `"memory-core"` or `"none"`.
 
 Restart the gateway:
 
