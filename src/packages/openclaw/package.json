@@ -3,7 +3,7 @@
 	"version": "0.1.0",
 	"type": "module",
 	"main": "./index.ts",
-	"description": "Acontext skill memory plugin for OpenClaw — auto-capture, auto-recall, auto-learn",
+	"description": "Acontext skill memory plugin for OpenClaw — auto-capture, auto-learn, native skill sync",
 	"license": "Apache-2.0",
 	"keywords": [
 		"openclaw",

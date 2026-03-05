@@ -68,7 +68,7 @@ jobs:
             const fs = require('fs');
             const src = fs.readFileSync('index.ts', 'utf8');
             if (!src.includes('export default')) { console.error('Missing default export'); process.exit(1); }
-            if (!src.includes('before_agent_start')) { console.error('Missing recall hook'); process.exit(1); }
+            if (!src.includes('before_agent_start')) { console.error('Missing skill sync hook'); process.exit(1); }
             if (!src.includes('agent_end')) { console.error('Missing capture hook'); process.exit(1); }
             if (!src.includes('registerTool')) { console.error('Missing tool registration'); process.exit(1); }
             if (!src.includes('registerCli')) { console.error('Missing CLI registration'); process.exit(1); }

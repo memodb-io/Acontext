@@ -2,17 +2,18 @@
  * OpenClaw Acontext Plugin
  *
  * Skill memory for OpenClaw agents — captures conversations, extracts tasks,
- * distills reusable skills, and recalls them in future sessions.
+ * distills reusable skills, and syncs them to OpenClaw's native skill directory.
  *
  * Features:
  * - Auto-capture: stores each agent turn to an Acontext session
- * - Auto-recall: injects learned skills + task history before each turn
+ * - Skill sync: downloads learned skills to ~/.openclaw/skills/ for native loading
  * - Auto-learn: triggers Learning Space skill distillation after sessions
- * - 4 tools: acontext_search_skills, acontext_read_skill, acontext_session_history, acontext_learn_now
+ * - 3 tools: acontext_search_skills, acontext_session_history, acontext_learn_now
  * - CLI: openclaw acontext skills, openclaw acontext stats
  */
 
 import * as fs from "node:fs/promises";
+import * as os from "node:os";
 import * as path from "node:path";
 import { Type } from "@sinclair/typebox";
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
@@ -26,20 +27,12 @@ export type AcontextConfig = {
   baseUrl: string;
   userId: string;
   learningSpaceId?: string;
+  skillsDir: string;
   autoCapture: boolean;
-  autoRecall: boolean;
   autoLearn: boolean;
-  maxSkillFiles: number;
-  maxSkillFileTokens: number;
-  maxTaskSummaryTokens: number;
-  recallSessionCount: number;
   minTurnsForLearn: number;
 };
 
-/**
- * Minimal interface for the subset of AcontextClient used by this plugin.
- * Avoids `any` while keeping the dynamic import pattern.
- */
 interface AcontextClientLike {
   sessions: {
     list(options?: Record<string, unknown>): Promise<{ items: Array<{ id: string; created_at?: string }>; has_more: boolean }>;
@@ -52,7 +45,14 @@ interface AcontextClientLike {
   learningSpaces: {
     list(options?: Record<string, unknown>): Promise<{ items: Array<{ id: string }>; has_more: boolean }>;
     create(options?: Record<string, unknown>): Promise<{ id: string }>;
-    listSkills(spaceId: string): Promise<Array<{ id: string; name: string; description: string; disk_id: string; file_index?: Array<{ path: string; mime: string }> }>>;
+    listSkills(spaceId: string): Promise<Array<{
+      id: string;
+      name: string;
+      description: string;
+      disk_id: string;
+      file_index?: Array<{ path: string; mime: string }>;
+      updated_at: string;
+    }>>;
     learn(options: { spaceId: string; sessionId: string }): Promise<{ id: string }>;
   };
   skills: {
@@ -82,13 +82,9 @@ const ALLOWED_KEYS = [
   "baseUrl",
   "userId",
   "learningSpaceId",
+  "skillsDir",
   "autoCapture",
-  "autoRecall",
   "autoLearn",
-  "maxSkillFiles",
-  "maxSkillFileTokens",
-  "maxTaskSummaryTokens",
-  "recallSessionCount",
   "minTurnsForLearn",
 ];
 
@@ -128,23 +124,12 @@ export const configSchema = {
         typeof cfg.learningSpaceId === "string"
           ? cfg.learningSpaceId
           : undefined,
+      skillsDir:
+        typeof cfg.skillsDir === "string" && cfg.skillsDir
+          ? cfg.skillsDir
+          : path.join(os.homedir(), ".openclaw", "skills"),
       autoCapture: cfg.autoCapture !== false,
-      autoRecall: cfg.autoRecall !== false,
       autoLearn: cfg.autoLearn !== false,
-      maxSkillFiles:
-        typeof cfg.maxSkillFiles === "number" ? cfg.maxSkillFiles : 10,
-      maxSkillFileTokens:
-        typeof cfg.maxSkillFileTokens === "number"
-          ? cfg.maxSkillFileTokens
-          : 2000,
-      maxTaskSummaryTokens:
-        typeof cfg.maxTaskSummaryTokens === "number"
-          ? cfg.maxTaskSummaryTokens
-          : 1500,
-      recallSessionCount:
-        typeof cfg.recallSessionCount === "number"
-          ? cfg.recallSessionCount
-          : 3,
       minTurnsForLearn:
         typeof cfg.minTurnsForLearn === "number" ? cfg.minTurnsForLearn : 4,
     };
@@ -160,11 +145,30 @@ export interface BridgeLogger {
   warn: (...args: unknown[]) => void;
 }
 
-type SkillMeta = { id: string; name: string; description: string; diskId: string; fileIndex: Array<{ path: string; mime: string }> };
+type SkillMeta = {
+  id: string;
+  name: string;
+  description: string;
+  diskId: string;
+  fileIndex: Array<{ path: string; mime: string }>;
+  updatedAt: string;
+};
 
 interface SkillManifest {
   syncedAt: number;
   skills: SkillMeta[];
+}
+
+/**
+ * Sanitize a skill name for use as a directory name.
+ * Replaces non-alphanumeric characters (except hyphens/underscores) with hyphens.
+ */
+function sanitizeSkillName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 }
 
 export class AcontextBridge {
@@ -174,13 +178,15 @@ export class AcontextBridge {
   private learningSpaceId: string | null = null;
   private logger: BridgeLogger;
   private dataDir: string;
+  private skillsDir: string;
 
   private skillsMetadata: SkillMeta[] | null = null;
   private skillsSynced = false;
   private static MANIFEST_STALE_MS = 30 * 60 * 1000; // 30 minutes
 
-  constructor(private readonly cfg: AcontextConfig, dataDir: string, logger?: BridgeLogger) {
+  constructor(private readonly cfg: AcontextConfig, dataDir: string, skillsDir: string, logger?: BridgeLogger) {
     this.dataDir = dataDir;
+    this.skillsDir = skillsDir;
     this.logger = logger ?? { info: () => {}, warn: () => {} };
     if (cfg.learningSpaceId) {
       this.learningSpaceId = cfg.learningSpaceId;
@@ -191,8 +197,8 @@ export class AcontextBridge {
     return path.join(this.dataDir, ".manifest.json");
   }
 
-  private skillDir(skillId: string): string {
-    return path.join(this.dataDir, skillId);
+  private skillDir(skillName: string): string {
+    return path.join(this.skillsDir, sanitizeSkillName(skillName));
   }
 
   private async readManifest(): Promise<SkillManifest | null> {
@@ -211,11 +217,11 @@ export class AcontextBridge {
   }
 
   /**
-   * Download .md files for a single skill to local disk.
+   * Download .md files for a single skill to OpenClaw's native skill directory.
    */
   private async downloadSkillFiles(skill: SkillMeta): Promise<void> {
     const client = await this.ensureClient();
-    const dir = this.skillDir(skill.id);
+    const dir = this.skillDir(skill.name);
 
     for (const fi of skill.fileIndex) {
       if (!fi.path.endsWith(".md")) continue;
@@ -242,35 +248,65 @@ export class AcontextBridge {
   }
 
   /**
-   * Sync all skills from API to local disk.
-   * Only downloads files for skills whose local directory doesn't exist yet.
+   * Sync skills from API to OpenClaw's native skill directory.
+   * Uses updated_at for incremental sync — only downloads new or changed skills.
    */
-  private async syncSkillsToLocal(): Promise<SkillMeta[]> {
+  async syncSkillsToLocal(): Promise<SkillMeta[]> {
     const client = await this.ensureClient();
     const spaceId = await this.ensureLearningSpace();
     const rawSkills = await client.learningSpaces.listSkills(spaceId);
-    const skills: SkillMeta[] = rawSkills.map((s) => ({
+    const remoteSkills: SkillMeta[] = rawSkills.map((s) => ({
       id: s.id,
       name: s.name,
       description: s.description,
       diskId: s.disk_id,
       fileIndex: s.file_index ?? [],
+      updatedAt: s.updated_at,
     }));
 
-    for (const skill of skills) {
-      const dir = this.skillDir(skill.id);
-      try {
-        await fs.access(dir);
-      } catch {
-        await this.downloadSkillFiles(skill);
+    const manifest = await this.readManifest();
+    const localMap = new Map<string, SkillMeta>();
+    if (manifest) {
+      for (const s of manifest.skills) {
+        localMap.set(s.id, s);
       }
     }
 
-    await this.writeManifest(skills);
-    this.skillsMetadata = skills;
+    const remoteIds = new Set<string>();
+    let downloadCount = 0;
+
+    for (const skill of remoteSkills) {
+      remoteIds.add(skill.id);
+      const local = localMap.get(skill.id);
+
+      if (!local || local.updatedAt !== skill.updatedAt) {
+        if (local && sanitizeSkillName(local.name) !== sanitizeSkillName(skill.name)) {
+          const oldDir = this.skillDir(local.name);
+          await fs.rm(oldDir, { recursive: true, force: true }).catch(() => {});
+        }
+        await this.downloadSkillFiles(skill);
+        downloadCount++;
+      }
+    }
+
+    // Remove skills that no longer exist on the server
+    for (const [id, local] of localMap) {
+      if (!remoteIds.has(id)) {
+        const dir = this.skillDir(local.name);
+        await fs.rm(dir, { recursive: true, force: true }).catch((err) => {
+          this.logger.warn(`acontext: failed to remove deleted skill dir ${dir}: ${String(err)}`);
+        });
+      }
+    }
+
+    await this.writeManifest(remoteSkills);
+    this.skillsMetadata = remoteSkills;
     this.skillsSynced = true;
-    this.logger.info(`acontext: synced ${skills.length} skills to ${this.dataDir}`);
-    return skills;
+
+    if (downloadCount > 0) {
+      this.logger.info(`acontext: synced ${downloadCount} skill(s) to ${this.skillsDir} (${remoteSkills.length} total)`);
+    }
+    return remoteSkills;
   }
 
   private async ensureClient(): Promise<AcontextClientLike> {
@@ -288,9 +324,6 @@ export class AcontextBridge {
     }) as unknown as AcontextClientLike;
   }
 
-  /**
-   * Get or create an Acontext session mapped to an OpenClaw session key.
-   */
   async ensureSession(openclawSessionKey: string): Promise<string> {
     const client = await this.ensureClient();
 
@@ -326,9 +359,6 @@ export class AcontextBridge {
     return session.id;
   }
 
-  /**
-   * Get or create a Learning Space for this user.
-   */
   async ensureLearningSpace(): Promise<string> {
     const client = await this.ensureClient();
 
@@ -356,7 +386,7 @@ export class AcontextBridge {
     return this.learningSpaceId!;
   }
 
-  // -- Skill recall ----------------------------------------------------------
+  // -- Skill sync --------------------------------------------------------------
 
   async listSkills(): Promise<SkillMeta[]> {
     if (this.skillsMetadata && this.skillsSynced) {
@@ -378,43 +408,6 @@ export class AcontextBridge {
     }
   }
 
-  async getSkillFile(
-    skillId: string,
-    filePath: string,
-  ): Promise<string | null> {
-    const localPath = path.join(this.skillDir(skillId), filePath);
-
-    try {
-      return await fs.readFile(localPath, "utf-8");
-    } catch {
-      // Not on disk — fetch from API and save locally
-    }
-
-    const client = await this.ensureClient();
-    try {
-      const resp = await client.skills.getFile({
-        skillId,
-        filePath,
-        expire: 60,
-      });
-      let content: string | null = null;
-      if (resp.content) {
-        content = resp.content.raw;
-      } else if (resp.url) {
-        const res = await fetch(resp.url);
-        if (res.ok) content = await res.text();
-      }
-      if (content) {
-        await fs.mkdir(path.dirname(localPath), { recursive: true });
-        await fs.writeFile(localPath, content, "utf-8");
-      }
-      return content;
-    } catch (err) {
-      this.logger.warn(`acontext: getSkillFile failed for ${skillId}:${filePath}: ${String(err)}`);
-      return null;
-    }
-  }
-
   async grepSkills(diskId: string, query: string, limit = 10): Promise<Array<{ path: string; filename: string }>> {
     const client = await this.ensureClient();
     try {
@@ -432,14 +425,14 @@ export class AcontextBridge {
     }
   }
 
-  // -- Task recall -----------------------------------------------------------
+  // -- Session history (on-demand) ---------------------------------------------
 
-  async getRecentSessionSummaries(limitOverride?: number): Promise<string> {
+  async getRecentSessionSummaries(limit = 3): Promise<string> {
     const client = await this.ensureClient();
     try {
       const sessions = await client.sessions.list({
         user: this.cfg.userId,
-        limit: limitOverride ?? this.cfg.recallSessionCount,
+        limit,
         timeDesc: true,
         filterByConfigs: { source: "openclaw" },
       });
@@ -465,19 +458,7 @@ export class AcontextBridge {
     }
   }
 
-  async getSessionSummary(sessionId: string): Promise<string> {
-    const client = await this.ensureClient();
-    try {
-      return await client.sessions.getSessionSummary(sessionId, {
-        limit: 50,
-      });
-    } catch (err) {
-      this.logger.warn(`acontext: getSessionSummary failed for ${sessionId}: ${String(err)}`);
-      return "";
-    }
-  }
-
-  // -- Capture ---------------------------------------------------------------
+  // -- Capture -----------------------------------------------------------------
 
   async storeMessage(
     sessionId: string,
@@ -517,7 +498,7 @@ export class AcontextBridge {
     return false;
   }
 
-  // -- Learn -----------------------------------------------------------------
+  // -- Learn -------------------------------------------------------------------
 
   async learnFromSession(sessionId: string): Promise<string | null> {
     const client = await this.ensureClient();
@@ -538,12 +519,9 @@ export class AcontextBridge {
   invalidateSkillCaches(): void {
     this.skillsMetadata = null;
     this.skillsSynced = false;
-    fs.rm(this.dataDir, { recursive: true, force: true }).catch((err) => {
-      this.logger.warn(`acontext: failed to remove skills cache dir: ${String(err)}`);
-    });
   }
 
-  // -- Stats -----------------------------------------------------------------
+  // -- Stats -------------------------------------------------------------------
 
   async getStats(): Promise<{
     sessionCount: number;
@@ -573,23 +551,6 @@ export class AcontextBridge {
 }
 
 // ============================================================================
-// Helpers
-// ============================================================================
-
-export function truncateByTokenEstimate(text: string, maxTokens: number): string {
-  // Conservative estimate: ~3 chars per token (between 4 for English and 2 for CJK)
-  const maxChars = maxTokens * 3;
-  if (text.length <= maxChars) return text;
-  return text.slice(0, maxChars) + "\n... (truncated)";
-}
-
-export function stripInjectedContext(text: string): string {
-  return text
-    .replace(/<acontext-context>[\s\S]*?<\/acontext-context>\s*/g, "")
-    .trim();
-}
-
-// ============================================================================
 // Plugin Definition
 // ============================================================================
 
@@ -597,21 +558,21 @@ const acontextPlugin = {
   id: "acontext",
   name: "Acontext Skill Memory",
   description:
-    "Acontext skill memory — auto-capture, auto-recall, auto-learn across sessions",
+    "Acontext skill memory — auto-capture, auto-learn, sync skills to OpenClaw native directory",
   kind: "memory" as const,
   configSchema,
 
   register(api: OpenClawPluginApi) {
     const cfg = configSchema.parse(api.pluginConfig);
-    const skillsDir = api.resolvePath("skills");
-    const bridge = new AcontextBridge(cfg, skillsDir, api.logger);
+    const dataDir = api.resolvePath("data");
+    const bridge = new AcontextBridge(cfg, dataDir, cfg.skillsDir, api.logger);
 
     let currentOpenClawSessionKey: string | undefined;
     let currentAcontextSessionId: string | undefined;
     let capturedTurnCount = 0;
 
     api.logger.info(
-      `acontext: registered (user: ${cfg.userId}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, autoLearn: ${cfg.autoLearn})`,
+      `acontext: registered (user: ${cfg.userId}, autoCapture: ${cfg.autoCapture}, autoLearn: ${cfg.autoLearn}, skillsDir: ${cfg.skillsDir})`,
     );
 
     // ========================================================================
@@ -647,7 +608,6 @@ const acontextPlugin = {
               };
             }
 
-            // Grep across all skill disks
             const allMatches: Array<{
               skillName: string;
               path: string;
@@ -721,105 +681,6 @@ const acontextPlugin = {
 
     api.registerTool(
       {
-        name: "acontext_read_skill",
-        label: "Read Skill",
-        description:
-          "Read the full content of a learned skill file. Use to retrieve detailed knowledge.",
-        parameters: Type.Object({
-          skillName: Type.String({
-            description: "Name of the skill to read",
-          }),
-          filePath: Type.Optional(
-            Type.String({
-              description:
-                'Path to a specific file within the skill (default: first .md file)',
-            }),
-          ),
-        }),
-        async execute(_toolCallId: string, params: Record<string, unknown>) {
-          const { skillName, filePath } = params as {
-            skillName: string;
-            filePath?: string;
-          };
-
-          try {
-            const skills = await bridge.listSkills();
-            const skill = skills.find(
-              (s) => s.name.toLowerCase() === skillName.toLowerCase(),
-            );
-            if (!skill) {
-              return {
-                content: [
-                  {
-                    type: "text",
-                    text: `Skill "${skillName}" not found. Available: ${skills.map((s) => s.name).join(", ") || "none"}`,
-                  },
-                ],
-                details: { error: "not_found" },
-              };
-            }
-
-            const targetPath =
-              filePath ??
-              skill.fileIndex.find((f) => f.path.endsWith(".md"))?.path ??
-              skill.fileIndex[0]?.path;
-
-            if (!targetPath) {
-              return {
-                content: [
-                  {
-                    type: "text",
-                    text: `Skill "${skillName}" has no files.`,
-                  },
-                ],
-                details: { error: "no_files" },
-              };
-            }
-
-            const content = await bridge.getSkillFile(skill.id, targetPath);
-            if (!content) {
-              return {
-                content: [
-                  {
-                    type: "text",
-                    text: `Could not read file "${targetPath}" from skill "${skillName}".`,
-                  },
-                ],
-                details: { error: "read_failed" },
-              };
-            }
-
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: `# ${skill.name}: ${targetPath}\n\n${content}`,
-                },
-              ],
-              details: {
-                skillId: skill.id,
-                skillName: skill.name,
-                filePath: targetPath,
-              },
-            };
-          } catch (err) {
-            return {
-              content: [
-                {
-                  type: "text",
-                  text: `Read skill failed: ${String(err)}`,
-                },
-              ],
-              details: { error: String(err) },
-            };
-          }
-        },
-      },
-      { name: "acontext_read_skill" },
-    );
-
-    api.registerTool(
-      {
         name: "acontext_session_history",
         label: "Session History",
         description:
@@ -827,7 +688,7 @@ const acontextPlugin = {
         parameters: Type.Object({
           limit: Type.Optional(
             Type.Number({
-              description: `Max sessions to include (default: ${cfg.recallSessionCount})`,
+              description: "Max sessions to include (default: 3)",
             }),
           ),
         }),
@@ -891,7 +752,6 @@ const acontextPlugin = {
               };
             }
 
-            // flush() is synchronous — blocks until CORE finishes task extraction
             await bridge.flush(currentAcontextSessionId);
 
             const learningId = await bridge.learnFromSession(
@@ -909,11 +769,13 @@ const acontextPlugin = {
               };
             }
 
+            await bridge.syncSkillsToLocal();
+
             return {
               content: [
                 {
                   type: "text",
-                  text: `Learning triggered (id: ${learningId}). Skills will be available once processing completes.`,
+                  text: `Learning triggered (id: ${learningId}). Skills synced to ${cfg.skillsDir}.`,
                 },
               ],
               details: { learningId, sessionId: currentAcontextSessionId },
@@ -961,6 +823,7 @@ const acontextPlugin = {
                 if (files) console.log(`  files: ${files}`);
               }
               console.log(`\nTotal: ${skills.length} skills`);
+              console.log(`Skills directory: ${cfg.skillsDir}`);
             } catch (err) {
               console.error(`Failed to list skills: ${String(err)}`);
             }
@@ -975,8 +838,9 @@ const acontextPlugin = {
               console.log(`Learning Space: ${stats.learningSpaceId ?? "not created"}`);
               console.log(`Sessions: ${stats.sessionCountIsApproximate ? `${stats.sessionCount}+` : stats.sessionCount}`);
               console.log(`Skills: ${stats.skillCount}`);
+              console.log(`Skills directory: ${cfg.skillsDir}`);
               console.log(
-                `Auto-recall: ${cfg.autoRecall}, Auto-capture: ${cfg.autoCapture}, Auto-learn: ${cfg.autoLearn}`,
+                `Auto-capture: ${cfg.autoCapture}, Auto-learn: ${cfg.autoLearn}`,
               );
             } catch (err) {
               console.error(`Stats failed: ${String(err)}`);
@@ -990,76 +854,17 @@ const acontextPlugin = {
     // Lifecycle Hooks
     // ========================================================================
 
-    // Auto-recall: inject skills + task history before agent starts
-    if (cfg.autoRecall) {
-      api.on("before_agent_start", async (event, ctx) => {
-        if (!event.prompt || event.prompt.length < 5) return;
+    // Skill sync: ensure skills are up-to-date before each agent turn
+    api.on("before_agent_start", async (event, ctx) => {
+      const sessionKey = (ctx as any)?.sessionKey ?? undefined;
+      if (sessionKey) currentOpenClawSessionKey = sessionKey;
 
-        const sessionKey = (ctx as any)?.sessionKey ?? undefined;
-        if (sessionKey) currentOpenClawSessionKey = sessionKey;
-
-        try {
-          const contextParts: string[] = [];
-
-          // 1. Skill recall — read learned skill file contents
-          const skills = await bridge.listSkills();
-          if (skills.length > 0) {
-            const skillTexts: string[] = [];
-            let fileCount = 0;
-
-            for (const skill of skills) {
-              if (fileCount >= cfg.maxSkillFiles) break;
-
-              for (const fileInfo of skill.fileIndex) {
-                if (fileCount >= cfg.maxSkillFiles) break;
-                if (!fileInfo.path.endsWith(".md")) continue;
-
-                const content = await bridge.getSkillFile(
-                  skill.id,
-                  fileInfo.path,
-                );
-                if (content) {
-                  skillTexts.push(
-                    `### ${skill.name}: ${fileInfo.path}\n${truncateByTokenEstimate(content, cfg.maxSkillFileTokens)}`,
-                  );
-                  fileCount++;
-                }
-              }
-            }
-
-            if (skillTexts.length > 0) {
-              contextParts.push(
-                `<acontext-skills>\nThe following skills were learned from previous sessions:\n\n${skillTexts.join("\n\n")}\n</acontext-skills>`,
-              );
-            }
-          }
-
-          // 2. Task recall — recent session task summaries
-          const taskSummaries = await bridge.getRecentSessionSummaries();
-          if (taskSummaries) {
-            const truncated = truncateByTokenEstimate(
-              taskSummaries,
-              cfg.maxTaskSummaryTokens,
-            );
-            contextParts.push(
-              `<acontext-tasks>\nRecent task history from past sessions:\n\n${truncated}\n</acontext-tasks>`,
-            );
-          }
-
-          if (contextParts.length === 0) return;
-
-          const totalContext = `<acontext-context>\n${contextParts.join("\n\n")}\n</acontext-context>`;
-
-          api.logger.info(
-            `acontext: injecting context (${skills.length} skills, ${contextParts.length} sections, ${totalContext.length} chars)`,
-          );
-
-          return { prependContext: totalContext };
-        } catch (err) {
-          api.logger.warn(`acontext: recall failed: ${String(err)}`);
-        }
-      });
-    }
+      try {
+        await bridge.listSkills();
+      } catch (err) {
+        api.logger.warn(`acontext: skill sync check failed: ${String(err)}`);
+      }
+    });
 
     // Auto-capture + auto-learn: store messages and trigger learning
     if (cfg.autoCapture) {
@@ -1072,13 +877,11 @@ const acontextPlugin = {
         if (sessionKey) currentOpenClawSessionKey = sessionKey;
 
         try {
-          // Resolve Acontext session
           const openclawKey =
             currentOpenClawSessionKey ?? `default-${cfg.userId}`;
           const sessionId = await bridge.ensureSession(openclawKey);
           currentAcontextSessionId = sessionId;
 
-          // Extract and store messages
           const recentMessages = event.messages.slice(-20);
           let storedCount = 0;
 
@@ -1111,10 +914,6 @@ const acontextPlugin = {
 
             if (!textContent) continue;
 
-            // Strip injected context before storing
-            textContent = stripInjectedContext(textContent);
-            if (!textContent) continue;
-
             await bridge.storeMessage(sessionId, role as string, textContent);
             storedCount++;
           }
@@ -1127,12 +926,9 @@ const acontextPlugin = {
             );
           }
 
-          // Auto-learn: flush + learn in background to avoid blocking the hook.
-          // flush() is synchronous (blocks until CORE finishes task extraction),
-          // so the entire chain runs as a detached promise.
           if (
             cfg.autoLearn &&
-            capturedTurnCount >= cfg.minTurnsForLearn * 2 // *2 because user+assistant = 2 messages per turn
+            capturedTurnCount >= cfg.minTurnsForLearn * 2
           ) {
             const learnSessionId = sessionId;
             capturedTurnCount = 0;
@@ -1146,6 +942,7 @@ const acontextPlugin = {
                     `acontext: auto-learn triggered (learning: ${learningId})`,
                   );
                 }
+                return bridge.syncSkillsToLocal();
               })
               .catch((err) => {
                 api.logger.warn(
@@ -1167,8 +964,11 @@ const acontextPlugin = {
       id: "acontext",
       start: () => {
         api.logger.info(
-          `acontext: service started (user: ${cfg.userId}, autoRecall: ${cfg.autoRecall}, autoCapture: ${cfg.autoCapture}, autoLearn: ${cfg.autoLearn})`,
+          `acontext: service started (user: ${cfg.userId}, autoCapture: ${cfg.autoCapture}, autoLearn: ${cfg.autoLearn})`,
         );
+        bridge.syncSkillsToLocal().catch((err) => {
+          api.logger.warn(`acontext: initial skill sync failed: ${String(err)}`);
+        });
       },
       stop: () => {
         api.logger.info("acontext: service stopped");

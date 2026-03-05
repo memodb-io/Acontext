@@ -65,7 +65,11 @@ export class MockLearningSpacesAPI {
     return this.record("create", options) ?? { id: "mock-space-id" };
   }
   async listSkills(spaceId: string) {
-    return this.record("listSkills", spaceId) ?? [];
+    return this.record("listSkills", spaceId) ?? [] as Array<{
+      id: string; name: string; description: string;
+      disk_id: string; file_index?: Array<{ path: string; mime: string }>;
+      updated_at: string;
+    }>;
   }
   async learn(options: unknown) {
     return this.record("learn", options) ?? { id: "mock-learning-id" };
