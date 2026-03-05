@@ -23,7 +23,7 @@ func GetAssetURL(asset *model.Asset, publicURLs map[string]service.PublicURL) st
 	if asset == nil {
 		return ""
 	}
-	if publicURL, ok := publicURLs[asset.S3Key]; ok {
+	if publicURL, ok := publicURLs[asset.SHA256]; ok {
 		return publicURL.URL
 	}
 	return ""

@@ -585,6 +585,41 @@ func TestGetConvertedMessagesOutput_MixedMetas(t *testing.T) {
 	assert.Equal(t, map[string]interface{}{}, result.Metas[2])
 }
 
+func TestGetAssetURL_LookupBySHA256(t *testing.T) {
+	t.Run("resolves by SHA256 key", func(t *testing.T) {
+		asset := &model.Asset{
+			S3Key:  "parts/project-id/abc.json",
+			SHA256: "deadbeef1234",
+		}
+		publicURLs := map[string]service.PublicURL{
+			"deadbeef1234": {URL: "https://cdn.example.com/signed-url"},
+		}
+
+		result := GetAssetURL(asset, publicURLs)
+		assert.Equal(t, "https://cdn.example.com/signed-url", result)
+	})
+
+	t.Run("nil asset returns empty", func(t *testing.T) {
+		result := GetAssetURL(nil, map[string]service.PublicURL{
+			"key": {URL: "https://example.com"},
+		})
+		assert.Equal(t, "", result)
+	})
+
+	t.Run("missing SHA256 in map returns empty", func(t *testing.T) {
+		asset := &model.Asset{
+			S3Key:  "parts/project-id/abc.json",
+			SHA256: "not-in-map",
+		}
+		publicURLs := map[string]service.PublicURL{
+			"deadbeef1234": {URL: "https://cdn.example.com/signed-url"},
+		}
+
+		result := GetAssetURL(asset, publicURLs)
+		assert.Equal(t, "", result)
+	})
+}
+
 func TestGetConvertedMessagesOutput_EmptyMessages_HasEmptyMetas(t *testing.T) {
 	messages := []model.Message{}
 

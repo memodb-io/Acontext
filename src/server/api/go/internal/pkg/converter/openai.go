@@ -66,6 +66,11 @@ func (c *OpenAIConverter) convertToUserMessage(msg model.Message, publicURLs map
 			contentParts = append(contentParts, openai.TextContentPart(part.Text))
 		case model.PartTypeImage:
 			imageURL := GetAssetURL(part.Asset, publicURLs)
+			if imageURL == "" && part.Meta != nil {
+				if url := part.GetMetaString(model.MetaKeyURL); url != "" {
+					imageURL = url
+				}
+			}
 			if imageURL != "" {
 				detail := part.GetMetaString(model.MetaKeyDetail)
 				imgParam := openai.ChatCompletionContentPartImageImageURLParam{
