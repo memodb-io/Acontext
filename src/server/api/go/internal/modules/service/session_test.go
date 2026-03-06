@@ -1936,26 +1936,51 @@ func TestSessionService_GetMessages_EditTriggerBranchCoverage(t *testing.T) {
 	}
 }
 
-func TestSameMessageOrderByID_Branches(t *testing.T) {
+func TestSameMessageContentSignature_Branches(t *testing.T) {
 	id1 := uuid.MustParse("00000000-0000-0000-0000-000000000201")
 	id2 := uuid.MustParse("00000000-0000-0000-0000-000000000202")
-	id3 := uuid.MustParse("00000000-0000-0000-0000-000000000203")
 
 	t.Run("length mismatch returns false", func(t *testing.T) {
 		a := []model.Message{{ID: id1}}
 		b := []model.Message{{ID: id1}, {ID: id2}}
-		assert.False(t, sameMessageOrderByID(a, b))
+		assert.False(t, sameMessageContentSignature(a, b))
 	})
 
-	t.Run("id mismatch returns false", func(t *testing.T) {
+	t.Run("same ids and token-relevant content returns true", func(t *testing.T) {
 		a := []model.Message{{ID: id1}, {ID: id2}}
-		b := []model.Message{{ID: id1}, {ID: id3}}
-		assert.False(t, sameMessageOrderByID(a, b))
-	})
+		a[0].Parts = []model.Part{model.NewTextPart("hello")}
+		a[1].Parts = []model.Part{
+			{
+				Type: model.PartTypeToolCall,
+				Meta: map[string]interface{}{
+					model.MetaKeyName:      "toolA",
+					model.MetaKeyArguments: "{\"x\":1}",
+				},
+			},
+		}
 
-	t.Run("same order returns true", func(t *testing.T) {
-		a := []model.Message{{ID: id1}, {ID: id2}}
 		b := []model.Message{{ID: id1}, {ID: id2}}
-		assert.True(t, sameMessageOrderByID(a, b))
+		b[0].Parts = []model.Part{model.NewTextPart("hello")}
+		b[1].Parts = []model.Part{
+			{
+				Type: model.PartTypeToolCall,
+				Meta: map[string]interface{}{
+					model.MetaKeyName:      "toolA",
+					model.MetaKeyArguments: "{\"x\":1}",
+				},
+			},
+		}
+
+		assert.True(t, sameMessageContentSignature(a, b))
+	})
+
+	t.Run("same ids but different content returns false", func(t *testing.T) {
+		a := []model.Message{{ID: id1}, {ID: id2}}
+		a[0].Parts = []model.Part{model.NewTextPart("hello")}
+
+		b := []model.Message{{ID: id1}, {ID: id2}}
+		b[0].Parts = []model.Part{model.NewTextPart("hello changed")}
+
+		assert.False(t, sameMessageContentSignature(a, b))
 	})
 }
