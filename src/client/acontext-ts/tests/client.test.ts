@@ -259,6 +259,39 @@ describe('AcontextClient Unit Tests', () => {
       ).rejects.toThrow();
     });
 
+    test('should get messages with editing trigger', async () => {
+      const sessionId = 'test-session-id';
+      const messageId = 'msg-1';
+      client.mock().onGet(`/session/${sessionId}/messages`, (options) => {
+        expect(options?.params?.editing_trigger).toBeDefined();
+        const trigger = JSON.parse(options?.params?.editing_trigger as string);
+        expect(trigger).toEqual({ token_gte: 30000 });
+        return mockGetMessagesOutput({
+          items: [{ role: 'user', content: 'Hello' }],
+          ids: [messageId],
+          has_more: false,
+          this_time_tokens: 10,
+        });
+      });
+
+      const result = await client.sessions.getMessages(sessionId, {
+        format: 'openai',
+        editStrategies: [{ type: 'token_limit', params: { limit_tokens: 1000 } }],
+        editingTrigger: { token_gte: 30000 },
+      });
+      expect(result).toBeDefined();
+      expect(result.items).toBeInstanceOf(Array);
+    });
+
+    test('should reject invalid editing trigger shape', async () => {
+      const sessionId = 'test-session-id';
+      await expect(
+        client.sessions.getMessages(sessionId, {
+          editingTrigger: { token_gte: 0 },
+        })
+      ).rejects.toThrow();
+    });
+
     test('should get tasks', async () => {
       const sessionId = 'test-session-id';
       const tasks = [mockTask({ session_id: sessionId })];

@@ -126,6 +126,17 @@ EditStrategy = Union[
 ]
 
 
+class EditingTrigger(TypedDict, total=False):
+    """Trigger config for applying edit strategies.
+
+    Attributes:
+        token_gte: Apply edit strategies only when the current token count is
+            greater than or equal to this value.
+    """
+
+    token_gte: NotRequired[int]
+
+
 class Asset(BaseModel):
     """Asset model representing a file asset."""
 
