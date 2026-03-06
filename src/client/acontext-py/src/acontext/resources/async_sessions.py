@@ -5,12 +5,13 @@ from collections.abc import Mapping
 from dataclasses import asdict
 from typing import Any, BinaryIO, Literal, Optional, List
 
-from .._utils import build_params, validate_edit_strategies
+from .._utils import build_params, validate_edit_strategies, validate_editing_trigger
 from ..client_types import AsyncRequesterProtocol
 from ..messages import AcontextMessage
 from ..types.common import FlagResponse
 from ..types.session import (
     EditStrategy,
+    EditingTrigger,
     CopySessionResult,
     GetMessagesOutput,
     GetTasksOutput,
@@ -375,7 +376,7 @@ class AsyncSessionsAPI:
         time_desc: bool | None = None,
         edit_strategies: Optional[List[EditStrategy]] = None,
         # editing_trigger triggers edit_strategies (v0 supports {"token_gte": int}).
-        editing_trigger: dict[str, Any] | None = None,
+        editing_trigger: EditingTrigger | BaseModel | None = None,
         pin_editing_strategies_at_message: str | None = None,
     ) -> GetMessagesOutput:
         """Get messages for a session.
@@ -425,6 +426,7 @@ class AsyncSessionsAPI:
         if editing_trigger is not None:
             if isinstance(editing_trigger, BaseModel):
                 editing_trigger = editing_trigger.model_dump()
+            validate_editing_trigger(editing_trigger)
             params["editing_trigger"] = json.dumps(editing_trigger)
         if pin_editing_strategies_at_message is not None:
             params["pin_editing_strategies_at_message"] = (

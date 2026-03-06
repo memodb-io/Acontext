@@ -9,6 +9,8 @@ import { buildParams, validateUUID } from '../utils';
 import {
   EditStrategy,
   EditStrategySchema,
+  EditingTrigger,
+  EditingTriggerSchema,
   CopySessionResult,
   CopySessionResultSchema,
   FlagResponse,
@@ -365,7 +367,7 @@ export class SessionsAPI {
       format?: 'acontext' | 'openai' | 'anthropic' | 'gemini';
       timeDesc?: boolean | null;
       editStrategies?: Array<EditStrategy> | null;
-      editingTrigger?: Record<string, unknown> | null;
+      editingTrigger?: EditingTrigger | null;
       pinEditingStrategiesAtMessage?: string | null;
     }
   ): Promise<GetMessagesOutput> {
@@ -390,6 +392,7 @@ export class SessionsAPI {
       params.edit_strategies = JSON.stringify(options.editStrategies);
     }
     if (options?.editingTrigger !== undefined && options?.editingTrigger !== null) {
+      EditingTriggerSchema.parse(options.editingTrigger);
       params.editing_trigger = JSON.stringify(options.editingTrigger);
     }
     if (options?.pinEditingStrategiesAtMessage !== undefined && options?.pinEditingStrategiesAtMessage !== null) {
