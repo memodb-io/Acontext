@@ -2,6 +2,9 @@ package editingtrigger
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/modules/model"
@@ -12,6 +15,62 @@ import (
 type Trigger struct {
 	// TokenGte triggers edit strategies when token count is >= this value.
 	TokenGte *int `json:"token_gte,omitempty"`
+
+	rawKeys map[string]struct{} `json:"-"`
+}
+
+var (
+	ErrNoSupportedTrigger    = errors.New("at least one supported trigger is required")
+	ErrTokenGteMustBeGreater = errors.New("token_gte must be > 0")
+)
+
+type UnsupportedTriggerError struct {
+	Key string
+}
+
+func (e UnsupportedTriggerError) Error() string {
+	return fmt.Sprintf("unsupported trigger: %s", e.Key)
+}
+
+func (t *Trigger) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	t.TokenGte = nil
+	t.rawKeys = make(map[string]struct{}, len(raw))
+
+	for key, value := range raw {
+		switch key {
+		case "token_gte":
+			t.rawKeys[key] = struct{}{}
+			if err := json.Unmarshal(value, &t.TokenGte); err != nil {
+				return fmt.Errorf("invalid token_gte: %w", err)
+			}
+		default:
+			return UnsupportedTriggerError{Key: key}
+		}
+	}
+
+	return nil
+}
+
+func (t Trigger) Validate() error {
+	hasAnySupportedTrigger := len(t.rawKeys) > 0 || t.TokenGte != nil
+	if !hasAnySupportedTrigger {
+		return ErrNoSupportedTrigger
+	}
+
+	_, tokenGteProvided := t.rawKeys["token_gte"]
+	if tokenGteProvided && t.TokenGte == nil {
+		return ErrTokenGteMustBeGreater
+	}
+	if t.TokenGte != nil && *t.TokenGte <= 0 {
+		return ErrTokenGteMustBeGreater
+	}
+
+	return nil
 }
 
 // TokenCounter computes token count for a message slice.
