@@ -630,6 +630,50 @@ def test_sessions_get_messages_without_edit_strategies(
 
 
 @patch("acontext.client.AcontextClient.request")
+def test_sessions_get_messages_with_editing_trigger(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = {
+        "items": [],
+        "ids": [],
+        "has_more": False,
+        "this_time_tokens": 0,
+    }
+
+    edit_strategies = [
+        {"type": "token_limit", "params": {"limit_tokens": 1000}},
+    ]
+    editing_trigger = {"token_gte": 30000}
+    client.sessions.get_messages(
+        "session-id",
+        format="openai",
+        edit_strategies=edit_strategies,
+        editing_trigger=editing_trigger,
+    )
+
+    mock_request.assert_called_once()
+    _, kwargs = mock_request.call_args
+    assert "editing_trigger" in kwargs["params"]
+    decoded_trigger = json.loads(kwargs["params"]["editing_trigger"])
+    assert decoded_trigger == editing_trigger
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sessions_get_messages_rejects_invalid_editing_trigger(
+    mock_request, client: AcontextClient
+) -> None:
+    with pytest.raises(ValueError, match="token_gte must be > 0"):
+        client.sessions.get_messages(
+            "session-id",
+            format="openai",
+            edit_strategies=[{"type": "token_limit", "params": {"limit_tokens": 1000}}],
+            editing_trigger={"token_gte": 0},
+        )
+
+    mock_request.assert_not_called()
+
+
+@patch("acontext.client.AcontextClient.request")
 def test_sessions_get_tasks_without_filters(
     mock_request, client: AcontextClient
 ) -> None:
