@@ -2,8 +2,11 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"sort"
 	"time"
@@ -619,32 +622,81 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 		}
 	}
 
+	usedCachedTokens := false
 	if triggerEval != nil {
-		if cachedTokens, ok := triggerEval.CachedTokens(); ok && !strategiesApplied && sameMessageOrderByID(triggerEval.Messages(), out.Items) {
+		if cachedTokens, ok := triggerEval.CachedTokens(); ok && !strategiesApplied && sameMessageContentSignature(triggerEval.Messages(), out.Items) {
 			out.ThisTimeTokens = cachedTokens
-			return out, nil
+			usedCachedTokens = true
 		}
 	}
 
-	thisTimeTokens, err := tokenizer.CountMessagePartsTokens(ctx, out.Items)
-	if err != nil {
-		return nil, fmt.Errorf("%w: session_id=%s: %v", ErrGetMessagesTokenCount, in.SessionID, err)
+	if !usedCachedTokens {
+		thisTimeTokens, err := tokenizer.CountMessagePartsTokens(ctx, out.Items)
+		if err != nil {
+			return nil, fmt.Errorf("%w: session_id=%s: %v", ErrGetMessagesTokenCount, in.SessionID, err)
+		}
+		out.ThisTimeTokens = thisTimeTokens
 	}
-	out.ThisTimeTokens = thisTimeTokens
 
 	return out, nil
 }
 
-func sameMessageOrderByID(a, b []model.Message) bool {
-	if len(a) != len(b) {
+// sameMessageContentSignature returns true only when two message slices are
+// equivalent for token-count reuse.
+//
+// Why this is needed:
+// sameMessageOrderByID was not enough, because token count depends on content.
+// IDs can stay the same while token-relevant content changes.
+//
+// Example:
+//   - triggerEval.Messages():
+//     - msg-1 text: "hello"
+//     - msg-2 tool-call: name="search", arguments={"q":"apple"}
+//   - out.Items (same msg IDs/order):
+//     - msg-1 text: "hello"
+//     - msg-2 tool-call: name="search", arguments={"q":"banana"}
+//
+// ID-only compare would return true and reuse stale cached tokens.
+// Content-signature compare returns false, so token count is recomputed.
+func sameMessageContentSignature(a, b []model.Message) bool {
+	sigA, err := messageTokenSignature(a)
+	if err != nil {
 		return false
 	}
-	for i := range a {
-		if a[i].ID != b[i].ID {
-			return false
+	sigB, err := messageTokenSignature(b)
+	if err != nil {
+		return false
+	}
+	return sigA == sigB
+}
+
+func messageTokenSignature(messages []model.Message) (string, error) {
+	hasher := sha256.New()
+	if _, err := io.WriteString(hasher, fmt.Sprintf("%d|", len(messages))); err != nil {
+		return "", err
+	}
+
+	for _, msg := range messages {
+		if _, err := io.WriteString(hasher, msg.ID.String()); err != nil {
+			return "", err
+		}
+		if _, err := io.WriteString(hasher, "|"); err != nil {
+			return "", err
+		}
+
+		content, err := tokenizer.ExtractTextAndToolContent(msg.Parts)
+		if err != nil {
+			return "", err
+		}
+		if _, err := io.WriteString(hasher, content); err != nil {
+			return "", err
+		}
+		if _, err := io.WriteString(hasher, "\n---\n"); err != nil {
+			return "", err
 		}
 	}
-	return true
+
+	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 // cachePartsInRedis stores message parts in Redis with a fixed TTL
