@@ -1,0 +1,10 @@
+{
+  "title": "Agent Tools",
+  "icon": "Sparkles",
+  "pages": [
+    "whatis",
+    "bash_tools",
+    "disk_tools",
+    "skill_tools"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "title": "Customization",
+  "icon": "Settings",
+  "pages": [
+    "local",
+    "core",
+    "runtime"
+  ]
+}

@@ -1,0 +1,305 @@
+---
+title: "Claude Agent SDK"
+description: "Integrate Claude Agent SDK with Acontext for session persistence"
+---
+
+The `ClaudeAgentStorage` integration persists messages from the Claude Agent SDK to Acontext automatically. It stores **only** `UserMessage` and `AssistantMessage` in Anthropic format — `SystemMessage`, `ResultMessage`, and `StreamEvent` are used only for session-id resolution.
+
+## Quick Start
+
+<Tabs>
+<Tab title="Python">
+<Steps>
+<Step title="Install dependencies">
+```bash
+pip install claude-agent-sdk acontext python-dotenv
+```
+</Step>
+
+<Step title="Configure environment">
+```bash
+ANTHROPIC_API_KEY=your_anthropic_key_here
+ACONTEXT_API_KEY=sk-ac-your-api-key
+```
+</Step>
+
+<Step title="Run agent with Acontext">
+
+```python
+import asyncio
+from acontext import AcontextAsyncClient, ClaudeAgentStorage
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+
+async def main():
+    acontext_client = AcontextAsyncClient(api_key="sk-ac-your-api-key")
+    storage = ClaudeAgentStorage(client=acontext_client)
+
+    options = ClaudeAgentOptions(
+        extra_args={"replay-user-messages": None},  # include UserMessage in stream
+    )
+    async with ClaudeSDKClient(options=options) as claude_client:
+        await claude_client.query("What is the capital of France?")
+        async for message in claude_client.receive_response():
+            await storage.save_message(message)
+
+asyncio.run(main())
+```
+
+<Tip>
+The `replay-user-messages` flag ensures `UserMessage` is included in the `receive_response()` stream so that both sides of the conversation are stored. Without it, only `AssistantMessage` appears in the stream and user messages won't be persisted.
+</Tip>
+</Step>
+</Steps>
+</Tab>
+
+<Tab title="TypeScript">
+<Steps>
+<Step title="Install dependencies">
+```bash
+npm install @anthropic-ai/claude-agent-sdk @acontext/acontext
+```
+</Step>
+
+<Step title="Configure environment">
+```bash
+ANTHROPIC_API_KEY=your_anthropic_key_here
+ACONTEXT_API_KEY=sk-ac-your-api-key
+```
+</Step>
+
+<Step title="Run agent with Acontext">
+
+```typescript
+import { AcontextClient, ClaudeAgentStorage } from '@acontext/acontext';
+import { query } from '@anthropic-ai/claude-agent-sdk';
+
+const client = new AcontextClient({ apiKey: 'sk-ac-your-api-key' });
+const storage = new ClaudeAgentStorage({ client });
+
+const q = query({ prompt: 'What is the capital of France?', 
+    options: {
+      extraArgs: { "replay-user-messages": null }, // include UserMessage in stream
+    }});
+for await (const message of q) {
+  await storage.saveMessage(message);
+}
+```
+
+</Step>
+</Steps>
+</Tab>
+</Tabs>
+
+## Session Handling
+
+### Auto-discovered session id
+
+By default, `ClaudeAgentStorage` discovers the session id from the Claude Agent SDK.
+
+When the Claude session id is a valid UUID, Acontext **reuses it as the Acontext session id** (via `use_uuid`). This means the Acontext session and the Claude session share the same id, making it easy to correlate them across systems.
+
+If the Claude stream provides a non-UUID session id, it is ignored and Acontext generates its own session id instead.
+
+<Tabs>
+<Tab title="Python">
+```python
+storage = ClaudeAgentStorage(client=acontext_client)
+
+# session_id is None until the init message arrives
+async for message in claude_client.receive_response():
+    await storage.save_message(message)
+
+# After init: storage.session_id matches the Claude session id
+print(storage.session_id)
+```
+</Tab>
+
+<Tab title="TypeScript">
+```typescript
+const storage = new ClaudeAgentStorage({ client });
+
+// sessionId is null until the init message arrives
+for await (const message of q) {
+  await storage.saveMessage(message);
+}
+
+// After init: storage.sessionId matches the Claude session id
+console.log(storage.sessionId);
+```
+</Tab>
+</Tabs>
+
+### Explicit Acontext session
+
+To correlate the Claude run with a specific Acontext session:
+
+<Tabs>
+<Tab title="Python">
+```python
+session = await acontext_client.sessions.create()
+storage = ClaudeAgentStorage(client=acontext_client, session_id=session.id)
+
+async for message in claude_client.receive_response():
+    await storage.save_message(message)
+```
+</Tab>
+
+<Tab title="TypeScript">
+```typescript
+const session = await client.sessions.create();
+const storage = new ClaudeAgentStorage({ client, sessionId: session.id });
+
+for await (const message of q) {
+  await storage.saveMessage(message);
+}
+```
+</Tab>
+</Tabs>
+
+## Options
+
+### Include thinking blocks
+
+By default, `ThinkingBlock` content is omitted from stored messages. To include it as native thinking blocks:
+
+<Tabs>
+<Tab title="Python">
+```python
+storage = ClaudeAgentStorage(
+    client=acontext_client,
+    include_thinking=True,
+)
+```
+</Tab>
+
+<Tab title="TypeScript">
+```typescript
+const storage = new ClaudeAgentStorage({
+  client,
+  includeThinking: true,
+});
+```
+</Tab>
+</Tabs>
+
+Thinking blocks are stored as Anthropic `thinking` content blocks with their `signature` preserved. When retrieved in Anthropic or Gemini format, they round-trip as native `thinking` blocks. When retrieved in OpenAI format, thinking content is automatically downgraded to plain text.
+
+The stored message `meta` will contain `"has_thinking": True` for observability.
+
+### Custom error handling
+
+By default, API errors during storage are logged and swallowed so your message loop is never interrupted. To customize:
+
+<Tabs>
+<Tab title="Python">
+```python
+storage = ClaudeAgentStorage(
+    client=acontext_client,
+    on_error=lambda exc, msg: print(f"Storage failed: {exc}"),
+)
+```
+</Tab>
+
+<Tab title="TypeScript">
+```typescript
+const storage = new ClaudeAgentStorage({
+  client,
+  onError: (err, blob) => console.error('Storage failed:', err),
+});
+```
+</Tab>
+</Tabs>
+
+### User identifier
+
+Pass a `user` string to associate the Acontext session with a specific user. This value is forwarded to `sessions.create()` when the session is first created:
+
+<Tabs>
+<Tab title="Python">
+```python
+storage = ClaudeAgentStorage(
+    client=acontext_client,
+    user="alice@example.com",
+)
+```
+</Tab>
+
+<Tab title="TypeScript">
+```typescript
+const storage = new ClaudeAgentStorage({
+  client,
+  user: 'alice@example.com',
+});
+```
+</Tab>
+</Tabs>
+
+## What gets stored
+
+| Message type | Stored? | Notes |
+|---|---|---|
+| **UserMessage** | Yes | `role: "user"`. String content wrapped as text block. `ToolUseBlock` skipped (invalid in user role). |
+| **AssistantMessage** | Yes | `role: "assistant"`. `model` stored in message `meta`. `ToolResultBlock` skipped (invalid in assistant role). If `error` field is set, its value is included in `meta.error` for observability. |
+| **SystemMessage** | No | Used only for session-id resolution (`subtype == "init"` in Python, `session_id` field in TypeScript). |
+| **ResultMessage** | No | Fallback session-id source. |
+| **StreamEvent** | No | Fallback session-id source. |
+
+## Learn and Download Skills
+
+Acontext can automatically learn [skills](/learn/quick) from the stored messages — extracting patterns, user preferences, and domain knowledge into structured markdown files. You can then download these skills to your local filesystem:
+
+<Tabs>
+<Tab title="Python">
+```python
+# Create a learning space and learn from the session
+space = await acontext_client.learning_spaces.create()
+await acontext_client.learning_spaces.learn(space.id, session_id=storage.session_id)
+# your agent runs as usual...
+# ...
+
+
+# Download learned skills to local
+skills = await acontext_client.learning_spaces.list_skills(space.id)
+for skill in skills:
+    result = await acontext_client.skills.download(skill_id=skill.id, path=f"./skills/{skill.name}")
+    print(f"Downloaded {result.name} to {result.dir_path}")
+    print(f"Files: {result.files}")
+```
+</Tab>
+
+<Tab title="TypeScript">
+```typescript
+// Create a learning space and learn from the session
+const space = await client.learningSpaces.create();
+await client.learningSpaces.learn({ spaceId: space.id, sessionId: storage.sessionId });
+
+// your agent runs as usual...
+// ...
+
+// Download learned skills to local
+const skills = await client.learningSpaces.listSkills(space.id);
+for (const skill of skills) {
+    const result = await client.skills.download(skill.id, { path: `./skills/${skill.name}` });
+    console.log(`Downloaded ${result.name} to ${result.dirPath}`);
+    console.log(`Files: ${result.files}`);
+}
+```
+</Tab>
+</Tabs>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Anthropic format" icon="message" href="/store/messages/special/anthropic">
+Anthropic message storage details
+</Card>
+<Card title="Message meta" icon="tag" href="/store/messages/special/message-meta">
+Working with message metadata
+</Card>
+<Card title="Skill Memory" icon="brain" href="/learn/quick">
+Learn skills from agent sessions automatically
+</Card>
+<Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
+View all interactions
+</Card>
+</CardGroup>

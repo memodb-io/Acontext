@@ -1,0 +1,192 @@
+---
+title: Multi-provider Messages
+description: "Store and retrieve messages from OpenAI, Anthropic, and Gemini formats"
+---
+
+Acontext stores messages in OpenAI, Anthropic, or Gemini format and automatically converts between them on retrieval.
+
+## Store Messages
+
+<Steps>
+<Step title="Create a session">
+<CodeGroup>
+```python title="Python"
+import os
+from acontext import AcontextClient
+
+client = AcontextClient(
+    api_key=os.getenv("ACONTEXT_API_KEY"),
+)
+session = client.sessions.create()
+```
+
+```typescript title="TypeScript"
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+const session = await client.sessions.create();
+```
+</CodeGroup>
+
+<Tip>
+You can create a session with a specific UUID:
+
+<CodeGroup>
+```python title="Python"
+session = client.sessions.create(use_uuid="123e4567-e89b-12d3-a456-426614174000")
+```
+
+```typescript title="TypeScript"
+const session = await client.sessions.create({ useUuid: "123e4567-e89b-12d3-a456-426614174000" });
+```
+</CodeGroup>
+
+This is useful for correlating sessions with external systems. A 409 Conflict error is returned if the UUID already exists.
+</Tip>
+</Step>
+
+<Step title="Store messages in any format">
+
+<Tabs>
+<Tab title="OpenAI">
+<CodeGroup>
+```python title="Python"
+client.sessions.store_message(
+    session_id=session.id,
+    blob={"role": "user", "content": "What is the capital of France?"},
+    format="openai"
+)
+```
+
+```typescript title="TypeScript"
+await client.sessions.storeMessage(session.id,
+    { role: "user", content: "What is the capital of France?" },
+    { format: "openai" }
+);
+```
+</CodeGroup>
+</Tab>
+
+<Tab title="Anthropic">
+<CodeGroup>
+```python title="Python"
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "user",
+        "content": [{"type": "text", "text": "Explain quantum computing"}]
+    },
+    format="anthropic"
+)
+```
+
+```typescript title="TypeScript"
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    content: [{ type: "text", text: "Explain quantum computing" }]
+}, { format: "anthropic" });
+```
+</CodeGroup>
+</Tab>
+
+<Tab title="Gemini">
+<CodeGroup>
+```python title="Python"
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "user",
+        "parts": [{"text": "Explain quantum computing"}]
+    },
+    format="gemini"
+)
+```
+
+```typescript title="TypeScript"
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    parts: [{ text: "Explain quantum computing" }]
+}, { format: "gemini" });
+```
+</CodeGroup>
+</Tab>
+</Tabs>
+
+<Tip>
+You can attach custom metadata to any message using the `meta` parameter:
+
+<CodeGroup>
+```python title="Python"
+client.sessions.store_message(
+    session_id=session.id,
+    blob={"role": "user", "content": "Hello"},
+    format="openai",
+    meta={"source": "web", "request_id": "abc123"}
+)
+```
+
+```typescript title="TypeScript"
+await client.sessions.storeMessage(session.id, {
+    blob: { role: "user", content: "Hello" },
+    format: "openai",
+    meta: { source: "web", requestId: "abc123" }
+});
+```
+</CodeGroup>
+
+This is useful for tracking message origin, request IDs, or any application-specific data. See [Message Meta](/store/messages/special/message-meta) for more details.
+</Tip>
+</Step>
+</Steps>
+
+## Retrieve Messages
+
+Retrieve in any format—Acontext converts automatically:
+
+<CodeGroup>
+```python title="Python"
+# Stored as OpenAI, retrieve as Anthropic
+result = client.sessions.get_messages(session_id=session.id, format="anthropic")
+
+for msg in result.items:
+    print(f"{msg.role}: {msg.content}")
+```
+
+```typescript title="TypeScript"
+// Stored as OpenAI, retrieve as Anthropic
+const result = await client.sessions.getMessages(session.id, { format: "anthropic" });
+
+for (const msg of result.items) {
+    console.log(`${msg.role}: ${msg.content}`);
+}
+```
+</CodeGroup>
+
+## Delete Session
+
+<CodeGroup>
+```python title="Python"
+client.sessions.delete(session_id)
+```
+
+```typescript title="TypeScript"
+await client.sessions.delete(sessionId);
+```
+</CodeGroup>
+
+<Warning>
+Deleting a session permanently removes all messages.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Filter by Configs" icon="filter" href="/store/messages/filter-by-configs">
+Query sessions using metadata filters
+</Card>
+<Card title="Multi-modal Messages" icon="image" href="/store/messages/multi-modal">
+Store images, audio, and documents
+</Card>
+</CardGroup>

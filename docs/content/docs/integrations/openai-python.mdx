@@ -1,0 +1,157 @@
+---
+title: "OpenAI Python SDK"
+description: "Integrate OpenAI Python SDK with Acontext for session persistence and task extraction"
+---
+
+OpenAI's message format is natively compatible with Acontext. Store messages directly without conversion.
+
+## Quick Start
+
+```bash
+acontext create my-openai-project --template-path "python/openai-basic"
+```
+
+<Note>
+Install CLI first: `curl -fsSL https://install.acontext.io | sh`
+</Note>
+
+## Manual Setup
+
+<Steps>
+<Step title="Install dependencies">
+```bash
+pip install openai acontext python-dotenv
+```
+</Step>
+
+<Step title="Configure environment">
+```bash
+OPENAI_API_KEY=your_openai_key_here
+ACONTEXT_API_KEY=sk-ac-your-api-key
+```
+</Step>
+
+<Step title="Run agent with Acontext">
+
+<Accordion title="Complete example">
+```python
+import os
+import json
+from openai import OpenAI
+from acontext import AcontextClient
+
+openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+client = AcontextClient(
+    api_key=os.getenv("ACONTEXT_API_KEY"),
+)
+
+# If you're using self-hosted Acontext:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
+
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Returns weather info for the specified city.",
+            "parameters": {
+                "type": "object",
+                "properties": {"city": {"type": "string"}},
+                "required": ["city"],
+            },
+        },
+    },
+]
+
+def get_weather(city: str) -> str:
+    return f"The weather in {city} is sunny"
+
+def execute_tool(name: str, args: dict) -> str:
+    if name == "get_weather":
+        return get_weather(**args)
+    return f"Unknown tool: {name}"
+
+def run_agent(conversation: list) -> tuple[str, list]:
+    messages = list(conversation)
+    new_messages = []
+
+    while True:
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=messages,
+            tools=tools,
+            tool_choice="auto",
+        )
+
+        message = response.choices[0].message
+        msg_dict = {"role": message.role, "content": message.content}
+
+        if message.tool_calls:
+            msg_dict["tool_calls"] = [
+                {"id": tc.id, "type": "function", "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+                for tc in message.tool_calls
+            ]
+            messages.append(msg_dict)
+            new_messages.append(msg_dict)
+
+            for tc in message.tool_calls:
+                result = execute_tool(tc.function.name, json.loads(tc.function.arguments))
+                tool_msg = {"role": "tool", "tool_call_id": tc.id, "content": result}
+                messages.append(tool_msg)
+                new_messages.append(tool_msg)
+        else:
+            new_messages.append(msg_dict)
+            return message.content, new_messages
+
+# Create session
+session = client.sessions.create()
+conversation = []
+
+# User message
+user_msg = {"role": "user", "content": "What's the weather in Helsinki?"}
+conversation.append(user_msg)
+client.sessions.store_message(session_id=session.id, blob=user_msg)
+
+# Run agent
+response_content, new_messages = run_agent(conversation)
+
+# Store all messages
+for msg in new_messages:
+    conversation.append(msg)
+    client.sessions.store_message(session_id=session.id, blob=msg)
+
+# Extract tasks
+client.sessions.flush(session.id)
+tasks = client.sessions.get_tasks(session.id)
+
+for task in tasks.items:
+    print(f"Task: {task.data.task_description} | Status: {task.status}")
+```
+</Accordion>
+</Step>
+</Steps>
+
+## Resume Sessions
+
+```python
+messages = client.sessions.get_messages(session_id)
+conversation = messages.items
+
+conversation.append({"role": "user", "content": "Summarize our conversation"})
+response = openai_client.chat.completions.create(model="gpt-4o-mini", messages=conversation)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Task Tracking" icon="radar" href="/observe/agent_tasks">
+Monitor agent tasks and progress
+</Card>
+<Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
+View all interactions
+</Card>
+</CardGroup>

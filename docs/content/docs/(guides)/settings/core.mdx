@@ -1,0 +1,146 @@
+---
+title: "Core Dependencies"
+description: "Configure LLM providers, embedding models, and core services"
+---
+
+## Basic Environment Variables
+
+Configure your acontext core services using these essential environment variables. All environment variables use uppercase field names corresponding to the configuration schema.
+
+### LLM Configuration
+
+<ParamField path="LLM_API_KEY" type="string" required>
+API key for your LLM provider (OpenAI or Anthropic). This is the primary authentication credential for AI model access.
+</ParamField>
+
+<ParamField path="LLM_BASE_URL" type="string" default="null">
+Custom base URL for LLM API endpoints. Leave unset to use the provider's default endpoint.
+</ParamField>
+
+<ParamField path="LLM_SDK" type="string" default="openai">
+LLM provider to use. Supported values: `openai`, `anthropic`
+</ParamField>
+
+<ParamField path="LLM_SIMPLE_MODEL" type="string" default="gpt-4.1">
+Default model identifier for LLM operations. Examples: `gpt-4`, `gpt-3.5-turbo`, `claude-3-sonnet`
+</ParamField>
+
+<ParamField path="LLM_RESPONSE_TIMEOUT" type="float" default="60">
+Timeout in seconds for LLM API responses. Increase for longer operations.
+</ParamField>
+
+### Embedding Configuration
+
+<ParamField path="BLOCK_EMBEDDING_PROVIDER" type="string" default="openai">
+Embedding provider for vector operations. Supported values: `openai`, `jina`
+</ParamField>
+
+<ParamField path="BLOCK_EMBEDDING_MODEL" type="string" default="text-embedding-3-small">
+Embedding model to use for generating vectors. Examples: `text-embedding-3-small`, `text-embedding-ada-002`
+</ParamField>
+
+<ParamField path="BLOCK_EMBEDDING_DIM" type="integer" default="1536">
+Dimension size for embedding vectors. Must match your chosen embedding model's output dimensions.
+</ParamField>
+
+<ParamField path="BLOCK_EMBEDDING_API_KEY" type="string" default="null">
+Separate API key for embedding service. If not set, uses `LLM_API_KEY`.
+</ParamField>
+
+<ParamField path="BLOCK_EMBEDDING_BASE_URL" type="string" default="null">
+Custom base URL for embedding API endpoints. Leave unset to use the provider's default.
+</ParamField>
+
+<ParamField path="BLOCK_EMBEDDING_SEARCH_COSINE_DISTANCE_THRESHOLD" type="float" default="0.8">
+Cosine distance threshold for embedding similarity searches. Lower values = more strict matching.
+</ParamField>
+
+<Warning>
+Be careful when choosing your embedding model. Changing the embedding model after data has been stored will require you to clean and rebuild your databases, as existing vector embeddings will be incompatible with the new model's output format and dimensions.
+</Warning>
+
+## `.env` Examples
+
+<CodeGroup>
+```bash title=".env"
+# Required LLM Configuration
+LLM_API_KEY=sk-your-openai-api-key-here
+
+# Optional LLM Settings
+LLM_SDK=openai
+LLM_SIMPLE_MODEL=gpt-4
+LLM_RESPONSE_TIMEOUT=60
+
+# Embedding Configuration
+BLOCK_EMBEDDING_PROVIDER=openai
+BLOCK_EMBEDDING_MODEL=text-embedding-3-small
+BLOCK_EMBEDDING_DIM=1536
+BLOCK_EMBEDDING_SEARCH_COSINE_DISTANCE_THRESHOLD=0.8
+```
+
+```bash title="Anthropic Setup"
+# Using Anthropic Claude
+LLM_API_KEY=your-anthropic-api-key
+LLM_SDK=anthropic
+LLM_SIMPLE_MODEL=claude-3-sonnet-20240229
+
+# Keep OpenAI for embeddings (recommended)
+BLOCK_EMBEDDING_PROVIDER=openai
+BLOCK_EMBEDDING_API_KEY=sk-your-openai-key-for-embeddings
+```
+
+```bash title="Custom Endpoints"
+# Custom LLM endpoint (e.g., Azure OpenAI)
+LLM_API_KEY=your-azure-key
+LLM_BASE_URL=https://your-resource.openai.azure.com/
+LLM_SDK=openai
+
+# Custom embedding endpoint
+BLOCK_EMBEDDING_API_KEY=your-embedding-key
+BLOCK_EMBEDDING_BASE_URL=https://api.jina.ai/v1/embeddings
+BLOCK_EMBEDDING_PROVIDER=jina
+```
+
+```bash title="Local LLM (Ollama)"
+# Ollama server running locally
+LLM_API_KEY=dummy-key-not-required
+LLM_BASE_URL=http://localhost:11434/v1
+LLM_SDK=openai
+LLM_SIMPLE_MODEL=qwen3:8b
+
+# Local embedding with Ollama
+BLOCK_EMBEDDING_PROVIDER=openai
+BLOCK_EMBEDDING_API_KEY=dummy-key
+BLOCK_EMBEDDING_BASE_URL=http://localhost:11434/v1
+BLOCK_EMBEDDING_MODEL=qwen3-embedding:0.6b
+BLOCK_EMBEDDING_DIM=1024
+```
+</CodeGroup>
+
+## Appendix
+
+<AccordionGroup>
+<Accordion title="Ollama Setup Instructions">
+<Steps>
+<Step title="Install Ollama">
+Go to [Ollama](https://ollama.com/download) to download and install Ollama.
+</Step>
+<Step title="Start Ollama">
+  ```bash  
+  # Pull and run a model
+  ollama pull qwen3:8b
+  ollama pull qwen3-embedding:0.6b
+  ollama serve
+  ```
+</Step>
+
+<Step title="Enable OpenAI compatibility">
+  Ollama automatically provides OpenAI-compatible endpoints at `http://localhost:11434/v1`
+</Step>
+</Steps>
+
+<Info>
+Local LLM setups are perfect for development, privacy-sensitive applications, or when you want to avoid API costs. Ollama provides OpenAI-compatible APIs, making integration seamless.
+</Info>
+</Accordion>
+</AccordionGroup>

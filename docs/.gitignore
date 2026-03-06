@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+.source/
+.open-next/
+.wrangler/
+.dev.vars
+*.tsbuildinfo
+next-env.d.ts
+
+# override root .gitignore which ignores lib/
+!lib/

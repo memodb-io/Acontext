@@ -1,0 +1,222 @@
+---
+title: Quickstart
+description: "Install Acontext SDK and run a demo script"
+---
+
+Get up and running with Acontext in under 5 minutes. This guide walks you through setting up the server, installing the SDK, and storing your first messages.
+
+<Steps>
+<Step title="Start Acontext server">
+
+Choose between hosted or self-hosted Acontext:
+
+<Tabs>
+<Tab title="Hosted (Recommended)">
+Go to [Acontext Dashboard](https://dash.acontext.io) and sign up for a free account. The onboarding process will guide you to get an API key.
+
+Set your API key as an environment variable:
+
+```bash
+export ACONTEXT_API_KEY="your-api-key"
+```
+</Tab>
+
+<Tab title="Self-hosted">
+Refer to [local deployment](/settings/local) to start Acontext server in 2 commands. This launches:
+- **API**: http://localhost:8029/api/v1
+- **Dashboard**: http://localhost:3000/
+
+The default API key is `sk-ac-your-root-api-bearer-token`.
+</Tab>
+</Tabs>
+
+</Step>
+
+<Step title="Install the SDK">
+
+<Tabs>
+<Tab title="Python">
+```bash
+pip install acontext
+```
+
+<Info>
+Requires Python 3.10 or newer.
+</Info>
+</Tab>
+
+<Tab title="TypeScript/JavaScript">
+<CodeGroup>
+```bash title="npm"
+npm install @acontext/acontext
+```
+
+```bash title="yarn"
+yarn add @acontext/acontext
+```
+
+```bash title="pnpm"
+pnpm add @acontext/acontext
+```
+</CodeGroup>
+
+<Info>
+Requires Node.js 16.x or newer.
+</Info>
+</Tab>
+</Tabs>
+
+</Step>
+
+<Step title="Verify your setup">
+
+Run this script to test your connection and store your first messages:
+
+<CodeGroup>
+```python title="Python"
+import os
+from acontext import AcontextClient
+
+client = AcontextClient(
+    api_key=os.getenv("ACONTEXT_API_KEY"),
+)
+
+# If you're using self-hosted Acontext:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
+
+print(client.ping())
+
+# Create a session (optionally associate with a user)
+session = client.sessions.create(user="user@example.com")
+
+# Store messages
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "assistant",
+        "content": """Here is my plan:
+1. Use Next.js for the frontend
+2. Use Supabase for the database
+3. Deploy to Cloudflare Pages
+""",
+    },
+)
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "user",
+        "content": "Confirm, go ahead. Use tailwind for frontend styling.",
+    },
+)
+
+# Retrieve messages
+messages = client.sessions.get_messages(session_id=session.id)
+print(messages.items)
+```
+
+```typescript title="TypeScript"
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+// If you're using self-hosted Acontext:
+// const client = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
+
+async function main() {
+    console.log(await client.ping());
+
+    // Create a session (optionally associate with a user)
+    const session = await client.sessions.create({ user: 'user@example.com' });
+
+    // Store messages
+    await client.sessions.storeMessage(session.id, {
+        role: 'assistant',
+        content: `Here is my plan:
+1. Use Next.js for the frontend
+2. Use Supabase for the database
+3. Deploy to Cloudflare Pages
+`,
+    });
+    await client.sessions.storeMessage(session.id, {
+        role: 'user',
+        content: 'Confirm, go ahead. Use tailwind for frontend styling.',
+    });
+
+    // Retrieve messages
+    const messages = await client.sessions.getMessages(session.id);
+    console.log(messages.items);
+}
+
+main();
+```
+</CodeGroup>
+
+<Check>
+If you see the success message and your stored messages, you're ready to start using Acontext!
+</Check>
+
+</Step>
+</Steps>
+
+## Troubleshooting
+
+<AccordionGroup>
+<Accordion title="Connection refused or timeout errors">
+- Verify your Acontext server is running
+- Check that the `base_url` is correct
+- Ensure no firewall is blocking the connection
+- For local development, confirm you're using `http://localhost:8029/api/v1`
+</Accordion>
+
+<Accordion title="Authentication errors">
+- Verify your API key is correct
+- Check that the API key has the necessary permissions
+- Ensure you're passing the API key in the correct format
+</Accordion>
+
+<Accordion title="Module not found errors">
+- Confirm the package is installed: `pip list | grep acontext` (Python) or `npm list @acontext/acontext` (TypeScript)
+- Try reinstalling the package
+- Check your Python version is 3.10+ or Node.js version is 16+
+</Accordion>
+
+<Accordion title="Type errors in TypeScript">
+- Ensure you're using TypeScript 4.5 or newer
+- Run `npm install` to ensure all type definitions are installed
+- Check that your `tsconfig.json` has proper settings for module resolution
+</Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+
+<Card title="Session Management" icon="folder" href="/store/messages/multi-provider">
+Create and manage sessions for organizing your conversations
+</Card>
+
+<Card title="Context Engineering" icon="gear" href="/engineering/editing">
+Build a compact context for agents in one API call
+</Card>
+
+<Card title="Disk Storage" icon="database" href="/store/disk">
+Store and manage files and artifacts in Acontext
+</Card>
+
+<Card title="Skill Memory" icon="brain" href="/learn/quick">
+Understand how skill memory works
+</Card>
+
+<Card title="API Reference" icon="code" href="/api-reference/introduction">
+Explore the complete API documentation
+</Card>
+
+</CardGroup>

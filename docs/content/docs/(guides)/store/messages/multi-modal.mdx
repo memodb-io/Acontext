@@ -1,0 +1,288 @@
+---
+title: Multi-modal Messages
+description: "Store messages with images, audio, and documents"
+---
+
+Acontext stores multi-modal content (images, audio, PDFs) as base64 within message parts. Format conversion between OpenAI and Anthropic is automatic.
+
+## Images
+
+<Tabs>
+<Tab title="OpenAI Format">
+
+<CodeGroup>
+```python title="Python"
+import os
+import base64
+from acontext import AcontextClient
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+session = client.sessions.create()
+
+# From URL
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "What's in this image?"},
+            {"type": "image_url", "image_url": {"url": "https://example.com/image.png"}}
+        ]
+    },
+    format="openai"
+)
+
+# From base64
+with open("image.png", "rb") as f:
+    image_data = base64.b64encode(f.read()).decode("utf-8")
+
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Describe this"},
+            {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{image_data}"}}
+        ]
+    },
+    format="openai"
+)
+```
+
+```typescript title="TypeScript"
+import { AcontextClient } from '@acontext/acontext';
+import * as fs from 'fs';
+
+const client = new AcontextClient({ apiKey: process.env.ACONTEXT_API_KEY });
+const session = await client.sessions.create();
+
+// From URL
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    content: [
+        { type: "text", text: "What's in this image?" },
+        { type: "image_url", image_url: { url: "https://example.com/image.png" } }
+    ]
+}, { format: "openai" });
+
+// From base64
+const imageData = fs.readFileSync("image.png").toString("base64");
+
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    content: [
+        { type: "text", text: "Describe this" },
+        { type: "image_url", image_url: { url: `data:image/png;base64,${imageData}` } }
+    ]
+}, { format: "openai" });
+```
+</CodeGroup>
+</Tab>
+
+<Tab title="Anthropic Format">
+
+<CodeGroup>
+```python title="Python"
+import os
+import base64
+from acontext import AcontextClient
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+session = client.sessions.create()
+
+with open("image.png", "rb") as f:
+    image_data = base64.b64encode(f.read()).decode("utf-8")
+
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Describe this image"},
+            {
+                "type": "image",
+                "source": {"type": "base64", "media_type": "image/png", "data": image_data}
+            }
+        ]
+    },
+    format="anthropic"
+)
+```
+
+```typescript title="TypeScript"
+import { AcontextClient } from '@acontext/acontext';
+import * as fs from 'fs';
+
+const client = new AcontextClient({ apiKey: process.env.ACONTEXT_API_KEY });
+const session = await client.sessions.create();
+
+const imageData = fs.readFileSync("image.png").toString("base64");
+
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    content: [
+        { type: "text", text: "Describe this image" },
+        {
+            type: "image",
+            source: { type: "base64", media_type: "image/png", data: imageData }
+        }
+    ]
+}, { format: "anthropic" });
+```
+</CodeGroup>
+</Tab>
+</Tabs>
+
+## Audio
+
+<CodeGroup>
+```python title="Python"
+import base64
+
+with open("audio.wav", "rb") as f:
+    audio_data = base64.b64encode(f.read()).decode("utf-8")
+
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Transcribe this audio"},
+            {"type": "input_audio", "input_audio": {"data": audio_data, "format": "wav"}}
+        ]
+    },
+    format="openai"
+)
+```
+
+```typescript title="TypeScript"
+import * as fs from 'fs';
+
+const audioData = fs.readFileSync("audio.wav").toString("base64");
+
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    content: [
+        { type: "text", text: "Transcribe this audio" },
+        { type: "input_audio", input_audio: { data: audioData, format: "wav" } }
+    ]
+}, { format: "openai" });
+```
+</CodeGroup>
+
+## Documents
+
+<Tabs>
+<Tab title="OpenAI Format">
+
+<CodeGroup>
+```python title="Python"
+import base64
+
+with open("document.pdf", "rb") as f:
+    pdf_data = base64.b64encode(f.read()).decode("utf-8")
+
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "user",
+        "content": [
+            {"type": "text", "text": "Summarize this PDF"},
+            {"type": "file", "file": {"file_data": pdf_data, "filename": "document.pdf"}}
+        ]
+    },
+    format="openai"
+)
+```
+
+```typescript title="TypeScript"
+import * as fs from 'fs';
+
+const pdfData = fs.readFileSync("document.pdf").toString("base64");
+
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    content: [
+        { type: "text", text: "Summarize this PDF" },
+        { type: "file", file: { file_data: pdfData, filename: "document.pdf" } }
+    ]
+}, { format: "openai" });
+```
+</CodeGroup>
+</Tab>
+
+<Tab title="Anthropic Format">
+
+<CodeGroup>
+```python title="Python"
+import base64
+
+with open("report.pdf", "rb") as f:
+    pdf_data = base64.b64encode(f.read()).decode("utf-8")
+
+client.sessions.store_message(
+    session_id=session.id,
+    blob={
+        "role": "user",
+        "content": [
+            {"type": "document", "source": {"type": "base64", "media_type": "application/pdf", "data": pdf_data}},
+            {"type": "text", "text": "Summarize the key findings"}
+        ]
+    },
+    format="anthropic"
+)
+```
+
+```typescript title="TypeScript"
+import * as fs from 'fs';
+
+const pdfData = fs.readFileSync("report.pdf").toString("base64");
+
+await client.sessions.storeMessage(session.id, {
+    role: "user",
+    content: [
+        { type: "document", source: { type: "base64", media_type: "application/pdf", data: pdfData } },
+        { type: "text", text: "Summarize the key findings" }
+    ]
+}, { format: "anthropic" });
+```
+</CodeGroup>
+</Tab>
+</Tabs>
+
+## Retrieve Messages
+
+Base64 content is returned as-is. Format conversion is automatic:
+
+<CodeGroup>
+```python title="Python"
+# Store as Anthropic, retrieve as OpenAI
+result = client.sessions.get_messages(session_id=session.id, format="openai")
+
+for msg in result.items:
+    for part in msg.content:
+        print(f"Type: {part.get('type')}")
+```
+
+```typescript title="TypeScript"
+// Store as Anthropic, retrieve as OpenAI
+const result = await client.sessions.getMessages(session.id, { format: "openai" });
+
+for (const msg of result.items) {
+    for (const part of msg.content as any[]) {
+        console.log(`Type: ${part.type}`);
+    }
+}
+```
+</CodeGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Store Artifacts" icon="box" href="/store/disk">
+Store file artifacts alongside messages
+</Card>
+<Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
+View messages in the dashboard
+</Card>
+</CardGroup>

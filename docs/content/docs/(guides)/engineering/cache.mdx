@@ -1,0 +1,105 @@
+---
+title: Prompt Cache Stability
+description: "Maintain LLM cache hits when using edit strategies"
+---
+
+Edit strategies change the message prefix, breaking prompt caching. Use `pin_editing_strategies_at_message` to keep the prefix stable.
+
+## The Problem
+
+```
+Round 1: [a, b, c]
+Round 2: [a(edited), b, c, d]           # cache miss
+Round 3: [a(edited), b(edited), c, d, e] # cache miss
+```
+
+## The Solution
+
+Pin where strategies are applied:
+
+```
+Round 1: [z(edited), a, b, c]           # edit_at_message_id = c
+Round 2: [z(edited), a, b, c, d]        # stable prefix ✓
+Round 3: [z(edited), a, b, c, d, e]     # stable prefix ✓
+```
+
+## Usage
+
+<CodeGroup>
+```python title="Python"
+from acontext import AcontextClient
+import os
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+
+# First call - get the pin ID
+result = client.sessions.get_messages(
+    session_id="session-uuid",
+    edit_strategies=[{"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}]
+)
+cache_pin_id = result.edit_at_message_id
+
+# Subsequent calls - pin to maintain cache
+result = client.sessions.get_messages(
+    session_id="session-uuid",
+    pin_editing_strategies_at_message=cache_pin_id,
+    edit_strategies=[{"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}}]
+)
+```
+
+```typescript title="TypeScript"
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+// First call - get the pin ID
+let result = await client.sessions.getMessages("session-uuid", {
+    editStrategies: [{ type: "remove_tool_result", params: { keep_recent_n_tool_results: 3 } }],
+});
+let cachePinId = result.editAtMessageId;
+
+// Subsequent calls - pin to maintain cache
+result = await client.sessions.getMessages("session-uuid", {
+    pinEditingStrategiesAtMessage: cachePinId,
+    editStrategies: [{ type: "remove_tool_result", params: { keep_recent_n_tool_results: 3 } }],
+});
+```
+</CodeGroup>
+
+## When to Reset
+
+When context grows too large, reset by omitting the pin:
+
+<CodeGroup>
+```python title="Python"
+if result.this_time_tokens > 50000:
+    result = client.sessions.get_messages(
+        session_id="session-uuid",
+        edit_strategies=[
+            {"type": "remove_tool_result", "params": {"keep_recent_n_tool_results": 3}},
+            {"type": "token_limit", "params": {"limit_tokens": 30000}}
+        ]
+    )
+    cache_pin_id = result.edit_at_message_id  # new pin
+```
+
+```typescript title="TypeScript"
+if (result.thisTimeTokens > 50000) {
+    result = await client.sessions.getMessages("session-uuid", {
+        editStrategies: [
+            { type: "remove_tool_result", params: { keep_recent_n_tool_results: 3 } },
+            { type: "token_limit", params: { limit_tokens: 30000 } },
+        ],
+    });
+    cachePinId = result.editAtMessageId;  // new pin
+}
+```
+</CodeGroup>
+
+## Next Steps
+
+<Card title="Context Editing" icon="scissors" href="/engineering/editing">
+Available edit strategies
+</Card>

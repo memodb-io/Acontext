@@ -1,0 +1,10 @@
+{
+  "title": "Skill Memory",
+  "icon": "Brain",
+  "pages": [
+    "skill-memory",
+    "quick",
+    "custom-memory",
+    "learning-spaces"
+  ]
+}

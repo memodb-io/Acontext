@@ -1,0 +1,12 @@
+{
+  "title": "Context Storage",
+  "icon": "Database",
+  "pages": [
+    "overview",
+    "messages",
+    "disk",
+    "skill",
+    "sandbox",
+    "per-user"
+  ]
+}

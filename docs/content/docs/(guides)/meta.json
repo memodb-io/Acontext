@@ -1,0 +1,26 @@
+{
+  "title": "Guides",
+  "description": "Learn how to use Acontext",
+  "root": true,
+  "icon": "BookOpen",
+  "pages": [
+    "---[Rocket]Getting Started---",
+    "index",
+    "quick",
+    "llm_quick",
+    "---[Database]Context Storage---",
+    "...store",
+    "---[Cpu]Context Engineering---",
+    "...engineering",
+    "---[Radar]Agent Observability---",
+    "...observe",
+    "---[Brain]Skill Memory---",
+    "...learn",
+    "---[Sparkles]Agent Tools---",
+    "...tool",
+    "---[Ellipsis]Miscellaneous---",
+    "...chore",
+    "---[Settings]Customization---",
+    "...settings"
+  ]
+}

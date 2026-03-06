@@ -1,0 +1,12 @@
+{
+  "title": "Context Engineering",
+  "icon": "Cpu",
+  "pages": [
+    "whatis",
+    "agent_skills",
+    "session_summary",
+    "editing",
+    "cache",
+    "copy_session"
+  ]
+}

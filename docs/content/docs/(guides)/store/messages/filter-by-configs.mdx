@@ -1,0 +1,237 @@
+---
+title: Session Configs
+description: "Manage session-level configuration with full replacement, patch, and filter semantics"
+---
+
+Sessions can store arbitrary configuration data that persists for the session lifetime. Use configs to track agent settings, model parameters, or any session-level metadata.
+
+## Create Session with Configs
+
+<CodeGroup>
+```python title="Python"
+session = client.sessions.create(
+    configs={"agent": "bot1", "temperature": 0.7, "model": "gpt-4"}
+)
+```
+
+```typescript title="TypeScript"
+const session = await client.sessions.create({
+  configs: { agent: "bot1", temperature: 0.7, model: "gpt-4" }
+});
+```
+</CodeGroup>
+
+## Update Configs (Full Replacement)
+
+Use `update_configs` to completely replace all configs. Any keys not included will be removed.
+
+<CodeGroup>
+```python title="Python"
+# Replaces ALL configs - any missing keys are deleted
+client.sessions.update_configs(
+    session_id=session.id,
+    configs={"agent": "bot2", "temperature": 0.9}  # "model" key is now gone
+)
+```
+
+```typescript title="TypeScript"
+// Replaces ALL configs - any missing keys are deleted
+await client.sessions.updateConfigs(session.id, {
+  configs: { agent: "bot2", temperature: 0.9 }  // "model" key is now gone
+});
+```
+</CodeGroup>
+
+## Patch Configs (Partial Update)
+
+Use `patch_configs` to update only specific keys while preserving others. Pass `null`/`None` to delete a key.
+
+<CodeGroup>
+```python title="Python"
+# Add or update keys (preserves existing keys)
+updated = client.sessions.patch_configs(
+    session_id=session.id,
+    configs={"agent": "bot2", "new_setting": True}
+)
+print(updated)  # {"agent": "bot2", "temperature": 0.7, "model": "gpt-4", "new_setting": True}
+
+# Delete a key by passing None
+updated = client.sessions.patch_configs(
+    session_id=session.id,
+    configs={"model": None}  # Deletes "model" key
+)
+print(updated)  # {"agent": "bot2", "temperature": 0.7, "new_setting": True}
+```
+
+```typescript title="TypeScript"
+// Add or update keys (preserves existing keys)
+const updated = await client.sessions.patchConfigs(
+  session.id,
+  { agent: "bot2", new_setting: true }
+);
+console.log(updated);  // {agent: "bot2", temperature: 0.7, model: "gpt-4", new_setting: true}
+
+// Delete a key by passing null
+const result = await client.sessions.patchConfigs(
+  session.id,
+  { model: null }  // Deletes "model" key
+);
+console.log(result);  // {agent: "bot2", temperature: 0.7, new_setting: true}
+```
+</CodeGroup>
+
+## PUT vs PATCH Comparison
+
+| Aspect | PUT (update_configs) | PATCH (patch_configs) |
+|--------|---------------------|----------------------|
+| Semantics | Full replacement | Partial update |
+| Missing keys | Removed | Preserved |
+| Null values | Set to null | Delete the key |
+| Return value | None | Updated configs |
+
+## Get Configs
+
+<CodeGroup>
+```python title="Python"
+session = client.sessions.get_configs(session_id=session.id)
+print(session.configs)
+```
+
+```typescript title="TypeScript"
+const session = await client.sessions.getConfigs(session.id);
+console.log(session.configs);
+```
+</CodeGroup>
+
+## Filter Sessions by Configs
+
+Filter sessions by their `configs` metadata using JSONB containment. Only sessions where `configs` contains all key-value pairs in your filter will be returned.
+
+### Basic Usage
+
+<CodeGroup>
+```python title="Python"
+import os
+from acontext import AcontextClient
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+
+# Create sessions with configs
+session1 = client.sessions.create(configs={"agent": "bot1", "env": "prod"})
+session2 = client.sessions.create(configs={"agent": "bot2", "env": "dev"})
+
+# Filter by single key
+sessions = client.sessions.list(filter_by_configs={"agent": "bot1"})
+# Returns: session1
+```
+
+```typescript title="TypeScript"
+import { AcontextClient } from '@acontext/acontext';
+
+const client = new AcontextClient({
+    apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+// Create sessions with configs
+const session1 = await client.sessions.create({ configs: { agent: "bot1", env: "prod" } });
+const session2 = await client.sessions.create({ configs: { agent: "bot2", env: "dev" } });
+
+// Filter by single key
+const sessions = await client.sessions.list({
+    filterByConfigs: { agent: "bot1" }
+});
+// Returns: session1
+```
+</CodeGroup>
+
+## Filter Examples
+
+### Multiple Keys
+
+Sessions must match **all** key-value pairs:
+
+<CodeGroup>
+```python title="Python"
+# Only returns sessions with BOTH agent="bot1" AND env="prod"
+sessions = client.sessions.list(
+    filter_by_configs={"agent": "bot1", "env": "prod"}
+)
+```
+
+```typescript title="TypeScript"
+// Only returns sessions with BOTH agent="bot1" AND env="prod"
+const sessions = await client.sessions.list({
+    filterByConfigs: { agent: "bot1", env: "prod" }
+});
+```
+</CodeGroup>
+
+### Nested Objects
+
+Filter by nested config values:
+
+<CodeGroup>
+```python title="Python"
+# Create session with nested config
+session = client.sessions.create(
+    configs={"agent": {"name": "bot1", "version": "2.0"}}
+)
+
+# Filter by nested object
+sessions = client.sessions.list(
+    filter_by_configs={"agent": {"name": "bot1"}}
+)
+```
+
+```typescript title="TypeScript"
+// Create session with nested config
+const session = await client.sessions.create({
+    configs: { agent: { name: "bot1", version: "2.0" } }
+});
+
+// Filter by nested object
+const sessions = await client.sessions.list({
+    filterByConfigs: { agent: { name: "bot1" } }
+});
+```
+</CodeGroup>
+
+### Combine with User Filter
+
+<CodeGroup>
+```python title="Python"
+# Filter by both user and configs
+sessions = client.sessions.list(
+    user="alice@example.com",
+    filter_by_configs={"agent": "bot1"}
+)
+```
+
+```typescript title="TypeScript"
+// Filter by both user and configs
+const sessions = await client.sessions.list({
+    user: "alice@example.com",
+    filterByConfigs: { agent: "bot1" }
+});
+```
+</CodeGroup>
+
+## Important Behaviors
+
+<Note>
+- **Case-sensitive**: `{"Agent": "x"}` won't match `{"agent": "x"}`
+- **Type-sensitive**: `{"count": 1}` won't match `{"count": "1"}`
+- **Partial matching**: filter `{"a": 1}` matches configs `{"a": 1, "b": 2}`
+- **NULL excluded**: Sessions with `configs=null` are excluded from filtered results
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Message Metadata" icon="tag" href="/store/messages/special/message-meta">
+Attach metadata to individual messages
+</Card>
+<Card title="Multi-provider Messages" icon="arrows-rotate" href="/store/messages/multi-provider">
+Store messages in any format
+</Card>
+</CardGroup>

@@ -1,0 +1,46 @@
+---
+title: Run Acontext Locally
+description: "Use `acontext-cli` to run Acontext locally."
+---
+
+## Install `acontext-cli`
+```bash
+curl -fsSL https://install.acontext.io | sh
+```
+
+## Start Acontext Server Locally
+Acontext requires at least an OpenAI API Key to Start.
+```bash title=".env"
+LLM_API_KEY="YOUR_OPENAI_API_KEY"
+```
+Place your `.env` file and run `acontext server up` at the same directory:
+```bash server
+mkdir acontext_server && cd acontext_server
+acontext server up
+```
+`acontext server up` will create/use the existing `.env` and `config.yaml` for Acontext, and create a `db` folder to persist data.
+
+Once it's done, you can access the following endpoints:
+- Acontext Base URL: http://localhost:8029/api/v1
+- Acontext Dashboard: http://localhost:3000/
+
+<Info>
+To use different providers, check [Core Settings](/settings/core) for more details.
+</Info>
+
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
+View your agent's tasks, conversations in one place
+</Card>
+<Card title="Store Messages" icon="message" href="/store/messages/multi-provider">
+Save agent conversations with context
+</Card>
+
+<Card title="Configuration" icon="gear" href="/settings/runtime">
+Configure Acontext to your needs
+</Card>
+</CardGroup>

@@ -1,0 +1,174 @@
+---
+title: "OpenAI TypeScript SDK"
+description: "Integrate OpenAI TypeScript SDK with Acontext for session persistence and task extraction"
+---
+
+OpenAI's message format is natively compatible with Acontext. Store messages directly without conversion.
+
+## Quick Start
+
+```bash
+acontext create my-openai-project --template-path "typescript/openai-basic"
+```
+
+<Note>
+Install CLI first: `curl -fsSL https://install.acontext.io | sh`
+</Note>
+
+## Manual Setup
+
+<Steps>
+<Step title="Install dependencies">
+```bash
+npm install openai @acontext/acontext dotenv
+```
+</Step>
+
+<Step title="Configure environment">
+```bash
+OPENAI_API_KEY=your_openai_key_here
+ACONTEXT_API_KEY=sk-ac-your-api-key
+```
+</Step>
+
+<Step title="Run agent with Acontext">
+
+<Accordion title="Complete example">
+```typescript
+import OpenAI from 'openai';
+import { AcontextClient } from '@acontext/acontext';
+import dotenv from 'dotenv';
+
+dotenv.config();
+
+const openaiClient = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
+const client = new AcontextClient({
+  apiKey: process.env.ACONTEXT_API_KEY,
+});
+
+// If you're using self-hosted Acontext:
+// const client = new AcontextClient({
+//     baseUrl: "http://localhost:8029/api/v1",
+//     apiKey: "sk-ac-your-root-api-bearer-token",
+// });
+
+const tools = [
+  {
+    type: 'function' as const,
+    function: {
+      name: 'get_weather',
+      description: 'Returns weather info for the specified city.',
+      parameters: {
+        type: 'object',
+        properties: { city: { type: 'string' } },
+        required: ['city'],
+      },
+    },
+  },
+];
+
+function getWeather(city: string): string {
+  return `The weather in ${city} is sunny`;
+}
+
+function executeTool(name: string, args: Record<string, any>): string {
+  if (name === 'get_weather') return getWeather(args.city);
+  return `Unknown tool: ${name}`;
+}
+
+async function runAgent(conversation: any[]): Promise<[string, any[]]> {
+  const messages = [...conversation];
+  const newMessages: any[] = [];
+
+  while (true) {
+    const response = await openaiClient.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages,
+      tools,
+      tool_choice: 'auto',
+    });
+
+    const message = response.choices[0].message;
+    const msgDict: any = { role: message.role, content: message.content };
+
+    if (message.tool_calls) {
+      msgDict.tool_calls = message.tool_calls.map((tc) => ({
+        id: tc.id,
+        type: 'function',
+        function: { name: tc.function.name, arguments: tc.function.arguments },
+      }));
+      messages.push(msgDict);
+      newMessages.push(msgDict);
+
+      for (const tc of message.tool_calls) {
+        const result = executeTool(tc.function.name, JSON.parse(tc.function.arguments));
+        const toolMsg = { role: 'tool' as const, tool_call_id: tc.id, content: result };
+        messages.push(toolMsg);
+        newMessages.push(toolMsg);
+      }
+    } else {
+      newMessages.push(msgDict);
+      return [message.content || '', newMessages];
+    }
+  }
+}
+
+async function main() {
+  const session = await client.sessions.create();
+  let conversation: any[] = [];
+
+  // User message
+  const userMsg = { role: 'user', content: "What's the weather in Helsinki?" };
+  conversation.push(userMsg);
+  await client.sessions.storeMessage(session.id, userMsg, { format: 'openai' });
+
+  // Run agent
+  const [responseContent, newMessages] = await runAgent(conversation);
+
+  // Store all messages
+  for (const msg of newMessages) {
+    conversation.push(msg);
+    await client.sessions.storeMessage(session.id, msg, { format: 'openai' });
+  }
+
+  // Extract tasks
+  await client.sessions.flush(session.id);
+  const tasks = await client.sessions.getTasks(session.id);
+
+  for (const task of tasks.items) {
+    console.log(`Task: ${task.data.task_description} | Status: ${task.status}`);
+  }
+}
+
+main().catch(console.error);
+```
+</Accordion>
+</Step>
+</Steps>
+
+## Resume Sessions
+
+```typescript
+const messages = await client.sessions.getMessages(sessionId, { format: 'openai' });
+const conversation = messages.items;
+
+conversation.push({ role: 'user', content: 'Summarize our conversation' });
+const response = await openaiClient.chat.completions.create({
+  model: 'gpt-4o-mini',
+  messages: conversation,
+});
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Task Tracking" icon="radar" href="/observe/agent_tasks">
+Monitor agent tasks and progress
+</Card>
+<Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
+View all interactions
+</Card>
+</CardGroup>

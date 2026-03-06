@@ -1,0 +1,16 @@
+{
+  "title": "Integrations",
+  "description": "Framework integration guides",
+  "root": true,
+  "icon": "Plug",
+  "pages": [
+    "intro",
+    "agno",
+    "openai-python",
+    "openai-typescript",
+    "openai_agent",
+    "claude-agent",
+    "ai-sdk",
+    "openclaw"
+  ]
+}

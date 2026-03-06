@@ -1,0 +1,52 @@
+---
+title: "Session Buffer"
+description: "Batch processing for cost-efficient task extraction"
+---
+
+Acontext batches messages before processing to reduce LLM costs.
+
+## When Processing Happens
+
+**Buffer full**: When unprocessed messages reach `PROJECT_SESSION_MESSAGE_BUFFER_MAX_TURNS`
+
+**Idle timeout**: When no new messages for `PROJECT_SESSION_MESSAGE_BUFFER_TTL_SECONDS`
+
+## Force Processing
+
+<CodeGroup>
+```python title="Python"
+client.sessions.flush(session_id)
+```
+
+```typescript title="TypeScript"
+await client.sessions.flush(sessionId);
+```
+</CodeGroup>
+
+## Check Status
+
+<CodeGroup>
+```python title="Python"
+status = client.sessions.messages_observing_status(session_id)
+print(f"Observed: {status.observed}")
+print(f"In Process: {status.in_process}")
+print(f"Pending: {status.pending}")
+```
+
+```typescript title="TypeScript"
+const status = await client.sessions.messagesObservingStatus(sessionId);
+console.log(`Observed: ${status.observed}`);
+console.log(`In Process: ${status.inProcess}`);
+console.log(`Pending: ${status.pending}`);
+```
+</CodeGroup>
+
+- **Observed**: Fully processed
+- **In Process**: Currently being analyzed
+- **Pending**: Waiting in buffer
+
+## Next Steps
+
+<Card title="Settings" icon="gear" href="/settings/runtime">
+Customize buffer behavior
+</Card>

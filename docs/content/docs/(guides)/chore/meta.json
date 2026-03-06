@@ -1,0 +1,8 @@
+{
+  "title": "Miscellaneous",
+  "icon": "Ellipsis",
+  "pages": [
+    "async_python",
+    "badge"
+  ]
+}

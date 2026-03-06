@@ -1,0 +1,12 @@
+{
+  "title": "Agent Observability",
+  "icon": "Radar",
+  "pages": [
+    "whatis",
+    "agent_tasks",
+    "buffer",
+    "disable_tasks",
+    "dashboard",
+    "traces"
+  ]
+}

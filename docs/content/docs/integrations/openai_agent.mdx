@@ -1,0 +1,125 @@
+---
+title: "OpenAI Agents SDK"
+description: "Integrate OpenAI Agents SDK with Acontext for session persistence and task extraction"
+---
+
+The OpenAI Agents SDK handles tool execution automatically. Use `Converter.items_to_messages()` to convert to Acontext-compatible format.
+
+## Quick Start
+
+```bash
+acontext create my-agent-project --template-path "python/openai-agent-basic"
+```
+
+<Note>
+Install CLI first: `curl -fsSL https://install.acontext.io | sh`
+</Note>
+
+## Manual Setup
+
+<Steps>
+<Step title="Install dependencies">
+```bash
+pip install openai-agents acontext python-dotenv
+```
+</Step>
+
+<Step title="Configure environment">
+```bash
+OPENAI_API_KEY=your_openai_key_here
+ACONTEXT_API_KEY=sk-ac-your-api-key
+```
+</Step>
+
+<Step title="Run agent with Acontext">
+
+<Accordion title="Complete example">
+```python
+import asyncio
+import os
+from agents import Agent, Runner, OpenAIChatCompletionsModel, AsyncOpenAI, function_tool
+from agents.models.chatcmpl_converter import Converter
+from acontext import AcontextClient
+
+client = AcontextClient(
+    api_key=os.getenv("ACONTEXT_API_KEY"),
+)
+
+# If you're using self-hosted Acontext:
+# client = AcontextClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
+
+@function_tool
+def get_weather(city: str) -> str:
+    """Returns weather info for the specified city."""
+    return f"The weather in {city} is sunny"
+
+agent = Agent(
+    name="Assistant",
+    instructions="You are a helpful assistant",
+    model=OpenAIChatCompletionsModel(
+        model="gpt-4o-mini",
+        openai_client=AsyncOpenAI(),
+    ),
+    tools=[get_weather],
+)
+
+async def main():
+    session = client.sessions.create()
+
+    # Run agent
+    result = await Runner.run(agent, "Plan a 3-day trip to Finland")
+
+    # Continue conversation
+    user_msg_2 = {"role": "user", "content": "Check the weather there"}
+    new_input = result.to_input_list() + [user_msg_2]
+    result = await Runner.run(agent, new_input)
+
+    # Convert and store to Acontext
+    messages = Converter.items_to_messages(result.to_input_list())
+    for msg in messages:
+        client.sessions.store_message(session_id=session.id, blob=msg, format="openai")
+
+    # Extract tasks
+    client.sessions.flush(session.id)
+    tasks = client.sessions.get_tasks(session.id)
+
+    for task in tasks.items:
+        print(f"Task: {task.data.task_description} | Status: {task.status}")
+
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+</Accordion>
+</Step>
+</Steps>
+
+## Resume Sessions
+
+```python
+from helper import message_to_input_items
+
+messages = client.sessions.get_messages(session_id, format="openai")
+
+# Convert back to Responses API format
+conversation = []
+for msg in messages.items:
+    items = message_to_input_items(msg)
+    conversation.extend(items)
+
+conversation.append({"role": "user", "content": "Continue"})
+result = await Runner.run(agent, conversation)
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Task Tracking" icon="radar" href="/observe/agent_tasks">
+Monitor agent tasks and progress
+</Card>
+<Card title="Dashboard" icon="chart-simple" href="/observe/dashboard">
+View all interactions
+</Card>
+</CardGroup>

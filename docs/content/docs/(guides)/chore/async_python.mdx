@@ -1,0 +1,205 @@
+---
+title: "Async Python Client"
+description: "Use the async Python client for non-blocking Acontext operations"
+---
+
+
+You can use async python client:
+
+```python title="Python"
+from acontext import AcontextAsyncClient
+
+client = AcontextAsyncClient(
+    api_key=os.getenv("ACONTEXT_API_KEY"),
+)
+
+# If you're using self-hosted Acontext:
+# client = AcontextAsyncClient(
+#     base_url="http://localhost:8029/api/v1",
+#     api_key="sk-ac-your-root-api-bearer-token",
+# )
+print(await client.ping())
+session = await client.sessions.create()
+# ...
+```
+
+Every method is available in async client, just add `await` prefix to the method call.
+
+## Async Agentic Tools
+
+The [Filesystem Tools](/tool/disk_tools), [Skill Tools](/tool/skill_tools), and [Sandbox Tools](/tool/bash_tools) also support async operations. Use `async_format_context()` and `async_execute_tool()` methods with `AcontextAsyncClient`.
+
+### Async Disk Tools
+
+```python title="Python"
+import json
+from acontext import AcontextAsyncClient
+from acontext.agent.disk import DISK_TOOLS
+from openai import AsyncOpenAI
+
+# Initialize async clients
+acontext_client = AcontextAsyncClient(
+    api_key=os.getenv("ACONTEXT_API_KEY"),
+)
+openai_client = AsyncOpenAI()
+
+# Create a disk and async tool context
+disk = await acontext_client.disks.create()
+ctx = await DISK_TOOLS.async_format_context(acontext_client, disk.id)
+
+# Get tool schemas for OpenAI
+tools = DISK_TOOLS.to_openai_tool_schema()
+
+# Async agentic loop
+messages = [
+    {"role": "user", "content": "Create a todo.md file with 3 tasks"}
+]
+
+while True:
+    response = await openai_client.chat.completions.create(
+        model="gpt-4.1",
+        messages=messages,
+        tools=tools,
+    )
+
+    message = response.choices[0].message
+    messages.append(message)
+
+    if not message.tool_calls:
+        print(f"Assistant: {message.content}")
+        break
+
+    # Execute each tool call asynchronously
+    for tool_call in message.tool_calls:
+        result = await DISK_TOOLS.async_execute_tool(
+            ctx, tool_call.function.name, json.loads(tool_call.function.arguments)
+        )
+        messages.append(
+            {"role": "tool", "tool_call_id": tool_call.id, "content": result}
+        )
+```
+
+### Async Skill Tools
+
+```python title="Python"
+import json
+from acontext import AcontextAsyncClient
+from acontext.agent.skill import SKILL_TOOLS
+from openai import AsyncOpenAI
+
+# Initialize async clients
+acontext_client = AcontextAsyncClient(
+    api_key=os.getenv("ACONTEXT_API_KEY"),
+)
+openai_client = AsyncOpenAI()
+
+# Preload skills and create async tool context
+skill_ids = ["uuid-of-skill-1", "uuid-of-skill-2"]
+ctx = await SKILL_TOOLS.async_format_context(acontext_client, skill_ids)
+
+# Get tool schemas for OpenAI
+tools = SKILL_TOOLS.to_openai_tool_schema()
+
+# Async agentic loop
+messages = [
+    {"role": "user", "content": "List the available skills and read the SKILL.md from the first one"}
+]
+
+while True:
+    response = await openai_client.chat.completions.create(
+        model="gpt-4.1",
+        messages=messages,
+        tools=tools,
+    )
+
+    message = response.choices[0].message
+    messages.append(message)
+
+    if not message.tool_calls:
+        print(f"Assistant: {message.content}")
+        break
+
+    # Execute each tool call asynchronously
+    for tool_call in message.tool_calls:
+        result = await SKILL_TOOLS.async_execute_tool(
+            ctx, tool_call.function.name, json.loads(tool_call.function.arguments)
+        )
+        messages.append(
+            {"role": "tool", "tool_call_id": tool_call.id, "content": result}
+        )
+```
+
+### Async Sandbox Tools
+
+```python title="Python"
+import json
+from acontext import AcontextAsyncClient
+from acontext.agent.sandbox import SANDBOX_TOOLS
+from openai import AsyncOpenAI
+
+# Initialize async clients
+acontext_client = AcontextAsyncClient(
+    api_key=os.getenv("ACONTEXT_API_KEY"),
+)
+openai_client = AsyncOpenAI()
+
+# Create sandbox and disk
+sandbox = await acontext_client.sandboxes.create()
+disk = await acontext_client.disks.create()
+
+# Create async sandbox context (optionally mount skills)
+ctx = await SANDBOX_TOOLS.async_format_context(
+    acontext_client,
+    sandbox_id=sandbox.sandbox_id,
+    disk_id=disk.id,
+    # mount_skills=["skill-uuid-1", "skill-uuid-2"]
+)
+
+# Get tool schemas for OpenAI
+tools = SANDBOX_TOOLS.to_openai_tool_schema()
+
+# Get context prompt to include in system message
+context_prompt = ctx.get_context_prompt()
+
+# Async agentic loop
+messages = [
+    {
+        "role": "system",
+        "content": f"You are a helpful assistant.\n\n{context_prompt}",
+    },
+    {"role": "user", "content": "Create a Python script and run it"}
+]
+
+while True:
+    response = await openai_client.chat.completions.create(
+        model="gpt-4.1",
+        messages=messages,
+        tools=tools,
+    )
+
+    message = response.choices[0].message
+    messages.append(message)
+
+    if not message.tool_calls:
+        print(f"Assistant: {message.content}")
+        break
+
+    # Execute each tool call asynchronously
+    for tool_call in message.tool_calls:
+        result = await SANDBOX_TOOLS.async_execute_tool(
+            ctx, tool_call.function.name, json.loads(tool_call.function.arguments)
+        )
+        messages.append(
+            {"role": "tool", "tool_call_id": tool_call.id, "content": result}
+        )
+
+# Clean up
+await acontext_client.sandboxes.kill(sandbox.sandbox_id)
+```
+
+<Tip>
+The async versions are identical to the sync versions except:
+- Use `AcontextAsyncClient` instead of `AcontextClient`
+- Use `await async_format_context()` instead of `format_context()`
+- Use `await async_execute_tool()` instead of `execute_tool()`
+</Tip>

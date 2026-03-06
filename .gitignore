@@ -2,6 +2,10 @@ plans/
 .claude
 .cursorrules
 .DS_Store
+
+# OpenNext Cloudflare Workers
+.open-next/
+.dev.vars
 # Created by https://www.toptal.com/developers/gitignore/api/python
 # Edit at https://www.toptal.com/developers/gitignore?templates=python
 test_scripts/
