@@ -18,6 +18,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
 	"github.com/memodb-io/Acontext/internal/pkg/converter"
+	"github.com/memodb-io/Acontext/internal/pkg/editingtrigger"
 	"github.com/memodb-io/Acontext/internal/pkg/editor"
 	"github.com/memodb-io/Acontext/internal/pkg/normalizer"
 	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
@@ -515,51 +516,24 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, serializer.ParamErr("editing_trigger requires edit_strategies", errors.New("missing edit_strategies")))
 			return
 		}
-
-		var raw map[string]interface{}
-		if err := sonic.Unmarshal([]byte(req.EditingTrigger), &raw); err != nil {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger JSON", err))
-			return
-		}
-		if len(raw) == 0 {
-			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger", errors.New("at least one supported trigger is required")))
-			return
-		}
-		allowedTriggerKeys := map[string]struct{}{
-			"token_gte": {},
-		}
-		for k := range raw {
-			if _, ok := allowedTriggerKeys[k]; !ok {
-				c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger", fmt.Errorf("unsupported trigger: %s", k)))
-				return
-			}
-		}
-
+		allowedTriggerKeys := map[string]struct{}{if err := sonic.Unmarshal([]byte(req.EditingTrigger), &raw); err != nil {            c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger JSON", err))            return        }
 		var trig service.EditingTrigger
-		if err := sonic.Unmarshal([]byte(req.EditingTrigger), &trig); err != nil {
+		if err := json.Unmarshal([]byte(req.EditingTrigger), &trig); err != nil {
+			var unsupportedErr editingtrigger.UnsupportedTriggerError
+			if errors.As(err, &unsupportedErr) {
+				c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger", err))
+				return
+			}
 			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger JSON", err))
 			return
 		}
-
-		triggerValidators := map[string]func(service.EditingTrigger) error{
-			"token_gte": func(t service.EditingTrigger) error {
-				if t.TokenGte == nil || *t.TokenGte <= 0 {
-					return errors.New("token_gte must be > 0")
-				}
-				return nil
-			},
-		}
-		for k := range raw {
-			validate, ok := triggerValidators[k]
-			if !ok {
-				// Should be unreachable due to allowedTriggerKeys check above.
-				c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger", fmt.Errorf("unsupported trigger: %s", k)))
+		if err := trig.Validate(); err != nil {
+			if errors.Is(err, editingtrigger.ErrTokenGteMustBeGreater) {
+				c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger.token_gte", err))
 				return
 			}
-			if err := validate(trig); err != nil {
-				c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger."+k, err))
-				return
-			}
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger", err))
+			return
 		}
 		editingTrigger = &trig
 	}

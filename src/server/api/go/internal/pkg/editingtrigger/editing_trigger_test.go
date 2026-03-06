@@ -2,7 +2,9 @@ package editingtrigger
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -58,6 +60,55 @@ func TestBuildChecks_Branches(t *testing.T) {
 		tokens, cached := eval.CachedTokens()
 		require.True(t, cached)
 		assert.Equal(t, 5, tokens)
+	})
+}
+
+func TestTriggerValidate_Branches(t *testing.T) {
+	positive := 10
+	zero := 0
+
+	t.Run("empty trigger returns ErrNoSupportedTrigger", func(t *testing.T) {
+		err := (Trigger{}).Validate()
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrNoSupportedTrigger)
+	})
+
+	t.Run("positive token_gte is valid", func(t *testing.T) {
+		err := (Trigger{TokenGte: &positive}).Validate()
+		assert.NoError(t, err)
+	})
+
+	t.Run("non-positive token_gte returns ErrTokenGteMustBeGreater", func(t *testing.T) {
+		err := (Trigger{TokenGte: &zero}).Validate()
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrTokenGteMustBeGreater)
+	})
+}
+
+func TestTriggerUnmarshalJSON_Branches(t *testing.T) {
+	t.Run("unknown trigger key returns UnsupportedTriggerError", func(t *testing.T) {
+		var trig Trigger
+		err := json.Unmarshal([]byte(`{"unknown":1}`), &trig)
+		require.Error(t, err)
+		var unsupportedErr UnsupportedTriggerError
+		assert.ErrorAs(t, err, &unsupportedErr)
+		assert.Equal(t, "unknown", unsupportedErr.Key)
+	})
+
+	t.Run("token_gte null fails Validate", func(t *testing.T) {
+		var trig Trigger
+		err := json.Unmarshal([]byte(`{"token_gte":null}`), &trig)
+		require.NoError(t, err)
+		err = trig.Validate()
+		require.Error(t, err)
+		assert.ErrorIs(t, err, ErrTokenGteMustBeGreater)
+	})
+
+	t.Run("invalid token_gte type returns parse error", func(t *testing.T) {
+		var trig Trigger
+		err := json.Unmarshal([]byte(`{"token_gte":"bad"}`), &trig)
+		require.Error(t, err)
+		assert.True(t, strings.Contains(err.Error(), "invalid token_gte"))
 	})
 }
 
