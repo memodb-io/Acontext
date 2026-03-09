@@ -267,7 +267,7 @@ More examples on Typescript:
 
 # 🔍 Document
 
-To learn more about skill memory and what Acontext can do, visit [our docs](https://docs.acontext.io/) or start with [What is Skill Memory?](https://docs.acontext.io/learn/skill-memory)
+To learn more about skill memory and what Acontext can do, visit [our docs](https://docs.acontext.io/) or start with [What is Skill Memory?](https://docs.acontext.io/learn/quick)
 
 
 

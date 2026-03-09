@@ -1,12 +1,24 @@
 ---
 title: "What is Acontext?"
-description: "Skill memory for AI agents — learns from runs, writes Markdown skill files, reuses them on the next run"
+description: "Agent Skills as a Memory Layer — learns from runs, writes Markdown skill files, reuses them on the next run"
 ---
-Acontext is skill memory for AI agents. It automatically captures learnings from agent runs, stores them as Markdown files, and lets agents reuse those skills on the next run.
+Acontext is an open-source **Agent Skills as a Memory Layer**: skill memory that **automatically** captures learnings from agent runs and stores knowledge as **Markdown files**. You can read, edit, and share those files across agents, LLMs and frameworks.
 
 <Frame>
   <img src="/images/memory-stack.svg" alt="Acontext — Session Storage, Task Tracking, Skill Memory" />
 </Frame>
+
+## Why Skill Memory?
+
+Other memory (e.g. Mem0, Zep, vector stores, RAG) stores or retrieves from **conversations** or **static docs**. If you need a layer that learns from **what the agent did** (task outcomes) and turns that into reusable SOPs and warnings, that's **Agent Skills as a memory layer**.
+
+| | Skill memory (Agent Skills layer) | Other memory (e.g. Mem0 / Zep) | Vector store / RAG |
+|--|-----------------------------------|--------------------------------|---------------------|
+| **Captures** | What the agent *did* + outcome → procedures, preferences, warnings | What was *said* → facts, preferences | What you *ingested* → chunks |
+| **Stored as** | Markdown files (human-readable, portable) | Embeddings / graph | Embeddings |
+| **Retrieval** | Agent calls tools, gets full units (e.g. whole files) | Semantic or chat recall | Similarity search over chunks |
+
+**In short:** Other memory stores and retrieves chat or ingested docs as-is. Acontext also takes session messages (and execution) as input, but distills from them *what the agent did and how it turned out* — then writes that as structured skill files that grow with every run.
 
 <CardGroup>
 
@@ -22,4 +34,21 @@ Task status, progress tracking, and automatic summaries.
 Persistent skills learned across sessions — Markdown-native, configurable, and human-readable.
 </Card>
 
+</CardGroup>
+
+## Product Overview
+
+<CardGroup cols={2}>
+<Card title="Long-term Skill" icon="brain" href="https://acontext.io/product/long-term-skill">
+Agent memory stored as skills — filesystem-compatible, configurable, human-readable.
+</Card>
+<Card title="Short-term Memory" icon="database" href="https://acontext.io/product/short-term-memory">
+Multi-provider messages, S3-backed disk storage, and reusable skill packages.
+</Card>
+<Card title="Mid-term State" icon="radar" href="https://acontext.io/product/mid-term-state">
+Track agent tasks, traces, token usage, and session analytics.
+</Card>
+<Card title="Sandbox" icon="terminal" href="https://acontext.io/product/sandbox">
+Secure code execution with mountable skills.
+</Card>
 </CardGroup>
