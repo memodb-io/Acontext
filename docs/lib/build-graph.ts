@@ -26,13 +26,28 @@ export async function buildGraph(): Promise<Graph> {
         const refPage = source.getPageByHref(ref.href, { dir });
         if (!refPage) continue;
 
+        const targetUrl = refPage.page.url;
+        if (targetUrl === page.url) continue; // skip self-links
+
         graph.links.push({
           source: page.url,
-          target: refPage.page.url,
+          target: targetUrl,
         });
       }
     }),
   );
+
+  // Deduplicate links
+  const seen = new Set<string>();
+  graph.links = graph.links.filter((link) => {
+    const key =
+      link.source < link.target
+        ? `${link.source}→${link.target}`
+        : `${link.target}→${link.source}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 
   return graph;
 }
