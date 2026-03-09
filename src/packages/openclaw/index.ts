@@ -655,6 +655,8 @@ const acontextPlugin = {
     let capturedTurnCount = 0;
     /** Number of messages already captured from the current session transcript. */
     let capturedMessageCursor = 0;
+    /** Set by compaction/reset hooks so the next agent_end re-baselines the cursor. */
+    let pendingCursorReset = false;
 
     api.logger.info(
       `acontext: registered (user: ${cfg.userId}, autoCapture: ${cfg.autoCapture}, autoLearn: ${cfg.autoLearn}, skillsDir: ${cfg.skillsDir})`,
@@ -976,15 +978,15 @@ const acontextPlugin = {
 
       api.on("before_compaction", async (_event, _ctx) => {
         await flushAndLearnIfActive();
-        // Compaction rewrites the message history, so reset cursor to
-        // avoid skipping or duplicating messages on the next agent_end.
-        capturedMessageCursor = 0;
+        // Compaction rewrites the message history — flag a cursor reset
+        // so the next agent_end re-baselines instead of using the stale offset.
+        pendingCursorReset = true;
       });
 
       api.on("before_reset", async (_event, _ctx) => {
         await flushAndLearnIfActive();
-        // Session reset clears the transcript — start fresh.
-        capturedMessageCursor = 0;
+        // Session reset clears the transcript — flag a cursor reset.
+        pendingCursorReset = true;
       });
     }
 
@@ -1003,13 +1005,21 @@ const acontextPlugin = {
           const sessionId = await bridge.ensureSession(openclawKey);
           currentAcontextSessionId = sessionId;
 
+          // Re-baseline cursor after compaction/reset rewrote the transcript.
+          if (pendingCursorReset) {
+            capturedMessageCursor = 0;
+            pendingCursorReset = false;
+          }
+
           // Only store messages we haven't captured yet (incremental).
           const allMessages = event.messages as Record<string, unknown>[];
           const newMessages = allMessages.slice(capturedMessageCursor);
           if (newMessages.length === 0) return;
 
           const storedCount = await bridge.storeMessages(sessionId, newMessages);
-          capturedMessageCursor = allMessages.length;
+          // Advance by storedCount (not total length) so partial failures
+          // don't skip unsent messages on the next agent_end.
+          capturedMessageCursor += storedCount;
           capturedTurnCount += storedCount;
 
           if (storedCount > 0) {
