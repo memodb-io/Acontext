@@ -28,15 +28,28 @@ export ACONTEXT_API_KEY=sk-ac-your-api-key
 Add the Acontext plugin to your `openclaw.json` config:
 
 ```json5
-// plugins.entries
-"acontext": {
-  "enabled": true,
-  "config": {
-    "apiKey": "${ACONTEXT_API_KEY}",
-    "userId": "your-user-id"
+{
+  plugins: {
+    // Select Acontext as the active memory plugin
+    slots: {
+      memory: "acontext"
+    },
+    entries: {
+      "acontext": {
+        enabled: true,
+        config: {
+          "apiKey": "${ACONTEXT_API_KEY}",
+          "userId": "your-user-id"
+        }
+      }
+    }
   }
 }
 ```
+
+<Note>
+OpenClaw only loads one memory plugin at a time. Setting `plugins.slots.memory` to `"acontext"` replaces the default (`memory-core`). To switch back, set it to `"memory-core"` or `"none"`.
+</Note>
 </Step>
 
 <Step title="Start the gateway">
@@ -52,21 +65,31 @@ Your agent now has skill memory. Every conversation is captured, tasks are extra
 
 ```
 Session 1: User talks to agent
-  └→ Messages stored to Acontext session (auto-capture)
+  └→ Messages stored to Acontext session (incremental capture)
   └→ CORE extracts structured tasks
   └→ Learning Space distills skills as Markdown
+
+  ── Compaction or reset occurs ──
+  └→ Pending messages flushed & learning triggered
+  └→ Message cursor resets for next capture
 
 Session 2: User returns
   └→ Skills synced to ~/.openclaw/skills/ (native loading)
   └→ OpenClaw auto-loads skill files from its skill directory
-  └→ New messages captured (auto-capture)
+  └→ New messages captured (incremental capture)
   └→ Skills updated (auto-learn)
 ```
 
-The plugin hooks into two OpenClaw lifecycle events:
+The plugin hooks into four OpenClaw lifecycle events:
 
 - **`before_agent_start`** — Ensures learned skills are synced to `~/.openclaw/skills/` so OpenClaw can load them natively
-- **`agent_end`** — Stores conversation messages to Acontext, triggers task extraction, and conditionally triggers skill distillation
+- **`agent_end`** — Stores new conversation messages to Acontext incrementally, triggers task extraction, and conditionally triggers skill distillation
+- **`before_compaction`** — Flushes pending messages and triggers learning before OpenClaw compacts the conversation history, then flags the message cursor for reset
+- **`before_reset`** — Flushes pending messages and triggers learning before a session reset clears the transcript, then flags the message cursor for reset
+
+<Note>
+Message capture is incremental — the plugin tracks a cursor so only new messages are stored on each `agent_end`. When compaction or reset rewrites the transcript, the cursor resets automatically to avoid gaps or duplicates.
+</Note>
 
 ## Configuration
 

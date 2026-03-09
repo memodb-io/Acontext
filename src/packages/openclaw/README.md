@@ -90,16 +90,22 @@ openclaw acontext stats
 
 ```
 Session 1: User talks to agent
-  └→ Messages stored to Acontext session
+  └→ Messages stored to Acontext session (incremental capture)
   └→ CORE extracts structured tasks
   └→ Learning Space distills skills as Markdown
+
+  ── Compaction or reset occurs ──
+  └→ Pending messages flushed & learning triggered
+  └→ Message cursor resets for next capture
 
 Session 2: User returns
   └→ Skills synced to ~/.openclaw/skills/ (native loading)
   └→ OpenClaw auto-loads skill files
-  └→ New messages captured (auto-capture)
+  └→ New messages captured (incremental capture)
   └→ Skills updated (auto-learn)
 ```
+
+> **Note:** Message capture is incremental — the plugin tracks a cursor so only new messages are stored on each `agent_end`. When compaction or reset rewrites the transcript, the cursor resets automatically.
 
 ### Skill sync
 
