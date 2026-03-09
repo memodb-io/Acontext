@@ -6,6 +6,9 @@ MAIN_PACKAGE=main.go
 VERSION?=dev
 BUILD_DIR=.
 DIST_DIR=dist
+SUPABASE_URL?=
+SUPABASE_ANON_KEY?=
+DASHBOARD_URL?=https://dash.acontext.io
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -15,7 +18,7 @@ help: ## Show this help message
 
 build: ## Build the binary
 	@echo "Building $(BINARY_NAME)..."
-	@go build -ldflags "-X main.cliVersion=$(VERSION)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PACKAGE)
+	@go build -ldflags "-X main.cliVersion=$(VERSION) -X github.com/memodb-io/Acontext/acontext-cli/internal/auth.SupabaseURL=$(SUPABASE_URL) -X github.com/memodb-io/Acontext/acontext-cli/internal/auth.SupabaseAnonKey=$(SUPABASE_ANON_KEY) -X github.com/memodb-io/Acontext/acontext-cli/internal/auth.DashboardURL=$(DASHBOARD_URL)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PACKAGE)
 	@echo "✅ Build complete: $(BUILD_DIR)/$(BINARY_NAME)"
 
 install: build ## Install to /usr/local/bin as 'acontext'
