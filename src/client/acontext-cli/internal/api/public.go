@@ -54,6 +54,17 @@ func (c *Client) CreateSession(ctx context.Context, req *CreateSessionRequest) (
 	return &session, nil
 }
 
+func (c *Client) GetSession(ctx context.Context, sessionID string) (*Session, error) {
+	var sessions []Session
+	if err := c.Get(ctx, "/api/v1/session?id="+sessionID, &sessions); err != nil {
+		return nil, err
+	}
+	if len(sessions) == 0 {
+		return nil, &APIError{StatusCode: 404, Message: "session not found"}
+	}
+	return &sessions[0], nil
+}
+
 func (c *Client) DeleteSession(ctx context.Context, sessionID string) error {
 	return c.Delete(ctx, "/api/v1/session/"+sessionID, nil)
 }
@@ -94,6 +105,17 @@ func (c *Client) CreateDisk(ctx context.Context, req *CreateDiskRequest) (*Disk,
 	return &disk, nil
 }
 
+func (c *Client) GetDisk(ctx context.Context, diskID string) (*Disk, error) {
+	var disks []Disk
+	if err := c.Get(ctx, "/api/v1/disk?id="+diskID, &disks); err != nil {
+		return nil, err
+	}
+	if len(disks) == 0 {
+		return nil, &APIError{StatusCode: 404, Message: "disk not found"}
+	}
+	return &disks[0], nil
+}
+
 func (c *Client) DeleteDisk(ctx context.Context, diskID string) error {
 	return c.Delete(ctx, "/api/v1/disk/"+diskID, nil)
 }
@@ -106,6 +128,35 @@ func (c *Client) ListArtifacts(ctx context.Context, diskID string) ([]Artifact, 
 		return nil, err
 	}
 	return artifacts, nil
+}
+
+func (c *Client) UploadArtifact(ctx context.Context, diskID, filePath, destPath string) (*Artifact, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("open file: %w", err)
+	}
+	defer func() { _ = f.Close() }()
+
+	var buf bytes.Buffer
+	w := multipart.NewWriter(&buf)
+
+	part, err := w.CreateFormFile("file", filepath.Base(filePath))
+	if err != nil {
+		return nil, err
+	}
+	if _, err := io.Copy(part, f); err != nil {
+		return nil, err
+	}
+	if destPath != "" {
+		_ = w.WriteField("file_path", destPath)
+	}
+	_ = w.Close()
+
+	var artifact Artifact
+	if err := c.PostMultipart(ctx, "/api/v1/disk/"+diskID+"/artifact", &buf, w.FormDataContentType(), &artifact); err != nil {
+		return nil, err
+	}
+	return &artifact, nil
 }
 
 func (c *Client) DeleteArtifact(ctx context.Context, diskID, path string) error {

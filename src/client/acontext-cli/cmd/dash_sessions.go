@@ -37,6 +37,29 @@ func init() {
 		},
 	}
 
+	getCmd := &cobra.Command{
+		Use: "get <session-id>", Short: "Get session details", Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := requireClient()
+			if err != nil {
+				return err
+			}
+			session, err := c.GetSession(context.Background(), args[0])
+			if err != nil {
+				return err
+			}
+			if dashJSON {
+				return output.RenderJSON(session)
+			}
+			fmt.Printf("ID:         %s\n", session.ID)
+			fmt.Printf("User:       %s\n", session.UserID)
+			fmt.Printf("Project:    %s\n", session.ProjectID)
+			fmt.Printf("Created:    %s\n", session.CreatedAt)
+			fmt.Printf("Updated:    %s\n", session.UpdatedAt)
+			return nil
+		},
+	}
+
 	createCmd := &cobra.Command{
 		Use: "create", Short: "Create a new session",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -88,6 +111,6 @@ func init() {
 	}
 	deleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
-	sessionsCmd.AddCommand(listCmd, createCmd, deleteCmd)
+	sessionsCmd.AddCommand(listCmd, getCmd, createCmd, deleteCmd)
 	DashCmd.AddCommand(sessionsCmd)
 }
