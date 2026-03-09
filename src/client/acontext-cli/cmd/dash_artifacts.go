@@ -1,0 +1,54 @@
+package cmd
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/memodb-io/Acontext/acontext-cli/internal/output"
+	"github.com/spf13/cobra"
+)
+
+func init() {
+	artifactsCmd := &cobra.Command{Use: "artifacts", Short: "Manage artifacts within a disk"}
+
+	lsCmd := &cobra.Command{
+		Use: "ls <disk-id>", Short: "List artifacts in a disk", Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := requireClient()
+			if err != nil {
+				return err
+			}
+			artifacts, err := c.ListArtifacts(context.Background(), args[0])
+			if err != nil {
+				return err
+			}
+			if dashJSON {
+				return output.RenderJSON(artifacts)
+			}
+			rows := make([][]string, len(artifacts))
+			for i, a := range artifacts {
+				rows[i] = []string{a.ID, a.Path, fmt.Sprintf("%d", a.Size), a.CreatedAt}
+			}
+			output.RenderTable([]string{"ID", "PATH", "SIZE", "CREATED_AT"}, rows)
+			return nil
+		},
+	}
+
+	deleteCmd := &cobra.Command{
+		Use: "delete <disk-id> <path>", Short: "Delete an artifact", Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := requireClient()
+			if err != nil {
+				return err
+			}
+			if err := c.DeleteArtifact(context.Background(), args[0], args[1]); err != nil {
+				return err
+			}
+			fmt.Printf("Artifact deleted: %s/%s\n", args[0], args[1])
+			return nil
+		},
+	}
+
+	artifactsCmd.AddCommand(lsCmd, deleteCmd)
+	DashCmd.AddCommand(artifactsCmd)
+}
