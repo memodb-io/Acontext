@@ -6,7 +6,7 @@ description: "Enable LLMs to read skill files without sandbox"
 Lightweight tools for LLMs to access skill content through function calling. Use when skills contain only reference content (no scripts to execute).
 
 <Note>
-For skills with executable scripts, use [Sandbox Tools with mounted skills](/tool/bash_tools#mounting-skills) instead.
+For skills with executable scripts, use [Sandbox Tools with mounted skills](/tool/bash_tools#mounting-agent-skills) instead.
 </Note>
 
 ## Available Tools
@@ -134,7 +134,7 @@ Returns: Skill ID, description, and file index with MIME types.
 Returns: File content (text) or presigned URL (binary).
 
 <Warning>
-**Read-only:** These tools can only read skill content. To execute skill scripts, use [Sandbox Tools](/tool/bash_tools#mounting-skills).
+**Read-only:** These tools can only read skill content. To execute skill scripts, use [Sandbox Tools](/tool/bash_tools#mounting-agent-skills).
 </Warning>
 
 ## Next Steps
