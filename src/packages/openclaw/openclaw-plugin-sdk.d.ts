@@ -77,6 +77,17 @@ declare module "openclaw/plugin-sdk/core" {
   };
 
   // ---------------------------------------------------------------------------
+  // Hook Options
+  // ---------------------------------------------------------------------------
+
+  export type OpenClawPluginHookOptions = {
+    entry?: unknown;
+    name?: string;
+    description?: string;
+    register?: boolean;
+  };
+
+  // ---------------------------------------------------------------------------
   // CLI Types
   // ---------------------------------------------------------------------------
 
@@ -138,6 +149,8 @@ declare module "openclaw/plugin-sdk/core" {
     | "gateway_start"
     | "gateway_stop";
 
+  // -- Agent context shared across agent hooks --------------------------------
+
   export type PluginHookAgentContext = {
     agentId?: string;
     sessionKey?: string;
@@ -148,17 +161,73 @@ declare module "openclaw/plugin-sdk/core" {
     channelId?: string;
   };
 
+  // -- before_model_resolve ---------------------------------------------------
+
+  export type PluginHookBeforeModelResolveEvent = {
+    prompt: string;
+  };
+
+  export type PluginHookBeforeModelResolveResult = {
+    modelOverride?: string;
+    providerOverride?: string;
+  };
+
+  // -- before_prompt_build ----------------------------------------------------
+
+  export type PluginHookBeforePromptBuildEvent = {
+    prompt: string;
+    messages: unknown[];
+  };
+
+  export type PluginHookBeforePromptBuildResult = {
+    systemPrompt?: string;
+    prependContext?: string;
+    prependSystemContext?: string;
+    appendSystemContext?: string;
+  };
+
+  // -- before_agent_start (legacy: combines both phases) ----------------------
+
   export type PluginHookBeforeAgentStartEvent = {
     prompt: string;
     messages?: unknown[];
   };
 
-  export type PluginHookBeforeAgentStartResult = {
+  export type PluginHookBeforeAgentStartResult = PluginHookBeforePromptBuildResult &
+    PluginHookBeforeModelResolveResult;
+
+  // -- llm_input --------------------------------------------------------------
+
+  export type PluginHookLlmInputEvent = {
+    runId: string;
+    sessionId: string;
+    provider: string;
+    model: string;
     systemPrompt?: string;
-    prependContext?: string;
-    modelOverride?: string;
-    providerOverride?: string;
+    prompt: string;
+    historyMessages: unknown[];
+    imagesCount: number;
   };
+
+  // -- llm_output -------------------------------------------------------------
+
+  export type PluginHookLlmOutputEvent = {
+    runId: string;
+    sessionId: string;
+    provider: string;
+    model: string;
+    assistantTexts: string[];
+    lastAssistant?: unknown;
+    usage?: {
+      input?: number;
+      output?: number;
+      cacheRead?: number;
+      cacheWrite?: number;
+      total?: number;
+    };
+  };
+
+  // -- agent_end --------------------------------------------------------------
 
   export type PluginHookAgentEndEvent = {
     messages: unknown[];
@@ -166,6 +235,8 @@ declare module "openclaw/plugin-sdk/core" {
     error?: string;
     durationMs?: number;
   };
+
+  // -- Compaction hooks -------------------------------------------------------
 
   export type PluginHookBeforeCompactionEvent = {
     messageCount: number;
@@ -175,21 +246,280 @@ declare module "openclaw/plugin-sdk/core" {
     sessionFile?: string;
   };
 
+  export type PluginHookAfterCompactionEvent = {
+    messageCount: number;
+    tokenCount?: number;
+    compactedCount: number;
+    sessionFile?: string;
+  };
+
+  // -- before_reset -----------------------------------------------------------
+
   export type PluginHookBeforeResetEvent = {
     sessionFile?: string;
     messages?: unknown[];
     reason?: string;
   };
 
+  // -- Message context --------------------------------------------------------
+
+  export type PluginHookMessageContext = {
+    channelId: string;
+    accountId?: string;
+    conversationId?: string;
+  };
+
+  // -- message_received -------------------------------------------------------
+
+  export type PluginHookMessageReceivedEvent = {
+    from: string;
+    content: string;
+    timestamp?: number;
+    metadata?: Record<string, unknown>;
+  };
+
+  // -- message_sending --------------------------------------------------------
+
+  export type PluginHookMessageSendingEvent = {
+    to: string;
+    content: string;
+    metadata?: Record<string, unknown>;
+  };
+
+  export type PluginHookMessageSendingResult = {
+    content?: string;
+    cancel?: boolean;
+  };
+
+  // -- message_sent -----------------------------------------------------------
+
+  export type PluginHookMessageSentEvent = {
+    to: string;
+    content: string;
+    success: boolean;
+    error?: string;
+  };
+
+  // -- Tool context -----------------------------------------------------------
+
+  export type PluginHookToolContext = {
+    agentId?: string;
+    sessionKey?: string;
+    sessionId?: string;
+    runId?: string;
+    toolName: string;
+    toolCallId?: string;
+  };
+
+  // -- before_tool_call -------------------------------------------------------
+
+  export type PluginHookBeforeToolCallEvent = {
+    toolName: string;
+    params: Record<string, unknown>;
+    runId?: string;
+    toolCallId?: string;
+  };
+
+  export type PluginHookBeforeToolCallResult = {
+    params?: Record<string, unknown>;
+    block?: boolean;
+    blockReason?: string;
+  };
+
+  // -- after_tool_call --------------------------------------------------------
+
+  export type PluginHookAfterToolCallEvent = {
+    toolName: string;
+    params: Record<string, unknown>;
+    runId?: string;
+    toolCallId?: string;
+    result?: unknown;
+    error?: string;
+    durationMs?: number;
+  };
+
+  // -- tool_result_persist ----------------------------------------------------
+
+  export type PluginHookToolResultPersistContext = {
+    agentId?: string;
+    sessionKey?: string;
+    toolName?: string;
+    toolCallId?: string;
+  };
+
+  export type PluginHookToolResultPersistEvent = {
+    toolName?: string;
+    toolCallId?: string;
+    message: unknown;
+    isSynthetic?: boolean;
+  };
+
+  export type PluginHookToolResultPersistResult = {
+    message?: unknown;
+  };
+
+  // -- before_message_write ---------------------------------------------------
+
+  export type PluginHookBeforeMessageWriteEvent = {
+    message: unknown;
+    sessionKey?: string;
+    agentId?: string;
+  };
+
+  export type PluginHookBeforeMessageWriteResult = {
+    block?: boolean;
+    message?: unknown;
+  };
+
+  // -- Session context --------------------------------------------------------
+
+  export type PluginHookSessionContext = {
+    agentId?: string;
+    sessionId: string;
+    sessionKey?: string;
+  };
+
+  // -- session_start ----------------------------------------------------------
+
+  export type PluginHookSessionStartEvent = {
+    sessionId: string;
+    sessionKey?: string;
+    resumedFrom?: string;
+  };
+
+  // -- session_end ------------------------------------------------------------
+
+  export type PluginHookSessionEndEvent = {
+    sessionId: string;
+    sessionKey?: string;
+    messageCount: number;
+    durationMs?: number;
+  };
+
+  // -- Subagent context -------------------------------------------------------
+
+  export type PluginHookSubagentContext = {
+    runId?: string;
+    childSessionKey?: string;
+    requesterSessionKey?: string;
+  };
+
+  export type PluginHookSubagentTargetKind = "subagent" | "acp";
+
+  // -- subagent_spawning ------------------------------------------------------
+
+  export type PluginHookSubagentSpawningEvent = {
+    childSessionKey: string;
+    agentId: string;
+    label?: string;
+    mode: "run" | "session";
+    requester?: {
+      channel?: string;
+      accountId?: string;
+      to?: string;
+      threadId?: string | number;
+    };
+    threadRequested: boolean;
+  };
+
+  export type PluginHookSubagentSpawningResult =
+    | {
+        status: "ok";
+        threadBindingReady?: boolean;
+      }
+    | {
+        status: "error";
+        error: string;
+      };
+
+  // -- subagent_delivery_target -----------------------------------------------
+
+  export type PluginHookSubagentDeliveryTargetEvent = {
+    childSessionKey: string;
+    requesterSessionKey: string;
+    requesterOrigin?: {
+      channel?: string;
+      accountId?: string;
+      to?: string;
+      threadId?: string | number;
+    };
+    childRunId?: string;
+    spawnMode?: "run" | "session";
+    expectsCompletionMessage: boolean;
+  };
+
+  export type PluginHookSubagentDeliveryTargetResult = {
+    origin?: {
+      channel?: string;
+      accountId?: string;
+      to?: string;
+      threadId?: string | number;
+    };
+  };
+
+  // -- subagent_spawned -------------------------------------------------------
+
+  export type PluginHookSubagentSpawnedEvent = PluginHookSubagentSpawningEvent & {
+    runId: string;
+  };
+
+  // -- subagent_ended ---------------------------------------------------------
+
+  export type PluginHookSubagentEndedEvent = {
+    targetSessionKey: string;
+    targetKind: PluginHookSubagentTargetKind;
+    reason: string;
+    sendFarewell?: boolean;
+    accountId?: string;
+    runId?: string;
+    endedAt?: number;
+    outcome?: "ok" | "error" | "timeout" | "killed" | "reset" | "deleted";
+    error?: string;
+  };
+
+  // -- Gateway context --------------------------------------------------------
+
+  export type PluginHookGatewayContext = {
+    port?: number;
+  };
+
+  // -- gateway_start ----------------------------------------------------------
+
+  export type PluginHookGatewayStartEvent = {
+    port: number;
+  };
+
+  // -- gateway_stop -----------------------------------------------------------
+
+  export type PluginHookGatewayStopEvent = {
+    reason?: string;
+  };
+
+  // ---------------------------------------------------------------------------
+  // Hook Handler Map
+  // ---------------------------------------------------------------------------
+
   export type PluginHookHandlerMap = {
-    before_model_resolve: (event: unknown, ctx: PluginHookAgentContext) => unknown;
-    before_prompt_build: (event: unknown, ctx: PluginHookAgentContext) => unknown;
+    before_model_resolve: (
+      event: PluginHookBeforeModelResolveEvent,
+      ctx: PluginHookAgentContext,
+    ) =>
+      | Promise<PluginHookBeforeModelResolveResult | void>
+      | PluginHookBeforeModelResolveResult
+      | void;
+    before_prompt_build: (
+      event: PluginHookBeforePromptBuildEvent,
+      ctx: PluginHookAgentContext,
+    ) => Promise<PluginHookBeforePromptBuildResult | void> | PluginHookBeforePromptBuildResult | void;
     before_agent_start: (
       event: PluginHookBeforeAgentStartEvent,
       ctx: PluginHookAgentContext,
     ) => Promise<PluginHookBeforeAgentStartResult | void> | PluginHookBeforeAgentStartResult | void;
-    llm_input: (event: unknown, ctx: PluginHookAgentContext) => unknown;
-    llm_output: (event: unknown, ctx: PluginHookAgentContext) => unknown;
+    llm_input: (event: PluginHookLlmInputEvent, ctx: PluginHookAgentContext) => Promise<void> | void;
+    llm_output: (
+      event: PluginHookLlmOutputEvent,
+      ctx: PluginHookAgentContext,
+    ) => Promise<void> | void;
     agent_end: (
       event: PluginHookAgentEndEvent,
       ctx: PluginHookAgentContext,
@@ -198,26 +528,77 @@ declare module "openclaw/plugin-sdk/core" {
       event: PluginHookBeforeCompactionEvent,
       ctx: PluginHookAgentContext,
     ) => Promise<void> | void;
-    after_compaction: (event: unknown, ctx: PluginHookAgentContext) => unknown;
+    after_compaction: (
+      event: PluginHookAfterCompactionEvent,
+      ctx: PluginHookAgentContext,
+    ) => Promise<void> | void;
     before_reset: (
       event: PluginHookBeforeResetEvent,
       ctx: PluginHookAgentContext,
     ) => Promise<void> | void;
-    message_received: (event: unknown, ctx: unknown) => unknown;
-    message_sending: (event: unknown, ctx: unknown) => unknown;
-    message_sent: (event: unknown, ctx: unknown) => unknown;
-    before_tool_call: (event: unknown, ctx: unknown) => unknown;
-    after_tool_call: (event: unknown, ctx: unknown) => unknown;
-    tool_result_persist: (event: unknown, ctx: unknown) => unknown;
-    before_message_write: (event: unknown, ctx: unknown) => unknown;
-    session_start: (event: unknown, ctx: unknown) => unknown;
-    session_end: (event: unknown, ctx: unknown) => unknown;
-    subagent_spawning: (event: unknown, ctx: unknown) => unknown;
-    subagent_delivery_target: (event: unknown, ctx: unknown) => unknown;
-    subagent_spawned: (event: unknown, ctx: unknown) => unknown;
-    subagent_ended: (event: unknown, ctx: unknown) => unknown;
-    gateway_start: (event: unknown, ctx: unknown) => unknown;
-    gateway_stop: (event: unknown, ctx: unknown) => unknown;
+    message_received: (
+      event: PluginHookMessageReceivedEvent,
+      ctx: PluginHookMessageContext,
+    ) => Promise<void> | void;
+    message_sending: (
+      event: PluginHookMessageSendingEvent,
+      ctx: PluginHookMessageContext,
+    ) => Promise<PluginHookMessageSendingResult | void> | PluginHookMessageSendingResult | void;
+    message_sent: (
+      event: PluginHookMessageSentEvent,
+      ctx: PluginHookMessageContext,
+    ) => Promise<void> | void;
+    before_tool_call: (
+      event: PluginHookBeforeToolCallEvent,
+      ctx: PluginHookToolContext,
+    ) => Promise<PluginHookBeforeToolCallResult | void> | PluginHookBeforeToolCallResult | void;
+    after_tool_call: (
+      event: PluginHookAfterToolCallEvent,
+      ctx: PluginHookToolContext,
+    ) => Promise<void> | void;
+    tool_result_persist: (
+      event: PluginHookToolResultPersistEvent,
+      ctx: PluginHookToolResultPersistContext,
+    ) => PluginHookToolResultPersistResult | void;
+    before_message_write: (
+      event: PluginHookBeforeMessageWriteEvent,
+      ctx: { agentId?: string; sessionKey?: string },
+    ) => PluginHookBeforeMessageWriteResult | void;
+    session_start: (
+      event: PluginHookSessionStartEvent,
+      ctx: PluginHookSessionContext,
+    ) => Promise<void> | void;
+    session_end: (
+      event: PluginHookSessionEndEvent,
+      ctx: PluginHookSessionContext,
+    ) => Promise<void> | void;
+    subagent_spawning: (
+      event: PluginHookSubagentSpawningEvent,
+      ctx: PluginHookSubagentContext,
+    ) => Promise<PluginHookSubagentSpawningResult | void> | PluginHookSubagentSpawningResult | void;
+    subagent_delivery_target: (
+      event: PluginHookSubagentDeliveryTargetEvent,
+      ctx: PluginHookSubagentContext,
+    ) =>
+      | Promise<PluginHookSubagentDeliveryTargetResult | void>
+      | PluginHookSubagentDeliveryTargetResult
+      | void;
+    subagent_spawned: (
+      event: PluginHookSubagentSpawnedEvent,
+      ctx: PluginHookSubagentContext,
+    ) => Promise<void> | void;
+    subagent_ended: (
+      event: PluginHookSubagentEndedEvent,
+      ctx: PluginHookSubagentContext,
+    ) => Promise<void> | void;
+    gateway_start: (
+      event: PluginHookGatewayStartEvent,
+      ctx: PluginHookGatewayContext,
+    ) => Promise<void> | void;
+    gateway_stop: (
+      event: PluginHookGatewayStopEvent,
+      ctx: PluginHookGatewayContext,
+    ) => Promise<void> | void;
   };
 
   // ---------------------------------------------------------------------------
@@ -253,7 +634,7 @@ declare module "openclaw/plugin-sdk/core" {
     registerHook: (
       events: string | string[],
       handler: (...args: unknown[]) => unknown,
-      opts?: unknown,
+      opts?: OpenClawPluginHookOptions,
     ) => void;
     registerHttpRoute: (params: unknown) => void;
     registerChannel: (registration: unknown) => void;
@@ -265,6 +646,7 @@ declare module "openclaw/plugin-sdk/core" {
     registerService: (service: OpenClawPluginService) => void;
     registerProvider: (provider: unknown) => void;
     registerCommand: (command: OpenClawPluginCommandDefinition) => void;
+    registerContextEngine: (id: string, factory: unknown) => void;
     resolvePath: (input: string) => string;
     on: <K extends PluginHookName>(
       hookName: K,
@@ -277,7 +659,7 @@ declare module "openclaw/plugin-sdk/core" {
   // Plugin Definition
   // ---------------------------------------------------------------------------
 
-  export type PluginKind = "memory";
+  export type PluginKind = "memory" | "context-engine";
 
   export type OpenClawPluginDefinition = {
     id?: string;

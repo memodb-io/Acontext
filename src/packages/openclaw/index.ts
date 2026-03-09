@@ -517,15 +517,23 @@ export class AcontextBridge {
 
   async storeMessage(
     sessionId: string,
-    role: string,
-    content: string,
+    blob: Record<string, unknown>,
   ): Promise<void> {
     const client = await this.ensureClient();
-    await client.sessions.storeMessage(
-      sessionId,
-      { role, content },
-      { format: "openai" },
-    );
+    await client.sessions.storeMessage(sessionId, blob, { format: "openai" });
+  }
+
+  async storeMessages(
+    sessionId: string,
+    blobs: Record<string, unknown>[],
+  ): Promise<number> {
+    const client = await this.ensureClient();
+    let stored = 0;
+    for (const blob of blobs) {
+      await client.sessions.storeMessage(sessionId, blob, { format: "openai" });
+      stored++;
+    }
+    return stored;
   }
 
   async flush(sessionId: string): Promise<void> {
@@ -645,6 +653,8 @@ const acontextPlugin = {
     let currentOpenClawSessionKey: string | undefined;
     let currentAcontextSessionId: string | undefined;
     let capturedTurnCount = 0;
+    /** Number of messages already captured from the current session transcript. */
+    let capturedMessageCursor = 0;
 
     api.logger.info(
       `acontext: registered (user: ${cfg.userId}, autoCapture: ${cfg.autoCapture}, autoLearn: ${cfg.autoLearn}, skillsDir: ${cfg.skillsDir})`,
@@ -940,8 +950,7 @@ const acontextPlugin = {
 
     // Skill sync: ensure skills are up-to-date before each agent turn
     api.on("before_agent_start", async (event, ctx) => {
-      const sessionKey = (ctx as any)?.sessionKey ?? undefined;
-      if (sessionKey) currentOpenClawSessionKey = sessionKey;
+      if (ctx.sessionKey) currentOpenClawSessionKey = ctx.sessionKey;
 
       try {
         await bridge.listSkills();
@@ -967,10 +976,15 @@ const acontextPlugin = {
 
       api.on("before_compaction", async (_event, _ctx) => {
         await flushAndLearnIfActive();
+        // Compaction rewrites the message history, so reset cursor to
+        // avoid skipping or duplicating messages on the next agent_end.
+        capturedMessageCursor = 0;
       });
 
       api.on("before_reset", async (_event, _ctx) => {
         await flushAndLearnIfActive();
+        // Session reset clears the transcript — start fresh.
+        capturedMessageCursor = 0;
       });
     }
 
@@ -981,8 +995,7 @@ const acontextPlugin = {
           return;
         }
 
-        const sessionKey = (ctx as any)?.sessionKey ?? undefined;
-        if (sessionKey) currentOpenClawSessionKey = sessionKey;
+        if (ctx.sessionKey) currentOpenClawSessionKey = ctx.sessionKey;
 
         try {
           const openclawKey =
@@ -990,42 +1003,13 @@ const acontextPlugin = {
           const sessionId = await bridge.ensureSession(openclawKey);
           currentAcontextSessionId = sessionId;
 
-          const recentMessages = event.messages.slice(-20);
-          let storedCount = 0;
+          // Only store messages we haven't captured yet (incremental).
+          const allMessages = event.messages as Record<string, unknown>[];
+          const newMessages = allMessages.slice(capturedMessageCursor);
+          if (newMessages.length === 0) return;
 
-          for (const msg of recentMessages) {
-            if (!msg || typeof msg !== "object") continue;
-            const msgObj = msg as Record<string, unknown>;
-
-            const role = msgObj.role;
-            if (role !== "user" && role !== "assistant") continue;
-
-            let textContent = "";
-            const content = msgObj.content;
-
-            if (typeof content === "string") {
-              textContent = content;
-            } else if (Array.isArray(content)) {
-              for (const block of content) {
-                if (
-                  block &&
-                  typeof block === "object" &&
-                  "text" in block &&
-                  typeof (block as Record<string, unknown>).text === "string"
-                ) {
-                  textContent +=
-                    (textContent ? "\n" : "") +
-                    ((block as Record<string, unknown>).text as string);
-                }
-              }
-            }
-
-            if (!textContent) continue;
-
-            await bridge.storeMessage(sessionId, role as string, textContent);
-            storedCount++;
-          }
-
+          const storedCount = await bridge.storeMessages(sessionId, newMessages);
+          capturedMessageCursor = allMessages.length;
           capturedTurnCount += storedCount;
 
           if (storedCount > 0) {
