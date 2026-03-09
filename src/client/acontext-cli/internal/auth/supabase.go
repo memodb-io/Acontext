@@ -124,14 +124,14 @@ func supabaseGet(path string, params url.Values, jwt string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("Supabase request failed (%d): %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("supabase request failed (%d): %s", resp.StatusCode, string(body))
 	}
 	return body, nil
 }
@@ -156,14 +156,14 @@ func supabaseRPC(funcName string, params map[string]interface{}, jwt string) ([]
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("Supabase RPC failed (%d): %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("supabase RPC failed (%d): %s", resp.StatusCode, string(body))
 	}
 	return body, nil
 }

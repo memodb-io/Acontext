@@ -116,7 +116,7 @@ func callbackHandler(expectedState string, resultCh chan<- authResult) http.Hand
 		}
 
 		w.Header().Set("Content-Type", "text/html")
-		fmt.Fprint(w, successHTML)
+		_, _ = fmt.Fprint(w, successHTML)
 		resultCh <- authResult{af: af}
 	}
 }
@@ -131,7 +131,7 @@ func callbackHandler(expectedState string, resultCh chan<- authResult) http.Hand
 // Returns the login URL.
 func LoginStartBackground() (string, error) {
 	if DashboardURL == "" {
-		return "", fmt.Errorf("Dashboard URL not configured")
+		return "", fmt.Errorf("dashboard URL not configured")
 	}
 
 	state, err := generateState()
@@ -151,23 +151,23 @@ func LoginStartBackground() (string, error) {
 	// Fork background process: pass the listener fd (fd 3) + port & state as args.
 	exe, err := os.Executable()
 	if err != nil {
-		listener.Close()
+		_ = listener.Close()
 		return "", fmt.Errorf("find executable: %w", err)
 	}
 
 	// Get the underlying file from the TCP listener so we can pass it as ExtraFiles.
 	tcpListener, ok := listener.(*net.TCPListener)
 	if !ok {
-		listener.Close()
+		_ = listener.Close()
 		return "", fmt.Errorf("unexpected listener type")
 	}
 	listenerFile, err := tcpListener.File()
 	if err != nil {
-		listener.Close()
+		_ = listener.Close()
 		return "", fmt.Errorf("get listener fd: %w", err)
 	}
 	// Close the original listener — the fd in listenerFile keeps the socket open.
-	listener.Close()
+	_ = listener.Close()
 
 	bgCmd := exec.Command(exe, "login", "--wait",
 		fmt.Sprintf("%d", port), state)
@@ -176,12 +176,12 @@ func LoginStartBackground() (string, error) {
 	bgCmd.Stderr = nil
 	bgCmd.Stdin = nil
 	if err := bgCmd.Start(); err != nil {
-		listenerFile.Close()
+		_ = listenerFile.Close()
 		return "", fmt.Errorf("start background listener: %w", err)
 	}
-	listenerFile.Close() // parent no longer needs it
+	_ = listenerFile.Close() // parent no longer needs it
 	// Detach — don't wait for the background process
-	go bgCmd.Wait()
+	go func() { _ = bgCmd.Wait() }()
 
 	return loginURL, nil
 }
@@ -202,7 +202,7 @@ func LoginWaitForCallback(portStr, state string) error {
 		return fmt.Errorf("no listener fd passed (fd 3)")
 	}
 	listener, err := net.FileListener(f)
-	f.Close()
+	_ = f.Close()
 	if err != nil {
 		return fmt.Errorf("recover listener from fd 3: %w", err)
 	}
@@ -214,14 +214,14 @@ func LoginWaitForCallback(portStr, state string) error {
 	mux.HandleFunc("/callback", callbackHandler(state, resultCh))
 
 	server := &http.Server{Handler: mux}
-	go server.Serve(listener)
+	go func() { _ = server.Serve(listener) }()
 
 	ctx, cancel := context.WithTimeout(context.Background(), callbackTimeout)
 	defer func() {
 		cancel()
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer shutdownCancel()
-		server.Shutdown(shutdownCtx)
+		_ = server.Shutdown(shutdownCtx)
 	}()
 
 	select {
@@ -238,7 +238,7 @@ func LoginWaitForCallback(portStr, state string) error {
 // LoginInteractive performs the full blocking login flow (for TTY use).
 func LoginInteractive() (*AuthFile, error) {
 	if DashboardURL == "" {
-		return nil, fmt.Errorf("Dashboard URL not configured")
+		return nil, fmt.Errorf("dashboard URL not configured")
 	}
 
 	state, err := generateState()
@@ -258,7 +258,7 @@ func LoginInteractive() (*AuthFile, error) {
 	mux.HandleFunc("/callback", callbackHandler(state, resultCh))
 
 	server := &http.Server{Handler: mux}
-	go server.Serve(listener)
+	go func() { _ = server.Serve(listener) }()
 
 	loginURL := fmt.Sprintf("%s/auth/cli-callback?cli_port=%d&state=%s",
 		DashboardURL, port, state)
@@ -281,7 +281,7 @@ func LoginInteractive() (*AuthFile, error) {
 		cancel()
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer shutdownCancel()
-		server.Shutdown(shutdownCtx)
+		_ = server.Shutdown(shutdownCtx)
 	}()
 
 	select {

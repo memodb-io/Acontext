@@ -106,7 +106,7 @@ func init() {
 			}
 
 			if tempFile {
-				defer os.Remove(zipPath)
+				defer func() { _ = os.Remove(zipPath) }()
 			}
 
 			skill, err := c.CreateAgentSkill(context.Background(), zipPath, user, meta)
@@ -194,20 +194,20 @@ func zipDirectory(dir string) (string, error) {
 		if err != nil {
 			return err
 		}
-		defer f.Close()
+		defer func() { _ = f.Close() }()
 		_, err = io.Copy(fw, f)
 		return err
 	}); err != nil {
-		w.Close()
-		tmp.Close()
-		os.Remove(tmpName)
+		_ = w.Close()
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
 		return "", err
 	}
 	if err := w.Close(); err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
 		return "", err
 	}
-	tmp.Close()
+	_ = tmp.Close()
 	return tmpName, nil
 }
