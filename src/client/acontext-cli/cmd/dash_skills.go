@@ -10,7 +10,9 @@ import (
 	"strings"
 
 	"github.com/memodb-io/Acontext/acontext-cli/internal/api"
+	"github.com/memodb-io/Acontext/acontext-cli/internal/auth"
 	"github.com/memodb-io/Acontext/acontext-cli/internal/output"
+	"github.com/memodb-io/Acontext/acontext-cli/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -127,6 +129,17 @@ func init() {
 	deleteCmd := &cobra.Command{
 		Use: "delete <skill-id>", Short: "Delete an agent skill", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			yes, _ := cmd.Flags().GetBool("yes")
+			if !yes {
+				if !auth.IsTTY() {
+					return fmt.Errorf("use --yes to confirm deletion in non-interactive mode")
+				}
+				proceed, err := tui.RunConfirm(fmt.Sprintf("Delete skill %s?", args[0]), false)
+				if err != nil || !proceed {
+					fmt.Println("Cancelled.")
+					return nil
+				}
+			}
 			c, err := requireClient()
 			if err != nil {
 				return err
@@ -138,24 +151,25 @@ func init() {
 			return nil
 		},
 	}
+	deleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	skillsCmd.AddCommand(listCmd, getCmd, createCmd, deleteCmd)
 	DashCmd.AddCommand(skillsCmd)
 }
 
 // zipDirectory creates a temporary ZIP from a directory. Returns the temp file path.
+// The caller is responsible for removing the temp file.
 func zipDirectory(dir string) (string, error) {
 	tmp, err := os.CreateTemp("", "acontext-skill-*.zip")
 	if err != nil {
 		return "", err
 	}
-	defer tmp.Close()
+	tmpName := tmp.Name()
 
 	w := zip.NewWriter(tmp)
-	defer w.Close()
 
 	base := filepath.Clean(dir)
-	return tmp.Name(), filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
+	if err := filepath.Walk(base, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -183,5 +197,17 @@ func zipDirectory(dir string) (string, error) {
 		defer f.Close()
 		_, err = io.Copy(fw, f)
 		return err
-	})
+	}); err != nil {
+		w.Close()
+		tmp.Close()
+		os.Remove(tmpName)
+		return "", err
+	}
+	if err := w.Close(); err != nil {
+		tmp.Close()
+		os.Remove(tmpName)
+		return "", err
+	}
+	tmp.Close()
+	return tmpName, nil
 }

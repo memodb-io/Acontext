@@ -1,12 +1,18 @@
 package auth
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 )
+
+// httpClient is a shared HTTP client with a reasonable timeout.
+// Used instead of http.DefaultClient throughout the auth package.
+var httpClient = &http.Client{Timeout: 30 * time.Second}
 
 // Organization represents a user's organization from Supabase.
 type Organization struct {
@@ -25,6 +31,7 @@ type OrgMembership struct {
 type OrgProject struct {
 	ProjectID string `json:"project_id"`
 	Name      string `json:"name"`
+	OrgName   string `json:"org_name,omitempty"`
 	CreatedAt string `json:"created_at"`
 }
 
@@ -72,6 +79,37 @@ func ListProjects(jwt, orgID string) ([]OrgProject, error) {
 	return projects, nil
 }
 
+// CreateOrganization creates a new organization via Supabase RPC.
+func CreateOrganization(jwt, name string) (string, error) {
+	params := map[string]interface{}{
+		"org_name": name,
+	}
+	data, err := supabaseRPC("create_organization", params, jwt)
+	if err != nil {
+		return "", fmt.Errorf("create organization: %w", err)
+	}
+	// RPC returns a UUID string (JSON-encoded)
+	var orgID string
+	if err := json.Unmarshal(data, &orgID); err != nil {
+		return "", fmt.Errorf("parse organization id: %w", err)
+	}
+	return orgID, nil
+}
+
+// LinkProjectToOrg links an existing project to an organization via Supabase RPC.
+func LinkProjectToOrg(jwt, orgID, projectName, projectID string) error {
+	params := map[string]interface{}{
+		"p_org_id":       orgID,
+		"p_project_name": projectName,
+		"p_project_id":   projectID,
+	}
+	_, err := supabaseRPC("create_organization_project", params, jwt)
+	if err != nil {
+		return fmt.Errorf("link project to org: %w", err)
+	}
+	return nil
+}
+
 func supabaseGet(path string, params url.Values, jwt string) ([]byte, error) {
 	u := SupabaseURL + path + "?" + params.Encode()
 
@@ -82,7 +120,7 @@ func supabaseGet(path string, params url.Values, jwt string) ([]byte, error) {
 	req.Header.Set("Authorization", "Bearer "+jwt)
 	req.Header.Set("apikey", SupabaseAnonKey)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -94,6 +132,38 @@ func supabaseGet(path string, params url.Values, jwt string) ([]byte, error) {
 	}
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("Supabase request failed (%d): %s", resp.StatusCode, string(body))
+	}
+	return body, nil
+}
+
+func supabaseRPC(funcName string, params map[string]interface{}, jwt string) ([]byte, error) {
+	u := SupabaseURL + "/rest/v1/rpc/" + funcName
+
+	bodyBytes, err := json.Marshal(params)
+	if err != nil {
+		return nil, fmt.Errorf("marshal RPC params: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", u, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+jwt)
+	req.Header.Set("apikey", SupabaseAnonKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("Supabase RPC failed (%d): %s", resp.StatusCode, string(body))
 	}
 	return body, nil
 }
