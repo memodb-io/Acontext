@@ -104,7 +104,7 @@ func init() {
 		},
 	}
 	learnCmd.Flags().String("session", "", "Session ID to learn from")
-	learnCmd.MarkFlagRequired("session")
+	_ = learnCmd.MarkFlagRequired("session")
 
 	spacesCmd.AddCommand(listCmd, createCmd, deleteCmd, learnCmd)
 	DashCmd.AddCommand(spacesCmd)

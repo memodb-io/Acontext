@@ -20,7 +20,7 @@ func TestGenerateState(t *testing.T) {
 func TestListenOnPreferredPort(t *testing.T) {
 	l, err := listenOnPreferredPort()
 	require.NoError(t, err)
-	defer l.Close()
+	defer func() { _ = l.Close() }()
 
 	port := l.Addr().String()
 	assert.Contains(t, port, "127.0.0.1:")

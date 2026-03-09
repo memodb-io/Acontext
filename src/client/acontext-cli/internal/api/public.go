@@ -121,7 +121,7 @@ func (c *Client) CreateAgentSkill(ctx context.Context, zipPath, user, meta strin
 	if err != nil {
 		return nil, fmt.Errorf("open zip: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
@@ -137,13 +137,13 @@ func (c *Client) CreateAgentSkill(ctx context.Context, zipPath, user, meta strin
 
 	// user field
 	if user != "" {
-		w.WriteField("user", user)
+		_ = w.WriteField("user", user)
 	}
 	// meta field
 	if meta != "" {
-		w.WriteField("meta", meta)
+		_ = w.WriteField("meta", meta)
 	}
-	w.Close()
+	_ = w.Close()
 
 	var skill AgentSkill
 	if err := c.PostMultipart(ctx, "/api/v1/agent_skills", &buf, w.FormDataContentType(), &skill); err != nil {

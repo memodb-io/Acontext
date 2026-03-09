@@ -22,7 +22,7 @@ func TestClientGet_Success(t *testing.T) {
 				{"id": "s1"},
 			},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 
@@ -37,7 +37,7 @@ func TestClientGet_Success(t *testing.T) {
 func TestClientGet_401(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(401)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
 			"code":  401,
 			"error": "unauthorized",
 		})
@@ -58,7 +58,7 @@ func TestAdminClient_HeadersSet(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "my-jwt-token", r.Header.Get("X-Access-Token"))
 		assert.Empty(t, r.Header.Get("Authorization"))
-		json.NewEncoder(w).Encode(map[string]interface{}{"code": 200, "data": []interface{}{}})
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"code": 200, "data": []interface{}{}})
 	}))
 	defer server.Close()
 
@@ -73,14 +73,14 @@ func TestClientPost_WithBody(t *testing.T) {
 		assert.Equal(t, "POST", r.Method)
 
 		var body map[string]string
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 		assert.Equal(t, "alice@test.com", body["user"])
 
 		resp := map[string]interface{}{
 			"code": 200,
 			"data": map[string]string{"id": "new-id"},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 

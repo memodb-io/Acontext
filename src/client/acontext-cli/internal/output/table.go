@@ -13,19 +13,19 @@ func RenderTable(headers []string, rows [][]string) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 
 	// Header
-	fmt.Fprintln(w, strings.Join(headers, "\t"))
+	_, _ = fmt.Fprintln(w, strings.Join(headers, "\t"))
 	// Separator
 	seps := make([]string, len(headers))
 	for i, h := range headers {
 		seps[i] = strings.Repeat("-", len(h))
 	}
-	fmt.Fprintln(w, strings.Join(seps, "\t"))
+	_, _ = fmt.Fprintln(w, strings.Join(seps, "\t"))
 
 	// Rows
 	for _, row := range rows {
-		fmt.Fprintln(w, strings.Join(row, "\t"))
+		_, _ = fmt.Fprintln(w, strings.Join(row, "\t"))
 	}
-	w.Flush()
+	_ = w.Flush()
 }
 
 // RenderJSON prints v as indented JSON to stdout.

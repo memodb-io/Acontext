@@ -191,7 +191,7 @@ func init() {
 				if err := auth.SetProjectKey(project.ID, project.SecretKey); err == nil {
 					fmt.Println("API key saved locally.")
 				}
-				auth.SetDefaultProject(project.ID)
+				_ = auth.SetDefaultProject(project.ID)
 				fmt.Printf("Default project set to: %s\n", project.ID)
 				fmt.Println()
 				fmt.Println("Setup complete. You can now use 'acontext dash' commands.")
@@ -201,7 +201,7 @@ func init() {
 	}
 	createCmd.Flags().String("name", "", "Project name")
 	createCmd.Flags().String("org", "", "Organization ID (auto-detected if only one)")
-	createCmd.MarkFlagRequired("name")
+	_ = createCmd.MarkFlagRequired("name")
 
 	// Delete a project
 	deleteCmd := &cobra.Command{
@@ -222,7 +222,7 @@ func init() {
 				return err
 			}
 			// Clean up local key
-			auth.RemoveProjectKey(args[0])
+			_ = auth.RemoveProjectKey(args[0])
 			fmt.Printf("Project deleted: %s\n", args[0])
 			return nil
 		},

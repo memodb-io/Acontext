@@ -35,7 +35,7 @@ var WhoamiCmd = &cobra.Command{
 
 func init() {
 	LoginCmd.Flags().String("wait", "", "Internal: run as background callback listener (<port> <state>)")
-	LoginCmd.Flags().MarkHidden("wait")
+	_ = LoginCmd.Flags().MarkHidden("wait")
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {
@@ -139,7 +139,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 			fmt.Println(tui.RenderSuccess(fmt.Sprintf("Project created: %s (%s)", projectName, project.ID)))
 			if project.SecretKey != "" {
 				if err := auth.SetProjectKey(project.ID, project.SecretKey); err == nil {
-					auth.SetDefaultProject(project.ID)
+					_ = auth.SetDefaultProject(project.ID)
 					fmt.Println(tui.RenderSuccess(fmt.Sprintf("Default project set to: %s", projectName)))
 					fmt.Println(tui.RenderInfo("API key saved locally."))
 				}

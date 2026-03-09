@@ -65,7 +65,7 @@ func init() {
 	sendCmd.Flags().String("role", "user", "Message role")
 	sendCmd.Flags().String("content", "", "Message content")
 	sendCmd.Flags().String("type", "", "Message type")
-	sendCmd.MarkFlagRequired("content")
+	_ = sendCmd.MarkFlagRequired("content")
 
 	messagesCmd.AddCommand(listCmd, sendCmd)
 	DashCmd.AddCommand(messagesCmd)
