@@ -110,6 +110,64 @@ func LinkProjectToOrg(jwt, orgID, projectName, projectID string) error {
 	return nil
 }
 
+// ClaimCLISession calls the claim-cli-session Edge Function.
+// Returns nil, nil if no session found yet (pending).
+func ClaimCLISession(state string) (*AuthFile, error) {
+	u := SupabaseURL + "/functions/v1/claim-cli-session"
+
+	bodyBytes, err := json.Marshal(map[string]string{"state": state})
+	if err != nil {
+		return nil, fmt.Errorf("marshal request: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", u, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+SupabaseAnonKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("claim session failed (%d): %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		Status       string `json:"status"`
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresAt    int64  `json:"expires_at"`
+		UserID       string `json:"user_id"`
+		UserEmail    string `json:"user_email"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, fmt.Errorf("parse response: %w", err)
+	}
+
+	if result.Status == "pending" {
+		return nil, nil
+	}
+
+	return &AuthFile{
+		AccessToken:  result.AccessToken,
+		RefreshToken: result.RefreshToken,
+		ExpiresAt:    result.ExpiresAt,
+		User: AuthUser{
+			ID:    result.UserID,
+			Email: result.UserEmail,
+		},
+	}, nil
+}
+
 func supabaseGet(path string, params url.Values, jwt string) ([]byte, error) {
 	u := SupabaseURL + path + "?" + params.Encode()
 
