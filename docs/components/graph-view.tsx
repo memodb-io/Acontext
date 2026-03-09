@@ -113,9 +113,14 @@ function ClientOnly({
 
     if (node) {
       const coords = fg.graph2ScreenCoords(node.x!, node.y!);
+      const canvas = containerRef.current?.querySelector('canvas');
+      const containerRect = containerRef.current?.getBoundingClientRect();
+      const canvasRect = canvas?.getBoundingClientRect();
+      const offsetX = (canvasRect?.left ?? 0) - (containerRect?.left ?? 0);
+      const offsetY = (canvasRect?.top ?? 0) - (containerRect?.top ?? 0);
       setTooltip({
-        x: coords.x + 4,
-        y: coords.y + 4,
+        x: coords.x + offsetX + 4,
+        y: coords.y + offsetY + 4,
         content: node.description ?? node.text,
       });
     } else {
@@ -247,7 +252,7 @@ function ClientOnly({
             graphRef.current = fg;
             if (fg) {
               fg.d3Force('link', forceLink().distance(150));
-              fg.d3Force('charge', forceManyBody().strength(5));
+              fg.d3Force('charge', forceManyBody().strength(-30));
               fg.d3Force('collision', forceCollide(80));
               fg.d3Force('center', forceCenter(0, 0));
             }

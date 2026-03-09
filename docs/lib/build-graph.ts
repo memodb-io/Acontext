@@ -37,7 +37,8 @@ export async function buildGraph(): Promise<Graph> {
     }),
   );
 
-  // Deduplicate links
+  // Deduplicate links: treat A→B and B→A as the same undirected edge.
+  // If directed rendering is added later, this logic must be revisited.
   const seen = new Set<string>();
   graph.links = graph.links.filter((link) => {
     const key =

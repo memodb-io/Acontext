@@ -6,15 +6,6 @@ initOpenNextCloudflareForDev();
 /** @type {import('next').NextConfig} */
 const config = {
   reactStrictMode: true,
-  async redirects() {
-    return [
-      {
-        source: '/learn/skill-memory',
-        destination: '/learn/quick',
-        permanent: true,
-      },
-    ];
-  },
 };
 
 const withMDX = createMDX();
