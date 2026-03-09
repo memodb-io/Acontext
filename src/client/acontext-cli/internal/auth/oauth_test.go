@@ -16,12 +16,3 @@ func TestGenerateState(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotEqual(t, s1, s2)
 }
-
-func TestListenOnPreferredPort(t *testing.T) {
-	l, err := listenOnPreferredPort()
-	require.NoError(t, err)
-	defer func() { _ = l.Close() }()
-
-	port := l.Addr().String()
-	assert.Contains(t, port, "127.0.0.1:")
-}

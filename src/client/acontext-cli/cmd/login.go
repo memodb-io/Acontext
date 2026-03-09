@@ -34,20 +34,14 @@ var WhoamiCmd = &cobra.Command{
 }
 
 func init() {
-	LoginCmd.Flags().String("wait", "", "Internal: run as background callback listener (<port> <state>)")
-	_ = LoginCmd.Flags().MarkHidden("wait")
+	LoginCmd.Flags().Bool("poll", false, "Poll for a pending login session (non-interactive)")
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {
-	// Hidden --wait flag: run as background callback listener.
-	// Usage: acontext login --wait <port> <state>
-	waitFlag, _ := cmd.Flags().GetString("wait")
-	if waitFlag != "" {
-		// waitFlag is the port; the state is the next positional arg.
-		if len(args) < 1 {
-			return fmt.Errorf("--wait requires port and state arguments")
-		}
-		return auth.LoginWaitForCallback(waitFlag, args[0])
+	// --poll flag: check for pending login
+	pollFlag, _ := cmd.Flags().GetBool("poll")
+	if pollFlag {
+		return auth.LoginPoll()
 	}
 
 	// Check if already logged in
@@ -68,7 +62,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	}
 
 	if auth.IsTTY() {
-		// Interactive mode: blocking flow with browser open
+		// Interactive mode: blocking flow with browser open + polling
 		af, err := auth.LoginInteractive()
 		if err != nil {
 			return fmt.Errorf("login failed: %w", err)
@@ -159,8 +153,8 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		fmt.Println(tui.RenderSuccess(fmt.Sprintf("Default project set to: %s", choice.Name)))
 		fmt.Println(tui.RenderInfo("API key saved locally."))
 	} else {
-		// Non-interactive (agent) mode: background listener, return URL immediately
-		loginURL, err := auth.LoginStartBackground()
+		// Non-interactive (agent) mode: print URL and save state for later polling
+		loginURL, err := auth.LoginNonInteractive()
 		if err != nil {
 			return fmt.Errorf("login failed: %w", err)
 		}
@@ -169,9 +163,11 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 		fmt.Printf("  %s\n", loginURL)
 		fmt.Println()
-		fmt.Println("A background listener is waiting for the callback (60s timeout).")
+		fmt.Println("After the user confirms they have completed login in the browser, run:")
 		fmt.Println()
-		fmt.Println("Next steps after the user completes login:")
+		fmt.Println("  acontext login --poll")
+		fmt.Println()
+		fmt.Println("This will retrieve the authentication tokens. Then proceed with project setup:")
 		fmt.Println("  1. Run 'acontext dash projects list --json' to see available projects.")
 		fmt.Println("  2. If projects exist, show them to the user as a numbered table")
 		fmt.Println("     (# | org_name | name | project_id) and ask which one to use.")

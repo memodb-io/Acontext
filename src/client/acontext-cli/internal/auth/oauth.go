@@ -1,18 +1,14 @@
 package auth
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net"
-	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
-	"strconv"
 	"time"
 )
 
@@ -26,216 +22,21 @@ var (
 var DashboardURL = "https://dash.acontext.io"
 
 const (
-	callbackTimeout = 60 * time.Second
-	successHTML     = `<!DOCTYPE html><html><head><title>Login Successful</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;display:flex;justify-content:center;align-items:center;height:100vh;margin:0;background:#f8f9fa}div{text-align:center;padding:2rem;background:white;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.1)}</style></head><body><div><h2>Login Successful!</h2><p>You can close this tab and return to the terminal.</p></div></body></html>`
+	pollInterval = 2 * time.Second
+	pollTimeout  = 120 * time.Second
 )
 
-// callbackPayload is the JSON body POSTed by the Dashboard relay page.
-type callbackPayload struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-	ExpiresAt    int64  `json:"expires_at"`
-	UserID       string `json:"user_id"`
-	UserEmail    string `json:"user_email"`
-	State        string `json:"state"`
-	Error        string `json:"error"`
-}
+const pendingLoginFile = "pending_login.json"
 
-// authResult is used internally to pass callback results via channel.
-type authResult struct {
-	af  *AuthFile
-	err error
-}
-
-// callbackHandler returns an http.HandlerFunc that accepts the OAuth callback.
-// It supports POST with JSON body (preferred) and GET with query params (fallback).
-func callbackHandler(expectedState string, resultCh chan<- authResult) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Allow CORS for the POST from the Dashboard page
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		var p callbackPayload
-
-		if r.Method == http.MethodPost && r.Body != nil {
-			body, err := io.ReadAll(r.Body)
-			if err != nil {
-				resultCh <- authResult{err: fmt.Errorf("read callback body: %w", err)}
-				http.Error(w, "Failed to read body", http.StatusBadRequest)
-				return
-			}
-			if err := json.Unmarshal(body, &p); err != nil {
-				resultCh <- authResult{err: fmt.Errorf("parse callback body: %w", err)}
-				http.Error(w, "Invalid JSON", http.StatusBadRequest)
-				return
-			}
-		} else {
-			// GET fallback for backwards compat
-			q := r.URL.Query()
-			p.AccessToken = q.Get("access_token")
-			p.RefreshToken = q.Get("refresh_token")
-			p.ExpiresAt, _ = strconv.ParseInt(q.Get("expires_at"), 10, 64)
-			p.UserID = q.Get("user_id")
-			p.UserEmail = q.Get("user_email")
-			p.State = q.Get("state")
-			p.Error = q.Get("error")
-		}
-
-		if p.State != expectedState {
-			resultCh <- authResult{err: fmt.Errorf("state mismatch")}
-			http.Error(w, "State mismatch", http.StatusBadRequest)
-			return
-		}
-
-		if p.Error != "" {
-			resultCh <- authResult{err: fmt.Errorf("login error: %s", p.Error)}
-			http.Error(w, p.Error, http.StatusBadRequest)
-			return
-		}
-
-		if p.AccessToken == "" {
-			resultCh <- authResult{err: fmt.Errorf("no access_token in callback")}
-			http.Error(w, "No access token", http.StatusBadRequest)
-			return
-		}
-
-		af := &AuthFile{
-			AccessToken:  p.AccessToken,
-			RefreshToken: p.RefreshToken,
-			ExpiresAt:    p.ExpiresAt,
-			User: AuthUser{
-				ID:    p.UserID,
-				Email: p.UserEmail,
-			},
-		}
-
-		w.Header().Set("Content-Type", "text/html")
-		_, _ = fmt.Fprint(w, successHTML)
-		resultCh <- authResult{af: af}
-	}
-}
-
-// LoginStartBackground starts a background callback server and prints the login URL.
-// The command returns immediately. The background server waits for the Dashboard
-// to POST tokens, saves auth.json, and exits.
-//
-// The listener fd is passed to the child process to avoid a TOCTOU port race.
-// Port and state are passed as command arguments (no temp state file needed).
-//
-// Returns the login URL.
-func LoginStartBackground() (string, error) {
-	if DashboardURL == "" {
-		return "", fmt.Errorf("dashboard URL not configured")
-	}
-
-	state, err := generateState()
-	if err != nil {
-		return "", fmt.Errorf("generate state: %w", err)
-	}
-
-	listener, err := listenOnPreferredPort()
-	if err != nil {
-		return "", fmt.Errorf("find available port: %w", err)
-	}
-	port := listener.Addr().(*net.TCPAddr).Port
-
-	loginURL := fmt.Sprintf("%s/auth/cli-callback?cli_port=%d&state=%s",
-		DashboardURL, port, state)
-
-	// Fork background process: pass the listener fd (fd 3) + port & state as args.
-	exe, err := os.Executable()
-	if err != nil {
-		_ = listener.Close()
-		return "", fmt.Errorf("find executable: %w", err)
-	}
-
-	// Get the underlying file from the TCP listener so we can pass it as ExtraFiles.
-	tcpListener, ok := listener.(*net.TCPListener)
-	if !ok {
-		_ = listener.Close()
-		return "", fmt.Errorf("unexpected listener type")
-	}
-	listenerFile, err := tcpListener.File()
-	if err != nil {
-		_ = listener.Close()
-		return "", fmt.Errorf("get listener fd: %w", err)
-	}
-	// Close the original listener — the fd in listenerFile keeps the socket open.
-	_ = listener.Close()
-
-	bgCmd := exec.Command(exe, "login", "--wait",
-		fmt.Sprintf("%d", port), state)
-	bgCmd.ExtraFiles = []*os.File{listenerFile} // fd 3
-	bgCmd.Stdout = nil
-	bgCmd.Stderr = nil
-	bgCmd.Stdin = nil
-	if err := bgCmd.Start(); err != nil {
-		_ = listenerFile.Close()
-		return "", fmt.Errorf("start background listener: %w", err)
-	}
-	_ = listenerFile.Close() // parent no longer needs it
-	// Detach — don't wait for the background process
-	go func() { _ = bgCmd.Wait() }()
-
-	return loginURL, nil
-}
-
-// LoginWaitForCallback runs the background callback server.
-// Called by `acontext login --wait <port> <state>`.
-// The listener is inherited from the parent process via fd 3.
-// Blocks until callback received or timeout, then saves auth.json and exits.
-func LoginWaitForCallback(portStr, state string) error {
-	port, err := strconv.Atoi(portStr)
-	if err != nil {
-		return fmt.Errorf("invalid port: %w", err)
-	}
-
-	// Recover the listener from fd 3 (passed via ExtraFiles).
-	f := os.NewFile(3, "listener")
-	if f == nil {
-		return fmt.Errorf("no listener fd passed (fd 3)")
-	}
-	listener, err := net.FileListener(f)
-	_ = f.Close()
-	if err != nil {
-		return fmt.Errorf("recover listener from fd 3: %w", err)
-	}
-	_ = port // port is informational; the listener already has the right address
-
-	resultCh := make(chan authResult, 1)
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/callback", callbackHandler(state, resultCh))
-
-	server := &http.Server{Handler: mux}
-	go func() { _ = server.Serve(listener) }()
-
-	ctx, cancel := context.WithTimeout(context.Background(), callbackTimeout)
-	defer func() {
-		cancel()
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer shutdownCancel()
-		_ = server.Shutdown(shutdownCtx)
-	}()
-
-	select {
-	case result := <-resultCh:
-		if result.err != nil {
-			return result.err
-		}
-		return Save(result.af)
-	case <-ctx.Done():
-		return fmt.Errorf("login timed out")
-	}
+// pendingLogin is the on-disk format for ~/.acontext/pending_login.json.
+type pendingLogin struct {
+	State     string `json:"state"`
+	LoginURL  string `json:"login_url"`
+	CreatedAt int64  `json:"created_at"`
 }
 
 // LoginInteractive performs the full blocking login flow (for TTY use).
+// Opens the browser and polls Supabase until the Dashboard stores tokens.
 func LoginInteractive() (*AuthFile, error) {
 	if DashboardURL == "" {
 		return nil, fmt.Errorf("dashboard URL not configured")
@@ -246,22 +47,7 @@ func LoginInteractive() (*AuthFile, error) {
 		return nil, fmt.Errorf("generate state: %w", err)
 	}
 
-	listener, err := listenOnPreferredPort()
-	if err != nil {
-		return nil, fmt.Errorf("start callback server: %w", err)
-	}
-	port := listener.Addr().(*net.TCPAddr).Port
-
-	resultCh := make(chan authResult, 1)
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/callback", callbackHandler(state, resultCh))
-
-	server := &http.Server{Handler: mux}
-	go func() { _ = server.Serve(listener) }()
-
-	loginURL := fmt.Sprintf("%s/auth/cli-callback?cli_port=%d&state=%s",
-		DashboardURL, port, state)
+	loginURL := fmt.Sprintf("%s/auth/cli-callback?state=%s", DashboardURL, state)
 
 	fmt.Println()
 	fmt.Println("Please open the following URL in your browser to authenticate:")
@@ -276,37 +62,139 @@ func LoginInteractive() (*AuthFile, error) {
 
 	fmt.Println("Waiting for authentication...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), callbackTimeout)
-	defer func() {
-		cancel()
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer shutdownCancel()
-		_ = server.Shutdown(shutdownCtx)
-	}()
-
-	select {
-	case result := <-resultCh:
-		if result.err != nil {
-			return nil, result.err
-		}
-		return result.af, nil
-	case <-ctx.Done():
-		return nil, fmt.Errorf("login timed out — please try again")
+	af, err := pollForSession(state, pollTimeout)
+	if err != nil {
+		return nil, err
 	}
+	return af, nil
+}
+
+// LoginNonInteractive prints the login URL and saves state for later polling.
+// Used in non-TTY (agent) mode. Returns the login URL.
+func LoginNonInteractive() (string, error) {
+	if DashboardURL == "" {
+		return "", fmt.Errorf("dashboard URL not configured")
+	}
+
+	state, err := generateState()
+	if err != nil {
+		return "", fmt.Errorf("generate state: %w", err)
+	}
+
+	loginURL := fmt.Sprintf("%s/auth/cli-callback?state=%s", DashboardURL, state)
+
+	// Save state for later polling via `login --poll`
+	if err := savePendingLogin(state, loginURL); err != nil {
+		return "", fmt.Errorf("save pending login: %w", err)
+	}
+
+	return loginURL, nil
+}
+
+// LoginPoll checks for a pending login and polls Supabase for the session.
+// Used by `acontext login --poll`.
+func LoginPoll() error {
+	pending, err := loadPendingLogin()
+	if err != nil {
+		return fmt.Errorf("load pending login: %w", err)
+	}
+	if pending == nil {
+		return fmt.Errorf("no pending login found — run 'acontext login' first")
+	}
+
+	// Check if pending login is too old (5 minutes, matching Supabase TTL)
+	if time.Since(time.Unix(pending.CreatedAt, 0)) > 5*time.Minute {
+		_ = clearPendingLogin()
+		return fmt.Errorf("pending login expired — run 'acontext login' again")
+	}
+
+	af, err := pollForSession(pending.State, pollTimeout)
+	if err != nil {
+		return err
+	}
+
+	if err := Save(af); err != nil {
+		return fmt.Errorf("save auth: %w", err)
+	}
+
+	_ = clearPendingLogin()
+	return nil
+}
+
+// pollForSession polls Supabase claim_cli_session until tokens are available.
+func pollForSession(state string, timeout time.Duration) (*AuthFile, error) {
+	deadline := time.After(timeout)
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-deadline:
+			return nil, fmt.Errorf("login timed out — please try again")
+		case <-ticker.C:
+			af, err := ClaimCLISession(state)
+			if err != nil {
+				return nil, fmt.Errorf("poll failed: %w", err)
+			}
+			if af != nil {
+				return af, nil
+			}
+			// Not ready yet, keep polling
+		}
+	}
+}
+
+// --- Pending login file helpers ---
+
+func savePendingLogin(state, loginURL string) error {
+	dir, err := getConfigDir()
+	if err != nil {
+		return err
+	}
+	p := &pendingLogin{
+		State:     state,
+		LoginURL:  loginURL,
+		CreatedAt: time.Now().Unix(),
+	}
+	data, err := json.MarshalIndent(p, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, pendingLoginFile), data, 0600)
+}
+
+func loadPendingLogin() (*pendingLogin, error) {
+	dir, err := getConfigDir()
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(filepath.Join(dir, pendingLoginFile))
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var p pendingLogin
+	if err := json.Unmarshal(data, &p); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+func clearPendingLogin() error {
+	dir, err := getConfigDir()
+	if err != nil {
+		return err
+	}
+	err = os.Remove(filepath.Join(dir, pendingLoginFile))
+	if os.IsNotExist(err) {
+		return nil
+	}
+	return err
 }
 
 // --- Helpers ---
-
-func listenOnPreferredPort() (net.Listener, error) {
-	preferredPorts := []int{19876, 19877, 19878}
-	for _, p := range preferredPorts {
-		l, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", p))
-		if err == nil {
-			return l, nil
-		}
-	}
-	return net.Listen("tcp", "127.0.0.1:0")
-}
 
 func GetConfigDir() (string, error) {
 	return getConfigDir()
