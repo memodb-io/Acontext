@@ -37,6 +37,28 @@ func init() {
 		},
 	}
 
+	getCmd := &cobra.Command{
+		Use: "get <disk-id>", Short: "Get disk details", Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := requireClient()
+			if err != nil {
+				return err
+			}
+			disk, err := c.GetDisk(context.Background(), args[0])
+			if err != nil {
+				return err
+			}
+			if dashJSON {
+				return output.RenderJSON(disk)
+			}
+			fmt.Printf("ID:         %s\n", disk.ID)
+			fmt.Printf("User:       %s\n", disk.UserID)
+			fmt.Printf("Project:    %s\n", disk.ProjectID)
+			fmt.Printf("Created:    %s\n", disk.CreatedAt)
+			return nil
+		},
+	}
+
 	createCmd := &cobra.Command{
 		Use: "create", Short: "Create a new disk",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -88,6 +110,6 @@ func init() {
 	}
 	deleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
-	disksCmd.AddCommand(listCmd, createCmd, deleteCmd)
+	disksCmd.AddCommand(listCmd, getCmd, createCmd, deleteCmd)
 	DashCmd.AddCommand(disksCmd)
 }

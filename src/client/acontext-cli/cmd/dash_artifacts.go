@@ -36,6 +36,28 @@ func init() {
 		},
 	}
 
+	uploadCmd := &cobra.Command{
+		Use: "upload <disk-id> <file>", Short: "Upload a file to a disk", Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := requireClient()
+			if err != nil {
+				return err
+			}
+			destPath, _ := cmd.Flags().GetString("path")
+			artifact, err := c.UploadArtifact(context.Background(), args[0], args[1], destPath)
+			if err != nil {
+				return err
+			}
+			if dashJSON {
+				return output.RenderJSON(artifact)
+			}
+			fmt.Printf("Artifact uploaded: %s\n", artifact.ID)
+			fmt.Printf("Path: %s\n", artifact.Path)
+			return nil
+		},
+	}
+	uploadCmd.Flags().String("path", "", "Destination path within the disk (e.g. /documents/)")
+
 	deleteCmd := &cobra.Command{
 		Use: "delete <disk-id> <path>", Short: "Delete an artifact", Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -63,6 +85,6 @@ func init() {
 	}
 	deleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
-	artifactsCmd.AddCommand(lsCmd, deleteCmd)
+	artifactsCmd.AddCommand(lsCmd, uploadCmd, deleteCmd)
 	DashCmd.AddCommand(artifactsCmd)
 }
