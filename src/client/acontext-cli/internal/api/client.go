@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	DefaultBaseURL = "https://api.acontext.app"
-	requestTimeout = 30 * time.Second
+	DefaultBaseURL      = "https://api.acontext.app"
+	DefaultAdminBaseURL = "https://admin.acontext.app"
+	requestTimeout      = 30 * time.Second
 )
 
 // Client is a thin HTTP wrapper for Acontext APIs.
@@ -47,7 +48,7 @@ func NewClient(baseURL, apiKey, accessToken string) *Client {
 // NewAdminClient creates a client for /admin/v1 routes (JWT only).
 func NewAdminClient(baseURL, accessToken string) *Client {
 	if baseURL == "" {
-		baseURL = DefaultBaseURL
+		baseURL = DefaultAdminBaseURL
 	}
 	return &Client{
 		baseURL:    baseURL,

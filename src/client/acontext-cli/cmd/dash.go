@@ -92,9 +92,9 @@ func init() {
 func requireClient() (*api.Client, error) {
 	if dashClient == nil {
 		if dashProject != "" {
-			return nil, fmt.Errorf("no API key found for project %s\n\nTo fix this, either:\n  acontext dash projects set-key %s <your-api-key>\n  acontext dash projects rotate-key %s", dashProject, dashProject, dashProject)
+			return nil, fmt.Errorf("no API key found for project %s\n\nTo fix this, run:\n  acontext dash projects select --project %s", dashProject, dashProject)
 		}
-		return nil, fmt.Errorf("no project selected and no API key available\n\nTo fix this, either:\n  acontext dash sessions list --project <project-id>   (if key is saved)\n  acontext dash projects set-key <project-id> <key>    (save a key)\n  acontext dash projects list                          (see your projects)")
+		return nil, fmt.Errorf("no project selected and no API key available\n\nTo fix this, run:\n  acontext login                        (login and select a project)\n  acontext dash projects select         (select a project interactively)\n  acontext dash projects list           (see your projects)")
 	}
 	return dashClient, nil
 }

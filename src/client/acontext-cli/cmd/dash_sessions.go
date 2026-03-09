@@ -5,7 +5,9 @@ import (
 	"fmt"
 
 	"github.com/memodb-io/Acontext/acontext-cli/internal/api"
+	"github.com/memodb-io/Acontext/acontext-cli/internal/auth"
 	"github.com/memodb-io/Acontext/acontext-cli/internal/output"
+	"github.com/memodb-io/Acontext/acontext-cli/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -62,6 +64,17 @@ func init() {
 	deleteCmd := &cobra.Command{
 		Use: "delete <session-id>", Short: "Delete a session", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			yes, _ := cmd.Flags().GetBool("yes")
+			if !yes {
+				if !auth.IsTTY() {
+					return fmt.Errorf("use --yes to confirm deletion in non-interactive mode")
+				}
+				proceed, err := tui.RunConfirm(fmt.Sprintf("Delete session %s?", args[0]), false)
+				if err != nil || !proceed {
+					fmt.Println("Cancelled.")
+					return nil
+				}
+			}
 			c, err := requireClient()
 			if err != nil {
 				return err
@@ -73,6 +86,7 @@ func init() {
 			return nil
 		},
 	}
+	deleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
 	sessionsCmd.AddCommand(listCmd, createCmd, deleteCmd)
 	DashCmd.AddCommand(sessionsCmd)

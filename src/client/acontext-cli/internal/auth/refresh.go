@@ -61,23 +61,29 @@ func EnsureValidToken() (string, error) {
 }
 
 func refreshToken(refreshTok string) (*tokenResponse, error) {
-	body := fmt.Sprintf(`{"refresh_token":"%s"}`, refreshTok)
+	bodyBytes, err := json.Marshal(map[string]string{"refresh_token": refreshTok})
+	if err != nil {
+		return nil, fmt.Errorf("marshal refresh request: %w", err)
+	}
 
 	req, err := http.NewRequest("POST", SupabaseURL+"/auth/v1/token?grant_type=refresh_token",
-		strings.NewReader(body))
+		strings.NewReader(string(bodyBytes)))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("apikey", SupabaseAnonKey)
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("read refresh response: %w", err)
+	}
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("refresh failed (%d): %s", resp.StatusCode, string(respBody))
 	}
