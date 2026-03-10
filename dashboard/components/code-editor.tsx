@@ -249,7 +249,13 @@ export function CodeEditor({
         }
       });
     } else {
-      setLanguageExtensions([]);
+      // Wrap in queueMicrotask to avoid synchronous setState in effect body
+      // (react-hooks/set-state-in-effect)
+      queueMicrotask(() => {
+        if (mounted) {
+          setLanguageExtensions([]);
+        }
+      });
     }
 
     return () => {
