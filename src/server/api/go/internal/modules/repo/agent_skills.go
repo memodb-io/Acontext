@@ -16,6 +16,7 @@ type AgentSkillsRepo interface {
 	Update(ctx context.Context, as *model.AgentSkills) error
 	Delete(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error
 	ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]*model.AgentSkills, error)
+	TouchUpdatedAtByDiskID(ctx context.Context, diskID uuid.UUID) error
 }
 
 type agentSkillsRepo struct {
@@ -62,6 +63,13 @@ func (r *agentSkillsRepo) Delete(ctx context.Context, projectID uuid.UUID, id uu
 
 		return nil
 	})
+}
+
+func (r *agentSkillsRepo) TouchUpdatedAtByDiskID(ctx context.Context, diskID uuid.UUID) error {
+	return r.db.WithContext(ctx).
+		Model(&model.AgentSkills{}).
+		Where("disk_id = ?", diskID).
+		Update("updated_at", gorm.Expr("CURRENT_TIMESTAMP")).Error
 }
 
 func (r *agentSkillsRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]*model.AgentSkills, error) {

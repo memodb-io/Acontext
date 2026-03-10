@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"mime/multipart"
 	"time"
 
@@ -31,12 +32,23 @@ type ArtifactService interface {
 }
 
 type artifactService struct {
-	r  repo.ArtifactRepo
-	s3 *blob.S3Deps
+	r               repo.ArtifactRepo
+	s3              *blob.S3Deps
+	agentSkillsRepo repo.AgentSkillsRepo
 }
 
-func NewArtifactService(r repo.ArtifactRepo, s3 *blob.S3Deps) ArtifactService {
-	return &artifactService{r: r, s3: s3}
+func NewArtifactService(r repo.ArtifactRepo, s3 *blob.S3Deps, agentSkillsRepo repo.AgentSkillsRepo) ArtifactService {
+	return &artifactService{r: r, s3: s3, agentSkillsRepo: agentSkillsRepo}
+}
+
+// touchSkillUpdatedAt is best-effort: logs a warning on failure but doesn't propagate the error.
+func (s *artifactService) touchSkillUpdatedAt(ctx context.Context, diskID uuid.UUID) {
+	if s.agentSkillsRepo == nil {
+		return
+	}
+	if err := s.agentSkillsRepo.TouchUpdatedAtByDiskID(ctx, diskID); err != nil {
+		log.Printf("[WARN] failed to touch skill updated_at for disk %s: %v", diskID, err)
+	}
 }
 
 type CreateArtifactInput struct {
@@ -118,6 +130,7 @@ func (s *artifactService) Create(ctx context.Context, in CreateArtifactInput) (*
 		return nil, fmt.Errorf("create artifact record: %w", err)
 	}
 
+	s.touchSkillUpdatedAt(ctx, in.DiskID)
 	return artifact, nil
 }
 
@@ -173,6 +186,7 @@ func (s *artifactService) CreateFromBytes(ctx context.Context, in CreateArtifact
 		return nil, fmt.Errorf("create artifact record: %w", err)
 	}
 
+	s.touchSkillUpdatedAt(ctx, in.DiskID)
 	return artifact, nil
 }
 
@@ -180,7 +194,11 @@ func (s *artifactService) DeleteByPath(ctx context.Context, projectID uuid.UUID,
 	if path == "" || filename == "" {
 		return errors.New("path and filename are required")
 	}
-	return s.r.DeleteByPath(ctx, projectID, diskID, path, filename)
+	if err := s.r.DeleteByPath(ctx, projectID, diskID, path, filename); err != nil {
+		return err
+	}
+	s.touchSkillUpdatedAt(ctx, diskID)
+	return nil
 }
 
 func (s *artifactService) GetByPath(ctx context.Context, diskID uuid.UUID, path string, filename string) (*model.Artifact, error) {
@@ -269,6 +287,7 @@ func (s *artifactService) UpdateArtifactMetaByPath(ctx context.Context, diskID u
 		return nil, fmt.Errorf("update artifact meta: %w", err)
 	}
 
+	s.touchSkillUpdatedAt(ctx, diskID)
 	return artifact, nil
 }
 

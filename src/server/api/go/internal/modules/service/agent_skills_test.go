@@ -58,6 +58,11 @@ func (m *MockAgentSkillsRepo) ListWithCursor(ctx context.Context, projectID uuid
 	return args.Get(0).([]*model.AgentSkills), args.Error(1)
 }
 
+func (m *MockAgentSkillsRepo) TouchUpdatedAtByDiskID(ctx context.Context, diskID uuid.UUID) error {
+	args := m.Called(ctx, diskID)
+	return args.Error(0)
+}
+
 // ── Mock: DiskService ──
 
 type MockDiskService struct {

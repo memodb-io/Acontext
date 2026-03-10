@@ -2,7 +2,7 @@ import re
 from typing import Optional
 
 import yaml
-from sqlalchemy import select
+from sqlalchemy import select, update, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...schema.orm import AgentSkill
@@ -72,6 +72,22 @@ _SANITIZE_RE = re.compile(r'[/\\:*?"<>|\s]')
 def _sanitize_name(name: str) -> str:
     """Replace special characters and spaces with hyphens."""
     return _SANITIZE_RE.sub("-", name)
+
+
+async def touch_skill_updated_at(
+    db_session: AsyncSession, project_id: asUUID, skill_id: asUUID
+) -> None:
+    """Bump AgentSkill.updated_at to current timestamp.
+
+    Used after skill file mutations (create/edit/delete/move) so that
+    incremental-sync clients (e.g. OpenClaw) detect the change.
+    """
+    stmt = (
+        update(AgentSkill)
+        .where(AgentSkill.id == skill_id, AgentSkill.project_id == project_id)
+        .values(updated_at=func.now())
+    )
+    await db_session.execute(stmt)
 
 
 async def get_agent_skill(

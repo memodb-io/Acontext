@@ -201,6 +201,11 @@ func (m *MockLSAgentSkillsService) ListFiles(ctx context.Context, projectID uuid
 	return args.Get(0).(*ListFilesOutput), args.Error(1)
 }
 
+func (m *MockLSAgentSkillsService) TouchByDiskID(ctx context.Context, diskID uuid.UUID) error {
+	args := m.Called(ctx, diskID)
+	return args.Error(0)
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------

@@ -2,6 +2,7 @@ from ..base import Tool
 from ....schema.llm import ToolSchema
 from ....schema.result import Result
 from ....service.data.artifact import get_artifact_by_path, artifact_exists
+from ....service.data.agent_skill import touch_skill_updated_at
 from .ctx import SkillLearnerCtx
 from .get_skill_file import _validate_file_path, _split_file_path
 
@@ -72,6 +73,8 @@ async def mv_skill_file_handler(
         artifact.meta = updated_meta
 
     await ctx.db_session.flush()
+
+    await touch_skill_updated_at(ctx.db_session, ctx.project_id, skill.id)
 
     # Update file_paths in context
     if source_path in skill.file_paths:

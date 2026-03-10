@@ -1328,3 +1328,194 @@ class TestToolPoolRegistration:
             "report_thinking",
         }
         assert set(SKILL_LEARNER_TOOLS.keys()) == expected
+
+
+# =============================================================================
+# touch_skill_updated_at integration tests
+# Verify each mutating handler calls touch_skill_updated_at on success
+# and does NOT call it on failure.
+# =============================================================================
+
+
+class TestTouchSkillUpdatedAtCalledByHandlers:
+    """Verify touch_skill_updated_at is called after successful file mutations."""
+
+    @pytest.mark.asyncio
+    async def test_create_skill_file_calls_touch_on_success(self):
+        """create_skill_file calls touch_skill_updated_at after upsert succeeds."""
+        skill = _make_skill_info(file_paths=["SKILL.md"])
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        mock_artifact = MagicMock()
+        mock_asset_meta = {"bucket": "b", "s3_key": "k", "etag": "e", "sha256": "s", "mime": "text/plain", "size_b": 5, "content": "hello"}
+        mock_info_meta = {"__artifact_info__": {"path": "/", "filename": "new.py", "mime": "text/plain", "size": 5}}
+
+        with (
+            patch("acontext_core.llm.tool.skill_learner_lib.create_skill_file.artifact_exists", new_callable=AsyncMock, return_value=False),
+            patch("acontext_core.llm.tool.skill_learner_lib.create_skill_file.upload_and_build_artifact_meta", new_callable=AsyncMock, return_value=(mock_asset_meta, mock_info_meta)),
+            patch("acontext_core.llm.tool.skill_learner_lib.create_skill_file.upsert_artifact", new_callable=AsyncMock, return_value=Result.resolve(mock_artifact)),
+            patch("acontext_core.llm.tool.skill_learner_lib.create_skill_file.touch_skill_updated_at", new_callable=AsyncMock) as mock_touch,
+        ):
+            result = await create_skill_file_handler(ctx, {"skill_name": "test-skill", "file_path": "new.py", "content": "hello"})
+            assert result.ok()
+            mock_touch.assert_called_once_with(ctx.db_session, ctx.project_id, skill.id)
+
+    @pytest.mark.asyncio
+    async def test_create_skill_file_does_not_call_touch_on_failure(self):
+        """create_skill_file does NOT call touch when upsert fails."""
+        skill = _make_skill_info(file_paths=["SKILL.md"])
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        mock_asset_meta = {"bucket": "b", "s3_key": "k", "etag": "e", "sha256": "s", "mime": "text/plain", "size_b": 5, "content": "hello"}
+        mock_info_meta = {"__artifact_info__": {"path": "/", "filename": "new.py", "mime": "text/plain", "size": 5}}
+
+        with (
+            patch("acontext_core.llm.tool.skill_learner_lib.create_skill_file.artifact_exists", new_callable=AsyncMock, return_value=False),
+            patch("acontext_core.llm.tool.skill_learner_lib.create_skill_file.upload_and_build_artifact_meta", new_callable=AsyncMock, return_value=(mock_asset_meta, mock_info_meta)),
+            patch("acontext_core.llm.tool.skill_learner_lib.create_skill_file.upsert_artifact", new_callable=AsyncMock, return_value=Result.reject("upload failed")),
+            patch("acontext_core.llm.tool.skill_learner_lib.create_skill_file.touch_skill_updated_at", new_callable=AsyncMock) as mock_touch,
+        ):
+            result = await create_skill_file_handler(ctx, {"skill_name": "test-skill", "file_path": "new.py", "content": "hello"})
+            mock_touch.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_delete_skill_file_calls_touch_on_success(self):
+        """delete_skill_file calls touch_skill_updated_at after delete succeeds."""
+        skill = _make_skill_info(file_paths=["SKILL.md", "scripts/run.sh"])
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        with (
+            patch("acontext_core.llm.tool.skill_learner_lib.delete_skill_file.delete_artifact_by_path", new_callable=AsyncMock, return_value=Result.resolve(None)),
+            patch("acontext_core.llm.tool.skill_learner_lib.delete_skill_file.touch_skill_updated_at", new_callable=AsyncMock) as mock_touch,
+        ):
+            result = await delete_skill_file_handler(ctx, {"skill_name": "test-skill", "file_path": "scripts/run.sh"})
+            assert result.ok()
+            mock_touch.assert_called_once_with(ctx.db_session, ctx.project_id, skill.id)
+
+    @pytest.mark.asyncio
+    async def test_delete_skill_file_does_not_call_touch_on_failure(self):
+        """delete_skill_file does NOT call touch when delete fails."""
+        skill = _make_skill_info(file_paths=["SKILL.md", "scripts/run.sh"])
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        with (
+            patch("acontext_core.llm.tool.skill_learner_lib.delete_skill_file.delete_artifact_by_path", new_callable=AsyncMock, return_value=Result.reject("not found")),
+            patch("acontext_core.llm.tool.skill_learner_lib.delete_skill_file.touch_skill_updated_at", new_callable=AsyncMock) as mock_touch,
+        ):
+            result = await delete_skill_file_handler(ctx, {"skill_name": "test-skill", "file_path": "scripts/run.sh"})
+            mock_touch.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_mv_skill_file_calls_touch_on_success(self):
+        """mv_skill_file calls touch_skill_updated_at after move succeeds."""
+        skill = _make_skill_info(file_paths=["SKILL.md", "old-name.md"])
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        mock_artifact = MagicMock()
+        mock_artifact.path = "/"
+        mock_artifact.filename = "old-name.md"
+        mock_artifact.meta = None
+
+        with (
+            patch("acontext_core.llm.tool.skill_learner_lib.mv_skill_file.get_artifact_by_path", new_callable=AsyncMock, return_value=Result.resolve(mock_artifact)),
+            patch("acontext_core.llm.tool.skill_learner_lib.mv_skill_file.artifact_exists", new_callable=AsyncMock, return_value=False),
+            patch("acontext_core.llm.tool.skill_learner_lib.mv_skill_file.touch_skill_updated_at", new_callable=AsyncMock) as mock_touch,
+        ):
+            result = await mv_skill_file_handler(ctx, {"skill_name": "test-skill", "source_path": "old-name.md", "destination_path": "new-name.md"})
+            assert result.ok()
+            mock_touch.assert_called_once_with(ctx.db_session, ctx.project_id, skill.id)
+
+    @pytest.mark.asyncio
+    async def test_mv_skill_file_does_not_call_touch_on_failure(self):
+        """mv_skill_file does NOT call touch when source is not found."""
+        skill = _make_skill_info()
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        with (
+            patch("acontext_core.llm.tool.skill_learner_lib.mv_skill_file.get_artifact_by_path", new_callable=AsyncMock, return_value=Result.reject("Not found")),
+            patch("acontext_core.llm.tool.skill_learner_lib.mv_skill_file.touch_skill_updated_at", new_callable=AsyncMock) as mock_touch,
+        ):
+            result = await mv_skill_file_handler(ctx, {"skill_name": "test-skill", "source_path": "missing.md", "destination_path": "new.md"})
+            mock_touch.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_str_replace_calls_touch_on_success_non_skill_md(self):
+        """str_replace_skill_file calls touch on success for non-SKILL.md files."""
+        skill = _make_skill_info()
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        mock_artifact = MagicMock()
+        mock_artifact.asset_meta = {"content": "Hello World", "mime": "text/plain"}
+        mock_artifact.meta = None
+
+        mock_asset_meta = {"bucket": "b", "s3_key": "k", "etag": "e", "sha256": "s", "mime": "text/plain", "size_b": 8, "content": "Hi World"}
+        mock_info_meta = {"__artifact_info__": {"path": "/", "filename": "test.py", "mime": "text/plain", "size": 8}}
+
+        with (
+            patch("acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.get_artifact_by_path", new_callable=AsyncMock, return_value=Result.resolve(mock_artifact)),
+            patch("acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.upload_and_build_artifact_meta", new_callable=AsyncMock, return_value=(mock_asset_meta, mock_info_meta)),
+            patch("acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.upsert_artifact", new_callable=AsyncMock, return_value=Result.resolve(mock_artifact)),
+            patch("acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.touch_skill_updated_at", new_callable=AsyncMock) as mock_touch,
+        ):
+            result = await str_replace_skill_file_handler(ctx, {
+                "skill_name": "test-skill", "file_path": "test.py",
+                "old_string": "Hello", "new_string": "Hi",
+            })
+            assert result.ok()
+            mock_touch.assert_called_once_with(ctx.db_session, ctx.project_id, skill.id)
+
+    @pytest.mark.asyncio
+    async def test_str_replace_calls_touch_on_success_skill_md(self):
+        """str_replace_skill_file calls touch on success for SKILL.md files."""
+        skill = _make_skill_info(name="my-skill", description="Old description")
+        ctx = _make_ctx(skills={"my-skill": skill}, has_reported_thinking=True)
+
+        original_content = "---\nname: my-skill\ndescription: Old description\n---\n# Body"
+        mock_artifact = MagicMock()
+        mock_artifact.asset_meta = {"content": original_content, "mime": "text/markdown"}
+        mock_artifact.meta = None
+
+        mock_agent_skill = MagicMock()
+        mock_agent_skill.description = "Old description"
+
+        mock_asset_meta = {"bucket": "b", "s3_key": "k", "etag": "e", "sha256": "s", "mime": "text/markdown", "size_b": 50, "content": "new"}
+        mock_info_meta = {"__artifact_info__": {"path": "/", "filename": "SKILL.md", "mime": "text/markdown", "size": 50}}
+
+        with (
+            patch("acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.get_artifact_by_path", new_callable=AsyncMock, return_value=Result.resolve(mock_artifact)),
+            patch("acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.get_agent_skill", new_callable=AsyncMock, return_value=Result.resolve(mock_agent_skill)),
+            patch("acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.upload_and_build_artifact_meta", new_callable=AsyncMock, return_value=(mock_asset_meta, mock_info_meta)),
+            patch("acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.upsert_artifact", new_callable=AsyncMock, return_value=Result.resolve(mock_artifact)),
+            patch("acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.touch_skill_updated_at", new_callable=AsyncMock) as mock_touch,
+        ):
+            result = await str_replace_skill_file_handler(ctx, {
+                "skill_name": "my-skill", "file_path": "SKILL.md",
+                "old_string": "Old description", "new_string": "New description",
+            })
+            assert result.ok()
+            mock_touch.assert_called_once_with(ctx.db_session, ctx.project_id, skill.id)
+
+    @pytest.mark.asyncio
+    async def test_str_replace_does_not_call_touch_on_failure(self):
+        """str_replace_skill_file does NOT call touch when upsert fails."""
+        skill = _make_skill_info()
+        ctx = _make_ctx(skills={"test-skill": skill}, has_reported_thinking=True)
+
+        mock_artifact = MagicMock()
+        mock_artifact.asset_meta = {"content": "Hello World", "mime": "text/plain"}
+        mock_artifact.meta = None
+
+        mock_asset_meta = {"bucket": "b", "s3_key": "k", "etag": "e", "sha256": "s", "mime": "text/plain", "size_b": 8, "content": "Hi World"}
+        mock_info_meta = {"__artifact_info__": {"path": "/", "filename": "test.py", "mime": "text/plain", "size": 8}}
+
+        with (
+            patch("acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.get_artifact_by_path", new_callable=AsyncMock, return_value=Result.resolve(mock_artifact)),
+            patch("acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.upload_and_build_artifact_meta", new_callable=AsyncMock, return_value=(mock_asset_meta, mock_info_meta)),
+            patch("acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.upsert_artifact", new_callable=AsyncMock, return_value=Result.reject("save failed")),
+            patch("acontext_core.llm.tool.skill_learner_lib.str_replace_skill_file.touch_skill_updated_at", new_callable=AsyncMock) as mock_touch,
+        ):
+            result = await str_replace_skill_file_handler(ctx, {
+                "skill_name": "test-skill", "file_path": "test.py",
+                "old_string": "Hello", "new_string": "Hi",
+            })
+            mock_touch.assert_not_called()

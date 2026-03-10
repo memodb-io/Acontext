@@ -640,6 +640,111 @@ func TestArtifactService_GrepArtifacts(t *testing.T) {
 	}
 }
 
+func TestArtifactService_TouchSkillUpdatedAt(t *testing.T) {
+	diskID := uuid.New()
+
+	t.Run("DeleteByPath calls touch on success", func(t *testing.T) {
+		mockRepo := &MockArtifactRepo{}
+		mockSkillsRepo := &MockAgentSkillsRepo{}
+		projectID := uuid.New()
+
+		mockRepo.On("DeleteByPath", mock.Anything, projectID, diskID, "/test/", "file.txt").Return(nil)
+		mockSkillsRepo.On("TouchUpdatedAtByDiskID", mock.Anything, diskID).Return(nil)
+
+		svc := &artifactService{r: mockRepo, agentSkillsRepo: mockSkillsRepo}
+		err := svc.DeleteByPath(context.Background(), projectID, diskID, "/test/", "file.txt")
+
+		assert.NoError(t, err)
+		mockSkillsRepo.AssertCalled(t, "TouchUpdatedAtByDiskID", mock.Anything, diskID)
+	})
+
+	t.Run("DeleteByPath does not call touch on failure", func(t *testing.T) {
+		mockRepo := &MockArtifactRepo{}
+		mockSkillsRepo := &MockAgentSkillsRepo{}
+		projectID := uuid.New()
+
+		mockRepo.On("DeleteByPath", mock.Anything, projectID, diskID, "/test/", "file.txt").Return(errors.New("delete failed"))
+
+		svc := &artifactService{r: mockRepo, agentSkillsRepo: mockSkillsRepo}
+		err := svc.DeleteByPath(context.Background(), projectID, diskID, "/test/", "file.txt")
+
+		assert.Error(t, err)
+		mockSkillsRepo.AssertNotCalled(t, "TouchUpdatedAtByDiskID")
+	})
+
+	t.Run("UpdateArtifactMetaByPath calls touch on success", func(t *testing.T) {
+		mockRepo := &MockArtifactRepo{}
+		mockSkillsRepo := &MockAgentSkillsRepo{}
+
+		existingArtifact := createTestArtifact()
+		existingArtifact.DiskID = diskID
+
+		mockRepo.On("GetByPath", mock.Anything, diskID, "/test/", "file.txt").Return(existingArtifact, nil)
+		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil)
+		mockSkillsRepo.On("TouchUpdatedAtByDiskID", mock.Anything, diskID).Return(nil)
+
+		svc := &artifactService{r: mockRepo, agentSkillsRepo: mockSkillsRepo}
+		_, err := svc.UpdateArtifactMetaByPath(context.Background(), diskID, "/test/", "file.txt", map[string]interface{}{"key": "val"})
+
+		assert.NoError(t, err)
+		mockSkillsRepo.AssertCalled(t, "TouchUpdatedAtByDiskID", mock.Anything, diskID)
+	})
+
+	t.Run("touch failure is best-effort and does not fail the operation", func(t *testing.T) {
+		mockRepo := &MockArtifactRepo{}
+		mockSkillsRepo := &MockAgentSkillsRepo{}
+		projectID := uuid.New()
+
+		mockRepo.On("DeleteByPath", mock.Anything, projectID, diskID, "/test/", "file.txt").Return(nil)
+		mockSkillsRepo.On("TouchUpdatedAtByDiskID", mock.Anything, diskID).Return(errors.New("touch failed"))
+
+		svc := &artifactService{r: mockRepo, agentSkillsRepo: mockSkillsRepo}
+		err := svc.DeleteByPath(context.Background(), projectID, diskID, "/test/", "file.txt")
+
+		// The artifact operation should still succeed even though touch failed
+		assert.NoError(t, err)
+		mockSkillsRepo.AssertCalled(t, "TouchUpdatedAtByDiskID", mock.Anything, diskID)
+	})
+
+	t.Run("nil agentSkillsRepo is handled gracefully", func(t *testing.T) {
+		mockRepo := &MockArtifactRepo{}
+		projectID := uuid.New()
+
+		mockRepo.On("DeleteByPath", mock.Anything, projectID, diskID, "/test/", "file.txt").Return(nil)
+
+		svc := &artifactService{r: mockRepo, agentSkillsRepo: nil}
+		err := svc.DeleteByPath(context.Background(), projectID, diskID, "/test/", "file.txt")
+
+		assert.NoError(t, err)
+	})
+}
+
+func TestAgentSkillsService_TouchByDiskID(t *testing.T) {
+	t.Run("delegates to repo", func(t *testing.T) {
+		m := newTestMocks()
+		diskID := uuid.New()
+		m.repo.On("TouchUpdatedAtByDiskID", mock.Anything, diskID).Return(nil)
+
+		svc := m.service()
+		err := svc.TouchByDiskID(context.Background(), diskID)
+
+		assert.NoError(t, err)
+		m.repo.AssertCalled(t, "TouchUpdatedAtByDiskID", mock.Anything, diskID)
+	})
+
+	t.Run("propagates repo error", func(t *testing.T) {
+		m := newTestMocks()
+		diskID := uuid.New()
+		m.repo.On("TouchUpdatedAtByDiskID", mock.Anything, diskID).Return(errors.New("db error"))
+
+		svc := m.service()
+		err := svc.TouchByDiskID(context.Background(), diskID)
+
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "db error")
+	})
+}
+
 func TestArtifactService_GlobArtifacts(t *testing.T) {
 	tests := []struct {
 		name      string

@@ -2,7 +2,7 @@ from ..base import Tool
 from ....schema.llm import ToolSchema
 from ....schema.result import Result
 from ....service.data.artifact import get_artifact_by_path, upsert_artifact, upload_and_build_artifact_meta
-from ....service.data.agent_skill import _parse_skill_md, _sanitize_name, get_agent_skill
+from ....service.data.agent_skill import _parse_skill_md, _sanitize_name, get_agent_skill, touch_skill_updated_at
 from .ctx import SkillLearnerCtx
 from .get_skill_file import _validate_file_path, _split_file_path
 
@@ -74,6 +74,8 @@ async def str_replace_skill_file_handler(
     _, eil = r.unpack()
     if eil:
         return Result.resolve(f"Failed to save file: {eil}")
+
+    await touch_skill_updated_at(ctx.db_session, ctx.project_id, skill.id)
 
     # Update AgentSkill.description only after artifact upsert succeeds
     if _parsed_description is not None:

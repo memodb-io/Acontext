@@ -30,6 +30,7 @@ type AgentSkillsService interface {
 	List(ctx context.Context, in ListAgentSkillsInput) (*ListAgentSkillsOutput, error)
 	GetFile(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID, filePath string, expire time.Duration) (*GetFileOutput, error)
 	ListFiles(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*ListFilesOutput, error)
+	TouchByDiskID(ctx context.Context, diskID uuid.UUID) error
 }
 
 type agentSkillsService struct {
@@ -601,4 +602,8 @@ func (s *agentSkillsService) ListFiles(ctx context.Context, projectID uuid.UUID,
 		Description: skill.Description,
 		Files:       files,
 	}, nil
+}
+
+func (s *agentSkillsService) TouchByDiskID(ctx context.Context, diskID uuid.UUID) error {
+	return s.r.TouchUpdatedAtByDiskID(ctx, diskID)
 }

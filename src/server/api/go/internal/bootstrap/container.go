@@ -277,6 +277,7 @@ func BuildContainer() *do.Injector {
 		return service.NewArtifactService(
 			do.MustInvoke[repo.ArtifactRepo](i),
 			do.MustInvoke[*blob.S3Deps](i),
+			do.MustInvoke[repo.AgentSkillsRepo](i),
 		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (service.TaskService, error) {

@@ -78,6 +78,11 @@ func (m *MockAgentSkillsService) ListFiles(ctx context.Context, projectID uuid.U
 	return args.Get(0).(*service.ListFilesOutput), args.Error(1)
 }
 
+func (m *MockAgentSkillsService) TouchByDiskID(ctx context.Context, diskID uuid.UUID) error {
+	args := m.Called(ctx, diskID)
+	return args.Error(0)
+}
+
 func setupAgentSkillsRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	return gin.New()

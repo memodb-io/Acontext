@@ -7,6 +7,7 @@ from sqlalchemy import select
 from acontext_core.service.data.agent_skill import (
     get_agent_skill,
     create_skill,
+    touch_skill_updated_at,
     _parse_skill_md,
 )
 from acontext_core.service.data.artifact import get_artifact_by_path
@@ -362,5 +363,79 @@ class TestCreateSkill:
 
             assert artifact.asset_meta["sha256"] == expected_sha
             assert artifact.asset_meta["size_b"] == expected_size
+
+            await session.delete(project)
+
+
+class TestTouchSkillUpdatedAt:
+    @pytest.mark.asyncio
+    async def test_touch_bumps_updated_at(self, db_client):
+        """touch_skill_updated_at bumps the updated_at timestamp."""
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_skill_hmac_touch_1",
+                secret_key_hash_phc="test_skill_hash_touch_1",
+            )
+            session.add(project)
+            await session.flush()
+
+            disk = Disk(project_id=project.id)
+            session.add(disk)
+            await session.flush()
+
+            skill = AgentSkill(
+                project_id=project.id,
+                name="touch-test",
+                description="Touch test",
+                disk_id=disk.id,
+            )
+            session.add(skill)
+            await session.flush()
+
+            original_updated_at = skill.updated_at
+
+            # Touch the skill
+            await touch_skill_updated_at(session, project.id, skill.id)
+            await session.flush()
+
+            # Refresh from DB to get the new updated_at
+            await session.refresh(skill)
+            assert skill.updated_at >= original_updated_at
+
+            await session.delete(project)
+
+    @pytest.mark.asyncio
+    async def test_touch_noop_for_wrong_project(self, db_client):
+        """touch_skill_updated_at is a no-op when project_id doesn't match."""
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="test_skill_hmac_touch_2",
+                secret_key_hash_phc="test_skill_hash_touch_2",
+            )
+            session.add(project)
+            await session.flush()
+
+            disk = Disk(project_id=project.id)
+            session.add(disk)
+            await session.flush()
+
+            skill = AgentSkill(
+                project_id=project.id,
+                name="touch-test-2",
+                description="Touch test 2",
+                disk_id=disk.id,
+            )
+            session.add(skill)
+            await session.flush()
+
+            original_updated_at = skill.updated_at
+
+            # Touch with wrong project_id — should be a no-op
+            wrong_project_id = uuid.uuid4()
+            await touch_skill_updated_at(session, wrong_project_id, skill.id)
+            await session.flush()
+
+            await session.refresh(skill)
+            assert skill.updated_at == original_updated_at
 
             await session.delete(project)
