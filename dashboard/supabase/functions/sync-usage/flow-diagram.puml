@@ -1,0 +1,255 @@
+@startuml
+skinparam backgroundColor #FFFFFF
+skinparam sequenceMessageAlign center
+
+actor "Supabase\nCron Job" as Cron
+participant "Admin Service" as Admin
+participant "Edge Function\nsync-usage" as EdgeFunc
+database "Supabase DB" as DB
+participant "Stripe API" as Stripe
+
+== 每小时触发 ==
+Cron -> Admin: 触发 metrics 收集
+
+== 1. Admin 收集 Metrics ==
+Admin -> Admin: 收集 metrics 数据\n(from/to 时间窗口)
+
+== 2. Admin Push 到 Edge Function ==
+Admin -> EdgeFunc: POST /sync-usage\nAuthorization: Bearer {token}\nBody: {metrics: [...]}
+note right: metrics 包含:\n- project_id\n- tag\n- created_at\n- updated_at (用于 checkpoint 判断)\n- increment (累计值)
+
+== 3. 验证请求 ==
+EdgeFunc -> EdgeFunc: 验证 Authorization header
+activate EdgeFunc
+
+alt Authorization 无效
+    EdgeFunc --> Admin: 401 Unauthorized
+    deactivate EdgeFunc
+else Authorization 有效
+    EdgeFunc -> EdgeFunc: 解析请求 body\n验证数据格式
+
+    alt 数据格式无效
+        EdgeFunc --> Admin: 400 Bad Request
+        deactivate EdgeFunc
+    else 数据格式有效
+        EdgeFunc -> EdgeFunc: 过滤有效 metrics
+        note right: 验证条件:\n- project_id, tag, created_at, updated_at 必须存在\n- tag 必须在 METRIC_HANDLERS 中\n- increment >= 0
+
+        alt 无有效 metrics
+            EdgeFunc --> Admin: {quota: []}
+            deactivate EdgeFunc
+        else 有有效 metrics
+            == 4. 收集所有涉及的 orgIds ==
+            EdgeFunc -> DB: 批量查询 organization_projects\nby project_ids
+            DB --> EdgeFunc: [{project_id, organization_id}, ...]
+            EdgeFunc -> EdgeFunc: 建立 projectToOrgMap\n收集 orgIdSet
+            note right: 批量查询优化\n只做一次 DB 查询
+
+            == 5. 先执行月初重置 ==
+            loop 遍历所有涉及的 orgIds
+                EdgeFunc -> EdgeFunc: resetOrgMonthlyCounters(orgId)
+                EdgeFunc -> EdgeFunc: 获取当前月份第一天时间戳
+                EdgeFunc -> DB: 查询 usage_sync_global_checkpoint\nid = "monthly_reset_{orgId}"
+                DB --> EdgeFunc: checkpoint (可能为空)
+
+                alt 本月已重置
+                    note right: 跳过重置\n防止重复
+                    EdgeFunc -> EdgeFunc: 跳过重置
+                else 本月未重置
+                    EdgeFunc -> EdgeFunc: 获取需要重置的 metrics\n(resetOnMonthStart: true)
+                    EdgeFunc -> DB: 查询 organization_projects\n获取该 org 下所有 project_ids
+                    EdgeFunc -> DB: 更新 project_usage\nSET current_* = 0\n(仅该 org 下的 projects,\n仅 daily metrics)
+                    EdgeFunc -> DB: 更新 organization_usage\nSET current_* = 0\n(仅该 org,\n仅 daily metrics)
+                    EdgeFunc -> DB: 更新 usage_sync_global_checkpoint\nid = "monthly_reset_{orgId}"\n记录本月已重置
+                end
+            end
+            note right: 在处理 metrics 之前重置\n避免新月第一个 metric 被清零
+
+            == 5.5 记录处理前的 org usage（用于 Stripe 超量计算） ==
+            EdgeFunc -> EdgeFunc: 初始化 orgInitialUsage Map
+            loop 遍历所有涉及的 orgIds
+                EdgeFunc -> DB: 查询 organization_usage\n获取当前 usage 快照
+                DB --> EdgeFunc: current_task, current_skill, etc.
+                EdgeFunc -> EdgeFunc: 存入 orgInitialUsage Map
+            end
+            note right: 记录处理前的 usage\n用于计算 incremental metrics 超量差值
+
+            == 6. 处理 Metrics（只更新 usage，不上报 Stripe） ==
+            EdgeFunc -> EdgeFunc: 初始化 processedMetrics = []
+            loop 遍历每个 metric
+                EdgeFunc -> EdgeFunc: processMetricWithoutStripe(m)
+
+                == 6.1 获取配置 ==
+                EdgeFunc -> EdgeFunc: 查找 METRIC_HANDLERS[tag]
+                note right: 支持的 tags:\n- task.created (daily, incremental, resetOnMonthStart: true)\n- space.learned (daily, incremental, resetOnMonthStart: true)\n- search.experience.embedding (daily, incremental, resetOnMonthStart: true)\n- search.experience.agentic (daily, incremental, resetOnMonthStart: true)\n- storage.usage (hourly, threshold, resetOnMonthStart: false)
+
+                alt 无配置
+                    EdgeFunc -> EdgeFunc: 跳过该 metric
+                else 有配置
+                    == 6.2 Checkpoint 检查（使用 updated_at） ==
+                    EdgeFunc -> DB: 查询 project_usage_checkpoints\n(project_id, tag)
+                    DB --> EdgeFunc: last_synced_timestamp, last_synced_increment
+
+                    alt metric.updated_at <= checkpoint
+                        EdgeFunc -> EdgeFunc: 跳过该 metric\n(已处理过)
+                    else metric.updated_at > checkpoint
+                        EdgeFunc -> EdgeFunc: 计算差值\nincrementDiff = metric.increment - lastIncrement
+                        note right: lastIncrement 从 checkpoint 获取\n用于计算本次需要累加的增量
+                        == 6.3 根据类型更新 usage ==
+
+                        alt processingType == "incremental"
+                            == 累加型处理 ==
+                            EdgeFunc -> DB: 查询 project_usage\ncurrent_{field} by project_id
+                            EdgeFunc -> DB: 更新 project_usage\n累加 incrementDiff (project 级别)
+                            note right: 累加差值，不是累加原始 increment\n避免重复计数
+                            EdgeFunc -> DB: 插入 usage_sync_logs\n(increment: incrementDiff, stripe_reported: false)
+
+                        else processingType == "threshold"
+                            == 阈值检查型处理 (storage) ==
+                            EdgeFunc -> EdgeFunc: updateStorageUsage()
+                            EdgeFunc -> DB: 更新 project_usage\nSET current_storage = metric.increment\n(因为是总量，不是增量)
+                            note right: incrementDiff 可能是负数\n(storage 可以减少)
+                            EdgeFunc -> DB: 插入 usage_sync_logs\n(increment: incrementDiff, stripe_reported: false)
+                        end
+
+                        == 6.4 成功后更新 checkpoint（使用 updated_at 和 increment） ==
+                        EdgeFunc -> DB: 更新 project_usage_checkpoints\nlast_synced_timestamp = metric.updated_at\nlast_synced_increment = metric.increment
+                        EdgeFunc -> EdgeFunc: 添加到 processedMetrics
+                        note right: 使用 updated_at 更新 checkpoint\n存储 increment 用于下次计算差值
+                    end
+                end
+            end
+
+            == 7. 聚合到 Organization Usage ==
+            loop 遍历所有涉及的 orgIds
+                EdgeFunc -> EdgeFunc: aggregateOrganizationUsage(orgId)
+                EdgeFunc -> DB: 查询 organization_projects\n获取所有 project_ids
+                EdgeFunc -> DB: 查询所有 project_usage\nby project_ids
+                EdgeFunc -> EdgeFunc: 聚合计算总和\nSUM(current_task), SUM(current_skill), etc.
+                EdgeFunc -> DB: 更新 organization_usage\n(聚合后的值)
+            end
+
+            == 8. 上报 Stripe ==
+
+            == 8.1 上报 Incremental Metrics（只对本次涉及的 org） ==
+            loop 遍历所有涉及的 orgIds
+                EdgeFunc -> EdgeFunc: reportIncrementalMetricsToStripe(orgId, initialUsage)
+
+                EdgeFunc -> DB: 查询 organization_billing
+                DB --> EdgeFunc: stripe_customer_id, plan
+
+                alt 无 stripe_customer_id 或 plan == "free"
+                    note right: 不上报 Stripe\n免费计划不收费
+                    EdgeFunc -> EdgeFunc: 跳过该 org
+                else 有 customer_id 且非免费计划
+                    EdgeFunc -> DB: 查询 product_plans\n获取 max_task, max_skill, etc.
+                    EdgeFunc -> DB: 查询 organization_usage\n获取聚合后的 usage
+
+                    loop 遍历 [task, skill, fast_skill_search, agentic_skill_search]
+                        EdgeFunc -> EdgeFunc: 计算 before/after 超量\noverageBeforeincrement = max(0, initialUsage - max)\noverageAfter = max(0, currentUsage - max)\nincrementOverage = overageAfter - overageBefore
+
+                        alt incrementOverage > 0
+                            EdgeFunc -> Stripe: billing.meterEvents.create\n{event_name, value: incrementOverage, customer_id}
+                            Stripe --> EdgeFunc: success
+                        end
+                    end
+                end
+            end
+
+            == 8.2 上报 Storage（查询所有超量的 org，不限于本次涉及的 org） ==
+            EdgeFunc -> EdgeFunc: reportStorageOverageForAllOrgs()
+            note right: 即使没有 storage.usage metric 传入\n已超量的 org 也应该每小时上报一次
+
+            EdgeFunc -> DB: 查询 organization_billing\n(非 free plan, 有 stripe_customer_id)
+            DB --> EdgeFunc: [{org_id, stripe_customer_id, plan}, ...]
+
+            EdgeFunc -> DB: 查询 product_plans\n获取所有涉及 plan 的 max_storage
+            EdgeFunc -> DB: 查询 organization_usage\n获取所有涉及 org 的 current_storage
+            EdgeFunc -> DB: 查询 usage_sync_global_checkpoint\n获取本小时已上报的 org
+
+            loop 遍历每个非 free plan 的 org
+                alt currentStorage <= maxStorage
+                    EdgeFunc -> EdgeFunc: 跳过（未超量）
+                else currentStorage > maxStorage
+                    alt 本小时已上报
+                        EdgeFunc -> EdgeFunc: 跳过（每小时最多上报一次）
+                    else 本小时未上报
+                        EdgeFunc -> EdgeFunc: 计算 overageGb = currentStorage - maxStorage
+                        EdgeFunc -> Stripe: billing.meterEvents.create\nstorage_gb_hour, value: overageGb
+                        Stripe --> EdgeFunc: success
+                        EdgeFunc -> DB: 更新 usage_sync_global_checkpoint\nid = "storage_report_{orgId}"\n记录本小时已上报
+                    end
+                end
+            end
+
+            == 9. 检查 Quota（只对成功处理的 metrics） ==
+            note right: 批量查询优化，避免每个 metric 都查询数据库
+
+            EdgeFunc -> DB: 批量查询 organization_billing\n(本次涉及的 orgIds)
+            EdgeFunc -> DB: 查询 product_plans\n获取 free plan 的 max_* 限制
+            EdgeFunc -> DB: 批量查询 organization_usage\n(本次涉及的 orgIds)
+
+            EdgeFunc -> EdgeFunc: 初始化 quotaItems = []
+            loop 遍历 processedMetrics
+                EdgeFunc -> EdgeFunc: checkQuotaExcessWithCache(m, orgId, 缓存数据)
+                note right: 使用缓存数据，无需 DB 查询
+
+                alt plan == "free"
+                    EdgeFunc -> EdgeFunc: 检查 currentUsage > maxAllowed
+
+                    alt 超过配额
+                        EdgeFunc -> EdgeFunc: 添加到 quotaItems\n{project_id, tag, excess: true}
+                    else 未超过配额
+                        EdgeFunc -> EdgeFunc: 添加到 quotaItems\n{project_id, tag, excess: false}
+                    end
+                else plan != "free"
+                    EdgeFunc -> EdgeFunc: 跳过 quota 检查\n(非免费计划)
+                end
+            end
+
+            == 10. 返回结果 ==
+            EdgeFunc --> Admin: {\n  quota: [\n    {project_id, tag, excess},\n    ...\n  ]\n}
+            deactivate EdgeFunc
+        end
+    end
+end
+
+note right of EdgeFunc
+    架构说明:
+    1. Cron 触发 Admin，Admin push metrics 到 Edge Function
+    2. Edge Function 验证 Authorization header
+    3. 从请求 body 接收 metrics 数据
+
+    流程顺序:
+    4. 收集所有涉及的 orgIds，建立 projectId -> orgId 缓存（批量查询）
+    5. 先执行月初重置（避免新月第一个 metric 被清零）
+    5.5. 记录处理前的 org usage 快照（用于 incremental metrics 超量计算）
+    6. 处理 metrics（只更新 usage，不上报 Stripe）
+       - 使用 updated_at 进行 checkpoint 检查
+       - 计算差值: incrementDiff = metric.increment - lastIncrement
+       - 累加差值到 usage（避免重复计数）
+       - 成功处理的 metric 记录到 processedMetrics
+    7. 聚合到 organization_usage
+    8. 上报 Stripe（分两步）
+       8.1 Incremental metrics: 只对本次涉及的 org，基于 usage 差值
+       8.2 Storage: 查询所有超量的 org，每小时最多上报一次
+    9. 检查 quota（批量查询 + 缓存，只对 processedMetrics）
+
+    Checkpoint 机制说明:
+    - 使用 updated_at 判断 metric 是否有更新
+    - 存储 last_synced_increment 用于计算差值
+    - Incremental 类型: 同一条记录可多次更新 increment
+    - Threshold 类型: 删除旧记录创建新记录，increment 是总量
+
+    其他说明:
+    - 按 org 级别自动重置 daily metrics 计数
+      (resetOnMonthStart: true)
+      每个 org 独立 checkpoint: monthly_reset_{orgId}
+    - Usage 存储为 project 级别 (project_usage)
+    - Storage 处理为 SET (因为是总量，incrementDiff 可能为负)
+    - Storage 上报独立于本次请求的 metrics，
+      查询所有超量的 org 进行上报
+    - 检查 free plan 的 quota 超限，返回给 Admin
+end note
+
+@enduml
