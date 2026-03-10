@@ -14,7 +14,8 @@ Acontext is the agent memory stack for production AI Agents
 - Documentation: `docs/`
 
 ## Plan-driven Development
-- You must make a markdown plan at plans/ before you implement any my request, otherwise I will reject your implementation.
+- You must make a markdown plan at `plans/` before you implement any my request, otherwise I will reject your implementation.
+- The `plans/` directory is gitignored — plans are kept locally and do not need to be committed or included in PRs.
 - Remember to update the dev plan after you finish coding.
 - When every task is completed, make sure you check the task checkbox in the corresponding plan.
 - A plan should at least contain `features`/`show case`, `designs overview`, `TODOS`, `new deps`, `test cases` sections.

@@ -38,8 +38,8 @@ type pendingLogin struct {
 // LoginInteractive performs the full blocking login flow (for TTY use).
 // Opens the browser and polls Supabase until the Dashboard stores tokens.
 func LoginInteractive() (*AuthFile, error) {
-	if DashboardURL == "" {
-		return nil, fmt.Errorf("dashboard URL not configured")
+	if err := validateConfig(); err != nil {
+		return nil, err
 	}
 
 	state, err := generateState()
@@ -72,8 +72,8 @@ func LoginInteractive() (*AuthFile, error) {
 // LoginNonInteractive prints the login URL and saves state for later polling.
 // Used in non-TTY (agent) mode. Returns the login URL.
 func LoginNonInteractive() (string, error) {
-	if DashboardURL == "" {
-		return "", fmt.Errorf("dashboard URL not configured")
+	if err := validateConfig(); err != nil {
+		return "", err
 	}
 
 	state, err := generateState()
@@ -108,7 +108,10 @@ func LoginPoll() error {
 		return fmt.Errorf("pending login expired — run 'acontext login' again")
 	}
 
-	af, err := pollForSession(pending.State, pollTimeout)
+	// Use a shorter timeout for non-interactive polling — the agent should
+	// only call --poll after the user confirms browser login is complete.
+	const pollPollTimeout = 15 * time.Second
+	af, err := pollForSession(pending.State, pollPollTimeout)
 	if err != nil {
 		return err
 	}
@@ -122,11 +125,16 @@ func LoginPoll() error {
 }
 
 // pollForSession polls Supabase claim_cli_session until tokens are available.
+// Transient errors (network issues, 5xx) are retried up to maxTransientErrors
+// times before aborting.
 func pollForSession(state string, timeout time.Duration) (*AuthFile, error) {
+	const maxTransientErrors = 5
+
 	deadline := time.After(timeout)
 	ticker := time.NewTicker(pollInterval)
 	defer ticker.Stop()
 
+	transientErrors := 0
 	for {
 		select {
 		case <-deadline:
@@ -134,8 +142,14 @@ func pollForSession(state string, timeout time.Duration) (*AuthFile, error) {
 		case <-ticker.C:
 			af, err := ClaimCLISession(state)
 			if err != nil {
-				return nil, fmt.Errorf("poll failed: %w", err)
+				transientErrors++
+				if transientErrors >= maxTransientErrors {
+					return nil, fmt.Errorf("poll failed after %d consecutive errors: %w", transientErrors, err)
+				}
+				// Transient error, keep retrying
+				continue
 			}
+			transientErrors = 0
 			if af != nil {
 				return af, nil
 			}
@@ -195,6 +209,17 @@ func clearPendingLogin() error {
 }
 
 // --- Helpers ---
+
+// validateConfig checks that required build-time configuration is set.
+func validateConfig() error {
+	if DashboardURL == "" {
+		return fmt.Errorf("dashboard URL not configured")
+	}
+	if SupabaseURL == "" || SupabaseAnonKey == "" {
+		return fmt.Errorf("supabase configuration missing — this binary was not built with required ldflags (SUPABASE_URL, SUPABASE_ANON_KEY)")
+	}
+	return nil
+}
 
 func GetConfigDir() (string, error) {
 	return getConfigDir()

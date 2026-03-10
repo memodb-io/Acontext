@@ -56,7 +56,8 @@ func (c *Client) CreateSession(ctx context.Context, req *CreateSessionRequest) (
 
 func (c *Client) GetSession(ctx context.Context, sessionID string) (*Session, error) {
 	var sessions []Session
-	if err := c.Get(ctx, "/api/v1/session?id="+sessionID, &sessions); err != nil {
+	v := url.Values{"id": {sessionID}}
+	if err := c.Get(ctx, "/api/v1/session?"+v.Encode(), &sessions); err != nil {
 		return nil, err
 	}
 	if len(sessions) == 0 {
@@ -107,7 +108,8 @@ func (c *Client) CreateDisk(ctx context.Context, req *CreateDiskRequest) (*Disk,
 
 func (c *Client) GetDisk(ctx context.Context, diskID string) (*Disk, error) {
 	var disks []Disk
-	if err := c.Get(ctx, "/api/v1/disk?id="+diskID, &disks); err != nil {
+	v := url.Values{"id": {diskID}}
+	if err := c.Get(ctx, "/api/v1/disk?"+v.Encode(), &disks); err != nil {
 		return nil, err
 	}
 	if len(disks) == 0 {
