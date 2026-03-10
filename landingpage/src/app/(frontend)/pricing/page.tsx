@@ -9,7 +9,7 @@ const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://acontext.io'
 
 export const metadata: Metadata = {
   title: 'Pricing - Acontext',
-  description: 'Simple, transparent pricing for Acontext - The Agent Memory Stack',
+  description: 'Simple, transparent pricing for Acontext - Agent Skills as a Memory Layer',
   alternates: {
     canonical: `${baseUrl}/pricing`,
   },
@@ -50,9 +50,9 @@ export default async function PricingPage() {
   const serviceJsonLd: ProductJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Service',
-    name: 'Acontext - The Agent Memory Stack',
+    name: 'Acontext - Agent Skills as a Memory Layer',
     description:
-      'The Agent Memory Stack with short-term memory, mid-term state, and long-term skill',
+      'Agent Skills as a Memory Layer with short-term memory, mid-term state, and long-term skill',
     brand: {
       '@type': 'Brand',
       name: 'Acontext',

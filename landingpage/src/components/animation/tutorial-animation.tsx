@@ -542,7 +542,7 @@ export function TutorialVideo() {
                     className="text-lg mb-10"
                     style={{ color: colors.textMuted, opacity: 0 }}
                   >
-                    the agent memory stack
+                    agent skills as a memory layer
                   </div>
 
                   <div className="flex justify-center gap-12 mb-12">

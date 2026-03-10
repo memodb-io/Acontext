@@ -124,7 +124,7 @@ func buildCommandPath(cmd *cobra.Command) string {
 
 var rootCmd = &cobra.Command{
 	Use:   "acontext",
-	Short: "Acontext CLI - The Agent Memory Stack",
+	Short: "Acontext CLI - Agent Skills as a Memory Layer",
 	Long: `Acontext CLI is a command-line tool for quickly creating Acontext projects.
 	
 It helps you:

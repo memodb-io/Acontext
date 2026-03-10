@@ -12,7 +12,7 @@ export async function GET(
   const page = source.getPage(slug);
 
   const title = page?.data.title ?? 'Acontext Docs';
-  const description = page?.data.description ?? 'Agent memory stack for production AI Agents';
+  const description = page?.data.description ?? 'Agent Skills as a Memory Layer for production AI Agents';
 
   return new ImageResponse(
     (
@@ -92,7 +92,7 @@ export async function GET(
             docs.acontext.io
           </div>
           <div style={{ fontSize: 18, color: '#64748b' }}>
-            Agent Memory Stack
+            Agent Skills as a Memory Layer
           </div>
         </div>
       </div>
