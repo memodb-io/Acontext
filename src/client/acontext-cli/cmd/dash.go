@@ -31,8 +31,12 @@ var DashCmd = &cobra.Command{
 	Short: "Dashboard operations — manage projects, sessions, skills, and more",
 	Long:  "Interact with the Acontext Dashboard API. Requires login (run 'acontext login' first).",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// Inherit parent PersistentPreRun (telemetry)
-		if parent := cmd.Root().PersistentPreRun; parent != nil {
+		// Inherit parent persistent pre-run hooks (telemetry, etc.)
+		if parentE := cmd.Root().PersistentPreRunE; parentE != nil {
+			if err := parentE(cmd, args); err != nil {
+				return err
+			}
+		} else if parent := cmd.Root().PersistentPreRun; parent != nil {
 			parent(cmd, args)
 		}
 
