@@ -63,7 +63,10 @@ Then log in:
 acontext login
 ```
 
-This opens a browser for OAuth, then guides you through project selection. Your API key is saved automatically to `~/.acontext/auth.json`.
+- **Interactive (TTY):** Opens a browser for OAuth, then guides you through project selection. Your API key is saved automatically.
+- **Non-interactive (agent/CI):** Prints a login URL for the user to open manually. After login completes, run `acontext login --poll` to finish authentication, then set up a project via `acontext dash projects` commands.
+
+See the [Login & API Key](#login--api-key) section below for full details.
 
 ### Option B — OpenClaw Plugin
 
