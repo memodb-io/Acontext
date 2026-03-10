@@ -103,10 +103,13 @@ func init() {
 					return nil
 				}
 
-				// Option 2: Explicit rotate requested
+				// Option 2: Explicit rotate requested (TTY only)
 				if rotateFlag {
+					if !auth.IsTTY() {
+						return fmt.Errorf("--rotate is not allowed in non-interactive mode (dangerous operation). Use --api-key instead")
+					}
 					fmt.Println("WARNING: Rotating API key. This will invalidate the current key for this project.")
-					if err := auth.SaveProjectKeyRotate(projectFlag, dashAdminClient); err != nil {
+					if err := auth.SaveProjectKeyRotate(projectFlag, dashAccessToken, dashUserEmail, dashAdminClient); err != nil {
 						return fmt.Errorf("rotate project key: %w", err)
 					}
 					fmt.Printf("Default project set to: %s\n", projectFlag)
@@ -117,20 +120,16 @@ func init() {
 				}
 
 				// Option 3: Check if we already have a local key
-				if err := auth.SaveProjectKey(projectFlag, dashAdminClient); err != nil {
+				if err := auth.SaveProjectKey(projectFlag, dashAccessToken, dashUserEmail, dashAdminClient); err != nil {
 					if errors.Is(err, auth.ErrNonTTYKeyRequired) {
-						// Non-TTY and no local key: print guidance instead of silently rotating
+						// Non-TTY and no local key: prompt agent to ask user for the API key
 						fmt.Printf("No local API key found for project %s.\n", projectFlag)
 						fmt.Println()
-						fmt.Println("Choose one of the following options:")
+						fmt.Println("Please ask the user for the project's API key, then run:")
+						fmt.Printf("  acontext dash projects select --project %s --api-key <sk-ac-...>\n", projectFlag)
 						fmt.Println()
-						fmt.Println("  Option 1: Use an existing API key (safe, no side effects):")
-						fmt.Printf("    acontext dash projects select --project %s --api-key <sk-ac-...>\n", projectFlag)
-						fmt.Println()
-						fmt.Println("  Option 2: Rotate and generate a new API key (WARNING: this invalidates the current key):")
-						fmt.Printf("    acontext dash projects select --project %s --rotate\n", projectFlag)
-						fmt.Println()
-						fmt.Println("Ask the user which option to use before proceeding.")
+						fmt.Println("The API key can be found on the Acontext Dashboard:")
+						fmt.Println("  https://dash.acontext.io")
 						return nil
 					}
 					return fmt.Errorf("save project key: %w", err)
@@ -153,7 +152,7 @@ func init() {
 				return err
 			}
 
-			if err := auth.SaveProjectKey(choice.ProjectID, dashAdminClient); err != nil {
+			if err := auth.SaveProjectKey(choice.ProjectID, dashAccessToken, dashUserEmail, dashAdminClient); err != nil {
 				return fmt.Errorf("save project key: %w", err)
 			}
 			fmt.Println(tui.RenderSuccess(fmt.Sprintf("Default project set to: %s", choice.Name)))

@@ -194,6 +194,58 @@ func supabaseGet(path string, params url.Values, jwt string) ([]byte, error) {
 	return body, nil
 }
 
+// maskSecretKey shows first 8 and last 8 characters with ***** in between.
+func maskSecretKey(key string) string {
+	if len(key) <= 16 {
+		return key[:4] + "*****" + key[len(key)-4:]
+	}
+	return key[:8] + "*****" + key[len(key)-8:]
+}
+
+// RecordKeyRotation inserts a rotation record into project_secret_key_rotations via PostgREST.
+func RecordKeyRotation(jwt, projectID, userEmail, secretKey string) error {
+	record := map[string]string{
+		"project_id": projectID,
+		"user_email": userEmail,
+		"secret_key": maskSecretKey(secretKey),
+	}
+	_, err := supabasePost("/rest/v1/project_secret_key_rotations", record, jwt)
+	return err
+}
+
+func supabasePost(path string, payload interface{}, jwt string) ([]byte, error) {
+	u := SupabaseURL + path
+
+	bodyBytes, err := json.Marshal(payload)
+	if err != nil {
+		return nil, fmt.Errorf("marshal payload: %w", err)
+	}
+
+	req, err := http.NewRequest("POST", u, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+jwt)
+	req.Header.Set("apikey", SupabaseAnonKey)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Prefer", "return=minimal")
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("supabase POST failed (%d): %s", resp.StatusCode, string(body))
+	}
+	return body, nil
+}
+
 func supabaseRPC(funcName string, params map[string]interface{}, jwt string) ([]byte, error) {
 	u := SupabaseURL + "/rest/v1/rpc/" + funcName
 
