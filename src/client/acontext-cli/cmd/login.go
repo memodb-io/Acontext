@@ -145,7 +145,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 
-		if err := auth.SaveProjectKey(choice.ProjectID, adminClient); err != nil {
+		if err := auth.SaveProjectKey(choice.ProjectID, af.AccessToken, af.User.Email, adminClient); err != nil {
 			fmt.Println(tui.RenderWarning(fmt.Sprintf("Could not save API key: %v", err)))
 			fmt.Println(tui.RenderInfo("You can set up the project later with 'acontext dash projects select'"))
 			return nil

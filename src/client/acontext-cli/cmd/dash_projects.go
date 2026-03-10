@@ -106,7 +106,7 @@ func init() {
 				// Option 2: Explicit rotate requested
 				if rotateFlag {
 					fmt.Println("WARNING: Rotating API key. This will invalidate the current key for this project.")
-					if err := auth.SaveProjectKeyRotate(projectFlag, dashAdminClient); err != nil {
+					if err := auth.SaveProjectKeyRotate(projectFlag, dashAccessToken, dashUserEmail, dashAdminClient); err != nil {
 						return fmt.Errorf("rotate project key: %w", err)
 					}
 					fmt.Printf("Default project set to: %s\n", projectFlag)
@@ -117,7 +117,7 @@ func init() {
 				}
 
 				// Option 3: Check if we already have a local key
-				if err := auth.SaveProjectKey(projectFlag, dashAdminClient); err != nil {
+				if err := auth.SaveProjectKey(projectFlag, dashAccessToken, dashUserEmail, dashAdminClient); err != nil {
 					if errors.Is(err, auth.ErrNonTTYKeyRequired) {
 						// Non-TTY and no local key: print guidance instead of silently rotating
 						fmt.Printf("No local API key found for project %s.\n", projectFlag)
@@ -153,7 +153,7 @@ func init() {
 				return err
 			}
 
-			if err := auth.SaveProjectKey(choice.ProjectID, dashAdminClient); err != nil {
+			if err := auth.SaveProjectKey(choice.ProjectID, dashAccessToken, dashUserEmail, dashAdminClient); err != nil {
 				return fmt.Errorf("save project key: %w", err)
 			}
 			fmt.Println(tui.RenderSuccess(fmt.Sprintf("Default project set to: %s", choice.Name)))

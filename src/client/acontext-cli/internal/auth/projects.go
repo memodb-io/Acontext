@@ -81,10 +81,10 @@ func SaveProjectKeyWithAPIKey(projectID, apiKey string) error {
 }
 
 // SaveProjectKeyRotate rotates the API key for a project via the admin API,
-// stores the new key locally, and sets the project as default.
+// stores the new key locally, records the rotation in Supabase, and sets the project as default.
 // WARNING: this invalidates the previous API key.
-func SaveProjectKeyRotate(projectID string, adminClient *api.Client) error {
-	return saveProjectKeyRotate(projectID, adminClient)
+func SaveProjectKeyRotate(projectID, jwt, userEmail string, adminClient *api.Client) error {
+	return saveProjectKeyRotate(projectID, jwt, userEmail, adminClient)
 }
 
 // SaveProjectKey checks local key store for the project.
@@ -92,7 +92,7 @@ func SaveProjectKeyRotate(projectID string, adminClient *api.Client) error {
 // If no key, in TTY mode asks user to paste or rotate; in non-TTY mode returns
 // ErrNonTTYKeyRequired so the caller can print guidance.
 // It also sets the project as the default.
-func SaveProjectKey(projectID string, adminClient *api.Client) error {
+func SaveProjectKey(projectID, jwt, userEmail string, adminClient *api.Client) error {
 	// Check if we already have a key for this project
 	existingKey := GetProjectKey(projectID)
 	if existingKey != "" {
@@ -101,12 +101,12 @@ func SaveProjectKey(projectID string, adminClient *api.Client) error {
 	}
 
 	if IsTTY() {
-		return saveProjectKeyInteractive(projectID, adminClient)
+		return saveProjectKeyInteractive(projectID, jwt, userEmail, adminClient)
 	}
 	return ErrNonTTYKeyRequired
 }
 
-func saveProjectKeyInteractive(projectID string, adminClient *api.Client) error {
+func saveProjectKeyInteractive(projectID, jwt, userEmail string, adminClient *api.Client) error {
 	// Ask: paste existing key or rotate to generate new one
 	action, err := tui.RunSelect("No local API key found for this project. How to proceed?", []tui.SelectOption{
 		{Label: "Paste an existing API key", Value: "paste"},
@@ -127,10 +127,10 @@ func saveProjectKeyInteractive(projectID string, adminClient *api.Client) error 
 		return SetDefaultProject(projectID)
 	}
 
-	return saveProjectKeyRotate(projectID, adminClient)
+	return saveProjectKeyRotate(projectID, jwt, userEmail, adminClient)
 }
 
-func saveProjectKeyRotate(projectID string, adminClient *api.Client) error {
+func saveProjectKeyRotate(projectID, jwt, userEmail string, adminClient *api.Client) error {
 	project, err := adminClient.AdminRotateKey(context.Background(), projectID)
 	if err != nil {
 		return fmt.Errorf("generate API key: %w", err)
@@ -142,6 +142,13 @@ func saveProjectKeyRotate(projectID string, adminClient *api.Client) error {
 
 	if err := SetProjectKey(projectID, project.SecretKey); err != nil {
 		return fmt.Errorf("save API key: %w", err)
+	}
+
+	// Record rotation history in Supabase (best-effort, don't fail the operation)
+	if jwt != "" && userEmail != "" {
+		if rotErr := RecordKeyRotation(jwt, projectID, userEmail, project.SecretKey); rotErr != nil {
+			fmt.Printf("Warning: failed to record key rotation history: %v\n", rotErr)
+		}
 	}
 
 	return SetDefaultProject(projectID)
