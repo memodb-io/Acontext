@@ -26,25 +26,13 @@ func GetVersion() string {
 }
 
 func main() {
-	// Print logo before subcommand execution (skip for help, root, and unknown commands).
-	// Use Cobra's own command traversal to determine if a valid subcommand was provided,
-	// instead of maintaining a separate hardcoded list.
-	shouldPrintLogo := false
+	// Print logo only for `acontext -h` / `acontext --help`.
+	// The bare `acontext` (no args) case is handled by rootCmd.Run.
 	if len(os.Args) > 1 {
 		firstArg := os.Args[1]
-		isHelpFlag := firstArg == "--help" || firstArg == "-h"
-		isHelpCmd := firstArg == "help"
-		if !isHelpFlag && !isHelpCmd {
-			// Use Cobra's Find to check if the argument resolves to a registered subcommand
-			foundCmd, _, _ := rootCmd.Find(os.Args[1:])
-			if foundCmd != nil && foundCmd != rootCmd {
-				shouldPrintLogo = true
-			}
+		if firstArg == "--help" || firstArg == "-h" {
+			fmt.Println(logo.Logo)
 		}
-	}
-
-	if shouldPrintLogo {
-		fmt.Println(logo.Logo)
 	}
 
 	if cmdErr := rootCmd.Execute(); cmdErr != nil {
