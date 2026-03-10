@@ -158,11 +158,13 @@ Get started by running: acontext create
 		fmt.Println("Welcome to Acontext CLI!")
 		fmt.Println()
 		fmt.Println("Quick Commands:")
-		fmt.Println("  acontext create     Create a new project")
-		fmt.Println("  acontext server     Start server with sandbox and docker")
-		fmt.Println("  acontext version    Show version information")
-		fmt.Println("  acontext upgrade    Upgrade to the latest version")
-		fmt.Println("  acontext help       Show help information")
+		fmt.Println("  acontext create        Create a new project")
+		fmt.Println("  acontext server        Start server with sandbox and docker")
+		fmt.Println("  acontext login         Log in to Acontext Dashboard")
+		fmt.Println("  acontext dash          Dashboard operations (sessions, skills, ...)")
+		fmt.Println("  acontext version       Show version information")
+		fmt.Println("  acontext upgrade       Upgrade to the latest version")
+		fmt.Println("  acontext help          Show help information")
 		fmt.Println()
 		fmt.Println("Get started: acontext create")
 	},
@@ -173,6 +175,10 @@ func init() {
 	rootCmd.AddCommand(cmd.ServerCmd)
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(cmd.UpgradeCmd)
+	rootCmd.AddCommand(cmd.LoginCmd)
+	rootCmd.AddCommand(cmd.LogoutCmd)
+	rootCmd.AddCommand(cmd.WhoamiCmd)
+	rootCmd.AddCommand(cmd.DashCmd)
 }
 
 var versionCmd = &cobra.Command{
