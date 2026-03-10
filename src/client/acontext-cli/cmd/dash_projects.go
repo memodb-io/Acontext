@@ -85,10 +85,54 @@ func init() {
 		Long:  "Interactively select a project, or use --project <id> for non-interactive mode. Generates and saves an API key locally.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projectFlag, _ := cmd.Flags().GetString("project")
+			apiKeyFlag, _ := cmd.Flags().GetString("api-key")
+			rotateFlag, _ := cmd.Flags().GetBool("rotate")
 
 			if projectFlag != "" {
 				// Non-interactive mode: use the specified project directly
+
+				// Option 1: API key provided directly via flag
+				if apiKeyFlag != "" {
+					if err := auth.SaveProjectKeyWithAPIKey(projectFlag, apiKeyFlag); err != nil {
+						return fmt.Errorf("save project key: %w", err)
+					}
+					fmt.Printf("Default project set to: %s\n", projectFlag)
+					fmt.Println("API key saved locally.")
+					fmt.Println()
+					fmt.Println("Setup complete. You can now use 'acontext dash' commands.")
+					return nil
+				}
+
+				// Option 2: Explicit rotate requested
+				if rotateFlag {
+					fmt.Println("WARNING: Rotating API key. This will invalidate the current key for this project.")
+					if err := auth.SaveProjectKeyRotate(projectFlag, dashAdminClient); err != nil {
+						return fmt.Errorf("rotate project key: %w", err)
+					}
+					fmt.Printf("Default project set to: %s\n", projectFlag)
+					fmt.Println("New API key generated and saved locally.")
+					fmt.Println()
+					fmt.Println("Setup complete. You can now use 'acontext dash' commands.")
+					return nil
+				}
+
+				// Option 3: Check if we already have a local key
 				if err := auth.SaveProjectKey(projectFlag, dashAdminClient); err != nil {
+					if errors.Is(err, auth.ErrNonTTYKeyRequired) {
+						// Non-TTY and no local key: print guidance instead of silently rotating
+						fmt.Printf("No local API key found for project %s.\n", projectFlag)
+						fmt.Println()
+						fmt.Println("Choose one of the following options:")
+						fmt.Println()
+						fmt.Println("  Option 1: Use an existing API key (safe, no side effects):")
+						fmt.Printf("    acontext dash projects select --project %s --api-key <sk-ac-...>\n", projectFlag)
+						fmt.Println()
+						fmt.Println("  Option 2: Rotate and generate a new API key (WARNING: this invalidates the current key):")
+						fmt.Printf("    acontext dash projects select --project %s --rotate\n", projectFlag)
+						fmt.Println()
+						fmt.Println("Ask the user which option to use before proceeding.")
+						return nil
+					}
 					return fmt.Errorf("save project key: %w", err)
 				}
 				fmt.Printf("Default project set to: %s\n", projectFlag)
@@ -118,6 +162,8 @@ func init() {
 		},
 	}
 	selectCmd.Flags().String("project", "", "Project ID to select (non-interactive)")
+	selectCmd.Flags().String("api-key", "", "Provide an existing API key directly (use with --project)")
+	selectCmd.Flags().Bool("rotate", false, "Rotate and generate a new API key (WARNING: invalidates current key)")
 
 	// Create a project via admin API + link to org
 	createCmd := &cobra.Command{

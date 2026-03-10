@@ -11,6 +11,10 @@ import (
 // ErrNoProjects is returned when the user has no projects.
 var ErrNoProjects = fmt.Errorf("no projects found")
 
+// ErrNonTTYKeyRequired is returned when a non-TTY session needs an API key
+// but none was provided via flag. The caller should print guidance for the agent.
+var ErrNonTTYKeyRequired = fmt.Errorf("non-TTY mode requires --api-key or --rotate flag")
+
 // ProjectChoice holds an identified project for selection.
 type ProjectChoice struct {
 	ProjectID string
@@ -67,9 +71,26 @@ func SelectProject(jwt, userID string) (*ProjectChoice, error) {
 	return &ProjectChoice{ProjectID: value, Name: label}, nil
 }
 
+// SaveProjectKeyWithAPIKey directly stores the provided API key for a project
+// and sets it as the default. No rotation or server call is made.
+func SaveProjectKeyWithAPIKey(projectID, apiKey string) error {
+	if err := SetProjectKey(projectID, apiKey); err != nil {
+		return fmt.Errorf("save API key: %w", err)
+	}
+	return SetDefaultProject(projectID)
+}
+
+// SaveProjectKeyRotate rotates the API key for a project via the admin API,
+// stores the new key locally, and sets the project as default.
+// WARNING: this invalidates the previous API key.
+func SaveProjectKeyRotate(projectID string, adminClient *api.Client) error {
+	return saveProjectKeyRotate(projectID, adminClient)
+}
+
 // SaveProjectKey checks local key store for the project.
 // If a key already exists locally, just sets as default.
-// If no key, in TTY mode asks user to paste or rotate; in non-TTY mode rotates automatically.
+// If no key, in TTY mode asks user to paste or rotate; in non-TTY mode returns
+// ErrNonTTYKeyRequired so the caller can print guidance.
 // It also sets the project as the default.
 func SaveProjectKey(projectID string, adminClient *api.Client) error {
 	// Check if we already have a key for this project
@@ -82,7 +103,7 @@ func SaveProjectKey(projectID string, adminClient *api.Client) error {
 	if IsTTY() {
 		return saveProjectKeyInteractive(projectID, adminClient)
 	}
-	return saveProjectKeyRotate(projectID, adminClient)
+	return ErrNonTTYKeyRequired
 }
 
 func saveProjectKeyInteractive(projectID string, adminClient *api.Client) error {
