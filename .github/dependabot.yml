@@ -124,6 +124,22 @@ updates:
           - "*"
 
   - package-ecosystem: "npm"
+    directory: "/docs"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    target-branch: "deps"
+    commit-message:
+      prefix: "chore(deps):"
+    groups:
+      dependencies:
+        patterns:
+          - "*"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: "npm"
     directory: "/landingpage"
     schedule:
       interval: "weekly"
@@ -167,6 +183,19 @@ updates:
 
   - package-ecosystem: "docker"
     directory: "/src/server/ui"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    target-branch: "deps"
+    commit-message:
+      prefix: "chore(deps):"
+    groups:
+      dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "docker"
+    directory: "/src/server/sandbox/cloudflare"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
