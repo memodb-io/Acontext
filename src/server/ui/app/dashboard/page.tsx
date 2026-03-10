@@ -287,7 +287,7 @@ export default function DashboardPage() {
                 <ChartTooltip
                   content={(props) => (
                     <ChartTooltipContent
-                      {...props}
+                      {...props as React.ComponentProps<typeof ChartTooltipContent>}
                       formatter={(value) => {
                         const numericValue = Array.isArray(value)
                           ? Number(value[0])
@@ -339,7 +339,7 @@ export default function DashboardPage() {
                 <ChartTooltip
                   content={(props) => (
                     <ChartTooltipContent
-                      {...props}
+                      {...props as React.ComponentProps<typeof ChartTooltipContent>}
                     />
                   )}
                 />
@@ -400,7 +400,7 @@ export default function DashboardPage() {
                 <ChartTooltip
                   content={(props) => (
                     <ChartTooltipContent
-                      {...props}
+                      {...props as React.ComponentProps<typeof ChartTooltipContent>}
                     />
                   )}
                 />
@@ -439,7 +439,7 @@ export default function DashboardPage() {
                 <ChartTooltip
                   content={(props) => (
                     <ChartTooltipContent
-                      {...props}
+                      {...props as React.ComponentProps<typeof ChartTooltipContent>}
                     />
                   )}
                 />
@@ -478,7 +478,7 @@ export default function DashboardPage() {
                 <ChartTooltip
                   content={(props) => (
                     <ChartTooltipContent
-                      {...props}
+                      {...props as React.ComponentProps<typeof ChartTooltipContent>}
                     />
                   )}
                 />
@@ -517,7 +517,7 @@ export default function DashboardPage() {
                 <ChartTooltip
                   content={(props) => (
                     <ChartTooltipContent
-                      {...props}
+                      {...props as React.ComponentProps<typeof ChartTooltipContent>}
                       formatter={(value) => {
                         const numericValue = Array.isArray(value)
                           ? Number(value[0])
@@ -570,7 +570,7 @@ export default function DashboardPage() {
                 <ChartTooltip
                   content={(props) => (
                     <ChartTooltipContent
-                      {...props}
+                      {...props as React.ComponentProps<typeof ChartTooltipContent>}
                     />
                   )}
                 />
@@ -609,7 +609,7 @@ export default function DashboardPage() {
                 <ChartTooltip
                   content={(props) => (
                     <ChartTooltipContent
-                      {...props}
+                      {...props as React.ComponentProps<typeof ChartTooltipContent>}
                     />
                   )}
                 />
