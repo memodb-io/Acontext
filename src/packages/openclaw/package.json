@@ -32,7 +32,7 @@
 	},
 	"dependencies": {
 		"@acontext/acontext": "^0.1.14",
-		"@sinclair/typebox": "0.34.47"
+		"@sinclair/typebox": "0.34.48"
 	},
 	"devDependencies": {
 		"@types/jest": "^30.0.0",
