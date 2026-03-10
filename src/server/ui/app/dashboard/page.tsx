@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactElement } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent, type CustomTooltipProps } from "@/components/ui/chart"
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Rectangle } from "recharts"
 import { useTranslations } from "next-intl"
 import {
@@ -285,7 +285,7 @@ export default function DashboardPage() {
                   tickFormatter={(value) => `${value}%`}
                 />
                 <ChartTooltip
-                  content={(props: CustomTooltipProps) => (
+                  content={(props) => (
                     <ChartTooltipContent
                       {...props}
                       formatter={(value) => {
@@ -337,7 +337,7 @@ export default function DashboardPage() {
                 />
                 <YAxis width={50} />
                 <ChartTooltip
-                  content={(props: CustomTooltipProps) => (
+                  content={(props) => (
                     <ChartTooltipContent
                       {...props}
                     />
@@ -398,7 +398,7 @@ export default function DashboardPage() {
                 />
                 <YAxis width={50} />
                 <ChartTooltip
-                  content={(props: CustomTooltipProps) => (
+                  content={(props) => (
                     <ChartTooltipContent
                       {...props}
                     />
@@ -437,7 +437,7 @@ export default function DashboardPage() {
                 />
                 <YAxis width={50} />
                 <ChartTooltip
-                  content={(props: CustomTooltipProps) => (
+                  content={(props) => (
                     <ChartTooltipContent
                       {...props}
                     />
@@ -476,7 +476,7 @@ export default function DashboardPage() {
                 />
                 <YAxis width={50} />
                 <ChartTooltip
-                  content={(props: CustomTooltipProps) => (
+                  content={(props) => (
                     <ChartTooltipContent
                       {...props}
                     />
@@ -515,7 +515,7 @@ export default function DashboardPage() {
                 />
                 <YAxis width={50} />
                 <ChartTooltip
-                  content={(props: CustomTooltipProps) => (
+                  content={(props) => (
                     <ChartTooltipContent
                       {...props}
                       formatter={(value) => {
@@ -568,7 +568,7 @@ export default function DashboardPage() {
                 />
                 <YAxis width={50} />
                 <ChartTooltip
-                  content={(props: CustomTooltipProps) => (
+                  content={(props) => (
                     <ChartTooltipContent
                       {...props}
                     />
@@ -607,7 +607,7 @@ export default function DashboardPage() {
                 />
                 <YAxis width={50} />
                 <ChartTooltip
-                  content={(props: CustomTooltipProps) => (
+                  content={(props) => (
                     <ChartTooltipContent
                       {...props}
                     />
