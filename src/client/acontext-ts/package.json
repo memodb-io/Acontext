@@ -54,5 +54,8 @@
   "files": [
     "dist",
     "README.md"
-  ]
+  ],
+  "overrides": {
+    "minimatch": ">=10.0.1"
+  }
 }
