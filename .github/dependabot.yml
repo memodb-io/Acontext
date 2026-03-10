@@ -209,6 +209,10 @@ updates:
       dependencies:
         patterns:
           - "*"
+    ignore:
+      # Only allow LTS (even) Node.js versions - ignore odd major versions
+      - dependency-name: "node"
+        versions: [">=23, <24", ">=25, <26", ">=27, <28", ">=29, <30"]
 
   - package-ecosystem: "docker"
     directory: "/src/server/sandbox/cloudflare"
