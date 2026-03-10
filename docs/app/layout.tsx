@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     template: '%s | Acontext Docs',
     default: 'Acontext Docs',
   },
-  description: 'Acontext — the agent memory stack for production AI Agents',
+  description: 'Acontext — Agent Skills as a Memory Layer for production AI Agents',
 };
 
 export default function Layout({ children }: { children: ReactNode }) {

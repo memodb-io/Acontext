@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://discord.acontext.io">
-      <img alt="Acontext - The Agent Memory Stack" src="./assets/Acontext-header-banner.png">
+      <img alt="Acontext - Agent Skills as a Memory Layer" src="./assets/Acontext-header-banner.png">
   </a>
  	<p align="center">
  	  	<a href="https://acontext.io">🌐 Website</a>

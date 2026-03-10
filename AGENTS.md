@@ -1,5 +1,5 @@
 # Acontext
-Acontext is the agent memory stack for production AI Agents
+Acontext is Agent Skills as a Memory Layer for production AI Agents
 
 ## NAVIGATION GUIDE
 - Python SDK: `src/client/acontext-py/`

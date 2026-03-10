@@ -836,7 +836,7 @@ export function FeaturesOverviewAnimation() {
                       transform: 'translateY(-10px)',
                     }}
                   >
-                    The Agent Memory Stack
+                    Agent Skills as a Memory Layer
                   </p>
 
                   <div className="flex gap-8 justify-center items-center">

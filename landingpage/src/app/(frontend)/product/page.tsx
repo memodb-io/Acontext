@@ -11,7 +11,7 @@ const baseUrl = process.env.NEXT_PUBLIC_SERVER_URL || 'https://acontext.io'
 export const metadata: Metadata = {
   title: 'Product - Acontext',
   description:
-    'Explore Acontext features - The Agent Memory Stack with short-term memory, mid-term state, and long-term skill for AI agents',
+    'Explore Acontext features - Agent Skills as a Memory Layer with short-term memory, mid-term state, and long-term skill for AI agents',
   alternates: {
     canonical: `${baseUrl}/product`,
   },
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 export default function ProductPage() {
   const softwareJsonLd = createSoftwareApplicationJsonLd(
     'Acontext',
-    'The Agent Memory Stack - Unifies short-term memory, mid-term state, and long-term skill for production agents.',
+    'Agent Skills as a Memory Layer - Unifies short-term memory, mid-term state, and long-term skill for production agents.',
     baseUrl,
     {
       applicationCategory: 'BusinessApplication',
