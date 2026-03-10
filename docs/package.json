@@ -7,9 +7,9 @@
     "build": "next build",
     "start": "next start",
     "build:cf": "opennextjs-cloudflare build && node scripts/patch-worker.mjs",
-    "preview": "npm run build:cf && opennextjs-cloudflare preview",
-    "deploy": "npm run build:cf && opennextjs-cloudflare deploy",
-    "upload": "npm run build:cf && opennextjs-cloudflare upload",
+    "preview": "pnpm build:cf && opennextjs-cloudflare preview",
+    "deploy": "pnpm build:cf && opennextjs-cloudflare deploy",
+    "upload": "pnpm build:cf && opennextjs-cloudflare upload",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "postinstall": "fumadocs-mdx"
   },
@@ -28,6 +28,7 @@
     "lucide-react": "^0.577.0",
     "mermaid": "^11.12.3",
     "next": "16.1.6",
+    "next-themes": "^0.4.6",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "react-force-graph-2d": "^1.29.1",
@@ -36,6 +37,13 @@
     "shiki": "^4.0.1",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "workerd"
+    ]
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.1",
