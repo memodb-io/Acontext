@@ -52,8 +52,9 @@ const (
 	PartTypeFile       PartType = "file"
 	PartTypeToolCall   PartType = "tool-call"
 	PartTypeToolResult PartType = "tool-result"
-	PartTypeData       PartType = "data"
-	PartTypeThinking   PartType = "thinking"
+	PartTypeData              PartType = "data"
+	PartTypeThinking          PartType = "thinking"
+	PartTypeRedactedThinking  PartType = "redacted_thinking"
 )
 
 // ---------------------------------------------------------------------------
@@ -229,7 +230,8 @@ func (Message) GetReservedKeys() []string {
 //	tool-call:   Meta (required): id, name, arguments (JSON string). Optional: type, cache_control
 //	tool-result: Text + Meta (required): tool_call_id. Optional: name, is_error, cache_control
 //	data:        Meta (required): data_type
-//	thinking:    Text (required). Meta: signature?
+//	thinking:           Text (required). Meta: signature?
+//	redacted_thinking:  No text. Meta: data (opaque string)
 type Part struct {
 	Type string `json:"type"`
 
@@ -366,6 +368,17 @@ func NewAudioPart(base64Data, format string) Part {
 		Meta: map[string]any{
 			MetaKeyData:        base64Data,
 			MetaKeyAudioFormat: format,
+		},
+	}
+}
+
+// NewRedactedThinkingPart creates a redacted_thinking Part.
+// The data is an opaque string; there is no text content.
+func NewRedactedThinkingPart(data string) Part {
+	return Part{
+		Type: PartTypeRedactedThinking,
+		Meta: map[string]any{
+			MetaKeyData: data,
 		},
 	}
 }

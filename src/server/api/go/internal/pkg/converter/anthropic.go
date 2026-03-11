@@ -99,6 +99,13 @@ func (c *AnthropicConverter) convertParts(parts []model.Part, publicURLs map[str
 				block := anthropic.NewThinkingBlock(signature, part.Text)
 				contentBlocks = append(contentBlocks, block)
 			}
+
+		case model.PartTypeRedactedThinking:
+			data := part.GetMetaString(model.MetaKeyData)
+			if data != "" {
+				block := anthropic.NewRedactedThinkingBlock(data)
+				contentBlocks = append(contentBlocks, block)
+			}
 		}
 	}
 

@@ -13,6 +13,7 @@ VALID_PART_TYPES = [
     "tool-result",
     "data",
     "thinking",
+    "redacted_thinking",
 ]
 
 
@@ -42,3 +43,13 @@ def test_thinking_part_minimal():
     part = Part(type="thinking", text="thinking text")
     assert part.type == "thinking"
     assert part.meta is None
+
+
+def test_redacted_thinking_part():
+    part = Part(
+        type="redacted_thinking",
+        meta={"data": "opaque-encrypted-data"},
+    )
+    assert part.type == "redacted_thinking"
+    assert part.text is None
+    assert part.meta["data"] == "opaque-encrypted-data"

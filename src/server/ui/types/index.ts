@@ -198,7 +198,9 @@ export type PartType =
   | "file"
   | "tool-call"
   | "tool-result"
-  | "data";
+  | "data"
+  | "thinking"
+  | "redacted_thinking";
 
 export interface UploadedFile {
   id: string;

@@ -116,6 +116,21 @@ func TestAnthropicConverter_Convert_ThinkingBlock(t *testing.T) {
 	assert.NotNil(t, result)
 }
 
+func TestAnthropicConverter_Convert_RedactedThinking(t *testing.T) {
+	converter := &AnthropicConverter{}
+
+	messages := []model.Message{
+		createTestMessage(model.RoleAssistant, []model.Part{
+			model.NewRedactedThinkingPart("opaque-encrypted-data"),
+			{Type: model.PartTypeText, Text: "Here is my answer."},
+		}, nil),
+	}
+
+	result, err := converter.Convert(messages, nil)
+	require.NoError(t, err)
+	assert.NotNil(t, result)
+}
+
 func TestAnthropicConverter_Convert_Image(t *testing.T) {
 	converter := &AnthropicConverter{}
 

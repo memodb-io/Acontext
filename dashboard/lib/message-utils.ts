@@ -7,7 +7,7 @@ export function getAllowedPartTypes(role: MessageRole): PartType[] {
   if (role === "user") {
     return ["text", "image", "audio", "video", "file", "data", "tool-result"];
   } else {
-    return ["text", "thinking", "tool-call"];
+    return ["text", "thinking", "redacted_thinking", "tool-call"];
   }
 }
 

@@ -216,7 +216,7 @@ func TestAnthropicNormalizer_NormalizeFromAnthropicMessage(t *testing.T) {
 			wantErr:     false,
 		},
 		{
-			name: "assistant message with redacted thinking block (skipped)",
+			name: "assistant message with redacted thinking block",
 			input: `{
 				"role": "assistant",
 				"content": [
@@ -225,7 +225,7 @@ func TestAnthropicNormalizer_NormalizeFromAnthropicMessage(t *testing.T) {
 				]
 			}`,
 			wantRole:    model.RoleAssistant,
-			wantPartCnt: 1,
+			wantPartCnt: 2,
 			wantErr:     false,
 		},
 		{
@@ -430,7 +430,7 @@ func TestAnthropicNormalizer_ThinkingBlock(t *testing.T) {
 		assert.Equal(t, "sig_abc123", parts[0].Meta[model.MetaKeySignature])
 	})
 
-	t.Run("redacted thinking block is skipped", func(t *testing.T) {
+	t.Run("redacted thinking block is normalized", func(t *testing.T) {
 		input := `{
 			"role": "assistant",
 			"content": [
@@ -444,11 +444,31 @@ func TestAnthropicNormalizer_ThinkingBlock(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.Equal(t, model.RoleAssistant, role)
-		assert.Len(t, parts, 2)
+		assert.Len(t, parts, 3)
 		assert.Equal(t, model.PartTypeThinking, parts[0].Type)
 		assert.Equal(t, "Visible thinking", parts[0].Text)
-		assert.Equal(t, model.PartTypeText, parts[1].Type)
-		assert.Equal(t, "Final answer", parts[1].Text)
+		assert.Equal(t, model.PartTypeRedactedThinking, parts[1].Type)
+		assert.Equal(t, "opaque-data", parts[1].Meta[model.MetaKeyData])
+		assert.Equal(t, model.PartTypeText, parts[2].Type)
+		assert.Equal(t, "Final answer", parts[2].Text)
+	})
+
+	t.Run("message with only redacted thinking produces 1 part", func(t *testing.T) {
+		input := `{
+			"role": "assistant",
+			"content": [
+				{"type": "redacted_thinking", "data": "opaque-only"}
+			]
+		}`
+
+		role, parts, _, err := normalizer.NormalizeFromAnthropicMessage(json.RawMessage(input))
+
+		assert.NoError(t, err)
+		assert.Equal(t, model.RoleAssistant, role)
+		assert.Len(t, parts, 1)
+		assert.Equal(t, model.PartTypeRedactedThinking, parts[0].Type)
+		assert.Equal(t, "opaque-only", parts[0].Meta[model.MetaKeyData])
+		assert.Empty(t, parts[0].Text)
 	})
 }
 

@@ -36,7 +36,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, RefreshCw, Upload, X, ArrowLeft, FileText, Image as ImageIcon, Video, Music, File, Code, CheckCircle2, ExternalLink } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Upload, X, ArrowLeft, FileText, Image as ImageIcon, Video, Music, File, Code, CheckCircle2, ExternalLink, Brain, ShieldOff } from "lucide-react";
 import Image from "next/image";
 import { getMessages, storeMessage, getSessionConfigs } from "@/app/session/actions";
 import {
@@ -87,6 +87,8 @@ const MessageContentPreview = ({
             {/* Part type icon */}
             <div className="flex-shrink-0 mt-0.5">
               {part.type === "text" && <FileText className="h-3.5 w-3.5 text-muted-foreground" />}
+              {part.type === "thinking" && <Brain className="h-3.5 w-3.5 text-amber-500" />}
+              {part.type === "redacted_thinking" && <ShieldOff className="h-3.5 w-3.5 text-amber-400" />}
               {part.type === "tool-call" && <Code className="h-3.5 w-3.5 text-blue-500" />}
               {part.type === "tool-result" && <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
               {part.type === "image" && <ImageIcon className="h-3.5 w-3.5 text-purple-500" />}
@@ -100,6 +102,18 @@ const MessageContentPreview = ({
               {part.type === "text" && part.text && (
                 <div className="text-sm text-foreground whitespace-pre-wrap break-words bg-muted/30 rounded">
                   {part.text}
+                </div>
+              )}
+
+              {part.type === "thinking" && part.text && (
+                <div className="text-sm text-foreground whitespace-pre-wrap break-words bg-amber-50 dark:bg-amber-950/20 rounded px-2 py-1.5 border border-amber-200 dark:border-amber-900 italic">
+                  {part.text}
+                </div>
+              )}
+
+              {part.type === "redacted_thinking" && (
+                <div className="text-sm text-muted-foreground italic bg-amber-50/50 dark:bg-amber-950/10 rounded px-2 py-1.5 border border-amber-200/50 dark:border-amber-900/50">
+                  [Redacted thinking]
                 </div>
               )}
 

@@ -150,6 +150,9 @@ func (c *OpenAIConverter) convertToAssistantMessage(msg model.Message) openai.Ch
 					OfText: &openai.ChatCompletionContentPartTextParam{Text: part.Text},
 				})
 			}
+		case model.PartTypeRedactedThinking:
+			// Skip redacted_thinking blocks — no OpenAI equivalent
+			continue
 		case model.PartTypeToolCall:
 			if part.Meta != nil {
 				toolCall := c.convertToToolCall(part)
