@@ -45,6 +45,7 @@ import {
   Upload,
   X,
   Brain,
+  ShieldOff,
 } from "lucide-react";
 import { Project, Message, Part } from "@/types";
 import { getMessages, sendMessage, getSessionConfigs } from "../../actions";
@@ -93,6 +94,7 @@ const MessageContentPreview = ({
             <div className="shrink-0 mt-0.5">
               {part.type === "text" && <FileText className="h-3.5 w-3.5 text-muted-foreground" />}
               {part.type === "thinking" && <Brain className="h-3.5 w-3.5 text-amber-500" />}
+              {part.type === "redacted_thinking" && <ShieldOff className="h-3.5 w-3.5 text-amber-400" />}
               {part.type === "tool-call" && <Code className="h-3.5 w-3.5 text-blue-500" />}
               {part.type === "tool-result" && <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
               {part.type === "image" && <ImageIcon className="h-3.5 w-3.5 text-purple-500" />}
@@ -112,6 +114,12 @@ const MessageContentPreview = ({
               {part.type === "thinking" && part.text && (
                 <div className="text-sm text-foreground whitespace-pre-wrap wrap-break-word bg-amber-50 dark:bg-amber-950/20 rounded px-2 py-1.5 border border-amber-200 dark:border-amber-900 italic">
                   {part.text}
+                </div>
+              )}
+
+              {part.type === "redacted_thinking" && (
+                <div className="text-sm text-muted-foreground italic bg-amber-50/50 dark:bg-amber-950/10 rounded px-2 py-1.5 border border-amber-200/50 dark:border-amber-900/50">
+                  [Redacted thinking]
                 </div>
               )}
 

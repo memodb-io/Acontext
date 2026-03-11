@@ -15,7 +15,7 @@ export function getAllowedPartTypes(role: MessageRole): PartType[] {
     case "user":
       return ["text", "image", "audio", "video", "file", "tool-result", "data"];
     case "assistant":
-      return ["text", "tool-call", "data"];
+      return ["text", "thinking", "redacted_thinking", "tool-call", "data"];
     default:
       return ["text"];
   }
