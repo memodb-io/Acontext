@@ -3,6 +3,8 @@ package converter
 import (
 	"testing"
 
+	"github.com/anthropics/anthropic-sdk-go"
+
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/service"
 	"github.com/stretchr/testify/assert"
@@ -128,7 +130,18 @@ func TestAnthropicConverter_Convert_RedactedThinking(t *testing.T) {
 
 	result, err := converter.Convert(messages, nil)
 	require.NoError(t, err)
-	assert.NotNil(t, result)
+
+	anthropicMsgs, ok := result.([]anthropic.MessageParam)
+	require.True(t, ok)
+	require.Len(t, anthropicMsgs, 1)
+
+	// Should produce 2 content blocks: redacted_thinking + text
+	blocks := anthropicMsgs[0].Content
+	require.Len(t, blocks, 2)
+	assert.NotNil(t, blocks[0].OfRedactedThinking)
+	assert.Equal(t, "opaque-encrypted-data", blocks[0].OfRedactedThinking.Data)
+	assert.NotNil(t, blocks[1].OfText)
+	assert.Equal(t, "Here is my answer.", blocks[1].OfText.Text)
 }
 
 func TestAnthropicConverter_Convert_Image(t *testing.T) {
