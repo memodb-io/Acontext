@@ -40,7 +40,6 @@ interface AcontextClientLike {
     create(options?: Record<string, unknown>): Promise<{ id: string }>;
     storeMessage(sessionId: string, blob: Record<string, unknown>, options?: Record<string, unknown>): Promise<{ id: string }>;
     flush(sessionId: string): Promise<{ status: number; errmsg: string }>;
-    messagesObservingStatus(sessionId: string): Promise<{ observed: number; in_process: number; pending: number }>;
     getSessionSummary(sessionId: string, options?: Record<string, unknown>): Promise<string>;
   };
   learningSpaces: {
@@ -347,7 +346,11 @@ export class AcontextBridge {
           expire: 60,
         });
         if (resp.content) {
-          await fs.writeFile(fileDest, resp.content.raw, "utf-8");
+          if (resp.content.type === "base64") {
+            await fs.writeFile(fileDest, Buffer.from(resp.content.raw, "base64"));
+          } else {
+            await fs.writeFile(fileDest, resp.content.raw, "utf-8");
+          }
         } else if (resp.url) {
           const res = await fetch(resp.url);
           if (res.ok) await fs.writeFile(fileDest, await res.text(), "utf-8");
@@ -434,7 +437,12 @@ export class AcontextBridge {
 
   private async ensureClient(): Promise<AcontextClientLike> {
     if (this.client) return this.client;
-    if (!this.initPromise) this.initPromise = this._init();
+    if (!this.initPromise) {
+      this.initPromise = this._init().catch((err) => {
+        this.initPromise = null;
+        throw err;
+      });
+    }
     await this.initPromise;
     return this.client!;
   }
@@ -628,6 +636,9 @@ export class AcontextBridge {
       if (!this.sentMessagesLoadPromise) {
         this.sentMessagesLoadPromise = this.loadSentMessages().then(() => {
           this.sentMessagesLoaded = true;
+        }).catch((err) => {
+          this.sentMessagesLoadPromise = null;
+          throw err;
         });
       }
       await this.sentMessagesLoadPromise;
@@ -674,26 +685,6 @@ export class AcontextBridge {
     return await client.sessions.flush(sessionId);
   }
 
-  async waitForProcessing(
-    sessionId: string,
-    timeoutMs = 30_000,
-  ): Promise<boolean> {
-    const client = await this.ensureClient();
-    const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-      try {
-        const status =
-          await client.sessions.messagesObservingStatus(sessionId);
-        if (status.pending === 0 && status.in_process === 0) return true;
-      } catch (err) {
-        this.logger.warn(`acontext: waitForProcessing poll failed: ${String(err)}`);
-        return false;
-      }
-      await new Promise((r) => setTimeout(r, 2000));
-    }
-    return false;
-  }
-
   // -- Learn -------------------------------------------------------------------
 
   async learnFromSession(sessionId: string): Promise<LearnResult> {
@@ -701,6 +692,9 @@ export class AcontextBridge {
       if (!this.learnedSessionsLoadPromise) {
         this.learnedSessionsLoadPromise = this.loadLearnedSessions().then(() => {
           this.learnedSessionsLoaded = true;
+        }).catch((err) => {
+          this.learnedSessionsLoadPromise = null;
+          throw err;
         });
       }
       await this.learnedSessionsLoadPromise;

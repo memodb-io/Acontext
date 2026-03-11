@@ -287,7 +287,6 @@ describe("AcontextBridge", () => {
         create: jest.fn<any>().mockResolvedValue({ id: "mock-session" }),
         storeMessage: jest.fn<any>().mockResolvedValue({ id: "mock-msg-id" }),
         flush: jest.fn<any>().mockResolvedValue({ status: 0, errmsg: "" }),
-        messagesObservingStatus: jest.fn<any>().mockResolvedValue({ observed: 0, in_process: 0, pending: 0 }),
         getSessionSummary: jest.fn<any>().mockResolvedValue(""),
       },
       learningSpaces: {
@@ -1033,6 +1032,173 @@ describe("AcontextBridge", () => {
       // processed = 2 (only the ones that completed before the break)
       expect(result.stored).toBe(2);
       expect(result.processed).toBe(2);
+    });
+  });
+
+  describe("ensureClient — retry on init failure", () => {
+    test("retries after _init() failure instead of being permanently broken", async () => {
+      const cfg = { ...baseCfg, skillsDir };
+      const bridge = new AcontextBridge(cfg, dataDir, skillsDir, mockLogger);
+
+      // Simulate _init failure by making the dynamic import throw
+      let initCallCount = 0;
+      const mockClient = createMockClient();
+      (bridge as any)._init = async () => {
+        initCallCount++;
+        if (initCallCount === 1) {
+          throw new Error("module not found");
+        }
+        (bridge as any).client = mockClient;
+      };
+
+      // First call should fail
+      await expect((bridge as any).ensureClient()).rejects.toThrow("module not found");
+
+      // initPromise should be cleared, allowing retry
+      expect((bridge as any).initPromise).toBeNull();
+
+      // Second call should succeed
+      const client = await (bridge as any).ensureClient();
+      expect(client).toBe(mockClient);
+      expect(initCallCount).toBe(2);
+    });
+
+    test("concurrent callers during init failure all receive the error and can retry", async () => {
+      const cfg = { ...baseCfg, skillsDir };
+      const bridge = new AcontextBridge(cfg, dataDir, skillsDir, mockLogger);
+
+      let initCallCount = 0;
+      const mockClient = createMockClient();
+      (bridge as any)._init = async () => {
+        initCallCount++;
+        if (initCallCount === 1) {
+          throw new Error("init failed");
+        }
+        (bridge as any).client = mockClient;
+      };
+
+      // Concurrent calls should all fail
+      const results = await Promise.allSettled([
+        (bridge as any).ensureClient(),
+        (bridge as any).ensureClient(),
+      ]);
+      expect(results[0].status).toBe("rejected");
+      expect(results[1].status).toBe("rejected");
+
+      // Retry should succeed
+      const client = await (bridge as any).ensureClient();
+      expect(client).toBe(mockClient);
+    });
+  });
+
+  describe("sentMessagesLoadPromise — retry on load failure", () => {
+    test("retries loading sent messages after failure", async () => {
+      const mockClient = createMockClient();
+      mockClient.sessions.storeMessage.mockResolvedValue({ id: "msg-1" });
+      const bridge = createBridge(mockClient);
+
+      // Write invalid JSON to sent-messages file to trigger parse error
+      await fs.mkdir(dataDir, { recursive: true });
+      // Override loadSentMessages to throw on first call
+      let loadCallCount = 0;
+      const originalLoad = (bridge as any).loadSentMessages.bind(bridge);
+      (bridge as any).loadSentMessages = async () => {
+        loadCallCount++;
+        if (loadCallCount === 1) {
+          throw new Error("disk read failed");
+        }
+        return originalLoad();
+      };
+
+      // First storeMessages should fail due to load error
+      await expect(
+        bridge.storeMessages("sess-1", [{ role: "user", content: "hi" }], 0),
+      ).rejects.toThrow("disk read failed");
+
+      // sentMessagesLoadPromise should be cleared
+      expect((bridge as any).sentMessagesLoadPromise).toBeNull();
+
+      // Second call should succeed (loadSentMessages succeeds this time)
+      const result = await bridge.storeMessages("sess-1", [{ role: "user", content: "hi" }], 0);
+      expect(result.stored).toBe(1);
+    });
+  });
+
+  describe("learnedSessionsLoadPromise — retry on load failure", () => {
+    test("retries loading learned sessions after failure", async () => {
+      const mockClient = createMockClient();
+      const bridge = createBridge(mockClient);
+
+      let loadCallCount = 0;
+      const originalLoad = (bridge as any).loadLearnedSessions.bind(bridge);
+      (bridge as any).loadLearnedSessions = async () => {
+        loadCallCount++;
+        if (loadCallCount === 1) {
+          throw new Error("disk read failed");
+        }
+        return originalLoad();
+      };
+
+      // First learnFromSession should fail due to load error
+      await expect(bridge.learnFromSession("sess-1")).rejects.toThrow("disk read failed");
+
+      // learnedSessionsLoadPromise should be cleared
+      expect((bridge as any).learnedSessionsLoadPromise).toBeNull();
+
+      // Second call should succeed
+      const result = await bridge.learnFromSession("sess-1");
+      expect(result).toEqual({ status: "learned", id: "learn-1" });
+    });
+  });
+
+  describe("downloadSkillFiles — content type handling", () => {
+    test("decodes base64 content when type is base64", async () => {
+      const originalContent = "# Hello World\nThis is a skill.";
+      const base64Content = Buffer.from(originalContent).toString("base64");
+
+      const mockClient = createMockClient({
+        listSkills: async () => [{
+          id: "s1", name: "base64-skill", description: "desc",
+          disk_id: "d1", file_index: [{ path: "SKILL.md", mime: "text/markdown" }],
+          updated_at: "2026-01-01T00:00:00Z",
+        }],
+        getFile: async () => ({
+          content: { type: "base64", raw: base64Content },
+          url: null,
+        }),
+      });
+      const bridge = createBridge(mockClient);
+
+      await bridge.syncSkillsToLocal();
+
+      const content = await fs.readFile(
+        path.join(skillsDir, "base64-skill", "SKILL.md"),
+        "utf-8",
+      );
+      expect(content).toBe(originalContent);
+    });
+
+    test("writes text content directly when type is text", async () => {
+      const mockClient = createMockClient({
+        listSkills: async () => [{
+          id: "s1", name: "text-skill", description: "desc",
+          disk_id: "d1", file_index: [{ path: "SKILL.md", mime: "text/markdown" }],
+          updated_at: "2026-01-01T00:00:00Z",
+        }],
+        getFile: async () => ({
+          content: { type: "text", raw: "# Direct text content" },
+          url: null,
+        }),
+      });
+      const bridge = createBridge(mockClient);
+
+      await bridge.syncSkillsToLocal();
+
+      const content = await fs.readFile(
+        path.join(skillsDir, "text-skill", "SKILL.md"),
+        "utf-8",
+      );
+      expect(content).toBe("# Direct text content");
     });
   });
 

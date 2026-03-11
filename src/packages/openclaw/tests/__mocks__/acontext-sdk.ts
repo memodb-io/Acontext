@@ -32,9 +32,6 @@ export class MockSessionsAPI {
   async flush(sessionId: string) {
     return this.record("flush", sessionId) ?? { status: 0, errmsg: "" };
   }
-  async messagesObservingStatus(sessionId: string) {
-    return this.record("messagesObservingStatus", sessionId) ?? { observed: 0, in_process: 0, pending: 0 };
-  }
   async getTasks(sessionId: string, options?: unknown) {
     return this.record("getTasks", sessionId, options) ?? { items: [], has_more: false };
   }
