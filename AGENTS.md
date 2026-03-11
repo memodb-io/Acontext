@@ -62,5 +62,7 @@ When releasing a new version of an SDK or package, follow these steps in order:
    - `sdk-py/vX.Y.Z`
    - `package-openclaw/vX.Y.Z`
    - `package-sandbox-cloudflare/vX.Y.Z`
+### Pull Requests
+- All PRs must follow the template at `.github/PULL_REQUEST_TEMPLATE.md`.
 ### Unit Test
 - Always delete the new project you created in the same test
