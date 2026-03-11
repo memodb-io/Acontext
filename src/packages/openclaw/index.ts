@@ -203,7 +203,12 @@ export async function atomicWriteFile(filePath: string, data: string): Promise<v
   await fs.mkdir(path.dirname(filePath), { recursive: true });
   const tmpPath = filePath + `.tmp.${process.pid}.${Date.now()}.${atomicWriteCounter++}`;
   await fs.writeFile(tmpPath, data, "utf-8");
-  await fs.rename(tmpPath, filePath);
+  try {
+    await fs.rename(tmpPath, filePath);
+  } catch (err) {
+    await fs.unlink(tmpPath).catch(() => {});
+    throw err;
+  }
 }
 
 export class AcontextBridge {
@@ -252,8 +257,10 @@ export class AcontextBridge {
       const raw = await fs.readFile(this.learnedSessionsPath(), "utf-8");
       const ids = JSON.parse(raw) as string[];
       for (const id of ids) this.learnedSessions.add(id);
-    } catch {
-      // file doesn't exist yet — that's fine
+    } catch (err: any) {
+      if (err?.code !== "ENOENT") {
+        this.logger.warn(`acontext: failed to load learned-sessions state: ${String(err)}`);
+      }
     }
   }
 
@@ -282,8 +289,10 @@ export class AcontextBridge {
       for (const [sessionId, hashes] of Object.entries(data)) {
         this.sentMessages.set(sessionId, new Map(Object.entries(hashes)));
       }
-    } catch {
-      // file doesn't exist yet — that's fine
+    } catch (err: any) {
+      if (err?.code !== "ENOENT") {
+        this.logger.warn(`acontext: failed to load sent-messages state: ${String(err)}`);
+      }
     }
   }
 
@@ -417,20 +426,32 @@ export class AcontextBridge {
 
     const remoteIds = new Set<string>();
     const failedSkillIds = new Set<string>();
-    const sanitizedNames = new Map<string, string>(); // sanitized-name → skill-id
+    const sanitizedNames = new Map<string, string[]>(); // sanitized-name → skill-ids
     let downloadCount = 0;
 
-    for (const skill of remoteSkills) {
-      remoteIds.add(skill.id);
+    const collidingSkillIds = new Set<string>();
 
-      // Detect sanitized name collisions
+    // Pass 1: detect all sanitized name collisions before downloading anything
+    for (const skill of remoteSkills) {
       const sName = sanitizeSkillName(skill.name);
-      const existingId = sanitizedNames.get(sName);
-      if (existingId) {
-        this.logger.warn(`acontext: sanitized name collision — skill "${skill.name}" (${skill.id}) collides with skill ${existingId} as "${sName}", skipping`);
-        continue;
+      const existing = sanitizedNames.get(sName);
+      if (existing) {
+        existing.push(skill.id);
+      } else {
+        sanitizedNames.set(sName, [skill.id]);
       }
-      sanitizedNames.set(sName, skill.id);
+    }
+    for (const [sName, ids] of sanitizedNames) {
+      if (ids.length > 1) {
+        this.logger.warn(`acontext: sanitized name collision — ${ids.length} skills collide as "${sName}", skipping all: ${ids.join(", ")}`);
+        for (const id of ids) collidingSkillIds.add(id);
+      }
+    }
+
+    // Pass 2: download non-colliding skills
+    for (const skill of remoteSkills) {
+      if (collidingSkillIds.has(skill.id)) continue;
+      remoteIds.add(skill.id);
 
       const local = localMap.get(skill.id);
 
@@ -449,8 +470,17 @@ export class AcontextBridge {
       }
     }
 
+    // Clean up disk directories for colliding skills that were previously synced
+    for (const cid of collidingSkillIds) {
+      const local = localMap.get(cid);
+      if (local) {
+        const dir = this.skillDir(local.name);
+        await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
+      }
+    }
+
     for (const [id, local] of localMap) {
-      if (!remoteIds.has(id)) {
+      if (!remoteIds.has(id) && !collidingSkillIds.has(id)) {
         const dir = this.skillDir(local.name);
         await fs.rm(dir, { recursive: true, force: true }).catch((err) => {
           this.logger.warn(`acontext: failed to remove deleted skill dir ${dir}: ${String(err)}`);
@@ -458,8 +488,9 @@ export class AcontextBridge {
       }
     }
 
-    // For failed downloads, preserve old updatedAt so they're retried next sync
-    const manifestSkills = remoteSkills.map((skill) => {
+    // Filter out colliding skills, then preserve old updatedAt for failed downloads
+    const nonCollidingSkills = remoteSkills.filter((s) => !collidingSkillIds.has(s.id));
+    const manifestSkills = nonCollidingSkills.map((skill) => {
       if (failedSkillIds.has(skill.id)) {
         const local = localMap.get(skill.id);
         return { ...skill, updatedAt: local?.updatedAt ?? "" };
@@ -467,13 +498,13 @@ export class AcontextBridge {
       return skill;
     });
     await this.writeManifest(manifestSkills);
-    this.skillsMetadata = remoteSkills;
+    this.skillsMetadata = nonCollidingSkills;
     this.skillsSynced = true;
 
     if (downloadCount > 0) {
-      this.logger.info(`acontext: synced ${downloadCount} skill(s) to ${this.skillsDir} (${remoteSkills.length} total)`);
+      this.logger.info(`acontext: synced ${downloadCount} skill(s) to ${this.skillsDir} (${nonCollidingSkills.length} total)`);
     }
-    return remoteSkills;
+    return nonCollidingSkills;
   }
 
   private async ensureClient(): Promise<AcontextClientLike> {
@@ -503,34 +534,29 @@ export class AcontextBridge {
     const inflight = this.sessionPromises.get(openclawSessionKey);
     if (inflight) return inflight;
 
-    const promise = this._createOrFindSession(openclawSessionKey);
+    const promise = this._createOrFindSession(openclawSessionKey).then(
+      (result) => { this.sessionPromises.delete(openclawSessionKey); return result; },
+      (err) => { this.sessionPromises.delete(openclawSessionKey); throw err; },
+    );
     this.sessionPromises.set(openclawSessionKey, promise);
-    try {
-      return await promise;
-    } finally {
-      this.sessionPromises.delete(openclawSessionKey);
-    }
+    return promise;
   }
 
   private async _createOrFindSession(openclawSessionKey: string): Promise<string> {
     const client = await this.ensureClient();
 
-    try {
-      const existing = await client.sessions.list({
-        user: this.cfg.userId,
-        filterByConfigs: {
-          source: "openclaw",
-          openclaw_session_key: openclawSessionKey,
-        },
-        limit: 1,
-      });
-      if (existing.items.length > 0) {
-        const sid = existing.items[0].id;
-        this.sessionMap.set(openclawSessionKey, sid);
-        return sid;
-      }
-    } catch (err) {
-      this.logger.warn(`acontext: session lookup failed, creating new: ${String(err)}`);
+    const existing = await client.sessions.list({
+      user: this.cfg.userId,
+      filterByConfigs: {
+        source: "openclaw",
+        openclaw_session_key: openclawSessionKey,
+      },
+      limit: 1,
+    });
+    if (existing.items.length > 0) {
+      const sid = existing.items[0].id;
+      this.sessionMap.set(openclawSessionKey, sid);
+      return sid;
     }
 
     const session = await client.sessions.create({
@@ -553,29 +579,24 @@ export class AcontextBridge {
 
     if (this.learningSpacePromise) return this.learningSpacePromise;
 
-    this.learningSpacePromise = this._createOrFindLearningSpace();
-    try {
-      return await this.learningSpacePromise;
-    } finally {
+    this.learningSpacePromise = this._createOrFindLearningSpace().catch((err) => {
       this.learningSpacePromise = null;
-    }
+      throw err;
+    });
+    return this.learningSpacePromise;
   }
 
   private async _createOrFindLearningSpace(): Promise<string> {
     const client = await this.ensureClient();
 
-    try {
-      const existing = await client.learningSpaces.list({
-        user: this.cfg.userId,
-        filterByMeta: { source: "openclaw" },
-        limit: 1,
-      });
-      if (existing.items.length > 0) {
-        this.learningSpaceId = existing.items[0].id;
-        return this.learningSpaceId!;
-      }
-    } catch (err) {
-      this.logger.warn(`acontext: learning space lookup failed, creating new: ${String(err)}`);
+    const existing = await client.learningSpaces.list({
+      user: this.cfg.userId,
+      filterByMeta: { source: "openclaw" },
+      limit: 1,
+    });
+    if (existing.items.length > 0) {
+      this.learningSpaceId = existing.items[0].id;
+      return this.learningSpaceId!;
     }
 
     const space = await client.learningSpaces.create({
@@ -681,6 +702,7 @@ export class AcontextBridge {
       if (!this.sentMessagesLoadPromise) {
         this.sentMessagesLoadPromise = this.loadSentMessages().then(() => {
           this.sentMessagesLoaded = true;
+          this.sentMessagesLoadPromise = null;
         }).catch((err) => {
           this.sentMessagesLoadPromise = null;
           throw err;
@@ -737,6 +759,7 @@ export class AcontextBridge {
       if (!this.learnedSessionsLoadPromise) {
         this.learnedSessionsLoadPromise = this.loadLearnedSessions().then(() => {
           this.learnedSessionsLoaded = true;
+          this.learnedSessionsLoadPromise = null;
         }).catch((err) => {
           this.learnedSessionsLoadPromise = null;
           throw err;
