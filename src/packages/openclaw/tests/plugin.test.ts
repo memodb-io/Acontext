@@ -181,6 +181,19 @@ describe("configSchema.parse", () => {
     });
     expect(cfg.baseUrl).toBe("http://custom:9000");
   });
+
+  test("throws on apiKey that resolves to whitespace only", () => {
+    process.env.WHITESPACE_KEY = "   ";
+    expect(() => configSchema.parse({ apiKey: "${WHITESPACE_KEY}" })).toThrow(
+      "apiKey resolved to an empty string",
+    );
+  });
+
+  test("throws on apiKey that resolves to empty string", () => {
+    process.env.EMPTY_KEY = "";
+    // resolveEnvVars treats empty env var as unset, so this throws "not set"
+    expect(() => configSchema.parse({ apiKey: "${EMPTY_KEY}" })).toThrow();
+  });
 });
 
 // ============================================================================
@@ -568,6 +581,215 @@ describe("AcontextBridge", () => {
       (bridge as any).skillsSynced = false;
       await bridge.syncSkillsToLocal();
       expect(mockClient.learningSpaces.listSkills).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("computeMessageHash", () => {
+    test("produces stable hash for same index+content", () => {
+      const h1 = AcontextBridge.computeMessageHash(0, { role: "user", content: "hello" });
+      const h2 = AcontextBridge.computeMessageHash(0, { role: "user", content: "hello" });
+      expect(h1).toBe(h2);
+    });
+
+    test("produces different hash for different index but same content", () => {
+      const h1 = AcontextBridge.computeMessageHash(0, { role: "user", content: "hello" });
+      const h2 = AcontextBridge.computeMessageHash(1, { role: "user", content: "hello" });
+      expect(h1).not.toBe(h2);
+    });
+
+    test("hash format is index:hex16", () => {
+      const h = AcontextBridge.computeMessageHash(5, { role: "user", content: "test" });
+      expect(h).toMatch(/^5:[a-f0-9]{16}$/);
+    });
+  });
+
+  describe("storeMessages — dedup", () => {
+    test("skips messages whose hash already exists in sent map", async () => {
+      const mockClient = createMockClient();
+      let msgCounter = 0;
+      mockClient.sessions.storeMessage.mockImplementation(async () => {
+        msgCounter++;
+        return { id: `msg-${msgCounter}` };
+      });
+      const bridge = createBridge(mockClient);
+
+      const blobs = [
+        { role: "user", content: "msg1" },
+        { role: "assistant", content: "msg2" },
+      ];
+
+      // First call stores both
+      const stored1 = await bridge.storeMessages("sess-1", blobs, 0);
+      expect(stored1).toBe(2);
+      expect(mockClient.sessions.storeMessage).toHaveBeenCalledTimes(2);
+
+      // Second call with same startIndex — both skipped
+      mockClient.sessions.storeMessage.mockClear();
+      const stored2 = await bridge.storeMessages("sess-1", blobs, 0);
+      expect(stored2).toBe(0);
+      expect(mockClient.sessions.storeMessage).not.toHaveBeenCalled();
+    });
+
+    test("only sends new messages when some are duplicates", async () => {
+      const mockClient = createMockClient();
+      let msgCounter = 0;
+      mockClient.sessions.storeMessage.mockImplementation(async () => {
+        msgCounter++;
+        return { id: `msg-${msgCounter}` };
+      });
+      const bridge = createBridge(mockClient);
+
+      // Store first two
+      await bridge.storeMessages("sess-1", [
+        { role: "user", content: "msg1" },
+        { role: "assistant", content: "msg2" },
+      ], 0);
+
+      // Now send 3 messages starting at index 0 — first 2 should be skipped
+      mockClient.sessions.storeMessage.mockClear();
+      const stored = await bridge.storeMessages("sess-1", [
+        { role: "user", content: "msg1" },
+        { role: "assistant", content: "msg2" },
+        { role: "user", content: "msg3" },
+      ], 0);
+      expect(stored).toBe(1);
+      expect(mockClient.sessions.storeMessage).toHaveBeenCalledTimes(1);
+    });
+
+    test("persists sent messages to disk after successful store", async () => {
+      const mockClient = createMockClient();
+      mockClient.sessions.storeMessage.mockResolvedValue({ id: "msg-1" });
+      const bridge = createBridge(mockClient);
+
+      await bridge.storeMessages("sess-1", [{ role: "user", content: "hi" }], 0);
+
+      const raw = await fs.readFile(path.join(dataDir, ".sent-messages.json"), "utf-8");
+      const data = JSON.parse(raw);
+      expect(data["sess-1"]).toBeDefined();
+      expect(Object.keys(data["sess-1"])).toHaveLength(1);
+    });
+
+    test("new bridge instance loads sent messages from disk and deduplicates", async () => {
+      const mockClient = createMockClient();
+      let msgCounter = 0;
+      mockClient.sessions.storeMessage.mockImplementation(async () => {
+        msgCounter++;
+        return { id: `msg-${msgCounter}` };
+      });
+
+      // First bridge stores messages
+      const bridge1 = createBridge(mockClient);
+      await bridge1.storeMessages("sess-1", [
+        { role: "user", content: "hello" },
+      ], 0);
+
+      // Second bridge — fresh instance, should load from disk
+      mockClient.sessions.storeMessage.mockClear();
+      const bridge2 = createBridge(mockClient);
+      const stored = await bridge2.storeMessages("sess-1", [
+        { role: "user", content: "hello" },
+        { role: "assistant", content: "world" },
+      ], 0);
+
+      // Only the second message should be sent
+      expect(stored).toBe(1);
+      expect(mockClient.sessions.storeMessage).toHaveBeenCalledTimes(1);
+    });
+
+    test("cursor reset + sent messages → duplicates skipped, only new sent", async () => {
+      const mockClient = createMockClient();
+      let msgCounter = 0;
+      mockClient.sessions.storeMessage.mockImplementation(async () => {
+        msgCounter++;
+        return { id: `msg-${msgCounter}` };
+      });
+      const bridge = createBridge(mockClient);
+
+      // Simulate initial capture of 2 messages at index 0,1
+      await bridge.storeMessages("sess-1", [
+        { role: "user", content: "q1" },
+        { role: "assistant", content: "a1" },
+      ], 0);
+
+      // Simulate cursor reset (compaction) — re-send all 3 messages from index 0
+      mockClient.sessions.storeMessage.mockClear();
+      const stored = await bridge.storeMessages("sess-1", [
+        { role: "user", content: "q1" },
+        { role: "assistant", content: "a1" },
+        { role: "user", content: "q2" },
+      ], 0);
+
+      // Only q2 (index 2) should be new
+      expect(stored).toBe(1);
+      expect(mockClient.sessions.storeMessage).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("storeMessages — partial failure", () => {
+    test("returns count of successfully stored messages when one fails mid-batch", async () => {
+      const mockClient = createMockClient();
+      let callCount = 0;
+      mockClient.sessions.storeMessage.mockImplementation(async () => {
+        callCount++;
+        if (callCount === 3) throw new Error("network error");
+        return { id: `msg-${callCount}` };
+      });
+      const bridge = createBridge(mockClient);
+
+      const blobs = [
+        { role: "user", content: "msg1" },
+        { role: "assistant", content: "msg2" },
+        { role: "user", content: "msg3" },
+        { role: "assistant", content: "msg4" },
+      ];
+
+      const stored = await bridge.storeMessages("sess-1", blobs, 0);
+      expect(stored).toBe(2);
+      expect(mockClient.sessions.storeMessage).toHaveBeenCalledTimes(3);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("storeMessage failed at index 2"),
+      );
+    });
+
+    test("returns 0 when the first message fails", async () => {
+      const mockClient = createMockClient();
+      mockClient.sessions.storeMessage.mockRejectedValue(new Error("fail"));
+      const bridge = createBridge(mockClient);
+
+      const stored = await bridge.storeMessages("sess-1", [{ role: "user", content: "msg1" }]);
+      expect(stored).toBe(0);
+    });
+
+    test("returns full count when all messages succeed", async () => {
+      const mockClient = createMockClient();
+      mockClient.sessions.storeMessage.mockResolvedValue({ id: "msg-1" });
+      const bridge = createBridge(mockClient);
+
+      const blobs = [
+        { role: "user", content: "msg1" },
+        { role: "assistant", content: "msg2" },
+      ];
+      const stored = await bridge.storeMessages("sess-1", blobs);
+      expect(stored).toBe(2);
+    });
+  });
+
+  describe("clearSessionMapping", () => {
+    test("clears cached session so ensureSession creates a new one", async () => {
+      const mockClient = createMockClient();
+      mockClient.sessions.create
+        .mockResolvedValueOnce({ id: "session-old" })
+        .mockResolvedValueOnce({ id: "session-new" });
+      const bridge = createBridge(mockClient);
+
+      const first = await bridge.ensureSession("key-1");
+      expect(first).toBe("session-old");
+
+      bridge.clearSessionMapping("key-1");
+
+      const second = await bridge.ensureSession("key-1");
+      expect(second).toBe("session-new");
+      expect(mockClient.sessions.create).toHaveBeenCalledTimes(2);
     });
   });
 

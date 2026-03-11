@@ -12,6 +12,7 @@
  * - CLI: openclaw acontext skills, openclaw acontext stats
  */
 
+import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as os from "node:os";
 import * as path from "node:path";
@@ -37,7 +38,7 @@ interface AcontextClientLike {
   sessions: {
     list(options?: Record<string, unknown>): Promise<{ items: Array<{ id: string; created_at?: string }>; has_more: boolean }>;
     create(options?: Record<string, unknown>): Promise<{ id: string }>;
-    storeMessage(sessionId: string, blob: Record<string, unknown>, options?: Record<string, unknown>): Promise<unknown>;
+    storeMessage(sessionId: string, blob: Record<string, unknown>, options?: Record<string, unknown>): Promise<{ id: string }>;
     flush(sessionId: string): Promise<{ status: number; errmsg: string }>;
     messagesObservingStatus(sessionId: string): Promise<{ observed: number; in_process: number; pending: number }>;
     getSessionSummary(sessionId: string, options?: Record<string, unknown>): Promise<string>;
@@ -112,8 +113,15 @@ export const configSchema = {
       );
     }
 
+    const resolvedApiKey = resolveEnvVars(cfg.apiKey).trim();
+    if (!resolvedApiKey) {
+      throw new Error(
+        "apiKey resolved to an empty string (check the referenced environment variable)",
+      );
+    }
+
     return {
-      apiKey: resolveEnvVars(cfg.apiKey),
+      apiKey: resolvedApiKey,
       baseUrl:
         typeof cfg.baseUrl === "string" && cfg.baseUrl
           ? resolveEnvVars(cfg.baseUrl)
@@ -198,6 +206,8 @@ export class AcontextBridge {
   private syncInProgress: Promise<SkillMeta[]> | null = null;
   private learnedSessions = new Set<string>();
   private learnedSessionsLoaded = false;
+  private sentMessages = new Map<string, Map<string, string>>();
+  private sentMessagesLoaded = false;
   private static MANIFEST_STALE_MS = 30 * 60 * 1000; // 30 minutes
 
   constructor(private readonly cfg: AcontextConfig, dataDir: string, skillsDir: string, logger?: BridgeLogger) {
@@ -234,6 +244,40 @@ export class AcontextBridge {
       JSON.stringify([...this.learnedSessions]),
       "utf-8",
     );
+  }
+
+  private sentMessagesPath(): string {
+    return path.join(this.dataDir, ".sent-messages.json");
+  }
+
+  private async loadSentMessages(): Promise<void> {
+    try {
+      const raw = await fs.readFile(this.sentMessagesPath(), "utf-8");
+      const data = JSON.parse(raw) as Record<string, Record<string, string>>;
+      for (const [sessionId, hashes] of Object.entries(data)) {
+        this.sentMessages.set(sessionId, new Map(Object.entries(hashes)));
+      }
+    } catch {
+      // file doesn't exist yet — that's fine
+    }
+  }
+
+  private async persistSentMessages(): Promise<void> {
+    await fs.mkdir(this.dataDir, { recursive: true });
+    const data: Record<string, Record<string, string>> = {};
+    for (const [sessionId, hashes] of this.sentMessages) {
+      data[sessionId] = Object.fromEntries(hashes);
+    }
+    await fs.writeFile(this.sentMessagesPath(), JSON.stringify(data), "utf-8");
+  }
+
+  static computeMessageHash(index: number, blob: Record<string, unknown>): string {
+    const hash = crypto
+      .createHash("sha256")
+      .update(JSON.stringify({ i: index, r: blob.role, c: blob.content }))
+      .digest("hex")
+      .slice(0, 16);
+    return `${index}:${hash}`;
   }
 
   private skillDir(skillName: string): string {
@@ -414,6 +458,10 @@ export class AcontextBridge {
     return session.id;
   }
 
+  clearSessionMapping(key: string): void {
+    this.sessionMap.delete(key);
+  }
+
   async ensureLearningSpace(): Promise<string> {
     const client = await this.ensureClient();
 
@@ -518,20 +566,50 @@ export class AcontextBridge {
   async storeMessage(
     sessionId: string,
     blob: Record<string, unknown>,
-  ): Promise<void> {
+  ): Promise<{ id: string }> {
     const client = await this.ensureClient();
-    await client.sessions.storeMessage(sessionId, blob, { format: "openai" });
+    return await client.sessions.storeMessage(sessionId, blob, { format: "openai" });
   }
 
   async storeMessages(
     sessionId: string,
     blobs: Record<string, unknown>[],
+    startIndex = 0,
   ): Promise<number> {
+    if (!this.sentMessagesLoaded) {
+      await this.loadSentMessages();
+      this.sentMessagesLoaded = true;
+    }
+
     const client = await this.ensureClient();
+    let sessionSent = this.sentMessages.get(sessionId);
+    if (!sessionSent) {
+      sessionSent = new Map();
+      this.sentMessages.set(sessionId, sessionSent);
+    }
+
     let stored = 0;
-    for (const blob of blobs) {
-      await client.sessions.storeMessage(sessionId, blob, { format: "openai" });
-      stored++;
+    for (let i = 0; i < blobs.length; i++) {
+      const blob = blobs[i];
+      const hash = AcontextBridge.computeMessageHash(startIndex + i, blob);
+
+      if (sessionSent.has(hash)) {
+        this.logger.info(`acontext: skipping duplicate message ${hash}`);
+        continue;
+      }
+
+      try {
+        const result = await client.sessions.storeMessage(sessionId, blob, { format: "openai" });
+        sessionSent.set(hash, result.id);
+        stored++;
+      } catch (err) {
+        this.logger.warn(`acontext: storeMessage failed at index ${startIndex + i}: ${String(err)}`);
+        break;
+      }
+    }
+
+    if (stored > 0) {
+      await this.persistSentMessages();
     }
     return stored;
   }
@@ -703,10 +781,12 @@ const acontextPlugin = {
 
             for (const skill of skills) {
               if (!skill.diskId) continue;
+              const remaining = limit - allMatches.length;
+              if (remaining <= 0) break;
               const matches = await bridge.grepSkills(
                 skill.diskId,
                 query,
-                limit,
+                remaining,
               );
               for (const m of matches) {
                 allMatches.push({
@@ -985,6 +1065,13 @@ const acontextPlugin = {
 
       api.on("before_reset", async (_event, _ctx) => {
         await flushAndLearnIfActive();
+        // Clear session binding so the next agent_end creates a fresh session.
+        if (currentOpenClawSessionKey) {
+          bridge.clearSessionMapping(currentOpenClawSessionKey);
+        }
+        currentAcontextSessionId = undefined;
+        currentOpenClawSessionKey = undefined;
+        capturedTurnCount = 0;
         // Session reset clears the transcript — flag a cursor reset.
         pendingCursorReset = true;
       });
@@ -1005,22 +1092,25 @@ const acontextPlugin = {
           const sessionId = await bridge.ensureSession(openclawKey);
           currentAcontextSessionId = sessionId;
 
+          // Only store messages we haven't captured yet (incremental).
+          const allMessages = event.messages as Record<string, unknown>[];
+
           // Re-baseline cursor after compaction/reset rewrote the transcript.
           if (pendingCursorReset) {
+            api.logger.info(
+              `acontext: cursor reset to 0 after compaction/reset — all ${allMessages.length} messages will be re-sent`,
+            );
             capturedMessageCursor = 0;
             pendingCursorReset = false;
           }
-
-          // Only store messages we haven't captured yet (incremental).
-          const allMessages = event.messages as Record<string, unknown>[];
           const newMessages = allMessages.slice(capturedMessageCursor);
           if (newMessages.length === 0) return;
 
-          const storedCount = await bridge.storeMessages(sessionId, newMessages);
-          // Advance by storedCount (not total length) so partial failures
-          // don't skip unsent messages on the next agent_end.
-          capturedMessageCursor += storedCount;
-          capturedTurnCount += storedCount;
+          const storedCount = await bridge.storeMessages(sessionId, newMessages, capturedMessageCursor);
+          // Advance cursor by total newMessages.length (including skipped duplicates)
+          // so the cursor controls slice efficiency; dedup is handled by hash.
+          capturedMessageCursor += newMessages.length;
+          capturedTurnCount += 1;
 
           if (storedCount > 0) {
             api.logger.info(
@@ -1030,7 +1120,7 @@ const acontextPlugin = {
 
           if (
             cfg.autoLearn &&
-            capturedTurnCount >= cfg.minTurnsForLearn * 2
+            capturedTurnCount >= cfg.minTurnsForLearn
           ) {
             const learnSessionId = sessionId;
             capturedTurnCount = 0;
