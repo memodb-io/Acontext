@@ -7,7 +7,7 @@ import { Constructor, BaseClient } from "./base";
 // ==================== Type Definitions ====================
 
 export type MessageRole = "user" | "assistant";
-export type PartType = "text" | "image" | "video" | "audio" | "file" | "data" | "tool-call" | "tool-result";
+export type PartType = "text" | "thinking" | "image" | "video" | "audio" | "file" | "data" | "tool-call" | "tool-result";
 
 export interface Asset {
   sha256: string;

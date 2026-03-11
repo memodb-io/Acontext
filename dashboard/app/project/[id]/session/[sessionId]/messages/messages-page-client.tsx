@@ -44,6 +44,7 @@ import {
   CheckCircle2,
   Upload,
   X,
+  Brain,
 } from "lucide-react";
 import { Project, Message, Part } from "@/types";
 import { getMessages, sendMessage, getSessionConfigs } from "../../actions";
@@ -91,6 +92,7 @@ const MessageContentPreview = ({
             {/* Part type icon */}
             <div className="shrink-0 mt-0.5">
               {part.type === "text" && <FileText className="h-3.5 w-3.5 text-muted-foreground" />}
+              {part.type === "thinking" && <Brain className="h-3.5 w-3.5 text-amber-500" />}
               {part.type === "tool-call" && <Code className="h-3.5 w-3.5 text-blue-500" />}
               {part.type === "tool-result" && <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />}
               {part.type === "image" && <ImageIcon className="h-3.5 w-3.5 text-purple-500" />}
@@ -103,6 +105,12 @@ const MessageContentPreview = ({
             <div className="flex-1 min-w-0 space-y-1">
               {part.type === "text" && part.text && (
                 <div className="text-sm text-foreground whitespace-pre-wrap wrap-break-word bg-muted/30 rounded">
+                  {part.text}
+                </div>
+              )}
+
+              {part.type === "thinking" && part.text && (
+                <div className="text-sm text-foreground whitespace-pre-wrap wrap-break-word bg-amber-50 dark:bg-amber-950/20 rounded px-2 py-1.5 border border-amber-200 dark:border-amber-900 italic">
                   {part.text}
                 </div>
               )}
@@ -977,6 +985,16 @@ export function MessagesPageClient({
                             </p>
                           </div>
                         )}
+                        {part.type === "thinking" && (
+                          <div className="space-y-2">
+                            <div className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase">
+                              Thinking
+                            </div>
+                            <p className="text-sm whitespace-pre-wrap italic text-muted-foreground bg-amber-50 dark:bg-amber-950/20 rounded px-2 py-1.5 border border-amber-200 dark:border-amber-900">
+                              {part.text}
+                            </p>
+                          </div>
+                        )}
                         {part.type === "tool-call" && part.meta && (
                           <div className="space-y-3">
                             <div className="text-xs font-medium text-muted-foreground uppercase">
@@ -1039,7 +1057,7 @@ export function MessagesPageClient({
                             </div>
                           </div>
                         )}
-                        {part.type !== "text" && part.type !== "tool-call" && part.type !== "tool-result" && (
+                        {part.type !== "text" && part.type !== "thinking" && part.type !== "tool-call" && part.type !== "tool-result" && (
                           <div className="space-y-3">
                             <div className="text-xs font-medium text-muted-foreground uppercase">
                               {part.type}
