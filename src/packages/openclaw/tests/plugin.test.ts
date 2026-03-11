@@ -14,6 +14,7 @@ import {
   assertAllowedKeys,
   configSchema,
   sanitizeSkillName,
+  atomicWriteFile,
   AcontextBridge,
   type AcontextConfig,
   type BridgeLogger,
@@ -312,7 +313,6 @@ describe("AcontextBridge", () => {
     const cfg = { ...baseCfg, skillsDir };
     const bridge = new AcontextBridge(cfg, dataDir, skillsDir, mockLogger);
     (bridge as any).client = mockClient;
-    (bridge as any).initPromise = Promise.resolve();
     (bridge as any).learningSpaceId = "space-1";
     return bridge;
   }
@@ -1217,6 +1217,186 @@ describe("AcontextBridge", () => {
 
       expect(mockClient.skills.getFile).not.toHaveBeenCalled();
       expect(loggedWarnings.some((w) => w.includes("path traversal"))).toBe(true);
+    });
+  });
+
+  describe("downloadSkillFiles — partial failure preserves old updatedAt", () => {
+    test("failed download preserves old updatedAt so skill is retried next sync", async () => {
+      const mockClient = createMockClient({
+        listSkills: async () => [{
+          id: "s1", name: "flaky-skill", description: "desc",
+          disk_id: "d1", file_index: [{ path: "SKILL.md", mime: "text/markdown" }],
+          updated_at: "2026-01-01T00:00:00Z",
+        }],
+        getFile: async () => { throw new Error("network error"); },
+      });
+      const bridge = createBridge(mockClient);
+
+      await bridge.syncSkillsToLocal();
+
+      // Manifest should have empty updatedAt (no previous local entry) so it's retried
+      const raw = await fs.readFile(path.join(dataDir, ".manifest.json"), "utf-8");
+      const manifest = JSON.parse(raw);
+      expect(manifest.skills[0].updatedAt).toBe("");
+    });
+
+    test("failed download preserves previous updatedAt from manifest", async () => {
+      let callCount = 0;
+      const mockClient = createMockClient({
+        listSkills: async () => [{
+          id: "s1", name: "flaky-skill", description: "desc",
+          disk_id: "d1", file_index: [{ path: "SKILL.md", mime: "text/markdown" }],
+          updated_at: "2026-02-01T00:00:00Z",
+        }],
+        getFile: async () => {
+          callCount++;
+          if (callCount <= 1) {
+            return { content: { type: "text", raw: "# OK" }, url: null };
+          }
+          throw new Error("network error");
+        },
+      });
+      const bridge = createBridge(mockClient);
+
+      // First sync succeeds — manifest records updatedAt = 2026-02-01
+      await bridge.syncSkillsToLocal();
+      const raw1 = await fs.readFile(path.join(dataDir, ".manifest.json"), "utf-8");
+      const m1 = JSON.parse(raw1);
+      expect(m1.skills[0].updatedAt).toBe("2026-02-01T00:00:00Z");
+
+      // Second sync: remote has new updatedAt, but download fails
+      (bridge as any).skillsMetadata = null;
+      (bridge as any).skillsSynced = false;
+      mockClient.learningSpaces.listSkills.mockResolvedValue([{
+        id: "s1", name: "flaky-skill", description: "desc",
+        disk_id: "d1", file_index: [{ path: "SKILL.md", mime: "text/markdown" }],
+        updated_at: "2026-03-01T00:00:00Z",
+      }]);
+      await bridge.syncSkillsToLocal();
+
+      // Manifest should preserve old updatedAt so it's retried
+      const raw2 = await fs.readFile(path.join(dataDir, ".manifest.json"), "utf-8");
+      const m2 = JSON.parse(raw2);
+      expect(m2.skills[0].updatedAt).toBe("2026-02-01T00:00:00Z");
+    });
+  });
+
+  describe("downloadSkillFiles — URL fetch as buffer", () => {
+    test("URL-fetched files are written as binary buffers", async () => {
+      const binaryContent = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a]);
+      const mockFetch = jest.spyOn(globalThis, "fetch").mockResolvedValue({
+        ok: true,
+        arrayBuffer: async () => binaryContent.buffer.slice(
+          binaryContent.byteOffset,
+          binaryContent.byteOffset + binaryContent.byteLength,
+        ),
+      } as any);
+
+      const mockClient = createMockClient({
+        listSkills: async () => [{
+          id: "s1", name: "url-skill", description: "desc",
+          disk_id: "d1", file_index: [{ path: "data.md", mime: "text/markdown" }],
+          updated_at: "2026-01-01T00:00:00Z",
+        }],
+        getFile: async () => ({
+          content: null,
+          url: "https://example.com/data.md",
+        }),
+      });
+      const bridge = createBridge(mockClient);
+
+      await bridge.syncSkillsToLocal();
+
+      const written = await fs.readFile(path.join(skillsDir, "url-skill", "data.md"));
+      expect(Buffer.compare(written, binaryContent)).toBe(0);
+
+      mockFetch.mockRestore();
+    });
+  });
+
+  describe("getRecentSessionSummaries — per-call error boundary", () => {
+    test("continues after one summary fetch fails", async () => {
+      let callCount = 0;
+      const mockClient = createMockClient();
+      mockClient.sessions.list.mockResolvedValue({
+        items: [
+          { id: "s1", created_at: "2026-01-01" },
+          { id: "s2", created_at: "2026-01-02" },
+          { id: "s3", created_at: "2026-01-03" },
+        ],
+        has_more: false,
+      });
+      mockClient.sessions.getSessionSummary.mockImplementation(async (sessionId: string) => {
+        callCount++;
+        if (sessionId === "s2") throw new Error("summary fetch failed");
+        return `Summary of ${sessionId}`;
+      });
+      const bridge = createBridge(mockClient);
+
+      const result = await bridge.getRecentSessionSummaries(3);
+
+      // Should have summaries for s1 and s3, but not s2
+      expect(result).toContain("s1");
+      expect(result).toContain("s3");
+      expect(result).not.toContain("s2");
+      expect(callCount).toBe(3);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining("getSessionSummary failed for s2"),
+      );
+    });
+  });
+
+  describe("atomicWriteFile", () => {
+    test("writes to tmp then renames to final path", async () => {
+      const filePath = path.join(tmpDir, "atomic-test.json");
+      await atomicWriteFile(filePath, '{"key":"value"}');
+
+      const content = await fs.readFile(filePath, "utf-8");
+      expect(content).toBe('{"key":"value"}');
+
+      // No stale tmp files should remain
+      const files = await fs.readdir(tmpDir);
+      const tmpFiles = files.filter((f) => f.includes(".tmp."));
+      expect(tmpFiles).toHaveLength(0);
+    });
+
+    test("overwrites existing file atomically", async () => {
+      const filePath = path.join(tmpDir, "atomic-overwrite.json");
+      await atomicWriteFile(filePath, "original");
+      await atomicWriteFile(filePath, "updated");
+
+      const content = await fs.readFile(filePath, "utf-8");
+      expect(content).toBe("updated");
+    });
+  });
+
+  describe("sanitized name collision detection", () => {
+    test("logs warning and skips second skill when sanitized names collide", async () => {
+      const mockClient = createMockClient({
+        listSkills: async () => [
+          {
+            id: "s1", name: "My Skill!", description: "first",
+            disk_id: "d1", file_index: [{ path: "SKILL.md", mime: "text/markdown" }],
+            updated_at: "2026-01-01T00:00:00Z",
+          },
+          {
+            id: "s2", name: "my skill?", description: "second",
+            disk_id: "d2", file_index: [{ path: "SKILL.md", mime: "text/markdown" }],
+            updated_at: "2026-01-01T00:00:00Z",
+          },
+        ],
+      });
+      const bridge = createBridge(mockClient);
+
+      const skills = await bridge.syncSkillsToLocal();
+
+      // Both should be in the returned list (remoteSkills), but second should be skipped during download
+      expect(loggedWarnings.some((w) => w.includes("sanitized name collision"))).toBe(true);
+      // Only first skill's files should be downloaded
+      expect(mockClient.skills.getFile).toHaveBeenCalledTimes(1);
+      expect(mockClient.skills.getFile).toHaveBeenCalledWith(
+        expect.objectContaining({ skillId: "s1" }),
+      );
     });
   });
 });

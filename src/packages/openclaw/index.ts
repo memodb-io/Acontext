@@ -194,6 +194,18 @@ export function sanitizeSkillName(name: string): string {
   return sanitized;
 }
 
+/**
+ * Write a file atomically: write to a .tmp sibling then rename into place.
+ * Prevents corruption if the process crashes mid-write.
+ */
+let atomicWriteCounter = 0;
+export async function atomicWriteFile(filePath: string, data: string): Promise<void> {
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  const tmpPath = filePath + `.tmp.${process.pid}.${Date.now()}.${atomicWriteCounter++}`;
+  await fs.writeFile(tmpPath, data, "utf-8");
+  await fs.rename(tmpPath, filePath);
+}
+
 export class AcontextBridge {
   private client: AcontextClientLike | null = null;
   private initPromise: Promise<void> | null = null;
@@ -253,10 +265,9 @@ export class AcontextBridge {
       this.learnedSessions = new Set(toKeep);
     }
     await fs.mkdir(this.dataDir, { recursive: true });
-    await fs.writeFile(
+    await atomicWriteFile(
       this.learnedSessionsPath(),
       JSON.stringify([...this.learnedSessions]),
-      "utf-8",
     );
   }
 
@@ -290,7 +301,7 @@ export class AcontextBridge {
     for (const [sessionId, hashes] of this.sentMessages) {
       data[sessionId] = Object.fromEntries(hashes);
     }
-    await fs.writeFile(this.sentMessagesPath(), JSON.stringify(data), "utf-8");
+    await atomicWriteFile(this.sentMessagesPath(), JSON.stringify(data));
   }
 
   static computeMessageHash(index: number, blob: Record<string, unknown>): string {
@@ -318,15 +329,16 @@ export class AcontextBridge {
   private async writeManifest(skills: SkillMeta[]): Promise<void> {
     await fs.mkdir(this.dataDir, { recursive: true });
     const manifest: SkillManifest = { syncedAt: Date.now(), skills };
-    await fs.writeFile(this.manifestPath(), JSON.stringify(manifest), "utf-8");
+    await atomicWriteFile(this.manifestPath(), JSON.stringify(manifest));
   }
 
   /**
    * Download .md files for a single skill to OpenClaw's native skill directory.
    */
-  private async downloadSkillFiles(skill: SkillMeta): Promise<void> {
+  private async downloadSkillFiles(skill: SkillMeta): Promise<boolean> {
     const client = await this.ensureClient();
     const dir = this.skillDir(skill.name);
+    let allSucceeded = true;
 
     for (const fi of skill.fileIndex) {
       if (!fi.path.endsWith(".md")) continue;
@@ -353,12 +365,18 @@ export class AcontextBridge {
           }
         } else if (resp.url) {
           const res = await fetch(resp.url);
-          if (res.ok) await fs.writeFile(fileDest, await res.text(), "utf-8");
+          if (res.ok) {
+            await fs.writeFile(fileDest, Buffer.from(await res.arrayBuffer()));
+          } else {
+            allSucceeded = false;
+          }
         }
       } catch (err) {
         this.logger.warn(`acontext: download failed for ${skill.id}:${fi.path}: ${String(err)}`);
+        allSucceeded = false;
       }
     }
+    return allSucceeded;
   }
 
   /**
@@ -398,10 +416,22 @@ export class AcontextBridge {
     }
 
     const remoteIds = new Set<string>();
+    const failedSkillIds = new Set<string>();
+    const sanitizedNames = new Map<string, string>(); // sanitized-name → skill-id
     let downloadCount = 0;
 
     for (const skill of remoteSkills) {
       remoteIds.add(skill.id);
+
+      // Detect sanitized name collisions
+      const sName = sanitizeSkillName(skill.name);
+      const existingId = sanitizedNames.get(sName);
+      if (existingId) {
+        this.logger.warn(`acontext: sanitized name collision — skill "${skill.name}" (${skill.id}) collides with skill ${existingId} as "${sName}", skipping`);
+        continue;
+      }
+      sanitizedNames.set(sName, skill.id);
+
       const local = localMap.get(skill.id);
 
       if (!local || local.updatedAt !== skill.updatedAt) {
@@ -411,7 +441,10 @@ export class AcontextBridge {
         }
         const targetDir = this.skillDir(skill.name);
         await fs.rm(targetDir, { recursive: true, force: true }).catch(() => {});
-        await this.downloadSkillFiles(skill);
+        const success = await this.downloadSkillFiles(skill);
+        if (!success) {
+          failedSkillIds.add(skill.id);
+        }
         downloadCount++;
       }
     }
@@ -425,7 +458,15 @@ export class AcontextBridge {
       }
     }
 
-    await this.writeManifest(remoteSkills);
+    // For failed downloads, preserve old updatedAt so they're retried next sync
+    const manifestSkills = remoteSkills.map((skill) => {
+      if (failedSkillIds.has(skill.id)) {
+        const local = localMap.get(skill.id);
+        return { ...skill, updatedAt: local?.updatedAt ?? "" };
+      }
+      return skill;
+    });
+    await this.writeManifest(manifestSkills);
     this.skillsMetadata = remoteSkills;
     this.skillsSynced = true;
 
@@ -600,14 +641,18 @@ export class AcontextBridge {
 
       const parts: string[] = [];
       for (const session of sessions.items) {
-        const summary = await client.sessions.getSessionSummary(
-          session.id,
-          { limit: 20 },
-        );
-        if (summary) {
-          parts.push(
-            `<session id="${session.id}" created="${session.created_at}">\n${summary}\n</session>`,
+        try {
+          const summary = await client.sessions.getSessionSummary(
+            session.id,
+            { limit: 20 },
           );
+          if (summary) {
+            parts.push(
+              `<session id="${session.id}" created="${session.created_at}">\n${summary}\n</session>`,
+            );
+          }
+        } catch (err) {
+          this.logger.warn(`acontext: getSessionSummary failed for ${session.id}: ${String(err)}`);
         }
       }
       return parts.join("\n");
