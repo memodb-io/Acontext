@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "acontext": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/scripts/mcp-server.cjs"]
+    }
+  }
+}

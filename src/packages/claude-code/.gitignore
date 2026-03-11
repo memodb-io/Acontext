@@ -1,0 +1,4 @@
+node_modules/
+*.tgz
+plugin/scripts/*.cjs
+plugin/data/*.json
