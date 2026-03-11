@@ -37,8 +37,8 @@ class Part(BaseModel):
     """Message part model matching the GORM Part struct"""
 
     type: Literal[
-        "text", "image", "audio", "video", "file", "tool-call", "tool-result", "data"
-    ]  # "text" | "image" | "audio" | "video" | "file" | "tool-call" | "tool-result" | "data"
+        "text", "image", "audio", "video", "file", "tool-call", "tool-result", "data", "thinking"
+    ]  # "text" | "image" | "audio" | "video" | "file" | "tool-call" | "tool-result" | "data" | "thinking"
 
     # text part
     text: Optional[str] = None
