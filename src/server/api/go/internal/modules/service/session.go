@@ -445,8 +445,8 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	// Load parts for each message
 	for i, m := range msgs {
 		meta := m.PartsAssetMeta.Data()
-		parts := s.loadPartsForMessage(ctx, meta)
-		if len(parts) == 0 {
+		parts, ok := s.loadPartsForMessage(ctx, meta)
+		if !ok {
 			continue // Skip messages with failed parts loading
 		}
 		msgs[i].Parts = parts
@@ -561,9 +561,10 @@ func (s *sessionService) getPartsFromRedis(ctx context.Context, sha256 string) (
 	return parts, nil
 }
 
-// loadPartsForMessage loads parts for a message from cache or S3
-// Returns the loaded parts, or empty slice if loading fails
-func (s *sessionService) loadPartsForMessage(ctx context.Context, meta model.Asset) []model.Part {
+// loadPartsForMessage loads parts from cache/S3. Returns (parts, ok) where
+// ok=false means a load failure (the message should be skipped), and ok=true
+// with an empty slice means the message legitimately has no content parts.
+func (s *sessionService) loadPartsForMessage(ctx context.Context, meta model.Asset) ([]model.Part, bool) {
 	parts := []model.Part{}
 	cacheHit := false
 
@@ -582,7 +583,7 @@ func (s *sessionService) loadPartsForMessage(ctx context.Context, meta model.Ass
 	if !cacheHit && s.s3 != nil {
 		if err := s.s3.DownloadJSON(ctx, meta.S3Key, &parts); err != nil {
 			s.log.Warn("failed to download parts from S3", zap.String("sha256", meta.SHA256), zap.Error(err))
-			return parts // Return empty parts on S3 download failure
+			return nil, false
 		}
 		// Cache the parts in Redis after successful S3 download
 		if s.redis != nil {
@@ -593,7 +594,7 @@ func (s *sessionService) loadPartsForMessage(ctx context.Context, meta model.Ass
 		}
 	}
 
-	return parts
+	return parts, true
 }
 
 // GetAllMessages retrieves all messages for a session and loads their parts
@@ -607,7 +608,11 @@ func (s *sessionService) GetAllMessages(ctx context.Context, sessionID uuid.UUID
 	// Load parts for each message
 	for i, m := range msgs {
 		meta := m.PartsAssetMeta.Data()
-		msgs[i].Parts = s.loadPartsForMessage(ctx, meta)
+		parts, ok := s.loadPartsForMessage(ctx, meta)
+		if !ok {
+			continue
+		}
+		msgs[i].Parts = parts
 	}
 
 	// Sort messages from old to new (ascending by created_at)

@@ -1433,17 +1433,26 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 			expectedStatus: http.StatusCreated,
 		},
 		{
-			name:           "anthropic format - missing content field should fail",
+			name:           "anthropic format - missing content field accepted (empty parts)",
 			sessionIDParam: sessionID.String(),
 			requestBody: map[string]interface{}{
 				"format": "anthropic",
 				"blob": map[string]interface{}{
 					"role": "user",
-					// missing content field
+					// missing content field — normalizer returns 0 parts, which is valid
 				},
 			},
-			setup:          func(svc *MockSessionService) {},
-			expectedStatus: http.StatusBadRequest,
+			setup: func(svc *MockSessionService) {
+				expectedMessage := &model.Message{
+					ID:        uuid.New(),
+					SessionID: sessionID,
+					Role:      model.RoleUser,
+				}
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser && len(in.Parts) == 0
+				})).Return(expectedMessage, nil)
+			},
+			expectedStatus: http.StatusCreated,
 		},
 
 		// Anthropic Prompt Caching tests (based on official docs)
@@ -1819,6 +1828,51 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 			},
 			setup:          func(svc *MockSessionService) {},
 			expectedStatus: http.StatusBadRequest,
+		},
+		// Empty content tests — messages with no parts are valid (e.g. Anthropic tool_use-only assistant turns)
+		{
+			name:           "anthropic format - empty content array accepted",
+			sessionIDParam: sessionID.String(),
+			requestBody: map[string]interface{}{
+				"format": "anthropic",
+				"blob": map[string]interface{}{
+					"role":    "assistant",
+					"content": []interface{}{},
+				},
+			},
+			setup: func(svc *MockSessionService) {
+				expectedMessage := &model.Message{
+					ID:        uuid.New(),
+					SessionID: sessionID,
+					Role:      model.RoleAssistant,
+				}
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleAssistant && len(in.Parts) == 0
+				})).Return(expectedMessage, nil)
+			},
+			expectedStatus: http.StatusCreated,
+		},
+		{
+			name:           "acontext format - empty parts array accepted",
+			sessionIDParam: sessionID.String(),
+			requestBody: map[string]interface{}{
+				"format": "acontext",
+				"blob": map[string]interface{}{
+					"role":  "assistant",
+					"parts": []interface{}{},
+				},
+			},
+			setup: func(svc *MockSessionService) {
+				expectedMessage := &model.Message{
+					ID:        uuid.New(),
+					SessionID: sessionID,
+					Role:      model.RoleAssistant,
+				}
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleAssistant && len(in.Parts) == 0
+				})).Return(expectedMessage, nil)
+			},
+			expectedStatus: http.StatusCreated,
 		},
 		{
 			name:           "invalid format",
