@@ -136,6 +136,10 @@ func (c *GeminiConverter) convertParts(parts []model.Part, publicURLs map[string
 					})
 				}
 			}
+
+		case model.PartTypeRedactedThinking:
+			// Skip redacted_thinking blocks — no Gemini equivalent
+			continue
 		}
 	}
 

@@ -159,6 +159,13 @@ func normalizeAnthropicContentBlock(blockUnion anthropic.ContentBlockParamUnion)
 				model.MetaKeySignature: blockUnion.OfThinking.Signature,
 			},
 		}, nil
+	} else if blockUnion.OfRedactedThinking != nil {
+		return service.PartIn{
+			Type: model.PartTypeRedactedThinking,
+			Meta: map[string]interface{}{
+				model.MetaKeyData: blockUnion.OfRedactedThinking.Data,
+			},
+		}, nil
 	}
 
 	// Skip unsupported block types
