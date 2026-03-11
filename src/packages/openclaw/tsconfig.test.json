@@ -1,0 +1,4 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["index.ts", "openclaw-plugin-sdk.d.ts", "tests/**/*.ts"]
+}

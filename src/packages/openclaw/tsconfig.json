@@ -10,5 +10,5 @@
     "skipLibCheck": true
   },
   "include": ["index.ts", "openclaw-plugin-sdk.d.ts"],
-  "exclude": ["node_modules", "tests"]
+  "exclude": ["node_modules"]
 }

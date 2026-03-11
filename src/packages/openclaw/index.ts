@@ -71,8 +71,11 @@ interface AcontextClientLike {
 export function resolveEnvVars(value: string): string {
   return value.replace(/\$\{([^}]+)\}/g, (_, envVar) => {
     const envValue = process.env[envVar];
-    if (!envValue) {
+    if (envValue === undefined) {
       throw new Error(`Environment variable ${envVar} is not set`);
+    }
+    if (envValue === "") {
+      throw new Error(`Environment variable ${envVar} is set but empty`);
     }
     return envValue;
   });
@@ -196,7 +199,9 @@ export class AcontextBridge {
   private client: AcontextClientLike | null = null;
   private initPromise: Promise<void> | null = null;
   private sessionMap = new Map<string, string>();
+  private sessionPromises = new Map<string, Promise<string>>();
   private learningSpaceId: string | null = null;
+  private learningSpacePromise: Promise<string> | null = null;
   private logger: BridgeLogger;
   private dataDir: string;
   private skillsDir: string;
@@ -206,9 +211,13 @@ export class AcontextBridge {
   private syncInProgress: Promise<SkillMeta[]> | null = null;
   private learnedSessions = new Set<string>();
   private learnedSessionsLoaded = false;
+  private learnedSessionsLoadPromise: Promise<void> | null = null;
   private sentMessages = new Map<string, Map<string, string>>();
   private sentMessagesLoaded = false;
+  private sentMessagesLoadPromise: Promise<void> | null = null;
   private static MANIFEST_STALE_MS = 30 * 60 * 1000; // 30 minutes
+  static MAX_SENT_SESSIONS = 100;
+  static MAX_LEARNED_SESSIONS = 500;
 
   constructor(private readonly cfg: AcontextConfig, dataDir: string, skillsDir: string, logger?: BridgeLogger) {
     this.dataDir = dataDir;
@@ -238,6 +247,12 @@ export class AcontextBridge {
   }
 
   private async persistLearnedSessions(): Promise<void> {
+    // Evict oldest entries if over cap
+    if (this.learnedSessions.size > AcontextBridge.MAX_LEARNED_SESSIONS) {
+      const arr = [...this.learnedSessions];
+      const toKeep = arr.slice(arr.length - AcontextBridge.MAX_LEARNED_SESSIONS);
+      this.learnedSessions = new Set(toKeep);
+    }
     await fs.mkdir(this.dataDir, { recursive: true });
     await fs.writeFile(
       this.learnedSessionsPath(),
@@ -263,6 +278,14 @@ export class AcontextBridge {
   }
 
   private async persistSentMessages(): Promise<void> {
+    // Evict oldest sessions if over cap (Map preserves insertion order)
+    if (this.sentMessages.size > AcontextBridge.MAX_SENT_SESSIONS) {
+      const keys = [...this.sentMessages.keys()];
+      const toRemove = keys.slice(0, keys.length - AcontextBridge.MAX_SENT_SESSIONS);
+      for (const key of toRemove) {
+        this.sentMessages.delete(key);
+      }
+    }
     await fs.mkdir(this.dataDir, { recursive: true });
     const data: Record<string, Record<string, string>> = {};
     for (const [sessionId, hashes] of this.sentMessages) {
@@ -310,7 +333,8 @@ export class AcontextBridge {
       if (!fi.path.endsWith(".md")) continue;
 
       const fileDest = path.resolve(dir, fi.path);
-      if (!fileDest.startsWith(dir + path.sep)) {
+      const rel = path.relative(dir, fileDest);
+      if (rel.startsWith("..") || path.isAbsolute(rel)) {
         this.logger.warn(`acontext: skipping file with path traversal: ${fi.path} (skill: ${skill.name})`);
         continue;
       }
@@ -424,10 +448,23 @@ export class AcontextBridge {
   }
 
   async ensureSession(openclawSessionKey: string): Promise<string> {
-    const client = await this.ensureClient();
-
     const cached = this.sessionMap.get(openclawSessionKey);
     if (cached) return cached;
+
+    const inflight = this.sessionPromises.get(openclawSessionKey);
+    if (inflight) return inflight;
+
+    const promise = this._createOrFindSession(openclawSessionKey);
+    this.sessionPromises.set(openclawSessionKey, promise);
+    try {
+      return await promise;
+    } finally {
+      this.sessionPromises.delete(openclawSessionKey);
+    }
+  }
+
+  private async _createOrFindSession(openclawSessionKey: string): Promise<string> {
+    const client = await this.ensureClient();
 
     try {
       const existing = await client.sessions.list({
@@ -463,9 +500,20 @@ export class AcontextBridge {
   }
 
   async ensureLearningSpace(): Promise<string> {
-    const client = await this.ensureClient();
-
     if (this.learningSpaceId) return this.learningSpaceId;
+
+    if (this.learningSpacePromise) return this.learningSpacePromise;
+
+    this.learningSpacePromise = this._createOrFindLearningSpace();
+    try {
+      return await this.learningSpacePromise;
+    } finally {
+      this.learningSpacePromise = null;
+    }
+  }
+
+  private async _createOrFindLearningSpace(): Promise<string> {
+    const client = await this.ensureClient();
 
     try {
       const existing = await client.learningSpaces.list({
@@ -575,10 +623,14 @@ export class AcontextBridge {
     sessionId: string,
     blobs: Record<string, unknown>[],
     startIndex = 0,
-  ): Promise<number> {
+  ): Promise<{ stored: number; processed: number }> {
     if (!this.sentMessagesLoaded) {
-      await this.loadSentMessages();
-      this.sentMessagesLoaded = true;
+      if (!this.sentMessagesLoadPromise) {
+        this.sentMessagesLoadPromise = this.loadSentMessages().then(() => {
+          this.sentMessagesLoaded = true;
+        });
+      }
+      await this.sentMessagesLoadPromise;
     }
 
     const client = await this.ensureClient();
@@ -589,12 +641,14 @@ export class AcontextBridge {
     }
 
     let stored = 0;
+    let processed = 0;
     for (let i = 0; i < blobs.length; i++) {
       const blob = blobs[i];
       const hash = AcontextBridge.computeMessageHash(startIndex + i, blob);
 
       if (sessionSent.has(hash)) {
         this.logger.info(`acontext: skipping duplicate message ${hash}`);
+        processed++;
         continue;
       }
 
@@ -602,6 +656,7 @@ export class AcontextBridge {
         const result = await client.sessions.storeMessage(sessionId, blob, { format: "openai" });
         sessionSent.set(hash, result.id);
         stored++;
+        processed++;
       } catch (err) {
         this.logger.warn(`acontext: storeMessage failed at index ${startIndex + i}: ${String(err)}`);
         break;
@@ -611,12 +666,12 @@ export class AcontextBridge {
     if (stored > 0) {
       await this.persistSentMessages();
     }
-    return stored;
+    return { stored, processed };
   }
 
-  async flush(sessionId: string): Promise<void> {
+  async flush(sessionId: string): Promise<{ status: number; errmsg: string }> {
     const client = await this.ensureClient();
-    await client.sessions.flush(sessionId);
+    return await client.sessions.flush(sessionId);
   }
 
   async waitForProcessing(
@@ -643,8 +698,12 @@ export class AcontextBridge {
 
   async learnFromSession(sessionId: string): Promise<LearnResult> {
     if (!this.learnedSessionsLoaded) {
-      await this.loadLearnedSessions();
-      this.learnedSessionsLoaded = true;
+      if (!this.learnedSessionsLoadPromise) {
+        this.learnedSessionsLoadPromise = this.loadLearnedSessions().then(() => {
+          this.learnedSessionsLoaded = true;
+        });
+      }
+      await this.learnedSessionsLoadPromise;
     }
 
     if (this.learnedSessions.has(sessionId)) {
@@ -1106,10 +1165,9 @@ const acontextPlugin = {
           const newMessages = allMessages.slice(capturedMessageCursor);
           if (newMessages.length === 0) return;
 
-          const storedCount = await bridge.storeMessages(sessionId, newMessages, capturedMessageCursor);
-          // Advance cursor by total newMessages.length (including skipped duplicates)
-          // so the cursor controls slice efficiency; dedup is handled by hash.
-          capturedMessageCursor += newMessages.length;
+          const { stored: storedCount, processed } = await bridge.storeMessages(sessionId, newMessages, capturedMessageCursor);
+          // Advance cursor only by processed count (stored + skipped duplicates before any error)
+          capturedMessageCursor += processed;
           capturedTurnCount += 1;
 
           if (storedCount > 0) {
@@ -1127,7 +1185,14 @@ const acontextPlugin = {
 
             bridge
               .flush(learnSessionId)
-              .then(() => bridge.learnFromSession(learnSessionId))
+              .then((flushResult) => {
+                if (flushResult.status !== 0) {
+                  api.logger.warn(
+                    `acontext: flush returned non-zero status before auto-learn: ${flushResult.errmsg}`,
+                  );
+                }
+                return bridge.learnFromSession(learnSessionId);
+              })
               .then((result) => {
                 if (result.status === "learned") {
                   api.logger.info(

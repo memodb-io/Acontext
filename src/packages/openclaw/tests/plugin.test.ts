@@ -58,6 +58,14 @@ describe("resolveEnvVars", () => {
       "Environment variable MISSING_VAR is not set",
     );
   });
+
+  test("throws distinct error for empty string vs undefined", () => {
+    delete process.env.UNDEF_VAR;
+    expect(() => resolveEnvVars("${UNDEF_VAR}")).toThrow("is not set");
+
+    process.env.EMPTY_VAR = "";
+    expect(() => resolveEnvVars("${EMPTY_VAR}")).toThrow("is set but empty");
+  });
 });
 
 describe("assertAllowedKeys", () => {
@@ -191,8 +199,10 @@ describe("configSchema.parse", () => {
 
   test("throws on apiKey that resolves to empty string", () => {
     process.env.EMPTY_KEY = "";
-    // resolveEnvVars treats empty env var as unset, so this throws "not set"
-    expect(() => configSchema.parse({ apiKey: "${EMPTY_KEY}" })).toThrow();
+    // resolveEnvVars now distinguishes empty from unset
+    expect(() => configSchema.parse({ apiKey: "${EMPTY_KEY}" })).toThrow(
+      "is set but empty",
+    );
   });
 });
 
@@ -275,7 +285,7 @@ describe("AcontextBridge", () => {
       sessions: {
         list: jest.fn<any>().mockResolvedValue({ items: [], has_more: false }),
         create: jest.fn<any>().mockResolvedValue({ id: "mock-session" }),
-        storeMessage: jest.fn<any>().mockResolvedValue({}),
+        storeMessage: jest.fn<any>().mockResolvedValue({ id: "mock-msg-id" }),
         flush: jest.fn<any>().mockResolvedValue({ status: 0, errmsg: "" }),
         messagesObservingStatus: jest.fn<any>().mockResolvedValue({ observed: 0, in_process: 0, pending: 0 }),
         getSessionSummary: jest.fn<any>().mockResolvedValue(""),
@@ -619,14 +629,14 @@ describe("AcontextBridge", () => {
       ];
 
       // First call stores both
-      const stored1 = await bridge.storeMessages("sess-1", blobs, 0);
-      expect(stored1).toBe(2);
+      const result1 = await bridge.storeMessages("sess-1", blobs, 0);
+      expect(result1).toEqual({ stored: 2, processed: 2 });
       expect(mockClient.sessions.storeMessage).toHaveBeenCalledTimes(2);
 
       // Second call with same startIndex — both skipped
       mockClient.sessions.storeMessage.mockClear();
-      const stored2 = await bridge.storeMessages("sess-1", blobs, 0);
-      expect(stored2).toBe(0);
+      const result2 = await bridge.storeMessages("sess-1", blobs, 0);
+      expect(result2).toEqual({ stored: 0, processed: 2 });
       expect(mockClient.sessions.storeMessage).not.toHaveBeenCalled();
     });
 
@@ -647,12 +657,12 @@ describe("AcontextBridge", () => {
 
       // Now send 3 messages starting at index 0 — first 2 should be skipped
       mockClient.sessions.storeMessage.mockClear();
-      const stored = await bridge.storeMessages("sess-1", [
+      const result = await bridge.storeMessages("sess-1", [
         { role: "user", content: "msg1" },
         { role: "assistant", content: "msg2" },
         { role: "user", content: "msg3" },
       ], 0);
-      expect(stored).toBe(1);
+      expect(result).toEqual({ stored: 1, processed: 3 });
       expect(mockClient.sessions.storeMessage).toHaveBeenCalledTimes(1);
     });
 
@@ -661,7 +671,8 @@ describe("AcontextBridge", () => {
       mockClient.sessions.storeMessage.mockResolvedValue({ id: "msg-1" });
       const bridge = createBridge(mockClient);
 
-      await bridge.storeMessages("sess-1", [{ role: "user", content: "hi" }], 0);
+      const result = await bridge.storeMessages("sess-1", [{ role: "user", content: "hi" }], 0);
+      expect(result).toEqual({ stored: 1, processed: 1 });
 
       const raw = await fs.readFile(path.join(dataDir, ".sent-messages.json"), "utf-8");
       const data = JSON.parse(raw);
@@ -692,7 +703,7 @@ describe("AcontextBridge", () => {
       ], 0);
 
       // Only the second message should be sent
-      expect(stored).toBe(1);
+      expect(stored).toEqual({ stored: 1, processed: 2 });
       expect(mockClient.sessions.storeMessage).toHaveBeenCalledTimes(1);
     });
 
@@ -720,7 +731,7 @@ describe("AcontextBridge", () => {
       ], 0);
 
       // Only q2 (index 2) should be new
-      expect(stored).toBe(1);
+      expect(stored).toEqual({ stored: 1, processed: 3 });
       expect(mockClient.sessions.storeMessage).toHaveBeenCalledTimes(1);
     });
   });
@@ -743,8 +754,8 @@ describe("AcontextBridge", () => {
         { role: "assistant", content: "msg4" },
       ];
 
-      const stored = await bridge.storeMessages("sess-1", blobs, 0);
-      expect(stored).toBe(2);
+      const result = await bridge.storeMessages("sess-1", blobs, 0);
+      expect(result).toEqual({ stored: 2, processed: 2 });
       expect(mockClient.sessions.storeMessage).toHaveBeenCalledTimes(3);
       expect(mockLogger.warn).toHaveBeenCalledWith(
         expect.stringContaining("storeMessage failed at index 2"),
@@ -756,8 +767,8 @@ describe("AcontextBridge", () => {
       mockClient.sessions.storeMessage.mockRejectedValue(new Error("fail"));
       const bridge = createBridge(mockClient);
 
-      const stored = await bridge.storeMessages("sess-1", [{ role: "user", content: "msg1" }]);
-      expect(stored).toBe(0);
+      const result = await bridge.storeMessages("sess-1", [{ role: "user", content: "msg1" }]);
+      expect(result).toEqual({ stored: 0, processed: 0 });
     });
 
     test("returns full count when all messages succeed", async () => {
@@ -769,8 +780,8 @@ describe("AcontextBridge", () => {
         { role: "user", content: "msg1" },
         { role: "assistant", content: "msg2" },
       ];
-      const stored = await bridge.storeMessages("sess-1", blobs);
-      expect(stored).toBe(2);
+      const result = await bridge.storeMessages("sess-1", blobs);
+      expect(result).toEqual({ stored: 2, processed: 2 });
     });
   });
 
@@ -878,6 +889,168 @@ describe("AcontextBridge", () => {
 
       const fileExists = await fs.access(path.join(dataDir, ".learned-sessions.json")).then(() => true, () => false);
       expect(fileExists).toBe(false);
+    });
+  });
+
+  describe("ensureSession — concurrent deduplication", () => {
+    test("concurrent calls for the same key share one create", async () => {
+      let resolveCreate!: (value: { id: string }) => void;
+      const createPromise = new Promise<{ id: string }>((resolve) => {
+        resolveCreate = resolve;
+      });
+      const mockClient = createMockClient();
+      mockClient.sessions.create.mockReturnValue(createPromise);
+      const bridge = createBridge(mockClient);
+
+      const p1 = bridge.ensureSession("key-1");
+      const p2 = bridge.ensureSession("key-1");
+      const p3 = bridge.ensureSession("key-1");
+
+      resolveCreate({ id: "session-deduped" });
+
+      const [r1, r2, r3] = await Promise.all([p1, p2, p3]);
+
+      expect(r1).toBe("session-deduped");
+      expect(r2).toBe("session-deduped");
+      expect(r3).toBe("session-deduped");
+      expect(mockClient.sessions.create).toHaveBeenCalledTimes(1);
+    });
+
+    test("different keys create separate sessions", async () => {
+      const mockClient = createMockClient();
+      mockClient.sessions.create
+        .mockResolvedValueOnce({ id: "session-a" })
+        .mockResolvedValueOnce({ id: "session-b" });
+      const bridge = createBridge(mockClient);
+
+      const [a, b] = await Promise.all([
+        bridge.ensureSession("key-a"),
+        bridge.ensureSession("key-b"),
+      ]);
+
+      expect(a).toBe("session-a");
+      expect(b).toBe("session-b");
+      expect(mockClient.sessions.create).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("storeMessages — concurrent load deduplication", () => {
+    test("concurrent storeMessages calls share the same load promise", async () => {
+      const mockClient = createMockClient();
+      let msgCounter = 0;
+      mockClient.sessions.storeMessage.mockImplementation(async () => {
+        msgCounter++;
+        return { id: `msg-${msgCounter}` };
+      });
+      const bridge = createBridge(mockClient);
+
+      // Both calls will trigger loadSentMessages, but should only load once
+      const [r1, r2] = await Promise.all([
+        bridge.storeMessages("sess-1", [{ role: "user", content: "msg1" }], 0),
+        bridge.storeMessages("sess-2", [{ role: "user", content: "msg2" }], 0),
+      ]);
+
+      expect(r1.stored).toBe(1);
+      expect(r2.stored).toBe(1);
+    });
+  });
+
+  describe("sentMessages — eviction", () => {
+    test("evicts oldest sessions when exceeding MAX_SENT_SESSIONS", async () => {
+      const mockClient = createMockClient();
+      let msgCounter = 0;
+      mockClient.sessions.storeMessage.mockImplementation(async () => {
+        msgCounter++;
+        return { id: `msg-${msgCounter}` };
+      });
+      const bridge = createBridge(mockClient);
+
+      // Store messages for MAX + 5 sessions
+      const max = AcontextBridge.MAX_SENT_SESSIONS;
+      for (let i = 0; i < max + 5; i++) {
+        await bridge.storeMessages(`sess-${i}`, [{ role: "user", content: `hi-${i}` }], 0);
+      }
+
+      // Read persisted file — should have at most MAX sessions
+      const raw = await fs.readFile(path.join(dataDir, ".sent-messages.json"), "utf-8");
+      const data = JSON.parse(raw);
+      expect(Object.keys(data).length).toBeLessThanOrEqual(max);
+
+      // Oldest sessions should have been evicted
+      expect(data["sess-0"]).toBeUndefined();
+      expect(data["sess-4"]).toBeUndefined();
+      // Newest sessions should still exist
+      expect(data[`sess-${max + 4}`]).toBeDefined();
+    });
+  });
+
+  describe("learnedSessions — eviction", () => {
+    test("caps at MAX_LEARNED_SESSIONS", async () => {
+      const mockClient = createMockClient();
+      const bridge = createBridge(mockClient);
+
+      const max = AcontextBridge.MAX_LEARNED_SESSIONS;
+      // Seed learned sessions beyond the cap
+      for (let i = 0; i < max + 10; i++) {
+        (bridge as any).learnedSessions.add(`sess-${i}`);
+      }
+      (bridge as any).learnedSessionsLoaded = true;
+
+      // Trigger persist (via learnFromSession which will skip due to already-in-set,
+      // so we call persistLearnedSessions directly)
+      await (bridge as any).persistLearnedSessions();
+
+      const raw = await fs.readFile(path.join(dataDir, ".learned-sessions.json"), "utf-8");
+      const ids = JSON.parse(raw) as string[];
+      expect(ids.length).toBeLessThanOrEqual(max);
+      // Oldest should be evicted
+      expect(ids).not.toContain("sess-0");
+      // Newest should remain
+      expect(ids).toContain(`sess-${max + 9}`);
+    });
+  });
+
+  describe("storeMessages — partial failure cursor", () => {
+    test("processed count reflects only messages before error", async () => {
+      const mockClient = createMockClient();
+      let callCount = 0;
+      mockClient.sessions.storeMessage.mockImplementation(async () => {
+        callCount++;
+        if (callCount === 3) throw new Error("network error");
+        return { id: `msg-${callCount}` };
+      });
+      const bridge = createBridge(mockClient);
+
+      const blobs = [
+        { role: "user", content: "msg1" },
+        { role: "assistant", content: "msg2" },
+        { role: "user", content: "msg3" },
+        { role: "assistant", content: "msg4" },
+      ];
+
+      const result = await bridge.storeMessages("sess-1", blobs, 0);
+      // 2 stored successfully, msg3 failed, msg4 never attempted
+      // processed = 2 (only the ones that completed before the break)
+      expect(result.stored).toBe(2);
+      expect(result.processed).toBe(2);
+    });
+  });
+
+  describe("path traversal — path.relative approach", () => {
+    test("rejects absolute paths embedded in file_index", async () => {
+      const mockClient = createMockClient({
+        listSkills: async () => [{
+          id: "s1", name: "abs-path-skill", description: "desc",
+          disk_id: "d1",
+          file_index: [{ path: "/etc/passwd.md", mime: "text/markdown" }],
+          updated_at: "2026-01-01T00:00:00Z",
+        }],
+      });
+      const bridge = createBridge(mockClient);
+      await bridge.syncSkillsToLocal();
+
+      expect(mockClient.skills.getFile).not.toHaveBeenCalled();
+      expect(loggedWarnings.some((w) => w.includes("path traversal"))).toBe(true);
     });
   });
 });
