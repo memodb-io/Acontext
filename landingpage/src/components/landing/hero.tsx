@@ -1,11 +1,23 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowDown, Github, Rocket } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { MagneticButton } from '@/components/ui/magnetic-button'
 import { ParticleCanvas } from './particle-canvas'
+import { CopyCommand } from './copy-command'
+import RotatingText from '@/components/RotatingText'
 import gsap from 'gsap'
+
+const ROTATING_WORDS = ['Claude Code', 'OpenClaw']
+const ROTATING_COPY_TEXT = [
+  'Read https://acontext.io/SKILL.md and follow the instructions to install and configure Acontext for Claude Code',
+  'Read https://acontext.io/SKILL.md and follow the instructions to install and configure Acontext for OpenClaw',
+]
+const ROTATING_COLORS: Record<string, string> = {
+  'Claude Code': 'text-[#D97706]',
+  'OpenClaw': 'text-primary',
+}
 
 export function Hero() {
   const sectionRef = useRef<HTMLElement>(null)
@@ -13,6 +25,7 @@ export function Hero() {
   const taglineRef = useRef<HTMLDivElement>(null)
   const spotlightRef = useRef<HTMLDivElement>(null)
   const descRef = useRef<HTMLDivElement>(null)
+  const [currentIndex, setCurrentIndex] = useState(0)
 
   useEffect(() => {
     const section = sectionRef.current
@@ -155,15 +168,48 @@ export function Hero() {
         >
           <div className="flex justify-center hero-tagline">
             <span className="inline-flex items-center px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium bg-primary/10 text-primary border border-primary/20">
-              Agent Skills as a Memory Layer
+              Learn, Write, Reuse
             </span>
           </div>
           <h1
             ref={titleRef}
-            className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight hero-title will-change-transform"
+            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-tight sm:leading-[1.3] hero-title will-change-transform"
           >
-            <span className="hero-text-gradient cursor-default">Learn, Write, Reuse</span>
+            <span className="cursor-default">Skill Memory Plugin for</span>
+            <br />
+            <RotatingText
+              texts={ROTATING_WORDS}
+              rotationInterval={3000}
+              onNext={setCurrentIndex}
+              mainClassName={`justify-center cursor-default overflow-hidden transition-colors duration-500 ${ROTATING_COLORS[ROTATING_WORDS[currentIndex]]}`}
+              staggerFrom="last"
+              staggerDuration={0.025}
+              splitBy="characters"
+              transition={{ type: 'spring', damping: 30, stiffness: 400 }}
+              initial={{ y: '100%', opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: '-120%', opacity: 0 }}
+            />
           </h1>
+          <div className="mt-6 flex justify-center">
+            <CopyCommand
+              command={ROTATING_COPY_TEXT[currentIndex]}
+              copyText={ROTATING_COPY_TEXT[currentIndex]}
+              className="max-w-xl"
+            >
+              Read{' '}
+              <a
+                href="https://acontext.io/SKILL.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary underline underline-offset-4 hover:text-primary/80 transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                SKILL.md
+              </a>
+              {' '}to set up Acontext for {ROTATING_WORDS[currentIndex]}
+            </CopyCommand>
+          </div>
         </div>
 
         {/* Description with parallax */}
@@ -172,23 +218,23 @@ export function Hero() {
           className="max-w-3xl mx-auto space-y-3 sm:space-y-4 animate-fade-in animation-delay-600 px-2 sm:px-0 will-change-transform"
         >
           <p className="text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed">
-            Learns from runs. Stored as Markdown you can read and share.
+            Your agents forget everything between sessions. Acontext fixes that.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-x-2 sm:gap-x-3 gap-y-2 text-xs sm:text-sm md:text-base text-muted-foreground/80">
             <span className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-muted/50 border border-border/50">
-              Auto-Capture Skills
+              Auto-Capture
             </span>
             <span className="text-muted-foreground/40 hidden sm:inline">·</span>
             <span className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-muted/50 border border-border/50">
-              Markdown-Native
+              Markdown Skills
             </span>
             <span className="text-muted-foreground/40 hidden sm:inline">·</span>
             <span className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-muted/50 border border-border/50">
-              Reuse Anywhere
+              Cross-Session Reuse
             </span>
           </div>
           <p className="text-xs sm:text-sm md:text-base text-muted-foreground/70 leading-relaxed max-w-2xl mx-auto">
-            Captures what works and grows it into skills. Read and edit freely; share and reuse anywhere.
+            Captures what works, distills it into Markdown skills, and loads them on the next run.
           </p>
         </div>
 

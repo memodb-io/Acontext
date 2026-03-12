@@ -5,6 +5,7 @@
   "icon": "Plug",
   "pages": [
     "openclaw",
+    "claude-code",
     "sdk",
     "framework"
   ]

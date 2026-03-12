@@ -8,6 +8,7 @@
     "index",
     "quick",
     "llm_quick",
+    "skill_setup",
     "---[Database]Session Storage---",
     "...store",
     "---[Radar]Task Tracking---",

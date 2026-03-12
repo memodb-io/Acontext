@@ -1,0 +1,58 @@
+---
+title: "One-command Setup"
+description: "Copy one line, paste it to your agent, and Acontext is installed"
+---
+
+Acontext ships a [`SKILL.md`](https://acontext.io/SKILL.md) that any coding agent can read and execute. One prompt is all it takes — the agent installs the CLI, logs you in, and wires up the plugin automatically.
+
+## How It Works
+
+Copy the prompt for your platform and paste it into your agent. The agent reads `SKILL.md`, follows the instructions, and sets everything up.
+
+<Tabs>
+<Tab title="Claude Code">
+
+```
+Read https://acontext.io/SKILL.md and follow the instructions to install and configure Acontext for Claude Code
+```
+
+Paste this into Claude Code. The agent will:
+1. Install the Acontext CLI
+2. Log you in via browser OAuth
+3. Install the Claude Code plugin
+4. Configure environment variables
+
+For full configuration, MCP tools, and troubleshooting, see the [Claude Code integration guide](/integrations/claude-code).
+
+</Tab>
+<Tab title="OpenClaw">
+
+```
+Read https://acontext.io/SKILL.md and follow the instructions to install and configure Acontext for OpenClaw
+```
+
+Paste this into your OpenClaw agent. The agent will:
+1. Install the Acontext CLI
+2. Log you in via browser OAuth
+3. Install the `@acontext/openclaw` plugin
+4. Configure `openclaw.json`
+
+For full configuration, agent tools, and troubleshooting, see the [OpenClaw integration guide](/integrations/openclaw).
+
+</Tab>
+</Tabs>
+
+<Tip>
+You can also copy this prompt directly from the [landing page](https://acontext.io) hero — click the subtitle text to copy.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Claude Code Integration" icon="terminal" href="/integrations/claude-code">
+Full configuration reference for the Claude Code plugin
+</Card>
+<Card title="OpenClaw Integration" icon="plug" href="/integrations/openclaw">
+Full configuration reference for the OpenClaw plugin
+</Card>
+</CardGroup>

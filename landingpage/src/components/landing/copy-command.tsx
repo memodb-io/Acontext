@@ -6,10 +6,12 @@ import { cn } from '@/lib/utils'
 
 interface CopyCommandProps {
   command: string
+  copyText?: string
+  children?: React.ReactNode
   className?: string
 }
 
-export function CopyCommand({ command, className }: CopyCommandProps) {
+export function CopyCommand({ command, copyText, children, className }: CopyCommandProps) {
   const [copied, setCopied] = useState(false)
   const [isActive, setIsActive] = useState(false)
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([])
@@ -29,7 +31,7 @@ export function CopyCommand({ command, className }: CopyCommandProps) {
     }
 
     // Copy to clipboard
-    await navigator.clipboard.writeText(command)
+    await navigator.clipboard.writeText(copyText ?? command)
     setCopied(true)
     setIsActive(true)
 
@@ -71,15 +73,27 @@ export function CopyCommand({ command, className }: CopyCommandProps) {
       {/* Shimmer effect on hover */}
       <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-in-out bg-linear-to-r from-transparent via-white/5 to-transparent pointer-events-none" />
 
-      <code
-        className={cn(
-          'text-sm sm:text-base font-mono flex-1 overflow-x-auto whitespace-nowrap scrollbar-hide',
-          'transition-colors duration-300',
-          copied ? 'text-green-500' : 'text-foreground/90',
-        )}
-      >
-        {command}
-      </code>
+      {children ? (
+        <span
+          className={cn(
+            'text-sm sm:text-base flex-1 overflow-x-auto whitespace-nowrap scrollbar-hide',
+            'transition-colors duration-300',
+            copied ? 'text-green-500' : 'text-foreground/90',
+          )}
+        >
+          {children}
+        </span>
+      ) : (
+        <code
+          className={cn(
+            'text-sm sm:text-base font-mono flex-1 overflow-x-auto whitespace-nowrap scrollbar-hide',
+            'transition-colors duration-300',
+            copied ? 'text-green-500' : 'text-foreground/90',
+          )}
+        >
+          {command}
+        </code>
+      )}
 
       <button
         className={cn(
