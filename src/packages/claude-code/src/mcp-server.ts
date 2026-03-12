@@ -48,19 +48,30 @@ server.tool(
         return { content: [{ type: "text", text: "No skills learned yet." }] };
       }
 
-      const searchableSkills = skills.filter((s) => s.diskId);
-      const results = await Promise.all(
-        searchableSkills.map((skill) =>
-          bridge.grepSkills(skill.diskId, query, limit).then((matches) =>
-            matches.map((m) => ({
-              skillName: skill.name,
-              path: m.path,
-              filename: m.filename,
-            })),
-          ),
-        ),
-      );
-      const allMatches = results.flat().slice(0, limit);
+      const allMatches: Array<{
+        skillName: string;
+        path: string;
+        filename: string;
+      }> = [];
+
+      for (const skill of skills) {
+        if (!skill.diskId) continue;
+        const remaining = limit - allMatches.length;
+        if (remaining <= 0) break;
+        const matches = await bridge.grepSkills(
+          skill.diskId,
+          query,
+          remaining,
+        );
+        for (const m of matches) {
+          allMatches.push({
+            skillName: skill.name,
+            path: m.path,
+            filename: m.filename,
+          });
+        }
+        if (allMatches.length >= limit) break;
+      }
 
       if (allMatches.length === 0) {
         return {
@@ -165,6 +176,34 @@ server.tool(
 );
 
 server.tool(
+  "acontext_stats",
+  "Show Acontext memory statistics — session count, skill count, and configuration.",
+  {},
+  async () => {
+    try {
+      const stats = await bridge.getStats();
+      const lines = [
+        `User: ${config.userId}`,
+        `Learning Space: ${stats.learningSpaceId ?? "not created"}`,
+        `Sessions: ${stats.sessionCountIsApproximate ? `${stats.sessionCount}+` : stats.sessionCount}`,
+        `Skills: ${stats.skillCount}`,
+        `Skills directory: ${config.skillsDir}`,
+        `Auto-capture: ${config.autoCapture}, Auto-learn: ${config.autoLearn}`,
+      ];
+      return {
+        content: [{ type: "text", text: lines.join("\n") }],
+      };
+    } catch (err) {
+      return {
+        content: [
+          { type: "text", text: `Stats failed: ${String(err)}` },
+        ],
+      };
+    }
+  },
+);
+
+server.tool(
   "acontext_learn_now",
   "Trigger skill learning from the current session immediately. Distills reusable skills from this conversation.",
   {},
@@ -199,11 +238,18 @@ server.tool(
         };
       }
 
+      // Sync skills to local directory in background
+      bridge.syncSkillsToLocal().catch((err) => {
+        console.error(
+          `[warn] acontext: skill sync after learn_now failed: ${String(err)}`,
+        );
+      });
+
       return {
         content: [
           {
             type: "text",
-            text: `Learning triggered (id: ${result.id}). Skills will be available once processing completes.`,
+            text: `Learning triggered (id: ${result.id}). Skills will be synced to ${config.skillsDir} once processing completes.`,
           },
         ],
       };

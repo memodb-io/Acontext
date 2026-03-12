@@ -3,11 +3,15 @@
  * All values are read from environment variables.
  */
 
+import * as os from "node:os";
+import * as path from "node:path";
+
 export interface AcontextConfig {
   apiKey: string;
   baseUrl: string;
   userId: string;
   learningSpaceId?: string;
+  skillsDir: string;
   autoCapture: boolean;
   autoLearn: boolean;
   minTurnsForLearn: number;
@@ -28,10 +32,18 @@ export function loadConfig(): AcontextConfig {
       "https://api.acontext.app/api/v1",
     userId: process.env.ACONTEXT_USER_ID?.trim() || "default",
     learningSpaceId: process.env.ACONTEXT_LEARNING_SPACE_ID?.trim() || undefined,
+    skillsDir:
+      process.env.ACONTEXT_SKILLS_DIR?.trim() ||
+      path.join(os.homedir(), ".claude", "skills"),
     autoCapture: process.env.ACONTEXT_AUTO_CAPTURE !== "false",
     autoLearn: process.env.ACONTEXT_AUTO_LEARN !== "false",
     minTurnsForLearn: (() => {
-      const parsed = parseInt(process.env.ACONTEXT_MIN_TURNS || "4", 10);
+      // ACONTEXT_MIN_TURNS_FOR_LEARN takes priority; fall back to legacy ACONTEXT_MIN_TURNS
+      const raw =
+        process.env.ACONTEXT_MIN_TURNS_FOR_LEARN ||
+        process.env.ACONTEXT_MIN_TURNS ||
+        "4";
+      const parsed = parseInt(raw, 10);
       return Number.isNaN(parsed) ? 4 : parsed;
     })(),
   };

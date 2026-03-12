@@ -39,15 +39,30 @@ acontext login
 - Set up a project via `acontext dash projects` commands. If Acontext has existing projects, make sure the user wants to use an existing project or create a new project for you.
 - Read the cli output to get the api key and user login email, you will need it.
 
-### 3. Install OpenClaw Plugin (If you're OpenClaw)
-> If you're OpenClaw, use this plugin to add Acontext as a memory layer to you.
-> If you're not OpenClaw, skip this step.
+### 3. Add Acontext to Your Agent
+
+#### Option A: Claude Code Plugin
+
+```bash
+claude plugins add @acontext/claude-code
+```
+
+Then set the required environment variable in your shell profile (`~/.bashrc` or `~/.zshrc`):
+
+```bash
+export ACONTEXT_API_KEY="<your-api-key>"
+export ACONTEXT_USER_ID="<your-login-email>"
+```
+
+Restart Claude Code — the plugin auto-captures conversations and syncs skills to `~/.claude/skills/`.
+
+#### Option B: OpenClaw Plugin
+
 ```bash
 openclaw plugins install @acontext/openclaw
 ```
 
-
-Then you will need API Key and an USER identifier to configure the plugin:
+Then you will need API Key and a USER identifier to configure the plugin:
 1. Use the API key and user login email from the `acontext login` return.
 2. Add to your `openclaw.json`:
 ```json5
@@ -68,7 +83,7 @@ Then you will need API Key and an USER identifier to configure the plugin:
   }
 }
 ```
-1. Restart the gateway:
+3. Restart the gateway:
 
 ```bash
 openclaw gateway
@@ -78,7 +93,7 @@ openclaw gateway
 
 ## Acontext Project Management
 
-After you have loggeding, you can manage Acontext projects via CLI:
+After you have logged in, you can manage Acontext projects via CLI:
 
 1. `acontext dash projects list --json` — list available projects
 2. If user ask you to use a existing Acontext project, you should let the user to provider the api key. And then switch to this project `acontext dash projects select --project <project-id>`. 
@@ -106,7 +121,36 @@ All dashboard commands are under `acontext dash`:
 
 ---
 
+## Claude Code Plugin Configuration
+
+All settings are via environment variables:
+
+| Env Var                        | Default                           | Description                                                     |
+| ------------------------------ | --------------------------------- | --------------------------------------------------------------- |
+| `ACONTEXT_API_KEY`             | —                                 | **Required.** Acontext API key                                  |
+| `ACONTEXT_BASE_URL`            | `https://api.acontext.app/api/v1` | API base URL                                                    |
+| `ACONTEXT_USER_ID`             | `"default"`                       | Scope sessions per user                                         |
+| `ACONTEXT_LEARNING_SPACE_ID`   | auto-created                      | Explicit Learning Space ID                                      |
+| `ACONTEXT_SKILLS_DIR`          | `~/.claude/skills`                | Directory where skills are synced                                |
+| `ACONTEXT_AUTO_CAPTURE`        | `true`                            | Store messages after each agent turn                            |
+| `ACONTEXT_AUTO_LEARN`          | `true`                            | Trigger skill distillation after sessions                       |
+| `ACONTEXT_MIN_TURNS_FOR_LEARN` | `4`                               | Minimum turns before triggering auto-learn                      |
+
+### Claude Code MCP Tools
+
+| Tool                       | Description                                              |
+| -------------------------- | -------------------------------------------------------- |
+| `acontext_search_skills`   | Search through skill files by keyword                    |
+| `acontext_get_skill`       | Read the content of a specific skill file                |
+| `acontext_session_history` | Get task summaries from recent past sessions             |
+| `acontext_stats`           | Show memory statistics (sessions, skills, configuration) |
+| `acontext_learn_now`       | Trigger skill learning from the current session          |
+
+---
+
 ## OpenClaw Plugin Configuration
+
+All settings are in `openclaw.json` under the plugin config:
 
 | Key                | Type      | Default                           | Description                                                     |
 | ------------------ | --------- | --------------------------------- | --------------------------------------------------------------- |
@@ -127,6 +171,13 @@ All dashboard commands are under `acontext dash`:
 | `acontext_session_history` | Get task summaries from recent past sessions    |
 | `acontext_learn_now`       | Trigger skill learning from the current session |
 
+### OpenClaw CLI Commands
+
+| Command                  | Description                               |
+| ------------------------ | ----------------------------------------- |
+| `openclaw acontext skills` | List learned skills in the Learning Space |
+| `openclaw acontext stats`  | Show Acontext memory statistics           |
+
 ---
 
 ## Troubleshooting
@@ -145,7 +196,14 @@ Restart your shell or run `source ~/.bashrc` / `source ~/.zshrc`. The installer 
 
 - Verify your API key with `acontext whoami`
 - Re-login with `acontext login`
-- For CI/CD, ensure `ACONTEXT_API_TOKEN` is set correctly
+- For CI/CD, ensure `ACONTEXT_API_KEY` is set correctly
+
+### Claude Code plugin not working
+
+- Ensure `ACONTEXT_API_KEY` is exported in your shell profile
+- Check Claude Code logs for `[info] acontext:` or `[warn] acontext:` messages
+- Verify the plugin is installed: `claude plugins list`
+- Skills should appear in `~/.claude/skills/` after the first session
 
 ### OpenClaw plugin not loading
 

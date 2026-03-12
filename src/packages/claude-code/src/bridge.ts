@@ -3,8 +3,8 @@
  *
  * Adapted from src/packages/openclaw/index.ts — reuses the core logic for
  * client initialization, session management, message capture, learning,
- * and skill querying. Removes OpenClaw-specific getTranscript/cursor logic
- * and skill-sync-to-local-directory logic (Claude Code uses MCP tools instead).
+ * and skill querying. Includes skill-sync-to-local-directory logic so that
+ * skills are available natively at ~/.claude/skills/ for Claude Code loading.
  */
 
 import * as crypto from "node:crypto";
@@ -95,9 +95,33 @@ type SkillMeta = {
   updatedAt: string;
 };
 
+interface SkillManifest {
+  syncedAt: number;
+  skills: SkillMeta[];
+}
+
 // ============================================================================
 // Utilities
 // ============================================================================
+
+/**
+ * Sanitize a skill name for use as a directory name.
+ * Replaces non-alphanumeric characters (except hyphens/underscores) with hyphens.
+ * Throws if the result is empty to prevent operating on the skills root directory.
+ */
+export function sanitizeSkillName(name: string): string {
+  const sanitized = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!sanitized) {
+    throw new Error(
+      `Cannot sanitize skill name to valid directory name: "${name}"`,
+    );
+  }
+  return sanitized;
+}
 
 let atomicWriteCounter = 0;
 async function atomicWriteFile(
@@ -131,6 +155,11 @@ export class AcontextBridge {
   private learningSpacePromise: Promise<string> | null = null;
   private logger: BridgeLogger;
   private dataDir: string;
+  private skillsDir: string;
+
+  private skillsMetadata: SkillMeta[] | null = null;
+  private skillsSynced = false;
+  private syncInProgress: Promise<SkillMeta[]> | null = null;
 
   private learnedSessions = new Set<string>();
   private learnedSessionsLoaded = false;
@@ -142,6 +171,7 @@ export class AcontextBridge {
   private turnCount = 0;
   private lastProcessedIndex = 0;
 
+  private static MANIFEST_STALE_MS = 30 * 60 * 1000; // 30 minutes
   static MAX_SENT_SESSIONS = 100;
   static MAX_LEARNED_SESSIONS = 500;
 
@@ -151,6 +181,7 @@ export class AcontextBridge {
     logger?: BridgeLogger,
   ) {
     this.dataDir = dataDir;
+    this.skillsDir = cfg.skillsDir;
     this.logger = logger ?? { info: () => {}, warn: () => {} };
     if (cfg.learningSpaceId) {
       this.learningSpaceId = cfg.learningSpaceId;
@@ -163,12 +194,20 @@ export class AcontextBridge {
     return path.join(this.dataDir, ".session-state.json");
   }
 
+  private manifestPath(): string {
+    return path.join(this.dataDir, ".manifest.json");
+  }
+
   private learnedSessionsPath(): string {
     return path.join(this.dataDir, ".learned-sessions.json");
   }
 
   private sentMessagesPath(): string {
     return path.join(this.dataDir, ".sent-messages.json");
+  }
+
+  private skillDir(skillName: string): string {
+    return path.join(this.skillsDir, sanitizeSkillName(skillName));
   }
 
   // -- Session state persistence (across hook processes) --------------------
@@ -505,12 +544,14 @@ export class AcontextBridge {
       });
       this.learnedSessions.add(sessionId);
       await this.persistLearnedSessions();
+      this.invalidateSkillCaches();
       return { status: "learned", id: result.id };
     } catch (err) {
       const msg = String(err);
       if (msg.includes("already learned")) {
         this.learnedSessions.add(sessionId);
         await this.persistLearnedSessions();
+        this.invalidateSkillCaches();
         this.logger.info(
           `acontext: session ${sessionId} already learned, skipping`,
         );
@@ -523,13 +564,105 @@ export class AcontextBridge {
     }
   }
 
-  // -- Skill querying -------------------------------------------------------
+  invalidateSkillCaches(): void {
+    this.skillsMetadata = null;
+    this.skillsSynced = false;
+  }
 
-  async listSkills(): Promise<SkillMeta[]> {
+  // -- Skill manifest & sync ------------------------------------------------
+
+  private async readManifest(): Promise<SkillManifest | null> {
+    try {
+      const raw = await fs.readFile(this.manifestPath(), "utf-8");
+      return JSON.parse(raw) as SkillManifest;
+    } catch {
+      return null;
+    }
+  }
+
+  private async writeManifest(skills: SkillMeta[]): Promise<void> {
+    await fs.mkdir(this.dataDir, { recursive: true });
+    const manifest: SkillManifest = { syncedAt: Date.now(), skills };
+    await atomicWriteFile(this.manifestPath(), JSON.stringify(manifest));
+  }
+
+  /**
+   * Download .md files for a single skill into the local skills directory.
+   */
+  private async downloadSkillFiles(skill: SkillMeta): Promise<boolean> {
+    const client = await this.ensureClient();
+    const dir = this.skillDir(skill.name);
+    let allSucceeded = true;
+
+    for (const fi of skill.fileIndex) {
+      if (!fi.path.endsWith(".md")) continue;
+
+      const fileDest = path.resolve(dir, fi.path);
+      const rel = path.relative(dir, fileDest);
+      if (rel.startsWith("..") || path.isAbsolute(rel)) {
+        this.logger.warn(
+          `acontext: skipping file with path traversal: ${fi.path} (skill: ${skill.name})`,
+        );
+        continue;
+      }
+      await fs.mkdir(path.dirname(fileDest), { recursive: true });
+
+      try {
+        const resp = await client.skills.getFile({
+          skillId: skill.id,
+          filePath: fi.path,
+          expire: 60,
+        });
+        if (resp.content) {
+          if (resp.content.type === "base64") {
+            await fs.writeFile(
+              fileDest,
+              Buffer.from(resp.content.raw, "base64"),
+            );
+          } else {
+            await fs.writeFile(fileDest, resp.content.raw, "utf-8");
+          }
+        } else if (resp.url) {
+          const res = await fetch(resp.url);
+          if (res.ok) {
+            await fs.writeFile(
+              fileDest,
+              Buffer.from(await res.arrayBuffer()),
+            );
+          } else {
+            allSucceeded = false;
+          }
+        }
+      } catch (err) {
+        this.logger.warn(
+          `acontext: download failed for ${skill.id}:${fi.path}: ${String(err)}`,
+        );
+        allSucceeded = false;
+      }
+    }
+    return allSucceeded;
+  }
+
+  /**
+   * Sync skills from API to local skills directory.
+   * Uses updated_at for incremental sync — only downloads new or changed skills.
+   * Concurrent calls are deduplicated via a promise guard.
+   */
+  async syncSkillsToLocal(): Promise<SkillMeta[]> {
+    if (this.syncInProgress) return this.syncInProgress;
+    this.syncInProgress = this._doSync();
+    try {
+      return await this.syncInProgress;
+    } finally {
+      this.syncInProgress = null;
+    }
+  }
+
+  private async _doSync(): Promise<SkillMeta[]> {
     const client = await this.ensureClient();
     const spaceId = await this.ensureLearningSpace();
     const rawSkills = await client.learningSpaces.listSkills(spaceId);
-    return rawSkills.map((s) => ({
+    const remoteSkills: SkillMeta[] = rawSkills.map((s) => ({
       id: s.id,
       name: s.name,
       description: s.description,
@@ -537,6 +670,137 @@ export class AcontextBridge {
       fileIndex: s.file_index ?? [],
       updatedAt: s.updated_at,
     }));
+
+    const manifest = await this.readManifest();
+    const localMap = new Map<string, SkillMeta>();
+    if (manifest) {
+      for (const s of manifest.skills) {
+        localMap.set(s.id, s);
+      }
+    }
+
+    const remoteIds = new Set<string>();
+    const failedSkillIds = new Set<string>();
+    const sanitizedNames = new Map<string, string[]>(); // sanitized-name → skill-ids
+    let downloadCount = 0;
+
+    const collidingSkillIds = new Set<string>();
+
+    // Pass 1: detect all sanitized name collisions before downloading anything
+    for (const skill of remoteSkills) {
+      const sName = sanitizeSkillName(skill.name);
+      const existing = sanitizedNames.get(sName);
+      if (existing) {
+        existing.push(skill.id);
+      } else {
+        sanitizedNames.set(sName, [skill.id]);
+      }
+    }
+    for (const [sName, ids] of sanitizedNames) {
+      if (ids.length > 1) {
+        this.logger.warn(
+          `acontext: sanitized name collision — ${ids.length} skills collide as "${sName}", skipping all: ${ids.join(", ")}`,
+        );
+        for (const id of ids) collidingSkillIds.add(id);
+      }
+    }
+
+    // Pass 2: download non-colliding skills
+    for (const skill of remoteSkills) {
+      if (collidingSkillIds.has(skill.id)) continue;
+      remoteIds.add(skill.id);
+
+      const local = localMap.get(skill.id);
+
+      if (!local || local.updatedAt !== skill.updatedAt) {
+        if (
+          local &&
+          sanitizeSkillName(local.name) !== sanitizeSkillName(skill.name)
+        ) {
+          const oldDir = this.skillDir(local.name);
+          await fs.rm(oldDir, { recursive: true, force: true }).catch(() => {});
+        }
+        const targetDir = this.skillDir(skill.name);
+        await fs
+          .rm(targetDir, { recursive: true, force: true })
+          .catch(() => {});
+        const success = await this.downloadSkillFiles(skill);
+        if (!success) {
+          failedSkillIds.add(skill.id);
+        }
+        downloadCount++;
+      }
+    }
+
+    // Clean up disk directories for colliding skills that were previously synced
+    for (const cid of collidingSkillIds) {
+      const local = localMap.get(cid);
+      if (local) {
+        const dir = this.skillDir(local.name);
+        await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
+      }
+    }
+
+    // Clean up deleted skills
+    for (const [id, local] of localMap) {
+      if (!remoteIds.has(id) && !collidingSkillIds.has(id)) {
+        const dir = this.skillDir(local.name);
+        await fs.rm(dir, { recursive: true, force: true }).catch((err) => {
+          this.logger.warn(
+            `acontext: failed to remove deleted skill dir ${dir}: ${String(err)}`,
+          );
+        });
+      }
+    }
+
+    // Filter out colliding skills, then preserve old updatedAt for failed downloads
+    const nonCollidingSkills = remoteSkills.filter(
+      (s) => !collidingSkillIds.has(s.id),
+    );
+    const manifestSkills = nonCollidingSkills.map((skill) => {
+      if (failedSkillIds.has(skill.id)) {
+        const local = localMap.get(skill.id);
+        return { ...skill, updatedAt: local?.updatedAt ?? "" };
+      }
+      return skill;
+    });
+    await this.writeManifest(manifestSkills);
+    this.skillsMetadata = nonCollidingSkills;
+    this.skillsSynced = true;
+
+    if (downloadCount > 0) {
+      this.logger.info(
+        `acontext: synced ${downloadCount} skill(s) to ${this.skillsDir} (${nonCollidingSkills.length} total)`,
+      );
+    }
+    return nonCollidingSkills;
+  }
+
+  // -- Skill querying -------------------------------------------------------
+
+  async listSkills(): Promise<SkillMeta[]> {
+    if (this.skillsMetadata && this.skillsSynced) {
+      return this.skillsMetadata;
+    }
+
+    try {
+      const manifest = await this.readManifest();
+      if (
+        manifest &&
+        Date.now() - manifest.syncedAt < AcontextBridge.MANIFEST_STALE_MS
+      ) {
+        this.skillsMetadata = manifest.skills;
+        this.skillsSynced = true;
+        return manifest.skills;
+      }
+
+      return await this.syncSkillsToLocal();
+    } catch (err) {
+      this.logger.warn(
+        `acontext: listSkills failed, returning cached: ${String(err)}`,
+      );
+      return this.skillsMetadata ?? [];
+    }
   }
 
   async grepSkills(
@@ -586,6 +850,39 @@ export class AcontextBridge {
       throw new Error(`Failed to fetch skill file: ${res.status}`);
     }
     throw new Error("No content available for this skill file");
+  }
+
+  // -- Stats ----------------------------------------------------------------
+
+  async getStats(): Promise<{
+    sessionCount: number;
+    sessionCountIsApproximate: boolean;
+    skillCount: number;
+    learningSpaceId: string | null;
+  }> {
+    const client = await this.ensureClient();
+    try {
+      const sessions = await client.sessions.list({
+        user: this.cfg.userId,
+        filterByConfigs: { source: SOURCE_TAG },
+        limit: 100,
+      });
+      const skills = await this.listSkills();
+      return {
+        sessionCount: sessions.items.length,
+        sessionCountIsApproximate: sessions.has_more,
+        skillCount: skills.length,
+        learningSpaceId: this.learningSpaceId,
+      };
+    } catch (err) {
+      this.logger.warn(`acontext: getStats failed: ${String(err)}`);
+      return {
+        sessionCount: 0,
+        sessionCountIsApproximate: false,
+        skillCount: 0,
+        learningSpaceId: null,
+      };
+    }
   }
 
   // -- Session history ------------------------------------------------------

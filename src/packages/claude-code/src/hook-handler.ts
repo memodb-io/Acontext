@@ -87,6 +87,11 @@ async function handleSessionStart(bridge: AcontextBridge): Promise<void> {
   const sessionId = await bridge.ensureSession();
   await bridge.saveSessionState();
   logger.info(`acontext: session started: ${sessionId}`);
+
+  // Fire-and-forget: sync skills to local directory for native Claude Code loading
+  bridge.syncSkillsToLocal().catch((err) => {
+    logger.warn(`acontext: skill sync on session-start failed: ${String(err)}`);
+  });
 }
 
 async function handlePostToolUse(
@@ -208,6 +213,12 @@ async function handleStop(
         logger.info(
           `acontext: end-of-session learn triggered (learning: ${result.id})`,
         );
+        // Sync newly learned skills to local directory
+        bridge.syncSkillsToLocal().catch((err) => {
+          logger.warn(
+            `acontext: skill sync after learning failed: ${String(err)}`,
+          );
+        });
       }
     } catch (err) {
       logger.warn(`acontext: end-of-session learn failed: ${String(err)}`);
