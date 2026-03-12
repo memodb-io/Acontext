@@ -139,10 +139,12 @@ async function handlePostToolUse(
   }
   if (stored > 0) {
     bridge.incrementTurnCount();
-    await bridge.saveSessionState();
     logger.info(
       `acontext: captured ${stored} new messages, ${allMessages.length} total in transcript (turn ${bridge.getTurnCount()})`,
     );
+  }
+  if (processed > 0) {
+    await bridge.saveSessionState();
   }
 
   // Auto-learn check
@@ -152,6 +154,8 @@ async function handlePostToolUse(
       const result = await bridge.learnFromSession(sessionId);
       if (result.status === "learned") {
         logger.info(`acontext: auto-learn triggered (learning: ${result.id})`);
+        bridge.resetTurnCount();
+        await bridge.saveSessionState();
       }
     } catch (err) {
       logger.warn(`acontext: auto-learn failed: ${String(err)}`);
@@ -191,6 +195,9 @@ async function handleStop(
         }
         if (stored > 0) {
           logger.info(`acontext: final capture: ${stored} new messages`);
+        }
+        if (processed > 0) {
+          await bridge.saveSessionState();
         }
       }
     }

@@ -1,10 +1,11 @@
 /**
  * MCP Server for the Acontext Claude Code plugin.
  *
- * Provides 4 tools:
+ * Provides 5 tools:
  * - acontext_search_skills: Search through learned skill files
  * - acontext_get_skill: Read a specific skill file's content
  * - acontext_session_history: Get recent session summaries
+ * - acontext_stats: Show memory statistics and configuration
  * - acontext_learn_now: Trigger learning from current session
  */
 
@@ -141,6 +142,7 @@ server.tool(
   {
     limit: z
       .number()
+      .min(1)
       .optional()
       .describe("Max sessions to include (default: 3)"),
   },

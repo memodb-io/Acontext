@@ -56,8 +56,8 @@ export function loadConfig(): AcontextConfig {
 export function resolveDataDir(): string {
   const pluginRoot = process.env.CLAUDE_PLUGIN_ROOT;
   if (pluginRoot) {
-    return `${pluginRoot}/data`;
+    return path.join(pluginRoot, "data");
   }
   // Fallback for development/testing
-  return `${process.env.HOME || "/tmp"}/.acontext-claude-code`;
+  return path.join(process.env.HOME || "/tmp", ".acontext-claude-code");
 }

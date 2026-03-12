@@ -400,6 +400,10 @@ export class AcontextBridge {
     this.turnCount++;
   }
 
+  resetTurnCount(): void {
+    this.turnCount = 0;
+  }
+
   getLastProcessedIndex(): number {
     return this.lastProcessedIndex;
   }
@@ -632,6 +636,11 @@ export class AcontextBridge {
           } else {
             allSucceeded = false;
           }
+        } else {
+          this.logger.warn(
+            `acontext: empty response for ${skill.id}:${fi.path} (no content or url)`,
+          );
+          allSucceeded = false;
         }
       } catch (err) {
         this.logger.warn(
@@ -688,7 +697,16 @@ export class AcontextBridge {
 
     // Pass 1: detect all sanitized name collisions before downloading anything
     for (const skill of remoteSkills) {
-      const sName = sanitizeSkillName(skill.name);
+      let sName: string;
+      try {
+        sName = sanitizeSkillName(skill.name);
+      } catch {
+        this.logger.warn(
+          `acontext: skipping skill with unsanitizable name: "${skill.name}" (id: ${skill.id})`,
+        );
+        collidingSkillIds.add(skill.id); // exclude from processing
+        continue;
+      }
       const existing = sanitizedNames.get(sName);
       if (existing) {
         existing.push(skill.id);
@@ -713,12 +731,23 @@ export class AcontextBridge {
       const local = localMap.get(skill.id);
 
       if (!local || local.updatedAt !== skill.updatedAt) {
-        if (
-          local &&
-          sanitizeSkillName(local.name) !== sanitizeSkillName(skill.name)
-        ) {
-          const oldDir = this.skillDir(local.name);
-          await fs.rm(oldDir, { recursive: true, force: true }).catch(() => {});
+        if (local) {
+          let oldSanitized: string | null = null;
+          let newSanitized: string | null = null;
+          try {
+            oldSanitized = sanitizeSkillName(local.name);
+          } catch {
+            // old name was corrupt — nothing to clean up
+          }
+          try {
+            newSanitized = sanitizeSkillName(skill.name);
+          } catch {
+            // new name is corrupt — will be caught by pass 1
+          }
+          if (oldSanitized && newSanitized && oldSanitized !== newSanitized) {
+            const oldDir = this.skillDir(local.name);
+            await fs.rm(oldDir, { recursive: true, force: true }).catch(() => {});
+          }
         }
         const targetDir = this.skillDir(skill.name);
         await fs
@@ -736,15 +765,24 @@ export class AcontextBridge {
     for (const cid of collidingSkillIds) {
       const local = localMap.get(cid);
       if (local) {
-        const dir = this.skillDir(local.name);
-        await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
+        try {
+          const dir = this.skillDir(local.name);
+          await fs.rm(dir, { recursive: true, force: true }).catch(() => {});
+        } catch {
+          // corrupt name — no directory to clean up
+        }
       }
     }
 
     // Clean up deleted skills
     for (const [id, local] of localMap) {
       if (!remoteIds.has(id) && !collidingSkillIds.has(id)) {
-        const dir = this.skillDir(local.name);
+        let dir: string;
+        try {
+          dir = this.skillDir(local.name);
+        } catch {
+          continue; // corrupt name — skip
+        }
         await fs.rm(dir, { recursive: true, force: true }).catch((err) => {
           this.logger.warn(
             `acontext: failed to remove deleted skill dir ${dir}: ${String(err)}`,
