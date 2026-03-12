@@ -10,12 +10,12 @@
 		"lint": "eslint ."
 	},
 	"dependencies": {
-		"@cloudflare/sandbox": "^0.7.16"
+		"@cloudflare/sandbox": "^0.7.17"
 	},
 	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20260310.1",
+		"@cloudflare/workers-types": "^4.20260312.1",
 		"typescript": "^5.9.3",
-		"wrangler": "^4.71.0"
+		"wrangler": "^4.72.0"
 	},
 	"engines": {
 		"node": ">=18.0.0"
