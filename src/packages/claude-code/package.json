@@ -1,0 +1,26 @@
+{
+  "name": "@acontext/claude-code",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Acontext skill memory plugin for Claude Code — auto-capture, learn, and reuse skills",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/memodb-io/Acontext"
+  },
+  "scripts": {
+    "build": "tsx build.ts",
+    "clean": "rm -rf plugin/scripts/*.cjs"
+  },
+  "dependencies": {
+    "@acontext/acontext": "^0.1.16",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.0",
+    "esbuild": "^0.27.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

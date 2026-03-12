@@ -11,18 +11,23 @@
 
 ### 2. Update Version Number
 
-Update the version in `package.json`:
+Update the version in **three places**:
 
-```json
-{
-  "version": "0.1.0"
-}
+1. `package.json` → `"version"`
+2. `index.ts` → plugin object `version` field (line ~841)
+3. `tests/plugin.test.ts` → `expect(plugin.version).toBe("X.Y.Z")`
+
+Then regenerate the lock file:
+
+```bash
+cd src/packages/openclaw
+npm install
 ```
 
 Commit and push:
 
 ```bash
-git add src/packages/openclaw/package.json
+git add src/packages/openclaw/package.json src/packages/openclaw/package-lock.json src/packages/openclaw/index.ts src/packages/openclaw/tests/plugin.test.ts
 git commit -m "chore: bump openclaw plugin to v0.1.0"
 git push
 ```

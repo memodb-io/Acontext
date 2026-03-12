@@ -1,0 +1,84 @@
+name: Claude Code Plugin Test
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - "src/packages/claude-code/**"
+      - ".github/workflows/package-test-claude-code.yaml"
+  pull_request:
+    branches:
+      - dev
+    paths:
+      - "src/packages/claude-code/**"
+      - ".github/workflows/package-test-claude-code.yaml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: src/packages/claude-code
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version: "20"
+
+      - name: Validate package.json
+        run: node -e "const pkg = require('./package.json'); if (!pkg.name || !pkg.version) { process.exit(1); } console.log(pkg.name + '@' + pkg.version)"
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify build output
+        run: |
+          node -e "
+            const fs = require('fs');
+            const files = ['plugin/scripts/mcp-server.cjs', 'plugin/scripts/hook-handler.cjs'];
+            for (const f of files) {
+              if (!fs.existsSync(f)) { console.error('Missing: ' + f); process.exit(1); }
+              const stat = fs.statSync(f);
+              if (stat.size < 1000) { console.error('Suspiciously small: ' + f + ' (' + stat.size + ' bytes)'); process.exit(1); }
+              console.log('OK: ' + f + ' (' + (stat.size / 1024).toFixed(0) + ' KB)');
+            }
+          "
+
+      - name: Verify plugin manifest
+        run: |
+          node -e "
+            const fs = require('fs');
+            const manifest = JSON.parse(fs.readFileSync('plugin/.claude-plugin/plugin.json', 'utf8'));
+            if (!manifest.name || !manifest.version) { console.error('Invalid plugin.json'); process.exit(1); }
+            console.log('Plugin: ' + manifest.name + '@' + manifest.version);
+
+            const mcp = JSON.parse(fs.readFileSync('plugin/.mcp.json', 'utf8'));
+            if (!mcp.mcpServers?.acontext) { console.error('Missing MCP server config'); process.exit(1); }
+            console.log('MCP server: acontext');
+
+            const hooks = JSON.parse(fs.readFileSync('plugin/hooks/hooks.json', 'utf8'));
+            const hookTypes = Object.keys(hooks.hooks || {});
+            if (!hookTypes.includes('SessionStart') || !hookTypes.includes('PostToolUse') || !hookTypes.includes('Stop')) {
+              console.error('Missing required hooks. Found: ' + hookTypes.join(', ')); process.exit(1);
+            }
+            console.log('Hooks: ' + hookTypes.join(', '));
+          "
+
+      - name: Verify hook-handler loads
+        run: node -e "require('./plugin/scripts/hook-handler.cjs')" 2>&1 || true

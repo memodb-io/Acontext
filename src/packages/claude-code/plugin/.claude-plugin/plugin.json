@@ -1,0 +1,17 @@
+{
+  "name": "acontext",
+  "version": "0.1.0",
+  "description": "Skill memory layer for Claude Code — auto-capture, learn, and reuse skills from Acontext",
+  "author": {
+    "name": "memodb-io"
+  },
+  "repository": "https://github.com/memodb-io/Acontext",
+  "license": "Apache-2.0",
+  "keywords": [
+    "memory",
+    "skills",
+    "learning",
+    "acontext",
+    "capture"
+  ]
+}
