@@ -44,7 +44,7 @@
     "@stripe/react-stripe-js": "^5.6.1",
     "@stripe/stripe-js": "^8.9.0",
     "@supabase/ssr": "^0.9.0",
-    "@supabase/supabase-js": "^2.99.0",
+    "@supabase/supabase-js": "^2.99.1",
     "@tailwindcss/typography": "^0.5.19",
     "@uiw/codemirror-theme-okaidia": "^4.25.8",
     "@uiw/react-codemirror": "^4.25.8",
@@ -82,7 +82,7 @@
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "wrangler": "^4.71.0"
+    "wrangler": "^4.72.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
