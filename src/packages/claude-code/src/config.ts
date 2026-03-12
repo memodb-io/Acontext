@@ -44,7 +44,7 @@ export function loadConfig(): AcontextConfig {
         process.env.ACONTEXT_MIN_TURNS ||
         "4";
       const parsed = parseInt(raw, 10);
-      return Number.isNaN(parsed) ? 4 : parsed;
+      return Number.isNaN(parsed) || parsed < 1 ? 4 : parsed;
     })(),
   };
 }
@@ -59,5 +59,5 @@ export function resolveDataDir(): string {
     return path.join(pluginRoot, "data");
   }
   // Fallback for development/testing
-  return path.join(process.env.HOME || "/tmp", ".acontext-claude-code");
+  return path.join(os.homedir(), ".acontext-claude-code");
 }

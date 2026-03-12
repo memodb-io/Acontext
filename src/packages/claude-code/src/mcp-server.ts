@@ -143,6 +143,7 @@ server.tool(
     limit: z
       .number()
       .min(1)
+      .max(20)
       .optional()
       .describe("Max sessions to include (default: 3)"),
   },

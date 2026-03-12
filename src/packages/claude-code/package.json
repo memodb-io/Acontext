@@ -10,7 +10,8 @@
   },
   "scripts": {
     "build": "tsx build.ts",
-    "clean": "rm -rf plugin/scripts/*.cjs"
+    "clean": "rm -rf plugin/scripts/*.cjs",
+    "test": "vitest run"
   },
   "dependencies": {
     "@acontext/acontext": "^0.1.16",
@@ -21,6 +22,7 @@
     "@types/node": "^20.17.0",
     "esbuild": "^0.27.3",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
   }
 }

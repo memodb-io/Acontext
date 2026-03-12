@@ -11,11 +11,15 @@
  * Messages are in Anthropic format (role + content blocks).
  */
 
-import * as fs from "node:fs/promises";
-import * as readline from "node:readline/promises";
-import { createReadStream } from "node:fs";
+import * as path from "node:path";
 import { AcontextBridge } from "./bridge";
 import { loadConfig, resolveDataDir } from "./config";
+import { acquireLock, releaseLock } from "./lock";
+import {
+  parseStdinJson,
+  readTranscriptMessages,
+  mergeConsecutiveMessages,
+} from "./transcript";
 
 const logger = {
   info: (msg: string) => console.error(`[info] ${msg}`),
@@ -28,57 +32,6 @@ async function readStdin(): Promise<string> {
     chunks.push(chunk);
   }
   return Buffer.concat(chunks).toString("utf-8");
-}
-
-function parseStdinJson(raw: string): Record<string, unknown> | null {
-  if (!raw.trim()) return null;
-  try {
-    return JSON.parse(raw);
-  } catch {
-    logger.warn(`acontext: failed to parse stdin JSON`);
-    return null;
-  }
-}
-
-/**
- * Read messages from the Claude Code transcript JSONL file.
- * Each line is a JSON object; we extract lines with `message.role` and `message.content`.
- */
-async function readTranscriptMessages(
-  transcriptPath: string,
-): Promise<Record<string, unknown>[]> {
-  const messages: Record<string, unknown>[] = [];
-  try {
-    const rl = readline.createInterface({
-      input: createReadStream(transcriptPath, "utf-8"),
-      crlfDelay: Infinity,
-    });
-    for await (const line of rl) {
-      if (!line.trim()) continue;
-      try {
-        const obj = JSON.parse(line);
-        const msg = obj.message;
-        if (msg && msg.role && msg.content !== undefined) {
-          // Skip messages with empty content — the API requires at least one part
-          const content = msg.content;
-          if (Array.isArray(content) && content.length === 0) continue;
-          if (typeof content === "string" && content.length === 0) continue;
-
-          messages.push({
-            role: msg.role,
-            content,
-          });
-        }
-      } catch {
-        // skip malformed lines
-      }
-    }
-  } catch (err: any) {
-    if (err?.code !== "ENOENT") {
-      logger.warn(`acontext: failed to read transcript: ${String(err)}`);
-    }
-  }
-  return messages;
 }
 
 async function handleSessionStart(bridge: AcontextBridge): Promise<void> {
@@ -97,78 +50,104 @@ async function handleSessionStart(bridge: AcontextBridge): Promise<void> {
 async function handlePostToolUse(
   bridge: AcontextBridge,
   config: { autoLearn: boolean; minTurnsForLearn: number },
+  lockDir: string,
 ): Promise<void> {
-  // Read stdin to get hook context (includes transcript_path)
+  // Read stdin before acquiring lock (stdin must be consumed promptly)
   const raw = await readStdin();
-  const data = parseStdinJson(raw);
+  const data = parseStdinJson(raw, logger.warn);
 
-  // Restore session state from previous hook invocation
-  let sessionId = bridge.getSessionId();
-  if (!sessionId) {
-    const restored = await bridge.loadSessionState();
-    if (!restored) {
-      await bridge.ensureSession();
-      await bridge.saveSessionState();
-    }
-    sessionId = bridge.getSessionId();
-  }
-  if (!sessionId) return;
-
-  // Read messages from transcript file
-  const transcriptPath = data?.transcript_path as string | undefined;
-  if (!transcriptPath) {
-    logger.warn("acontext: no transcript_path in hook data, skipping capture");
+  // Acquire lock — if another hook process holds it, skip this invocation.
+  // The next hook or the stop handler will pick up any missed messages.
+  const locked = await acquireLock(lockDir);
+  if (!locked) {
+    logger.info("acontext: another hook process is active, skipping capture");
     return;
   }
 
-  const allMessages = await readTranscriptMessages(transcriptPath);
-  if (allMessages.length === 0) return;
-
-  // Skip already-processed messages for O(1) instead of O(n) dedup
-  const lastIdx = bridge.getLastProcessedIndex();
-  const newMessages = allMessages.slice(lastIdx);
-  if (newMessages.length === 0) return;
-
-  const { stored, processed } = await bridge.storeMessages(
-    sessionId,
-    newMessages,
-    lastIdx,
-  );
-  if (stored > 0 || processed > 0) {
-    bridge.setLastProcessedIndex(lastIdx + processed);
-  }
-  if (stored > 0) {
-    bridge.incrementTurnCount();
-    logger.info(
-      `acontext: captured ${stored} new messages, ${allMessages.length} total in transcript (turn ${bridge.getTurnCount()})`,
-    );
-  }
-  if (processed > 0) {
-    await bridge.saveSessionState();
-  }
-
-  // Auto-learn check
-  if (config.autoLearn && bridge.getTurnCount() >= config.minTurnsForLearn) {
-    try {
-      await bridge.flush(sessionId);
-      const result = await bridge.learnFromSession(sessionId);
-      if (result.status === "learned") {
-        logger.info(`acontext: auto-learn triggered (learning: ${result.id})`);
-        bridge.resetTurnCount();
+  try {
+    // Restore session state UNDER LOCK to see the latest lastProcessedIndex
+    let sessionId = bridge.getSessionId();
+    if (!sessionId) {
+      const restored = await bridge.loadSessionState();
+      if (!restored) {
+        await bridge.ensureSession();
         await bridge.saveSessionState();
       }
-    } catch (err) {
-      logger.warn(`acontext: auto-learn failed: ${String(err)}`);
+      sessionId = bridge.getSessionId();
     }
+    if (!sessionId) return;
+
+    const transcriptPath = data?.transcript_path as string | undefined;
+    if (!transcriptPath) {
+      logger.warn(
+        "acontext: no transcript_path in hook data, skipping capture",
+      );
+      return;
+    }
+
+    const allRawMessages = await readTranscriptMessages(transcriptPath, logger.warn);
+    if (allRawMessages.length === 0) return;
+
+    const lastIdx = bridge.getLastProcessedIndex();
+    const newRaw = allRawMessages.slice(lastIdx);
+    if (newRaw.length === 0) return;
+
+    // Merge consecutive same-role entries into single messages so that e.g.
+    // [thinking, text, tool_use, tool_use] from one assistant turn becomes one message.
+    const { messages: merged, rawCounts } = mergeConsecutiveMessages(newRaw);
+
+    const { stored, processed } = await bridge.storeMessages(
+      sessionId,
+      merged,
+      lastIdx,
+    );
+    if (processed > 0) {
+      const rawProcessed = rawCounts
+        .slice(0, processed)
+        .reduce((a, b) => a + b, 0);
+      bridge.setLastProcessedIndex(lastIdx + rawProcessed);
+    }
+    if (stored > 0) {
+      bridge.incrementTurnCount();
+      logger.info(
+        `acontext: captured ${stored} new messages (${newRaw.length} raw blocks merged to ${merged.length}), ${allRawMessages.length} total in transcript (turn ${bridge.getTurnCount()})`,
+      );
+    }
+    if (processed > 0) {
+      await bridge.saveSessionState();
+    }
+
+    // Auto-learn check
+    if (
+      config.autoLearn &&
+      bridge.getTurnCount() >= config.minTurnsForLearn
+    ) {
+      try {
+        await bridge.flush(sessionId);
+        const result = await bridge.learnFromSession(sessionId);
+        if (result.status === "learned") {
+          logger.info(
+            `acontext: auto-learn triggered (learning: ${result.id})`,
+          );
+          bridge.resetTurnCount();
+          await bridge.saveSessionState();
+        }
+      } catch (err) {
+        logger.warn(`acontext: auto-learn failed: ${String(err)}`);
+      }
+    }
+  } finally {
+    await releaseLock(lockDir);
   }
 }
 
 async function handleStop(
   bridge: AcontextBridge,
   config: { autoLearn: boolean },
+  lockDir: string,
 ): Promise<void> {
   const raw = await readStdin();
-  const data = parseStdinJson(raw);
+  const data = parseStdinJson(raw, logger.warn);
 
   // Restore session state from previous hook invocation
   if (!bridge.getSessionId()) {
@@ -177,58 +156,82 @@ async function handleStop(
   const sessionId = bridge.getSessionId();
   if (!sessionId) return;
 
-  // Final capture from transcript before flushing
-  const transcriptPath = data?.transcript_path as string | undefined;
-  if (transcriptPath) {
-    const allMessages = await readTranscriptMessages(transcriptPath);
-    if (allMessages.length > 0) {
-      const lastIdx = bridge.getLastProcessedIndex();
-      const newMessages = allMessages.slice(lastIdx);
-      if (newMessages.length > 0) {
-        const { stored, processed } = await bridge.storeMessages(
-          sessionId,
-          newMessages,
-          lastIdx,
-        );
-        if (stored > 0 || processed > 0) {
-          bridge.setLastProcessedIndex(lastIdx + processed);
-        }
-        if (stored > 0) {
-          logger.info(`acontext: final capture: ${stored} new messages`);
-        }
-        if (processed > 0) {
-          await bridge.saveSessionState();
-        }
-      }
-    }
+  // Stop is the last chance to capture — must wait for lock (retry up to 5s)
+  let locked = false;
+  for (let attempt = 0; attempt < 10; attempt++) {
+    locked = await acquireLock(lockDir);
+    if (locked) break;
+    await new Promise((r) => setTimeout(r, 500));
   }
 
   try {
-    await bridge.flush(sessionId);
-    logger.info(`acontext: session flushed: ${sessionId}`);
-  } catch (err) {
-    logger.warn(`acontext: flush failed: ${String(err)}`);
-  }
+    if (locked) {
+      // Re-load state under lock to get latest lastProcessedIndex
+      await bridge.loadSessionState();
+    }
 
-  // Intentionally skip minTurnsForLearn check here — Stop should always
-  // attempt to learn at session end regardless of turn count, since this
-  // is the last chance to capture knowledge from the conversation.
-  if (config.autoLearn) {
-    try {
-      const result = await bridge.learnFromSession(sessionId);
-      if (result.status === "learned") {
-        logger.info(
-          `acontext: end-of-session learn triggered (learning: ${result.id})`,
-        );
-        // Sync newly learned skills to local directory
-        bridge.syncSkillsToLocal().catch((err) => {
-          logger.warn(
-            `acontext: skill sync after learning failed: ${String(err)}`,
+    // Final capture from transcript before flushing
+    const transcriptPath = data?.transcript_path as string | undefined;
+    if (transcriptPath) {
+      const allRawMessages = await readTranscriptMessages(transcriptPath, logger.warn);
+      if (allRawMessages.length > 0) {
+        const lastIdx = bridge.getLastProcessedIndex();
+        const newRaw = allRawMessages.slice(lastIdx);
+        if (newRaw.length > 0) {
+          const { messages: merged, rawCounts } =
+            mergeConsecutiveMessages(newRaw);
+          const { stored, processed } = await bridge.storeMessages(
+            sessionId,
+            merged,
+            lastIdx,
           );
-        });
+          if (processed > 0) {
+            const rawProcessed = rawCounts
+              .slice(0, processed)
+              .reduce((a, b) => a + b, 0);
+            bridge.setLastProcessedIndex(lastIdx + rawProcessed);
+          }
+          if (stored > 0) {
+            logger.info(`acontext: final capture: ${stored} new messages`);
+          }
+          if (processed > 0) {
+            await bridge.saveSessionState();
+          }
+        }
       }
+    }
+
+    try {
+      await bridge.flush(sessionId);
+      logger.info(`acontext: session flushed: ${sessionId}`);
     } catch (err) {
-      logger.warn(`acontext: end-of-session learn failed: ${String(err)}`);
+      logger.warn(`acontext: flush failed: ${String(err)}`);
+    }
+
+    // Intentionally skip minTurnsForLearn check here — Stop should always
+    // attempt to learn at session end regardless of turn count, since this
+    // is the last chance to capture knowledge from the conversation.
+    if (config.autoLearn) {
+      try {
+        const result = await bridge.learnFromSession(sessionId);
+        if (result.status === "learned") {
+          logger.info(
+            `acontext: end-of-session learn triggered (learning: ${result.id})`,
+          );
+          // Sync newly learned skills to local directory
+          bridge.syncSkillsToLocal().catch((err) => {
+            logger.warn(
+              `acontext: skill sync after learning failed: ${String(err)}`,
+            );
+          });
+        }
+      } catch (err) {
+        logger.warn(`acontext: end-of-session learn failed: ${String(err)}`);
+      }
+    }
+  } finally {
+    if (locked) {
+      await releaseLock(lockDir);
     }
   }
 }
@@ -255,16 +258,17 @@ async function main(): Promise<void> {
 
   const dataDir = resolveDataDir();
   const bridge = new AcontextBridge(config, dataDir, logger);
+  const lockDir = path.join(dataDir, ".hook-lock");
 
   switch (command) {
     case "session-start":
       await handleSessionStart(bridge);
       break;
     case "post-tool-use":
-      await handlePostToolUse(bridge, config);
+      await handlePostToolUse(bridge, config, lockDir);
       break;
     case "stop":
-      await handleStop(bridge, config);
+      await handleStop(bridge, config, lockDir);
       break;
     default:
       console.error(`Unknown command: ${command}`);
