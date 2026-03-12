@@ -43,11 +43,14 @@ acontext login
 
 #### Option A: Claude Code Plugin
 
-```bash
-claude plugins add @acontext/claude-code
+Add the Acontext marketplace and install the plugin (run inside Claude Code):
+
+```
+/plugin marketplace add memodb-io/Acontext
+/plugin install acontext
 ```
 
-Then set the required environment variable in your shell profile (`~/.bashrc` or `~/.zshrc`):
+Then set the required environment variables in your shell profile (`~/.bashrc` or `~/.zshrc`):
 
 ```bash
 export ACONTEXT_API_KEY="<your-api-key>"
@@ -202,7 +205,7 @@ Restart your shell or run `source ~/.bashrc` / `source ~/.zshrc`. The installer 
 
 - Ensure `ACONTEXT_API_KEY` is exported in your shell profile
 - Check Claude Code logs for `[info] acontext:` or `[warn] acontext:` messages
-- Verify the plugin is installed: `claude plugins list`
+- Verify the plugin is installed: `/plugin list`
 - Skills should appear in `~/.claude/skills/` after the first session
 
 ### OpenClaw plugin not loading

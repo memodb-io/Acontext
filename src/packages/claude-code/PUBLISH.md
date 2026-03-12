@@ -1,15 +1,29 @@
 # Publishing Guide
 
-> **Status:** The automated release workflow (`package-release-claude-code.yaml`) and AGENTS.md release tag entry have not been set up yet. The steps below describe the intended process — some are not functional until the CI pipeline is created.
+## Distribution Model
 
-## Publishing Steps
+Claude Code plugins are distributed via **marketplaces** — not npm. Users install by adding a marketplace that references this repository, then installing the plugin from it.
+
+The plugin source lives at `src/packages/claude-code/plugin/` in the [Acontext monorepo](https://github.com/memodb-io/Acontext). A marketplace entry points to this path using the `git-subdir` source type.
+
+### How users install
+
+1. Add the marketplace (one-time):
+   ```
+   /plugin marketplace add memodb-io/Acontext
+   ```
+
+2. Install the plugin:
+   ```
+   /plugin install acontext
+   ```
+
+## Release Steps
 
 ### 1. Prerequisites
 
 - Node.js 18+ installed
-- An npm account and logged in (`npm login`)
-- Permission to publish the `@acontext/claude-code` package (member of `@acontext` npm org)
-- Push access to the repository to create tags
+- Push access to the repository
 - The plugin builds successfully (`npm run build`)
 
 ### 2. Update Version Number
@@ -44,47 +58,22 @@ git push origin package-claude-code/v0.1.0
 
 The tag version must match `package.json`.
 
-### 4. Automated Publishing
+> **TODO:** Add the `package-claude-code/vX.Y.Z` tag entry to `AGENTS.md` and create `.github/workflows/package-release-claude-code.yaml` if automated GitHub Releases are desired.
 
-> **TODO:** Create `.github/workflows/package-release-claude-code.yaml` and add the `package-claude-code/vX.Y.Z` tag entry to `AGENTS.md`.
+### 4. Verify
 
-Once the workflow exists, pushing the tag will:
+Users who have added the marketplace can update to the latest version:
 
-1. Verify the tag version matches `package.json` version
-2. Build the plugin
-3. Publish to npm as `@acontext/claude-code`
-4. Create a GitHub Release
-
-### 5. Manual Publishing (Alternative)
-
-First, remove `"private": true` from `package.json`, then:
-
-```bash
-cd src/packages/claude-code
-npm run build
-npm publish --access public
+```
+/plugin install acontext
 ```
 
-### 6. Verify Publication
-
-```bash
-npm view @acontext/claude-code version
-```
-
-Test in Claude Code:
-
-```bash
-claude plugins add @acontext/claude-code
-```
-
-## Pre-publish Checklist
+## Pre-release Checklist
 
 - [ ] Version bumped in `package.json` and `plugin/.claude-plugin/plugin.json` (must match)
 - [ ] `npm install` run to regenerate `package-lock.json`
 - [ ] `npm run build` succeeds and `plugin/scripts/*.cjs` are up to date
-- [ ] `"private": true` removed from `package.json` (if publishing to npm)
-- [ ] Release workflow exists (`.github/workflows/package-release-claude-code.yaml`)
-- [ ] AGENTS.md updated with `package-claude-code/vX.Y.Z` tag pattern
+- [ ] Bundled `plugin/scripts/*.cjs` committed to git
 
 ## Version Management
 
@@ -96,5 +85,6 @@ Follow [Semantic Versioning](https://semver.org/):
 
 ## Notes
 
-- The `plugin/scripts/*.cjs` bundled files are checked into git — they must be rebuilt before publishing
+- The `plugin/scripts/*.cjs` bundled files are checked into git — they must be rebuilt before each release
 - Both `package.json` and `plugin/.claude-plugin/plugin.json` versions should be kept in sync
+- The plugin is **not published to npm** — Claude Code fetches it directly from the git repository via the marketplace system

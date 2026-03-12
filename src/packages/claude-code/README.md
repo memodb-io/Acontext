@@ -11,8 +11,11 @@ Acontext skill memory plugin for [Claude Code](https://docs.anthropic.com/en/doc
 
 ## Installation
 
-```bash
-claude plugins add @acontext/claude-code
+Add the Acontext marketplace and install the plugin:
+
+```
+/plugin marketplace add memodb-io/Acontext
+/plugin install acontext
 ```
 
 ## Setup
