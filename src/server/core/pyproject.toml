@@ -1,6 +1,6 @@
 [project]
 name = "acontext_core"
-version = "0.1.10"
+version = "0.1.11"
 description = "Core for Acontext"
 readme = "README.md"
 requires-python = ">=3.11"
