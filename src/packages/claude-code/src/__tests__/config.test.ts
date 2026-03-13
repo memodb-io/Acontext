@@ -1,23 +1,55 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import * as path from "node:path";
 import * as os from "node:os";
+import * as fs from "node:fs";
 
 describe("loadConfig", () => {
   const originalEnv = process.env;
+  let tmpConfigDir: string;
 
   beforeEach(() => {
     vi.resetModules();
-    process.env = { ...originalEnv, ACONTEXT_API_KEY: "test-key-123" };
+    // Create a temp dir so real ~/.acontext/ files don't interfere
+    tmpConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), "claude-code-test-"));
+    process.env = { ...originalEnv, ACONTEXT_API_KEY: "test-key-123", ACONTEXT_CONFIG_DIR: tmpConfigDir };
   });
 
   afterEach(() => {
     process.env = originalEnv;
+    fs.rmSync(tmpConfigDir, { recursive: true, force: true });
   });
 
-  it("throws when ACONTEXT_API_KEY is missing", async () => {
+  it("throws when no API key is available from env or credentials file", async () => {
     delete process.env.ACONTEXT_API_KEY;
     const { loadConfig } = await import("../config");
     expect(() => loadConfig()).toThrow("ACONTEXT_API_KEY is required");
+  });
+
+  it("falls back to env var when credentials.json is missing", async () => {
+    process.env.ACONTEXT_API_KEY = "env-key";
+    // No credentials.json written — env var should be used as fallback
+    const { loadConfig } = await import("../config");
+    expect(loadConfig().apiKey).toBe("env-key");
+  });
+
+  it("falls back to auth.json for userId when ACONTEXT_USER_ID is not set", async () => {
+    delete process.env.ACONTEXT_USER_ID;
+    fs.writeFileSync(
+      path.join(tmpConfigDir, "auth.json"),
+      JSON.stringify({ user: { email: "user@test.com" } }),
+    );
+    const { loadConfig } = await import("../config");
+    expect(loadConfig().userId).toBe("user@test.com");
+  });
+
+  it("credentials.json takes priority over env var", async () => {
+    process.env.ACONTEXT_API_KEY = "env-key";
+    fs.writeFileSync(
+      path.join(tmpConfigDir, "credentials.json"),
+      JSON.stringify({ default_project: "proj-1", keys: { "proj-1": "file-key" } }),
+    );
+    const { loadConfig } = await import("../config");
+    expect(loadConfig().apiKey).toBe("file-key");
   });
 
   it("trims whitespace from API key", async () => {
@@ -38,7 +70,7 @@ describe("loadConfig", () => {
     expect(loadConfig().baseUrl).toBe("https://custom.api/v1");
   });
 
-  it("uses default userId when env is not set", async () => {
+  it("uses default userId when env and auth.json are not available", async () => {
     delete process.env.ACONTEXT_USER_ID;
     const { loadConfig } = await import("../config");
     expect(loadConfig().userId).toBe("default");

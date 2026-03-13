@@ -14,6 +14,7 @@
 
 import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
+import * as fsSync from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 import { Type } from "@sinclair/typebox";
@@ -101,6 +102,51 @@ export function assertAllowedKeys(
   throw new Error(`${label} has unknown keys: ${unknown.join(", ")}`);
 }
 
+/**
+ * Resolve the Acontext config directory.
+ * Priority: ACONTEXT_CONFIG_DIR env var > ~/.acontext
+ */
+function getAcontextConfigDir(): string {
+  return process.env.ACONTEXT_CONFIG_DIR || path.join(os.homedir(), ".acontext");
+}
+
+/**
+ * Read credentials.json and return the default project's API key.
+ */
+function loadApiKeyFromCredentials(): string | undefined {
+  try {
+    const filePath = path.join(getAcontextConfigDir(), "credentials.json");
+    const data = JSON.parse(fsSync.readFileSync(filePath, "utf-8")) as {
+      default_project?: string;
+      keys?: Record<string, string>;
+    };
+    if (data.default_project && data.keys?.[data.default_project]) {
+      return data.keys[data.default_project];
+    }
+  } catch {
+    // File doesn't exist or is invalid — silently fall through
+  }
+  return undefined;
+}
+
+/**
+ * Read auth.json and return the user's email.
+ */
+function loadUserIdFromAuth(): string | undefined {
+  try {
+    const filePath = path.join(getAcontextConfigDir(), "auth.json");
+    const data = JSON.parse(fsSync.readFileSync(filePath, "utf-8")) as {
+      user?: { email?: string };
+    };
+    if (data.user?.email) {
+      return data.user.email;
+    }
+  } catch {
+    // File doesn't exist or is invalid — silently fall through
+  }
+  return undefined;
+}
+
 export const configSchema = {
   parse(value: unknown): AcontextConfig {
     if (!value || typeof value !== "object" || Array.isArray(value)) {
@@ -109,18 +155,27 @@ export const configSchema = {
     const cfg = value as Record<string, unknown>;
     assertAllowedKeys(cfg, ALLOWED_KEYS, "acontext config");
 
-    if (typeof cfg.apiKey !== "string" || !cfg.apiKey) {
+    // Resolve apiKey: config > ~/.acontext/credentials.json > env var resolution
+    let resolvedApiKey: string | undefined;
+    resolvedApiKey = loadApiKeyFromCredentials();
+    if (!resolvedApiKey && typeof cfg.apiKey === "string" && cfg.apiKey) {
+      try {
+        resolvedApiKey = resolveEnvVars(cfg.apiKey).trim() || undefined;
+      } catch {
+        // Env var resolution failed — fall through
+      }
+    }
+    if (!resolvedApiKey) {
       throw new Error(
-        'apiKey is required (set config.apiKey or use "${ACONTEXT_API_KEY}")',
+        'apiKey is required (set config.apiKey, use "${ACONTEXT_API_KEY}", or run "acontext login")',
       );
     }
 
-    const resolvedApiKey = resolveEnvVars(cfg.apiKey).trim();
-    if (!resolvedApiKey) {
-      throw new Error(
-        "apiKey resolved to an empty string (check the referenced environment variable)",
-      );
-    }
+    // Resolve userId: ~/.acontext/auth.json > config > "default"
+    const userId =
+      loadUserIdFromAuth() ||
+      (typeof cfg.userId === "string" && cfg.userId ? cfg.userId : undefined) ||
+      "default";
 
     return {
       apiKey: resolvedApiKey,
@@ -128,8 +183,7 @@ export const configSchema = {
         typeof cfg.baseUrl === "string" && cfg.baseUrl
           ? resolveEnvVars(cfg.baseUrl)
           : "https://api.acontext.app/api/v1",
-      userId:
-        typeof cfg.userId === "string" && cfg.userId ? cfg.userId : "default",
+      userId,
       learningSpaceId:
         typeof cfg.learningSpaceId === "string"
           ? cfg.learningSpaceId

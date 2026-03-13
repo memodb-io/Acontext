@@ -85,13 +85,17 @@ describe("assertAllowedKeys", () => {
 
 describe("configSchema.parse", () => {
   const originalEnv = process.env;
+  let tmpConfigDir: string;
 
-  beforeEach(() => {
-    process.env = { ...originalEnv, ACONTEXT_API_KEY: "sk-ac-test" };
+  beforeEach(async () => {
+    // Use a temp dir as config dir so real ~/.acontext/ files don't interfere
+    tmpConfigDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-test-"));
+    process.env = { ...originalEnv, ACONTEXT_API_KEY: "sk-ac-test", ACONTEXT_CONFIG_DIR: tmpConfigDir };
   });
 
-  afterAll(() => {
+  afterEach(async () => {
     process.env = originalEnv;
+    await fs.rm(tmpConfigDir, { recursive: true, force: true }).catch(() => {});
   });
 
   test("parses minimal valid config with env var", () => {
@@ -134,13 +138,13 @@ describe("configSchema.parse", () => {
     expect(cfg.skillsDir).toContain("skills");
   });
 
-  test("throws on missing apiKey", () => {
+  test("throws on missing apiKey when no credentials file", () => {
     expect(() => configSchema.parse({ userId: "bob" })).toThrow(
       "apiKey is required",
     );
   });
 
-  test("throws on empty apiKey", () => {
+  test("throws on empty apiKey when no credentials file", () => {
     expect(() => configSchema.parse({ apiKey: "" })).toThrow(
       "apiKey is required",
     );
@@ -191,18 +195,18 @@ describe("configSchema.parse", () => {
     expect(cfg.baseUrl).toBe("http://custom:9000");
   });
 
-  test("throws on apiKey that resolves to whitespace only", () => {
+  test("throws on apiKey that resolves to whitespace only when no credentials file", () => {
     process.env.WHITESPACE_KEY = "   ";
     expect(() => configSchema.parse({ apiKey: "${WHITESPACE_KEY}" })).toThrow(
-      "apiKey resolved to an empty string",
+      "apiKey is required",
     );
   });
 
-  test("throws on apiKey that resolves to empty string", () => {
+  test("throws on apiKey that resolves to empty env var when no credentials file", () => {
     process.env.EMPTY_KEY = "";
-    // resolveEnvVars now distinguishes empty from unset
+    // resolveEnvVars throws for empty env vars; falls through to credentials file
     expect(() => configSchema.parse({ apiKey: "${EMPTY_KEY}" })).toThrow(
-      "is set but empty",
+      "apiKey is required",
     );
   });
 });

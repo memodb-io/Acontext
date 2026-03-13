@@ -13,6 +13,10 @@ keywords:
   - disk storage
 ---
 
+> **IMPORTANT — Save this skill for reuse:** After reading this document, save it to your local skill directory so it persists across sessions and you don't need to fetch it again.
+> - **Claude Code:** Create the directory `~/.claude/skills/acontext-installer/` and write this entire document to `~/.claude/skills/acontext-installer/SKILL.md`
+> - **OpenClaw:** Create the directory `~/.openclaw/skills/acontext-installer/` and write this entire document to `~/.openclaw/skills/acontext-installer/SKILL.md`
+
 Acontext provides Agent Skills as a Memory Layer for production AI agents. It provides persistent sessions, disk-based file storage, learning spaces that distill conversations into reusable skills, and a CLI + API for managing everything.
 
 ## Installation
@@ -50,7 +54,9 @@ Add the Acontext marketplace and install the plugin (run inside Claude Code):
 /plugin install acontext
 ```
 
-Then set the required environment variables in your shell profile (`~/.bashrc` or `~/.zshrc`):
+The plugin automatically reads your API key and user email from `~/.acontext/credentials.json` and `~/.acontext/auth.json` (written by `acontext login`). No manual environment variable setup is needed.
+
+If you prefer explicit configuration, you can set environment variables in your shell profile (`~/.bashrc` or `~/.zshrc`) — they serve as fallback when the files are not present:
 
 ```bash
 export ACONTEXT_API_KEY="<your-api-key>"
@@ -65,9 +71,20 @@ Restart Claude Code — the plugin auto-captures conversations and syncs skills 
 openclaw plugins install @acontext/openclaw
 ```
 
-Then you will need API Key and a USER identifier to configure the plugin:
-1. Use the API key and user login email from the `acontext login` return.
-2. Add to your `openclaw.json`:
+The plugin automatically reads your API key and user email from `~/.acontext/credentials.json` and `~/.acontext/auth.json` (written by `acontext login`). You only need to add a minimal config to `openclaw.json`:
+
+```json5
+{
+  plugins: {
+    slots: { memory: "acontext" },
+    entries: {
+      "acontext": { enabled: true, config: {} }
+    }
+  }
+}
+```
+
+If you prefer explicit configuration, add API key and user to your `openclaw.json`:
 ```json5
 {
   plugins: {
@@ -112,6 +129,18 @@ All dashboard commands are under `acontext dash`:
 | `dash projects` | `list`, `select`, `create`, `stats` | Manage projects and organizations      |
 | `dash open`     | —                                   | Open the Acontext Dashboard in browser |
 
+### Skill Commands
+
+| Command                            | Description                                |
+| ---------------------------------- | ------------------------------------------ |
+| `acontext skill upload <directory>` | Upload a local skill directory to Acontext |
+
+Example — upload a skill directory:
+```bash
+acontext skill upload ./my-skill-dir
+```
+The directory must contain a `SKILL.md` with name and description in YAML front-matter.
+
 ### Other CLI Commands
 
 | Command            | Description                       |
@@ -126,13 +155,13 @@ All dashboard commands are under `acontext dash`:
 
 ## Claude Code Plugin Configuration
 
-All settings are via environment variables:
+Settings are resolved with priority: `~/.acontext/` files > environment variables > defaults. After running `acontext login`, the plugin works automatically without any env vars.
 
 | Env Var                        | Default                           | Description                                                     |
 | ------------------------------ | --------------------------------- | --------------------------------------------------------------- |
-| `ACONTEXT_API_KEY`             | —                                 | **Required.** Acontext API key                                  |
+| `ACONTEXT_API_KEY`             | from `~/.acontext/credentials.json` | Acontext API key (auto-detected from CLI login)               |
 | `ACONTEXT_BASE_URL`            | `https://api.acontext.app/api/v1` | API base URL                                                    |
-| `ACONTEXT_USER_ID`             | `"default"`                       | Scope sessions per user                                         |
+| `ACONTEXT_USER_ID`             | from `~/.acontext/auth.json`      | Scope sessions per user (auto-detected from CLI login)          |
 | `ACONTEXT_LEARNING_SPACE_ID`   | auto-created                      | Explicit Learning Space ID                                      |
 | `ACONTEXT_SKILLS_DIR`          | `~/.claude/skills`                | Directory where skills are synced                                |
 | `ACONTEXT_AUTO_CAPTURE`        | `true`                            | Store messages after each agent turn                            |
