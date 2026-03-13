@@ -150,6 +150,7 @@ Get started by running: acontext create
 		fmt.Println("  acontext server        Start server with sandbox and docker")
 		fmt.Println("  acontext login         Log in to Acontext Dashboard")
 		fmt.Println("  acontext dash          Dashboard operations (sessions, skills, ...)")
+		fmt.Println("  acontext skill         Manage agent skills (upload, ...)")
 		fmt.Println("  acontext version       Show version information")
 		fmt.Println("  acontext upgrade       Upgrade to the latest version")
 		fmt.Println("  acontext help          Show help information")
@@ -167,6 +168,7 @@ func init() {
 	rootCmd.AddCommand(cmd.LogoutCmd)
 	rootCmd.AddCommand(cmd.WhoamiCmd)
 	rootCmd.AddCommand(cmd.DashCmd)
+	rootCmd.AddCommand(cmd.SkillCmd)
 }
 
 var versionCmd = &cobra.Command{
