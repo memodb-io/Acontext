@@ -64,6 +64,8 @@ async def process_skill_distillation(body: SkillLearnTask, message: Message):
         LOG.info(
             f"Skill distillation: task {body.task_id} skipped (task not actionable or not worth learning)"
         )
+        async with DB_CLIENT.get_session_context() as db_session:
+            await LS.update_session_status(db_session, body.session_id, "completed")
         return
 
     # Publish distilled result to skill agent consumer
@@ -138,6 +140,12 @@ async def process_skill_agent(body: SkillLearnDistilled, message: Message):
             async with DB_CLIENT.get_session_context() as db_session:
                 for sid in all_session_ids:
                     await LS.update_session_status(db_session, sid, "completed")
+    except Exception as e:
+        LOG.error(
+            f"Skill agent: unhandled exception for learning space {body.learning_space_id}: {e}"
+        )
+        async with DB_CLIENT.get_session_context() as db_session:
+            await LS.update_session_status(db_session, body.session_id, "failed")
     finally:
         await release_redis_lock(body.project_id, lock_key)
 
