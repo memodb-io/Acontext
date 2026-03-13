@@ -168,14 +168,14 @@ export function Hero() {
         >
           <div className="flex justify-center hero-tagline">
             <span className="inline-flex items-center px-3 sm:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm font-medium bg-primary/10 text-primary border border-primary/20">
-              Learn, Write, Reuse
+              Agent Skills as Memory Layer
             </span>
           </div>
           <h1
             ref={titleRef}
             className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-tight sm:leading-[1.3] hero-title will-change-transform"
           >
-            <span className="cursor-default">Agents Skill Memory for</span>
+            <span className="cursor-default">Skill Memory for</span>
             <br />
             <RotatingText
               texts={ROTATING_WORDS}
@@ -218,23 +218,23 @@ export function Hero() {
           className="max-w-3xl mx-auto space-y-3 sm:space-y-4 animate-fade-in animation-delay-600 px-2 sm:px-0 will-change-transform"
         >
           <p className="text-sm sm:text-base md:text-lg text-muted-foreground leading-relaxed">
-            Your agents forget everything between sessions. Acontext fixes that.
+            With Acontext, your agents can improve themselves via dynamic skill.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-x-2 sm:gap-x-3 gap-y-2 text-xs sm:text-sm md:text-base text-muted-foreground/80">
             <span className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-muted/50 border border-border/50">
-              Auto-Capture
+              Session Backup
             </span>
             <span className="text-muted-foreground/40 hidden sm:inline">·</span>
             <span className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-muted/50 border border-border/50">
-              Skill-Driven
+              Improve Your Agents over Time
             </span>
             <span className="text-muted-foreground/40 hidden sm:inline">·</span>
             <span className="px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-muted/50 border border-border/50">
-              Self-Learning
+              Sync Skills to Local
             </span>
           </div>
           <p className="text-xs sm:text-sm md:text-base text-muted-foreground/70 leading-relaxed max-w-2xl mx-auto">
-            Captures what works, distills it into Agent Skills, and loads them on the next run.
+            Captures what works, distills it into skills, and sync them to local.
           </p>
         </div>
 
