@@ -116,33 +116,36 @@ func TestOpenAINormalizer_NormalizeFromOpenAIMessage(t *testing.T) {
 			wantErr:     false,
 		},
 		{
-			name: "system message (not supported)",
+			name: "system message with string content",
 			input: `{
 				"role": "system",
 				"content": "You are a helpful assistant."
 			}`,
-			wantErr:     true,
-			errContains: "system messages are not supported",
+			wantRole:    model.RoleUser,
+			wantPartCnt: 1,
+			wantErr:     false,
 		},
 		{
-			name: "system message with array content (not supported)",
+			name: "system message with array content",
 			input: `{
 				"role": "system",
 				"content": [
 					{"type": "text", "text": "You are a helpful assistant."}
 				]
 			}`,
-			wantErr:     true,
-			errContains: "system messages are not supported",
+			wantRole:    model.RoleUser,
+			wantPartCnt: 1,
+			wantErr:     false,
 		},
 		{
-			name: "developer message (not supported)",
+			name: "developer message with string content",
 			input: `{
 				"role": "developer",
 				"content": "This is a developer instruction."
 			}`,
-			wantErr:     true,
-			errContains: "developer messages are not supported",
+			wantRole:    model.RoleUser,
+			wantPartCnt: 1,
+			wantErr:     false,
 		},
 		{
 			name: "tool message",
@@ -193,12 +196,12 @@ func TestOpenAINormalizer_NormalizeFromOpenAIMessage(t *testing.T) {
 			errContains: "must have content",
 		},
 		{
-			name: "system message without content (not supported)",
+			name: "system message without content",
 			input: `{
 				"role": "system"
 			}`,
 			wantErr:     true,
-			errContains: "system messages are not supported",
+			errContains: "system message must have content",
 		},
 	}
 
@@ -406,4 +409,82 @@ func TestOpenAINormalizer_MessageWithName(t *testing.T) {
 	assert.NotNil(t, messageMeta)
 	assert.Equal(t, "openai", messageMeta[model.MsgMetaSourceFormat])
 	assert.Equal(t, "Alice", messageMeta[model.MetaKeyName])
+}
+
+func TestNormalizeDeveloperMessage(t *testing.T) {
+	normalizer := &OpenAINormalizer{}
+
+	input := `{
+		"role": "developer",
+		"content": "You must always respond in JSON."
+	}`
+
+	role, parts, messageMeta, err := normalizer.NormalizeFromOpenAIMessage(json.RawMessage(input))
+
+	assert.NoError(t, err)
+	assert.Equal(t, model.RoleUser, role)
+	assert.Len(t, parts, 1)
+	assert.Equal(t, model.PartTypeText, parts[0].Type)
+	assert.Equal(t, "You must always respond in JSON.", parts[0].Text)
+	assert.Equal(t, "openai", messageMeta[model.MsgMetaSourceFormat])
+	assert.Equal(t, "developer", messageMeta[model.MsgMetaOriginalRole])
+}
+
+func TestNormalizeDeveloperMessageArrayContent(t *testing.T) {
+	normalizer := &OpenAINormalizer{}
+
+	input := `{
+		"role": "developer",
+		"content": [
+			{"type": "text", "text": "First instruction."},
+			{"type": "text", "text": "Second instruction."}
+		]
+	}`
+
+	role, parts, messageMeta, err := normalizer.NormalizeFromOpenAIMessage(json.RawMessage(input))
+
+	assert.NoError(t, err)
+	assert.Equal(t, model.RoleUser, role)
+	assert.Len(t, parts, 2)
+	assert.Equal(t, "First instruction.", parts[0].Text)
+	assert.Equal(t, "Second instruction.", parts[1].Text)
+	assert.Equal(t, "developer", messageMeta[model.MsgMetaOriginalRole])
+}
+
+func TestNormalizeSystemMessage(t *testing.T) {
+	normalizer := &OpenAINormalizer{}
+
+	input := `{
+		"role": "system",
+		"content": "You are a helpful assistant."
+	}`
+
+	role, parts, messageMeta, err := normalizer.NormalizeFromOpenAIMessage(json.RawMessage(input))
+
+	assert.NoError(t, err)
+	assert.Equal(t, model.RoleUser, role)
+	assert.Len(t, parts, 1)
+	assert.Equal(t, model.PartTypeText, parts[0].Type)
+	assert.Equal(t, "You are a helpful assistant.", parts[0].Text)
+	assert.Equal(t, "openai", messageMeta[model.MsgMetaSourceFormat])
+	assert.Equal(t, "system", messageMeta[model.MsgMetaOriginalRole])
+}
+
+func TestNormalizeDeveloperMessageWithName(t *testing.T) {
+	normalizer := &OpenAINormalizer{}
+
+	input := `{
+		"role": "developer",
+		"name": "orchestrator",
+		"content": "Follow these rules carefully."
+	}`
+
+	role, parts, messageMeta, err := normalizer.NormalizeFromOpenAIMessage(json.RawMessage(input))
+
+	assert.NoError(t, err)
+	assert.Equal(t, model.RoleUser, role)
+	assert.Len(t, parts, 1)
+	assert.Equal(t, "Follow these rules carefully.", parts[0].Text)
+	assert.Equal(t, "developer", messageMeta[model.MsgMetaOriginalRole])
+	assert.Equal(t, "orchestrator", messageMeta[model.MetaKeyName])
 }

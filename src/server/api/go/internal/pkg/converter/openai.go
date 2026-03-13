@@ -17,6 +17,18 @@ func (c *OpenAIConverter) Convert(messages []model.Message, publicURLs map[strin
 	result := make([]openai.ChatCompletionMessageParamUnion, 0, len(messages))
 
 	for _, msg := range messages {
+		// Check for original_role in meta to restore system/developer roles
+		if originalRole := c.getOriginalRole(msg); originalRole != "" {
+			switch originalRole {
+			case "developer":
+				result = append(result, c.convertToDeveloperMessage(msg))
+				continue
+			case "system":
+				result = append(result, c.convertToSystemMessage(msg))
+				continue
+			}
+		}
+
 		// Special handling: if user role contains only tool-result parts,
 		// convert to OpenAI's tool role
 		if msg.Role == model.RoleUser && c.isToolResultOnly(msg.Parts) {
@@ -264,6 +276,65 @@ func (c *OpenAIConverter) extractToolCallID(parts []model.Part) string {
 		}
 	}
 	return ""
+}
+
+func (c *OpenAIConverter) getOriginalRole(msg model.Message) string {
+	metaData := msg.Meta.Data()
+	if len(metaData) == 0 {
+		return ""
+	}
+	role, _ := metaData[model.MsgMetaOriginalRole].(string)
+	return role
+}
+
+func (c *OpenAIConverter) convertToDeveloperMessage(msg model.Message) openai.ChatCompletionMessageParamUnion {
+	content := c.extractTextContent(msg.Parts)
+
+	devParam := openai.ChatCompletionDeveloperMessageParam{
+		Content: openai.ChatCompletionDeveloperMessageParamContentUnion{
+			OfString: param.NewOpt(content),
+		},
+	}
+
+	if metaData := msg.Meta.Data(); len(metaData) > 0 {
+		if name, ok := metaData[model.MetaKeyName].(string); ok && name != "" {
+			devParam.Name = param.NewOpt(name)
+		}
+	}
+
+	return openai.ChatCompletionMessageParamUnion{
+		OfDeveloper: &devParam,
+	}
+}
+
+func (c *OpenAIConverter) convertToSystemMessage(msg model.Message) openai.ChatCompletionMessageParamUnion {
+	content := c.extractTextContent(msg.Parts)
+
+	sysParam := openai.ChatCompletionSystemMessageParam{
+		Content: openai.ChatCompletionSystemMessageParamContentUnion{
+			OfString: param.NewOpt(content),
+		},
+	}
+
+	if metaData := msg.Meta.Data(); len(metaData) > 0 {
+		if name, ok := metaData[model.MetaKeyName].(string); ok && name != "" {
+			sysParam.Name = param.NewOpt(name)
+		}
+	}
+
+	return openai.ChatCompletionMessageParamUnion{
+		OfSystem: &sysParam,
+	}
+}
+
+func (c *OpenAIConverter) extractTextContent(parts []model.Part) string {
+	content := ""
+	for _, part := range parts {
+		if part.Type == model.PartTypeText {
+			content += part.Text
+		}
+	}
+	return content
 }
 
 func (c *OpenAIConverter) extractToolResultContent(parts []model.Part) string {

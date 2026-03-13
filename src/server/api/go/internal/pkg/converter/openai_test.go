@@ -222,3 +222,73 @@ func TestOpenAIConverter_Convert_ToolResult(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, result)
 }
+
+func TestConvertDeveloperMessageRoundTrip(t *testing.T) {
+	converter := &OpenAIConverter{}
+
+	messages := []model.Message{
+		createTestMessage(model.RoleUser, []model.Part{
+			{Type: model.PartTypeText, Text: "You must always respond in JSON."},
+		}, map[string]any{
+			model.MsgMetaSourceFormat:    "openai",
+			model.MsgMetaOriginalRole: "developer",
+		}),
+	}
+
+	result, err := converter.Convert(messages, nil)
+	require.NoError(t, err)
+
+	msgs := result.([]openai.ChatCompletionMessageParamUnion)
+	require.Len(t, msgs, 1)
+
+	assert.NotNil(t, msgs[0].OfDeveloper, "expected OfDeveloper to be set")
+	assert.Nil(t, msgs[0].OfUser, "expected OfUser to be nil")
+	assert.False(t, param.IsOmitted(msgs[0].OfDeveloper.Content.OfString))
+	assert.Equal(t, "You must always respond in JSON.", msgs[0].OfDeveloper.Content.OfString.Value)
+}
+
+func TestConvertSystemMessageRoundTrip(t *testing.T) {
+	converter := &OpenAIConverter{}
+
+	messages := []model.Message{
+		createTestMessage(model.RoleUser, []model.Part{
+			{Type: model.PartTypeText, Text: "You are a helpful assistant."},
+		}, map[string]any{
+			model.MsgMetaSourceFormat:    "openai",
+			model.MsgMetaOriginalRole: "system",
+		}),
+	}
+
+	result, err := converter.Convert(messages, nil)
+	require.NoError(t, err)
+
+	msgs := result.([]openai.ChatCompletionMessageParamUnion)
+	require.Len(t, msgs, 1)
+
+	assert.NotNil(t, msgs[0].OfSystem, "expected OfSystem to be set")
+	assert.Nil(t, msgs[0].OfUser, "expected OfUser to be nil")
+	assert.False(t, param.IsOmitted(msgs[0].OfSystem.Content.OfString))
+	assert.Equal(t, "You are a helpful assistant.", msgs[0].OfSystem.Content.OfString.Value)
+}
+
+func TestConvertUserMessageNoOriginalRole(t *testing.T) {
+	converter := &OpenAIConverter{}
+
+	messages := []model.Message{
+		createTestMessage(model.RoleUser, []model.Part{
+			{Type: model.PartTypeText, Text: "Hello!"},
+		}, map[string]any{
+			model.MsgMetaSourceFormat: "openai",
+		}),
+	}
+
+	result, err := converter.Convert(messages, nil)
+	require.NoError(t, err)
+
+	msgs := result.([]openai.ChatCompletionMessageParamUnion)
+	require.Len(t, msgs, 1)
+
+	assert.NotNil(t, msgs[0].OfUser, "expected OfUser to be set")
+	assert.Nil(t, msgs[0].OfDeveloper, "expected OfDeveloper to be nil")
+	assert.Nil(t, msgs[0].OfSystem, "expected OfSystem to be nil")
+}

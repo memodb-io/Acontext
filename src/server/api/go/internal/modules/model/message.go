@@ -167,6 +167,10 @@ const (
 	// Format: [{"id": "call_xxx", "name": "function_name"}, ...]
 	GeminiCallInfoKey = "__gemini_call_info__"
 
+	// MsgMetaOriginalRole records the original provider role when it differs from the stored role.
+	// Used to round-trip roles like "system" and "developer" that map to "user" internally.
+	MsgMetaOriginalRole MetaKey = "original_role"
+
 	// UserMetaKey is the key used to store user-provided metadata within the message meta JSONB.
 	// User meta is stored in this wrapper field to isolate it from system fields like source_format.
 	UserMetaKey = "__user_meta__"

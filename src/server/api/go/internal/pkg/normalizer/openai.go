@@ -26,13 +26,13 @@ func (n *OpenAINormalizer) Normalize(messageJSON json.RawMessage) (string, []ser
 	} else if message.OfAssistant != nil {
 		return normalizeOpenAIAssistantMessage(*message.OfAssistant)
 	} else if message.OfSystem != nil {
-		return "", nil, nil, fmt.Errorf("system messages are not supported. Use session-level or skill-level configuration for system prompts")
+		return normalizeOpenAISystemMessage(*message.OfSystem)
 	} else if message.OfTool != nil {
 		return normalizeOpenAIToolMessage(*message.OfTool)
 	} else if message.OfFunction != nil {
 		return normalizeOpenAIFunctionMessage(*message.OfFunction)
 	} else if message.OfDeveloper != nil {
-		return "", nil, nil, fmt.Errorf("developer messages are not supported. Use session-level or skill-level configuration for system prompts")
+		return normalizeOpenAIDeveloperMessage(*message.OfDeveloper)
 	}
 
 	return "", nil, nil, fmt.Errorf("unknown OpenAI message type")
@@ -223,6 +223,68 @@ func normalizeOpenAIContentPart(partUnion openai.ChatCompletionContentPartUnionP
 	}
 
 	return service.PartIn{}, fmt.Errorf("unsupported OpenAI content part type")
+}
+
+func normalizeOpenAISystemMessage(msg openai.ChatCompletionSystemMessageParam) (string, []service.PartIn, map[string]interface{}, error) {
+	parts := []service.PartIn{}
+
+	if !param.IsOmitted(msg.Content.OfString) {
+		parts = append(parts, service.PartIn{
+			Type: model.PartTypeText,
+			Text: msg.Content.OfString.Value,
+		})
+	} else if len(msg.Content.OfArrayOfContentParts) > 0 {
+		for _, textPart := range msg.Content.OfArrayOfContentParts {
+			parts = append(parts, service.PartIn{
+				Type: model.PartTypeText,
+				Text: textPart.Text,
+			})
+		}
+	} else {
+		return "", nil, nil, fmt.Errorf("OpenAI system message must have content")
+	}
+
+	messageMeta := map[string]interface{}{
+		model.MsgMetaSourceFormat:    "openai",
+		model.MsgMetaOriginalRole: "system",
+	}
+
+	if !param.IsOmitted(msg.Name) {
+		messageMeta[model.MetaKeyName] = msg.Name.Value
+	}
+
+	return model.RoleUser, parts, messageMeta, nil
+}
+
+func normalizeOpenAIDeveloperMessage(msg openai.ChatCompletionDeveloperMessageParam) (string, []service.PartIn, map[string]interface{}, error) {
+	parts := []service.PartIn{}
+
+	if !param.IsOmitted(msg.Content.OfString) {
+		parts = append(parts, service.PartIn{
+			Type: model.PartTypeText,
+			Text: msg.Content.OfString.Value,
+		})
+	} else if len(msg.Content.OfArrayOfContentParts) > 0 {
+		for _, textPart := range msg.Content.OfArrayOfContentParts {
+			parts = append(parts, service.PartIn{
+				Type: model.PartTypeText,
+				Text: textPart.Text,
+			})
+		}
+	} else {
+		return "", nil, nil, fmt.Errorf("OpenAI developer message must have content")
+	}
+
+	messageMeta := map[string]interface{}{
+		model.MsgMetaSourceFormat:    "openai",
+		model.MsgMetaOriginalRole: "developer",
+	}
+
+	if !param.IsOmitted(msg.Name) {
+		messageMeta[model.MetaKeyName] = msg.Name.Value
+	}
+
+	return model.RoleUser, parts, messageMeta, nil
 }
 
 func normalizeOpenAIAssistantContentPart(partUnion openai.ChatCompletionAssistantMessageParamContentArrayOfContentPartUnion) (service.PartIn, error) {
