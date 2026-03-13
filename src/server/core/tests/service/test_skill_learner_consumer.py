@@ -267,7 +267,7 @@ class TestDistillationConsumer:
 
     @pytest.mark.asyncio
     async def test_does_not_publish_when_task_skipped(self):
-        """Distillation consumer does NOT publish when controller returns None (task skipped)."""
+        """Distillation consumer marks session completed and does NOT publish when task skipped."""
         body = _make_body()
         ls_session = _make_ls_session()
         mock_message = MagicMock()
@@ -282,7 +282,7 @@ class TestDistillationConsumer:
             patch(
                 "acontext_core.service.skill_learner.LS.update_session_status",
                 new_callable=AsyncMock,
-            ),
+            ) as mock_update_status,
             patch(
                 "acontext_core.service.skill_learner.SLC.process_context_distillation",
                 new_callable=AsyncMock,
@@ -303,6 +303,13 @@ class TestDistillationConsumer:
             await process_skill_distillation(body, mock_message)
 
             mock_publish.assert_not_called()
+            # Verify session is marked completed (once for "running", once for "completed")
+            assert mock_update_status.call_count == 2
+            mock_update_status.assert_any_call(
+                mock_db.get_session_context.return_value.__aenter__.return_value,
+                body.session_id,
+                "completed",
+            )
 
 
 # =============================================================================
@@ -575,11 +582,12 @@ class TestAgentConsumer:
 
     @pytest.mark.asyncio
     async def test_lock_released_on_exception(self):
-        """Agent consumer releases lock even when run_skill_agent raises an exception."""
+        """Agent consumer releases lock and marks session failed when run_skill_agent raises."""
         body = _make_distilled_body()
         mock_message = MagicMock()
 
         with (
+            patch("acontext_core.service.skill_learner.DB_CLIENT") as mock_db,
             patch(
                 "acontext_core.service.skill_learner.check_redis_lock_or_set",
                 new_callable=AsyncMock,
@@ -594,11 +602,26 @@ class TestAgentConsumer:
                 new_callable=AsyncMock,
                 side_effect=RuntimeError("Unexpected crash"),
             ),
+            patch(
+                "acontext_core.service.skill_learner.LS.update_session_status",
+                new_callable=AsyncMock,
+            ) as mock_update_status,
         ):
-            with pytest.raises(RuntimeError):
-                await process_skill_agent(body, mock_message)
+            mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
+                return_value=MagicMock()
+            )
+            mock_db.get_session_context.return_value.__aexit__ = AsyncMock(
+                return_value=False
+            )
+
+            await process_skill_agent(body, mock_message)
 
             mock_release.assert_called_once()
+            mock_update_status.assert_called_once_with(
+                mock_db.get_session_context.return_value.__aenter__.return_value,
+                body.session_id,
+                "failed",
+            )
 
     @pytest.mark.asyncio
     async def test_lock_key_uses_learning_space_id_from_message(self):
