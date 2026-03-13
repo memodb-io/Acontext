@@ -1,6 +1,6 @@
 {
 	"name": "@acontext/openclaw",
-	"version": "0.1.7",
+	"version": "0.1.8",
 	"type": "module",
 	"main": "./index.ts",
 	"description": "Acontext skill memory plugin for OpenClaw — auto-capture, auto-learn, native skill sync",
