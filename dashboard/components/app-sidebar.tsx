@@ -247,8 +247,8 @@ export function AppSidebar({ navItems }: AppSidebarProps) {
                       <Link
                         href={item.href ?? ""}
                         onClick={(e) => {
-                          // Prevent navigation if already on this page
-                          if (isActive) {
+                          // Prevent navigation only if already on this exact page
+                          if (isActive && pathname === item.href) {
                             e.preventDefault();
                             return;
                           }
