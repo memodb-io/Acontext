@@ -495,8 +495,14 @@ export function MessagesPageClient({
   };
 
   const handleGoBack = () => {
-    const encodedProjectId = encodeId(project.id);
-    router.push(`/project/${encodedProjectId}/session`);
+    const params = new URLSearchParams(window.location.search);
+    const returnTo = params.get("returnTo");
+    if (returnTo) {
+      router.push(returnTo);
+    } else {
+      const encodedProjectId = encodeId(project.id);
+      router.push(`/project/${encodedProjectId}/session`);
+    }
   };
 
   return (
@@ -700,8 +706,9 @@ export function MessagesPageClient({
                                   if (message.task_id) {
                                     const encodedProjectId = encodeId(project.id);
                                     const encodedSessionId = encodeId(sessionId);
+                                    const messagesReturnTo = `/project/${encodedProjectId}/session/${encodedSessionId}/messages`;
                                     router.push(
-                                      `/project/${encodedProjectId}/session/${encodedSessionId}/task?taskId=${message.task_id}`
+                                      `/project/${encodedProjectId}/session/${encodedSessionId}/task?taskId=${message.task_id}&returnTo=${encodeURIComponent(messagesReturnTo)}`
                                     );
                                   }
                                 }}

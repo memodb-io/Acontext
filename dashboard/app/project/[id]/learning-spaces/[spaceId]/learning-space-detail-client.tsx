@@ -284,10 +284,12 @@ export function LearningSpaceDetailClient({
     router.push(`/project/${encodedProjectId}/learning-spaces`);
   };
 
+  const returnTo = `/project/${encodedProjectId}/learning-spaces/${encodeId(spaceId)}`;
+
   const navigateToAgentSkills = (skill: SkillItem) => {
     const encodedSkillId = encodeId(skill.id);
     router.push(
-      `/project/${encodedProjectId}/agent-skills/${encodedSkillId}`
+      `/project/${encodedProjectId}/agent-skills/${encodedSkillId}?returnTo=${encodeURIComponent(returnTo)}`
     );
   };
 
@@ -496,7 +498,7 @@ export function LearningSpaceDetailClient({
                               session.session_id
                             );
                             router.push(
-                              `/project/${encodedProjectId}/session/${encodedSessionId}/messages`
+                              `/project/${encodedProjectId}/session/${encodedSessionId}/messages?returnTo=${encodeURIComponent(returnTo)}`
                             );
                           }}
                         >

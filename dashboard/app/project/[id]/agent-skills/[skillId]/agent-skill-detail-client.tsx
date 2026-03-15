@@ -264,7 +264,13 @@ export function AgentSkillDetailClient({
   };
 
   const handleGoBack = () => {
-    router.push(`/project/${encodedProjectId}/agent-skills`);
+    const params = new URLSearchParams(window.location.search);
+    const returnTo = params.get("returnTo");
+    if (returnTo) {
+      router.push(returnTo);
+    } else {
+      router.push(`/project/${encodedProjectId}/agent-skills`);
+    }
   };
 
   const handleDelete = async () => {

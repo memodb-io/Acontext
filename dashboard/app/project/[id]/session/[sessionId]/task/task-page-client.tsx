@@ -141,8 +141,14 @@ export function TaskPageClient({
   };
 
   const handleGoBack = () => {
-    const encodedProjectId = encodeId(project.id);
-    router.push(`/project/${encodedProjectId}/session`);
+    const params = new URLSearchParams(window.location.search);
+    const returnTo = params.get("returnTo");
+    if (returnTo) {
+      router.push(returnTo);
+    } else {
+      const encodedProjectId = encodeId(project.id);
+      router.push(`/project/${encodedProjectId}/session`);
+    }
   };
 
   const getStatusColor = (status: Task["status"]) => {
