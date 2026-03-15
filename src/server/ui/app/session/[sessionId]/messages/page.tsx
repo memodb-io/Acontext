@@ -503,7 +503,9 @@ export default function MessagesPage() {
   };
 
   const handleGoBack = () => {
-    router.push("/session");
+    const params = new URLSearchParams(window.location.search);
+    const returnTo = params.get("returnTo");
+    router.push(returnTo || "/session");
   };
 
   return (

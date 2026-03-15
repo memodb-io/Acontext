@@ -343,7 +343,7 @@ export default function LearningSpaceDetailPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => router.push(`/agent_skills/${skill.id}`)}
+                        onClick={() => router.push(`/agent_skills/${skill.id}?returnTo=${encodeURIComponent(`/learning_spaces/${id}`)}`)}
                       >
                         <FolderOpen className="h-4 w-4" />
                         {t("viewFiles")}
@@ -446,7 +446,7 @@ export default function LearningSpaceDetailPage() {
                           size="sm"
                           onClick={() =>
                             router.push(
-                              `/session/${session.session_id}/messages`
+                              `/session/${session.session_id}/messages?returnTo=${encodeURIComponent(`/learning_spaces/${id}`)}`
                             )
                           }
                         >

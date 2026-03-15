@@ -89,7 +89,11 @@ export default function SkillDetailPage() {
         <p className="text-sm text-muted-foreground">{t("notFound")}</p>
         <Button
           variant="outline"
-          onClick={() => router.push("/agent_skills")}
+          onClick={() => {
+            const params = new URLSearchParams(window.location.search);
+            const returnTo = params.get("returnTo");
+            router.push(returnTo || "/agent_skills");
+          }}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           {t("backToSkills")}
@@ -105,7 +109,11 @@ export default function SkillDetailPage() {
         <div className="flex items-center justify-between">
           <Button
             variant="ghost"
-            onClick={() => router.push("/agent_skills")}
+            onClick={() => {
+              const params = new URLSearchParams(window.location.search);
+              const returnTo = params.get("returnTo");
+              router.push(returnTo || "/agent_skills");
+            }}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             {t("backToSkills")}

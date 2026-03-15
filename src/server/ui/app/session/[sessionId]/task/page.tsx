@@ -143,7 +143,9 @@ export default function TasksPage() {
   };
 
   const handleGoBack = () => {
-    router.push("/session");
+    const params = new URLSearchParams(window.location.search);
+    const returnTo = params.get("returnTo");
+    router.push(returnTo || "/session");
   };
 
   const getStatusColor = (status: Task["status"]) => {
