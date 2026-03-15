@@ -14,7 +14,10 @@ import (
 )
 
 var (
-	templatePath string // Custom template path, e.g., "python/custom-template"
+	templatePath   string // Custom template path, e.g., "python/custom-template"
+	createLanguage string // Language selection for non-interactive mode
+	createTemplate string // Template key for non-interactive mode
+	createGitInit  bool   // Initialize git repo without prompting
 )
 
 var CreateCmd = &cobra.Command{
@@ -31,7 +34,10 @@ You will be guided through:
 
 Use --template-path to specify a custom template folder from:
   https://github.com/memodb-io/Acontext-Examples
-  
+
+For non-interactive (non-TTY) usage, provide --language and --template:
+  acontext create my-project --language python --template openai
+
 Example:
   acontext create my-project --template-path "python/custom-template"
 `,
@@ -41,6 +47,9 @@ Example:
 
 func init() {
 	CreateCmd.Flags().StringVarP(&templatePath, "template-path", "t", "", "Custom template folder path from Acontext-Examples repository (e.g., python/custom-template)")
+	CreateCmd.Flags().StringVarP(&createLanguage, "language", "l", "", "Programming language (e.g., python, typescript)")
+	CreateCmd.Flags().StringVar(&createTemplate, "template", "", "Template key (e.g., openai, langchain)")
+	CreateCmd.Flags().BoolVar(&createGitInit, "git-init", false, "Initialize a Git repository (skips interactive prompt)")
 }
 
 func runCreate(cmd *cobra.Command, args []string) error {
@@ -93,17 +102,52 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		}
 	} else {
 		// 3. Select language
-		language, err := promptLanguage()
-		if err != nil {
-			return err
+		var language string
+		if createLanguage != "" {
+			language = createLanguage
+		} else if !tui.IsTTY() {
+			languages := config.GetLanguages()
+			return fmt.Errorf("use --language to specify a language in non-interactive mode\navailable languages: %s", strings.Join(languages, ", "))
+		} else {
+			var err error
+			language, err = promptLanguage()
+			if err != nil {
+				return err
+			}
 		}
 		fmt.Printf("%s Selected language: %s\n", tui.SuccessStyle.Render(tui.IconSuccess), tui.SelectedStyle.Render(language))
 		fmt.Println()
 
 		// 4. Load config and select template
-		templateKey, preset, err := promptTemplate(language)
-		if err != nil {
-			return err
+		var templateKey string
+		var preset *config.Preset
+		if createTemplate != "" {
+			templateKey = fmt.Sprintf("%s.%s", language, createTemplate)
+			preset = &config.Preset{
+				Name:     createTemplate,
+				Template: templateKey,
+			}
+		} else if !tui.IsTTY() {
+			presets, err := config.GetPresets(language)
+			if err != nil {
+				return fmt.Errorf("failed to get templates for %s: %w", language, err)
+			}
+			names := make([]string, len(presets))
+			for i, p := range presets {
+				parts := strings.Split(p.Template, ".")
+				if len(parts) == 2 {
+					names[i] = parts[1]
+				} else {
+					names[i] = p.Template
+				}
+			}
+			return fmt.Errorf("use --template to specify a template in non-interactive mode\navailable templates for %s: %s", language, strings.Join(names, ", "))
+		} else {
+			var err error
+			templateKey, preset, err = promptTemplate(language)
+			if err != nil {
+				return err
+			}
 		}
 		fmt.Printf("%s Selected template: %s\n", tui.SuccessStyle.Render(tui.IconSuccess), tui.SelectedStyle.Render(preset.Name))
 		fmt.Println()
@@ -154,10 +198,16 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	// 8. Ask whether to initialize Git
-	initGit, err := tui.RunConfirm("Would you like to initialize a Git repository?", true)
-	if err != nil {
-		// User cancelled, treat as no
-		initGit = false
+	var initGit bool
+	if cmd.Flags().Changed("git-init") || !tui.IsTTY() {
+		initGit = createGitInit
+	} else {
+		var err error
+		initGit, err = tui.RunConfirm("Would you like to initialize a Git repository?", true)
+		if err != nil {
+			// User cancelled, treat as no
+			initGit = false
+		}
 	}
 
 	if initGit {

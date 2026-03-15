@@ -5,6 +5,7 @@ import (
 	"os/exec"
 	"runtime"
 
+	"github.com/memodb-io/Acontext/acontext-cli/internal/tui"
 	"github.com/spf13/cobra"
 )
 
@@ -14,6 +15,12 @@ func init() {
 		Short: "Open the Acontext Dashboard in your browser",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			url := "https://dash.acontext.io"
+
+			if !tui.IsTTY() {
+				fmt.Println(url)
+				return nil
+			}
+
 			fmt.Printf("Opening %s ...\n", url)
 
 			var openCmd *exec.Cmd

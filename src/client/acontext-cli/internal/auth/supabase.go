@@ -111,6 +111,18 @@ func LinkProjectToOrg(jwt, orgID, projectName, projectID string) error {
 	return nil
 }
 
+// UnlinkProjectFromOrg deletes a project record from organization_projects in Supabase.
+func UnlinkProjectFromOrg(jwt, projectID string) error {
+	params := url.Values{
+		"project_id": {"eq." + projectID},
+	}
+	_, err := supabaseDelete("/rest/v1/organization_projects", params, jwt)
+	if err != nil {
+		return fmt.Errorf("unlink project from org: %w", err)
+	}
+	return nil
+}
+
 // ClaimCLISession calls the claim-cli-session Edge Function.
 // Returns nil, nil if no session found yet (pending).
 func ClaimCLISession(state string) (*AuthFile, error) {
@@ -243,6 +255,32 @@ func supabasePost(path string, payload interface{}, jwt string) ([]byte, error) 
 	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("supabase POST failed (%d): %s", resp.StatusCode, string(body))
+	}
+	return body, nil
+}
+
+func supabaseDelete(path string, params url.Values, jwt string) ([]byte, error) {
+	u := SupabaseURL + path + "?" + params.Encode()
+
+	req, err := http.NewRequest("DELETE", u, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+jwt)
+	req.Header.Set("apikey", SupabaseAnonKey)
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("supabase DELETE failed (%d): %s", resp.StatusCode, string(body))
 	}
 	return body, nil
 }

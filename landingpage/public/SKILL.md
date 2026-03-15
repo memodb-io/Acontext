@@ -23,9 +23,13 @@ Acontext provides Agent Skills as a Memory Layer for production AI agents. It pr
 
 ### 1. Install Acontext CLI
 
-If Acontext CLI is already installed, check for updates first:
+If Acontext CLI is already installed, upgrade to the latest version:
 ```bash
-acontext upgrade
+# v0.1.13+ supports --yes flag for non-interactive upgrade
+acontext upgrade --yes
+
+# For older versions (≤ 0.1.12), re-run the installer instead:
+curl -fsSL https://install.acontext.io | sh
 ```
 
 If not installed, install it:

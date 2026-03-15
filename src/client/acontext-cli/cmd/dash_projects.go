@@ -268,6 +268,10 @@ func init() {
 			if err := dashAdminClient.AdminDeleteProject(context.Background(), args[0]); err != nil {
 				return err
 			}
+			// Delete project record from Supabase (organization_projects)
+			if err := auth.UnlinkProjectFromOrg(dashAccessToken, args[0]); err != nil {
+				fmt.Printf("Warning: failed to remove project from dashboard: %v\n", err)
+			}
 			// Clean up local key
 			_ = auth.RemoveProjectKey(args[0])
 			fmt.Printf("Project deleted: %s\n", args[0])

@@ -12,6 +12,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var upgradeYes bool
+
 var UpgradeCmd = &cobra.Command{
 	Use:   "upgrade",
 	Short: "Upgrade Acontext CLI to the latest version",
@@ -28,6 +30,10 @@ The upgrade process:
 Note: This command requires sudo privileges on most systems.
 `,
 	RunE: runUpgrade,
+}
+
+func init() {
+	UpgradeCmd.Flags().BoolVarP(&upgradeYes, "yes", "y", false, "Skip upgrade confirmation prompt")
 }
 
 // VersionKey is the context key for storing version
@@ -100,10 +106,15 @@ func runUpgrade(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	// Ask for confirmation
-	proceed, err := tui.RunConfirm("Would you like to upgrade now?", true)
-	if err != nil || !proceed {
-		fmt.Printf("\n%s Upgrade cancelled\n", tui.IconSkip)
-		return nil
+	if !upgradeYes {
+		if !tui.IsTTY() {
+			return fmt.Errorf("use --yes to confirm upgrade in non-interactive mode")
+		}
+		proceed, err := tui.RunConfirm("Would you like to upgrade now?", true)
+		if err != nil || !proceed {
+			fmt.Printf("\n%s Upgrade cancelled\n", tui.IconSkip)
+			return nil
+		}
 	}
 
 	fmt.Println()
