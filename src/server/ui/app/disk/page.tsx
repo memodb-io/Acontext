@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Tree, NodeRendererProps, TreeApi, NodeApi } from "react-arborist";
 import { useTranslations } from "next-intl";
@@ -312,6 +313,7 @@ function Node({
 export default function DiskPage() {
   const t = useTranslations("disk");
   const { resolvedTheme } = useTheme();
+  const searchParams = useSearchParams();
 
   const treeRef = useRef<TreeApi<TreeNode>>(null);
   const [selectedFile, setSelectedFile] = useState<TreeNode | null>(null);
@@ -411,6 +413,18 @@ export default function DiskPage() {
   useEffect(() => {
     loadDisks();
   }, []);
+
+  // Auto-select disk from URL query param (e.g. /disk?diskId=xxx)
+  useEffect(() => {
+    const diskId = searchParams.get("diskId");
+    if (diskId && disks.length > 0 && !selectedDisk) {
+      const target = disks.find((d) => d.id === diskId);
+      if (target) {
+        handleDiskSelect(target);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [disks, searchParams]);
 
   const formatArtifacts = (path: string, res: ListArtifactsResp) => {
     const artifacts: TreeNode[] = res.artifacts.map((artifact) => ({

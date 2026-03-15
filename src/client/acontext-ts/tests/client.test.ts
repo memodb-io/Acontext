@@ -4,12 +4,14 @@
  */
 
 import { MessagePart, FileUpload, buildAcontextMessage } from '../src/index';
+import { DiskEvent, TextEvent } from '../src/events';
 import {
   createMockClient,
   MockAcontextClient,
   mockSession,
   mockMessage,
   mockGetMessagesOutput,
+  mockSessionEvent,
   mockDisk,
   mockArtifact,
   mockGetArtifactResp,
@@ -826,6 +828,79 @@ describe('AcontextClient Unit Tests', () => {
       expect(message).toBeDefined();
       expect(message.role).toBe('user');
       expect(message.parts).toHaveLength(1);
+    });
+  });
+
+  describe('Session Events', () => {
+    test('addEvent with DiskEvent', async () => {
+      const eventData = mockSessionEvent({ type: 'disk_event', data: { disk_id: 'disk-1', path: '/data/file.csv', note: 'Uploaded' } });
+      client.mock().onPost(/\/session\/.*\/events/, () => eventData);
+
+      const result = await client.sessions.addEvent(
+        'session-1',
+        new DiskEvent({ diskId: 'disk-1', path: '/data/file.csv', note: 'Uploaded' })
+      );
+
+      expect(result.type).toBe('disk_event');
+      expect(result.data).toEqual({ disk_id: 'disk-1', path: '/data/file.csv', note: 'Uploaded' });
+      expect(client.mock().calls).toHaveLength(1);
+      expect(client.mock().calls[0].method).toBe('POST');
+    });
+
+    test('addEvent with TextEvent', async () => {
+      const eventData = mockSessionEvent({ type: 'text_event', data: { text: 'User switched mode' } });
+      client.mock().onPost(/\/session\/.*\/events/, () => eventData);
+
+      const result = await client.sessions.addEvent(
+        'session-1',
+        new TextEvent({ text: 'User switched mode' })
+      );
+
+      expect(result.type).toBe('text_event');
+      expect(result.data).toEqual({ text: 'User switched mode' });
+    });
+
+    test('getEvents with pagination', async () => {
+      const events = [mockSessionEvent(), mockSessionEvent()];
+      client.mock().onGet(/\/session\/.*\/events/, () => ({
+        items: events,
+        next_cursor: 'cursor-123',
+        has_more: true,
+      }));
+
+      const result = await client.sessions.getEvents('session-1', { limit: 2 });
+
+      expect(result.items).toHaveLength(2);
+      expect(result.has_more).toBe(true);
+      expect(result.next_cursor).toBe('cursor-123');
+    });
+
+    test('getMessages with withEvents', async () => {
+      const events = [mockSessionEvent()];
+      client.mock().onGet(/\/session\/.*\/messages/, () => ({
+        ...mockGetMessagesOutput(),
+        events,
+      }));
+
+      const result = await client.sessions.getMessages('session-1', { withEvents: true });
+
+      expect(result.events).toHaveLength(1);
+      const call = client.mock().calls[0];
+      expect((call.options as any)?.params?.with_events).toBe('true');
+    });
+
+    test('DiskEvent toPayload', () => {
+      const event = new DiskEvent({ diskId: 'disk-1', path: '/data/file.csv', note: 'Test' });
+      const payload = event.toPayload();
+      expect(payload.type).toBe('disk_event');
+      expect(payload.data).toEqual({ disk_id: 'disk-1', path: '/data/file.csv', note: 'Test' });
+    });
+
+    test('TextEvent toPayload', () => {
+      const event = new TextEvent({ text: 'Hello' });
+      const payload = event.toPayload();
+      expect(payload.type).toBe('text_event');
+      expect(payload.data).toEqual({ text: 'Hello' });
     });
   });
 

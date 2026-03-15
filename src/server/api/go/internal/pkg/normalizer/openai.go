@@ -245,7 +245,7 @@ func normalizeOpenAISystemMessage(msg openai.ChatCompletionSystemMessageParam) (
 	}
 
 	messageMeta := map[string]interface{}{
-		model.MsgMetaSourceFormat:    "openai",
+		model.MsgMetaSourceFormat: "openai",
 		model.MsgMetaOriginalRole: "system",
 	}
 
@@ -276,7 +276,7 @@ func normalizeOpenAIDeveloperMessage(msg openai.ChatCompletionDeveloperMessagePa
 	}
 
 	messageMeta := map[string]interface{}{
-		model.MsgMetaSourceFormat:    "openai",
+		model.MsgMetaSourceFormat: "openai",
 		model.MsgMetaOriginalRole: "developer",
 	}
 

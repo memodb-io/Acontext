@@ -98,6 +98,26 @@ export const PublicURLSchema = z.object({
 
 export type PublicURL = z.infer<typeof PublicURLSchema>;
 
+export const SessionEventSchema = z.object({
+  id: z.string(),
+  session_id: z.string(),
+  project_id: z.string(),
+  type: z.string(),
+  data: z.record(z.string(), z.unknown()),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export type SessionEvent = z.infer<typeof SessionEventSchema>;
+
+export const ListEventsOutputSchema = z.object({
+  items: z.array(SessionEventSchema),
+  next_cursor: z.string().nullable().optional(),
+  has_more: z.boolean(),
+});
+
+export type ListEventsOutput = z.infer<typeof ListEventsOutputSchema>;
+
 export const GetMessagesOutputSchema = z.object({
   items: z.array(z.unknown()),
   ids: z.array(z.string()),
@@ -116,6 +136,8 @@ export const GetMessagesOutputSchema = z.object({
    * pin_editing_strategies_at_message in subsequent requests.
    */
   edit_at_message_id: z.string().nullable().optional(),
+  /** Session events within the messages time window (only when withEvents is true) */
+  events: z.array(SessionEventSchema).nullable().optional(),
 });
 
 export type GetMessagesOutput = z.infer<typeof GetMessagesOutputSchema>;

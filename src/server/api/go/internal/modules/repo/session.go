@@ -557,6 +557,29 @@ func (r *sessionRepo) CopySession(ctx context.Context, sessionID uuid.UUID) (*Co
 			}
 		}
 
+		// Copy events
+		var originalEvents []model.SessionEvent
+		if err := tx.Where("session_id = ?", sessionID).
+			Order("created_at ASC, id ASC").
+			Find(&originalEvents).Error; err != nil {
+			return fmt.Errorf("failed to get events: %w", err)
+		}
+
+		if len(originalEvents) > 0 {
+			newEvents := make([]model.SessionEvent, 0, len(originalEvents))
+			for _, oldEvent := range originalEvents {
+				newEvents = append(newEvents, model.SessionEvent{
+					SessionID: newSession.ID,
+					ProjectID: oldEvent.ProjectID,
+					Type:      oldEvent.Type,
+					Data:      oldEvent.Data,
+				})
+			}
+			if err := tx.CreateInBatches(newEvents, 100).Error; err != nil {
+				return fmt.Errorf("failed to create events: %w", err)
+			}
+		}
+
 		// Increment refs for parts-envelope assets using tx so this is atomic
 		// with the session/message creation above.
 		if len(partsAssets) > 0 {

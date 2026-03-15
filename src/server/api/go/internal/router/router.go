@@ -28,6 +28,7 @@ type RouterDeps struct {
 	UserHandler          *handler.UserHandler
 	SandboxHandler       *handler.SandboxHandler
 	LearningSpaceHandler *handler.LearningSpaceHandler
+	SessionEventHandler  *handler.SessionEventHandler
 }
 
 func NewRouter(d RouterDeps) *gin.Engine {
@@ -83,6 +84,9 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			session.GET("/:session_id/observing_status", d.SessionHandler.GetSessionObservingStatus)
 
 			session.POST("/:session_id/copy", d.SessionHandler.CopySession)
+
+			session.POST("/:session_id/events", d.SessionEventHandler.AddEvent)
+			session.GET("/:session_id/events", d.SessionEventHandler.GetEvents)
 
 			task := session.Group("/:session_id/task")
 			{

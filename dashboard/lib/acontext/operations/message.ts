@@ -34,11 +34,28 @@ export interface Message {
   updated_at: string;
 }
 
+export interface SessionEvent {
+  id: string;
+  session_id: string;
+  project_id: string;
+  type: string;
+  data: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface GetMessagesResp {
   items: Message[];
+  events?: SessionEvent[];
   next_cursor?: string;
   has_more: boolean;
   public_urls?: Record<string, { url: string; expire_at: string }>;
+}
+
+export interface GetEventsResp {
+  items: SessionEvent[];
+  next_cursor?: string;
+  has_more: boolean;
 }
 
 // ==================== Message Operations Mixin ====================
@@ -54,6 +71,7 @@ export function MessageOperations<T extends Constructor<BaseClient>>(Base: T) {
       const params = new URLSearchParams({
         limit: limit.toString(),
         with_asset_public_url: "true",
+        with_events: "true",
         format: "acontext",
       });
       if (cursor) {
@@ -63,6 +81,7 @@ export function MessageOperations<T extends Constructor<BaseClient>>(Base: T) {
       const result = await this.request<{
         items?: Message[];
         messages?: Message[];
+        events?: SessionEvent[];
         next_cursor?: string;
         has_more?: boolean;
         public_urls?: Record<string, { url: string; expire_at: string }>;
@@ -71,6 +90,7 @@ export function MessageOperations<T extends Constructor<BaseClient>>(Base: T) {
       });
       return {
         items: result.items || result.messages || [],
+        events: result.events,
         next_cursor: result.next_cursor,
         has_more: result.has_more || false,
         public_urls: result.public_urls || {},
@@ -125,6 +145,49 @@ export function MessageOperations<T extends Constructor<BaseClient>>(Base: T) {
           }),
         });
       }
+    }
+
+    async addEvent(
+      projectId: string,
+      sessionId: string,
+      type: string,
+      data: Record<string, unknown>
+    ): Promise<SessionEvent> {
+      return await this.request<SessionEvent>(
+        `/api/v1/session/${sessionId}/events`,
+        {
+          method: "POST",
+          projectId,
+          body: JSON.stringify({ type, data }),
+        }
+      );
+    }
+
+    async getEvents(
+      projectId: string,
+      sessionId: string,
+      limit: number = 50,
+      cursor?: string
+    ): Promise<GetEventsResp> {
+      const params = new URLSearchParams({
+        limit: limit.toString(),
+      });
+      if (cursor) {
+        params.append("cursor", cursor);
+      }
+
+      const result = await this.request<{
+        items?: SessionEvent[];
+        next_cursor?: string;
+        has_more?: boolean;
+      }>(`/api/v1/session/${sessionId}/events?${params.toString()}`, {
+        projectId,
+      });
+      return {
+        items: result.items || [],
+        next_cursor: result.next_cursor,
+        has_more: result.has_more || false,
+      };
     }
   };
 }

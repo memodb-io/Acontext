@@ -10,6 +10,7 @@ if TYPE_CHECKING:
     from .project import Project
     from .message import Message
     from .task import Task
+    from .session_event import SessionEvent
 
 
 @ORM_BASE.mapped
@@ -74,6 +75,15 @@ class Session(CommonMixin):
         metadata={
             "db": relationship(
                 "Task", back_populates="session", cascade="all, delete-orphan"
+            )
+        },
+    )
+
+    events: List["SessionEvent"] = field(
+        default_factory=list,
+        metadata={
+            "db": relationship(
+                "SessionEvent", back_populates="session", cascade="all, delete-orphan"
             )
         },
     )

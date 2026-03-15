@@ -26,7 +26,7 @@ export type { Disk, Artifact, ListArtifactsResp, FileContent, GetArtifactResp, G
 export type { Session, GetSessionsResp, GetSessionConfigsResp } from "./session";
 
 // Message types
-export type { MessageRole, PartType, Asset, Part, Message, GetMessagesResp } from "./message";
+export type { MessageRole, PartType, Asset, Part, Message, SessionEvent, GetMessagesResp, GetEventsResp } from "./message";
 
 // Task types
 export type { TaskStatus, Task, GetTasksResp } from "./task";

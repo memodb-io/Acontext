@@ -51,6 +51,7 @@ type CopySessionOutput struct {
 
 type sessionService struct {
 	sessionRepo        repo.SessionRepo
+	sessionEventRepo   repo.SessionEventRepo
 	assetReferenceRepo repo.AssetReferenceRepo
 	log                *zap.Logger
 	s3                 *blob.S3Deps
@@ -66,9 +67,10 @@ const (
 	defaultPartsCacheTTL = time.Hour
 )
 
-func NewSessionService(sessionRepo repo.SessionRepo, assetReferenceRepo repo.AssetReferenceRepo, log *zap.Logger, s3 *blob.S3Deps, publisher *mq.Publisher, cfg *config.Config, redis *redis.Client) SessionService {
+func NewSessionService(sessionRepo repo.SessionRepo, sessionEventRepo repo.SessionEventRepo, assetReferenceRepo repo.AssetReferenceRepo, log *zap.Logger, s3 *blob.S3Deps, publisher *mq.Publisher, cfg *config.Config, redis *redis.Client) SessionService {
 	return &sessionService{
 		sessionRepo:        sessionRepo,
+		sessionEventRepo:   sessionEventRepo,
 		assetReferenceRepo: assetReferenceRepo,
 		log:                log,
 		s3:                 s3,
@@ -396,6 +398,7 @@ type GetMessagesInput struct {
 	WithAssetPublicURL            bool                    `json:"with_public_url"`
 	AssetExpire                   time.Duration           `json:"asset_expire"`
 	TimeDesc                      bool                    `json:"time_desc"`
+	WithEvents                    bool                    `json:"with_events"`
 	EditStrategies                []editor.StrategyConfig `json:"edit_strategies,omitempty"`
 	PinEditingStrategiesAtMessage string                  `json:"pin_editing_strategies_at_message,omitempty"`
 }
@@ -407,6 +410,7 @@ type PublicURL struct {
 
 type GetMessagesOutput struct {
 	Items           []model.Message      `json:"items"`
+	Events          []model.SessionEvent `json:"events,omitempty"`
 	NextCursor      string               `json:"next_cursor,omitempty"`
 	HasMore         bool                 `json:"has_more"`
 	PublicURLs      map[string]PublicURL `json:"public_urls,omitempty"` // file_name -> url
@@ -475,6 +479,21 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 		out.Items = msgs[:in.Limit]
 		last := out.Items[len(out.Items)-1]
 		out.NextCursor = paging.EncodeCursor(last.CreatedAt, last.ID)
+	}
+
+	// Fetch events if requested
+	if in.WithEvents && len(out.Items) > 0 {
+		first := out.Items[0].CreatedAt
+		last := out.Items[len(out.Items)-1].CreatedAt
+		minTime, maxTime := first, last
+		if first.After(last) {
+			minTime, maxTime = last, first
+		}
+		events, err := s.sessionEventRepo.ListBySessionInTimeWindow(ctx, in.SessionID, minTime, maxTime)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch events: %w", err)
+		}
+		out.Events = events
 	}
 
 	// Apply edit strategies if provided (before format conversion)

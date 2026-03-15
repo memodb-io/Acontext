@@ -1,0 +1,112 @@
+---
+title: Session Events
+description: "Annotate sessions with structured events like disk operations and free-text notes"
+---
+
+Add structured event markers to sessions that are stored alongside messages and rendered chronologically. Events support any type with a JSON payload, with built-in SDK helpers for common types like disk operations and free-text notes.
+
+## Event Types
+
+The SDK provides two built-in event types with validation:
+
+- **DiskEvent**: Track disk operations (file uploads, downloads, etc.) with `disk_id`, `path`, and optional `note`
+- **TextEvent**: Add free-text annotations with a `text` field
+
+The API accepts any `type` string — you can create custom event types without API changes.
+
+## Adding Events
+
+<CodeGroup>
+```python title="Python"
+import os
+from acontext import AcontextClient
+from acontext.event import DiskEvent, TextEvent
+
+client = AcontextClient(api_key=os.getenv("ACONTEXT_API_KEY"))
+
+session = client.sessions.create()
+
+# Add a disk-related event
+client.sessions.add_event(
+    session.id,
+    DiskEvent(disk_id="disk-uuid", path="/data/report.csv", note="Uploaded report"),
+)
+
+# Add a free-text event
+client.sessions.add_event(
+    session.id,
+    TextEvent(text="User switched to dark mode"),
+)
+```
+
+```typescript title="TypeScript"
+import { AcontextClient, DiskEvent, TextEvent } from '@acontext/acontext';
+
+const client = new AcontextClient({ apiKey: process.env.ACONTEXT_API_KEY });
+
+const session = await client.sessions.create();
+
+// Add a disk-related event
+await client.sessions.addEvent(
+    session.id,
+    new DiskEvent({ diskId: 'disk-uuid', path: '/data/report.csv', note: 'Uploaded report' }),
+);
+
+// Add a free-text event
+await client.sessions.addEvent(
+    session.id,
+    new TextEvent({ text: 'User switched to dark mode' }),
+);
+```
+</CodeGroup>
+
+## Retrieving Events
+
+<CodeGroup>
+```python title="Python"
+# Get events only
+events = client.sessions.get_events(session.id, limit=50)
+for event in events.items:
+    print(f"{event.type}: {event.data}")
+
+# Get events alongside messages (unified timeline)
+timeline = client.sessions.get_messages(session.id, with_events=True)
+print(f"Messages: {len(timeline.items)}")
+print(f"Events: {len(timeline.events or [])}")
+```
+
+```typescript title="TypeScript"
+// Get events only
+const events = await client.sessions.getEvents(session.id, { limit: 50 });
+for (const event of events.items) {
+    console.log(`${event.type}: ${JSON.stringify(event.data)}`);
+}
+
+// Get events alongside messages (unified timeline)
+const timeline = await client.sessions.getMessages(session.id, { withEvents: true });
+console.log(`Messages: ${timeline.items.length}`);
+console.log(`Events: ${(timeline.events || []).length}`);
+```
+</CodeGroup>
+
+## Unified Timeline
+
+When you pass `with_events=true` to `get_messages`, events are returned alongside messages. Events within the time window of the returned messages page are included. The Dashboard renders both in a single chronological timeline.
+
+## Lifecycle
+
+- **Cascade delete**: Events are automatically deleted when their session is deleted
+- **Session copy**: Events are included when copying a session
+- **No MQ processing**: Events are simple CRUD — no background processing needed
+
+## Next Steps
+
+<CardGroup cols={2}>
+<Card title="Session Overview" href="/docs/engineering/whatis">
+  Learn about session fundamentals and message management.
+</Card>
+
+<Card title="Copy Session" href="/docs/engineering/copy_session">
+  Duplicate sessions including events for experimentation.
+</Card>
+</CardGroup>

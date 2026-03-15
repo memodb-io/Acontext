@@ -46,8 +46,11 @@ import {
   X,
   Brain,
   ShieldOff,
+  HardDrive,
+  StickyNote,
+  Flag,
 } from "lucide-react";
-import { Project, Message, Part } from "@/types";
+import { Project, Message, SessionEvent, TimelineItem, Part } from "@/types";
 import { getMessages, sendMessage, getSessionConfigs } from "../../actions";
 import { toast } from "sonner";
 import {
@@ -226,6 +229,7 @@ export function MessagesPageClient({
 
   const [sessionInfo, setSessionInfo] = useState<string>("");
   const [allMessages, setAllMessages] = useState<Message[]>([]);
+  const [allEvents, setAllEvents] = useState<SessionEvent[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isRefreshingMessages, setIsRefreshingMessages] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -244,11 +248,19 @@ export function MessagesPageClient({
     Record<string, { url: string; expire_at: string }>
   >({});
 
-  const totalPages = Math.ceil(allMessages.length / PAGE_SIZE);
-  const paginatedMessages = allMessages.slice(
+  const timelineItems: TimelineItem[] = [
+    ...allMessages.map((m): TimelineItem => ({ kind: 'message', data: m })),
+    ...allEvents.map((e): TimelineItem => ({ kind: 'event', data: e })),
+  ].sort((a, b) => new Date(a.data.created_at).getTime() - new Date(b.data.created_at).getTime());
+
+  const totalPages = Math.ceil(timelineItems.length / PAGE_SIZE);
+  const paginatedItems = timelineItems.slice(
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE
   );
+  const paginatedMessages = paginatedItems
+    .filter((item): item is { kind: 'message'; data: Message } => item.kind === 'message')
+    .map(item => item.data);
 
   const loadSessionInfo = async () => {
     try {
@@ -268,6 +280,7 @@ export function MessagesPageClient({
     try {
       setIsLoadingMessages(true);
       const allMsgs: Message[] = [];
+      const allEvts: SessionEvent[] = [];
       const allPublicUrls: Record<string, { url: string; expire_at: string }> = {};
       let cursor: string | undefined = undefined;
       let hasMore = true;
@@ -275,6 +288,9 @@ export function MessagesPageClient({
       while (hasMore) {
         const res = await getMessages(project.id, sessionId, 50, cursor);
         allMsgs.push(...(res.items || []));
+        if (res.events) {
+          allEvts.push(...res.events);
+        }
         if (res.public_urls) {
           Object.assign(allPublicUrls, res.public_urls);
         }
@@ -283,6 +299,13 @@ export function MessagesPageClient({
       }
 
       setAllMessages(allMsgs);
+      const seenIds = new Set<string>();
+      const dedupedEvts = allEvts.filter((e) => {
+        if (seenIds.has(e.id)) return false;
+        seenIds.add(e.id);
+        return true;
+      });
+      setAllEvents(dedupedEvts);
       setMessagePublicUrls(allPublicUrls);
       setCurrentPage(1);
     } catch (error) {
@@ -519,62 +542,125 @@ export function MessagesPageClient({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedMessages.map((message, idx) => (
-                      <TableRow key={`${message.id}-${idx}`}>
-                        <TableCell className="max-w-[400px]">
-                          <MessageContentPreview
-                            parts={message.parts}
-                            messagePublicUrls={messagePublicUrls}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
-                            {message.role}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <span className="inline-flex items-center rounded-md bg-secondary px-2 py-1 text-xs font-medium">
-                            {message.session_task_process_status}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          {new Date(message.created_at).toLocaleString()}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => handleOpenDetailDialog(message)}
-                            >
-                              View
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={!message.task_id}
-                              onClick={() => {
-                                if (message.task_id) {
-                                  const encodedProjectId = encodeId(project.id);
-                                  const encodedSessionId = encodeId(sessionId);
-                                  router.push(
-                                    `/project/${encodedProjectId}/session/${encodedSessionId}/task?taskId=${message.task_id}`
-                                  );
+                    {paginatedItems.map((item) => {
+                      if (item.kind === 'event') {
+                        const event = item.data;
+                        const EventIcon = event.type === 'disk_event' ? HardDrive
+                          : event.type === 'text_event' ? StickyNote
+                          : Flag;
+                        return (
+                          <TableRow key={`event-${event.id}`} className="border-dashed bg-muted/30">
+                            <TableCell className="max-w-[400px]">
+                              <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                                <EventIcon className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                <div className="min-w-0">
+                                  <span className="font-medium">{event.type}</span>
+                                  {event.type === 'text_event' && typeof event.data.text === 'string' ? (
+                                    <p className="mt-0.5 text-sm text-foreground whitespace-pre-wrap break-words">{event.data.text}</p>
+                                  ) : event.type === 'disk_event' ? (
+                                    <div className="mt-0.5 space-y-0.5">
+                                      {typeof event.data.path === 'string' && (
+                                        <p className="text-sm font-mono text-foreground truncate">{event.data.path}</p>
+                                      )}
+                                      {typeof event.data.note === 'string' && (
+                                        <p className="text-xs text-muted-foreground italic">{event.data.note}</p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <pre className="mt-0.5 text-xs font-mono bg-muted/50 rounded px-1.5 py-1 whitespace-pre-wrap break-all">
+                                      {JSON.stringify(event.data, null, 2)}
+                                    </pre>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+                                event
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-xs text-muted-foreground">—</span>
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              {new Date(event.created_at).toLocaleString()}
+                            </TableCell>
+                            <TableCell>
+                              {event.type === 'disk_event' && typeof event.data.disk_id === 'string' && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    const encodedProjectId = encodeId(project.id);
+                                    router.push(`/project/${encodedProjectId}/disk?diskId=${event.data.disk_id}`);
+                                  }}
+                                >
+                                  <HardDrive className="h-3.5 w-3.5" />
+                                  Disk
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }
+                      const message = item.data;
+                      return (
+                        <TableRow key={`msg-${message.id}`}>
+                          <TableCell className="max-w-[400px]">
+                            <MessageContentPreview
+                              parts={message.parts}
+                              messagePublicUrls={messagePublicUrls}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <span className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+                              {message.role}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <span className="inline-flex items-center rounded-md bg-secondary px-2 py-1 text-xs font-medium">
+                              {message.session_task_process_status}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {new Date(message.created_at).toLocaleString()}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleOpenDetailDialog(message)}
+                              >
+                                View
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={!message.task_id}
+                                onClick={() => {
+                                  if (message.task_id) {
+                                    const encodedProjectId = encodeId(project.id);
+                                    const encodedSessionId = encodeId(sessionId);
+                                    router.push(
+                                      `/project/${encodedProjectId}/session/${encodedSessionId}/task?taskId=${message.task_id}`
+                                    );
+                                  }
+                                }}
+                                title={
+                                  message.task_id
+                                    ? `View Task ${message.task_id.substring(0, 8)}...`
+                                    : "No task associated"
                                 }
-                              }}
-                              title={
-                                message.task_id
-                                  ? `View Task ${message.task_id.substring(0, 8)}...`
-                                  : "No task associated"
-                              }
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                              Task
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                Task
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

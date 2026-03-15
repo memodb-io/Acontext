@@ -203,7 +203,16 @@
     "backToSessions": "返回会话列表",
     "task": "任务",
     "noTaskAssociated": "无关联任务",
-    "viewTask": "查看任务"
+    "viewTask": "查看任务",
+    "addEvent": "添加事件",
+    "eventType": "事件类型",
+    "diskEvent": "磁盘事件",
+    "textEvent": "文本事件",
+    "eventDiskId": "磁盘 ID",
+    "eventPath": "路径",
+    "eventNote": "备注",
+    "eventText": "文本",
+    "eventCreatedAt": "事件创建时间"
   },
   "agentSkills": {
     "title": "Agent Skills",

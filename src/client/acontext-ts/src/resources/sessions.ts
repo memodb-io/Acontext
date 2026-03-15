@@ -15,6 +15,8 @@ import {
   GetMessagesOutputSchema,
   GetTasksOutput,
   GetTasksOutputSchema,
+  ListEventsOutput,
+  ListEventsOutputSchema,
   ListSessionsOutput,
   ListSessionsOutputSchema,
   Message,
@@ -22,10 +24,13 @@ import {
   MessageObservingStatusSchema,
   MessageSchema,
   Session,
+  SessionEvent,
+  SessionEventSchema,
   SessionSchema,
   TokenCounts,
   TokenCountsSchema,
 } from '../types';
+import type { EventPayload } from '../events';
 
 export type MessageBlob = AcontextMessage | Record<string, unknown>;
 
@@ -276,6 +281,50 @@ export class SessionsAPI {
   }
 
   /**
+   * Add a structured event to a session.
+   *
+   * @param sessionId - The UUID of the session.
+   * @param event - An event object with a toPayload() method (e.g., DiskEvent, TextEvent).
+   * @returns The created SessionEvent object.
+   */
+  async addEvent(
+    sessionId: string,
+    event: { toPayload(): EventPayload }
+  ): Promise<SessionEvent> {
+    const payload = event.toPayload();
+    const data = await this.requester.request('POST', `/session/${sessionId}/events`, {
+      jsonData: payload,
+    });
+    return SessionEventSchema.parse(data);
+  }
+
+  /**
+   * Get events for a session.
+   *
+   * @param sessionId - The UUID of the session.
+   * @param options - Options for retrieving events.
+   * @returns ListEventsOutput containing the list of events and pagination information.
+   */
+  async getEvents(
+    sessionId: string,
+    options?: {
+      limit?: number | null;
+      cursor?: string | null;
+      timeDesc?: boolean | null;
+    }
+  ): Promise<ListEventsOutput> {
+    const params = buildParams({
+      limit: options?.limit ?? null,
+      cursor: options?.cursor ?? null,
+      time_desc: options?.timeDesc ?? null,
+    });
+    const data = await this.requester.request('GET', `/session/${sessionId}/events`, {
+      params: Object.keys(params).length > 0 ? params : undefined,
+    });
+    return ListEventsOutputSchema.parse(data);
+  }
+
+  /**
    * Get messages for a session.
    *
    * @param sessionId - The UUID of the session.
@@ -283,6 +332,7 @@ export class SessionsAPI {
    * @param options.limit - Maximum number of messages to return.
    * @param options.cursor - Cursor for pagination.
    * @param options.withAssetPublicUrl - Whether to include presigned URLs for assets.
+   * @param options.withEvents - Whether to include session events in the response.
    * @param options.format - The format of the messages ('acontext', 'openai', 'anthropic', or 'gemini').
    * @param options.timeDesc - Order by created_at descending if true, ascending if false.
    * @param options.editStrategies - Optional list of edit strategies to apply before format conversion.
@@ -306,6 +356,7 @@ export class SessionsAPI {
       limit?: number | null;
       cursor?: string | null;
       withAssetPublicUrl?: boolean | null;
+      withEvents?: boolean | null;
       format?: 'acontext' | 'openai' | 'anthropic' | 'gemini';
       timeDesc?: boolean | null;
       editStrategies?: Array<EditStrategy> | null;
@@ -325,6 +376,9 @@ export class SessionsAPI {
         time_desc: options?.timeDesc ?? true, // Default to true
       })
     );
+    if (options?.withEvents !== undefined && options?.withEvents !== null) {
+      params.with_events = options.withEvents ? 'true' : 'false';
+    }
     if (options?.editStrategies !== undefined && options?.editStrategies !== null) {
       EditStrategySchema.array().parse(options.editStrategies);
       params.edit_strategies = JSON.stringify(options.editStrategies);

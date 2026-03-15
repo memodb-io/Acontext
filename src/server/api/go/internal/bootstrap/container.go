@@ -125,6 +125,7 @@ func BuildContainer() *do.Injector {
 				&model.LearningSpace{},
 				&model.LearningSpaceSkill{},
 				&model.LearningSpaceSession{},
+				&model.SessionEvent{},
 			)
 		}
 
@@ -257,11 +258,15 @@ func BuildContainer() *do.Injector {
 	do.Provide(inj, func(i *do.Injector) (repo.LearningSpaceSessionRepo, error) {
 		return repo.NewLearningSpaceSessionRepo(do.MustInvoke[*gorm.DB](i)), nil
 	})
+	do.Provide(inj, func(i *do.Injector) (repo.SessionEventRepo, error) {
+		return repo.NewSessionEventRepo(do.MustInvoke[*gorm.DB](i)), nil
+	})
 
 	// Service
 	do.Provide(inj, func(i *do.Injector) (service.SessionService, error) {
 		return service.NewSessionService(
 			do.MustInvoke[repo.SessionRepo](i),
+			do.MustInvoke[repo.SessionEventRepo](i),
 			do.MustInvoke[repo.AssetReferenceRepo](i),
 			do.MustInvoke[*zap.Logger](i),
 			do.MustInvoke[*blob.S3Deps](i),
@@ -298,6 +303,12 @@ func BuildContainer() *do.Injector {
 	})
 	do.Provide(inj, func(i *do.Injector) (service.SandboxLogService, error) {
 		return service.NewSandboxLogService(do.MustInvoke[repo.SandboxLogRepo](i)), nil
+	})
+	do.Provide(inj, func(i *do.Injector) (service.SessionEventService, error) {
+		return service.NewSessionEventService(
+			do.MustInvoke[repo.SessionRepo](i),
+			do.MustInvoke[repo.SessionEventRepo](i),
+		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (service.LearningSpaceService, error) {
 		if err := validateSkillTemplates(); err != nil {
@@ -356,6 +367,11 @@ func BuildContainer() *do.Injector {
 		return handler.NewSandboxHandler(
 			do.MustInvoke[*httpclient.CoreClient](i),
 			do.MustInvoke[service.SandboxLogService](i),
+		), nil
+	})
+	do.Provide(inj, func(i *do.Injector) (*handler.SessionEventHandler, error) {
+		return handler.NewSessionEventHandler(
+			do.MustInvoke[service.SessionEventService](i),
 		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.LearningSpaceHandler, error) {

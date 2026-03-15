@@ -75,6 +75,7 @@ type GetMessagesOutput struct {
 	Items           interface{}                  `json:"items"`                        // Messages in the requested format
 	IDs             []string                     `json:"ids"`                          // Message IDs corresponding to items
 	Metas           []map[string]interface{}     `json:"metas"`                        // User-provided metadata for each message (same order as items/ids)
+	Events          []model.SessionEvent         `json:"events,omitempty"`             // Session events within the messages time window
 	NextCursor      string                       `json:"next_cursor,omitempty"`        // Cursor for pagination
 	HasMore         bool                         `json:"has_more"`                     // Whether there are more messages
 	ThisTimeTokens  int                          `json:"this_time_tokens"`             // Token count for returned messages
@@ -87,6 +88,7 @@ func GetConvertedMessagesOutput(
 	messages []model.Message,
 	format model.MessageFormat,
 	publicURLs map[string]service.PublicURL,
+	events []model.SessionEvent,
 	nextCursor string,
 	hasMore bool,
 	thisTimeTokens int,
@@ -114,6 +116,7 @@ func GetConvertedMessagesOutput(
 		Items:          convertedData,
 		IDs:            messageIDs,
 		Metas:          metas,
+		Events:         events,
 		HasMore:        hasMore,
 		ThisTimeTokens: thisTimeTokens,
 	}

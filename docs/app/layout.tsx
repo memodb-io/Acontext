@@ -21,7 +21,7 @@ export default function Layout({ children }: { children: ReactNode }) {
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
       </head>
-      <body className="flex min-h-screen flex-col">
+      <body className="flex min-h-screen flex-col" suppressHydrationWarning>
         <GoogleTagManager gtmId="GTM-KQ7H272M" />
         <GoogleAnalytics gaId="G-Y2R02LY9NV" />
         <NextProvider>

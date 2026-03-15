@@ -12,6 +12,7 @@ from .artifact import Artifact
 from .learning_space import LearningSpace
 from .learning_space_skill import LearningSpaceSkill
 from .learning_space_session import LearningSpaceSession
+from .session_event import SessionEvent
 
 __all__ = [
     "ORM_BASE",
@@ -32,4 +33,5 @@ __all__ = [
     "LearningSpace",
     "LearningSpaceSkill",
     "LearningSpaceSession",
+    "SessionEvent",
 ]

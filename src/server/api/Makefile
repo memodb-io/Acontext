@@ -51,7 +51,7 @@ openapi: ensure-openapi-generator ## Generate OpenAPI 3.0 from swagger.json
 			-i ./swagger.json --skip-validate-spec \
 			-o out; \
 		echo "OpenAPI 3.0 generated in $(GO_DIR)/docs/out"; \
-		cd - && cp $(GO_DIR)/docs/out/openapi.json ../../../docs/api-reference/openapi.json; \
+		cd - && cp $(GO_DIR)/docs/out/openapi.json ../../../docs/openapi.json; \
 		rm -rf $(GO_DIR)/docs/out; \
 	else \
 		echo "Error: swagger.json not found. Run 'make swag' first."; \

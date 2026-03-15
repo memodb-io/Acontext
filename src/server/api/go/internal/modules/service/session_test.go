@@ -240,7 +240,7 @@ func TestSessionService_Create(t *testing.T) {
 					},
 				},
 			}
-			service := NewSessionService(repo, mockAssetRefRepo, logger, nil, nil, cfg, nil)
+			service := NewSessionService(repo, nil, mockAssetRefRepo, logger, nil, nil, cfg, nil)
 
 			err := service.Create(ctx, tt.session)
 
@@ -318,7 +318,7 @@ func TestSessionService_Delete(t *testing.T) {
 					},
 				},
 			}
-			service := NewSessionService(repo, mockAssetRefRepo, logger, nil, nil, cfg, nil)
+			service := NewSessionService(repo, nil, mockAssetRefRepo, logger, nil, nil, cfg, nil)
 
 			err := service.Delete(ctx, tt.projectID, tt.sessionID)
 
@@ -403,7 +403,7 @@ func TestSessionService_GetByID(t *testing.T) {
 					},
 				},
 			}
-			service := NewSessionService(repo, mockAssetRefRepo, logger, nil, nil, cfg, nil)
+			service := NewSessionService(repo, nil, mockAssetRefRepo, logger, nil, nil, cfg, nil)
 
 			result, err := service.GetByID(ctx, tt.session)
 
@@ -475,7 +475,7 @@ func TestSessionService_UpdateByID(t *testing.T) {
 					},
 				},
 			}
-			service := NewSessionService(repo, mockAssetRefRepo, logger, nil, nil, cfg, nil)
+			service := NewSessionService(repo, nil, mockAssetRefRepo, logger, nil, nil, cfg, nil)
 
 			err := service.UpdateByID(ctx, tt.session)
 
@@ -566,7 +566,7 @@ func TestSessionService_List(t *testing.T) {
 					},
 				},
 			}
-			service := NewSessionService(repo, mockAssetRefRepo, logger, nil, nil, cfg, nil)
+			service := NewSessionService(repo, nil, mockAssetRefRepo, logger, nil, nil, cfg, nil)
 
 			result, err := service.List(ctx, tt.input)
 
@@ -1085,7 +1085,7 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 			var service SessionService
 			if tt.wantErr {
 				// For error cases, we can use nil S3 since errors happen before S3 upload
-				service = NewSessionService(repo, mockAssetRefRepo, logger, nil, nil, cfg, nil)
+				service = NewSessionService(repo, nil, mockAssetRefRepo, logger, nil, nil, cfg, nil)
 			} else {
 				// For success cases, we need to skip this test or use integration test
 				// For now, we'll mark these as skipped or use a workaround
@@ -1245,7 +1245,7 @@ func TestSessionService_GetMessages(t *testing.T) {
 				},
 			}
 			// Note: blob is nil in test, so GetMessages will skip DownloadJSON and PresignGet
-			service := NewSessionService(repo, mockAssetRefRepo, logger, nil, nil, cfg, nil)
+			service := NewSessionService(repo, nil, mockAssetRefRepo, logger, nil, nil, cfg, nil)
 
 			result, err := service.GetMessages(ctx, tt.input)
 
@@ -1405,7 +1405,7 @@ func TestSessionService_GetMessages_SortOrder(t *testing.T) {
 					},
 				},
 			}
-			service := NewSessionService(repo, mockAssetRefRepo, logger, nil, nil, cfg, nil)
+			service := NewSessionService(repo, nil, mockAssetRefRepo, logger, nil, nil, cfg, nil)
 
 			result, err := service.GetMessages(ctx, tt.input)
 

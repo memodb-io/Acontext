@@ -3,9 +3,11 @@
 import {
   AcontextClient,
   type Session,
+  type SessionEvent,
   type GetSessionsResp,
   type GetSessionConfigsResp,
   type GetMessagesResp,
+  type GetEventsResp,
   type GetTasksResp,
   type MessageRole,
   type Part,
@@ -106,6 +108,36 @@ export async function sendMessage(
     return await client.sendMessage(projectId, sessionId, role, parts, files);
   } catch (error) {
     console.error("Failed to send message:", error);
+    throw error;
+  }
+}
+
+export async function addEvent(
+  projectId: string,
+  sessionId: string,
+  type: string,
+  data: Record<string, unknown>
+): Promise<SessionEvent> {
+  try {
+    const client = new AcontextClient();
+    return await client.addEvent(projectId, sessionId, type, data);
+  } catch (error) {
+    console.error("Failed to add event:", error);
+    throw error;
+  }
+}
+
+export async function getEvents(
+  projectId: string,
+  sessionId: string,
+  limit: number = 50,
+  cursor?: string
+): Promise<GetEventsResp> {
+  try {
+    const client = new AcontextClient();
+    return await client.getEvents(projectId, sessionId, limit, cursor);
+  } catch (error) {
+    console.error("Failed to fetch events:", error);
     throw error;
   }
 }

@@ -28,6 +28,9 @@ type Session struct {
 
 	// Session <-> Task
 	Tasks []Task `gorm:"constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
+
+	// Session <-> SessionEvent
+	Events []SessionEvent `gorm:"constraint:OnDelete:CASCADE,OnUpdate:CASCADE;" json:"-"`
 }
 
 func (Session) TableName() string { return "sessions" }

@@ -78,6 +78,7 @@ export interface Message {
 
 export interface GetMessagesResp {
   items: Message[];
+  events?: SessionEvent[];
   next_cursor?: string;
   has_more: boolean;
   public_urls?: Record<string, { url: string; expire_at: string }>;
@@ -185,6 +186,28 @@ export interface LearningSpaceSkill {
   learning_space_id: string;
   skill_id: string;
   created_at: string;
+}
+
+// Session Event types
+
+export interface SessionEvent {
+  id: string;
+  session_id: string;
+  project_id: string;
+  type: string;
+  data: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export type TimelineItem =
+  | { kind: 'message'; data: Message }
+  | { kind: 'event'; data: SessionEvent };
+
+export interface GetEventsResp {
+  items: SessionEvent[];
+  next_cursor?: string;
+  has_more: boolean;
 }
 
 // Message related types

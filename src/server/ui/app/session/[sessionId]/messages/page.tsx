@@ -36,11 +36,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, RefreshCw, Upload, X, ArrowLeft, FileText, Image as ImageIcon, Video, Music, File, Code, CheckCircle2, ExternalLink, Brain, ShieldOff } from "lucide-react";
+import { Loader2, Plus, RefreshCw, Upload, X, ArrowLeft, FileText, Image as ImageIcon, Video, Music, File, Code, CheckCircle2, ExternalLink, Brain, ShieldOff, HardDrive, StickyNote, Flag } from "lucide-react";
 import Image from "next/image";
 import { getMessages, storeMessage, getSessionConfigs } from "@/app/session/actions";
 import {
   Message,
+  SessionEvent,
+  TimelineItem,
   MessageRole,
   PartType,
   UploadedFile,
@@ -213,6 +215,7 @@ export default function MessagesPage() {
 
   const [sessionInfo, setSessionInfo] = useState<string>("");
   const [allMessages, setAllMessages] = useState<Message[]>([]);
+  const [allEvents, setAllEvents] = useState<SessionEvent[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isRefreshingMessages, setIsRefreshingMessages] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -233,11 +236,21 @@ export default function MessagesPage() {
     Record<string, { url: string; expire_at: string }>
   >({});
 
-  const totalPages = Math.ceil(allMessages.length / PAGE_SIZE);
-  const paginatedMessages = allMessages.slice(
+  // Build merged timeline of messages and events
+  const timelineItems: TimelineItem[] = [
+    ...allMessages.map((m): TimelineItem => ({ kind: 'message', data: m })),
+    ...allEvents.map((e): TimelineItem => ({ kind: 'event', data: e })),
+  ].sort((a, b) => new Date(a.data.created_at).getTime() - new Date(b.data.created_at).getTime());
+
+  const totalPages = Math.ceil(timelineItems.length / PAGE_SIZE);
+  const paginatedItems = timelineItems.slice(
     (currentPage - 1) * PAGE_SIZE,
     currentPage * PAGE_SIZE
   );
+  // Keep paginatedMessages for backward compatibility with existing code
+  const paginatedMessages = paginatedItems
+    .filter((item): item is { kind: 'message'; data: Message } => item.kind === 'message')
+    .map(item => item.data);
 
 
   const loadSessionInfo = async () => {
@@ -258,6 +271,7 @@ export default function MessagesPage() {
     try {
       setIsLoadingMessages(true);
       const allMsgs: Message[] = [];
+      const allEvts: SessionEvent[] = [];
       const allPublicUrls: Record<string, { url: string; expire_at: string }> =
         {};
       let cursor: string | undefined = undefined;
@@ -270,6 +284,10 @@ export default function MessagesPage() {
           break;
         }
         allMsgs.push(...(res.data?.items || []));
+        // Collect events from response
+        if (res.data?.events) {
+          allEvts.push(...res.data.events);
+        }
         // Merge public_urls from each response
         if (res.data?.public_urls) {
           Object.assign(allPublicUrls, res.data.public_urls);
@@ -279,6 +297,13 @@ export default function MessagesPage() {
       }
 
       setAllMessages(allMsgs);
+      const seenIds = new Set<string>();
+      const dedupedEvts = allEvts.filter((e) => {
+        if (seenIds.has(e.id)) return false;
+        seenIds.add(e.id);
+        return true;
+      });
+      setAllEvents(dedupedEvts);
       setMessagePublicUrls(allPublicUrls);
       setCurrentPage(1);
     } catch (error) {
@@ -534,7 +559,66 @@ export default function MessagesPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedMessages.map((message) => (
+                    {paginatedItems.map((item) => {
+                      if (item.kind === 'event') {
+                        const event = item.data;
+                        const EventIcon = event.type === 'disk_event' ? HardDrive
+                          : event.type === 'text_event' ? StickyNote
+                          : Flag;
+                        return (
+                          <TableRow key={`event-${event.id}`} className="border-dashed bg-muted/30">
+                            <TableCell className="max-w-[400px]">
+                              <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                                <EventIcon className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                <div className="min-w-0">
+                                  <span className="font-medium">{event.type}</span>
+                                  {event.type === 'text_event' && typeof event.data.text === 'string' ? (
+                                    <p className="mt-0.5 text-sm text-foreground whitespace-pre-wrap break-words">{event.data.text}</p>
+                                  ) : event.type === 'disk_event' ? (
+                                    <div className="mt-0.5 space-y-0.5">
+                                      {typeof event.data.path === 'string' && (
+                                        <p className="text-sm font-mono text-foreground truncate">{event.data.path}</p>
+                                      )}
+                                      {typeof event.data.note === 'string' && (
+                                        <p className="text-xs text-muted-foreground italic">{event.data.note}</p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <pre className="mt-0.5 text-xs font-mono bg-muted/50 rounded px-1.5 py-1 whitespace-pre-wrap break-all">
+                                      {JSON.stringify(event.data, null, 2)}
+                                    </pre>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <span className="inline-flex items-center rounded-md bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+                                event
+                              </span>
+                            </TableCell>
+                            <TableCell>
+                              <span className="text-xs text-muted-foreground">—</span>
+                            </TableCell>
+                            <TableCell className="text-xs">
+                              {new Date(event.created_at).toLocaleString()}
+                            </TableCell>
+                            <TableCell>
+                              {event.type === 'disk_event' && typeof event.data.disk_id === 'string' && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => router.push(`/disk?diskId=${event.data.disk_id}`)}
+                                >
+                                  <HardDrive className="h-3.5 w-3.5" />
+                                  Disk
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      }
+                      const message = item.data;
+                      return (
                       <TableRow key={message.id}>
                         <TableCell className="max-w-[400px]">
                           <MessageContentPreview
@@ -589,7 +673,8 @@ export default function MessagesPage() {
                           </div>
                         </TableCell>
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>

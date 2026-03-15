@@ -203,7 +203,16 @@
     "backToSessions": "Back to Sessions",
     "task": "Task",
     "noTaskAssociated": "No task associated",
-    "viewTask": "View Task"
+    "viewTask": "View Task",
+    "addEvent": "Add Event",
+    "eventType": "Event Type",
+    "diskEvent": "Disk Event",
+    "textEvent": "Text Event",
+    "eventDiskId": "Disk ID",
+    "eventPath": "Path",
+    "eventNote": "Note",
+    "eventText": "Text",
+    "eventCreatedAt": "Event Created At"
   },
   "agentSkills": {
     "title": "Agent Skills",

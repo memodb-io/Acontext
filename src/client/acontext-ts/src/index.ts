@@ -9,6 +9,8 @@ export { FileUpload } from './uploads';
 export { MessagePart, AcontextMessage, buildAcontextMessage } from './messages';
 
 export { APIError, TransportError, AcontextError, TimeoutError } from './errors';
+export { DiskEvent, TextEvent } from './events';
+export type { EventPayload } from './events';
 
 export * from './types';
 export * from './resources';

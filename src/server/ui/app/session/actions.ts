@@ -4,8 +4,10 @@ import { ApiResponse } from "@/lib/api-response";
 import { API_SERVER_URL, ROOT_API_BEARER_TOKEN, MESSAGE_FORMAT, getAuthHeaders, handleResponse, handleError } from "@/lib/api-config";
 import {
   Session,
+  SessionEvent,
   GetSessionsResp,
   GetMessagesResp,
+  GetEventsResp,
   GetTasksResp,
   MessageRole,
   MessagePartIn,
@@ -148,6 +150,7 @@ export async function getMessages(
     const params = new URLSearchParams({
       limit: limit.toString(),
       with_asset_public_url: with_asset_public_url.toString(),
+      with_events: "true",
       format: MESSAGE_FORMAT,
     });
     if (cursor) {
@@ -232,6 +235,55 @@ export async function storeMessage(
     }
   } catch (error) {
     return handleError(error, "storeMessage");
+  }
+}
+
+// Event APIs
+export async function addEvent(
+  session_id: string,
+  type: string,
+  data: Record<string, unknown>
+): Promise<ApiResponse<SessionEvent>> {
+  try {
+    const response = await fetch(
+      `${API_SERVER_URL}/api/v1/session/${session_id}/events`,
+      {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ type, data }),
+      }
+    );
+
+    return await handleResponse<SessionEvent>(response);
+  } catch (error) {
+    return handleError(error, "addEvent");
+  }
+}
+
+export async function getEvents(
+  session_id: string,
+  limit: number = 50,
+  cursor?: string
+): Promise<ApiResponse<GetEventsResp>> {
+  try {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+    });
+    if (cursor) {
+      params.append("cursor", cursor);
+    }
+
+    const response = await fetch(
+      `${API_SERVER_URL}/api/v1/session/${session_id}/events?${params.toString()}`,
+      {
+        method: "GET",
+        headers: getAuthHeaders(),
+      }
+    );
+
+    return await handleResponse<GetEventsResp>(response);
+  } catch (error) {
+    return handleError(error, "getEvents");
   }
 }
 

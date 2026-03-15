@@ -277,6 +277,18 @@ export function DiskPageClient({
   useEffect(() => { loadDisks(); }, [loadDisks]);
   useEffect(() => { loadUsers(); }, [loadUsers]);
 
+  // Auto-select disk from URL query param (e.g. ?diskId=xxx)
+  useEffect(() => {
+    const diskId = searchParams.get("diskId");
+    if (diskId && disks.length > 0 && !selectedDisk) {
+      const target = disks.find((d) => d.id === diskId);
+      if (target) {
+        handleDiskSelect(target);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [disks, searchParams]);
+
   const formatArtifacts = (
     path: string,
     res: ListArtifactsResp

@@ -411,6 +411,30 @@ export function mockPaginatedList<T>(
 }
 
 /**
+ * Mock data factory for SessionEvent objects.
+ */
+export function mockSessionEvent(overrides?: Partial<{
+  id: string;
+  session_id: string;
+  project_id: string;
+  type: string;
+  data: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}>): Record<string, unknown> {
+  const now = mockTimestamp();
+  return {
+    id: overrides?.id ?? mockId(),
+    session_id: overrides?.session_id ?? mockId(),
+    project_id: overrides?.project_id ?? mockId(),
+    type: overrides?.type ?? 'disk_event',
+    data: overrides?.data ?? { disk_id: 'disk-uuid', path: '/data/report.csv' },
+    created_at: overrides?.created_at ?? now,
+    updated_at: overrides?.updated_at ?? now,
+  };
+}
+
+/**
  * Mock data factory for Skill objects.
  */
 export function mockSkill(overrides?: Partial<{

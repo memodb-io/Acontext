@@ -13,10 +13,12 @@ from ..types.session import (
     CopySessionResult,
     GetMessagesOutput,
     GetTasksOutput,
+    ListEventsOutput,
     ListSessionsOutput,
     Message,
     MessageObservingStatus,
     Session,
+    SessionEvent,
     TokenCounts,
 )
 from ..uploads import FileUpload, normalize_file_upload
@@ -315,6 +317,51 @@ class SessionsAPI:
             )
         return Message.model_validate(data)
 
+    def add_event(
+        self,
+        session_id: str,
+        event: Any,
+    ) -> SessionEvent:
+        """Add a structured event to a session.
+
+        Args:
+            session_id: The UUID of the session.
+            event: An event object with a to_payload() method (e.g., DiskEvent, TextEvent).
+
+        Returns:
+            The created SessionEvent object.
+        """
+        payload = event.to_payload()
+        data = self._requester.request(
+            "POST", f"/session/{session_id}/events", json_data=payload
+        )
+        return SessionEvent.model_validate(data)
+
+    def get_events(
+        self,
+        session_id: str,
+        *,
+        limit: int | None = None,
+        cursor: str | None = None,
+        time_desc: bool | None = None,
+    ) -> ListEventsOutput:
+        """Get events for a session.
+
+        Args:
+            session_id: The UUID of the session.
+            limit: Maximum number of events to return. Defaults to None.
+            cursor: Cursor for pagination. Defaults to None.
+            time_desc: Order by created_at descending if True. Defaults to None.
+
+        Returns:
+            ListEventsOutput containing the list of events and pagination information.
+        """
+        params = build_params(limit=limit, cursor=cursor, time_desc=time_desc)
+        data = self._requester.request(
+            "GET", f"/session/{session_id}/events", params=params or None
+        )
+        return ListEventsOutput.model_validate(data)
+
     def get_messages(
         self,
         session_id: str,
@@ -322,6 +369,7 @@ class SessionsAPI:
         limit: int | None = None,
         cursor: str | None = None,
         with_asset_public_url: bool | None = None,
+        with_events: bool | None = None,
         format: Literal["acontext", "openai", "anthropic", "gemini"] = "openai",
         time_desc: bool | None = None,
         edit_strategies: Optional[List[EditStrategy]] = None,
@@ -363,6 +411,7 @@ class SessionsAPI:
                 limit=limit,
                 cursor=cursor,
                 with_asset_public_url=with_asset_public_url,
+                with_events=with_events,
                 time_desc=time_desc,
             )
         )

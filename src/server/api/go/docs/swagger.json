@@ -2761,6 +2761,168 @@
                 ]
             }
         },
+        "/session/{session_id}/events": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get events for a session with cursor-based pagination.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "session"
+                ],
+                "summary": "Get events for session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Session ID",
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit of events to return, default 50. Max 200.",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cursor for pagination.",
+                        "name": "cursor",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Order by created_at descending if true, ascending if false (default false)",
+                        "name": "time_desc",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/service.ListEventsOutput"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Get events for a session\nevents = client.sessions.get_events(session_id, limit=50)\nfor event in events.items:\n    print(f\"{event.type}: {event.data}\")\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Get events for a session\nconst events = await client.sessions.getEvents(sessionId, { limit: 50 });\nfor (const event of events.items) {\n  console.log(`${event.type}: ${JSON.stringify(event.data)}`);\n}\n"
+                    }
+                ]
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Add a structured event to a session. Events are stored alongside messages and can be retrieved chronologically.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "session"
+                ],
+                "summary": "Add event to session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "format": "uuid",
+                        "description": "Session ID",
+                        "name": "session_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "AddEvent payload",
+                        "name": "payload",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/handler.AddEventReq"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/serializer.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.SessionEvent"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "$ref": "#/definitions/serializer.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Session not found",
+                        "schema": {
+                            "$ref": "#/definitions/serializer.Response"
+                        }
+                    }
+                },
+                "x-code-samples": [
+                    {
+                        "label": "Python",
+                        "lang": "python",
+                        "source": "from acontext import AcontextClient\nfrom acontext.event import DiskEvent, TextEvent\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Add a disk event\nclient.sessions.add_event(session_id, DiskEvent(disk_id='xxxx', path='/data/report.csv', note='Uploaded report'))\n\n# Add a text event\nclient.sessions.add_event(session_id, TextEvent(text='User switched to dark mode'))\n"
+                    },
+                    {
+                        "label": "JavaScript",
+                        "lang": "javascript",
+                        "source": "import { AcontextClient, DiskEvent, TextEvent } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Add a disk event\nawait client.sessions.addEvent(sessionId, new DiskEvent({ diskId: 'xxxx', path: '/data/report.csv', note: 'Uploaded report' }));\n\n// Add a text event\nawait client.sessions.addEvent(sessionId, new TextEvent({ text: 'User switched to dark mode' }));\n"
+                    }
+                ]
+            }
+        },
         "/session/{session_id}/flush": {
             "post": {
                 "security": [
@@ -2867,6 +3029,13 @@
                         "example": true,
                         "description": "Whether to return asset public url, default is true",
                         "name": "with_asset_public_url",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "example": false,
+                        "description": "Whether to include session events in the response, default is false",
+                        "name": "with_events",
                         "in": "query"
                     },
                     {
@@ -3507,6 +3676,13 @@
                     "description": "Message ID where edit strategies were applied",
                     "type": "string"
                 },
+                "events": {
+                    "description": "Session events within the messages time window",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.SessionEvent"
+                    }
+                },
                 "has_more": {
                     "description": "Whether there are more messages",
                     "type": "boolean"
@@ -3558,6 +3734,9 @@
                     "type": "string"
                 }
             }
+        },
+        "handler.AddEventReq": {
+            "type": "object"
         },
         "handler.CopySessionResp": {
             "type": "object",
@@ -4207,6 +4386,32 @@
                 }
             }
         },
+        "model.SessionEvent": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "data": {
+                    "type": "object"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "project_id": {
+                    "type": "string"
+                },
+                "session_id": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "model.Task": {
             "type": "object",
             "properties": {
@@ -4432,6 +4637,23 @@
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/model.Disk"
+                    }
+                },
+                "next_cursor": {
+                    "type": "string"
+                }
+            }
+        },
+        "service.ListEventsOutput": {
+            "type": "object",
+            "properties": {
+                "has_more": {
+                    "type": "boolean"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.SessionEvent"
                     }
                 },
                 "next_cursor": {

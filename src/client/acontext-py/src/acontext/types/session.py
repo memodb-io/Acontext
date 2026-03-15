@@ -232,6 +232,18 @@ class PublicURL(BaseModel):
     expire_at: str = Field(..., description="Expiration time in ISO 8601 format")
 
 
+class SessionEvent(BaseModel):
+    """Session event model representing an event in a session."""
+
+    id: str = Field(..., description="Event UUID")
+    session_id: str = Field(..., description="Session UUID")
+    project_id: str = Field(..., description="Project UUID")
+    type: str = Field(..., description="Event type discriminator")
+    data: dict[str, Any] = Field(..., description="Event payload")
+    created_at: str = Field(..., description="ISO 8601 formatted creation timestamp")
+    updated_at: str = Field(..., description="ISO 8601 formatted update timestamp")
+
+
 class GetMessagesOutput(BaseModel):
     """Response model for getting messages.
 
@@ -275,6 +287,10 @@ class GetMessagesOutput(BaseModel):
             "pin_editing_strategies_at_message in subsequent requests."
         ),
     )
+    events: list[SessionEvent] | None = Field(
+        None,
+        description="Session events within the messages time window (only when with_events=True)",
+    )
 
 
 class GetTasksOutput(BaseModel):
@@ -310,3 +326,11 @@ class CopySessionResult(BaseModel):
 
     old_session_id: str = Field(..., description="UUID of the original session")
     new_session_id: str = Field(..., description="UUID of the copied (new) session")
+
+
+class ListEventsOutput(BaseModel):
+    """Response model for listing session events."""
+
+    items: list[SessionEvent] = Field(..., description="List of events")
+    next_cursor: str | None = Field(None, description="Cursor for pagination")
+    has_more: bool = Field(..., description="Whether there are more items")

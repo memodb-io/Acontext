@@ -168,6 +168,7 @@ func TestGetConvertedMessagesOutput(t *testing.T) {
 		messages,
 		model.FormatAcontext,
 		publicURLs,
+		nil, // events
 		"next_cursor_123",
 		true,
 		100, // thisTimeTokens
@@ -200,6 +201,7 @@ func TestGetConvertedMessagesOutput_NonAcontextFormat(t *testing.T) {
 		messages,
 		model.FormatOpenAI,
 		publicURLs,
+		nil, // events
 		"",
 		false,
 		50, // thisTimeTokens
@@ -224,6 +226,7 @@ func TestGetConvertedMessagesOutput_EmptyMessages(t *testing.T) {
 		messages,
 		model.FormatOpenAI,
 		nil,
+		nil, // events
 		"",
 		false,
 		0,  // thisTimeTokens
@@ -255,6 +258,7 @@ func TestGetConvertedMessagesOutput_SingleMessage(t *testing.T) {
 		messages,
 		model.FormatAnthropic,
 		nil,
+		nil, // events
 		"cursor-123",
 		true,
 		25, // thisTimeTokens
@@ -292,6 +296,7 @@ func TestGetConvertedMessagesOutput_IDOrderMatchesItemOrder(t *testing.T) {
 		messages,
 		model.FormatOpenAI,
 		nil,
+		nil, // events
 		"",
 		false,
 		75, // thisTimeTokens
@@ -322,6 +327,7 @@ func TestGetConvertedMessagesOutput_DifferentFormats(t *testing.T) {
 			messages,
 			format,
 			nil,
+			nil, // events
 			"",
 			false,
 			30, // thisTimeTokens
@@ -352,6 +358,7 @@ func TestGetConvertedMessagesOutput_WithPublicURLs(t *testing.T) {
 		messages,
 		model.FormatAcontext,
 		publicURLs,
+		nil, // events
 		"",
 		false,
 		42, // thisTimeTokens
@@ -459,6 +466,7 @@ func TestGetConvertedMessagesOutput_ExtractsMetasCorrectly(t *testing.T) {
 		messages,
 		model.FormatOpenAI,
 		nil,
+		nil, // events
 		"",
 		false,
 		50,
@@ -498,6 +506,7 @@ func TestGetConvertedMessagesOutput_MetasOrderMatchesIDs(t *testing.T) {
 		messages,
 		model.FormatOpenAI,
 		nil,
+		nil, // events
 		"",
 		false,
 		30,
@@ -530,6 +539,7 @@ func TestGetConvertedMessagesOutput_EmptyUserMeta(t *testing.T) {
 		messages,
 		model.FormatOpenAI,
 		nil,
+		nil, // events
 		"",
 		false,
 		10,
@@ -571,6 +581,7 @@ func TestGetConvertedMessagesOutput_MixedMetas(t *testing.T) {
 		messages,
 		model.FormatOpenAI,
 		nil,
+		nil, // events
 		"",
 		false,
 		20,
@@ -627,6 +638,7 @@ func TestGetConvertedMessagesOutput_EmptyMessages_HasEmptyMetas(t *testing.T) {
 		messages,
 		model.FormatOpenAI,
 		nil,
+		nil, // events
 		"",
 		false,
 		0,

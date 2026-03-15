@@ -1511,3 +1511,133 @@ def test_patch_configs_deletes_keys_with_none(
     assert kwargs["json_data"] == {"configs": {"deleted_key": None}}
     assert "deleted_key" not in result
     assert result == {"remaining": "value"}
+
+
+# ===== Session Event Tests =====
+
+
+MOCK_SESSION_EVENT = {
+    "id": "event-uuid-1",
+    "session_id": "session-uuid",
+    "project_id": "project-uuid",
+    "type": "disk_event",
+    "data": {"disk_id": "disk-uuid", "path": "/data/report.csv", "note": "Uploaded"},
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z",
+}
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_add_event_disk_event(mock_request, client: AcontextClient) -> None:
+    """Test add_event with DiskEvent."""
+    from acontext.event import DiskEvent
+
+    mock_request.return_value = MOCK_SESSION_EVENT
+
+    event = client.sessions.add_event(
+        "session-uuid",
+        DiskEvent(disk_id="disk-uuid", path="/data/report.csv", note="Uploaded"),
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "POST"
+    assert path == "/session/session-uuid/events"
+    assert kwargs["json_data"] == {
+        "type": "disk_event",
+        "data": {"disk_id": "disk-uuid", "path": "/data/report.csv", "note": "Uploaded"},
+    }
+    assert event.id == "event-uuid-1"
+    assert event.type == "disk_event"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_add_event_text_event(mock_request, client: AcontextClient) -> None:
+    """Test add_event with TextEvent."""
+    from acontext.event import TextEvent
+
+    mock_request.return_value = {
+        "id": "event-uuid-2",
+        "session_id": "session-uuid",
+        "project_id": "project-uuid",
+        "type": "text_event",
+        "data": {"text": "User switched to dark mode"},
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
+
+    event = client.sessions.add_event(
+        "session-uuid",
+        TextEvent(text="User switched to dark mode"),
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    assert kwargs["json_data"] == {
+        "type": "text_event",
+        "data": {"text": "User switched to dark mode"},
+    }
+    assert event.type == "text_event"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_get_events_with_pagination(mock_request, client: AcontextClient) -> None:
+    """Test get_events with pagination."""
+    mock_request.return_value = {
+        "items": [MOCK_SESSION_EVENT],
+        "next_cursor": "cursor-abc",
+        "has_more": True,
+    }
+
+    result = client.sessions.get_events("session-uuid", limit=1)
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/session/session-uuid/events"
+    assert kwargs["params"] == {"limit": 1}
+    assert len(result.items) == 1
+    assert result.items[0].type == "disk_event"
+    assert result.has_more is True
+    assert result.next_cursor == "cursor-abc"
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_get_messages_with_events(mock_request, client: AcontextClient) -> None:
+    """Test get_messages with with_events=True."""
+    mock_request.return_value = {
+        "items": [{"role": "user", "content": "Hello"}],
+        "ids": ["msg-1"],
+        "metas": [{}],
+        "events": [MOCK_SESSION_EVENT],
+        "has_more": False,
+        "this_time_tokens": 10,
+    }
+
+    result = client.sessions.get_messages("session-uuid", with_events=True)
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    assert kwargs["params"]["with_events"] == "true"
+    assert result.events is not None
+    assert len(result.events) == 1
+
+
+def test_disk_event_validation() -> None:
+    """Test DiskEvent validates required fields."""
+    from acontext.event import DiskEvent
+    import pytest as _pytest
+
+    with _pytest.raises(Exception):
+        DiskEvent()  # type: ignore
+
+
+def test_text_event_validation() -> None:
+    """Test TextEvent validates required fields."""
+    from acontext.event import TextEvent
+    import pytest as _pytest
+
+    with _pytest.raises(Exception):
+        TextEvent()  # type: ignore

@@ -17,6 +17,7 @@ from .resources import (
     LearningSpacesAPI,
     SessionsAPI,
 )
+from .event import DiskEvent, TextEvent
 from .integrations.claude_agent import ClaudeAgentStorage
 from .types import Task, TaskData
 
@@ -37,6 +38,8 @@ __all__ = [
     "Task",
     "TaskData",
     "ClaudeAgentStorage",
+    "DiskEvent",
+    "TextEvent",
     "__version__",
 ]
 
