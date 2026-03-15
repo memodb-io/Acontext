@@ -36,14 +36,21 @@ func buildQuery(params *ListParams) string {
 	return "?" + v.Encode()
 }
 
+// --- Ping (/api/v1/ping) ---
+
+// Ping checks connectivity to the API. Returns nil on success.
+func (c *Client) Ping(ctx context.Context) error {
+	return c.Get(ctx, "/api/v1/ping", nil)
+}
+
 // --- Sessions (/api/v1/session) ---
 
 func (c *Client) ListSessions(ctx context.Context, params *ListParams) ([]Session, error) {
-	var sessions []Session
-	if err := c.Get(ctx, "/api/v1/session"+buildQuery(params), &sessions); err != nil {
+	var resp PaginatedResponse[Session]
+	if err := c.Get(ctx, "/api/v1/session"+buildQuery(params), &resp); err != nil {
 		return nil, err
 	}
-	return sessions, nil
+	return resp.Items, nil
 }
 
 func (c *Client) CreateSession(ctx context.Context, req *CreateSessionRequest) (*Session, error) {
@@ -55,15 +62,15 @@ func (c *Client) CreateSession(ctx context.Context, req *CreateSessionRequest) (
 }
 
 func (c *Client) GetSession(ctx context.Context, sessionID string) (*Session, error) {
-	var sessions []Session
+	var resp PaginatedResponse[Session]
 	v := url.Values{"id": {sessionID}}
-	if err := c.Get(ctx, "/api/v1/session?"+v.Encode(), &sessions); err != nil {
+	if err := c.Get(ctx, "/api/v1/session?"+v.Encode(), &resp); err != nil {
 		return nil, err
 	}
-	if len(sessions) == 0 {
+	if len(resp.Items) == 0 {
 		return nil, &APIError{StatusCode: 404, Message: "session not found"}
 	}
-	return &sessions[0], nil
+	return &resp.Items[0], nil
 }
 
 func (c *Client) DeleteSession(ctx context.Context, sessionID string) error {
@@ -73,11 +80,11 @@ func (c *Client) DeleteSession(ctx context.Context, sessionID string) error {
 // --- Messages (/api/v1/session/:id/messages) ---
 
 func (c *Client) ListMessages(ctx context.Context, sessionID string, params *ListParams) ([]Message, error) {
-	var messages []Message
-	if err := c.Get(ctx, "/api/v1/session/"+sessionID+"/messages"+buildQuery(params), &messages); err != nil {
+	var resp PaginatedResponse[Message]
+	if err := c.Get(ctx, "/api/v1/session/"+sessionID+"/messages"+buildQuery(params), &resp); err != nil {
 		return nil, err
 	}
-	return messages, nil
+	return resp.Items, nil
 }
 
 func (c *Client) StoreMessage(ctx context.Context, sessionID string, req *StoreMessageRequest) (*Message, error) {
@@ -91,11 +98,11 @@ func (c *Client) StoreMessage(ctx context.Context, sessionID string, req *StoreM
 // --- Disks (/api/v1/disk) ---
 
 func (c *Client) ListDisks(ctx context.Context, params *ListParams) ([]Disk, error) {
-	var disks []Disk
-	if err := c.Get(ctx, "/api/v1/disk"+buildQuery(params), &disks); err != nil {
+	var resp PaginatedResponse[Disk]
+	if err := c.Get(ctx, "/api/v1/disk"+buildQuery(params), &resp); err != nil {
 		return nil, err
 	}
-	return disks, nil
+	return resp.Items, nil
 }
 
 func (c *Client) CreateDisk(ctx context.Context, req *CreateDiskRequest) (*Disk, error) {
@@ -107,15 +114,15 @@ func (c *Client) CreateDisk(ctx context.Context, req *CreateDiskRequest) (*Disk,
 }
 
 func (c *Client) GetDisk(ctx context.Context, diskID string) (*Disk, error) {
-	var disks []Disk
+	var resp PaginatedResponse[Disk]
 	v := url.Values{"id": {diskID}}
-	if err := c.Get(ctx, "/api/v1/disk?"+v.Encode(), &disks); err != nil {
+	if err := c.Get(ctx, "/api/v1/disk?"+v.Encode(), &resp); err != nil {
 		return nil, err
 	}
-	if len(disks) == 0 {
+	if len(resp.Items) == 0 {
 		return nil, &APIError{StatusCode: 404, Message: "disk not found"}
 	}
-	return &disks[0], nil
+	return &resp.Items[0], nil
 }
 
 func (c *Client) DeleteDisk(ctx context.Context, diskID string) error {
@@ -125,11 +132,11 @@ func (c *Client) DeleteDisk(ctx context.Context, diskID string) error {
 // --- Artifacts (/api/v1/disk/:disk_id/artifact) ---
 
 func (c *Client) ListArtifacts(ctx context.Context, diskID string) ([]Artifact, error) {
-	var artifacts []Artifact
-	if err := c.Get(ctx, "/api/v1/disk/"+diskID+"/artifact/ls", &artifacts); err != nil {
+	var resp ListArtifactsResponse
+	if err := c.Get(ctx, "/api/v1/disk/"+diskID+"/artifact/ls", &resp); err != nil {
 		return nil, err
 	}
-	return artifacts, nil
+	return resp.Artifacts, nil
 }
 
 func (c *Client) UploadArtifact(ctx context.Context, diskID, filePath, destPath string) (*Artifact, error) {
@@ -206,11 +213,11 @@ func (c *Client) CreateAgentSkill(ctx context.Context, zipPath, user, meta strin
 }
 
 func (c *Client) ListAgentSkills(ctx context.Context, params *ListParams) ([]AgentSkill, error) {
-	var skills []AgentSkill
-	if err := c.Get(ctx, "/api/v1/agent_skills"+buildQuery(params), &skills); err != nil {
+	var resp PaginatedResponse[AgentSkill]
+	if err := c.Get(ctx, "/api/v1/agent_skills"+buildQuery(params), &resp); err != nil {
 		return nil, err
 	}
-	return skills, nil
+	return resp.Items, nil
 }
 
 func (c *Client) GetAgentSkill(ctx context.Context, skillID string) (*AgentSkill, error) {
@@ -228,15 +235,15 @@ func (c *Client) DeleteAgentSkill(ctx context.Context, skillID string) error {
 // --- Users (/api/v1/user) ---
 
 func (c *Client) ListUsers(ctx context.Context, params *ListParams) ([]User, error) {
-	var users []User
+	var resp PaginatedResponse[User]
 	q := ""
 	if params != nil && params.Limit > 0 {
 		q = fmt.Sprintf("?limit=%d", params.Limit)
 	}
-	if err := c.Get(ctx, "/api/v1/user/ls"+q, &users); err != nil {
+	if err := c.Get(ctx, "/api/v1/user/ls"+q, &resp); err != nil {
 		return nil, err
 	}
-	return users, nil
+	return resp.Items, nil
 }
 
 func (c *Client) DeleteUser(ctx context.Context, identifier string) error {
@@ -246,11 +253,11 @@ func (c *Client) DeleteUser(ctx context.Context, identifier string) error {
 // --- Learning Spaces (/api/v1/learning_spaces) ---
 
 func (c *Client) ListLearningSpaces(ctx context.Context, params *ListParams) ([]LearningSpace, error) {
-	var spaces []LearningSpace
-	if err := c.Get(ctx, "/api/v1/learning_spaces"+buildQuery(params), &spaces); err != nil {
+	var resp PaginatedResponse[LearningSpace]
+	if err := c.Get(ctx, "/api/v1/learning_spaces"+buildQuery(params), &resp); err != nil {
 		return nil, err
 	}
-	return spaces, nil
+	return resp.Items, nil
 }
 
 func (c *Client) CreateLearningSpace(ctx context.Context, req *CreateLearningSpaceRequest) (*LearningSpace, error) {

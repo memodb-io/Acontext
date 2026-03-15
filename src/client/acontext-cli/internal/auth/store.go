@@ -75,18 +75,25 @@ func Save(af *AuthFile) error {
 	return os.WriteFile(path, data, 0600)
 }
 
-// Clear removes auth.json (logout).
+// Clear removes auth.json and credentials.json (logout).
 func Clear() error {
 	dir, err := getConfigDir()
 	if err != nil {
 		return err
 	}
-	path := filepath.Join(dir, authFileName)
-	if err := os.Remove(path); os.IsNotExist(err) {
-		return nil
-	} else if err != nil {
+
+	// Remove auth.json
+	authPath := filepath.Join(dir, authFileName)
+	if err := os.Remove(authPath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("cannot remove auth file: %w", err)
 	}
+
+	// Remove credentials.json
+	credPath := filepath.Join(dir, credentialsFileName)
+	if err := os.Remove(credPath); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("cannot remove credentials file: %w", err)
+	}
+
 	return nil
 }
 

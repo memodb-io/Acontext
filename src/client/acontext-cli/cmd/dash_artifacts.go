@@ -13,8 +13,8 @@ import (
 func init() {
 	artifactsCmd := &cobra.Command{Use: "artifacts", Short: "Manage artifacts within a disk"}
 
-	lsCmd := &cobra.Command{
-		Use: "ls <disk-id>", Short: "List artifacts in a disk", Args: cobra.ExactArgs(1),
+	listCmd := &cobra.Command{
+		Use: "list <disk-id>", Short: "List artifacts in a disk", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, err := requireClient()
 			if err != nil {
@@ -85,6 +85,6 @@ func init() {
 	}
 	deleteCmd.Flags().BoolP("yes", "y", false, "Skip confirmation prompt")
 
-	artifactsCmd.AddCommand(lsCmd, uploadCmd, deleteCmd)
+	artifactsCmd.AddCommand(listCmd, uploadCmd, deleteCmd)
 	DashCmd.AddCommand(artifactsCmd)
 }

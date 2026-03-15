@@ -130,25 +130,25 @@ type LearnRequest struct {
 
 // --- /admin/v1/project ---
 
-type ProjectInfo struct {
-	ID        string `json:"id"`
-	Name      string `json:"name"`
-	OrgID     string `json:"organization_id"`
-	SecretKey string `json:"secret_key,omitempty"`
-	CreatedAt string `json:"created_at"`
+// CreateProjectResponse matches the admin server's CreateProjectOutput.
+type CreateProjectResponse struct {
+	ProjectID string `json:"project_id"`
+	SecretKey string `json:"secret_key"`
 }
 
 type CreateProjectRequest struct {
 	Name string `json:"name"`
 }
 
+// RotateKeyResponse matches the admin server's UpdateSecretKeyOutput.
+type RotateKeyResponse struct {
+	SecretKey string `json:"secret_key"`
+}
+
 type ProjectStats struct {
-	ProjectID    string `json:"project_id"`
-	SessionCount int    `json:"session_count"`
-	MessageCount int    `json:"message_count"`
-	DiskCount    int    `json:"disk_count"`
-	SkillCount   int    `json:"skill_count"`
-	UserCount    int    `json:"user_count"`
+	TaskCount    int64 `json:"taskCount"`
+	SkillCount   int64 `json:"skillCount"`
+	SessionCount int64 `json:"sessionCount"`
 }
 
 // --- Pagination ---
@@ -158,4 +158,17 @@ type ListParams struct {
 	Limit    int    `json:"limit,omitempty"`
 	Cursor   string `json:"cursor,omitempty"`
 	TimeDesc bool   `json:"time_desc,omitempty"`
+}
+
+// PaginatedResponse wraps list endpoints that return {items, next_cursor, has_more}.
+type PaginatedResponse[T any] struct {
+	Items      []T    `json:"items"`
+	NextCursor string `json:"next_cursor,omitempty"`
+	HasMore    bool   `json:"has_more"`
+}
+
+// ListArtifactsResponse wraps the artifact ls endpoint response.
+type ListArtifactsResponse struct {
+	Artifacts   []Artifact `json:"artifacts"`
+	Directories []string   `json:"directories"`
 }

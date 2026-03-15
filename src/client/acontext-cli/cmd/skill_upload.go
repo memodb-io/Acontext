@@ -35,20 +35,15 @@ var SkillCmd = &cobra.Command{
 		if err != nil || af == nil {
 			return fmt.Errorf("not logged in — run 'acontext login' first")
 		}
-		if af.IsExpired() {
-			af, err = auth.RefreshIfNeeded(af)
-			if err != nil {
-				return fmt.Errorf("session expired — run 'acontext login' again")
-			}
+		af, err = auth.ValidateAndRefresh(af)
+		if err != nil {
+			return fmt.Errorf("session invalid — run 'acontext login' again: %w", err)
 		}
 		dashUserEmail = af.User.Email
 		dashAccessToken = af.AccessToken
 
-		// Resolve API key: flag > env > default project keystore
+		// Resolve API key: flag > default project keystore
 		apiKey := skillAPIKey
-		if apiKey == "" {
-			apiKey = os.Getenv("ACONTEXT_API_KEY")
-		}
 		if apiKey == "" {
 			ks, _ := auth.LoadKeyStore()
 			if ks != nil && ks.DefaultProject != "" {
@@ -64,7 +59,7 @@ var SkillCmd = &cobra.Command{
 }
 
 func init() {
-	SkillCmd.PersistentFlags().StringVar(&skillAPIKey, "api-key", "", "Project API key (or set ACONTEXT_API_KEY)")
+	SkillCmd.PersistentFlags().StringVar(&skillAPIKey, "api-key", "", "Project API key (overrides credentials.json)")
 	SkillCmd.PersistentFlags().StringVar(&skillBaseURL, "base-url", "", "API base URL override")
 
 	uploadCmd := &cobra.Command{

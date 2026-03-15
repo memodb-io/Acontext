@@ -12,6 +12,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// printSetupComplete prints the common message after a project is configured.
+func printSetupComplete() {
+	fmt.Println("API key saved to ~/.acontext/credentials.json")
+	fmt.Println()
+	fmt.Println("Verify connectivity:")
+	fmt.Println("  acontext dash ping")
+}
+
 func init() {
 	projectsCmd := &cobra.Command{Use: "projects", Short: "Manage projects (requires login)"}
 
@@ -98,9 +106,7 @@ func init() {
 						return fmt.Errorf("save project key: %w", err)
 					}
 					fmt.Printf("Default project set to: %s\n", projectFlag)
-					fmt.Println("API key saved locally.")
-					fmt.Println()
-					fmt.Println("Setup complete. You can now use 'acontext dash' commands.")
+					printSetupComplete()
 					return nil
 				}
 
@@ -114,9 +120,8 @@ func init() {
 						return fmt.Errorf("rotate project key: %w", err)
 					}
 					fmt.Printf("Default project set to: %s\n", projectFlag)
-					fmt.Println("New API key generated and saved locally.")
-					fmt.Println()
-					fmt.Println("Setup complete. You can now use 'acontext dash' commands.")
+					fmt.Println("New API key generated.")
+					printSetupComplete()
 					return nil
 				}
 
@@ -136,9 +141,7 @@ func init() {
 					return fmt.Errorf("save project key: %w", err)
 				}
 				fmt.Printf("Default project set to: %s\n", projectFlag)
-				fmt.Println("API key saved locally.")
-				fmt.Println()
-				fmt.Println("Setup complete. You can now use 'acontext dash' commands.")
+				printSetupComplete()
 				return nil
 			}
 
@@ -157,7 +160,7 @@ func init() {
 				return fmt.Errorf("save project key: %w", err)
 			}
 			fmt.Println(tui.RenderSuccess(fmt.Sprintf("Default project set to: %s", choice.Name)))
-			fmt.Println(tui.RenderInfo("API key saved locally."))
+			printSetupComplete()
 			return nil
 		},
 	}
@@ -223,24 +226,22 @@ func init() {
 			}
 
 			// 2. Link project to org via Supabase RPC
-			if err := auth.LinkProjectToOrg(dashAccessToken, orgID, name, project.ID); err != nil {
+			if err := auth.LinkProjectToOrg(dashAccessToken, orgID, name, project.ProjectID); err != nil {
 				return fmt.Errorf("link project to organization: %w", err)
 			}
 
 			if dashJSON {
 				return output.RenderJSON(project)
 			}
-			fmt.Printf("Project created: %s (%s)\n", name, project.ID)
+			fmt.Printf("Project created: %s (%s)\n", name, project.ProjectID)
 
 			// Auto-save API key and set as default
 			if project.SecretKey != "" {
-				if err := auth.SetProjectKey(project.ID, project.SecretKey); err == nil {
-					fmt.Println("API key saved locally.")
+				if err := auth.SetProjectKey(project.ProjectID, project.SecretKey); err == nil {
+					_ = auth.SetDefaultProject(project.ProjectID)
+					fmt.Printf("Default project set to: %s\n", project.ProjectID)
+					printSetupComplete()
 				}
-				_ = auth.SetDefaultProject(project.ID)
-				fmt.Printf("Default project set to: %s\n", project.ID)
-				fmt.Println()
-				fmt.Println("Setup complete. You can now use 'acontext dash' commands.")
 			}
 			return nil
 		},
@@ -287,10 +288,8 @@ func init() {
 				return output.RenderJSON(stats)
 			}
 			fmt.Printf("Sessions:  %d\n", stats.SessionCount)
-			fmt.Printf("Messages:  %d\n", stats.MessageCount)
-			fmt.Printf("Disks:     %d\n", stats.DiskCount)
+			fmt.Printf("Tasks:     %d\n", stats.TaskCount)
 			fmt.Printf("Skills:    %d\n", stats.SkillCount)
-			fmt.Printf("Users:     %d\n", stats.UserCount)
 			return nil
 		},
 	}

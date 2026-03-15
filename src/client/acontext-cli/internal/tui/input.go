@@ -92,12 +92,12 @@ func (m InputModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			bytePos := runeOffset(m.value, m.cursorPos)
 			m.value = m.value[:bytePos]
 		default:
-			// Handle regular character input (supports multi-byte Unicode)
-			if utf8.RuneCountInString(msg.String()) == 1 {
-				char := msg.String()
+			// Handle regular character input and paste (supports multi-byte Unicode)
+			input := msg.String()
+			if inputLen := utf8.RuneCountInString(input); inputLen > 0 && msg.Type == tea.KeyRunes {
 				bytePos := runeOffset(m.value, m.cursorPos)
-				m.value = m.value[:bytePos] + char + m.value[bytePos:]
-				m.cursorPos++
+				m.value = m.value[:bytePos] + input + m.value[bytePos:]
+				m.cursorPos += inputLen
 			}
 		}
 	}

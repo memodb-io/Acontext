@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/memodb-io/Acontext/acontext-cli/internal/api"
 	"github.com/memodb-io/Acontext/acontext-cli/internal/auth"
@@ -45,11 +44,9 @@ var DashCmd = &cobra.Command{
 		if err != nil || af == nil {
 			return fmt.Errorf("not logged in — run 'acontext login' first")
 		}
-		if af.IsExpired() {
-			af, err = auth.RefreshIfNeeded(af)
-			if err != nil {
-				return fmt.Errorf("session expired — run 'acontext login' again")
-			}
+		af, err = auth.ValidateAndRefresh(af)
+		if err != nil {
+			return fmt.Errorf("session invalid — run 'acontext login' again: %w", err)
 		}
 		dashUserEmail = af.User.Email
 		dashUserID = af.User.ID
@@ -58,16 +55,13 @@ var DashCmd = &cobra.Command{
 		// 2. Admin client always available (JWT only)
 		dashAdminClient = api.NewAdminClient(dashBaseURL, af.AccessToken)
 
-		// 3. Resolve API key for /api/v1 routes
+		// 3. Resolve API key for /api/v1 routes: --api-key flag > --project flag > credentials.json default
 		apiKey := dashAPIKey
-		if apiKey == "" {
-			apiKey = os.Getenv("ACONTEXT_API_KEY")
-		}
 		if apiKey == "" && dashProject != "" {
 			apiKey = auth.GetProjectKey(dashProject)
 		}
 		if apiKey == "" {
-			// Try default project
+			// Try default project from credentials.json
 			ks, _ := auth.LoadKeyStore()
 			if ks != nil && ks.DefaultProject != "" {
 				apiKey = ks.Keys[ks.DefaultProject]
@@ -86,7 +80,7 @@ var DashCmd = &cobra.Command{
 }
 
 func init() {
-	DashCmd.PersistentFlags().StringVar(&dashAPIKey, "api-key", "", "Project API key (or set ACONTEXT_API_KEY)")
+	DashCmd.PersistentFlags().StringVar(&dashAPIKey, "api-key", "", "Project API key (overrides credentials.json)")
 	DashCmd.PersistentFlags().StringVar(&dashProject, "project", "", "Project ID to use")
 	DashCmd.PersistentFlags().BoolVar(&dashJSON, "json", false, "Output as JSON")
 	DashCmd.PersistentFlags().StringVar(&dashBaseURL, "base-url", "", "API base URL override")

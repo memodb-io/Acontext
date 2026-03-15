@@ -43,10 +43,21 @@ func TestAuthLoadSaveClear(t *testing.T) {
 	assert.Equal(t, "test-token", af2.AccessToken)
 	assert.Equal(t, "test@example.com", af2.User.Email)
 
+	// Save a credential key so we can verify Clear removes it
+	err = SetProjectKey("proj-1", "sk-ac-test")
+	require.NoError(t, err)
+	assert.Equal(t, "sk-ac-test", GetProjectKey("proj-1"))
+
 	// Clear
 	err = Clear()
 	require.NoError(t, err)
 	assert.False(t, IsLoggedIn())
+
+	// Verify credentials.json is also removed
+	assert.Equal(t, "", GetProjectKey("proj-1"))
+	ks, ksErr := LoadKeyStore()
+	require.NoError(t, ksErr)
+	assert.Empty(t, ks.Keys)
 
 	// Clear again (idempotent)
 	err = Clear()

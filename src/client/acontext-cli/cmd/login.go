@@ -3,7 +3,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"os"
 
 	"github.com/memodb-io/Acontext/acontext-cli/internal/api"
 	"github.com/memodb-io/Acontext/acontext-cli/internal/auth"
@@ -41,7 +40,17 @@ func runLogin(cmd *cobra.Command, args []string) error {
 	// --poll flag: check for pending login
 	pollFlag, _ := cmd.Flags().GetBool("poll")
 	if pollFlag {
-		return auth.LoginPoll()
+		if err := auth.LoginPoll(); err != nil {
+			return err
+		}
+		af, _ := auth.Load()
+		if af != nil {
+			fmt.Printf("Login successful. Logged in as %s\n", af.User.Email)
+			fmt.Println("Credentials saved to ~/.acontext/auth.json")
+		}
+		fmt.Println()
+		fmt.Println("Next: set up a project. Run 'acontext dash projects list --json' to see available projects.")
+		return nil
 	}
 
 	// Check if already logged in
@@ -127,15 +136,15 @@ func runLogin(cmd *cobra.Command, args []string) error {
 			if createErr != nil {
 				return fmt.Errorf("create project: %w", createErr)
 			}
-			if linkErr := auth.LinkProjectToOrg(af.AccessToken, orgID, projectName, project.ID); linkErr != nil {
+			if linkErr := auth.LinkProjectToOrg(af.AccessToken, orgID, projectName, project.ProjectID); linkErr != nil {
 				return fmt.Errorf("link project to organization: %w", linkErr)
 			}
-			fmt.Println(tui.RenderSuccess(fmt.Sprintf("Project created: %s (%s)", projectName, project.ID)))
+			fmt.Println(tui.RenderSuccess(fmt.Sprintf("Project created: %s (%s)", projectName, project.ProjectID)))
 			if project.SecretKey != "" {
-				if err := auth.SetProjectKey(project.ID, project.SecretKey); err == nil {
-					_ = auth.SetDefaultProject(project.ID)
+				if err := auth.SetProjectKey(project.ProjectID, project.SecretKey); err == nil {
+					_ = auth.SetDefaultProject(project.ProjectID)
 					fmt.Println(tui.RenderSuccess(fmt.Sprintf("Default project set to: %s", projectName)))
-					fmt.Println(tui.RenderInfo("API key saved locally."))
+					printSetupComplete()
 				}
 			}
 			return nil
@@ -151,7 +160,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 			return nil
 		}
 		fmt.Println(tui.RenderSuccess(fmt.Sprintf("Default project set to: %s", choice.Name)))
-		fmt.Println(tui.RenderInfo("API key saved locally."))
+		printSetupComplete()
 	} else {
 		// Non-interactive (agent) mode: print URL and save state for later polling
 		loginURL, err := auth.LoginNonInteractive()
@@ -168,6 +177,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		fmt.Println("  acontext login --poll")
 		fmt.Println()
 		fmt.Println("This will retrieve the authentication tokens. Then proceed with project setup:")
+		fmt.Println()
 		fmt.Println("  1. Run 'acontext dash projects list --json' to see available projects.")
 		fmt.Println("  2. If projects exist, show them to the user as a numbered table")
 		fmt.Println("     (# | org_name | name | project_id) and ask which one to use.")
@@ -178,6 +188,9 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		fmt.Println("       acontext dash projects create --name <project-name> --org <org-id>")
 		fmt.Println("     If no orgs exist either, the user must create one at https://dash.acontext.io first.")
 		fmt.Println("     The create output includes project_id and secret_key, auto-saved as default.")
+		fmt.Println("  4. After project setup, verify connectivity:")
+		fmt.Println("       acontext dash ping")
+		fmt.Println("     If ping fails, re-run 'acontext dash projects select' with the correct API key.")
 	}
 
 	return nil
@@ -194,25 +207,20 @@ func runLogout(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println(tui.RenderSuccess("Logged out successfully"))
+	fmt.Println(tui.RenderInfo("Removed ~/.acontext/auth.json and ~/.acontext/credentials.json"))
 	return nil
 }
 
 func runWhoami(cmd *cobra.Command, args []string) error {
-	// Check ACONTEXT_API_TOKEN env var first (for CI/CD)
-	if token := os.Getenv("ACONTEXT_API_TOKEN"); token != "" {
-		fmt.Println(tui.RenderInfo("Authenticated via ACONTEXT_API_TOKEN environment variable"))
-		return nil
-	}
-
 	af, err := auth.MustLoad()
 	if err != nil {
 		return err
 	}
 
-	// Refresh if needed
-	af, err = auth.RefreshIfNeeded(af)
+	// Validate token with Supabase and refresh if needed
+	af, err = auth.ValidateAndRefresh(af)
 	if err != nil {
-		return fmt.Errorf("token refresh failed: %w", err)
+		return fmt.Errorf("session invalid — run 'acontext login' again: %w", err)
 	}
 
 	fmt.Printf("Logged in as %s\n", tui.SuccessStyle.Render(af.User.Email))

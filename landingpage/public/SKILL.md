@@ -23,10 +23,15 @@ Acontext provides Agent Skills as a Memory Layer for production AI agents. It pr
 
 ### 1. Install Acontext CLI
 
+If Acontext CLI is already installed, check for updates first:
+```bash
+acontext upgrade
+```
+
+If not installed, install it:
 ```bash
 curl -fsSL https://install.acontext.io | sh
 ```
-After installation, restart your shell or run `source ~/.bashrc` (or `~/.zshrc`) to make sure the CLI is in your PATH.
 
 > For system-wide installation:
 > ```bash
@@ -41,6 +46,7 @@ acontext login
 - If you're in a Interactive Terminal(TTY), this command will open a browser for OAuth, then guides you through project creation. Your API key is saved automatically.
 - If you're in a Non-interactive Terminal(agent/CI), this command will print a login URL for the user to open manually. After user completes, run `acontext login --poll` to finish authentication.
 - Set up a project via `acontext dash projects` commands. If Acontext has existing projects, make sure the user wants to use an existing project or create a new project for you.
+
 ### 3. Add Acontext to Your Agent
 
 Both plugins automatically read your API key and user email from `~/.acontext/credentials.json` and `~/.acontext/auth.json` (written by `acontext login`). No manual configuration is needed after login.
@@ -88,18 +94,22 @@ openclaw gateway
 After you have logged in, you can manage Acontext projects via CLI:
 
 1. `acontext dash projects list --json` — list available projects
-2. If user ask you to use a existing Acontext project, you should let the user to provider the api key. And then switch to this project `acontext dash projects select --project <project-id> --api-key <sk-ac-...>`. 
-3. To create, ask for an org name and project name, then run: `acontext dash projects create --name <project-name> --org <org-id>`, this command would return the API Key to you, and then select to the new project.
+2. If user ask you to use a existing Acontext project, you should let the user to provide the api key. And then switch to this project `acontext dash projects select --project <project-id> --api-key <sk-ac-...>`.
+3. To create, ask for an org name and project name, then run: `acontext dash projects create --name <project-name> --org <org-id>`. This command returns the API key and auto-saves it as the default project (no need to run `select` afterwards).
+4. After select or create, verify the project is configured correctly:
+   - Check that `~/.acontext/credentials.json` contains the project key.
+   - Run `acontext dash ping` to verify API connectivity. A successful response confirms the project is reachable.
 
 ## CLI Commands Reference
 
 
 All dashboard commands are under `acontext dash`:
 
-| Command Group   | Subcommands                         | Description                            |
-| --------------- | ----------------------------------- | -------------------------------------- |
-| `dash projects` | `list`, `select`, `create`, `stats` | Manage projects and organizations      |
-| `dash open`     | —                                   | Open the Acontext Dashboard in browser |
+| Command Group   | Subcommands                                   | Description                            |
+| --------------- | --------------------------------------------- | -------------------------------------- |
+| `dash projects` | `list`, `select`, `create`, `delete`, `stats` | Manage projects and organizations      |
+| `dash ping`     | —                                             | Verify API connectivity for the current project |
+| `dash open`     | —                                             | Open the Acontext Dashboard in browser |
 
 ### Skill Commands
 
@@ -118,7 +128,7 @@ The directory must contain a `SKILL.md` with name and description in YAML front-
 | Command            | Description                       |
 | ------------------ | --------------------------------- |
 | `acontext login`   | Log in via browser OAuth          |
-| `acontext logout`  | Clear stored credentials          |
+| `acontext logout`  | Clear stored credentials (auth.json + credentials.json) |
 | `acontext whoami`  | Show the currently logged-in user |
 | `acontext version` | Show version info                 |
 | `acontext upgrade` | Upgrade CLI to latest version     |
@@ -194,9 +204,10 @@ Restart your shell or run `source ~/.bashrc` / `source ~/.zshrc`. The installer 
 
 ### API returns 401 Unauthorized
 
-- Verify your API key with `acontext whoami`
-- Re-login with `acontext login`
-- For CI/CD, ensure `ACONTEXT_API_KEY` is set correctly
+- Run `acontext dash ping` to check if the current project key is valid
+- If ping fails, re-select with a valid API key: `acontext dash projects select --project <id> --api-key <sk-ac-...>`
+- Verify login status with `acontext whoami`
+- Re-login with `acontext login` if needed
 
 ### Claude Code plugin not working
 
