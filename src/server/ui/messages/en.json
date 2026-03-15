@@ -213,7 +213,10 @@
     "eventPath": "Path",
     "eventNote": "Note",
     "eventText": "Text",
-    "eventCreatedAt": "Event Created At"
+    "eventCreatedAt": "Event Created At",
+    "download": "Download",
+    "downloadSuccess": "Messages downloaded successfully",
+    "downloadFailed": "Failed to download messages"
   },
   "agentSkills": {
     "title": "Agent Skills",

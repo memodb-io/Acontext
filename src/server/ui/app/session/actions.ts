@@ -171,6 +171,50 @@ export async function getMessages(
   }
 }
 
+export async function downloadMessages(
+  session_id: string,
+  format: "acontext" | "openai" | "anthropic" | "gemini"
+): Promise<ApiResponse<string>> {
+  try {
+    let allItems: unknown[] = [];
+    let cursor: string | undefined;
+    let hasMore = true;
+
+    while (hasMore) {
+      const params = new URLSearchParams({
+        limit: "100",
+        format,
+      });
+      if (cursor) {
+        params.append("cursor", cursor);
+      }
+
+      const response = await fetch(
+        `${API_SERVER_URL}/api/v1/session/${session_id}/messages?${params.toString()}`,
+        {
+          method: "GET",
+          headers: getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        const text = await response.text();
+        return { success: false, error: text };
+      }
+
+      const result = await response.json();
+      const items = result.items || result.messages || [];
+      allItems = allItems.concat(items);
+      cursor = result.next_cursor;
+      hasMore = result.has_more || false;
+    }
+
+    return { success: true, data: JSON.stringify(allItems, null, 2) };
+  } catch (error) {
+    return handleError(error, "downloadMessages");
+  }
+}
+
 export async function storeMessage(
   session_id: string,
   role: MessageRole,

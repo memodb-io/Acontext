@@ -30,6 +30,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Loader2,
   Plus,
   RefreshCw,
@@ -49,9 +55,10 @@ import {
   HardDrive,
   StickyNote,
   Flag,
+  Download,
 } from "lucide-react";
 import { Project, Message, SessionEvent, TimelineItem, Part } from "@/types";
-import { getMessages, sendMessage, getSessionConfigs } from "../../actions";
+import { getMessages, sendMessage, getSessionConfigs, downloadMessages } from "../../actions";
 import { toast } from "sonner";
 import {
   generateTempId,
@@ -465,6 +472,28 @@ export function MessagesPageClient({
     }
   };
 
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async (format: "acontext" | "openai" | "anthropic" | "gemini") => {
+    setIsDownloading(true);
+    try {
+      const data = await downloadMessages(project.id, sessionId, format);
+      const blob = new Blob([data], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `messages-${sessionId}-${format}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`Downloaded messages in ${format} format`);
+    } catch (error) {
+      console.error("Failed to download messages:", error);
+      toast.error("Failed to download messages");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   const handleGoBack = () => {
     const encodedProjectId = encodeId(project.id);
     router.push(`/project/${encodedProjectId}/session`);
@@ -499,6 +528,35 @@ export function MessagesPageClient({
               <Plus className="h-4 w-4" />
               Create Message
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  disabled={isLoadingMessages || isDownloading || allMessages.length === 0}
+                >
+                  {isDownloading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  Download
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleDownload("openai")}>
+                  OpenAI
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleDownload("anthropic")}>
+                  Anthropic
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleDownload("gemini")}>
+                  Gemini
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleDownload("acontext")}>
+                  Acontext
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant="outline"
               onClick={handleRefreshMessages}

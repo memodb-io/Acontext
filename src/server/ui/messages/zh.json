@@ -213,7 +213,10 @@
     "eventPath": "路径",
     "eventNote": "备注",
     "eventText": "文本",
-    "eventCreatedAt": "事件创建时间"
+    "eventCreatedAt": "事件创建时间",
+    "download": "下载",
+    "downloadSuccess": "消息下载成功",
+    "downloadFailed": "消息下载失败"
   },
   "agentSkills": {
     "title": "Agent Skills",

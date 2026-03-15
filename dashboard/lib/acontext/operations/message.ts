@@ -97,6 +97,42 @@ export function MessageOperations<T extends Constructor<BaseClient>>(Base: T) {
       };
     }
 
+    async downloadMessages(
+      projectId: string,
+      sessionId: string,
+      format: "acontext" | "openai" | "anthropic" | "gemini"
+    ): Promise<unknown> {
+      let allItems: unknown[] = [];
+      let cursor: string | undefined;
+      let hasMore = true;
+
+      while (hasMore) {
+        const params = new URLSearchParams({
+          limit: "100",
+          format,
+        });
+        if (cursor) {
+          params.append("cursor", cursor);
+        }
+
+        const result = await this.request<{
+          items?: unknown[];
+          messages?: unknown[];
+          next_cursor?: string;
+          has_more?: boolean;
+        }>(`/api/v1/session/${sessionId}/messages?${params.toString()}`, {
+          projectId,
+        });
+
+        const items = result.items || result.messages || [];
+        allItems = allItems.concat(items);
+        cursor = result.next_cursor;
+        hasMore = result.has_more || false;
+      }
+
+      return allItems;
+    }
+
     async sendMessage(
       projectId: string,
       sessionId: string,
