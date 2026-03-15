@@ -92,6 +92,7 @@ func main() {
 	sandboxHandler := do.MustInvoke[*handler.SandboxHandler](inj)
 	learningSpaceHandler := do.MustInvoke[*handler.LearningSpaceHandler](inj)
 	sessionEventHandler := do.MustInvoke[*handler.SessionEventHandler](inj)
+	projectHandler := do.MustInvoke[*handler.ProjectHandler](inj)
 
 	engine := router.NewRouter(router.RouterDeps{
 		Config:               cfg,
@@ -106,6 +107,7 @@ func main() {
 		SandboxHandler:       sandboxHandler,
 		LearningSpaceHandler: learningSpaceHandler,
 		SessionEventHandler:  sessionEventHandler,
+		ProjectHandler:       projectHandler,
 	})
 
 	addr := fmt.Sprintf("%s:%d", cfg.App.Host, cfg.App.Port)

@@ -29,6 +29,7 @@ type RouterDeps struct {
 	SandboxHandler       *handler.SandboxHandler
 	LearningSpaceHandler *handler.LearningSpaceHandler
 	SessionEventHandler  *handler.SessionEventHandler
+	ProjectHandler       *handler.ProjectHandler
 }
 
 func NewRouter(d RouterDeps) *gin.Engine {
@@ -138,6 +139,12 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			sandbox.POST("", d.SandboxHandler.CreateSandbox)
 			sandbox.POST("/:sandbox_id/exec", d.SandboxHandler.ExecCommand)
 			sandbox.DELETE("/:sandbox_id", d.SandboxHandler.KillSandbox)
+		}
+
+		project := v1.Group("/project")
+		{
+			project.GET("/configs", d.ProjectHandler.GetConfigs)
+			project.PATCH("/configs", d.ProjectHandler.PatchConfigs)
 		}
 
 		learningSpaces := v1.Group("/learning_spaces")

@@ -380,5 +380,8 @@ func BuildContainer() *do.Injector {
 			do.MustInvoke[service.UserService](i),
 		), nil
 	})
+	do.Provide(inj, func(i *do.Injector) (*handler.ProjectHandler, error) {
+		return handler.NewProjectHandler(do.MustInvoke[*gorm.DB](i)), nil
+	})
 	return inj
 }

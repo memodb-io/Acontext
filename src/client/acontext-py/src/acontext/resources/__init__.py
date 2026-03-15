@@ -2,12 +2,14 @@
 
 from .async_disks import AsyncDisksAPI, AsyncDiskArtifactsAPI
 from .async_learning_spaces import AsyncLearningSpacesAPI
+from .async_project import AsyncProjectAPI
 from .async_sandboxes import AsyncSandboxesAPI
 from .async_sessions import AsyncSessionsAPI
 from .async_skills import AsyncSkillsAPI
 from .async_users import AsyncUsersAPI
 from .disks import DisksAPI, DiskArtifactsAPI
 from .learning_spaces import LearningSpacesAPI
+from .project import ProjectAPI
 from .sandboxes import SandboxesAPI
 from .sessions import SessionsAPI
 from .skills import SkillsAPI
@@ -17,6 +19,7 @@ __all__ = [
     "DisksAPI",
     "DiskArtifactsAPI",
     "LearningSpacesAPI",
+    "ProjectAPI",
     "SandboxesAPI",
     "SessionsAPI",
     "SkillsAPI",
@@ -24,6 +27,7 @@ __all__ = [
     "AsyncDisksAPI",
     "AsyncDiskArtifactsAPI",
     "AsyncLearningSpacesAPI",
+    "AsyncProjectAPI",
     "AsyncSandboxesAPI",
     "AsyncSessionsAPI",
     "AsyncSkillsAPI",

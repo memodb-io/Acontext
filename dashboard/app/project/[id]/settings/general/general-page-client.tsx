@@ -27,8 +27,10 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { updateProjectName, deleteProjectAction } from "./actions";
+import { Textarea } from "@/components/ui/textarea";
+import { updateProjectName, deleteProjectAction, updateProjectConfigs } from "./actions";
 import { MAX_PROJECT_NAME_LENGTH } from "@/lib/utils";
+import type { ProjectConfig } from "@/lib/acontext/server";
 
 interface GeneralPageClientProps {
   project: Project;
@@ -36,6 +38,8 @@ interface GeneralPageClientProps {
   allOrganizations: Organization[];
   projects: Project[];
   role: "owner" | "member";
+  projectConfigs?: ProjectConfig;
+  projectConfigsError?: string;
 }
 
 export function GeneralPageClient({
@@ -44,6 +48,8 @@ export function GeneralPageClient({
   allOrganizations,
   projects,
   role,
+  projectConfigs,
+  projectConfigsError,
 }: GeneralPageClientProps) {
   const { initialize, setHasSidebar } = useTopNavStore();
 
@@ -53,6 +59,16 @@ export function GeneralPageClient({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
+
+  const [successCriteria, setSuccessCriteria] = useState(
+    projectConfigs?.task_success_criteria ?? ""
+  );
+  const [failureCriteria, setFailureCriteria] = useState(
+    projectConfigs?.task_failure_criteria ?? ""
+  );
+  const [taskAgentError, setTaskAgentError] = useState<string | null>(null);
+  const [taskAgentSuccess, setTaskAgentSuccess] = useState(false);
+  const [isTaskAgentPending, startTaskAgentTransition] = useTransition();
 
   useEffect(() => {
     // Initialize top-nav state when page loads
@@ -81,6 +97,11 @@ export function GeneralPageClient({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.name]);
+
+  useEffect(() => {
+    setSuccessCriteria(projectConfigs?.task_success_criteria ?? "");
+    setFailureCriteria(projectConfigs?.task_failure_criteria ?? "");
+  }, [projectConfigs?.task_success_criteria, projectConfigs?.task_failure_criteria]);
 
   const handleSave = () => {
     const trimmedName = projectName.trim();
@@ -149,6 +170,7 @@ export function GeneralPageClient({
             <Tabs defaultValue="general" className="w-full">
               <TabsList>
                 <TabsTrigger value="general">General</TabsTrigger>
+                <TabsTrigger value="task-tracking">Task Tracking</TabsTrigger>
               </TabsList>
               <TabsContent value="general" className="space-y-6 mt-6">
                 {/* Non-owner Alert */}
@@ -255,6 +277,119 @@ export function GeneralPageClient({
                     </Card>
                   </>
                 )}
+              </TabsContent>
+              <TabsContent value="task-tracking" className="space-y-6 mt-6">
+                {!isOwner && (
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      You don&apos;t have permission to modify task tracking settings. Only project owners can make changes.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {projectConfigsError && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{projectConfigsError}</AlertDescription>
+                  </Alert>
+                )}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Task Success Criteria</CardTitle>
+                    <CardDescription>
+                      Define custom criteria for determining when a task is considered successful.
+                      Leave empty to use the default criteria.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Textarea
+                      value={successCriteria}
+                      onChange={(e) => {
+                        setSuccessCriteria(e.target.value);
+                        setTaskAgentError(null);
+                        setTaskAgentSuccess(false);
+                      }}
+                      placeholder="e.g., User explicitly confirms the task is done, or the agent produces a verified output matching the request."
+                      rows={4}
+                      disabled={isTaskAgentPending || !isOwner}
+                    />
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Task Failure Criteria</CardTitle>
+                    <CardDescription>
+                      Define custom criteria for determining when a task should be marked as failed.
+                      Leave empty to use the default criteria.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Textarea
+                      value={failureCriteria}
+                      onChange={(e) => {
+                        setFailureCriteria(e.target.value);
+                        setTaskAgentError(null);
+                        setTaskAgentSuccess(false);
+                      }}
+                      placeholder="e.g., The agent encounters unrecoverable errors, or the user explicitly reports the task failed."
+                      rows={4}
+                      disabled={isTaskAgentPending || !isOwner}
+                    />
+                  </CardContent>
+                </Card>
+                {taskAgentError && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{taskAgentError}</AlertDescription>
+                  </Alert>
+                )}
+                {taskAgentSuccess && (
+                  <Alert>
+                    <AlertDescription>Task agent criteria saved successfully.</AlertDescription>
+                  </Alert>
+                )}
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSuccessCriteria(
+                        projectConfigs?.task_success_criteria ?? ""
+                      );
+                      setFailureCriteria(
+                        projectConfigs?.task_failure_criteria ?? ""
+                      );
+                      setTaskAgentError(null);
+                      setTaskAgentSuccess(false);
+                    }}
+                    disabled={isTaskAgentPending || !isOwner}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      startTaskAgentTransition(async () => {
+                        setTaskAgentError(null);
+                        setTaskAgentSuccess(false);
+                        const configs: Record<string, string | null> = {};
+                        configs.task_success_criteria =
+                          successCriteria.trim() || null;
+                        configs.task_failure_criteria =
+                          failureCriteria.trim() || null;
+                        const result = await updateProjectConfigs(
+                          project.id,
+                          configs
+                        );
+                        if (result.error) {
+                          setTaskAgentError(result.error);
+                        } else {
+                          setTaskAgentSuccess(true);
+                          router.refresh();
+                        }
+                      });
+                    }}
+                    disabled={isTaskAgentPending || !isOwner || !!projectConfigsError}
+                  >
+                    {isTaskAgentPending ? "Saving..." : "Save"}
+                  </Button>
+                </div>
               </TabsContent>
             </Tabs>
           </div>

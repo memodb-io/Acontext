@@ -14,6 +14,7 @@ import {
   AgentSkillsOperations,
   SandboxOperations,
   LearningSpacesOperations,
+  ProjectConfigOperations,
 } from "./operations";
 
 // Re-export all types for backward compatibility
@@ -242,7 +243,8 @@ const ComposedAcontextClient = composeMixins(
   UserOperations,
   AgentSkillsOperations,
   SandboxOperations,
-  LearningSpacesOperations
+  LearningSpacesOperations,
+  ProjectConfigOperations
 );
 
 // Manually define the complete type by intersecting all mixin return types
@@ -255,6 +257,7 @@ type UserOps = ReturnType<typeof UserOperations<typeof BaseAcontextClient>>;
 type AgentSkillsOps = ReturnType<typeof AgentSkillsOperations<typeof BaseAcontextClient>>;
 type SandboxOps = ReturnType<typeof SandboxOperations<typeof BaseAcontextClient>>;
 type LearningSpacesOps = ReturnType<typeof LearningSpacesOperations<typeof BaseAcontextClient>>;
+type ProjectConfigOps = ReturnType<typeof ProjectConfigOperations<typeof BaseAcontextClient>>;
 
 // Export the complete type
 export type AcontextClient = InstanceType<AdminOps> &
@@ -265,7 +268,8 @@ export type AcontextClient = InstanceType<AdminOps> &
   InstanceType<UserOps> &
   InstanceType<AgentSkillsOps> &
   InstanceType<SandboxOps> &
-  InstanceType<LearningSpacesOps>;
+  InstanceType<LearningSpacesOps> &
+  InstanceType<ProjectConfigOps>;
 
 // Export the class with proper type assertion
 export const AcontextClient = ComposedAcontextClient as new () => AcontextClient;

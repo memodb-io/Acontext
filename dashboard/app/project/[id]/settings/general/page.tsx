@@ -6,6 +6,7 @@ import {
   getOrganizationDataWithPlan,
 } from "@/lib/supabase";
 import { decodeId } from "@/lib/id-codec";
+import { getProjectConfigs } from "./actions";
 
 interface PageProps {
   params: Promise<{
@@ -57,6 +58,9 @@ export default async function GeneralPage({ params }: PageProps) {
   const { project, currentOrganization, allOrganizations, projects } =
     await getProjectData(actualId);
 
+  const configsResult = await getProjectConfigs(actualId);
+  const projectConfigs = configsResult.data;
+
   return (
     <GeneralPageClient
       project={project}
@@ -64,6 +68,8 @@ export default async function GeneralPage({ params }: PageProps) {
       allOrganizations={allOrganizations}
       projects={projects}
       role={currentOrganization.role ?? "member"}
+      projectConfigs={projectConfigs}
+      projectConfigsError={configsResult.error}
     />
   );
 }

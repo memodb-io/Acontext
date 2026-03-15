@@ -9,4 +9,5 @@ export * from './skill';
 export * from './sandbox';
 export * from './user';
 export * from './learning-space';
+export * from './project';
 

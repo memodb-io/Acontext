@@ -10,7 +10,8 @@
     "traces": "Traces",
     "agentSkills": "Agent Skills",
     "learningSpaces": "学习空间",
-    "users": "用户"
+    "users": "用户",
+    "settings": "设置"
   },
   "dashboard": {
     "title": "仪表盘",
@@ -372,6 +373,21 @@
     "retry": "重试",
     "path": "路径",
     "noPreviewAvailable": "此文件无法预览。"
+  },
+  "settings": {
+    "title": "设置",
+    "description": "配置项目级别的任务追踪设置",
+    "loading": "加载设置中...",
+    "successCriteriaTitle": "任务成功标准",
+    "successCriteriaDesc": "定义判断任务成功的自定义标准。留空则使用默认标准。",
+    "successCriteriaPlaceholder": "例如：用户明确确认任务已完成，或代理产出了与请求匹配的已验证输出。",
+    "failureCriteriaTitle": "任务失败标准",
+    "failureCriteriaDesc": "定义判断任务失败的自定义标准。留空则使用默认标准。",
+    "failureCriteriaPlaceholder": "例如：代理遇到不可恢复的错误，或用户明确报告任务失败。",
+    "save": "保存",
+    "saving": "保存中...",
+    "cancel": "取消",
+    "saveSuccess": "设置保存成功。"
   },
   "traces": {
     "title": "Traces",

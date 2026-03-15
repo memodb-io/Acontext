@@ -79,6 +79,8 @@ async def process_session_pending_message(
             max_iterations=project_config.default_task_agent_max_iterations,
             previous_progress_num=project_config.default_task_agent_previous_progress_num,
             learning_space_id=ls_session.learning_space_id if ls_session is not None else None,
+            task_success_criteria=project_config.task_success_criteria,
+            task_failure_criteria=project_config.task_failure_criteria,
         )
 
         after_status = TaskStatus.SUCCESS

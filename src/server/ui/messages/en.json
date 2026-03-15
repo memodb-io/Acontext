@@ -10,7 +10,8 @@
     "traces": "Traces",
     "agentSkills": "Agent Skills",
     "learningSpaces": "Learning Spaces",
-    "users": "Users"
+    "users": "Users",
+    "settings": "Settings"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -372,6 +373,21 @@
     "retry": "Retry",
     "path": "Path",
     "noPreviewAvailable": "No preview available for this file."
+  },
+  "settings": {
+    "title": "Settings",
+    "description": "Configure project-level settings for task tracking",
+    "loading": "Loading settings...",
+    "successCriteriaTitle": "Task Success Criteria",
+    "successCriteriaDesc": "Define custom criteria for determining when a task is considered successful. Leave empty to use the default criteria.",
+    "successCriteriaPlaceholder": "e.g., User explicitly confirms the task is done, or the agent produces a verified output matching the request.",
+    "failureCriteriaTitle": "Task Failure Criteria",
+    "failureCriteriaDesc": "Define custom criteria for determining when a task should be marked as failed. Leave empty to use the default criteria.",
+    "failureCriteriaPlaceholder": "e.g., The agent encounters unrecoverable errors, or the user explicitly reports the task failed.",
+    "save": "Save",
+    "saving": "Saving...",
+    "cancel": "Cancel",
+    "saveSuccess": "Settings saved successfully."
   },
   "traces": {
     "title": "Traces",

@@ -127,6 +127,8 @@ async def task_agent_curd(
     max_iterations=3,  # task curd agent only receive one turn of actions
     previous_progress_num: int = 6,
     learning_space_id: Optional[asUUID] = None,
+    task_success_criteria: Optional[str] = None,
+    task_failure_criteria: Optional[str] = None,
 ) -> Result[None]:
     async with DB_CLIENT.get_session_context() as db_session:
         r = await TD.fetch_current_tasks(db_session, session_id)
@@ -162,6 +164,8 @@ async def task_agent_curd(
                 current_messages_section,
                 task_section,
                 known_preferences=known_preferences or None,
+                task_success_criteria=task_success_criteria,
+                task_failure_criteria=task_failure_criteria,
             ),
         }
     ]

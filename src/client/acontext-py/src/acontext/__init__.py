@@ -11,10 +11,12 @@ from .resources import (
     AsyncDiskArtifactsAPI,
     AsyncDisksAPI,
     AsyncLearningSpacesAPI,
+    AsyncProjectAPI,
     AsyncSessionsAPI,
     DiskArtifactsAPI,
     DisksAPI,
     LearningSpacesAPI,
+    ProjectAPI,
     SessionsAPI,
 )
 from .event import DiskEvent, TextEvent
@@ -33,8 +35,10 @@ __all__ = [
     "AsyncDisksAPI",
     "AsyncDiskArtifactsAPI",
     "AsyncLearningSpacesAPI",
+    "AsyncProjectAPI",
     "AsyncSessionsAPI",
     "LearningSpacesAPI",
+    "ProjectAPI",
     "Task",
     "TaskData",
     "ClaudeAgentStorage",

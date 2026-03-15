@@ -1495,6 +1495,71 @@
         } ]
       }
     },
+    "/project/configs" : {
+      "get" : {
+        "description" : "Returns the project-level configuration (stored under the \"project_config\" key).",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_project_configs_get_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Get project configs",
+        "tags" : [ "Project" ]
+      },
+      "patch" : {
+        "description" : "Merges the provided keys into the project-level configuration. Keys with null values are deleted (reset to default).",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "additionalProperties" : true,
+                "type" : "object"
+              }
+            }
+          },
+          "description" : "Config keys to merge",
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/_project_configs_get_200_response"
+                }
+              }
+            },
+            "description" : "OK"
+          },
+          "400" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/serializer.Response"
+                }
+              }
+            },
+            "description" : "Bad Request"
+          }
+        },
+        "security" : [ {
+          "BearerAuth" : [ ]
+        } ],
+        "summary" : "Patch project configs",
+        "tags" : [ "Project" ],
+        "x-codegen-request-body-name" : "body"
+      }
+    },
     "/sandbox" : {
       "post" : {
         "description" : "Create and start a new sandbox for the project",
@@ -4063,6 +4128,19 @@
           "properties" : {
             "data" : {
               "$ref" : "#/components/schemas/model.LearningSpaceSkill"
+            }
+          },
+          "type" : "object"
+        } ]
+      },
+      "_project_configs_get_200_response" : {
+        "allOf" : [ {
+          "$ref" : "#/components/schemas/serializer.Response"
+        }, {
+          "properties" : {
+            "data" : {
+              "additionalProperties" : true,
+              "type" : "object"
             }
           },
           "type" : "object"

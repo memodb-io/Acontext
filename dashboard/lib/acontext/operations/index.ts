@@ -15,6 +15,7 @@ export { UserOperations } from "./user";
 export { AgentSkillsOperations } from "./agent-skills";
 export { SandboxOperations } from "./sandbox";
 export { LearningSpacesOperations } from "./learning-spaces";
+export { ProjectConfigOperations } from "./project-config";
 
 // Admin types
 export type { DashboardData, TraceSpan, TraceProcess, Trace } from "./admin";
@@ -42,3 +43,6 @@ export type { SandboxLog, GetSandboxLogsResp, HistoryCommand, GeneratedFile } fr
 
 // Learning Spaces types
 export type { LearningSpace, GetLearningSpacesResp, LearningSpaceSession, LearningSpaceSkill } from "./learning-spaces";
+
+// Project Config types
+export type { ProjectConfig } from "./project-config";

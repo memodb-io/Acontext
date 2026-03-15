@@ -72,6 +72,7 @@ class TaskPrompt(BasePrompt):
 - `running`: Work begins, or restarting after failure
 - `success`: Confirmed complete by user, or agent moves to next task without errors
 - `failed`: Explicit errors, user abandonment, or user reports failure
+- If a '## Task Evaluation Criteria' section is provided in the input, use those criteria instead of the defaults above to determine success/failure.
 
 ## Rules
 - Cannot append messages or progress to `success` or `failed` tasks. For such tasks being retried: update to `running` first, then append
@@ -100,18 +101,31 @@ Before calling `finish`, verify all actions are covered.
         current_message_with_ids: str,
         current_tasks: str,
         known_preferences: list[str] = None,
+        task_success_criteria: str = None,
+        task_failure_criteria: str = None,
     ) -> str:
         known_prefs_section = ""
         if known_preferences:
             prefs_lines = "\n".join(f"- {p}" for p in known_preferences)
             known_prefs_section = f"\n## Known User Preferences:\n{prefs_lines}\n"
 
+        eval_criteria_section = ""
+        if task_success_criteria or task_failure_criteria:
+            lines = []
+            if task_success_criteria:
+                lines.append(f"**Success:** {task_success_criteria}")
+            if task_failure_criteria:
+                lines.append(f"**Failure:** {task_failure_criteria}")
+            eval_criteria_section = (
+                "\n## Task Evaluation Criteria\n" + "\n".join(lines) + "\n"
+            )
+
         return f"""## Current Existing Tasks:
 {current_tasks}
 
 ## Previous Progress:
 {previous_progress}
-{known_prefs_section}
+{known_prefs_section}{eval_criteria_section}
 ## Current Message with IDs:
 {current_message_with_ids}
 

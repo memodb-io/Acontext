@@ -2542,6 +2542,63 @@ paths:
             spaceId: 'space-uuid',
             skillId: 'skill-uuid'
           });
+  /project/configs:
+    get:
+      description: Returns the project-level configuration (stored under the "project_config"
+        key).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  additionalProperties: true
+                  type: object
+              type: object
+      security:
+      - BearerAuth: []
+      summary: Get project configs
+      tags:
+      - Project
+    patch:
+      consumes:
+      - application/json
+      description: Merges the provided keys into the project-level configuration.
+        Keys with null values are deleted (reset to default).
+      parameters:
+      - description: Config keys to merge
+        in: body
+        name: body
+        required: true
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/serializer.Response'
+            - properties:
+                data:
+                  additionalProperties: true
+                  type: object
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/serializer.Response'
+      security:
+      - BearerAuth: []
+      summary: Patch project configs
+      tags:
+      - Project
   /sandbox:
     post:
       consumes:

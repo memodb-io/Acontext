@@ -11,6 +11,8 @@ class ProjectConfig(BaseModel):
     project_session_message_buffer_ttl_seconds: int = 8  # 4 seconds
     default_task_agent_max_iterations: int = 6
     default_task_agent_previous_progress_num: int = 6
+    task_success_criteria: Optional[str] = None
+    task_failure_criteria: Optional[str] = None
 
 
 class CoreConfig(BaseModel):

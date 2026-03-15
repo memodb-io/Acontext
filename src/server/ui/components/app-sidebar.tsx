@@ -26,6 +26,7 @@ import {
   MessageSquare,
   LayoutDashboard,
   Activity,
+  Settings,
   Sparkles,
   Users,
   BookOpen,
@@ -92,6 +93,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       title: t("learningSpaces"),
       url: "/learning_spaces",
       icon: BookOpen,
+    },
+    {
+      title: t("settings"),
+      url: "/settings",
+      icon: Settings,
     },
   ];
 
