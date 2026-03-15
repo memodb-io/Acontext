@@ -36,9 +36,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, RefreshCw, Upload, X, ArrowLeft, FileText, Image as ImageIcon, Video, Music, File, Code, CheckCircle2, ExternalLink, Brain, ShieldOff, HardDrive, StickyNote, Flag } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Loader2, Plus, RefreshCw, Upload, X, ArrowLeft, FileText, Image as ImageIcon, Video, Music, File, Code, CheckCircle2, ExternalLink, Brain, ShieldOff, HardDrive, StickyNote, Flag, Download } from "lucide-react";
 import Image from "next/image";
-import { getMessages, storeMessage, getSessionConfigs } from "@/app/session/actions";
+import { getMessages, storeMessage, getSessionConfigs, downloadMessages } from "@/app/session/actions";
 import {
   Message,
   SessionEvent,
@@ -470,6 +476,32 @@ export default function MessagesPage() {
     }
   };
 
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownload = async (format: "acontext" | "openai" | "anthropic" | "gemini") => {
+    setIsDownloading(true);
+    try {
+      const result = await downloadMessages(sessionId, format);
+      if (!result.success || !result.data) {
+        toast.error(t("downloadFailed"));
+        return;
+      }
+      const blob = new Blob([result.data], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `messages-${sessionId}-${format}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(t("downloadSuccess"));
+    } catch (error) {
+      console.error("Failed to download messages:", error);
+      toast.error(t("downloadFailed"));
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   const handleGoBack = () => {
     router.push("/session");
   };
@@ -504,6 +536,35 @@ export default function MessagesPage() {
               <Plus className="h-4 w-4" />
               {t("createMessage")}
             </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  disabled={isLoadingMessages || isDownloading || allMessages.length === 0}
+                >
+                  {isDownloading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  {t("download")}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleDownload("openai")}>
+                  OpenAI
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleDownload("anthropic")}>
+                  Anthropic
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleDownload("gemini")}>
+                  Gemini
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleDownload("acontext")}>
+                  Acontext
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant="outline"
               onClick={handleRefreshMessages}

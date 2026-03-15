@@ -96,6 +96,21 @@ export async function getMessages(
   }
 }
 
+export async function downloadMessages(
+  projectId: string,
+  sessionId: string,
+  format: "acontext" | "openai" | "anthropic" | "gemini"
+): Promise<string> {
+  try {
+    const client = new AcontextClient();
+    const data = await client.downloadMessages(projectId, sessionId, format);
+    return JSON.stringify(data, null, 2);
+  } catch (error) {
+    console.error("Failed to download messages:", error);
+    throw error;
+  }
+}
+
 export async function sendMessage(
   projectId: string,
   sessionId: string,
