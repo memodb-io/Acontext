@@ -265,6 +265,144 @@ export async function atomicWriteFile(filePath: string, data: string): Promise<v
   }
 }
 
+// ============================================================================
+// Message Normalization (pi-agent-core → OpenAI Chat Completions)
+// ============================================================================
+
+type ContentBlock = {
+  type: string;
+  text?: string;
+  name?: string;
+  toolCallId?: string;
+  toolName?: string;
+  input?: unknown;
+  content?: unknown;
+  [key: string]: unknown;
+};
+
+type AgentMessage = {
+  role: string;
+  content?: string | ContentBlock[] | null;
+  [key: string]: unknown;
+};
+
+type OpenAIMessage = {
+  role: string;
+  content?: string | null;
+  tool_calls?: Array<{
+    id: string;
+    type: "function";
+    function: { name: string; arguments: string };
+  }>;
+  tool_call_id?: string;
+};
+
+/**
+ * Convert pi-agent-core AgentMessage[] to standard OpenAI Chat Completions format.
+ *
+ * - Extracts only { role, content } and converts non-standard roles/structures
+ * - Drops thinking blocks, extra fields (api, model, usage, timestamp, etc.)
+ * - Skips empty assistant messages and unknown roles
+ */
+export function normalizeMessages(
+  messages: Record<string, unknown>[],
+): OpenAIMessage[] {
+  const result: OpenAIMessage[] = [];
+
+  for (const msg of messages) {
+    const role = msg.role as string | undefined;
+    if (!role) continue;
+
+    if (role === "user") {
+      const normalized = normalizeUserMessage(msg as AgentMessage);
+      if (normalized) result.push(normalized);
+    } else if (role === "assistant") {
+      const normalized = normalizeAssistantMessage(msg as AgentMessage);
+      if (normalized) result.push(normalized);
+    } else if (role === "toolResult") {
+      const normalized = normalizeToolResultMessage(msg as AgentMessage);
+      if (normalized) result.push(normalized);
+    }
+    // Unknown roles are silently skipped
+  }
+
+  return result;
+}
+
+function normalizeUserMessage(msg: AgentMessage): OpenAIMessage | null {
+  const content = extractTextContent(msg.content);
+  if (content === null || content === undefined) return null;
+  return { role: "user", content };
+}
+
+function normalizeAssistantMessage(msg: AgentMessage): OpenAIMessage | null {
+  // content undefined/null → skip
+  if (msg.content === undefined || msg.content === null) return null;
+
+  if (typeof msg.content === "string") {
+    if (!msg.content) return null;
+    return { role: "assistant", content: msg.content };
+  }
+
+  if (!Array.isArray(msg.content)) return null;
+
+  // Extract text and tool_calls from content blocks
+  const textParts: string[] = [];
+  const toolCalls: OpenAIMessage["tool_calls"] = [];
+
+  for (const block of msg.content as ContentBlock[]) {
+    if (block.type === "text" && block.text) {
+      textParts.push(block.text);
+    } else if (block.type === "toolCall" || block.type === "tool_use") {
+      toolCalls.push({
+        id: (block.toolCallId ?? block.id ?? "") as string,
+        type: "function",
+        function: {
+          name: (block.toolName ?? block.name ?? "") as string,
+          arguments:
+            typeof block.input === "string"
+              ? block.input
+              : JSON.stringify(block.input ?? {}),
+        },
+      });
+    }
+    // thinking blocks and other types are silently ignored
+  }
+
+  // Empty array with no text and no tool_calls → skip
+  if (textParts.length === 0 && toolCalls.length === 0) return null;
+
+  const normalized: OpenAIMessage = { role: "assistant" };
+  normalized.content = textParts.length > 0 ? textParts.join("\n") : null;
+  if (toolCalls.length > 0) normalized.tool_calls = toolCalls;
+  return normalized;
+}
+
+function normalizeToolResultMessage(msg: AgentMessage): OpenAIMessage | null {
+  const toolCallId = (msg as Record<string, unknown>).toolCallId as
+    | string
+    | undefined;
+  const content = extractTextContent(msg.content);
+  return {
+    role: "tool",
+    tool_call_id: toolCallId ?? "",
+    content: content ?? "",
+  };
+}
+
+function extractTextContent(
+  content: string | ContentBlock[] | null | undefined,
+): string | null {
+  if (content === undefined || content === null) return null;
+  if (typeof content === "string") return content;
+  if (!Array.isArray(content)) return null;
+
+  const texts = (content as ContentBlock[])
+    .filter((b) => b.type === "text" && b.text)
+    .map((b) => b.text!);
+  return texts.length > 0 ? texts.join("\n") : null;
+}
+
 export class AcontextBridge {
   private client: AcontextClientLike | null = null;
   private initPromise: Promise<void> | null = null;
@@ -1281,9 +1419,15 @@ const acontextPlugin = {
           const newMessages = allMessages.slice(capturedMessageCursor);
           if (newMessages.length === 0) return;
 
-          const { stored: storedCount, processed } = await bridge.storeMessages(sessionId, newMessages, capturedMessageCursor);
-          // Advance cursor only by processed count (stored + skipped duplicates before any error)
-          capturedMessageCursor += processed;
+          const normalized = normalizeMessages(newMessages);
+          if (normalized.length === 0) {
+            capturedMessageCursor += newMessages.length;
+            return;
+          }
+
+          const { stored: storedCount } = await bridge.storeMessages(sessionId, normalized as Record<string, unknown>[], capturedMessageCursor);
+          // Always advance cursor by original message count since normalization may reduce count
+          capturedMessageCursor += newMessages.length;
           capturedTurnCount += 1;
 
           if (storedCount > 0) {
