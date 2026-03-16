@@ -7180,12 +7180,12 @@ var require_dist = __commonJS({
         throw new Error(`Unknown format "${name}"`);
       return f;
     };
-    function addFormats(ajv, list, fs2, exportName) {
+    function addFormats(ajv, list, fs3, exportName) {
       var _a;
       var _b;
       (_a = (_b = ajv.opts.code).formats) !== null && _a !== void 0 ? _a : _b.formats = (0, codegen_1._)`require("ajv-formats/dist/formats").${exportName}`;
       for (const f of list)
-        ajv.addFormat(f, fs2[f]);
+        ajv.addFormat(f, fs3[f]);
     }
     __name(addFormats, "addFormats");
     module2.exports = exports2 = formatsPlugin;
@@ -25123,7 +25123,7 @@ var require_skills = __commonJS({
     })();
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.SkillsAPI = void 0;
-    var fs2 = __importStar(require("fs/promises"));
+    var fs3 = __importStar(require("fs/promises"));
     var path3 = __importStar(require("path"));
     var uploads_1 = require_uploads();
     var utils_1 = require_utils2();
@@ -25229,21 +25229,21 @@ var require_skills = __commonJS({
       async download(skillId, options) {
         const skill = await this.get(skillId);
         const dest = path3.resolve(options.path);
-        await fs2.mkdir(dest, { recursive: true });
+        await fs3.mkdir(dest, { recursive: true });
         const downloaded = [];
         for (const fi of skill.file_index) {
           const resp = await this.getFile({ skillId, filePath: fi.path });
           const fileDest = path3.join(dest, fi.path);
-          await fs2.mkdir(path3.dirname(fileDest), { recursive: true });
+          await fs3.mkdir(path3.dirname(fileDest), { recursive: true });
           if (resp.content) {
-            await fs2.writeFile(fileDest, resp.content.raw, "utf-8");
+            await fs3.writeFile(fileDest, resp.content.raw, "utf-8");
           } else if (resp.url) {
             const r = await fetch(resp.url);
             if (!r.ok) {
               throw new Error(`Failed to download ${fi.path}: ${r.status} ${r.statusText}`);
             }
             const buffer = Buffer.from(await r.arrayBuffer());
-            await fs2.writeFile(fileDest, buffer);
+            await fs3.writeFile(fileDest, buffer);
           }
           downloaded.push(fi.path);
         }
@@ -42623,19 +42623,49 @@ ${summary}
 };
 
 // src/config.ts
+var fs2 = __toESM(require("node:fs"));
 var os = __toESM(require("node:os"));
 var path2 = __toESM(require("node:path"));
+function getAcontextConfigDir() {
+  return process.env.ACONTEXT_CONFIG_DIR || path2.join(os.homedir(), ".acontext");
+}
+__name(getAcontextConfigDir, "getAcontextConfigDir");
+function loadApiKeyFromCredentials() {
+  try {
+    const filePath = path2.join(getAcontextConfigDir(), "credentials.json");
+    const data = JSON.parse(fs2.readFileSync(filePath, "utf-8"));
+    if (data.default_project && data.keys?.[data.default_project]) {
+      return data.keys[data.default_project];
+    }
+  } catch {
+  }
+  return void 0;
+}
+__name(loadApiKeyFromCredentials, "loadApiKeyFromCredentials");
+function loadUserIdFromAuth() {
+  try {
+    const filePath = path2.join(getAcontextConfigDir(), "auth.json");
+    const data = JSON.parse(fs2.readFileSync(filePath, "utf-8"));
+    if (data.user?.email) {
+      return data.user.email;
+    }
+  } catch {
+  }
+  return void 0;
+}
+__name(loadUserIdFromAuth, "loadUserIdFromAuth");
 function loadConfig() {
-  const apiKey = process.env.ACONTEXT_API_KEY?.trim();
+  const apiKey = loadApiKeyFromCredentials() || process.env.ACONTEXT_API_KEY?.trim();
   if (!apiKey) {
     throw new Error(
-      "ACONTEXT_API_KEY is required. Set it in your shell profile or Claude Code settings."
+      "ACONTEXT_API_KEY is required. Set it in your shell profile, or run 'acontext login' to configure ~/.acontext/credentials.json."
     );
   }
+  const userId = loadUserIdFromAuth() || process.env.ACONTEXT_USER_ID?.trim() || "default";
   return {
     apiKey,
     baseUrl: process.env.ACONTEXT_BASE_URL?.trim() || "https://api.acontext.app/api/v1",
-    userId: process.env.ACONTEXT_USER_ID?.trim() || "default",
+    userId,
     learningSpaceId: process.env.ACONTEXT_LEARNING_SPACE_ID?.trim() || void 0,
     skillsDir: process.env.ACONTEXT_SKILLS_DIR?.trim() || path2.join(os.homedir(), ".claude", "skills"),
     autoCapture: process.env.ACONTEXT_AUTO_CAPTURE !== "false",
