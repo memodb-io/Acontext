@@ -88,16 +88,10 @@ jobs:
       - name: Run tests
         run: npm test
 
-      - name: Save committed bundle checksums
-        run: |
-          sha256sum plugin/scripts/mcp-server.cjs plugin/scripts/hook-handler.cjs > /tmp/committed-checksums.txt
-          echo "Committed checksums:"
-          cat /tmp/committed-checksums.txt
-
       - name: Build
         run: npm run build
 
-      - name: Verify build output
+      - name: Verify build output exists
         run: |
           node -e "
             const fs = require('fs');
@@ -112,16 +106,14 @@ jobs:
 
       - name: Verify bundles match committed artifacts
         run: |
-          sha256sum plugin/scripts/mcp-server.cjs plugin/scripts/hook-handler.cjs > /tmp/rebuilt-checksums.txt
-          echo "Rebuilt checksums:"
-          cat /tmp/rebuilt-checksums.txt
-          if ! diff /tmp/committed-checksums.txt /tmp/rebuilt-checksums.txt; then
+          if git diff --name-only -- plugin/scripts/ | grep -q .; then
+            echo "Error: Committed bundles differ from a clean rebuild:"
+            git diff --stat -- plugin/scripts/
             echo ""
-            echo "Error: Committed bundles do not match a clean rebuild."
             echo "Hint: run 'npm run release -- X.Y.Z' to rebuild and commit the updated bundles."
             exit 1
           fi
-          echo "Bundles match ✓"
+          echo "Bundles match committed artifacts ✓"
 
   create-release:
     name: Create GitHub Release
