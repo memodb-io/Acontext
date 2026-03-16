@@ -167,7 +167,7 @@ export const configSchema = {
     }
     if (!resolvedApiKey) {
       throw new Error(
-        'apiKey is required (set config.apiKey, use "${ACONTEXT_API_KEY}", or run "acontext login")',
+        'ACONTEXT_API_KEY is required. Run "acontext login" to configure ~/.acontext/credentials.json, or set apiKey in plugin config.',
       );
     }
 

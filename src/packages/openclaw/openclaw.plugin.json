@@ -8,7 +8,7 @@
       "label": "Acontext API Key",
       "sensitive": true,
       "placeholder": "sk-ac-...",
-      "help": "API key from dash.acontext.io (or use ${ACONTEXT_API_KEY})"
+      "help": "Auto-read from ~/.acontext/credentials.json after `acontext login`. Override with a literal key or ${ACONTEXT_API_KEY}."
     },
     "baseUrl": {
       "label": "API Base URL",
@@ -19,7 +19,7 @@
     "userId": {
       "label": "User ID",
       "placeholder": "default",
-      "help": "Scope sessions and skills per user"
+      "help": "Auto-read from ~/.acontext/auth.json after `acontext login`. Override to scope sessions and skills per user."
     },
     "learningSpaceId": {
       "label": "Learning Space ID",
@@ -82,6 +82,6 @@
         "default": 4
       }
     },
-    "required": ["apiKey"]
+    "required": []
   }
 }
