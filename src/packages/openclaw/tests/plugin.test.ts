@@ -2250,9 +2250,9 @@ describe("normalizeMessages", () => {
           { type: "text", text: "Let me check that." },
           {
             type: "toolCall",
-            toolCallId: "call_123",
-            toolName: "readFile",
-            input: { path: "/tmp/foo" },
+            id: "call_123",
+            name: "readFile",
+            arguments: { path: "/tmp/foo" },
           },
         ],
         model: "some-model",
@@ -2305,9 +2305,9 @@ describe("normalizeMessages", () => {
         content: [
           {
             type: "toolCall",
-            toolCallId: "call_456",
-            toolName: "bash",
-            input: { command: "ls" },
+            id: "call_456",
+            name: "bash",
+            arguments: { command: "ls" },
           },
         ],
       },
@@ -2399,9 +2399,9 @@ describe("normalizeMessages", () => {
           { type: "text", text: "I'll check." },
           {
             type: "toolCall",
-            toolCallId: "call_1",
-            toolName: "bash",
-            input: { command: "ls /tmp" },
+            id: "call_1",
+            name: "bash",
+            arguments: { command: "ls /tmp" },
           },
         ],
         model: "claude-3",
@@ -2494,5 +2494,102 @@ describe("normalizeMessages", () => {
       { role: "user", content: "hello" },
     ]);
     expect(result).toEqual([{ role: "user", content: "hello" }]);
+  });
+
+  test("toolResult with toolUseId fallback → converted", () => {
+    const result = normalizeMessages([
+      {
+        role: "toolResult",
+        toolUseId: "toolu_abc",
+        content: [{ type: "text", text: "result" }],
+      },
+    ]);
+    expect(result).toEqual([
+      { role: "tool", tool_call_id: "toolu_abc", content: "result" },
+    ]);
+  });
+
+  test("toolResult without toolCallId or toolUseId → skipped", () => {
+    const result = normalizeMessages([
+      {
+        role: "toolResult",
+        content: [{ type: "text", text: "orphan result" }],
+      },
+    ]);
+    expect(result).toEqual([]);
+  });
+
+  test("toolCall with string arguments → preserved as-is", () => {
+    const result = normalizeMessages([
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "toolCall",
+            id: "call_str",
+            name: "exec",
+            arguments: '{"raw":"json"}',
+          },
+        ],
+      },
+    ]);
+    expect(result).toEqual([
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "call_str",
+            type: "function",
+            function: { name: "exec", arguments: '{"raw":"json"}' },
+          },
+        ],
+      },
+    ]);
+  });
+
+  test("toolCall with missing id or name → skipped", () => {
+    const result = normalizeMessages([
+      {
+        role: "assistant",
+        content: [
+          { type: "toolCall", id: "", name: "bash", arguments: {} },
+          { type: "toolCall", id: "call_1", name: "", arguments: {} },
+          { type: "text", text: "still here" },
+        ],
+      },
+    ]);
+    expect(result).toEqual([
+      { role: "assistant", content: "still here" },
+    ]);
+  });
+
+  test("functionCall block type → converted", () => {
+    const result = normalizeMessages([
+      {
+        role: "assistant",
+        content: [
+          {
+            type: "functionCall",
+            id: "fc_1",
+            name: "search",
+            arguments: { query: "test" },
+          },
+        ],
+      },
+    ]);
+    expect(result).toEqual([
+      {
+        role: "assistant",
+        content: null,
+        tool_calls: [
+          {
+            id: "fc_1",
+            type: "function",
+            function: { name: "search", arguments: JSON.stringify({ query: "test" }) },
+          },
+        ],
+      },
+    ]);
   });
 });

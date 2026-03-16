@@ -272,11 +272,10 @@ export async function atomicWriteFile(filePath: string, data: string): Promise<v
 type ContentBlock = {
   type: string;
   text?: string;
+  id?: string;
   name?: string;
-  toolCallId?: string;
-  toolName?: string;
+  arguments?: unknown;
   input?: unknown;
-  content?: unknown;
   [key: string]: unknown;
 };
 
@@ -353,16 +352,20 @@ function normalizeAssistantMessage(msg: AgentMessage): OpenAIMessage | null {
   for (const block of msg.content as ContentBlock[]) {
     if (block.type === "text" && block.text) {
       textParts.push(block.text);
-    } else if (block.type === "toolCall" || block.type === "tool_use") {
+    } else if (block.type === "toolCall" || block.type === "toolUse" || block.type === "tool_use" || block.type === "functionCall") {
+      const callId = (block.id ?? "") as string;
+      const fnName = (block.name ?? "") as string;
+      if (!callId || !fnName) continue;
+      const args = block.arguments ?? block.input;
       toolCalls.push({
-        id: (block.toolCallId ?? block.id ?? "") as string,
+        id: callId,
         type: "function",
         function: {
-          name: (block.toolName ?? block.name ?? "") as string,
+          name: fnName,
           arguments:
-            typeof block.input === "string"
-              ? block.input
-              : JSON.stringify(block.input ?? {}),
+            typeof args === "string"
+              ? args
+              : JSON.stringify(args ?? {}),
         },
       });
     }
@@ -379,13 +382,13 @@ function normalizeAssistantMessage(msg: AgentMessage): OpenAIMessage | null {
 }
 
 function normalizeToolResultMessage(msg: AgentMessage): OpenAIMessage | null {
-  const toolCallId = (msg as Record<string, unknown>).toolCallId as
-    | string
-    | undefined;
+  const raw = msg as Record<string, unknown>;
+  const toolCallId = (raw.toolCallId ?? raw.toolUseId) as string | undefined;
+  if (!toolCallId) return null;
   const content = extractTextContent(msg.content);
   return {
     role: "tool",
-    tool_call_id: toolCallId ?? "",
+    tool_call_id: toolCallId,
     content: content ?? "",
   };
 }
@@ -1393,7 +1396,7 @@ const acontextPlugin = {
     // Auto-capture + auto-learn: store messages and trigger learning
     if (cfg.autoCapture) {
       api.on("agent_end", async (event, ctx) => {
-        if (!event.success || !event.messages || event.messages.length === 0) {
+        if (!event.messages || event.messages.length === 0) {
           return;
         }
 
