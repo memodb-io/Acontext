@@ -140,13 +140,13 @@ describe("configSchema.parse", () => {
 
   test("throws on missing apiKey when no credentials file", () => {
     expect(() => configSchema.parse({ userId: "bob" })).toThrow(
-      "apiKey is required",
+      "ACONTEXT_API_KEY is required",
     );
   });
 
   test("throws on empty apiKey when no credentials file", () => {
     expect(() => configSchema.parse({ apiKey: "" })).toThrow(
-      "apiKey is required",
+      "ACONTEXT_API_KEY is required",
     );
   });
 
@@ -198,7 +198,7 @@ describe("configSchema.parse", () => {
   test("throws on apiKey that resolves to whitespace only when no credentials file", () => {
     process.env.WHITESPACE_KEY = "   ";
     expect(() => configSchema.parse({ apiKey: "${WHITESPACE_KEY}" })).toThrow(
-      "apiKey is required",
+      "ACONTEXT_API_KEY is required",
     );
   });
 
@@ -206,7 +206,39 @@ describe("configSchema.parse", () => {
     process.env.EMPTY_KEY = "";
     // resolveEnvVars throws for empty env vars; falls through to credentials file
     expect(() => configSchema.parse({ apiKey: "${EMPTY_KEY}" })).toThrow(
-      "apiKey is required",
+      "ACONTEXT_API_KEY is required",
+    );
+  });
+
+  test("parses empty config when credentials.json exists", async () => {
+    const credPath = path.join(tmpConfigDir, "credentials.json");
+    await fs.writeFile(credPath, JSON.stringify({
+      default_project: "my-project",
+      keys: { "my-project": "sk-ac-from-creds" },
+    }));
+    const cfg = configSchema.parse({});
+    expect(cfg.apiKey).toBe("sk-ac-from-creds");
+    expect(cfg.userId).toBe("default");
+  });
+
+  test("parses empty config and reads userId from auth.json", async () => {
+    const credPath = path.join(tmpConfigDir, "credentials.json");
+    await fs.writeFile(credPath, JSON.stringify({
+      default_project: "my-project",
+      keys: { "my-project": "sk-ac-from-creds" },
+    }));
+    const authPath = path.join(tmpConfigDir, "auth.json");
+    await fs.writeFile(authPath, JSON.stringify({
+      user: { email: "alice@example.com" },
+    }));
+    const cfg = configSchema.parse({});
+    expect(cfg.apiKey).toBe("sk-ac-from-creds");
+    expect(cfg.userId).toBe("alice@example.com");
+  });
+
+  test("throws on empty config when no credentials file and no apiKey", () => {
+    expect(() => configSchema.parse({})).toThrow(
+      "ACONTEXT_API_KEY is required",
     );
   });
 });
@@ -1762,6 +1794,19 @@ describe("AcontextBridge", () => {
 // ============================================================================
 
 describe("plugin registration", () => {
+  const originalEnv = process.env;
+  let tmpConfigDir: string;
+
+  beforeEach(async () => {
+    tmpConfigDir = await fs.mkdtemp(path.join(os.tmpdir(), "openclaw-reg-"));
+    process.env = { ...originalEnv, ACONTEXT_CONFIG_DIR: tmpConfigDir };
+  });
+
+  afterEach(async () => {
+    process.env = originalEnv;
+    await fs.rm(tmpConfigDir, { recursive: true, force: true }).catch(() => {});
+  });
+
   function createMockApi(pluginConfig: unknown) {
     const hooks: Record<string, Function[]> = {};
     const tools: Array<{ name: string; execute: Function }> = [];
