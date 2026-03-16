@@ -24,9 +24,6 @@ func init() {
 			if err != nil {
 				return err
 			}
-			if dashJSON {
-				return output.RenderJSON(artifacts)
-			}
 			rows := make([][]string, len(artifacts))
 			for i, a := range artifacts {
 				rows[i] = []string{a.ID, a.Path, fmt.Sprintf("%d", a.Size), a.CreatedAt}
@@ -47,9 +44,6 @@ func init() {
 			artifact, err := c.UploadArtifact(context.Background(), args[0], args[1], destPath)
 			if err != nil {
 				return err
-			}
-			if dashJSON {
-				return output.RenderJSON(artifact)
 			}
 			fmt.Printf("Artifact uploaded: %s\n", artifact.ID)
 			fmt.Printf("Path: %s\n", artifact.Path)

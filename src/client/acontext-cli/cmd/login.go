@@ -49,7 +49,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 			fmt.Println("Credentials saved to ~/.acontext/auth.json")
 		}
 		fmt.Println()
-		fmt.Println("Next: set up a project. Run 'acontext dash projects list --json' to see available projects.")
+		fmt.Println("Next: set up a project. Run 'acontext dash projects list' to see available projects.")
 		return nil
 	}
 
@@ -178,7 +178,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		fmt.Println()
 		fmt.Println("This will retrieve the authentication tokens. Then proceed with project setup:")
 		fmt.Println()
-		fmt.Println("  1. Run 'acontext dash projects list --json' to see available projects.")
+		fmt.Println("  1. Run 'acontext dash projects list' to see available projects.")
 		fmt.Println("  2. If projects exist, show them to the user as a numbered table")
 		fmt.Println("     (# | org_name | name | project_id) and ask which one to use.")
 		fmt.Println("     Ask the user for the project's API key (found on https://dash.acontext.io), then run:")

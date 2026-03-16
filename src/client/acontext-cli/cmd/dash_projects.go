@@ -39,49 +39,33 @@ func init() {
 			// Load key store to show which projects have local keys
 			ks, _ := auth.LoadKeyStore()
 
-			var allProjects []auth.OrgProject
 			for _, org := range orgs {
 				projects, err := auth.ListProjects(dashAccessToken, org.ID)
 				if err != nil {
-					if !dashJSON {
-						fmt.Printf("Organization: %s (%s)\n", org.Name, org.ID)
-						fmt.Printf("  Error fetching projects: %v\n", err)
-					}
+					fmt.Printf("Organization: %s (%s)\n", org.Name, org.ID)
+					fmt.Printf("  Error fetching projects: %v\n", err)
 					continue
 				}
 
-				// Attach org id and name to each project
-				for i := range projects {
-					projects[i].OrgID = org.ID
-					projects[i].OrgName = org.Name
+				fmt.Printf("Organization: %s (%s)\n", org.Name, org.ID)
+				if len(projects) == 0 {
+					fmt.Println("  No projects")
+					continue
 				}
-				allProjects = append(allProjects, projects...)
-
-				if !dashJSON {
-					fmt.Printf("Organization: %s (%s)\n", org.Name, org.ID)
-					if len(projects) == 0 {
-						fmt.Println("  No projects")
-						continue
+				rows := make([][]string, len(projects))
+				for i, p := range projects {
+					hasKey := ""
+					if ks != nil && ks.Keys[p.ProjectID] != "" {
+						hasKey = "yes"
 					}
-					rows := make([][]string, len(projects))
-					for i, p := range projects {
-						hasKey := ""
-						if ks != nil && ks.Keys[p.ProjectID] != "" {
-							hasKey = "yes"
-						}
-						isDefault := ""
-						if ks != nil && ks.DefaultProject == p.ProjectID {
-							isDefault = "*"
-						}
-						rows[i] = []string{p.ProjectID, p.Name, hasKey, isDefault, p.CreatedAt}
+					isDefault := ""
+					if ks != nil && ks.DefaultProject == p.ProjectID {
+						isDefault = "*"
 					}
-					output.RenderTable([]string{"ID", "NAME", "HAS_KEY", "DEFAULT", "CREATED_AT"}, rows)
-					fmt.Println()
+					rows[i] = []string{p.ProjectID, p.Name, hasKey, isDefault, p.CreatedAt}
 				}
-			}
-
-			if dashJSON {
-				return output.RenderJSON(allProjects)
+				output.RenderTable([]string{"ID", "NAME", "HAS_KEY", "DEFAULT", "CREATED_AT"}, rows)
+				fmt.Println()
 			}
 			return nil
 		},
@@ -230,9 +214,6 @@ func init() {
 				return fmt.Errorf("link project to organization: %w", err)
 			}
 
-			if dashJSON {
-				return output.RenderJSON(project)
-			}
 			fmt.Printf("Project created: %s (%s)\n", name, project.ProjectID)
 
 			// Auto-save API key and set as default
@@ -287,9 +268,6 @@ func init() {
 			stats, err := dashAdminClient.AdminGetProjectStats(context.Background(), args[0])
 			if err != nil {
 				return err
-			}
-			if dashJSON {
-				return output.RenderJSON(stats)
 			}
 			fmt.Printf("Sessions:  %d\n", stats.SessionCount)
 			fmt.Printf("Tasks:     %d\n", stats.TaskCount)

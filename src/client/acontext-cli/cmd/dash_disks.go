@@ -25,9 +25,6 @@ func init() {
 			if err != nil {
 				return err
 			}
-			if dashJSON {
-				return output.RenderJSON(disks)
-			}
 			rows := make([][]string, len(disks))
 			for i, d := range disks {
 				rows[i] = []string{d.ID, d.UserID, d.CreatedAt}
@@ -47,9 +44,6 @@ func init() {
 			disk, err := c.GetDisk(context.Background(), args[0])
 			if err != nil {
 				return err
-			}
-			if dashJSON {
-				return output.RenderJSON(disk)
 			}
 			fmt.Printf("ID:         %s\n", disk.ID)
 			fmt.Printf("User:       %s\n", disk.UserID)
@@ -73,9 +67,6 @@ func init() {
 			disk, err := c.CreateDisk(context.Background(), &api.CreateDiskRequest{User: user})
 			if err != nil {
 				return err
-			}
-			if dashJSON {
-				return output.RenderJSON(disk)
 			}
 			fmt.Printf("Disk created: %s\n", disk.ID)
 			return nil

@@ -1,7 +1,6 @@
 package output
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -26,14 +25,4 @@ func RenderTable(headers []string, rows [][]string) {
 		_, _ = fmt.Fprintln(w, strings.Join(row, "\t"))
 	}
 	_ = w.Flush()
-}
-
-// RenderJSON prints v as indented JSON to stdout.
-func RenderJSON(v interface{}) error {
-	data, err := json.MarshalIndent(v, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshal JSON: %w", err)
-	}
-	fmt.Println(string(data))
-	return nil
 }
