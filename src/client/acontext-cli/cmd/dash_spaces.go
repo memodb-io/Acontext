@@ -25,9 +25,6 @@ func init() {
 			if err != nil {
 				return err
 			}
-			if dashJSON {
-				return output.RenderJSON(spaces)
-			}
 			rows := make([][]string, len(spaces))
 			for i, s := range spaces {
 				rows[i] = []string{s.ID, s.UserID, s.CreatedAt}
@@ -47,9 +44,6 @@ func init() {
 			space, err := c.GetLearningSpace(context.Background(), args[0])
 			if err != nil {
 				return err
-			}
-			if dashJSON {
-				return output.RenderJSON(space)
 			}
 			fmt.Printf("ID:         %s\n", space.ID)
 			fmt.Printf("User:       %s\n", space.UserID)
@@ -73,9 +67,6 @@ func init() {
 			space, err := c.CreateLearningSpace(context.Background(), &api.CreateLearningSpaceRequest{User: user})
 			if err != nil {
 				return err
-			}
-			if dashJSON {
-				return output.RenderJSON(space)
 			}
 			fmt.Printf("Learning space created: %s\n", space.ID)
 			return nil
