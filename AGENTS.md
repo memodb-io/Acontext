@@ -55,11 +55,22 @@ When releasing a new version, follow these steps in order:
    - Python SDK: update `version` in `src/client/acontext-py/pyproject.toml`
    - OpenClaw Plugin: update `"version"` in `src/packages/openclaw/package.json`, `version` in `src/packages/openclaw/index.ts` (the plugin object), **and** `expect(plugin.version)` in `src/packages/openclaw/tests/plugin.test.ts`
    - Sandbox Cloudflare: update `"version"` in `src/packages/sandbox-cloudflare/package.json`
+   - Claude Code Plugin: run `npm run release -- X.Y.Z` in `src/packages/claude-code/` — this updates `package.json`, `plugin/.claude-plugin/plugin.json`, and `.claude-plugin/marketplace.json`, then rebuilds the plugin bundles automatically. Full steps:
+     ```bash
+     cd src/packages/claude-code
+     npm run release -- 0.1.1                    # bump 3 version files + rebuild bundles
+     cd ../../..
+     git add -A && git commit -m "chore: release claude-code plugin v0.1.1"
+     git tag package-claude-code/v0.1.1
+     git push && git push --tags                  # triggers CI: version verify + GitHub Release
+     ```
+     CI (`package-release-claude-code.yaml`) verifies that all 3 version files match the tag, runs tests, rebuilds bundles and checks that the rebuilt output matches the committed artifacts (catches forgotten rebuilds), then creates a GitHub Release. It does **not** publish to a registry — the plugin is distributed via the repo itself.
 2. **Regenerate the lock file** so it stays in sync:
    - TypeScript SDK: run `npm install` in `src/client/acontext-ts/` (updates `package-lock.json`)
    - Python SDK: run `uv lock` in `src/client/acontext-py/` (updates `uv.lock`)
    - OpenClaw Plugin: run `npm install` in `src/packages/openclaw/` (updates `package-lock.json`)
    - Sandbox Cloudflare: no lock file needed (template is synced from `src/server/sandbox/cloudflare` via `prepublishOnly` script)
+   - Claude Code Plugin: no lock file needed (`npm run release` already rebuilds bundles)
 3. **Commit** the version bump + lock file changes.
 4. **Tag** the commit to trigger the CI/CD release pipeline. Each tag pattern maps to a specific workflow, publish target, and directory:
 
@@ -73,6 +84,7 @@ When releasing a new version, follow these steps in order:
 | CLI                | `cli/vX.Y.Z`                        | GitHub Releases (binaries)                  | `src/client/acontext-cli`         | `release-cli.yaml`                        |
 | OpenClaw Plugin    | `package-openclaw/vX.Y.Z`           | npm (`@acontext/openclaw`)                  | `src/packages/openclaw`           | `release-package-openclaw.yaml`           |
 | Sandbox Cloudflare | `package-sandbox-cloudflare/vX.Y.Z` | npm (`@acontext/create-sandbox-cloudflare`) | `src/packages/sandbox-cloudflare` | `release-package-sandbox-cloudflare.yaml` |
+| Claude Code Plugin | `package-claude-code/vX.Y.Z`        | Claude Plugin Marketplace                   | `src/packages/claude-code`        | `release-package-claude-code.yaml`        |
 | Helm Chart         | `chart/vX.Y.Z`                      | ghcr.io (OCI helm chart)                    | `charts/acontext`                 | `release-helm.yaml`                       |
 
 All workflows create a GitHub Release with changelog. Docker builds produce multi-platform images (`linux/amd64`, `linux/arm64`). npm/PyPI workflows skip publishing if the version already exists on the registry.

@@ -1,6 +1,6 @@
 {
   "name": "acontext",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Skill memory layer for Claude Code — auto-capture, learn, and reuse skills from Acontext",
   "author": {
     "name": "memodb-io"

@@ -1,6 +1,6 @@
 {
   "name": "@acontext/claude-code",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Acontext skill memory plugin for Claude Code — auto-capture, learn, and reuse skills",
   "license": "Apache-2.0",
@@ -10,6 +10,7 @@
   },
   "scripts": {
     "build": "tsx build.ts",
+    "release": "tsx release.ts",
     "clean": "rm -rf plugin/scripts/*.cjs",
     "test": "vitest run"
   },
