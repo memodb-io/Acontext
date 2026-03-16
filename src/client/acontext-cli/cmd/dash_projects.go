@@ -220,6 +220,12 @@ func init() {
 			if project.SecretKey != "" {
 				if err := auth.SetProjectKey(project.ProjectID, project.SecretKey); err == nil {
 					_ = auth.SetDefaultProject(project.ProjectID)
+					// Record initial API key in history (best-effort, same as key rotation)
+					if dashAccessToken != "" && dashUserEmail != "" {
+						if rotErr := auth.RecordKeyRotation(dashAccessToken, project.ProjectID, dashUserEmail, project.SecretKey); rotErr != nil {
+							fmt.Printf("Warning: failed to record API key history: %v\n", rotErr)
+						}
+					}
 					fmt.Printf("Default project set to: %s\n", project.ProjectID)
 					printSetupComplete()
 				}
