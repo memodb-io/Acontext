@@ -64,7 +64,7 @@ When releasing a new version, follow these steps in order:
      git tag package-claude-code/v0.1.1
      git push && git push --tags                  # triggers CI: version verify + GitHub Release
      ```
-     CI (`package-release-claude-code.yaml`) verifies that all 3 version files match the tag, runs tests, rebuilds bundles and checks that the rebuilt output matches the committed artifacts (catches forgotten rebuilds), then creates a GitHub Release. It does **not** publish to a registry — the plugin is distributed via the repo itself.
+     CI (`package-release-claude-code.yaml`) verifies that all 3 version files match the tag, runs tests, rebuilds bundles and checks that bundle sizes are within 5% of committed artifacts (catches forgotten rebuilds while tolerating cross-platform esbuild differences), then creates a GitHub Release. It does **not** publish to a registry — the plugin is distributed via the repo itself.
 2. **Regenerate the lock file** so it stays in sync:
    - TypeScript SDK: run `npm install` in `src/client/acontext-ts/` (updates `package-lock.json`)
    - Python SDK: run `uv lock` in `src/client/acontext-py/` (updates `uv.lock`)
