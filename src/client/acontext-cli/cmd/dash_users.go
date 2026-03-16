@@ -24,9 +24,6 @@ func init() {
 			if err != nil {
 				return err
 			}
-			if dashJSON {
-				return output.RenderJSON(users)
-			}
 			rows := make([][]string, len(users))
 			for i, u := range users {
 				rows[i] = []string{u.ID, u.Identifier, u.CreatedAt}

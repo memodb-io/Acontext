@@ -23,9 +23,6 @@ func init() {
 			if err != nil {
 				return err
 			}
-			if dashJSON {
-				return output.RenderJSON(messages)
-			}
 			rows := make([][]string, len(messages))
 			for i, m := range messages {
 				content := m.Content
@@ -54,9 +51,6 @@ func init() {
 			})
 			if err != nil {
 				return err
-			}
-			if dashJSON {
-				return output.RenderJSON(msg)
 			}
 			fmt.Printf("Message stored: %s\n", msg.ID)
 			return nil

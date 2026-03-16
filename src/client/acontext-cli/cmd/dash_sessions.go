@@ -25,9 +25,6 @@ func init() {
 			if err != nil {
 				return err
 			}
-			if dashJSON {
-				return output.RenderJSON(sessions)
-			}
 			rows := make([][]string, len(sessions))
 			for i, s := range sessions {
 				rows[i] = []string{s.ID, s.UserID, s.CreatedAt}
@@ -47,9 +44,6 @@ func init() {
 			session, err := c.GetSession(context.Background(), args[0])
 			if err != nil {
 				return err
-			}
-			if dashJSON {
-				return output.RenderJSON(session)
 			}
 			fmt.Printf("ID:         %s\n", session.ID)
 			fmt.Printf("User:       %s\n", session.UserID)
@@ -74,9 +68,6 @@ func init() {
 			s, err := c.CreateSession(context.Background(), &api.CreateSessionRequest{User: user})
 			if err != nil {
 				return err
-			}
-			if dashJSON {
-				return output.RenderJSON(s)
 			}
 			fmt.Printf("Session created: %s\n", s.ID)
 			return nil

@@ -11,7 +11,6 @@ import (
 var (
 	dashAPIKey  string
 	dashProject string
-	dashJSON    bool
 	dashBaseURL string
 )
 
@@ -82,7 +81,6 @@ var DashCmd = &cobra.Command{
 func init() {
 	DashCmd.PersistentFlags().StringVar(&dashAPIKey, "api-key", "", "Project API key (overrides credentials.json)")
 	DashCmd.PersistentFlags().StringVar(&dashProject, "project", "", "Project ID to use")
-	DashCmd.PersistentFlags().BoolVar(&dashJSON, "json", false, "Output as JSON")
 	DashCmd.PersistentFlags().StringVar(&dashBaseURL, "base-url", "", "API base URL override")
 }
 

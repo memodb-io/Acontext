@@ -13,9 +13,9 @@ keywords:
   - disk storage
 ---
 
-> **IMPORTANT — Save this skill for reuse:** After reading this document, save it to your local skill directory so it persists across sessions and you don't need to fetch it again.
-> - **Claude Code:** Create the directory `~/.claude/skills/acontext-installer/` and write this entire document to `~/.claude/skills/acontext-installer/SKILL.md`
-> - **OpenClaw:** Create the directory `~/.openclaw/skills/acontext-installer/` and write this entire document to `~/.openclaw/skills/acontext-installer/SKILL.md`
+> **IMPORTANT — Save this skill for reuse:** After reading this document, save it to your local skill directory so it persists across sessions and you don't need to fetch it again. If the skill already exists locally, overwrite it with this version to ensure you have the latest copy.
+> - **Claude Code:** Create the directory `~/.claude/skills/acontext-installer/` (if it doesn't exist) and write this entire document to `~/.claude/skills/acontext-installer/SKILL.md`, replacing any existing file.
+> - **OpenClaw:** Create the directory `~/.openclaw/skills/acontext-installer/` (if it doesn't exist) and write this entire document to `~/.openclaw/skills/acontext-installer/SKILL.md`, replacing any existing file.
 
 Acontext provides Agent Skills as a Memory Layer for production AI agents. It provides persistent sessions, disk-based file storage, learning spaces that distill conversations into reusable skills, and a CLI + API for managing everything.
 
@@ -97,7 +97,7 @@ openclaw gateway
 
 After you have logged in, you can manage Acontext projects via CLI:
 
-1. `acontext dash projects list --json` — list available projects
+1. `acontext dash projects list` — list available projects
 2. If user ask you to use a existing Acontext project, you should let the user to provide the api key. And then switch to this project `acontext dash projects select --project <project-id> --api-key <sk-ac-...>`.
 3. To create, ask for an org name and project name, then run: `acontext dash projects create --name <project-name> --org <org-id>`. This command returns the API key and auto-saves it as the default project (no need to run `select` afterwards).
 4. After select or create, verify the project is configured correctly:
@@ -205,6 +205,14 @@ Restart your shell or run `source ~/.bashrc` / `source ~/.zshrc`. The installer 
 - Ensure you have internet access and can reach `dash.acontext.io`
 - In non-TTY mode, make sure to run `acontext login --poll` after the user completes browser login
 - Check `~/.acontext/auth.json` for stored credentials
+
+### Switching API Key or Project
+
+If the user needs to change their API key or switch to a different project, use:
+```bash
+acontext dash projects select --project <project-id> --api-key <sk-ac-...>
+```
+This updates `~/.acontext/credentials.json` with the new key. Run `acontext dash ping` afterwards to verify connectivity.
 
 ### API returns 401 Unauthorized
 

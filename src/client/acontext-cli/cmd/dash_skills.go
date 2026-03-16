@@ -30,9 +30,6 @@ func init() {
 			if err != nil {
 				return err
 			}
-			if dashJSON {
-				return output.RenderJSON(skills)
-			}
 			rows := make([][]string, len(skills))
 			for i, s := range skills {
 				desc := s.Description
@@ -56,9 +53,6 @@ func init() {
 			skill, err := c.GetAgentSkill(context.Background(), args[0])
 			if err != nil {
 				return err
-			}
-			if dashJSON {
-				return output.RenderJSON(skill)
 			}
 			fmt.Printf("ID:          %s\n", skill.ID)
 			fmt.Printf("Name:        %s\n", skill.Name)
@@ -112,9 +106,6 @@ func init() {
 			skill, err := c.CreateAgentSkill(context.Background(), zipPath, user, meta)
 			if err != nil {
 				return err
-			}
-			if dashJSON {
-				return output.RenderJSON(skill)
 			}
 			fmt.Printf("Skill created: %s\n", skill.ID)
 			fmt.Printf("Name: %s\n", skill.Name)
