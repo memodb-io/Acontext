@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - 'sdk-ts/v*'
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -20,12 +19,12 @@ jobs:
         working-directory: src/client/acontext-ts
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Set up Node.js
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
         with:
-          node-version: '20'
+          node-version: '22'
           registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
           cache-dependency-path: src/client/acontext-ts/package-lock.json
@@ -85,7 +84,8 @@ jobs:
 
       - name: Publish to npm
         if: steps.check_version.outputs.exists == 'false'
-        run: npm publish --access public
+        # Auth via OIDC trusted publishers (id-token: write) — do NOT set NODE_AUTH_TOKEN
+        run: npm publish --access public --provenance
 
       - name: Stop containers
         working-directory: src/server
@@ -100,7 +100,7 @@ jobs:
     needs: publish
     steps:
       - name: Checkout repository
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Extract version from tag
         id: version
@@ -115,6 +115,6 @@ jobs:
           echo "Published to npm as @acontext/acontext@${{ steps.version.outputs.version }}" >> ${{ github.workspace }}-CHANGELOG.txt
 
       - name: Create Release
-        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
         with:
           body_path: ${{ github.workspace }}-CHANGELOG.txt

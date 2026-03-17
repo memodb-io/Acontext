@@ -76,18 +76,19 @@ When releasing a new version, follow these steps in order:
 
 | Component          | Tag Pattern                         | Publishes To                                | Source Directory                  | Workflow                                  |
 | ------------------ | ----------------------------------- | ------------------------------------------- | --------------------------------- | ----------------------------------------- |
-| API                | `api/vX.Y.Z`                        | ghcr.io (Docker, multi-arch)                | `src/server/api/go`               | `release-api-docker.yaml`                 |
-| Core               | `core/vX.Y.Z`                       | ghcr.io (Docker, multi-arch)                | `src/server/core`                 | `release-core-docker.yaml`                |
-| UI (OSS)           | `ui/vX.Y.Z`                         | ghcr.io (Docker, multi-arch)                | `src/server/ui`                   | `release-ui-docker.yaml`                  |
-| TypeScript SDK     | `sdk-ts/vX.Y.Z`                     | npm (`@acontext/acontext`)                  | `src/client/acontext-ts`          | `release-sdk-ts.yaml`                     |
-| Python SDK         | `sdk-py/vX.Y.Z`                     | PyPI (`acontext`)                           | `src/client/acontext-py`          | `release-sdk-py.yaml`                     |
-| CLI                | `cli/vX.Y.Z`                        | GitHub Releases (binaries)                  | `src/client/acontext-cli`         | `release-cli.yaml`                        |
-| OpenClaw Plugin    | `package-openclaw/vX.Y.Z`           | npm (`@acontext/openclaw`)                  | `src/packages/openclaw`           | `release-package-openclaw.yaml`           |
-| Sandbox Cloudflare | `package-sandbox-cloudflare/vX.Y.Z` | npm (`@acontext/create-sandbox-cloudflare`) | `src/packages/sandbox-cloudflare` | `release-package-sandbox-cloudflare.yaml` |
-| Claude Code Plugin | `package-claude-code/vX.Y.Z`        | Claude Plugin Marketplace                   | `src/packages/claude-code`        | `release-package-claude-code.yaml`        |
-| Helm Chart         | `chart/vX.Y.Z`                      | ghcr.io (OCI helm chart)                    | `charts/acontext`                 | `release-helm.yaml`                       |
+| API                | `api/vX.Y.Z`                        | ghcr.io (Docker, multi-arch)                | `src/server/api/go`               | `api-release.yaml`                        |
+| Core               | `core/vX.Y.Z`                       | ghcr.io (Docker, multi-arch)                | `src/server/core`                 | `core-release.yaml`                       |
+| UI (OSS)           | `ui/vX.Y.Z`                         | ghcr.io (Docker, multi-arch)                | `src/server/ui`                   | `ui-release.yaml`                         |
+| TypeScript SDK     | `sdk-ts/vX.Y.Z`                     | npm (`@acontext/acontext`)                  | `src/client/acontext-ts`          | `client-release-ts.yaml`                  |
+| Python SDK         | `sdk-py/vX.Y.Z`                     | PyPI (`acontext`)                           | `src/client/acontext-py`          | `client-release-py.yaml`                  |
+| CLI                | `cli/vX.Y.Z`                        | GitHub Releases (binaries)                  | `src/client/acontext-cli`         | `cli-release.yaml`                        |
+| OpenClaw Plugin    | `package-openclaw/vX.Y.Z`           | npm (`@acontext/openclaw`)                  | `src/packages/openclaw`           | `package-release-openclaw.yaml`           |
+| Sandbox Cloudflare | `package-sandbox-cloudflare/vX.Y.Z` | npm (`@acontext/create-sandbox-cloudflare`) | `src/packages/sandbox-cloudflare` | `package-release-sandbox-cloudflare.yaml` |
+| Claude Code Plugin | `package-claude-code/vX.Y.Z`        | Claude Plugin Marketplace                   | `src/packages/claude-code`        | `package-release-claude-code.yaml`        |
+| Helm Chart         | `chart/vX.Y.Z`                      | ghcr.io (OCI helm chart)                    | `charts/acontext`                 | `publish-chart.yaml`                      |
 
-All workflows create a GitHub Release with changelog. Docker builds produce multi-platform images (`linux/amd64`, `linux/arm64`). npm/PyPI workflows skip publishing if the version already exists on the registry.
+<!-- Keep the Workflow column in sync with actual filenames under .github/workflows/ -->
+All workflows create a GitHub Release with changelog. Docker builds produce multi-platform images (`linux/amd64`, `linux/arm64`). npm/PyPI workflows skip publishing if the version already exists on the registry. npm packages use OIDC trusted publishers for authentication — do NOT add `NODE_AUTH_TOKEN` or npm tokens to the publish step.
 ### Pull Requests
 - All PRs must follow the template at `.github/PULL_REQUEST_TEMPLATE.md`.
 ### Unit Test

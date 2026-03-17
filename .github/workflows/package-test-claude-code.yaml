@@ -28,12 +28,12 @@ jobs:
       run:
         working-directory: src/packages/claude-code
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
 
       - name: Set up Node.js
-        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
         with:
-          node-version: "20"
+          node-version: '22'
 
       - name: Validate package.json
         run: node -e "const pkg = require('./package.json'); if (!pkg.name || !pkg.version) { process.exit(1); } console.log(pkg.name + '@' + pkg.version)"
