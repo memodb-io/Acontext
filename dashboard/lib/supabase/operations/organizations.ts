@@ -319,6 +319,74 @@ export async function removeOrganizationMember(orgId: string, userId: string) {
 }
 
 /**
+ * Get organization usage and plan limits
+ */
+export interface OrganizationUsageData {
+  usage: {
+    current_task: number;
+    current_skill: number;
+    current_fast_skill_search: number;
+    current_agentic_skill_search: number;
+    current_storage: number;
+  };
+  limits: {
+    max_task: number;
+    max_skill: number;
+    max_fast_skill_search: number;
+    max_agentic_skill_search: number;
+    max_storage: number;
+  };
+  period_end: string | null;
+}
+
+export async function getOrganizationUsage(
+  orgId: string,
+  plan: string
+): Promise<OrganizationUsageData> {
+  const supabase = await createClient();
+
+  const [usageResult, limitsResult, billingResult] = await Promise.all([
+    supabase
+      .from("organization_usage")
+      .select("current_task, current_skill, current_fast_skill_search, current_agentic_skill_search, current_storage")
+      .eq("organization_id", orgId)
+      .single(),
+    supabase
+      .from("product_plans")
+      .select("max_task, max_skill, max_fast_skill_search, max_agentic_skill_search, max_storage")
+      .eq("plan", plan)
+      .single(),
+    supabase
+      .from("organization_billing")
+      .select("period_end")
+      .eq("organization_id", orgId)
+      .single(),
+  ]);
+
+  const usage = usageResult.data || {
+    current_task: 0,
+    current_skill: 0,
+    current_fast_skill_search: 0,
+    current_agentic_skill_search: 0,
+    current_storage: 0,
+  };
+
+  const limits = limitsResult.data || {
+    max_task: 0,
+    max_skill: 0,
+    max_fast_skill_search: 0,
+    max_agentic_skill_search: 0,
+    max_storage: 0,
+  };
+
+  return {
+    usage,
+    limits,
+    period_end: billingResult.data?.period_end || null,
+  };
+}
+
+/**
  * Helper function to transform organization membership data
  */
 function transformOrganizationFromMembership(

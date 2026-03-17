@@ -42,7 +42,9 @@ export {
   addOrganizationMemberByEmail,
   removeOrganizationMember,
   getOrganizationDataWithPlan,
+  getOrganizationUsage,
   type OrganizationMember,
+  type OrganizationUsageData,
 } from "./organizations";
 
 // Project operations (Server Actions)
