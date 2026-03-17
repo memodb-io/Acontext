@@ -161,4 +161,6 @@ def get_logger(
     else:
         LOG = __get_text_logger(level_int)
     logging.getLogger().setLevel(level_int)
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("httpcore").setLevel(logging.WARNING)
     return LOG
