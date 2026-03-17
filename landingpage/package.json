@@ -30,7 +30,7 @@
     "@opennextjs/cloudflare": "^1.17.1",
     "@payloadcms/db-d1-sqlite": "3.79.0",
     "@payloadcms/next": "3.79.0",
-    "@payloadcms/plugin-seo": "^3.79.1",
+    "@payloadcms/plugin-seo": "3.79.0",
     "@payloadcms/richtext-lexical": "3.79.0",
     "@payloadcms/storage-r2": "3.79.0",
     "@payloadcms/ui": "3.79.0",
