@@ -36,7 +36,7 @@ jobs:
         id: version
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/sdk-py/v}
-          echo "version=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "version=$TAG_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Build distribution
         run: uv build

@@ -36,18 +36,20 @@ jobs:
         id: version
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Package version: $VERSION"
 
       - name: Extract version from tag
         id: tag_version
+        env:
+          GIT_REF: ${{ github.ref }}
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
-            TAG_NAME=${GITHUB_REF#refs/tags/package-sandbox-cloudflare/v}
-            echo "tag_version=$TAG_NAME" >> $GITHUB_OUTPUT
+          if [[ "$GIT_REF" == refs/tags/* ]]; then
+            TAG_NAME=${GIT_REF#refs/tags/package-sandbox-cloudflare/v}
+            echo "tag_version=$TAG_NAME" >> "$GITHUB_OUTPUT"
             echo "Tag version: $TAG_NAME"
           else
-            echo "tag_version=" >> $GITHUB_OUTPUT
+            echo "tag_version=" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Verify version matches tag
@@ -65,11 +67,11 @@ jobs:
         id: check_version
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          if npm view @acontext/create-sandbox-cloudflare@$VERSION version > /dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+          if npm view "@acontext/create-sandbox-cloudflare@$VERSION" version > /dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
             echo "Version $VERSION already exists on npm"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "exists=false" >> "$GITHUB_OUTPUT"
             echo "Version $VERSION does not exist on npm"
           fi
 
@@ -99,21 +101,26 @@ jobs:
         id: version
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/package-sandbox-cloudflare/v}
-          echo "version=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "version=$TAG_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Generate Changelog
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          CHANGELOG_FILE: ${{ github.workspace }}-CHANGELOG.txt
         run: |
-          echo "# Package Sandbox Cloudflare v${{ steps.version.outputs.version }}" > ${{ github.workspace }}-CHANGELOG.txt
-          echo "" >> ${{ github.workspace }}-CHANGELOG.txt
-          echo "Published to npm as @acontext/create-sandbox-cloudflare@${{ steps.version.outputs.version }}" >> ${{ github.workspace }}-CHANGELOG.txt
-          echo "" >> ${{ github.workspace }}-CHANGELOG.txt
-          echo "## Usage" >> ${{ github.workspace }}-CHANGELOG.txt
-          echo "" >> ${{ github.workspace }}-CHANGELOG.txt
-          echo "\`\`\`bash" >> ${{ github.workspace }}-CHANGELOG.txt
-          echo "npm create @acontext/sandbox-cloudflare@${{ steps.version.outputs.version }} my-app" >> ${{ github.workspace }}-CHANGELOG.txt
-          echo "# or" >> ${{ github.workspace }}-CHANGELOG.txt
-          echo "npx @acontext/create-sandbox-cloudflare@${{ steps.version.outputs.version }} my-app" >> ${{ github.workspace }}-CHANGELOG.txt
-          echo "\`\`\`" >> ${{ github.workspace }}-CHANGELOG.txt
+          cat > "$CHANGELOG_FILE" << EOF
+          # Package Sandbox Cloudflare v${VERSION}
+
+          Published to npm as @acontext/create-sandbox-cloudflare@${VERSION}
+
+          ## Usage
+
+          \`\`\`bash
+          npm create @acontext/sandbox-cloudflare@${VERSION} my-app
+          # or
+          npx @acontext/create-sandbox-cloudflare@${VERSION} my-app
+          \`\`\`
+          EOF
 
       - name: Create Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b

@@ -21,7 +21,7 @@ jobs:
         id: version
         run: |
           TAG_NAME=${GITHUB_REF#refs/tags/cli/v}
-          echo "version=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "version=$TAG_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Generate Changelog
         run: |
@@ -53,7 +53,7 @@ jobs:
         id: go-version
         run: |
           GO_VERSION=$(grep '^go ' src/client/acontext-cli/go.mod | awk '{print $2}')
-          echo "version=$GO_VERSION" >> $GITHUB_OUTPUT
+          echo "version=$GO_VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Go Release Binaries 
         uses: wangyoucao577/go-release-action@279495102627de7960cbc33434ab01a12bae144b

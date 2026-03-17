@@ -29,7 +29,7 @@ jobs:
         id: pkg_version
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Package version: $VERSION"
 
       - name: Extract version from tag
@@ -39,10 +39,10 @@ jobs:
         run: |
           if [[ "$GIT_REF" == refs/tags/* ]]; then
             TAG_NAME=${GIT_REF#refs/tags/package-claude-code/v}
-            echo "version=$TAG_NAME" >> $GITHUB_OUTPUT
+            echo "version=$TAG_NAME" >> "$GITHUB_OUTPUT"
             echo "Tag version: $TAG_NAME"
           else
-            echo "version=" >> $GITHUB_OUTPUT
+            echo "version=" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Verify tag matches package.json
@@ -129,7 +129,7 @@ jobs:
           GIT_REF: ${{ github.ref }}
         run: |
           TAG_NAME=${GIT_REF#refs/tags/package-claude-code/v}
-          echo "version=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "version=$TAG_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Generate Changelog
         env:

@@ -36,7 +36,7 @@ jobs:
         id: version
         run: |
           VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Package version: $VERSION"
 
       - name: Extract version from tag
@@ -46,10 +46,10 @@ jobs:
         run: |
           if [[ "$GIT_REF" == refs/tags/* ]]; then
             TAG_NAME=${GIT_REF#refs/tags/package-openclaw/v}
-            echo "tag_version=$TAG_NAME" >> $GITHUB_OUTPUT
+            echo "tag_version=$TAG_NAME" >> "$GITHUB_OUTPUT"
             echo "Tag version: $TAG_NAME"
           else
-            echo "tag_version=" >> $GITHUB_OUTPUT
+            echo "tag_version=" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Verify version matches tag
@@ -70,10 +70,10 @@ jobs:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           if npm view "@acontext/openclaw@$VERSION" version > /dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "exists=true" >> "$GITHUB_OUTPUT"
             echo "Version $VERSION already exists on npm"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "exists=false" >> "$GITHUB_OUTPUT"
             echo "Version $VERSION does not exist on npm"
           fi
 
@@ -104,7 +104,7 @@ jobs:
           GIT_REF: ${{ github.ref }}
         run: |
           TAG_NAME=${GIT_REF#refs/tags/package-openclaw/v}
-          echo "version=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "version=$TAG_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Generate Changelog
         env:

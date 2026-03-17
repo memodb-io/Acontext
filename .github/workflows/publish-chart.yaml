@@ -25,9 +25,11 @@ jobs:
 
       - name: Resolve parameters
         id: resolve_parameters
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
         run: |
           echo "INFO: Normalizing repository name (lowercase)"
-          echo "repository_owner=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          echo "repository_owner=$(echo "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
       - name: Set up Helm
         uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4
@@ -36,28 +38,31 @@ jobs:
 
       - name: Package Helm chart
         run: |
-          helm dependency update ${{ env.CHART_PATH }}
+          helm dependency update "${{ env.CHART_PATH }}"
 
       - name: Verify version matches tag
         run: |
           TAG_VERSION=${GITHUB_REF#refs/tags/chart/v}
-          CHART_VERSION=$(grep '^version:' ${{ env.CHART_PATH }}/Chart.yaml | cut -d ' ' -f 2)
+          CHART_VERSION=$(grep '^version:' "${{ env.CHART_PATH }}/Chart.yaml" | cut -d ' ' -f 2)
           if [ "$TAG_VERSION" != "$CHART_VERSION" ]; then
             echo "Tag version ($TAG_VERSION) does not match Chart.yaml version ($CHART_VERSION)"
             exit 1
           fi
 
       - name: Publish new helm chart for acontext
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_ACTOR: ${{ github.actor }}
         run: |
-          echo ${{ secrets.GITHUB_TOKEN }} | helm registry login ghcr.io --username ${{ github.actor }} --password-stdin
+          echo "$GH_TOKEN" | helm registry login ghcr.io --username "$GH_ACTOR" --password-stdin
 
-          ACONEXT_CHART_VERSION_TAG=$(cat ${{ env.CHART_PATH }}/Chart.yaml | grep version: | cut -d " " -f 2)
+          ACONEXT_CHART_VERSION_TAG=$(grep '^version:' "${{ env.CHART_PATH }}/Chart.yaml" | cut -d " " -f 2)
 
-          echo "ACONEXT_CHART_VERSION_TAG=${ACONEXT_CHART_VERSION_TAG}" >> $GITHUB_ENV
+          echo "ACONEXT_CHART_VERSION_TAG=${ACONEXT_CHART_VERSION_TAG}" >> "$GITHUB_ENV"
 
-          helm package ${{ env.CHART_PATH }}/ --version="${ACONEXT_CHART_VERSION_TAG}"
+          helm package "${{ env.CHART_PATH }}/" --version="${ACONEXT_CHART_VERSION_TAG}"
 
-          helm push ${{ env.CHART_NAME }}-"${ACONEXT_CHART_VERSION_TAG}".tgz oci://ghcr.io/${{ steps.resolve_parameters.outputs.repository_owner }}/helm-charts
+          helm push "${{ env.CHART_NAME }}-${ACONEXT_CHART_VERSION_TAG}.tgz" "oci://ghcr.io/${{ steps.resolve_parameters.outputs.repository_owner }}/helm-charts"
 
       - name: Output chart location
         run: |
