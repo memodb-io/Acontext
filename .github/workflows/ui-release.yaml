@@ -17,3 +17,4 @@ jobs:
       context: ./src/server/ui
       tag_prefix: "ui/v"
       display_name: UI
+      source_dir: src/server/ui

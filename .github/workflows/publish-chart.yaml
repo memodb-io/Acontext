@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
@@ -68,4 +68,18 @@ jobs:
         run: |
           echo "Chart published to: ${{ env.REGISTRY }}/${{ steps.resolve_parameters.outputs.repository_owner }}/helm-charts/${{ env.CHART_NAME }}:${ACONEXT_CHART_VERSION_TAG}"
           echo "Install with: helm install my-release oci://${{ env.REGISTRY }}/${{ steps.resolve_parameters.outputs.repository_owner }}/helm-charts/${{ env.CHART_NAME }} --version ${ACONEXT_CHART_VERSION_TAG}"
+
+      - name: Generate Changelog
+        run: |
+          bash .github/scripts/generate-changelog.sh \
+            --tag-prefix "chart/v" \
+            --source-dir "charts/acontext" \
+            --display-name "Helm Chart" \
+            --output "${{ github.workspace }}-CHANGELOG.txt" \
+            --footer "Published to ghcr.io OCI registry. Install with: helm install my-release oci://ghcr.io/memodb-io/helm-charts/acontext --version ${ACONEXT_CHART_VERSION_TAG}"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
+        with:
+          body_path: ${{ github.workspace }}-CHANGELOG.txt
 

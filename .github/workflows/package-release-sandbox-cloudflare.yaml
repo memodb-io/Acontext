@@ -106,21 +106,26 @@ jobs:
       - name: Generate Changelog
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          CHANGELOG_FILE: ${{ github.workspace }}-CHANGELOG.txt
         run: |
-          cat > "$CHANGELOG_FILE" << EOF
-          # Package Sandbox Cloudflare v${VERSION}
-
-          Published to npm as @acontext/create-sandbox-cloudflare@${VERSION}
+          FOOTER=$(cat <<'FOOTEREOF'
+          Published to npm as @acontext/create-sandbox-cloudflare@VERSION_PLACEHOLDER
 
           ## Usage
 
-          \`\`\`bash
-          npm create @acontext/sandbox-cloudflare@${VERSION} my-app
+          ```bash
+          npm create @acontext/sandbox-cloudflare@VERSION_PLACEHOLDER my-app
           # or
-          npx @acontext/create-sandbox-cloudflare@${VERSION} my-app
-          \`\`\`
-          EOF
+          npx @acontext/create-sandbox-cloudflare@VERSION_PLACEHOLDER my-app
+          ```
+          FOOTEREOF
+          )
+          FOOTER="${FOOTER//VERSION_PLACEHOLDER/$VERSION}"
+          bash .github/scripts/generate-changelog.sh \
+            --tag-prefix "package-sandbox-cloudflare/v" \
+            --source-dir "src/packages/sandbox-cloudflare" \
+            --display-name "Package Sandbox Cloudflare" \
+            --output "${{ github.workspace }}-CHANGELOG.txt" \
+            --footer "$FOOTER"
 
       - name: Create Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b

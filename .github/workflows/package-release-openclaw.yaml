@@ -109,19 +109,24 @@ jobs:
       - name: Generate Changelog
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          CHANGELOG_FILE: ${{ github.workspace }}-CHANGELOG.txt
         run: |
-          cat > "$CHANGELOG_FILE" << EOF
-          # OpenClaw Plugin v${VERSION}
-
-          Published to npm as @acontext/openclaw@${VERSION}
+          FOOTER=$(cat <<'FOOTEREOF'
+          Published to npm as @acontext/openclaw@VERSION_PLACEHOLDER
 
           ## Installation
 
-          \`\`\`bash
-          openclaw plugins install @acontext/openclaw@${VERSION}
-          \`\`\`
-          EOF
+          ```bash
+          openclaw plugins install @acontext/openclaw@VERSION_PLACEHOLDER
+          ```
+          FOOTEREOF
+          )
+          FOOTER="${FOOTER//VERSION_PLACEHOLDER/$VERSION}"
+          bash .github/scripts/generate-changelog.sh \
+            --tag-prefix "package-openclaw/v" \
+            --source-dir "src/packages/openclaw" \
+            --display-name "OpenClaw Plugin" \
+            --output "${{ github.workspace }}-CHANGELOG.txt" \
+            --footer "$FOOTER"
 
       - name: Create Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b

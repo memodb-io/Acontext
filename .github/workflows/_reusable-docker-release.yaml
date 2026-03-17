@@ -19,6 +19,10 @@ on:
         description: "Human-readable component name (e.g. Core)"
         required: true
         type: string
+      source_dir:
+        description: "Source directory for changelog scoping (e.g. src/server/core)"
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -67,17 +71,14 @@ jobs:
           cache-from: type=gha,scope=${{ inputs.image_name }}
           cache-to: type=gha,mode=max,scope=${{ inputs.image_name }}
 
-      - name: Extract version from tag
-        id: version
-        run: |
-          TAG_NAME=${GITHUB_REF#refs/tags/${{ inputs.tag_prefix }}}
-          echo "version=$TAG_NAME" >> "$GITHUB_OUTPUT"
-
       - name: Generate Changelog
         run: |
-          echo "# ${{ inputs.display_name }} v${{ steps.version.outputs.version }}" > ${{ github.workspace }}-CHANGELOG.txt
-          echo "" >> ${{ github.workspace }}-CHANGELOG.txt
-          echo "Published to https://github.com/memodb-io/Acontext/pkgs/container/${{ inputs.image_name }}" >> ${{ github.workspace }}-CHANGELOG.txt
+          bash .github/scripts/generate-changelog.sh \
+            --tag-prefix "${{ inputs.tag_prefix }}" \
+            --source-dir "${{ inputs.source_dir }}" \
+            --display-name "${{ inputs.display_name }}" \
+            --output "${{ github.workspace }}-CHANGELOG.txt" \
+            --footer "Published to https://github.com/memodb-io/Acontext/pkgs/container/${{ inputs.image_name }}"
 
       - name: Create Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b

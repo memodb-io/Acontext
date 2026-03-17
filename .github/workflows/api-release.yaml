@@ -17,3 +17,4 @@ jobs:
       context: ./src/server/api/go
       tag_prefix: "api/v"
       display_name: API
+      source_dir: src/server/api/go

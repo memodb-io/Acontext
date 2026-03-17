@@ -132,24 +132,26 @@ jobs:
           echo "version=$TAG_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Generate Changelog
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-          CHANGELOG_FILE: ${{ github.workspace }}-CHANGELOG.txt
         run: |
-          cat > "$CHANGELOG_FILE" << EOF
-          # Claude Code Plugin v${VERSION}
-
+          FOOTER=$(cat <<'FOOTEREOF'
           ## Installation
 
-          \`\`\`bash
+          ```bash
           claude mcp add-from-marketplace acontext --publisher memodb-io
-          \`\`\`
+          ```
 
           ## Release Checklist
           - [x] Version synced across package.json, plugin.json, marketplace.json
           - [x] Tests passed
           - [x] Plugin bundles built and verified
-          EOF
+          FOOTEREOF
+          )
+          bash .github/scripts/generate-changelog.sh \
+            --tag-prefix "package-claude-code/v" \
+            --source-dir "src/packages/claude-code" \
+            --display-name "Claude Code Plugin" \
+            --output "${{ github.workspace }}-CHANGELOG.txt" \
+            --footer "$FOOTER"
 
       - name: Create Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b

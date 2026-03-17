@@ -17,3 +17,4 @@ jobs:
       context: ./src/server/core
       tag_prefix: "core/v"
       display_name: Core
+      source_dir: src/server/core

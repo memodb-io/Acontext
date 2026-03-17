@@ -46,9 +46,12 @@ jobs:
 
       - name: Generate Changelog
         run: |
-          echo "# Python SDK v${{ steps.version.outputs.version }}" > ${{ github.workspace }}-CHANGELOG.txt
-          echo "" >> ${{ github.workspace }}-CHANGELOG.txt
-          echo "Published to https://pypi.org/project/acontext/${{ steps.version.outputs.version }}/" >> ${{ github.workspace }}-CHANGELOG.txt
+          bash .github/scripts/generate-changelog.sh \
+            --tag-prefix "sdk-py/v" \
+            --source-dir "src/client/acontext-py" \
+            --display-name "Python SDK" \
+            --output "${{ github.workspace }}-CHANGELOG.txt" \
+            --footer "Published to https://pypi.org/project/acontext/${{ steps.version.outputs.version }}/"
 
       - name: Create Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
