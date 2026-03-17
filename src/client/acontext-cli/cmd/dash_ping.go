@@ -35,12 +35,7 @@ func init() {
 
 			if err := client.Ping(cmd.Context()); err != nil {
 				fmt.Printf("Ping failed for project %s: %v\n", dashProject, err)
-				fmt.Println()
-				fmt.Println("To fix this, re-select your project with a valid API key:")
-				fmt.Printf("  acontext dash projects select --project %s --api-key <sk-ac-...>\n", dashProject)
-				fmt.Println()
-				fmt.Println("The API key can be found on the Acontext Dashboard:")
-				fmt.Println("  https://dash.acontext.io")
+				fmt.Printf("Fix with: acontext dash projects select --project %s --api-key <sk-ac-...>\n", dashProject)
 				return fmt.Errorf("ping failed")
 			}
 

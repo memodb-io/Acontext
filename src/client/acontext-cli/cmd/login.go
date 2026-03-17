@@ -14,7 +14,7 @@ import (
 var LoginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Log in to Acontext Dashboard via browser",
-	Long:  "Authenticate with the Acontext Dashboard using browser-based OAuth. Tokens are stored in ~/.acontext/auth.json.",
+	Long:  "Authenticate with the Acontext Dashboard using browser-based OAuth.",
 	RunE:  runLogin,
 }
 
@@ -45,11 +45,9 @@ func runLogin(cmd *cobra.Command, args []string) error {
 		}
 		af, _ := auth.Load()
 		if af != nil {
-			fmt.Printf("Login successful. Logged in as %s\n", af.User.Email)
-			fmt.Println("Credentials saved to ~/.acontext/auth.json")
+			fmt.Printf("Logged in as %s\n", af.User.Email)
 		}
-		fmt.Println()
-		fmt.Println("Next: set up a project. Run 'acontext dash projects list' to see available projects.")
+		fmt.Println("Next: run 'acontext dash projects list' to set up a project.")
 		return nil
 	}
 
@@ -90,7 +88,7 @@ func runLogin(cmd *cobra.Command, args []string) error {
 			fmt.Println(tui.RenderWarning("No projects found."))
 			proceed, confirmErr := tui.RunConfirm("Create a new project?", true)
 			if confirmErr != nil || !proceed {
-				fmt.Println(tui.RenderInfo("You can create a project later with 'acontext dash projects create --name <name>'"))
+				fmt.Println(tui.RenderInfo("Run 'acontext dash projects create --name <name>' later."))
 				return nil
 			}
 
@@ -149,14 +147,12 @@ func runLogin(cmd *cobra.Command, args []string) error {
 			}
 			return nil
 		} else if err != nil {
-			fmt.Println(tui.RenderWarning(fmt.Sprintf("Could not select project: %v", err)))
-			fmt.Println(tui.RenderInfo("You can select a project later with 'acontext dash projects select'"))
+			fmt.Println(tui.RenderWarning(fmt.Sprintf("Could not select project: %v. Run 'acontext dash projects select' later.", err)))
 			return nil
 		}
 
 		if err := auth.SaveProjectKey(choice.ProjectID, af.AccessToken, af.User.Email, adminClient); err != nil {
-			fmt.Println(tui.RenderWarning(fmt.Sprintf("Could not save API key: %v", err)))
-			fmt.Println(tui.RenderInfo("You can set up the project later with 'acontext dash projects select'"))
+			fmt.Println(tui.RenderWarning(fmt.Sprintf("Could not save API key: %v. Run 'acontext dash projects select' later.", err)))
 			return nil
 		}
 		fmt.Println(tui.RenderSuccess(fmt.Sprintf("Default project set to: %s", choice.Name)))
@@ -168,29 +164,17 @@ func runLogin(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("login failed: %w", err)
 		}
 		fmt.Println()
-		fmt.Println("ACTION REQUIRED: Show the following login URL to the user and ask them to open it in their browser:")
+		fmt.Println("ACTION REQUIRED: Open this URL in the browser to log in:")
+		fmt.Printf("\n  %s\n", loginURL)
 		fmt.Println()
-		fmt.Printf("  %s\n", loginURL)
-		fmt.Println()
-		fmt.Println("After the user confirms they have completed login in the browser, run:")
-		fmt.Println()
+		fmt.Println("After login completes, run:")
 		fmt.Println("  acontext login --poll")
 		fmt.Println()
-		fmt.Println("This will retrieve the authentication tokens. Then proceed with project setup:")
-		fmt.Println()
-		fmt.Println("  1. Run 'acontext dash projects list' to see available projects.")
-		fmt.Println("  2. If projects exist, show them to the user as a numbered table")
-		fmt.Println("     (# | org_name | name | project_id) and ask which one to use.")
-		fmt.Println("     Ask the user for the project's API key (found on https://dash.acontext.io), then run:")
-		fmt.Println("       acontext dash projects select --project <project-id> --api-key <sk-ac-...>")
-		fmt.Println("  3. If the list is empty, ask the user for an org name and project name,")
-		fmt.Println("     then run:")
-		fmt.Println("       acontext dash projects create --name <project-name> --org <org-id>")
-		fmt.Println("     If no orgs exist either, the user must create one at https://dash.acontext.io first.")
-		fmt.Println("     The create output includes project_id and secret_key, auto-saved as default.")
-		fmt.Println("  4. After project setup, verify connectivity:")
-		fmt.Println("       acontext dash ping")
-		fmt.Println("     If ping fails, re-run 'acontext dash projects select' with the correct API key.")
+		fmt.Println("Then set up a project:")
+		fmt.Println("  1. acontext dash projects list")
+		fmt.Println("  2. acontext dash projects select --project <id> --api-key <sk-ac-...>")
+		fmt.Println("     Or create: acontext dash projects create --name <name> --org <org-id>")
+		fmt.Println("  3. acontext dash ping")
 	}
 
 	return nil
@@ -206,8 +190,7 @@ func runLogout(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("logout failed: %w", err)
 	}
 
-	fmt.Println(tui.RenderSuccess("Logged out successfully"))
-	fmt.Println(tui.RenderInfo("Removed ~/.acontext/auth.json and ~/.acontext/credentials.json"))
+	fmt.Println(tui.RenderSuccess("Logged out. Credentials removed."))
 	return nil
 }
 

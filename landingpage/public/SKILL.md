@@ -53,7 +53,7 @@ acontext login
 
 ### 3. Add Acontext to Your Agent
 
-Both plugins automatically read your API key and user email from `~/.acontext/credentials.json` and `~/.acontext/auth.json` (written by `acontext login`). No manual configuration is needed after login.
+Both plugins automatically read your API key and user email after `acontext login`. No manual configuration is needed.
 
 #### Option A: Claude Code Plugin
 
@@ -101,7 +101,6 @@ After you have logged in, you can manage Acontext projects via CLI:
 2. If user ask you to use a existing Acontext project, you should let the user to provide the api key. And then switch to this project `acontext dash projects select --project <project-id> --api-key <sk-ac-...>`.
 3. To create, ask for an org name and project name, then run: `acontext dash projects create --name <project-name> --org <org-id>`. This command returns the API key and auto-saves it as the default project (no need to run `select` afterwards).
 4. After select or create, verify the project is configured correctly:
-   - Check that `~/.acontext/credentials.json` contains the project key.
    - Run `acontext dash ping` to verify API connectivity. A successful response confirms the project is reachable.
 
 ## CLI Commands Reference
@@ -141,7 +140,7 @@ The directory must contain a `SKILL.md` with name and description in YAML front-
 
 ## Claude Code Plugin Configuration
 
-After `acontext login`, the plugin works automatically — API key and user are read from `~/.acontext/`. The following env vars can override defaults if needed:
+After `acontext login`, the plugin works automatically. The following env vars can override defaults if needed:
 
 | Env Var                        | Default                           | Description                            |
 | ------------------------------ | --------------------------------- | -------------------------------------- |
@@ -166,7 +165,7 @@ After `acontext login`, the plugin works automatically — API key and user are 
 
 ## OpenClaw Plugin Configuration
 
-After `acontext login`, the plugin works automatically — API key and user are read from `~/.acontext/`. Optional overrides in `openclaw.json` config:
+After `acontext login`, the plugin works automatically. Optional overrides in `openclaw.json` config:
 
 | Key                | Type      | Default                           | Description                              |
 | ------------------ | --------- | --------------------------------- | ---------------------------------------- |
@@ -198,13 +197,13 @@ After `acontext login`, the plugin works automatically — API key and user are 
 
 ### "command not found: acontext"
 
-Restart your shell or run `source ~/.bashrc` / `source ~/.zshrc`. The installer adds `~/.acontext/bin` to your PATH.
+Restart your shell or run `source ~/.bashrc` / `source ~/.zshrc`.
 
 ### Login fails or times out
 
 - Ensure you have internet access and can reach `dash.acontext.io`
 - In non-TTY mode, make sure to run `acontext login --poll` after the user completes browser login
-- Check `~/.acontext/auth.json` for stored credentials
+- Check stored credentials with `acontext whoami`
 
 ### Switching API Key or Project
 
@@ -212,7 +211,7 @@ If the user needs to change their API key or switch to a different project, use:
 ```bash
 acontext dash projects select --project <project-id> --api-key <sk-ac-...>
 ```
-This updates `~/.acontext/credentials.json` with the new key. Run `acontext dash ping` afterwards to verify connectivity.
+Run `acontext dash ping` afterwards to verify connectivity.
 
 ### API returns 401 Unauthorized
 
@@ -224,7 +223,6 @@ This updates `~/.acontext/credentials.json` with the new key. Run `acontext dash
 ### Claude Code plugin not working
 
 - Run `acontext whoami` to verify you are logged in
-- Check that `~/.acontext/credentials.json` exists and has a default project
 - Check Claude Code logs for `[info] acontext:` or `[warn] acontext:` messages
 - Verify the plugin is installed: `/plugin list`
 - Skills should appear in `~/.claude/skills/` after the first session

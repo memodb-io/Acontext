@@ -14,10 +14,7 @@ import (
 
 // printSetupComplete prints the common message after a project is configured.
 func printSetupComplete() {
-	fmt.Println("API key saved to ~/.acontext/credentials.json")
-	fmt.Println()
-	fmt.Println("Verify connectivity:")
-	fmt.Println("  acontext dash ping")
+	fmt.Println("API key saved. Run 'acontext dash ping' to verify.")
 }
 
 func init() {
@@ -113,13 +110,8 @@ func init() {
 				if err := auth.SaveProjectKey(projectFlag, dashAccessToken, dashUserEmail, dashAdminClient); err != nil {
 					if errors.Is(err, auth.ErrNonTTYKeyRequired) {
 						// Non-TTY and no local key: prompt agent to ask user for the API key
-						fmt.Printf("No local API key found for project %s.\n", projectFlag)
-						fmt.Println()
-						fmt.Println("Please ask the user for the project's API key, then run:")
-						fmt.Printf("  acontext dash projects select --project %s --api-key <sk-ac-...>\n", projectFlag)
-						fmt.Println()
-						fmt.Println("The API key can be found on the Acontext Dashboard:")
-						fmt.Println("  https://dash.acontext.io")
+						fmt.Printf("No API key found for project %s.\n", projectFlag)
+						fmt.Printf("Provide one with: acontext dash projects select --project %s --api-key <sk-ac-...>\n", projectFlag)
 						return nil
 					}
 					return fmt.Errorf("save project key: %w", err)
@@ -132,8 +124,7 @@ func init() {
 			// Interactive mode: prompt user to select
 			choice, err := auth.SelectProject(dashAccessToken, dashUserID)
 			if errors.Is(err, auth.ErrNoProjects) {
-				fmt.Println("No projects found.")
-				fmt.Println("Create one first with: acontext dash projects create --name <name> --org <org-id>")
+				fmt.Println("No projects found. Create one with: acontext dash projects create --name <name> --org <org-id>")
 				return nil
 			}
 			if err != nil {
@@ -182,8 +173,7 @@ func init() {
 						orgID = newOrgID
 						fmt.Printf("Organization created: %s (%s)\n", orgName, orgID)
 					} else {
-						fmt.Println("No organizations found.")
-						fmt.Println("Create one first at https://dash.acontext.io, then retry.")
+						fmt.Println("No organizations found. Create one at https://dash.acontext.io first.")
 						return nil
 					}
 				} else if len(orgs) == 1 {

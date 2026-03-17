@@ -16,7 +16,7 @@ NC='\033[0m' # No Color
 REPO="memodb-io/Acontext"
 BINARY_NAME="acontext-cli"
 COMMAND_NAME="acontext"
-# Use ~/.acontext/bin for user installation (no sudo required)
+# User-local installation (no sudo required)
 # Falls back to /usr/local/bin if user explicitly wants system-wide install
 INSTALL_DIR="${HOME}/.acontext/bin"
 VERSION=""
@@ -354,7 +354,7 @@ while [ $# -gt 0 ]; do
             echo "  --system           Install system-wide to /usr/local/bin (requires sudo)"
             echo "  --help             Show this help message"
             echo ""
-            echo "By default, installs to ~/.acontext/bin and automatically updates your shell profile."
+            echo "By default, installs for the current user and automatically updates your shell profile."
             echo ""
             echo "Examples:"
             echo "  # Install latest version for current user (no sudo required)"
