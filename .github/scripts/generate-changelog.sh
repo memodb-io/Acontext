@@ -53,8 +53,8 @@ VERSION="${CURRENT_TAG#"$TAG_PREFIX"}"
 # Find previous tag with the same prefix
 # ---------------------------------------------------------------------------
 PREV_TAG=$(git tag -l "${TAG_PREFIX}*" --sort=-v:refname \
-  | grep -v "^${CURRENT_TAG}$" \
-  | head -1) || true
+  | { grep -v "^${CURRENT_TAG}$" || true; } \
+  | head -1)
 
 # ---------------------------------------------------------------------------
 # Build changelog
@@ -107,6 +107,9 @@ PREV_TAG=$(git tag -l "${TAG_PREFIX}*" --sort=-v:refname \
         printf '%s' "$OTHER"
         echo ""
       fi
+    else
+      echo "No path-scoped changes in this release."
+      echo ""
     fi
 
     echo "**Full Changelog**: https://github.com/memodb-io/Acontext/compare/${PREV_TAG}...${CURRENT_TAG}"

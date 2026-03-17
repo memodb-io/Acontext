@@ -73,12 +73,13 @@ jobs:
 
       - name: Generate Changelog
         run: |
+          CHART_VERSION=${GITHUB_REF#refs/tags/chart/v}
           bash .github/scripts/generate-changelog.sh \
             --tag-prefix "chart/v" \
             --source-dir "charts/acontext" \
             --display-name "Helm Chart" \
             --output "${{ github.workspace }}-CHANGELOG.txt" \
-            --footer "Published to ghcr.io OCI registry. Install with: helm install my-release oci://ghcr.io/memodb-io/helm-charts/acontext --version ${ACONEXT_CHART_VERSION_TAG}"
+            --footer "Published to ghcr.io OCI registry. Install with: helm install my-release oci://ghcr.io/memodb-io/helm-charts/acontext --version ${CHART_VERSION}"
 
       - name: Create Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b
