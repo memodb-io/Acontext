@@ -38,13 +38,6 @@
     "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "esbuild",
-      "sharp",
-      "workerd"
-    ]
-  },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.1",
     "@types/d3-force": "^3.0.10",
@@ -58,6 +51,11 @@
     "wrangler": "^4.74.0"
   },
   "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp",
+      "workerd"
+    ],
     "overrides": {
       "undici": ">=7.24.0"
     }
