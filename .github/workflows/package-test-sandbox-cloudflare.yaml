@@ -30,6 +30,19 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
+      - name: Check sandbox version consistency
+        run: |
+          DOCKER_TAG=$(grep -oP 'cloudflare/sandbox:\K[0-9]+\.[0-9]+\.[0-9]+' Dockerfile)
+          SDK_VERSION=$(node -p "require('./package.json').dependencies['@cloudflare/sandbox'].replace(/[\^~>=<]/g, '')")
+          echo "Docker image tag: $DOCKER_TAG"
+          echo "SDK min version:  $SDK_VERSION"
+          LOWER=$(printf '%s\n%s' "$DOCKER_TAG" "$SDK_VERSION" | sort -V | head -n1)
+          if [ "$LOWER" = "$DOCKER_TAG" ] && [ "$DOCKER_TAG" != "$SDK_VERSION" ]; then
+            echo "::error::Docker image ($DOCKER_TAG) is older than SDK minimum ($SDK_VERSION). Update the Dockerfile."
+            exit 1
+          fi
+          echo "Versions are consistent."
+
       - name: Set up Node.js
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:

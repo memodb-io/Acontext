@@ -10,14 +10,19 @@
 		"lint": "eslint ."
 	},
 	"dependencies": {
-		"@cloudflare/sandbox": "^0.7.17"
+		"@cloudflare/sandbox": "^0.7.18"
 	},
 	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20260312.1",
+		"@cloudflare/workers-types": "^4.20260317.1",
 		"typescript": "^5.9.3",
-		"wrangler": "^4.72.0"
+		"wrangler": "^4.74.0"
 	},
 	"engines": {
 		"node": ">=18.0.0"
+	},
+	"pnpm": {
+		"overrides": {
+			"undici": ">=7.24.0"
+		}
 	}
 }

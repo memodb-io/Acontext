@@ -16,7 +16,7 @@
   "dependencies": {
     "@ai-sdk/openai": "^3.0.41",
     "@ai-sdk/react": "^3.0.118",
-    "@next/third-parties": "^16.1.6",
+    "@next/third-parties": "^16.1.7",
     "@opennextjs/cloudflare": "^1.17.1",
     "@radix-ui/react-hover-card": "^1.1.15",
     "ai": "^6.0.116",
@@ -26,7 +26,7 @@
     "fumadocs-openapi": "^10.3.18",
     "fumadocs-ui": "16.6.16",
     "lucide-react": "^0.577.0",
-    "mermaid": "^11.12.3",
+    "mermaid": "^11.13.0",
     "next": "16.1.6",
     "next-themes": "^0.4.6",
     "react": "^19.2.4",
@@ -34,7 +34,7 @@
     "react-force-graph-2d": "^1.29.1",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
-    "shiki": "^4.0.1",
+    "shiki": "^4.0.2",
     "tailwind-merge": "^3.5.0",
     "zod": "^4.3.6"
   },
@@ -49,12 +49,17 @@
     "@tailwindcss/postcss": "^4.2.1",
     "@types/d3-force": "^3.0.10",
     "@types/mdx": "^2.0.13",
-    "@types/node": "^25.3.5",
+    "@types/node": "^25.5.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.1",
     "typescript": "^5.9.3",
-    "wrangler": "^4.72.0"
+    "wrangler": "^4.74.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "undici": ">=7.24.0"
+    }
   }
 }

@@ -26,11 +26,11 @@
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
-    "@next/third-parties": "^16.1.6",
+    "@next/third-parties": "^16.1.7",
     "@opennextjs/cloudflare": "^1.17.1",
     "@payloadcms/db-d1-sqlite": "3.79.0",
     "@payloadcms/next": "3.79.0",
-    "@payloadcms/plugin-seo": "^3.79.0",
+    "@payloadcms/plugin-seo": "^3.79.1",
     "@payloadcms/richtext-lexical": "3.79.0",
     "@payloadcms/storage-r2": "3.79.0",
     "@payloadcms/ui": "3.79.0",
@@ -43,7 +43,7 @@
     "graphql": "^16.13.1",
     "gsap": "^3.14.2",
     "lucide-react": "^0.577.0",
-    "motion": "^12.35.2",
+    "motion": "^12.37.0",
     "next": "15.5.12",
     "next-themes": "^0.4.6",
     "payload": "3.79.0",
@@ -95,7 +95,8 @@
       "ajv@<6.14.0": "6.14.0",
       "ajv@>=7.0.0-alpha.0 <8.18.0": "8.18.0",
       "minimatch@>=8.0.0 <10.2.3": "10.2.3",
-      "dompurify": ">=3.2.8"
+      "dompurify": ">=3.2.8",
+      "undici": ">=7.24.0"
     }
   },
   "cloudflare": {

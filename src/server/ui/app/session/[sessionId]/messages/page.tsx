@@ -68,6 +68,7 @@ import {
   filterFilesByRole,
 } from "@/lib/message-utils";
 import { Part } from "@/types";
+import { toast } from "sonner";
 
 const PAGE_SIZE = 10;
 
@@ -482,7 +483,7 @@ export default function MessagesPage() {
     setIsDownloading(true);
     try {
       const result = await downloadMessages(sessionId, format);
-      if (!result.success || !result.data) {
+      if (result.code !== 0 || !result.data) {
         toast.error(t("downloadFailed"));
         return;
       }

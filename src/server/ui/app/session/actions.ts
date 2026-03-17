@@ -199,7 +199,7 @@ export async function downloadMessages(
 
       if (!response.ok) {
         const text = await response.text();
-        return { success: false, error: text };
+        return { code: 1, data: null, message: text };
       }
 
       const result = await response.json();
@@ -209,7 +209,7 @@ export async function downloadMessages(
       hasMore = result.has_more || false;
     }
 
-    return { success: true, data: JSON.stringify(allItems, null, 2) };
+    return { code: 0, data: JSON.stringify(allItems, null, 2), message: "success" };
   } catch (error) {
     return handleError(error, "downloadMessages");
   }

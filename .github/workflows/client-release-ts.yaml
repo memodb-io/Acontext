@@ -51,28 +51,12 @@ jobs:
           cp .env.example .env
           cp core/config.yaml.example core/config.yaml
 
-          if ! docker compose up -d --wait --quiet-pull 2>&1; then
+          if ! docker compose up -d --wait --quiet-pull acontext-server-pg acontext-server-redis acontext-server-rabbitmq acontext-server-seaweedfs acontext-server-seaweedfs-setup acontext-server-core acontext-server-api 2>&1; then
             echo "❌ Docker compose failed to start, showing logs:"
             docker compose logs
             exit 1
           fi
           echo "✅ All containers started successfully"
-
-      - name: Wait for API to be ready
-        run: |
-          timeout=120
-          elapsed=0
-          while [ $elapsed -lt $timeout ]; do
-            if curl -f http://localhost:8029/health > /dev/null 2>&1; then
-              echo "API is ready"
-              exit 0
-            fi
-            echo "Waiting for API to be ready... ($elapsed/$timeout seconds)"
-            sleep 5
-            elapsed=$((elapsed + 5))
-          done
-          echo "API did not become ready in time"
-          exit 1
 
       - name: Run tests
         run: npm test
