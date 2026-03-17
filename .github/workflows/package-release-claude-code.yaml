@@ -136,17 +136,17 @@ jobs:
       - name: Generate Changelog
         run: |
           FOOTER=$(cat <<'FOOTEREOF'
-          ## Installation
+## Installation
 
-          ```bash
-          claude mcp add-from-marketplace acontext --publisher memodb-io
-          ```
+```bash
+claude mcp add-from-marketplace acontext --publisher memodb-io
+```
 
-          ## Release Checklist
-          - [x] Version synced across package.json, plugin.json, marketplace.json
-          - [x] Tests passed
-          - [x] Plugin bundles built and verified
-          FOOTEREOF
+## Release Checklist
+- [x] Version synced across package.json, plugin.json, marketplace.json
+- [x] Tests passed
+- [x] Plugin bundles built and verified
+FOOTEREOF
           )
           bash .github/scripts/generate-changelog.sh \
             --tag-prefix "package-claude-code/v" \

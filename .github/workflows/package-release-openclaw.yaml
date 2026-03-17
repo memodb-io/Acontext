@@ -112,17 +112,16 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          FOOTER=$(cat <<'FOOTEREOF'
-          Published to npm as @acontext/openclaw@VERSION_PLACEHOLDER
+          FOOTER=$(cat <<FOOTEREOF
+Published to npm as @acontext/openclaw@${VERSION}
 
-          ## Installation
+## Installation
 
-          ```bash
-          openclaw plugins install @acontext/openclaw@VERSION_PLACEHOLDER
-          ```
-          FOOTEREOF
+\`\`\`bash
+openclaw plugins install @acontext/openclaw@${VERSION}
+\`\`\`
+FOOTEREOF
           )
-          FOOTER="${FOOTER//VERSION_PLACEHOLDER/$VERSION}"
           bash .github/scripts/generate-changelog.sh \
             --tag-prefix "package-openclaw/v" \
             --source-dir "src/packages/openclaw" \

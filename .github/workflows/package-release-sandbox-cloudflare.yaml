@@ -109,19 +109,18 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          FOOTER=$(cat <<'FOOTEREOF'
-          Published to npm as @acontext/create-sandbox-cloudflare@VERSION_PLACEHOLDER
+          FOOTER=$(cat <<FOOTEREOF
+Published to npm as @acontext/create-sandbox-cloudflare@${VERSION}
 
-          ## Usage
+## Usage
 
-          ```bash
-          npm create @acontext/sandbox-cloudflare@VERSION_PLACEHOLDER my-app
-          # or
-          npx @acontext/create-sandbox-cloudflare@VERSION_PLACEHOLDER my-app
-          ```
-          FOOTEREOF
+\`\`\`bash
+npm create @acontext/sandbox-cloudflare@${VERSION} my-app
+# or
+npx @acontext/create-sandbox-cloudflare@${VERSION} my-app
+\`\`\`
+FOOTEREOF
           )
-          FOOTER="${FOOTER//VERSION_PLACEHOLDER/$VERSION}"
           bash .github/scripts/generate-changelog.sh \
             --tag-prefix "package-sandbox-cloudflare/v" \
             --source-dir "src/packages/sandbox-cloudflare" \
