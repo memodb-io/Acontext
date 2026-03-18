@@ -49,6 +49,7 @@ export default function AgentSkillsPage() {
 
   const [skills, setSkills] = useState<AgentSkill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filterText, setFilterText] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -77,27 +78,35 @@ export default function AgentSkillsPage() {
   const loadSkills = async () => {
     try {
       setIsLoading(true);
-      const allSkills: AgentSkill[] = [];
-      let cursor: string | undefined = undefined;
-      let hasMore = true;
 
-      while (hasMore) {
-        const res = await getAgentSkills(50, cursor, true);
-        if (res.code !== 0) {
-          console.error(res.message);
-          break;
-        }
-        allSkills.push(...(res.data?.items || []));
-        cursor = res.data?.next_cursor;
-        hasMore = res.data?.has_more || false;
+      const first = await getAgentSkills(50, undefined, true);
+      if (first.code !== 0) {
+        console.error(first.message);
+        setIsLoading(false);
+        return;
       }
-
-      setSkills(allSkills);
+      setSkills(first.data?.items || []);
       setCurrentPage(1);
+      setIsLoading(false);
+
+      if (first.data?.has_more) {
+        setIsLoadingMore(true);
+        let cursor = first.data?.next_cursor;
+        while (cursor) {
+          const res = await getAgentSkills(50, cursor, true);
+          if (res.code !== 0) {
+            console.error(res.message);
+            break;
+          }
+          setSkills(prev => [...prev, ...(res.data?.items || [])]);
+          cursor = res.data?.has_more ? res.data?.next_cursor : undefined;
+        }
+        setIsLoadingMore(false);
+      }
     } catch (error) {
       console.error("Failed to load agent skills:", error);
-    } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
   };
 
@@ -294,6 +303,7 @@ export default function AgentSkillsPage() {
             totalItems={filteredSkills.length}
             onPageChange={setCurrentPage}
             itemLabel={tp("skills")}
+            isLoading={isLoadingMore}
           />
           </>
         )}

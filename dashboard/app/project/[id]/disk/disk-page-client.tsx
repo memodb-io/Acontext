@@ -131,6 +131,7 @@ export function DiskPageClient({
   const [disks, setDisks] = useState<Disk[]>([]);
   const [selectedDisk, setSelectedDisk] = useState<Disk | null>(null);
   const [isLoadingDisks, setIsLoadingDisks] = useState(true);
+  const [isLoadingMoreDisks, setIsLoadingMoreDisks] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   // File preview states
@@ -234,24 +235,26 @@ export function DiskPageClient({
       setIsLoadingDisks(true);
       const userParam = userFilter === "all" ? undefined : userFilter;
 
-      const allDisks: Disk[] = [];
-      let cursor: string | undefined = undefined;
-      let hasMore = true;
-
-      while (hasMore) {
-        const res = await getDisks(project.id, 50, cursor, true, userParam);
-        allDisks.push(...(res.items || []));
-        cursor = res.next_cursor;
-        hasMore = res.has_more || false;
-      }
-
-      setDisks(allDisks);
+      const first = await getDisks(project.id, 50, undefined, true, userParam);
+      setDisks(first.items || []);
       setCurrentPage(1);
+      setIsLoadingDisks(false);
+
+      if (first.has_more) {
+        setIsLoadingMoreDisks(true);
+        let cursor = first.next_cursor;
+        while (cursor) {
+          const res = await getDisks(project.id, 50, cursor, true, userParam);
+          setDisks(prev => [...prev, ...(res.items || [])]);
+          cursor = res.has_more ? res.next_cursor : undefined;
+        }
+        setIsLoadingMoreDisks(false);
+      }
     } catch (error) {
       console.error("Failed to load disks:", error);
       toast.error("Failed to load disks");
-    } finally {
       setIsLoadingDisks(false);
+      setIsLoadingMoreDisks(false);
     }
   }, [project.id, userFilter]);
 
@@ -934,6 +937,7 @@ export function DiskPageClient({
                     totalItems={filteredDisks.length}
                     onPageChange={setCurrentPage}
                     itemLabel="disks"
+                    isLoading={isLoadingMoreDisks}
                   />
                 </>
               )}

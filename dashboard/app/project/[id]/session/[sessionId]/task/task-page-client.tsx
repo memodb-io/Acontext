@@ -52,6 +52,7 @@ export function TaskPageClient({
   const [sessionInfo, setSessionInfo] = useState<string>("");
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshingTasks, setIsRefreshingTasks] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -82,24 +83,27 @@ export function TaskPageClient({
   const loadAllTasks = async () => {
     try {
       setIsLoadingTasks(true);
-      const allTsks: Task[] = [];
-      let cursor: string | undefined = undefined;
-      let hasMore = true;
 
-      while (hasMore) {
-        const res = await getTasks(project.id, sessionId, 50, cursor);
-        allTsks.push(...(res.items || []));
-        cursor = res.next_cursor;
-        hasMore = res.has_more || false;
-      }
-
-      setAllTasks(allTsks);
+      const first = await getTasks(project.id, sessionId, 50, undefined);
+      setAllTasks(first.items || []);
       setCurrentPage(1);
+      setIsLoadingTasks(false);
+
+      if (first.has_more) {
+        setIsLoadingMore(true);
+        let cursor = first.next_cursor;
+        while (cursor) {
+          const res = await getTasks(project.id, sessionId, 50, cursor);
+          setAllTasks(prev => [...prev, ...(res.items || [])]);
+          cursor = res.has_more ? res.next_cursor : undefined;
+        }
+        setIsLoadingMore(false);
+      }
     } catch (error) {
       console.error("Failed to load tasks:", error);
       toast.error("Failed to load tasks");
-    } finally {
       setIsLoadingTasks(false);
+      setIsLoadingMore(false);
     }
   };
 
@@ -275,6 +279,7 @@ export function TaskPageClient({
               totalItems={allTasks.length}
               onPageChange={setCurrentPage}
               itemLabel="tasks"
+              isLoading={isLoadingMore}
             />
           </>
         )}

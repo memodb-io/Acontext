@@ -91,6 +91,7 @@ export function LearningSpacesPageClient({
 
   const [spaces, setSpaces] = useState<LearningSpace[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -156,24 +157,26 @@ export function LearningSpacesPageClient({
       setIsLoading(true);
       const userParam = userFilter === "all" ? undefined : userFilter;
 
-      const allSpaces: LearningSpace[] = [];
-      let cursor: string | undefined = undefined;
-      let hasMore = true;
-
-      while (hasMore) {
-        const res = await getLearningSpaces(projectId, 50, cursor, true, userParam);
-        allSpaces.push(...(res.items || []));
-        cursor = res.next_cursor;
-        hasMore = res.has_more || false;
-      }
-
-      setSpaces(allSpaces);
+      const first = await getLearningSpaces(projectId, 50, undefined, true, userParam);
+      setSpaces(first.items || []);
       setCurrentPage(1);
+      setIsLoading(false);
+
+      if (first.has_more) {
+        setIsLoadingMore(true);
+        let cursor = first.next_cursor;
+        while (cursor) {
+          const res = await getLearningSpaces(projectId, 50, cursor, true, userParam);
+          setSpaces(prev => [...prev, ...(res.items || [])]);
+          cursor = res.has_more ? res.next_cursor : undefined;
+        }
+        setIsLoadingMore(false);
+      }
     } catch (error) {
       console.error("Failed to load learning spaces:", error);
       toast.error("Failed to load learning spaces");
-    } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
   }, [projectId, userFilter]);
 
@@ -536,6 +539,7 @@ export function LearningSpacesPageClient({
               totalItems={filteredSpaces.length}
               onPageChange={setCurrentPage}
               itemLabel="spaces"
+              isLoading={isLoadingMore}
             />
           </div>
         )}

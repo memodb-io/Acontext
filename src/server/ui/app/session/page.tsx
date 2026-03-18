@@ -59,6 +59,7 @@ export default function SessionsPage() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [selectedSession, setSelectedSession] = useState<Session | null>(null);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [isRefreshingSessions, setIsRefreshingSessions] = useState(false);
   const [sessionFilterText, setSessionFilterText] = useState("");
@@ -102,33 +103,46 @@ export default function SessionsPage() {
     try {
       setIsLoadingSessions(true);
 
-      const allSsns: Session[] = [];
-      let cursor: string | undefined = undefined;
-      let hasMore = true;
-
-      while (hasMore) {
-        const res = await getSessions(
-          userFilter || undefined,
-          undefined,
-          50,
-          cursor,
-          true
-        );
-        if (res.code !== 0) {
-          console.error(res.message);
-          break;
-        }
-        allSsns.push(...(res.data?.items || []));
-        cursor = res.data?.next_cursor;
-        hasMore = res.data?.has_more || false;
+      const first = await getSessions(
+        userFilter || undefined,
+        undefined,
+        50,
+        undefined,
+        true
+      );
+      if (first.code !== 0) {
+        console.error(first.message);
+        setIsLoadingSessions(false);
+        return;
       }
-
-      setSessions(allSsns);
+      setSessions(first.data?.items || []);
       setCurrentPage(1);
+      setIsLoadingSessions(false);
+
+      if (first.data?.has_more) {
+        setIsLoadingMore(true);
+        let cursor = first.data?.next_cursor;
+        while (cursor) {
+          const res = await getSessions(
+            userFilter || undefined,
+            undefined,
+            50,
+            cursor,
+            true
+          );
+          if (res.code !== 0) {
+            console.error(res.message);
+            break;
+          }
+          setSessions(prev => [...prev, ...(res.data?.items || [])]);
+          cursor = res.data?.has_more ? res.data?.next_cursor : undefined;
+        }
+        setIsLoadingMore(false);
+      }
     } catch (error) {
       console.error("Failed to load sessions:", error);
-    } finally {
       setIsLoadingSessions(false);
+      setIsLoadingMore(false);
     }
   };
 
@@ -471,6 +485,7 @@ export default function SessionsPage() {
             totalItems={filteredSessions.length}
             onPageChange={setCurrentPage}
             itemLabel={tp("sessions")}
+            isLoading={isLoadingMore}
           />
           </>
         )}

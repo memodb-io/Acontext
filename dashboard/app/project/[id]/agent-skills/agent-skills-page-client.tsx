@@ -93,6 +93,7 @@ export function AgentSkillsPageClient({
 
   const [skills, setSkills] = useState<AgentSkillListItem[]>([]);
   const [isLoadingSkills, setIsLoadingSkills] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -144,24 +145,26 @@ export function AgentSkillsPageClient({
       setIsLoadingSkills(true);
       const userParam = userFilter === "all" ? undefined : userFilter;
 
-      const allSkills: AgentSkillListItem[] = [];
-      let cursor: string | undefined = undefined;
-      let hasMore = true;
-
-      while (hasMore) {
-        const res = await getAgentSkills(project.id, 50, cursor, true, userParam);
-        allSkills.push(...(res.items || []));
-        cursor = res.next_cursor;
-        hasMore = res.has_more || false;
-      }
-
-      setSkills(allSkills);
+      const first = await getAgentSkills(project.id, 50, undefined, true, userParam);
+      setSkills(first.items || []);
       setCurrentPage(1);
+      setIsLoadingSkills(false);
+
+      if (first.has_more) {
+        setIsLoadingMore(true);
+        let cursor = first.next_cursor;
+        while (cursor) {
+          const res = await getAgentSkills(project.id, 50, cursor, true, userParam);
+          setSkills(prev => [...prev, ...(res.items || [])]);
+          cursor = res.has_more ? res.next_cursor : undefined;
+        }
+        setIsLoadingMore(false);
+      }
     } catch (error) {
       console.error("Failed to load skills:", error);
       toast.error("Failed to load agent skills");
-    } finally {
       setIsLoadingSkills(false);
+      setIsLoadingMore(false);
     }
   }, [project.id, userFilter]);
 
@@ -451,6 +454,7 @@ export function AgentSkillsPageClient({
               totalItems={filteredSkills.length}
               onPageChange={setCurrentPage}
               itemLabel="skills"
+              isLoading={isLoadingMore}
             />
           </>
         )}

@@ -67,6 +67,7 @@ export function UserPageClient({
   }, [project, currentOrganization, allOrganizations, projects, initialize, setHasSidebar]);
   const [users, setUsers] = useState<UserWithCounts[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshingUsers, setIsRefreshingUsers] = useState(false);
   const [userFilterText, setUserFilterText] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -92,21 +93,26 @@ export function UserPageClient({
       setIsLoadingUsers(true);
 
       const allUsers: User[] = [];
-      let cursor: string | undefined = undefined;
-      let hasMore = true;
-
-      while (hasMore) {
-        const res = await getUsers(project.id, 50, cursor, false);
-        allUsers.push(...(res.items || []));
-        cursor = res.next_cursor;
-        hasMore = res.has_more || false;
-      }
-
-      // Initialize users without counts
+      const first = await getUsers(project.id, 50, undefined, false);
+      allUsers.push(...(first.items || []));
       setUsers(allUsers.map((u) => ({ ...u, loadingCounts: true })));
       setCurrentPage(1);
+      setIsLoadingUsers(false);
 
-      // Load counts for each user
+      if (first.has_more) {
+        setIsLoadingMore(true);
+        let cursor = first.next_cursor;
+        while (cursor) {
+          const res = await getUsers(project.id, 50, cursor, false);
+          const newUsers = res.items || [];
+          allUsers.push(...newUsers);
+          setUsers(allUsers.map((u) => ({ ...u, loadingCounts: true })));
+          cursor = res.has_more ? res.next_cursor : undefined;
+        }
+        setIsLoadingMore(false);
+      }
+
+      // Load counts for all users
       const usersWithCounts = await Promise.all(
         allUsers.map(async (user) => {
           try {
@@ -121,8 +127,8 @@ export function UserPageClient({
     } catch (error) {
       console.error("Failed to load users:", error);
       toast.error("Failed to load users");
-    } finally {
       setIsLoadingUsers(false);
+      setIsLoadingMore(false);
     }
   }, [project.id]);
 
@@ -341,6 +347,7 @@ export function UserPageClient({
               totalItems={filteredUsers.length}
               onPageChange={setCurrentPage}
               itemLabel="users"
+              isLoading={isLoadingMore}
             />
           </>
         )}

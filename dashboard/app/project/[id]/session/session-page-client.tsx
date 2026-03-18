@@ -106,6 +106,7 @@ export function SessionPageClient({
 
   const [sessions, setSessions] = useState<Session[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isCreatingSession, setIsCreatingSession] = useState(false);
   const [isRefreshingSessions, setIsRefreshingSessions] = useState(false);
   const [sessionFilterText, setSessionFilterText] = useState("");
@@ -167,24 +168,26 @@ export function SessionPageClient({
       setIsLoadingSessions(true);
       const userParam = userFilter === "all" ? undefined : userFilter;
 
-      const allSessions: Session[] = [];
-      let cursor: string | undefined = undefined;
-      let hasMore = true;
-
-      while (hasMore) {
-        const res = await getSessions(project.id, 50, cursor, true, userParam);
-        allSessions.push(...(res.items || []));
-        cursor = res.next_cursor;
-        hasMore = res.has_more || false;
-      }
-
-      setSessions(allSessions);
+      const first = await getSessions(project.id, 50, undefined, true, userParam);
+      setSessions(first.items || []);
       setCurrentPage(1);
+      setIsLoadingSessions(false);
+
+      if (first.has_more) {
+        setIsLoadingMore(true);
+        let cursor = first.next_cursor;
+        while (cursor) {
+          const res = await getSessions(project.id, 50, cursor, true, userParam);
+          setSessions(prev => [...prev, ...(res.items || [])]);
+          cursor = res.has_more ? res.next_cursor : undefined;
+        }
+        setIsLoadingMore(false);
+      }
     } catch (error) {
       console.error("Failed to load sessions:", error);
       toast.error("Failed to load sessions");
-    } finally {
       setIsLoadingSessions(false);
+      setIsLoadingMore(false);
     }
   }, [project.id, userFilter]);
 
@@ -539,6 +542,7 @@ export function SessionPageClient({
               totalItems={filteredSessions.length}
               onPageChange={setCurrentPage}
               itemLabel="sessions"
+              isLoading={isLoadingMore}
             />
           </>
         )}

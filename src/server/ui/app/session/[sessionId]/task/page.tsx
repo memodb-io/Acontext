@@ -43,6 +43,7 @@ export default function TasksPage() {
   const [sessionInfo, setSessionInfo] = useState<string>("");
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [isLoadingTasks, setIsLoadingTasks] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshingTasks, setIsRefreshingTasks] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -73,27 +74,35 @@ export default function TasksPage() {
   const loadAllTasks = async () => {
     try {
       setIsLoadingTasks(true);
-      const allTsks: Task[] = [];
-      let cursor: string | undefined = undefined;
-      let hasMore = true;
 
-      while (hasMore) {
-        const res = await getTasks(sessionId, 50, cursor);
-        if (res.code !== 0) {
-          console.error(res.message);
-          break;
-        }
-        allTsks.push(...(res.data?.items || []));
-        cursor = res.data?.next_cursor;
-        hasMore = res.data?.has_more || false;
+      const first = await getTasks(sessionId, 50, undefined);
+      if (first.code !== 0) {
+        console.error(first.message);
+        setIsLoadingTasks(false);
+        return;
       }
-
-      setAllTasks(allTsks);
+      setAllTasks(first.data?.items || []);
       setCurrentPage(1);
+      setIsLoadingTasks(false);
+
+      if (first.data?.has_more) {
+        setIsLoadingMore(true);
+        let cursor = first.data?.next_cursor;
+        while (cursor) {
+          const res = await getTasks(sessionId, 50, cursor);
+          if (res.code !== 0) {
+            console.error(res.message);
+            break;
+          }
+          setAllTasks(prev => [...prev, ...(res.data?.items || [])]);
+          cursor = res.data?.has_more ? res.data?.next_cursor : undefined;
+        }
+        setIsLoadingMore(false);
+      }
     } catch (error) {
       console.error("Failed to load tasks:", error);
-    } finally {
       setIsLoadingTasks(false);
+      setIsLoadingMore(false);
     }
   };
 
@@ -290,6 +299,7 @@ export default function TasksPage() {
                 totalItems={allTasks.length}
                 onPageChange={setCurrentPage}
                 itemLabel={tp("tasks")}
+                isLoading={isLoadingMore}
               />
           </>
         )}

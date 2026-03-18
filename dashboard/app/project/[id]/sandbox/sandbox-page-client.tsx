@@ -43,6 +43,7 @@ export function SandboxPageClient({
   const [sandboxes, setSandboxes] = useState<SandboxLog[]>([]);
   const [selectedSandbox, setSelectedSandbox] = useState<SandboxLog | null>(null);
   const [isLoadingSandboxes, setIsLoadingSandboxes] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   // Refresh states
@@ -89,24 +90,26 @@ export function SandboxPageClient({
     try {
       setIsLoadingSandboxes(true);
 
-      const allSandboxes: SandboxLog[] = [];
-      let cursor: string | undefined = undefined;
-      let hasMore = true;
-
-      while (hasMore) {
-        const res = await getSandboxLogs(project.id, 50, cursor, true);
-        allSandboxes.push(...(res.items || []));
-        cursor = res.next_cursor;
-        hasMore = res.has_more || false;
-      }
-
-      setSandboxes(allSandboxes);
+      const first = await getSandboxLogs(project.id, 50, undefined, true);
+      setSandboxes(first.items || []);
       setCurrentPage(1);
+      setIsLoadingSandboxes(false);
+
+      if (first.has_more) {
+        setIsLoadingMore(true);
+        let cursor = first.next_cursor;
+        while (cursor) {
+          const res = await getSandboxLogs(project.id, 50, cursor, true);
+          setSandboxes(prev => [...prev, ...(res.items || [])]);
+          cursor = res.has_more ? res.next_cursor : undefined;
+        }
+        setIsLoadingMore(false);
+      }
     } catch (error) {
       console.error("Failed to load sandboxes:", error);
       toast.error("Failed to load sandboxes");
-    } finally {
       setIsLoadingSandboxes(false);
+      setIsLoadingMore(false);
     }
   }, [project.id]);
 
@@ -236,6 +239,7 @@ export function SandboxPageClient({
                     totalItems={filteredSandboxes.length}
                     onPageChange={setCurrentPage}
                     itemLabel="sandboxes"
+                    isLoading={isLoadingMore}
                   />
                 </>
               )}

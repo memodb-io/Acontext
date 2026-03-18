@@ -8,6 +8,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { Loader2 } from "lucide-react";
 
 interface PaginationBarProps {
   currentPage: number;
@@ -15,6 +16,7 @@ interface PaginationBarProps {
   totalItems: number;
   onPageChange: (page: number) => void;
   itemLabel?: string;
+  isLoading?: boolean;
 }
 
 export function PaginationBar({
@@ -23,12 +25,14 @@ export function PaginationBar({
   totalItems,
   onPageChange,
   itemLabel = "items",
+  isLoading,
 }: PaginationBarProps) {
   return (
     <div className="border-t p-4">
       <div className="flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">
+        <span className="text-sm text-muted-foreground flex items-center gap-2">
           {totalItems} {itemLabel}
+          {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
         </span>
         {totalPages > 1 && (
           <Pagination>

@@ -241,6 +241,7 @@ export function MessagesPageClient({
   const [allMessages, setAllMessages] = useState<Message[]>([]);
   const [allEvents, setAllEvents] = useState<SessionEvent[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
   const [isRefreshingMessages, setIsRefreshingMessages] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -302,26 +303,33 @@ export function MessagesPageClient({
   const loadAllMessages = async () => {
     try {
       setIsLoadingMessages(true);
-      const allMsgs: Message[] = [];
       const allEvts: SessionEvent[] = [];
       const allPublicUrls: Record<string, { url: string; expire_at: string }> = {};
-      let cursor: string | undefined = undefined;
-      let hasMore = true;
 
-      while (hasMore) {
-        const res = await getMessages(project.id, sessionId, 50, cursor);
-        allMsgs.push(...(res.items || []));
-        if (res.events) {
-          allEvts.push(...res.events);
+      const first = await getMessages(project.id, sessionId, 50, undefined);
+      setAllMessages(first.items || []);
+      if (first.events) allEvts.push(...first.events);
+      if (first.public_urls) Object.assign(allPublicUrls, first.public_urls);
+      setMessagePublicUrls({ ...allPublicUrls });
+      setCurrentPage(1);
+      setIsLoadingMessages(false);
+
+      if (first.has_more) {
+        setIsLoadingMoreMessages(true);
+        let cursor = first.next_cursor;
+        while (cursor) {
+          const res = await getMessages(project.id, sessionId, 50, cursor);
+          setAllMessages(prev => [...prev, ...(res.items || [])]);
+          if (res.events) allEvts.push(...res.events);
+          if (res.public_urls) {
+            Object.assign(allPublicUrls, res.public_urls);
+            setMessagePublicUrls({ ...allPublicUrls });
+          }
+          cursor = res.has_more ? res.next_cursor : undefined;
         }
-        if (res.public_urls) {
-          Object.assign(allPublicUrls, res.public_urls);
-        }
-        cursor = res.next_cursor;
-        hasMore = res.has_more || false;
+        setIsLoadingMoreMessages(false);
       }
 
-      setAllMessages(allMsgs);
       const seenIds = new Set<string>();
       const dedupedEvts = allEvts.filter((e) => {
         if (seenIds.has(e.id)) return false;
@@ -330,12 +338,11 @@ export function MessagesPageClient({
       });
       setAllEvents(dedupedEvts);
       setMessagePublicUrls(allPublicUrls);
-      setCurrentPage(1);
     } catch (error) {
       console.error("Failed to load messages:", error);
       toast.error("Failed to load messages");
-    } finally {
       setIsLoadingMessages(false);
+      setIsLoadingMoreMessages(false);
     }
   };
 
@@ -886,6 +893,7 @@ export function MessagesPageClient({
                 totalItems={filteredTimelineItems.length}
                 onPageChange={setCurrentPage}
                 itemLabel="messages"
+                isLoading={isLoadingMoreMessages}
               />
             </>
           )}

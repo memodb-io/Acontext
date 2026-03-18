@@ -46,6 +46,7 @@ export default function UsersPage() {
 
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filterText, setFilterText] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -72,27 +73,35 @@ export default function UsersPage() {
   const loadUsers = async () => {
     try {
       setIsLoading(true);
-      const allUsers: User[] = [];
-      let cursor: string | undefined = undefined;
-      let hasMore = true;
 
-      while (hasMore) {
-        const res = await getUsers(50, cursor, true);
-        if (res.code !== 0) {
-          console.error(res.message);
-          break;
-        }
-        allUsers.push(...(res.data?.items || []));
-        cursor = res.data?.next_cursor;
-        hasMore = res.data?.has_more || false;
+      const first = await getUsers(50, undefined, true);
+      if (first.code !== 0) {
+        console.error(first.message);
+        setIsLoading(false);
+        return;
       }
-
-      setUsers(allUsers);
+      setUsers(first.data?.items || []);
       setCurrentPage(1);
+      setIsLoading(false);
+
+      if (first.data?.has_more) {
+        setIsLoadingMore(true);
+        let cursor = first.data?.next_cursor;
+        while (cursor) {
+          const res = await getUsers(50, cursor, true);
+          if (res.code !== 0) {
+            console.error(res.message);
+            break;
+          }
+          setUsers(prev => [...prev, ...(res.data?.items || [])]);
+          cursor = res.data?.has_more ? res.data?.next_cursor : undefined;
+        }
+        setIsLoadingMore(false);
+      }
     } catch (error) {
       console.error("Failed to load users:", error);
-    } finally {
       setIsLoading(false);
+      setIsLoadingMore(false);
     }
   };
 
@@ -252,6 +261,7 @@ export default function UsersPage() {
             totalItems={filteredUsers.length}
             onPageChange={setCurrentPage}
             itemLabel={tp("users")}
+            isLoading={isLoadingMore}
           />
           </>
         )}

@@ -220,6 +220,7 @@ export default function MessagesPage() {
   const [allMessages, setAllMessages] = useState<Message[]>([]);
   const [allEvents, setAllEvents] = useState<SessionEvent[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [isLoadingMoreMessages, setIsLoadingMoreMessages] = useState(false);
   const [isRefreshingMessages, setIsRefreshingMessages] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -283,33 +284,43 @@ export default function MessagesPage() {
   const loadAllMessages = async () => {
     try {
       setIsLoadingMessages(true);
-      const allMsgs: Message[] = [];
       const allEvts: SessionEvent[] = [];
       const allPublicUrls: Record<string, { url: string; expire_at: string }> =
         {};
-      let cursor: string | undefined = undefined;
-      let hasMore = true;
 
-      while (hasMore) {
-        const res = await getMessages(sessionId, 50, cursor);
-        if (res.code !== 0) {
-          console.error(res.message);
-          break;
+      const first = await getMessages(sessionId, 50, undefined);
+      if (first.code !== 0) {
+        console.error(first.message);
+        setIsLoadingMessages(false);
+        return;
+      }
+      setAllMessages(first.data?.items || []);
+      if (first.data?.events) allEvts.push(...first.data.events);
+      if (first.data?.public_urls) Object.assign(allPublicUrls, first.data.public_urls);
+      setMessagePublicUrls({ ...allPublicUrls });
+      setCurrentPage(1);
+      setIsLoadingMessages(false);
+
+      if (first.data?.has_more) {
+        setIsLoadingMoreMessages(true);
+        let cursor = first.data?.next_cursor;
+        while (cursor) {
+          const res = await getMessages(sessionId, 50, cursor);
+          if (res.code !== 0) {
+            console.error(res.message);
+            break;
+          }
+          setAllMessages(prev => [...prev, ...(res.data?.items || [])]);
+          if (res.data?.events) allEvts.push(...res.data.events);
+          if (res.data?.public_urls) {
+            Object.assign(allPublicUrls, res.data.public_urls);
+            setMessagePublicUrls({ ...allPublicUrls });
+          }
+          cursor = res.data?.has_more ? res.data?.next_cursor : undefined;
         }
-        allMsgs.push(...(res.data?.items || []));
-        // Collect events from response
-        if (res.data?.events) {
-          allEvts.push(...res.data.events);
-        }
-        // Merge public_urls from each response
-        if (res.data?.public_urls) {
-          Object.assign(allPublicUrls, res.data.public_urls);
-        }
-        cursor = res.data?.next_cursor;
-        hasMore = res.data?.has_more || false;
+        setIsLoadingMoreMessages(false);
       }
 
-      setAllMessages(allMsgs);
       const seenIds = new Set<string>();
       const dedupedEvts = allEvts.filter((e) => {
         if (seenIds.has(e.id)) return false;
@@ -318,11 +329,10 @@ export default function MessagesPage() {
       });
       setAllEvents(dedupedEvts);
       setMessagePublicUrls(allPublicUrls);
-      setCurrentPage(1);
     } catch (error) {
       console.error("Failed to load messages:", error);
-    } finally {
       setIsLoadingMessages(false);
+      setIsLoadingMoreMessages(false);
     }
   };
 
@@ -897,6 +907,7 @@ export default function MessagesPage() {
                 totalItems={filteredTimelineItems.length}
                 onPageChange={setCurrentPage}
                 itemLabel={tp("messages")}
+                isLoading={isLoadingMoreMessages}
               />
             </>
           )}

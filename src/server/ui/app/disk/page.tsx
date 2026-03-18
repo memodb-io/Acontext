@@ -329,6 +329,7 @@ export default function DiskPage() {
   const [disks, setDisks] = useState<Disk[]>([]);
   const [selectedDisk, setSelectedDisk] = useState<Disk | null>(null);
   const [isLoadingDisks, setIsLoadingDisks] = useState(true);
+  const [isLoadingMoreDisks, setIsLoadingMoreDisks] = useState(false);
 
   // File preview states
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -397,27 +398,35 @@ export default function DiskPage() {
   const loadDisks = async () => {
     try {
       setIsLoadingDisks(true);
-      const allDsks: Disk[] = [];
-      let cursor: string | undefined = undefined;
-      let hasMore = true;
 
-      while (hasMore) {
-        const res = await getDisks(50, cursor, true);
-        if (res.code !== 0) {
-          console.error(res.message);
-          break;
-        }
-        allDsks.push(...(res.data?.items || []));
-        cursor = res.data?.next_cursor;
-        hasMore = res.data?.has_more || false;
+      const first = await getDisks(50, undefined, true);
+      if (first.code !== 0) {
+        console.error(first.message);
+        setIsLoadingDisks(false);
+        return;
       }
-
-      setDisks(allDsks);
+      setDisks(first.data?.items || []);
       setCurrentPage(1);
+      setIsLoadingDisks(false);
+
+      if (first.data?.has_more) {
+        setIsLoadingMoreDisks(true);
+        let cursor = first.data?.next_cursor;
+        while (cursor) {
+          const res = await getDisks(50, cursor, true);
+          if (res.code !== 0) {
+            console.error(res.message);
+            break;
+          }
+          setDisks(prev => [...prev, ...(res.data?.items || [])]);
+          cursor = res.data?.has_more ? res.data?.next_cursor : undefined;
+        }
+        setIsLoadingMoreDisks(false);
+      }
     } catch (error) {
       console.error("Failed to load disks:", error);
-    } finally {
       setIsLoadingDisks(false);
+      setIsLoadingMoreDisks(false);
     }
   };
 
@@ -1133,6 +1142,7 @@ export default function DiskPage() {
                 totalItems={filteredDisks.length}
                 onPageChange={setCurrentPage}
                 itemLabel={tp("disks")}
+                isLoading={isLoadingMoreDisks}
               />
               </>
             )}
