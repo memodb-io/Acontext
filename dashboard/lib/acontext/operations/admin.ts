@@ -150,9 +150,13 @@ export function AdminOperations<T extends Constructor<BaseClient>>(Base: T) {
      * Get dashboard data for a project via acontext API
      * Maps to /project/:project_id/usages endpoint
      */
-    async getDashboardData(projectId: string, timeRange: number): Promise<DashboardData> {
+    async getDashboardData(projectId: string, timeRange: number, fields?: string[]): Promise<DashboardData> {
+      let url = `/admin/v1/project/${projectId}/usages?interval_days=${timeRange}`;
+      if (fields && fields.length > 0) {
+        url += `&fields=${fields.join(",")}`;
+      }
       const apiResponse = await this.request<DashboardData>(
-        `/admin/v1/project/${projectId}/usages?interval_days=${timeRange}`,
+        url,
         {
           projectId,
         }

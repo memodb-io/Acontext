@@ -1,6 +1,7 @@
 "use client";
 
 import React, { memo, useMemo, cloneElement } from "react";
+import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   ChartContainer,
@@ -270,16 +271,18 @@ const bytesFormatter = (value: unknown): string => {
 interface ChartCardProps {
   title: string;
   value: string | number;
+  isLoading?: boolean;
   children: React.ReactNode;
 }
 
 export const ChartCard = memo(function ChartCard({
   title,
   value,
+  isLoading = false,
   children,
 }: ChartCardProps) {
   return (
-    <Card className="bg-surface-100 rounded-md border shadow-sm overflow-hidden mb-0 md:mb-0">
+    <Card className="bg-surface-100 rounded-md border shadow-sm overflow-hidden mb-0 md:mb-0 relative">
       <CardContent>
         <div className="flex flex-col gap-y-3">
           <div className="grow flex justify-between items-start min-h-16">
@@ -299,6 +302,16 @@ export const ChartCard = memo(function ChartCard({
           </div>
         </div>
       </CardContent>
+      {/* Per-card loading overlay */}
+      <div
+        className={`absolute inset-0 bg-background/60 backdrop-blur-[2px] flex items-center justify-center transition-opacity duration-300 ${
+          isLoading ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
+      >
+        {isLoading && (
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        )}
+      </div>
     </Card>
   );
 });
@@ -334,8 +347,8 @@ export const ChartWrapper = memo(function ChartWrapper({
   );
 });
 
-// Chart data flags interface
-interface ChartDataFlags {
+// Chart data flags interface (kept for external consumers)
+export interface ChartDataFlags {
   hasTaskSuccessRateData: boolean;
   hasTaskStatusDistributionData: boolean;
   hasSessionAvgMessageTurnsData: boolean;
@@ -346,48 +359,57 @@ interface ChartDataFlags {
   hasNewDisksData: boolean;
 }
 
+export interface LoadingGroups {
+  tasks: boolean;
+  session_metrics: boolean;
+  task_metrics: boolean;
+  storage: boolean;
+  counts: boolean;
+}
+
 interface DashboardChartsProps {
-  dashboardData: DashboardData | null;
-  chartDataFlags: ChartDataFlags;
-  isLoading?: boolean;
+  tasksData: Partial<DashboardData> | null;
+  sessionMetricsData: Partial<DashboardData> | null;
+  taskMetricsData: Partial<DashboardData> | null;
+  storageData: Partial<DashboardData> | null;
+  countsData: Partial<DashboardData> | null;
+  loadingGroups: LoadingGroups;
 }
 
 export function DashboardCharts({
-  dashboardData,
-  chartDataFlags,
-  isLoading = false,
+  tasksData,
+  sessionMetricsData,
+  taskMetricsData,
+  storageData,
+  countsData,
+  loadingGroups,
 }: DashboardChartsProps) {
-  // Use mock data when loading or no real data available
+  // Merge group data into a single object, falling back to mock data per-group when loading
   const data = useMemo(() => {
-    if (isLoading || !dashboardData) {
-      return mockDashboardData;
-    }
-    return dashboardData;
-  }, [isLoading, dashboardData]);
+    return {
+      task_success: loadingGroups.tasks ? mockDashboardData.task_success : (tasksData?.task_success ?? mockDashboardData.task_success),
+      task_status: loadingGroups.tasks ? mockDashboardData.task_status : (tasksData?.task_status ?? mockDashboardData.task_status),
+      task_stats: loadingGroups.tasks ? mockDashboardData.task_stats : (tasksData?.task_stats ?? []),
+      session_message: loadingGroups.session_metrics ? mockDashboardData.session_message : (sessionMetricsData?.session_message ?? mockDashboardData.session_message),
+      session_task: loadingGroups.session_metrics ? mockDashboardData.session_task : (sessionMetricsData?.session_task ?? mockDashboardData.session_task),
+      task_message: loadingGroups.task_metrics ? mockDashboardData.task_message : (taskMetricsData?.task_message ?? mockDashboardData.task_message),
+      storage: loadingGroups.storage ? mockDashboardData.storage : (storageData?.storage ?? mockDashboardData.storage),
+      new_sessions: loadingGroups.counts ? mockDashboardData.new_sessions : (countsData?.new_sessions ?? mockDashboardData.new_sessions),
+      new_disks: loadingGroups.counts ? mockDashboardData.new_disks : (countsData?.new_disks ?? mockDashboardData.new_disks),
+    };
+  }, [tasksData, sessionMetricsData, taskMetricsData, storageData, countsData, loadingGroups]);
 
-  // When loading, show mock data in charts but use "loading" indicators for values
-  const {
-    hasTaskSuccessRateData,
-    hasTaskStatusDistributionData,
-    hasSessionAvgMessageTurnsData,
-    hasSessionAvgTasksData,
-    hasTaskAvgMessageTurnsData,
-    hasStorageUsageData,
-    hasNewSessionsData,
-    hasNewDisksData,
-  } = isLoading
-    ? {
-        // When loading, pretend we have data so charts render with mock data
-        hasTaskSuccessRateData: true,
-        hasTaskStatusDistributionData: true,
-        hasSessionAvgMessageTurnsData: true,
-        hasSessionAvgTasksData: true,
-        hasTaskAvgMessageTurnsData: true,
-        hasStorageUsageData: true,
-        hasNewSessionsData: true,
-        hasNewDisksData: true,
-      }
-    : chartDataFlags;
+  // Compute data flags per-group
+  const hasTaskSuccessRateData = loadingGroups.tasks ? true : (data.task_success?.some((p) => p.success_rate > 0) ?? false);
+  const hasTaskStatusDistributionData = loadingGroups.tasks ? true : (data.task_status?.some(
+    (p) => p.completed > 0 || p.in_progress > 0 || p.pending > 0 || p.failed > 0
+  ) ?? false);
+  const hasSessionAvgMessageTurnsData = loadingGroups.session_metrics ? true : (data.session_message?.some((p) => p.avg_message_turns > 0) ?? false);
+  const hasSessionAvgTasksData = loadingGroups.session_metrics ? true : (data.session_task?.some((p) => p.avg_tasks > 0) ?? false);
+  const hasTaskAvgMessageTurnsData = loadingGroups.task_metrics ? true : (data.task_message?.some((p) => p.avg_turns > 0) ?? false);
+  const hasStorageUsageData = loadingGroups.storage ? true : (data.storage?.some((p) => p.usage_bytes > 0) ?? false);
+  const hasNewSessionsData = loadingGroups.counts ? true : (data.new_sessions?.some((p) => p.count > 0) ?? false);
+  const hasNewDisksData = loadingGroups.counts ? true : (data.new_disks?.some((p) => p.count > 0) ?? false);
 
   return (
     <>
@@ -396,6 +418,7 @@ export function DashboardCharts({
         {/* Task success rate line chart */}
         <ChartCard
           title="Task Success Rate"
+          isLoading={loadingGroups.tasks}
           value={
             hasTaskSuccessRateData
               ? `${data.task_success[data.task_success.length - 1]?.success_rate.toFixed(1)}%`
@@ -430,6 +453,7 @@ export function DashboardCharts({
         {/* Task status distribution stacked bar chart */}
         <ChartCard
           title="Task Status Distribution"
+          isLoading={loadingGroups.tasks}
           value={
             hasTaskStatusDistributionData
               ? (() => {
@@ -492,6 +516,7 @@ export function DashboardCharts({
         {/* Average message turns per session bar chart */}
         <ChartCard
           title="Session Avg Message Turns"
+          isLoading={loadingGroups.session_metrics}
           value={
             hasSessionAvgMessageTurnsData
               ? data.session_message[
@@ -522,6 +547,7 @@ export function DashboardCharts({
         {/* Average tasks per session bar chart */}
         <ChartCard
           title="Session Avg Task Count"
+          isLoading={loadingGroups.session_metrics}
           value={
             hasSessionAvgTasksData
               ? data.session_task[
@@ -552,6 +578,7 @@ export function DashboardCharts({
         {/* Average message turns per task bar chart */}
         <ChartCard
           title="Task Avg Message Turns"
+          isLoading={loadingGroups.task_metrics}
           value={
             hasTaskAvgMessageTurnsData
               ? data.task_message[
@@ -582,6 +609,7 @@ export function DashboardCharts({
         {/* Storage usage bar chart */}
         <ChartCard
           title="Storage Usage"
+          isLoading={loadingGroups.storage}
           value={
             hasStorageUsageData
               ? formatBytes(
@@ -617,6 +645,7 @@ export function DashboardCharts({
         {/* New sessions count bar chart */}
         <ChartCard
           title="New Sessions"
+          isLoading={loadingGroups.counts}
           value={
             hasNewSessionsData
               ? data.new_sessions[data.new_sessions.length - 1]?.count
@@ -645,6 +674,7 @@ export function DashboardCharts({
         {/* New disks count bar chart */}
         <ChartCard
           title="New Disks"
+          isLoading={loadingGroups.counts}
           value={
             hasNewDisksData
               ? data.new_disks[data.new_disks.length - 1]?.count
@@ -672,7 +702,7 @@ export function DashboardCharts({
       </div>
 
       {/* Detailed task statistics table - only show when not loading and has data */}
-      {!isLoading && data.task_stats.length > 0 && (
+      {!loadingGroups.tasks && data.task_stats.length > 0 && (
         <Card className="bg-surface-100 rounded-md border shadow-sm overflow-hidden">
           <CardContent>
             <div>

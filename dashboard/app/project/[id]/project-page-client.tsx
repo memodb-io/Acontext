@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useTopNavStore } from "@/stores/top-nav";
 import { Organization, Project } from "@/types";
@@ -13,10 +13,31 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { KeyRound, Loader2 } from "lucide-react";
-import { fetchDashboardData, fetchInitialDashboardData } from "./actions";
+import { KeyRound } from "lucide-react";
+import {
+  validateDashboardAccess,
+  fetchProjectStatistics,
+  fetchDashboardGroup,
+} from "./actions";
+
+const CHART_GROUPS: Record<string, string[]> = {
+  tasks: ["task_success", "task_status", "task_stats"],
+  session_metrics: ["session_message", "session_task"],
+  task_metrics: ["task_message"],
+  storage: ["storage"],
+  counts: ["new_sessions", "new_disks"],
+};
 import type { DashboardData, TimeRange } from "./actions";
 import DashboardCharts from "./dashboard-charts";
+import type { LoadingGroups } from "./dashboard-charts";
+
+const ALL_LOADING: LoadingGroups = {
+  tasks: true,
+  session_metrics: true,
+  task_metrics: true,
+  storage: true,
+  counts: true,
+};
 
 interface ProjectPageClientProps {
   project: Project;
@@ -33,15 +54,20 @@ export function ProjectPageClient({
 }: ProjectPageClientProps) {
   const { initialize, setHasSidebar } = useTopNavStore();
   const [timeRange, setTimeRange] = useState<TimeRange>("7");
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [taskCount, setTaskCount] = useState<number | null>(null);
   const [sessionCount, setSessionCount] = useState<number | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [hasApiKey, setHasApiKey] = useState<boolean | null>(null);
 
+  // Per-group state
+  const [tasksData, setTasksData] = useState<Partial<DashboardData> | null>(null);
+  const [sessionMetricsData, setSessionMetricsData] = useState<Partial<DashboardData> | null>(null);
+  const [taskMetricsData, setTaskMetricsData] = useState<Partial<DashboardData> | null>(null);
+  const [storageData, setStorageData] = useState<Partial<DashboardData> | null>(null);
+  const [countsData, setCountsData] = useState<Partial<DashboardData> | null>(null);
+  const [loadingGroups, setLoadingGroups] = useState<LoadingGroups>(ALL_LOADING);
+
   useEffect(() => {
-    // Initialize top-nav state when page loads
     initialize({
       title: "",
       organization: currentOrganization,
@@ -51,174 +77,144 @@ export function ProjectPageClient({
       hasSidebar: true,
     });
 
-    // Cleanup: reset hasSidebar when leaving this page
     return () => {
       setHasSidebar(false);
     };
   }, [project, currentOrganization, allOrganizations, projects, initialize, setHasSidebar]);
 
-  // Track previous timeRange to detect changes
   const prevTimeRangeRef = useRef(timeRange);
 
-  // Initial data loading - single server action that validates once and fetches all data in parallel
+  // Fire all 5 group fetches. Each resolves independently via .then()
+  const fetchAllGroups = useCallback(
+    (tr: TimeRange, isMountedRef: { current: boolean }) => {
+      setLoadingGroups(ALL_LOADING);
+
+      const setGroupLoading = (key: keyof LoadingGroups, value: boolean) => {
+        if (isMountedRef.current) {
+          setLoadingGroups((prev) => ({ ...prev, [key]: value }));
+        }
+      };
+
+      fetchDashboardGroup(project.id, tr, CHART_GROUPS.tasks).then((data) => {
+        if (isMountedRef.current) {
+          setTasksData(data);
+          setGroupLoading("tasks", false);
+        }
+      });
+
+      fetchDashboardGroup(project.id, tr, CHART_GROUPS.session_metrics).then((data) => {
+        if (isMountedRef.current) {
+          setSessionMetricsData(data);
+          setGroupLoading("session_metrics", false);
+        }
+      });
+
+      fetchDashboardGroup(project.id, tr, CHART_GROUPS.task_metrics).then((data) => {
+        if (isMountedRef.current) {
+          setTaskMetricsData(data);
+          setGroupLoading("task_metrics", false);
+        }
+      });
+
+      fetchDashboardGroup(project.id, tr, CHART_GROUPS.storage).then((data) => {
+        if (isMountedRef.current) {
+          setStorageData(data);
+          setGroupLoading("storage", false);
+        }
+      });
+
+      fetchDashboardGroup(project.id, tr, CHART_GROUPS.counts).then((data) => {
+        if (isMountedRef.current) {
+          setCountsData(data);
+          setGroupLoading("counts", false);
+        }
+      });
+    },
+    [project.id]
+  );
+
+  // Initial data loading
   useEffect(() => {
-    let isMounted = true;
+    const isMountedRef = { current: true };
 
-    const loadInitialData = async () => {
-      setStatsLoading(true);
-      setIsLoading(true);
-
-      try {
-        // Single server action - validates once, fetches all data in parallel
-        const result = await fetchInitialDashboardData(project.id, timeRange);
-
-        if (isMounted) {
-          setHasApiKey(result.hasApiKey);
-
-          if (result.statistics) {
-            setTaskCount(result.statistics.taskCount);
-            setSessionCount(result.statistics.sessionCount);
-          }
-          setStatsLoading(false);
-
-          setDashboardData(result.dashboardData);
-          setIsLoading(false);
-        }
-      } catch (error) {
-        console.error("Failed to fetch initial dashboard data", error);
-        if (isMounted) {
-          setHasApiKey(false);
-          setStatsLoading(false);
-          setIsLoading(false);
-        }
+    // 1. Validate access + check API key
+    validateDashboardAccess(project.id).then((result) => {
+      if (isMountedRef.current) {
+        setHasApiKey(result.hasApiKey);
       }
-    };
+    });
 
-    loadInitialData();
+    // 2. Fetch statistics
+    fetchProjectStatistics(project.id).then((result) => {
+      if (isMountedRef.current) {
+        if ("data" in result && result.data) {
+          setTaskCount(result.data.taskCount);
+          setSessionCount(result.data.sessionCount);
+        }
+        setStatsLoading(false);
+      }
+    });
+
+    // 3. Fire 5 group fetches in parallel
+    fetchAllGroups(timeRange, isMountedRef);
 
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id]);
 
-  // Fetch dashboard data when timeRange changes
+  // Re-fetch when timeRange changes
   useEffect(() => {
-    // Skip if timeRange hasn't changed (initial load already fetched it)
     if (prevTimeRangeRef.current === timeRange) {
       return;
     }
     prevTimeRangeRef.current = timeRange;
 
-    let isMounted = true;
-
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        const data = await fetchDashboardData(project.id, timeRange);
-        if (isMounted) {
-          setDashboardData(data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch dashboard data", error);
-        if (isMounted) {
-          setDashboardData(null);
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      }
-    };
-
-    loadData();
+    const isMountedRef = { current: true };
+    fetchAllGroups(timeRange, isMountedRef);
 
     return () => {
-      isMounted = false;
+      isMountedRef.current = false;
     };
-  }, [project.id, timeRange]);
+  }, [timeRange, fetchAllGroups]);
 
-  // Memoized data checks
-  const chartDataFlags = useMemo(() => {
-    if (!dashboardData) {
-      return {
-        hasTaskSuccessRateData: false,
-        hasTaskStatusDistributionData: false,
-        hasSessionAvgMessageTurnsData: false,
-        hasSessionAvgTasksData: false,
-        hasTaskAvgMessageTurnsData: false,
-        hasStorageUsageData: false,
-        hasNewSessionsData: false,
-        hasNewDisksData: false,
-      };
-    }
-    return {
-      hasTaskSuccessRateData: dashboardData.task_success.some((point) => point.success_rate > 0),
-      hasTaskStatusDistributionData: dashboardData.task_status.some(
-        (point) =>
-          point.completed > 0 || point.in_progress > 0 || point.pending > 0 || point.failed > 0
-      ),
-      hasSessionAvgMessageTurnsData: dashboardData.session_message.some(
-        (point) => point.avg_message_turns > 0
-      ),
-      hasSessionAvgTasksData: dashboardData.session_task.some((point) => point.avg_tasks > 0),
-      hasTaskAvgMessageTurnsData: dashboardData.task_message.some((point) => point.avg_turns > 0),
-      hasStorageUsageData: dashboardData.storage.some((point) => point.usage_bytes > 0),
-      hasNewSessionsData: dashboardData.new_sessions.some((point) => point.count > 0),
-      hasNewDisksData: dashboardData.new_disks.some((point) => point.count > 0),
-    };
-  }, [dashboardData]);
+  // Any group still loading?
+  const anyLoading = Object.values(loadingGroups).some(Boolean);
 
-  // Determine if we should show the overlay
-  const showOverlay = hasApiKey === null || hasApiKey === false || isLoading;
+  // Show dialog only when confirmed no API key
   const showDialog = hasApiKey === false;
-  const showLoadingSpinner = (hasApiKey === null || isLoading) && !showDialog;
 
   return (
     <div className="h-full relative">
-      {/* Overlay layer - shown during loading or when no API key */}
-      {showOverlay && (
-        <div
-          className={`fixed inset-0 z-9 bg-background/60 backdrop-blur-[2px] flex items-center justify-center px-4 pointer-events-none transition-opacity duration-300 ${
-            !isLoading && hasApiKey ? "opacity-0" : "opacity-100"
-          }`}
-        >
-          {/* Loading spinner */}
-          {showLoadingSpinner && (
-            <div className="flex flex-col items-center gap-3">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Loading...</span>
+      {/* No API key dialog */}
+      {showDialog && (
+        <div className="fixed inset-0 z-9 bg-background/60 flex items-center justify-center px-4 pointer-events-none">
+          <div className="flex flex-col items-center gap-4 text-center px-6 py-8 w-full max-w-md rounded-xl bg-background border shadow-md mx-4 pointer-events-auto">
+            <div className="rounded-full bg-muted p-4">
+              <KeyRound className="h-8 w-8 text-muted-foreground" />
             </div>
-          )}
-
-          {/* Dialog for creating API key */}
-          {showDialog && (
-            <div className="flex flex-col items-center gap-4 text-center px-6 py-8 w-full max-w-md rounded-xl bg-background border shadow-md mx-4 pointer-events-auto">
-              <div className="rounded-full bg-muted p-4">
-                <KeyRound className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-semibold">Create Your First API Key</h3>
-                <p className="text-muted-foreground text-sm">
-                  Generate an API key to start collecting dashboard statistics and unlock the full
-                  potential of your project.
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <Button asChild>
-                  <Link href={`/project/${encodeId(project.id)}/onboarding`}>Get Started</Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link href={`/project/${encodeId(project.id)}/api-keys`}>Create API Key</Link>
-                </Button>
-              </div>
+            <div className="space-y-2">
+              <h3 className="text-xl font-semibold">Create Your First API Key</h3>
+              <p className="text-muted-foreground text-sm">
+                Generate an API key to start collecting dashboard statistics and unlock the full
+                potential of your project.
+              </p>
             </div>
-          )}
+            <div className="flex gap-3">
+              <Button asChild>
+                <Link href={`/project/${encodeId(project.id)}/onboarding`}>Get Started</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href={`/project/${encodeId(project.id)}/api-keys`}>Create API Key</Link>
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Main content - always rendered, charts use mock data when loading */}
-      <div className={!isLoading && hasApiKey ? "animate-in fade-in duration-300" : ""}>
+      {/* Main content - always rendered, charts use mock data per-card when loading */}
+      <div>
         {/* Header Section with Border */}
         <div className="py-16 border-b border-muted">
           <div className="mx-auto max-w-6xl px-4 w-full">
@@ -282,16 +278,19 @@ export function ProjectPageClient({
               <span className="text-xs text-foreground-light">
                 Statistics for last {timeRange} days
               </span>
-              {isLoading && (
+              {anyLoading && (
                 <span className="text-xs text-muted-foreground ml-2">Loading...</span>
               )}
             </div>
 
-            {/* Dashboard Charts - Always rendered, uses mock data when loading */}
+            {/* Dashboard Charts - per-group data and loading */}
             <DashboardCharts
-              dashboardData={dashboardData}
-              chartDataFlags={chartDataFlags}
-              isLoading={isLoading}
+              tasksData={tasksData}
+              sessionMetricsData={sessionMetricsData}
+              taskMetricsData={taskMetricsData}
+              storageData={storageData}
+              countsData={countsData}
+              loadingGroups={loadingGroups}
             />
           </div>
         </div>

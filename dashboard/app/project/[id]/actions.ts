@@ -35,6 +35,8 @@ export interface DashboardData {
 
 const getDaysFromRange = (timeRange: TimeRange) => parseInt(timeRange, 10);
 
+export type ChartGroupKey = "tasks" | "session_metrics" | "task_metrics" | "storage" | "counts";
+
 const buildDateLabels = (days: number) => {
   const now = new Date();
   const labels: string[] = [];
@@ -73,6 +75,77 @@ const createPlaceholderData = (timeRange: TimeRange): DashboardData => {
     new_disks: labels.map((label) => ({ date: label, count: 0 })),
   };
 };
+
+/**
+ * Validate dashboard access — runs Supabase auth + org check + API key check
+ */
+export async function validateDashboardAccess(projectId: string): Promise<{
+  hasApiKey: boolean;
+  isValid: boolean;
+}> {
+  try {
+    await getCurrentUser();
+
+    const project = await getProject(projectId);
+    if (!project) {
+      return { hasApiKey: false, isValid: false };
+    }
+
+    const membership = await getOrganizationMembershipForCurrentUser(
+      project.organization_id,
+      "role"
+    );
+
+    if (!membership) {
+      return { hasApiKey: false, isValid: false };
+    }
+
+    const apiKeys = await getSecretKeyRotations(projectId).catch(() => []);
+    return {
+      hasApiKey: apiKeys && apiKeys.length > 0,
+      isValid: true,
+    };
+  } catch {
+    return { hasApiKey: false, isValid: false };
+  }
+}
+
+/**
+ * Fetch a specific chart group's data
+ */
+export async function fetchDashboardGroup(
+  projectId: string,
+  timeRange: TimeRange,
+  fields: string[]
+): Promise<Partial<DashboardData>> {
+  await getCurrentUser();
+
+  const project = await getProject(projectId);
+  if (!project) {
+    return {};
+  }
+
+  const membership = await getOrganizationMembershipForCurrentUser(
+    project.organization_id,
+    "role"
+  );
+
+  if (!membership) {
+    return {};
+  }
+
+  try {
+    const days = getDaysFromRange(timeRange);
+    const client = new AcontextClient();
+    const data = await client.getDashboardData(projectId, days, fields);
+    return data;
+  } catch (error) {
+    console.error(
+      `Failed to fetch dashboard group [${fields.join(",")}]: ${error instanceof Error ? error.message : "Unknown error"}`
+    );
+    return {};
+  }
+}
 
 /**
  * Fetch project statistics (task and skill counts)
