@@ -17,7 +17,6 @@ import { KeyRound } from "lucide-react";
 import {
   validateDashboardAccess,
   fetchProjectStatistics,
-  fetchDashboardGroup,
 } from "./actions";
 
 const CHART_GROUPS: Record<string, string[]> = {
@@ -84,7 +83,7 @@ export function ProjectPageClient({
 
   const prevTimeRangeRef = useRef(timeRange);
 
-  // Fire all 5 group fetches. Each resolves independently via .then()
+  // Fire all 5 group fetches via route handler — browser sends them concurrently
   const fetchAllGroups = useCallback(
     (tr: TimeRange, isMountedRef: { current: boolean }) => {
       setLoadingGroups(ALL_LOADING);
@@ -95,40 +94,34 @@ export function ProjectPageClient({
         }
       };
 
-      fetchDashboardGroup(project.id, tr, CHART_GROUPS.tasks).then((data) => {
-        if (isMountedRef.current) {
-          setTasksData(data);
-          setGroupLoading("tasks", false);
-        }
-      });
+      const fetchGroup = (
+        groupKey: keyof LoadingGroups,
+        fields: string[],
+        setter: (data: Partial<DashboardData>) => void
+      ) => {
+        const params = new URLSearchParams({
+          projectId: project.id,
+          timeRange: tr,
+          fields: fields.join(","),
+        });
+        fetch(`/api/dashboard-group?${params}`)
+          .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
+          .then((data: Partial<DashboardData>) => {
+            if (isMountedRef.current) {
+              setter(data);
+              setGroupLoading(groupKey, false);
+            }
+          })
+          .catch(() => {
+            if (isMountedRef.current) setGroupLoading(groupKey, false);
+          });
+      };
 
-      fetchDashboardGroup(project.id, tr, CHART_GROUPS.session_metrics).then((data) => {
-        if (isMountedRef.current) {
-          setSessionMetricsData(data);
-          setGroupLoading("session_metrics", false);
-        }
-      });
-
-      fetchDashboardGroup(project.id, tr, CHART_GROUPS.task_metrics).then((data) => {
-        if (isMountedRef.current) {
-          setTaskMetricsData(data);
-          setGroupLoading("task_metrics", false);
-        }
-      });
-
-      fetchDashboardGroup(project.id, tr, CHART_GROUPS.storage).then((data) => {
-        if (isMountedRef.current) {
-          setStorageData(data);
-          setGroupLoading("storage", false);
-        }
-      });
-
-      fetchDashboardGroup(project.id, tr, CHART_GROUPS.counts).then((data) => {
-        if (isMountedRef.current) {
-          setCountsData(data);
-          setGroupLoading("counts", false);
-        }
-      });
+      fetchGroup("tasks", CHART_GROUPS.tasks, setTasksData);
+      fetchGroup("session_metrics", CHART_GROUPS.session_metrics, setSessionMetricsData);
+      fetchGroup("task_metrics", CHART_GROUPS.task_metrics, setTaskMetricsData);
+      fetchGroup("storage", CHART_GROUPS.storage, setStorageData);
+      fetchGroup("counts", CHART_GROUPS.counts, setCountsData);
     },
     [project.id]
   );
@@ -142,6 +135,8 @@ export function ProjectPageClient({
       if (isMountedRef.current) {
         setHasApiKey(result.hasApiKey);
       }
+    }).catch(() => {
+      // Access validation failed — leave hasApiKey as null (no dialog shown)
     });
 
     // 2. Fetch statistics
@@ -153,6 +148,8 @@ export function ProjectPageClient({
         }
         setStatsLoading(false);
       }
+    }).catch(() => {
+      if (isMountedRef.current) setStatsLoading(false);
     });
 
     // 3. Fire 5 group fetches in parallel

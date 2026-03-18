@@ -111,43 +111,6 @@ export async function validateDashboardAccess(projectId: string): Promise<{
 }
 
 /**
- * Fetch a specific chart group's data
- */
-export async function fetchDashboardGroup(
-  projectId: string,
-  timeRange: TimeRange,
-  fields: string[]
-): Promise<Partial<DashboardData>> {
-  await getCurrentUser();
-
-  const project = await getProject(projectId);
-  if (!project) {
-    return {};
-  }
-
-  const membership = await getOrganizationMembershipForCurrentUser(
-    project.organization_id,
-    "role"
-  );
-
-  if (!membership) {
-    return {};
-  }
-
-  try {
-    const days = getDaysFromRange(timeRange);
-    const client = new AcontextClient();
-    const data = await client.getDashboardData(projectId, days, fields);
-    return data;
-  } catch (error) {
-    console.error(
-      `Failed to fetch dashboard group [${fields.join(",")}]: ${error instanceof Error ? error.message : "Unknown error"}`
-    );
-    return {};
-  }
-}
-
-/**
  * Fetch project statistics (task and skill counts)
  */
 export async function fetchProjectStatistics(projectId: string) {

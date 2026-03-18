@@ -301,25 +301,32 @@ function UsageIndicator({ className }: { className?: string }) {
   const [loading, setLoading] = React.useState(false);
   const [fetched, setFetched] = React.useState(false);
   const router = useRouter();
+  const user = useUserStore((s) => s.user);
 
-  const fetchUsage = React.useCallback(async () => {
-    if (fetched) return;
-    setLoading(true);
-    try {
-      const data = await getAllOrganizationsUsage();
-      setUsageData(data);
-      setFetched(true);
-    } catch {
-      // silently fail
-    } finally {
-      setLoading(false);
-    }
-  }, [fetched]);
-
-  // Auto-fetch on mount to show warning dot
+  // Auto-fetch only after user is available in the store
   React.useEffect(() => {
-    fetchUsage();
-  }, [fetchUsage]);
+    if (fetched || !user) return;
+    let cancelled = false;
+
+    setLoading(true);
+    getAllOrganizationsUsage()
+      .then((data) => {
+        if (!cancelled) {
+          setUsageData(data);
+          setFetched(true);
+        }
+      })
+      .catch(() => {
+        // silently fail — redirect or network error
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetched, user]);
 
   // Check if any org has critical usage (>=90%)
   const hasWarning = React.useMemo(() => {
