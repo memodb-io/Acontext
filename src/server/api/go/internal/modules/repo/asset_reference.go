@@ -62,7 +62,6 @@ func (r *assetReferenceRepo) IncrementAssetRef(ctx context.Context, projectID uu
 				"ref_count": gorm.Expr("asset_references.ref_count + 1"),
 				// keep canonical s3 key if not set yet; otherwise preserve existing
 				"s3_key":             gorm.Expr("COALESCE(NULLIF(asset_references.s3_key, ''), EXCLUDED.s3_key)"),
-				"asset_meta":         row.AssetMeta,
 				"last_referenced_at": now,
 				"updated_at":         now,
 			}),

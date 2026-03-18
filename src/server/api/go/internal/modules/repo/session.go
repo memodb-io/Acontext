@@ -195,7 +195,7 @@ func (r *sessionRepo) CreateMessageWithAssets(ctx context.Context, msg *model.Me
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// First get the message parent id in session
 		parent := model.Message{}
-		if err := tx.Where(&model.Message{SessionID: msg.SessionID}).Order("created_at desc").Limit(1).Find(&parent).Error; err == nil {
+		if err := tx.Select("id").Where(&model.Message{SessionID: msg.SessionID}).Order("created_at desc").Limit(1).Find(&parent).Error; err == nil {
 			if parent.ID != uuid.Nil {
 				msg.ParentID = &parent.ID
 			}
