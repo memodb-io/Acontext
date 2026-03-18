@@ -66,6 +66,14 @@ var DashCmd = &cobra.Command{
 			dashClient = api.NewClient(dashBaseURL, apiKey)
 		}
 
+		// Best-effort: populate user email from auth.json without token validation.
+		// This ensures list/create commands scope to the correct user even when
+		// full admin login is not required.
+		if af, _ := auth.Load(); af != nil {
+			dashUserEmail = af.User.Email
+			dashUserID = af.User.ID
+		}
+
 		return nil
 	},
 }
