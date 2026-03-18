@@ -99,7 +99,7 @@ func BuildContainer() *do.Injector {
 	do.Provide(inj, func(i *do.Injector) (*gorm.DB, error) {
 		cfg := do.MustInvoke[*config.Config](i)
 		log := do.MustInvoke[*zap.Logger](i)
-		d, err := db.New(cfg)
+		d, err := db.New(cfg, log)
 		if err != nil {
 			return nil, err
 		}
@@ -283,6 +283,7 @@ func BuildContainer() *do.Injector {
 			do.MustInvoke[repo.ArtifactRepo](i),
 			do.MustInvoke[*blob.S3Deps](i),
 			do.MustInvoke[repo.AgentSkillsRepo](i),
+			do.MustInvoke[*zap.Logger](i),
 		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (service.TaskService, error) {

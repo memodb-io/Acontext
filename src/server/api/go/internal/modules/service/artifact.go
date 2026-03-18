@@ -5,11 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"mime/multipart"
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
+
 	"github.com/memodb-io/Acontext/internal/infra/blob"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
@@ -35,19 +36,23 @@ type artifactService struct {
 	r               repo.ArtifactRepo
 	s3              *blob.S3Deps
 	agentSkillsRepo repo.AgentSkillsRepo
+	log             *zap.Logger
 }
 
-func NewArtifactService(r repo.ArtifactRepo, s3 *blob.S3Deps, agentSkillsRepo repo.AgentSkillsRepo) ArtifactService {
-	return &artifactService{r: r, s3: s3, agentSkillsRepo: agentSkillsRepo}
+func NewArtifactService(r repo.ArtifactRepo, s3 *blob.S3Deps, agentSkillsRepo repo.AgentSkillsRepo, log *zap.Logger) ArtifactService {
+	return &artifactService{r: r, s3: s3, agentSkillsRepo: agentSkillsRepo, log: log}
 }
 
-// touchSkillUpdatedAt is best-effort: logs a warning on failure but doesn't propagate the error.
+// touchSkillUpdatedAt is best-effort: logs a warning on failure but does not propagate the error.
 func (s *artifactService) touchSkillUpdatedAt(ctx context.Context, diskID uuid.UUID) {
 	if s.agentSkillsRepo == nil {
 		return
 	}
 	if err := s.agentSkillsRepo.TouchUpdatedAtByDiskID(ctx, diskID); err != nil {
-		log.Printf("[WARN] failed to touch skill updated_at for disk %s: %v", diskID, err)
+		s.log.Warn("failed to touch skill updated_at",
+			zap.String("disk_id", diskID.String()),
+			zap.Error(err),
+		)
 	}
 }
 

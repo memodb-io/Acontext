@@ -46,7 +46,7 @@ func NewRouter(d RouterDeps) *gin.Engine {
 		r.Use(middleware.TraceID())
 	}
 
-	r.Use(middleware.ZapLogger(d.Log))
+	r.Use(middleware.WideEvent(d.Log))
 
 	// health
 	r.GET("/health", func(c *gin.Context) { c.JSON(http.StatusOK, serializer.Response{Msg: "ok"}) })

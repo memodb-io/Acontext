@@ -89,6 +89,7 @@ func ProjectAuth(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
 		authSpan.End()
 
 		c.Set("project", &project)
+		SetWideEventField(c, "project_id", project.ID.String())
 		c.Next()
 	}
 }

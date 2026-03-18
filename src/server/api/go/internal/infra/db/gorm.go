@@ -6,15 +6,15 @@ import (
 	"time"
 
 	"github.com/memodb-io/Acontext/internal/config"
+	"go.uber.org/zap"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
 	"gorm.io/plugin/opentelemetry/tracing"
 )
 
-func New(cfg *config.Config) (*gorm.DB, error) {
+func New(cfg *config.Config, log *zap.Logger) (*gorm.DB, error) {
 	gcfg := &gorm.Config{
-		Logger: logger.Default.LogMode(logger.Warn),
+		Logger: NewZapGormLogger(log, 200*time.Millisecond),
 	}
 
 	// Adjust DSN sslmode based on EnableTLS configuration

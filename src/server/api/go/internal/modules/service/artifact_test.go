@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
+
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/pkg/utils/fileparser"
 	"github.com/stretchr/testify/assert"
@@ -619,7 +621,7 @@ func TestArtifactService_GrepArtifacts(t *testing.T) {
 			mockRepo := new(MockArtifactRepo)
 			tt.setupMock(mockRepo)
 
-			svc := &artifactService{r: mockRepo}
+			svc := &artifactService{r: mockRepo, log: zap.NewNop()}
 
 			results, err := svc.GrepArtifacts(
 				context.Background(),
@@ -651,7 +653,7 @@ func TestArtifactService_TouchSkillUpdatedAt(t *testing.T) {
 		mockRepo.On("DeleteByPath", mock.Anything, projectID, diskID, "/test/", "file.txt").Return(nil)
 		mockSkillsRepo.On("TouchUpdatedAtByDiskID", mock.Anything, diskID).Return(nil)
 
-		svc := &artifactService{r: mockRepo, agentSkillsRepo: mockSkillsRepo}
+		svc := &artifactService{r: mockRepo, agentSkillsRepo: mockSkillsRepo, log: zap.NewNop()}
 		err := svc.DeleteByPath(context.Background(), projectID, diskID, "/test/", "file.txt")
 
 		assert.NoError(t, err)
@@ -665,7 +667,7 @@ func TestArtifactService_TouchSkillUpdatedAt(t *testing.T) {
 
 		mockRepo.On("DeleteByPath", mock.Anything, projectID, diskID, "/test/", "file.txt").Return(errors.New("delete failed"))
 
-		svc := &artifactService{r: mockRepo, agentSkillsRepo: mockSkillsRepo}
+		svc := &artifactService{r: mockRepo, agentSkillsRepo: mockSkillsRepo, log: zap.NewNop()}
 		err := svc.DeleteByPath(context.Background(), projectID, diskID, "/test/", "file.txt")
 
 		assert.Error(t, err)
@@ -683,7 +685,7 @@ func TestArtifactService_TouchSkillUpdatedAt(t *testing.T) {
 		mockRepo.On("Update", mock.Anything, mock.Anything).Return(nil)
 		mockSkillsRepo.On("TouchUpdatedAtByDiskID", mock.Anything, diskID).Return(nil)
 
-		svc := &artifactService{r: mockRepo, agentSkillsRepo: mockSkillsRepo}
+		svc := &artifactService{r: mockRepo, agentSkillsRepo: mockSkillsRepo, log: zap.NewNop()}
 		_, err := svc.UpdateArtifactMetaByPath(context.Background(), diskID, "/test/", "file.txt", map[string]interface{}{"key": "val"})
 
 		assert.NoError(t, err)
@@ -698,7 +700,7 @@ func TestArtifactService_TouchSkillUpdatedAt(t *testing.T) {
 		mockRepo.On("DeleteByPath", mock.Anything, projectID, diskID, "/test/", "file.txt").Return(nil)
 		mockSkillsRepo.On("TouchUpdatedAtByDiskID", mock.Anything, diskID).Return(errors.New("touch failed"))
 
-		svc := &artifactService{r: mockRepo, agentSkillsRepo: mockSkillsRepo}
+		svc := &artifactService{r: mockRepo, agentSkillsRepo: mockSkillsRepo, log: zap.NewNop()}
 		err := svc.DeleteByPath(context.Background(), projectID, diskID, "/test/", "file.txt")
 
 		// The artifact operation should still succeed even though touch failed
@@ -712,7 +714,7 @@ func TestArtifactService_TouchSkillUpdatedAt(t *testing.T) {
 
 		mockRepo.On("DeleteByPath", mock.Anything, projectID, diskID, "/test/", "file.txt").Return(nil)
 
-		svc := &artifactService{r: mockRepo, agentSkillsRepo: nil}
+		svc := &artifactService{r: mockRepo, agentSkillsRepo: nil, log: zap.NewNop()}
 		err := svc.DeleteByPath(context.Background(), projectID, diskID, "/test/", "file.txt")
 
 		assert.NoError(t, err)
@@ -810,7 +812,7 @@ func TestArtifactService_GlobArtifacts(t *testing.T) {
 			mockRepo := new(MockArtifactRepo)
 			tt.setupMock(mockRepo)
 
-			svc := &artifactService{r: mockRepo}
+			svc := &artifactService{r: mockRepo, log: zap.NewNop()}
 
 			results, err := svc.GlobArtifacts(
 				context.Background(),
