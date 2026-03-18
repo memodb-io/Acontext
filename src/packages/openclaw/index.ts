@@ -84,6 +84,7 @@ export function resolveEnvVars(value: string): string {
 const ALLOWED_KEYS = [
   "apiKey",
   "baseUrl",
+  "userIdentifier",
   "userId",
   "learningSpaceId",
   "skillsDir",
@@ -171,11 +172,11 @@ export const configSchema = {
       );
     }
 
-    // Resolve userId: ~/.acontext/auth.json > config > "default"
-    const userId =
-      loadUserIdFromAuth() ||
-      (typeof cfg.userId === "string" && cfg.userId ? cfg.userId : undefined) ||
-      "default";
+    // Resolve userIdentifier: plugin config (userIdentifier > userId) > auth.json > "default"
+    const userIdentifier =
+      (typeof cfg.userIdentifier === "string" && cfg.userIdentifier ? cfg.userIdentifier : undefined) ||
+      (typeof cfg.userId === "string" && cfg.userId ? cfg.userId : undefined);
+    const userId = userIdentifier || loadUserIdFromAuth() || "openclaw";
 
     return {
       apiKey: resolvedApiKey,
@@ -1359,28 +1360,27 @@ const acontextPlugin = {
 
     // Flush + learn before session is compacted or reset to avoid losing data
     if (cfg.autoCapture) {
-      const flushAndLearnIfActive = async () => {
+      const learnIfActive = async () => {
         if (!currentAcontextSessionId || !cfg.autoLearn) return;
         try {
-          await bridge.flush(currentAcontextSessionId);
           const result = await bridge.learnFromSession(currentAcontextSessionId);
           if (result.status === "learned") {
             api.logger.info(`acontext: pre-clear learn triggered (learning: ${result.id})`);
           }
         } catch (err) {
-          api.logger.warn(`acontext: pre-clear flush/learn failed: ${String(err)}`);
+          api.logger.warn(`acontext: pre-clear learn failed: ${String(err)}`);
         }
       };
 
       api.on("before_compaction", async (_event, _ctx) => {
-        await flushAndLearnIfActive();
+        await learnIfActive();
         // Compaction rewrites the message history — flag a cursor reset
         // so the next agent_end re-baselines instead of using the stale offset.
         pendingCursorReset = true;
       });
 
       api.on("before_reset", async (_event, _ctx) => {
-        await flushAndLearnIfActive();
+        await learnIfActive();
         // Clear session binding so the next agent_end creates a fresh session.
         if (currentOpenClawSessionKey) {
           bridge.clearSessionMapping(currentOpenClawSessionKey);
@@ -1447,15 +1447,7 @@ const acontextPlugin = {
             capturedTurnCount = 0;
 
             bridge
-              .flush(learnSessionId)
-              .then((flushResult) => {
-                if (flushResult.status !== 0) {
-                  api.logger.warn(
-                    `acontext: flush returned non-zero status before auto-learn: ${flushResult.errmsg}`,
-                  );
-                }
-                return bridge.learnFromSession(learnSessionId);
-              })
+              .learnFromSession(learnSessionId)
               .then((result) => {
                 if (result.status === "learned") {
                   api.logger.info(

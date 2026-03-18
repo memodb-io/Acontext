@@ -104,7 +104,7 @@ describe("configSchema.parse", () => {
       apiKey: "${ACONTEXT_API_KEY}",
     });
     expect(cfg.apiKey).toBe("sk-ac-test");
-    expect(cfg.userId).toBe("default");
+    expect(cfg.userId).toBe("openclaw");
     expect(cfg.baseUrl).toBe("https://api.acontext.app/api/v1");
   });
 
@@ -219,7 +219,7 @@ describe("configSchema.parse", () => {
     }));
     const cfg = configSchema.parse({});
     expect(cfg.apiKey).toBe("sk-ac-from-creds");
-    expect(cfg.userId).toBe("default");
+    expect(cfg.userId).toBe("openclaw");
   });
 
   test("parses empty config and reads userId from auth.json", async () => {

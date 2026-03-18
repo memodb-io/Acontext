@@ -24,7 +24,7 @@ Get an API key from [dash.acontext.io](https://dash.acontext.io/) and set it in 
 
 ```bash
 export ACONTEXT_API_KEY=sk-ac-your-api-key
-export ACONTEXT_USER_ID=your-user-id
+export ACONTEXT_USER_IDENTIFIER=your-identifier
 ```
 
 Restart Claude Code — the plugin auto-captures conversations and syncs skills to `~/.claude/skills/`.
@@ -37,7 +37,7 @@ All settings are via environment variables:
 |---------|---------|-------------|
 | `ACONTEXT_API_KEY` | — | **Required.** Acontext API key |
 | `ACONTEXT_BASE_URL` | `https://api.acontext.app/api/v1` | Acontext API base URL |
-| `ACONTEXT_USER_ID` | `"default"` | Scope sessions per user |
+| `ACONTEXT_USER_IDENTIFIER` | `"claude_code"` | User identifier for session scoping |
 | `ACONTEXT_LEARNING_SPACE_ID` | auto-created | Explicit Learning Space ID |
 | `ACONTEXT_SKILLS_DIR` | `~/.claude/skills` | Directory where skills are synced for native loading |
 | `ACONTEXT_AUTO_CAPTURE` | `true` | Store messages after each turn |
@@ -68,7 +68,7 @@ Session 1: User talks to Claude Code
   └→ Auto-learn triggers at turn threshold (default: 4)
 
 Session end:
-  └→ [stop hook] Final message capture, flush, learning triggered
+  └→ [stop hook] Final message capture, learning triggered
   └→ Newly learned skills synced to ~/.claude/skills/
 
 Session 2: User returns

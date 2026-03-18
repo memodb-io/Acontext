@@ -144,6 +144,7 @@ After `acontext login`, the plugin works automatically. The following env vars c
 
 | Env Var                        | Default                           | Description                            |
 | ------------------------------ | --------------------------------- | -------------------------------------- |
+| `ACONTEXT_USER_IDENTIFIER`     | `"claude_code"`                   | User identifier for session scoping    |
 | `ACONTEXT_BASE_URL`            | `https://api.acontext.app/api/v1` | API base URL                           |
 | `ACONTEXT_LEARNING_SPACE_ID`   | auto-created                      | Explicit Learning Space ID             |
 | `ACONTEXT_SKILLS_DIR`          | `~/.claude/skills`                | Directory where skills are synced      |
@@ -169,6 +170,7 @@ After `acontext login`, the plugin works automatically. Optional overrides in `o
 
 | Key                | Type      | Default                           | Description                              |
 | ------------------ | --------- | --------------------------------- | ---------------------------------------- |
+| `userIdentifier`   | `string`  | `"openclaw"`                      | User identifier for session scoping      |
 | `baseUrl`          | `string`  | `https://api.acontext.app/api/v1` | API base URL                             |
 | `learningSpaceId`  | `string`  | auto-created                      | Explicit Learning Space ID               |
 | `skillsDir`        | `string`  | `~/.openclaw/skills`              | Directory where skills are synced        |

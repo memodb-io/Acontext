@@ -21041,7 +21041,7 @@ function loadConfig() {
       "ACONTEXT_API_KEY is required. Set it in your shell profile, or run 'acontext login' to configure ~/.acontext/credentials.json."
     );
   }
-  const userId = loadUserIdFromAuth() || process.env.ACONTEXT_USER_ID?.trim() || "default";
+  const userId = (process.env.ACONTEXT_USER_IDENTIFIER ?? process.env.ACONTEXT_USER_ID)?.trim() || loadUserIdFromAuth() || "claude_code";
   return {
     apiKey,
     baseUrl: process.env.ACONTEXT_BASE_URL?.trim() || "https://api.acontext.app/api/v1",
@@ -21255,7 +21255,6 @@ async function handlePostToolUse(bridge, config, lockDir) {
     }
     if (config.autoLearn && bridge.getTurnCount() >= config.minTurnsForLearn) {
       try {
-        await bridge.flush(sessionId);
         const result = await bridge.learnFromSession(sessionId);
         if (result.status === "learned") {
           logger.info(
@@ -21317,12 +21316,6 @@ async function handleStop(bridge, config, lockDir) {
           }
         }
       }
-    }
-    try {
-      await bridge.flush(sessionId);
-      logger.info(`acontext: session flushed: ${sessionId}`);
-    } catch (err) {
-      logger.warn(`acontext: flush failed: ${String(err)}`);
     }
     if (config.autoLearn) {
       try {

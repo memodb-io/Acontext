@@ -25,7 +25,7 @@ Get an API key from [dash.acontext.io](https://dash.acontext.io/) and export it 
 
 ```bash
 export ACONTEXT_API_KEY="<your-api-key>"
-export ACONTEXT_USER_ID="<your-login-email>"
+export ACONTEXT_USER_IDENTIFIER="<your-identifier>"
 ```
 
 </Step>
@@ -70,7 +70,7 @@ All settings are via environment variables:
 |---------|---------|-------------|
 | `ACONTEXT_API_KEY` | — | **Required.** Acontext API key |
 | `ACONTEXT_BASE_URL` | `https://api.acontext.app/api/v1` | API base URL |
-| `ACONTEXT_USER_ID` | `"default"` | Scope sessions per user |
+| `ACONTEXT_USER_IDENTIFIER` | `"claude_code"` | User identifier for session scoping |
 | `ACONTEXT_LEARNING_SPACE_ID` | auto-created | Explicit Learning Space ID |
 | `ACONTEXT_SKILLS_DIR` | `~/.claude/skills` | Directory where skills are synced |
 | `ACONTEXT_AUTO_CAPTURE` | `true` | Store messages after each agent turn |

@@ -1,6 +1,6 @@
 /**
  * Configuration for the Acontext Claude Code plugin.
- * Values are resolved with priority: ~/.acontext/ files > environment variables > defaults.
+ * Values are resolved with priority: environment variables > ~/.acontext/ files > defaults.
  */
 
 import * as fs from "node:fs";
@@ -52,7 +52,8 @@ function loadApiKeyFromCredentials(): string | undefined {
 }
 
 /**
- * Read auth.json and return the user's email.
+ * Read auth.json and return the user's email as a fallback identifier.
+ * Used when no explicit env var or plugin config is set.
  */
 function loadUserIdFromAuth(): string | undefined {
   try {
@@ -76,8 +77,8 @@ export function loadConfig(): AcontextConfig {
     );
   }
 
-  // Priority: ~/.acontext/auth.json > env var > "default"
-  const userId = loadUserIdFromAuth() || process.env.ACONTEXT_USER_ID?.trim() || "default";
+  // Priority: env var > ~/.acontext/auth.json > "default"
+  const userId = (process.env.ACONTEXT_USER_IDENTIFIER ?? process.env.ACONTEXT_USER_ID)?.trim() || loadUserIdFromAuth() || "claude_code";
 
   return {
     apiKey,

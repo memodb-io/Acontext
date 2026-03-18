@@ -123,7 +123,6 @@ async function handlePostToolUse(
       bridge.getTurnCount() >= config.minTurnsForLearn
     ) {
       try {
-        await bridge.flush(sessionId);
         const result = await bridge.learnFromSession(sessionId);
         if (result.status === "learned") {
           logger.info(
@@ -204,13 +203,6 @@ async function handleStop(
           }
         }
       }
-    }
-
-    try {
-      await bridge.flush(sessionId);
-      logger.info(`acontext: session flushed: ${sessionId}`);
-    } catch (err) {
-      logger.warn(`acontext: flush failed: ${String(err)}`);
     }
 
     // Intentionally skip minTurnsForLearn check here — Stop should always

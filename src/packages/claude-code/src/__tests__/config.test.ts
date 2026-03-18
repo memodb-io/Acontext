@@ -12,6 +12,8 @@ describe("loadConfig", () => {
     // Create a temp dir so real ~/.acontext/ files don't interfere
     tmpConfigDir = fs.mkdtempSync(path.join(os.tmpdir(), "claude-code-test-"));
     process.env = { ...originalEnv, ACONTEXT_API_KEY: "test-key-123", ACONTEXT_CONFIG_DIR: tmpConfigDir };
+    delete process.env.ACONTEXT_USER_IDENTIFIER;
+    delete process.env.ACONTEXT_USER_ID;
   });
 
   afterEach(() => {
@@ -32,14 +34,36 @@ describe("loadConfig", () => {
     expect(loadConfig().apiKey).toBe("env-key");
   });
 
-  it("falls back to auth.json for userId when ACONTEXT_USER_ID is not set", async () => {
-    delete process.env.ACONTEXT_USER_ID;
+  it("falls back to auth.json for userId when env var is not set", async () => {
     fs.writeFileSync(
       path.join(tmpConfigDir, "auth.json"),
       JSON.stringify({ user: { email: "user@test.com" } }),
     );
     const { loadConfig } = await import("../config");
     expect(loadConfig().userId).toBe("user@test.com");
+  });
+
+  it("env var ACONTEXT_USER_IDENTIFIER takes priority over auth.json", async () => {
+    process.env.ACONTEXT_USER_IDENTIFIER = "env-user";
+    fs.writeFileSync(
+      path.join(tmpConfigDir, "auth.json"),
+      JSON.stringify({ user: { email: "auth@test.com" } }),
+    );
+    const { loadConfig } = await import("../config");
+    expect(loadConfig().userId).toBe("env-user");
+  });
+
+  it("legacy ACONTEXT_USER_ID works as fallback when ACONTEXT_USER_IDENTIFIER is not set", async () => {
+    process.env.ACONTEXT_USER_ID = "legacy-user";
+    const { loadConfig } = await import("../config");
+    expect(loadConfig().userId).toBe("legacy-user");
+  });
+
+  it("ACONTEXT_USER_IDENTIFIER takes priority over legacy ACONTEXT_USER_ID", async () => {
+    process.env.ACONTEXT_USER_IDENTIFIER = "new-user";
+    process.env.ACONTEXT_USER_ID = "legacy-user";
+    const { loadConfig } = await import("../config");
+    expect(loadConfig().userId).toBe("new-user");
   });
 
   it("credentials.json takes priority over env var", async () => {
@@ -71,9 +95,8 @@ describe("loadConfig", () => {
   });
 
   it("uses default userId when env and auth.json are not available", async () => {
-    delete process.env.ACONTEXT_USER_ID;
     const { loadConfig } = await import("../config");
-    expect(loadConfig().userId).toBe("default");
+    expect(loadConfig().userId).toBe("claude_code");
   });
 
   it("reads learningSpaceId from env", async () => {
