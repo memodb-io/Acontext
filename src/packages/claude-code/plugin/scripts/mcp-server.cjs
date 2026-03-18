@@ -23825,7 +23825,7 @@ var require_session = __commonJS({
   "node_modules/@acontext/acontext/dist/types/session.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.EditStrategySchema = exports2.MiddleOutStrategySchema = exports2.MiddleOutParamsSchema = exports2.TokenLimitStrategySchema = exports2.TokenLimitParamsSchema = exports2.RemoveToolResultStrategySchema = exports2.RemoveToolCallParamsStrategySchema = exports2.RemoveToolCallParamsParamsSchema = exports2.RemoveToolResultParamsSchema = exports2.CopySessionResultSchema = exports2.MessageObservingStatusSchema = exports2.TokenCountsSchema = exports2.GetTasksOutputSchema = exports2.GetMessagesOutputSchema = exports2.PublicURLSchema = exports2.ListSessionsOutputSchema = exports2.TaskSchema = exports2.TaskDataSchema = exports2.SessionSchema = exports2.MessageSchema = exports2.PartSchema = exports2.AssetSchema = void 0;
+    exports2.EditStrategySchema = exports2.MiddleOutStrategySchema = exports2.MiddleOutParamsSchema = exports2.TokenLimitStrategySchema = exports2.TokenLimitParamsSchema = exports2.RemoveToolResultStrategySchema = exports2.RemoveToolCallParamsStrategySchema = exports2.RemoveToolCallParamsParamsSchema = exports2.RemoveToolResultParamsSchema = exports2.CopySessionResultSchema = exports2.MessageObservingStatusSchema = exports2.TokenCountsSchema = exports2.GetTasksOutputSchema = exports2.GetMessagesOutputSchema = exports2.ListEventsOutputSchema = exports2.SessionEventSchema = exports2.PublicURLSchema = exports2.ListSessionsOutputSchema = exports2.TaskSchema = exports2.TaskDataSchema = exports2.SessionSchema = exports2.MessageSchema = exports2.PartSchema = exports2.AssetSchema = void 0;
     var zod_1 = require_zod();
     exports2.AssetSchema = zod_1.z.object({
       bucket: zod_1.z.string(),
@@ -23850,6 +23850,7 @@ var require_session = __commonJS({
       meta: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()),
       parts: zod_1.z.array(exports2.PartSchema),
       task_id: zod_1.z.string().nullable(),
+      /** Task process status: 'success' | 'failed' | 'running' | 'pending' | 'disable_tracking' | 'limit_exceed' */
       session_task_process_status: zod_1.z.string(),
       created_at: zod_1.z.string(),
       updated_at: zod_1.z.string()
@@ -23888,6 +23889,20 @@ var require_session = __commonJS({
       url: zod_1.z.string(),
       expire_at: zod_1.z.string()
     });
+    exports2.SessionEventSchema = zod_1.z.object({
+      id: zod_1.z.string(),
+      session_id: zod_1.z.string(),
+      project_id: zod_1.z.string(),
+      type: zod_1.z.string(),
+      data: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()),
+      created_at: zod_1.z.string(),
+      updated_at: zod_1.z.string()
+    });
+    exports2.ListEventsOutputSchema = zod_1.z.object({
+      items: zod_1.z.array(exports2.SessionEventSchema),
+      next_cursor: zod_1.z.string().nullable().optional(),
+      has_more: zod_1.z.boolean()
+    });
     exports2.GetMessagesOutputSchema = zod_1.z.object({
       items: zod_1.z.array(zod_1.z.unknown()),
       ids: zod_1.z.array(zod_1.z.string()),
@@ -23905,7 +23920,9 @@ var require_session = __commonJS({
        * Use this value to maintain prompt cache stability by passing it as
        * pin_editing_strategies_at_message in subsequent requests.
        */
-      edit_at_message_id: zod_1.z.string().nullable().optional()
+      edit_at_message_id: zod_1.z.string().nullable().optional(),
+      /** Session events within the messages time window (only when withEvents is true) */
+      events: zod_1.z.array(exports2.SessionEventSchema).nullable().optional()
     });
     exports2.GetTasksOutputSchema = zod_1.z.object({
       items: zod_1.z.array(exports2.TaskSchema),
@@ -24207,6 +24224,14 @@ var require_learning_space = __commonJS({
   }
 });
 
+// node_modules/@acontext/acontext/dist/types/project.js
+var require_project = __commonJS({
+  "node_modules/@acontext/acontext/dist/types/project.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+  }
+});
+
 // node_modules/@acontext/acontext/dist/types/index.js
 var require_types2 = __commonJS({
   "node_modules/@acontext/acontext/dist/types/index.js"(exports2) {
@@ -24235,6 +24260,7 @@ var require_types2 = __commonJS({
     __exportStar(require_sandbox(), exports2);
     __exportStar(require_user(), exports2);
     __exportStar(require_learning_space(), exports2);
+    __exportStar(require_project(), exports2);
   }
 });
 
@@ -24535,6 +24561,46 @@ var require_learning_spaces = __commonJS({
       }
     };
     exports2.LearningSpacesAPI = LearningSpacesAPI;
+  }
+});
+
+// node_modules/@acontext/acontext/dist/resources/project.js
+var require_project2 = __commonJS({
+  "node_modules/@acontext/acontext/dist/resources/project.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.ProjectAPI = void 0;
+    var ProjectAPI = class {
+      static {
+        __name(this, "ProjectAPI");
+      }
+      constructor(requester) {
+        this.requester = requester;
+      }
+      /**
+       * Get the project-level configuration.
+       *
+       * @returns ProjectConfig containing the current project configuration
+       */
+      async getConfigs() {
+        const data = await this.requester.request("GET", "/project/configs");
+        return data;
+      }
+      /**
+       * Update the project-level configuration by merging keys.
+       * Keys with null values are deleted (reset to default).
+       *
+       * @param configs - Configuration keys to merge
+       * @returns ProjectConfig containing the updated project configuration
+       */
+      async updateConfigs(configs) {
+        const data = await this.requester.request("PATCH", "/project/configs", {
+          jsonData: configs
+        });
+        return data;
+      }
+    };
+    exports2.ProjectAPI = ProjectAPI;
   }
 });
 
@@ -24915,6 +24981,38 @@ var require_sessions = __commonJS({
         }
       }
       /**
+       * Add a structured event to a session.
+       *
+       * @param sessionId - The UUID of the session.
+       * @param event - An event object with a toPayload() method (e.g., DiskEvent, TextEvent).
+       * @returns The created SessionEvent object.
+       */
+      async addEvent(sessionId, event) {
+        const payload = event.toPayload();
+        const data = await this.requester.request("POST", `/session/${sessionId}/events`, {
+          jsonData: payload
+        });
+        return types_1.SessionEventSchema.parse(data);
+      }
+      /**
+       * Get events for a session.
+       *
+       * @param sessionId - The UUID of the session.
+       * @param options - Options for retrieving events.
+       * @returns ListEventsOutput containing the list of events and pagination information.
+       */
+      async getEvents(sessionId, options) {
+        const params = (0, utils_1.buildParams)({
+          limit: options?.limit ?? null,
+          cursor: options?.cursor ?? null,
+          time_desc: options?.timeDesc ?? null
+        });
+        const data = await this.requester.request("GET", `/session/${sessionId}/events`, {
+          params: Object.keys(params).length > 0 ? params : void 0
+        });
+        return types_1.ListEventsOutputSchema.parse(data);
+      }
+      /**
        * Get messages for a session.
        *
        * @param sessionId - The UUID of the session.
@@ -24922,6 +25020,7 @@ var require_sessions = __commonJS({
        * @param options.limit - Maximum number of messages to return.
        * @param options.cursor - Cursor for pagination.
        * @param options.withAssetPublicUrl - Whether to include presigned URLs for assets.
+       * @param options.withEvents - Whether to include session events in the response.
        * @param options.format - The format of the messages ('acontext', 'openai', 'anthropic', or 'gemini').
        * @param options.timeDesc - Order by created_at descending if true, ascending if false.
        * @param options.editStrategies - Optional list of edit strategies to apply before format conversion.
@@ -24951,6 +25050,9 @@ var require_sessions = __commonJS({
           time_desc: options?.timeDesc ?? true
           // Default to true
         }));
+        if (options?.withEvents !== void 0 && options?.withEvents !== null) {
+          params.with_events = options.withEvents ? "true" : "false";
+        }
         if (options?.editStrategies !== void 0 && options?.editStrategies !== null) {
           types_1.EditStrategySchema.array().parse(options.editStrategies);
           params.edit_strategies = JSON.stringify(options.editStrategies);
@@ -25391,6 +25493,7 @@ var require_client = __commonJS({
     var errors_1 = require_errors2();
     var disks_1 = require_disks();
     var learning_spaces_1 = require_learning_spaces();
+    var project_1 = require_project2();
     var sandboxes_1 = require_sandboxes();
     var sessions_1 = require_sessions();
     var skills_1 = require_skills();
@@ -25416,6 +25519,7 @@ var require_client = __commonJS({
         this.users = new users_1.UsersAPI(this);
         this.sandboxes = new sandboxes_1.SandboxesAPI(this);
         this.learningSpaces = new learning_spaces_1.LearningSpacesAPI(this);
+        this.project = new project_1.ProjectAPI(this);
       }
       get baseUrl() {
         return this._baseUrl;
@@ -25601,6 +25705,48 @@ var require_client = __commonJS({
   }
 });
 
+// node_modules/@acontext/acontext/dist/events.js
+var require_events = __commonJS({
+  "node_modules/@acontext/acontext/dist/events.js"(exports2) {
+    "use strict";
+    Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.TextEvent = exports2.DiskEvent = void 0;
+    var DiskEvent = class {
+      static {
+        __name(this, "DiskEvent");
+      }
+      constructor(options) {
+        this.diskId = options.diskId;
+        this.path = options.path;
+        this.note = options.note;
+      }
+      toPayload() {
+        const data = {
+          disk_id: this.diskId,
+          path: this.path
+        };
+        if (this.note !== void 0) {
+          data.note = this.note;
+        }
+        return { type: "disk_event", data };
+      }
+    };
+    exports2.DiskEvent = DiskEvent;
+    var TextEvent = class {
+      static {
+        __name(this, "TextEvent");
+      }
+      constructor(options) {
+        this.text = options.text;
+      }
+      toPayload() {
+        return { type: "text_event", data: { text: this.text } };
+      }
+    };
+    exports2.TextEvent = TextEvent;
+  }
+});
+
 // node_modules/@acontext/acontext/dist/resources/index.js
 var require_resources = __commonJS({
   "node_modules/@acontext/acontext/dist/resources/index.js"(exports2) {
@@ -25628,6 +25774,7 @@ var require_resources = __commonJS({
     __exportStar(require_sandboxes(), exports2);
     __exportStar(require_users(), exports2);
     __exportStar(require_learning_spaces(), exports2);
+    __exportStar(require_project2(), exports2);
   }
 });
 
@@ -27247,7 +27394,7 @@ var require_dist2 = __commonJS({
       for (var p in m) if (p !== "default" && !Object.prototype.hasOwnProperty.call(exports3, p)) __createBinding(exports3, m, p);
     };
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.TimeoutError = exports2.AcontextError = exports2.TransportError = exports2.APIError = exports2.buildAcontextMessage = exports2.AcontextMessage = exports2.MessagePart = exports2.FileUpload = exports2.AcontextClient = void 0;
+    exports2.TextEvent = exports2.DiskEvent = exports2.TimeoutError = exports2.AcontextError = exports2.TransportError = exports2.APIError = exports2.buildAcontextMessage = exports2.AcontextMessage = exports2.MessagePart = exports2.FileUpload = exports2.AcontextClient = void 0;
     var client_1 = require_client();
     Object.defineProperty(exports2, "AcontextClient", { enumerable: true, get: /* @__PURE__ */ __name(function() {
       return client_1.AcontextClient;
@@ -27278,6 +27425,13 @@ var require_dist2 = __commonJS({
     }, "get") });
     Object.defineProperty(exports2, "TimeoutError", { enumerable: true, get: /* @__PURE__ */ __name(function() {
       return errors_1.TimeoutError;
+    }, "get") });
+    var events_1 = require_events();
+    Object.defineProperty(exports2, "DiskEvent", { enumerable: true, get: /* @__PURE__ */ __name(function() {
+      return events_1.DiskEvent;
+    }, "get") });
+    Object.defineProperty(exports2, "TextEvent", { enumerable: true, get: /* @__PURE__ */ __name(function() {
+      return events_1.TextEvent;
     }, "get") });
     __exportStar(require_types2(), exports2);
     __exportStar(require_resources(), exports2);
