@@ -6,6 +6,7 @@ import { useTopNavStore } from "@/stores/top-nav";
 import { usePlanStore } from "@/stores/plan";
 import { Organization } from "@/types";
 import { OrganizationUsageData } from "@/lib/supabase/operations/organizations";
+import { formatBytes } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -20,14 +21,6 @@ interface UsagePageClientProps {
   currentOrganization: Organization;
   allOrganizations: Array<{ id: string; name: string; plan: PlanType }>;
   usageData: OrganizationUsageData;
-}
-
-function formatStorage(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  const value = bytes / Math.pow(1024, i);
-  return `${value.toFixed(value < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
 }
 
 function getProgressColor(percentage: number): string {
@@ -131,7 +124,7 @@ export function UsagePageClient({
       description: "Total storage used across all projects",
       current: usage.current_storage,
       max: limits.max_storage,
-      formatValue: formatStorage,
+      formatValue: formatBytes,
     },
   ];
 

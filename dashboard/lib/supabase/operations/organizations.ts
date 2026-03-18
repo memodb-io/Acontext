@@ -319,43 +319,90 @@ export async function removeOrganizationMember(orgId: string, userId: string) {
 }
 
 /**
- * Get organization usage and plan limits
+ * Organization usage and plan limits types
  */
+export interface UsageMetrics {
+  current_task: number;
+  current_skill: number;
+  current_fast_skill_search: number;
+  current_agentic_skill_search: number;
+  current_storage: number;
+}
+
+export interface UsageLimits {
+  max_task: number;
+  max_skill: number;
+  max_fast_skill_search: number;
+  max_agentic_skill_search: number;
+  max_storage: number;
+}
+
+const DEFAULT_USAGE: UsageMetrics = {
+  current_task: 0,
+  current_skill: 0,
+  current_fast_skill_search: 0,
+  current_agentic_skill_search: 0,
+  current_storage: 0,
+};
+
+const DEFAULT_LIMITS: UsageLimits = {
+  max_task: 0,
+  max_skill: 0,
+  max_fast_skill_search: 0,
+  max_agentic_skill_search: 0,
+  max_storage: 0,
+};
+
+const USAGE_SELECT =
+  "current_task, current_skill, current_fast_skill_search, current_agentic_skill_search, current_storage";
+const LIMITS_SELECT =
+  "max_task, max_skill, max_fast_skill_search, max_agentic_skill_search, max_storage";
+
+/**
+ * Core function: fetch usage + limits for a single org.
+ * Shared by getOrganizationUsage and getAllOrganizationsUsage.
+ */
+async function fetchUsageAndLimits(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+  plan: string
+): Promise<{ usage: UsageMetrics; limits: UsageLimits }> {
+  const [usageResult, limitsResult] = await Promise.all([
+    supabase
+      .from("organization_usage")
+      .select(USAGE_SELECT)
+      .eq("organization_id", orgId)
+      .single(),
+    supabase
+      .from("product_plans")
+      .select(LIMITS_SELECT)
+      .eq("plan", plan)
+      .single(),
+  ]);
+
+  return {
+    usage: (usageResult.data as UsageMetrics | null) || { ...DEFAULT_USAGE },
+    limits: (limitsResult.data as UsageLimits | null) || { ...DEFAULT_LIMITS },
+  };
+}
+
 export interface OrganizationUsageData {
-  usage: {
-    current_task: number;
-    current_skill: number;
-    current_fast_skill_search: number;
-    current_agentic_skill_search: number;
-    current_storage: number;
-  };
-  limits: {
-    max_task: number;
-    max_skill: number;
-    max_fast_skill_search: number;
-    max_agentic_skill_search: number;
-    max_storage: number;
-  };
+  usage: UsageMetrics;
+  limits: UsageLimits;
   period_end: string | null;
 }
 
+/**
+ * Get usage data for a single organization (used by the usage page)
+ */
 export async function getOrganizationUsage(
   orgId: string,
   plan: string
 ): Promise<OrganizationUsageData> {
   const supabase = await createClient();
 
-  const [usageResult, limitsResult, billingResult] = await Promise.all([
-    supabase
-      .from("organization_usage")
-      .select("current_task, current_skill, current_fast_skill_search, current_agentic_skill_search, current_storage")
-      .eq("organization_id", orgId)
-      .single(),
-    supabase
-      .from("product_plans")
-      .select("max_task, max_skill, max_fast_skill_search, max_agentic_skill_search, max_storage")
-      .eq("plan", plan)
-      .single(),
+  const [{ usage, limits }, billingResult] = await Promise.all([
+    fetchUsageAndLimits(supabase, orgId, plan),
     supabase
       .from("organization_billing")
       .select("period_end")
@@ -363,27 +410,74 @@ export async function getOrganizationUsage(
       .single(),
   ]);
 
-  const usage = usageResult.data || {
-    current_task: 0,
-    current_skill: 0,
-    current_fast_skill_search: 0,
-    current_agentic_skill_search: 0,
-    current_storage: 0,
-  };
-
-  const limits = limitsResult.data || {
-    max_task: 0,
-    max_skill: 0,
-    max_fast_skill_search: 0,
-    max_agentic_skill_search: 0,
-    max_storage: 0,
-  };
-
   return {
     usage,
     limits,
     period_end: billingResult.data?.period_end || null,
   };
+}
+
+/**
+ * Get usage data for all organizations the current user belongs to
+ */
+export interface OrganizationUsageSummary {
+  orgId: string;
+  orgName: string;
+  plan: string;
+  usage: UsageMetrics;
+  limits: UsageLimits;
+}
+
+export async function getAllOrganizationsUsage(): Promise<
+  OrganizationUsageSummary[]
+> {
+  const user = await getCurrentUser();
+  const supabase = await createClient();
+
+  const memberships = await getOrganizationMemberships(
+    user.id,
+    `organization_id, role, organizations (id, name, organization_billing (plan))`
+  );
+
+  const orgs = memberships
+    .map((m) => {
+      const orgData = m.organizations as unknown;
+      const org = Array.isArray(orgData) ? orgData[0] : orgData;
+      if (!org || typeof org !== "object" || !("id" in org)) return null;
+      const orgObj = org as {
+        id: string;
+        name: string;
+        organization_billing?: Array<{ plan: string }> | { plan: string };
+      };
+      const billing = Array.isArray(orgObj.organization_billing)
+        ? orgObj.organization_billing[0]
+        : orgObj.organization_billing;
+      return {
+        id: orgObj.id,
+        name: orgObj.name,
+        plan: normalizePlan(billing?.plan) || "free",
+      };
+    })
+    .filter((o): o is { id: string; name: string; plan: string } => o !== null);
+
+  const results = await Promise.all(
+    orgs.map(async (org) => {
+      const { usage, limits } = await fetchUsageAndLimits(
+        supabase,
+        org.id,
+        org.plan
+      );
+      return {
+        orgId: org.id,
+        orgName: org.name,
+        plan: org.plan,
+        usage,
+        limits,
+      };
+    })
+  );
+
+  return results;
 }
 
 /**

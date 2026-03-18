@@ -12,6 +12,8 @@ import {
   Plus,
   BookOpen,
   Github,
+  Receipt,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -49,10 +51,19 @@ import { useUserStore } from "@/stores/user";
 import { useTopNavStore } from "@/stores/top-nav";
 import { usePlanStore, Price, Product, getPlanTypeDisplayName, isPaidPlan } from "@/stores/plan";
 import { User } from "@supabase/supabase-js";
-import { cn } from "@/lib/utils";
+import { cn, formatBytes } from "@/lib/utils";
 import { encodeId } from "@/lib/id-codec";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { SidebarTriggerWrapper } from "@/components/sidebar-trigger-wrapper";
 import { AlertBanner } from "@/components/alert-banner";
+import {
+  getAllOrganizationsUsage,
+  type OrganizationUsageSummary,
+} from "@/lib/supabase/operations/organizations";
 
 const EXTERNAL_LINKS = [
   {
@@ -282,6 +293,162 @@ function ProjectSelector({
   );
 }
 
+// Usage Indicator Component
+function UsageIndicator({ className }: { className?: string }) {
+  const [usageData, setUsageData] = React.useState<OrganizationUsageSummary[]>(
+    []
+  );
+  const [loading, setLoading] = React.useState(false);
+  const [fetched, setFetched] = React.useState(false);
+  const router = useRouter();
+
+  const fetchUsage = React.useCallback(async () => {
+    if (fetched) return;
+    setLoading(true);
+    try {
+      const data = await getAllOrganizationsUsage();
+      setUsageData(data);
+      setFetched(true);
+    } catch {
+      // silently fail
+    } finally {
+      setLoading(false);
+    }
+  }, [fetched]);
+
+  // Auto-fetch on mount to show warning dot
+  React.useEffect(() => {
+    fetchUsage();
+  }, [fetchUsage]);
+
+  // Check if any org has critical usage (>=90%)
+  const hasWarning = React.useMemo(() => {
+    return usageData.some((org) => {
+      const metrics = [
+        { current: org.usage.current_task, max: org.limits.max_task },
+        { current: org.usage.current_storage, max: org.limits.max_storage },
+      ];
+      return metrics.some(
+        (m) => m.max > 0 && (m.current / m.max) * 100 >= 90
+      );
+    });
+  }, [usageData]);
+
+  const getBarColor = (percentage: number) => {
+    if (percentage >= 90) return "bg-red-500";
+    if (percentage >= 70) return "bg-amber-500";
+    return "bg-primary";
+  };
+
+  return (
+    <HoverCard openDelay={200} closeDelay={150}>
+      <HoverCardTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className={cn("rounded-full h-8 w-8 relative border border-border", className)}
+        >
+          <Receipt className="h-4 w-4" />
+          {hasWarning && (
+            <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500 border-2 border-background" />
+          )}
+        </Button>
+      </HoverCardTrigger>
+      <HoverCardContent className="w-[320px] p-0" align="end">
+        <div className="max-h-[320px] overflow-y-auto">
+          {loading && !fetched ? (
+            <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+              Loading...
+            </div>
+          ) : usageData.length === 0 ? (
+            <div className="px-3 py-4 text-center text-sm text-muted-foreground">
+              No organizations
+            </div>
+          ) : (
+            usageData.map((org) => {
+              const taskPct =
+                org.limits.max_task > 0
+                  ? Math.min(
+                      (org.usage.current_task / org.limits.max_task) * 100,
+                      100
+                    )
+                  : 0;
+              const storagePct =
+                org.limits.max_storage > 0
+                  ? Math.min(
+                      (org.usage.current_storage / org.limits.max_storage) *
+                        100,
+                      100
+                    )
+                  : 0;
+              const maxPct = Math.max(taskPct, storagePct);
+              const encodedId = encodeId(org.orgId);
+
+              return (
+                <button
+                  key={org.orgId}
+                  className="w-full px-3 py-2.5 text-left hover:bg-muted/50 transition-colors border-b last:border-b-0 cursor-pointer"
+                  onClick={() => {
+                    router.push(`/org/${encodedId}/billing`);
+                  }}
+                >
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="text-sm font-medium truncate">
+                        {org.orgName}
+                      </span>
+                      {maxPct >= 90 && (
+                        <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
+                      )}
+                    </div>
+                    <ExternalLink className="h-3 w-3 text-muted-foreground shrink-0" />
+                  </div>
+                  {/* Agent Tasks */}
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Tasks</span>
+                      <span className="tabular-nums">
+                        {org.usage.current_task.toLocaleString()} /{" "}
+                        {org.limits.max_task > 0
+                          ? org.limits.max_task.toLocaleString()
+                          : "∞"}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={`h-full rounded-full transition-all ${getBarColor(taskPct)}`}
+                        style={{ width: `${taskPct}%` }}
+                      />
+                    </div>
+                  </div>
+                  {/* Storage */}
+                  <div className="space-y-1 mt-1.5">
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Storage</span>
+                      <span className="tabular-nums">
+                        {formatBytes(org.usage.current_storage)} /{" "}
+                        {org.limits.max_storage > 0
+                          ? formatBytes(org.limits.max_storage)
+                          : "∞"}
+                      </span>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className={`h-full rounded-full transition-all ${getBarColor(storagePct)}`}
+                        style={{ width: `${storagePct}%` }}
+                      />
+                    </div>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+      </HoverCardContent>
+    </HoverCard>
+  );
+}
+
 export function TopNav({ user, prices = [], products = [] }: TopNavProps) {
   // Get data from stores
   const { setUser } = useUserStore();
@@ -366,6 +533,8 @@ export function TopNav({ user, prices = [], products = [] }: TopNavProps) {
             </Link>
             <div className="flex gap-2 min-w-0 ml-3">
               <AlertBanner variant="mobile" />
+              {/* Usage Indicator - shown on mobile */}
+              <UsageIndicator className="md:hidden" />
               {/* External links - shown on mobile */}
               {EXTERNAL_LINKS.map((link) => {
                 const Icon = link.icon;
@@ -503,6 +672,9 @@ export function TopNav({ user, prices = [], products = [] }: TopNavProps) {
                     <span className="truncate">Feedback</span>
                   </a>
                 </Button>
+
+                {/* Usage Indicator - desktop only */}
+                <UsageIndicator className="hidden md:inline-flex" />
 
                 {/* External links - shown on medium screens and above (hidden on small screens where they appear in Mobile Top Layer) */}
                 {EXTERNAL_LINKS.map((link) => {
