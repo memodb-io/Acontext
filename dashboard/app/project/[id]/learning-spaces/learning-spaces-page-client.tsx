@@ -58,6 +58,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, Plus, RefreshCw, ChevronsUpDown } from "lucide-react";
+import { PaginationBar } from "@/components/pagination-bar";
 import { useTopNavStore } from "@/stores/top-nav";
 import { Organization, Project, User, LearningSpace } from "@/types";
 import {
@@ -68,6 +69,8 @@ import {
 } from "./actions";
 import { getAllUsers } from "../actions";
 import { toast } from "sonner";
+
+const PAGE_SIZE = 20;
 
 interface LearningSpacesPageClientProps {
   project: Project;
@@ -89,9 +92,7 @@ export function LearningSpacesPageClient({
   const [spaces, setSpaces] = useState<LearningSpace[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [nextCursor, setNextCursor] = useState<string | undefined>(undefined);
-  const [hasMore, setHasMore] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [filterText, setFilterText] = useState("");
   const [userFilter, setUserFilter] = useState<string>(() => {
@@ -154,10 +155,20 @@ export function LearningSpacesPageClient({
     try {
       setIsLoading(true);
       const userParam = userFilter === "all" ? undefined : userFilter;
-      const res = await getLearningSpaces(projectId, 50, undefined, true, userParam);
-      setSpaces(res.items || []);
-      setNextCursor(res.next_cursor);
-      setHasMore(res.has_more || false);
+
+      const allSpaces: LearningSpace[] = [];
+      let cursor: string | undefined = undefined;
+      let hasMore = true;
+
+      while (hasMore) {
+        const res = await getLearningSpaces(projectId, 50, cursor, true, userParam);
+        allSpaces.push(...(res.items || []));
+        cursor = res.next_cursor;
+        hasMore = res.has_more || false;
+      }
+
+      setSpaces(allSpaces);
+      setCurrentPage(1);
     } catch (error) {
       console.error("Failed to load learning spaces:", error);
       toast.error("Failed to load learning spaces");
@@ -165,23 +176,6 @@ export function LearningSpacesPageClient({
       setIsLoading(false);
     }
   }, [projectId, userFilter]);
-
-  const loadMoreSpaces = useCallback(async () => {
-    if (!nextCursor || isLoadingMore) return;
-    try {
-      setIsLoadingMore(true);
-      const userParam = userFilter === "all" ? undefined : userFilter;
-      const res = await getLearningSpaces(projectId, 50, nextCursor, true, userParam);
-      setSpaces((prev) => [...prev, ...(res.items || [])]);
-      setNextCursor(res.next_cursor);
-      setHasMore(res.has_more || false);
-    } catch (error) {
-      console.error("Failed to load more learning spaces:", error);
-      toast.error("Failed to load more learning spaces");
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }, [projectId, nextCursor, userFilter, isLoadingMore]);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -210,6 +204,12 @@ export function LearningSpacesPageClient({
         (s.meta && JSON.stringify(s.meta).toLowerCase().includes(lower))
     );
   }, [spaces, filterText]);
+
+  const totalPages = Math.ceil(filteredSpaces.length / PAGE_SIZE);
+  const paginatedSpaces = filteredSpaces.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -421,7 +421,10 @@ export function LearningSpacesPageClient({
             type="text"
             placeholder="Search by ID, user, or metadata..."
             value={filterText}
-            onChange={(e) => setFilterText(e.target.value)}
+            onChange={(e) => {
+              setFilterText(e.target.value);
+              setCurrentPage(1);
+            }}
             className="max-w-sm"
           />
         </div>
@@ -454,7 +457,7 @@ export function LearningSpacesPageClient({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredSpaces.map((space) => (
+                  {paginatedSpaces.map((space) => (
                     <TableRow
                       key={space.id}
                       className="cursor-pointer"
@@ -527,24 +530,13 @@ export function LearningSpacesPageClient({
               </Table>
             </div>
 
-            {hasMore && !filterText && (
-              <div className="p-4 flex justify-center border-t shrink-0">
-                <Button
-                  variant="outline"
-                  onClick={loadMoreSpaces}
-                  disabled={isLoadingMore}
-                >
-                  {isLoadingMore ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    "Load More"
-                  )}
-                </Button>
-              </div>
-            )}
+            <PaginationBar
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={filteredSpaces.length}
+              onPageChange={setCurrentPage}
+              itemLabel="spaces"
+            />
           </div>
         )}
       </div>

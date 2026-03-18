@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, RefreshCw, CheckCircle2, XCircle, File, Copy } from "lucide-react";
+import { PaginationBar } from "@/components/pagination-bar";
 import { cn } from "@/lib/utils";
 import { useTopNavStore } from "@/stores/top-nav";
 import {
@@ -20,6 +21,8 @@ import {
 import { getSandboxLogs } from "./actions";
 import { toast } from "sonner";
 import { HistoryCommand, GeneratedFile } from "@/types";
+
+const PAGE_SIZE = 20;
 
 interface SandboxPageClientProps {
   project: Project;
@@ -40,9 +43,7 @@ export function SandboxPageClient({
   const [sandboxes, setSandboxes] = useState<SandboxLog[]>([]);
   const [selectedSandbox, setSelectedSandbox] = useState<SandboxLog | null>(null);
   const [isLoadingSandboxes, setIsLoadingSandboxes] = useState(true);
-  const [nextCursor, setNextCursor] = useState<string | undefined>(undefined);
-  const [hasMoreSandboxes, setHasMoreSandboxes] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Refresh states
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -77,14 +78,30 @@ export function SandboxPageClient({
     sandbox.id.toLowerCase().includes(filterText.toLowerCase())
   );
 
-  // Load sandboxes function (first page)
+  const totalPages = Math.ceil(filteredSandboxes.length / PAGE_SIZE);
+  const paginatedSandboxes = filteredSandboxes.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
+  // Load all sandboxes
   const loadSandboxes = useCallback(async () => {
     try {
       setIsLoadingSandboxes(true);
-      const res = await getSandboxLogs(project.id, 50, undefined, true);
-      setSandboxes(res.items || []);
-      setNextCursor(res.next_cursor);
-      setHasMoreSandboxes(res.has_more || false);
+
+      const allSandboxes: SandboxLog[] = [];
+      let cursor: string | undefined = undefined;
+      let hasMore = true;
+
+      while (hasMore) {
+        const res = await getSandboxLogs(project.id, 50, cursor, true);
+        allSandboxes.push(...(res.items || []));
+        cursor = res.next_cursor;
+        hasMore = res.has_more || false;
+      }
+
+      setSandboxes(allSandboxes);
+      setCurrentPage(1);
     } catch (error) {
       console.error("Failed to load sandboxes:", error);
       toast.error("Failed to load sandboxes");
@@ -92,24 +109,6 @@ export function SandboxPageClient({
       setIsLoadingSandboxes(false);
     }
   }, [project.id]);
-
-  // Load more sandboxes function
-  const loadMoreSandboxes = useCallback(async () => {
-    if (!nextCursor || isLoadingMore) return;
-
-    try {
-      setIsLoadingMore(true);
-      const res = await getSandboxLogs(project.id, 50, nextCursor, true);
-      setSandboxes((prev) => [...prev, ...(res.items || [])]);
-      setNextCursor(res.next_cursor);
-      setHasMoreSandboxes(res.has_more || false);
-    } catch (error) {
-      console.error("Failed to load more sandboxes:", error);
-      toast.error("Failed to load more sandboxes");
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }, [project.id, nextCursor, isLoadingMore]);
 
   // Refresh sandboxes
   const handleRefreshSandboxes = useCallback(async () => {
@@ -171,12 +170,15 @@ export function SandboxPageClient({
                 type="text"
                 placeholder="Filter by ID..."
                 value={filterText}
-                onChange={(e) => setFilterText(e.target.value)}
+                onChange={(e) => {
+                  setFilterText(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="w-full"
               />
             </div>
 
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 flex flex-col min-h-0">
               {isLoadingSandboxes ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="flex flex-col items-center gap-2">
@@ -194,8 +196,8 @@ export function SandboxPageClient({
                 </div>
               ) : (
                 <>
-                  <div className="space-y-2">
-                    {filteredSandboxes.map((sandbox) => {
+                  <div className="space-y-2 overflow-auto flex-1">
+                    {paginatedSandboxes.map((sandbox) => {
                       const isSelected = selectedSandbox?.id === sandbox.id;
                       return (
                         <div
@@ -228,24 +230,13 @@ export function SandboxPageClient({
                       );
                     })}
                   </div>
-                  {hasMoreSandboxes && !filterText && (
-                    <div className="p-4 flex justify-center">
-                      <Button
-                        variant="outline"
-                        onClick={loadMoreSandboxes}
-                        disabled={isLoadingMore}
-                      >
-                        {isLoadingMore ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Loading...
-                          </>
-                        ) : (
-                          "Load More"
-                        )}
-                      </Button>
-                    </div>
-                  )}
+                  <PaginationBar
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={filteredSandboxes.length}
+                    onPageChange={setCurrentPage}
+                    itemLabel="sandboxes"
+                  />
                 </>
               )}
             </div>

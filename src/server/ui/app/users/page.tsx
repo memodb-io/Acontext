@@ -30,6 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, RefreshCw } from "lucide-react";
+import { PaginationBar } from "@/components/pagination-bar";
 import {
   getUsers,
   deleteUser,
@@ -37,13 +38,17 @@ import {
 } from "@/app/users/actions";
 import { User, UserResources } from "@/types";
 
+const PAGE_SIZE = 20;
+
 export default function UsersPage() {
   const t = useTranslations("users");
+  const tp = useTranslations("pagination");
 
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filterText, setFilterText] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState<User | null>(null);
@@ -56,6 +61,12 @@ export default function UsersPage() {
 
   const filteredUsers = users.filter((user) =>
     user.identifier.toLowerCase().includes(filterText.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filteredUsers.length / PAGE_SIZE);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
   );
 
   const loadUsers = async () => {
@@ -77,6 +88,7 @@ export default function UsersPage() {
       }
 
       setUsers(allUsers);
+      setCurrentPage(1);
     } catch (error) {
       console.error("Failed to load users:", error);
     } finally {
@@ -167,7 +179,10 @@ export default function UsersPage() {
             type="text"
             placeholder={t("filterByIdentifier")}
             value={filterText}
-            onChange={(e) => setFilterText(e.target.value)}
+            onChange={(e) => {
+              setFilterText(e.target.value);
+              setCurrentPage(1);
+            }}
             className="max-w-sm"
           />
         </div>
@@ -185,7 +200,8 @@ export default function UsersPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-auto">
+          <>
+          <div className="overflow-auto flex-1">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -195,7 +211,7 @@ export default function UsersPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((user) => (
+                {paginatedUsers.map((user) => (
                   <TableRow key={user.id}>
                     <TableCell className="font-mono">
                       {user.identifier}
@@ -230,6 +246,14 @@ export default function UsersPage() {
               </TableBody>
             </Table>
           </div>
+          <PaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredUsers.length}
+            onPageChange={setCurrentPage}
+            itemLabel={tp("users")}
+          />
+          </>
         )}
       </div>
 

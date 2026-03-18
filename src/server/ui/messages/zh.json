@@ -397,6 +397,18 @@
     "cancel": "取消",
     "saveSuccess": "设置保存成功。"
   },
+  "pagination": {
+    "previous": "上一页",
+    "next": "下一页",
+    "items": "项",
+    "sessions": "个会话",
+    "disks": "个磁盘",
+    "users": "个用户",
+    "spaces": "个空间",
+    "skills": "个技能",
+    "messages": "条消息",
+    "tasks": "个任务"
+  },
   "traces": {
     "title": "Traces",
     "timeRangeOptions": {

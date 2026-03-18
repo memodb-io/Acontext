@@ -33,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, RefreshCw, Plus, Trash2 } from "lucide-react";
+import { PaginationBar } from "@/components/pagination-bar";
 import { toast } from "sonner";
 import {
   getLearningSpaces,
@@ -42,6 +43,8 @@ import {
 import { getUsers } from "@/app/users/actions";
 import { LearningSpace } from "@/types";
 
+const PAGE_SIZE = 20;
+
 function getValidMeta(meta: string, hasError: boolean): string | undefined {
   if (!meta || hasError) return undefined;
   return meta;
@@ -49,12 +52,14 @@ function getValidMeta(meta: string, hasError: boolean): string | undefined {
 
 export default function LearningSpacesPage() {
   const t = useTranslations("learningSpaces");
+  const tp = useTranslations("pagination");
   const router = useRouter();
 
   const [spaces, setSpaces] = useState<LearningSpace[]>([]);
   const [userMap, setUserMap] = useState<Map<string, string>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
   const [filterUser, setFilterUser] = useState("");
   const [filterMeta, setFilterMeta] = useState("");
   const [metaJsonError, setMetaJsonError] = useState(false);
@@ -93,6 +98,7 @@ export default function LearningSpacesPage() {
           hasMore = res.data?.has_more || false;
         }
         setSpaces(allSpaces);
+        setCurrentPage(1);
 
         const userIds = [
           ...new Set(allSpaces.map((s) => s.user_id).filter(Boolean)),
@@ -234,6 +240,12 @@ export default function LearningSpacesPage() {
     }
   };
 
+  const totalPages = Math.ceil(spaces.length / PAGE_SIZE);
+  const paginatedSpaces = spaces.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
   const filtersActive = filterUser !== "" || filterMeta !== "";
 
   return (
@@ -308,7 +320,8 @@ export default function LearningSpacesPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-auto">
+          <>
+          <div className="overflow-auto flex-1">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -320,7 +333,7 @@ export default function LearningSpacesPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {spaces.map((space) => (
+                {paginatedSpaces.map((space) => (
                   <TableRow
                     key={space.id}
                     className="cursor-pointer"
@@ -380,6 +393,14 @@ export default function LearningSpacesPage() {
               </TableBody>
             </Table>
           </div>
+          <PaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={spaces.length}
+            onPageChange={setCurrentPage}
+            itemLabel={tp("spaces")}
+          />
+          </>
         )}
       </div>
 

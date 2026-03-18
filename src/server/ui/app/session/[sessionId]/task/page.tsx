@@ -20,14 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "@/components/ui/pagination";
+import { PaginationBar } from "@/components/pagination-bar";
 import { Loader2, RefreshCw, ArrowLeft, ChevronDown, ChevronUp } from "lucide-react";
 import { getTasks, getSessionConfigs } from "@/app/session/actions";
 import { Task } from "@/types";
@@ -40,6 +33,7 @@ const PAGE_SIZE = 10;
 
 export default function TasksPage() {
   const t = useTranslations("session");
+  const tp = useTranslations("pagination");
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -290,65 +284,13 @@ export default function TasksPage() {
                 </Table>
               </div>
 
-              {totalPages > 1 && (
-                <div className="border-t p-4">
-                  <Pagination>
-                    <PaginationContent>
-                      <PaginationItem>
-                        <PaginationPrevious
-                          onClick={() =>
-                            setCurrentPage((p) => Math.max(1, p - 1))
-                          }
-                          className={
-                            currentPage === 1
-                              ? "pointer-events-none opacity-50"
-                              : "cursor-pointer"
-                          }
-                        />
-                      </PaginationItem>
-                      {Array.from({ length: totalPages }, (_, i) => i + 1)
-                        .filter(
-                          (page) =>
-                            page === 1 ||
-                            page === totalPages ||
-                            Math.abs(page - currentPage) <= 1
-                        )
-                        .map((page, idx, arr) => {
-                          const showEllipsisBefore =
-                            idx > 0 && page - arr[idx - 1] > 1;
-                          return (
-                            <div key={page} className="flex items-center">
-                              {showEllipsisBefore && (
-                                <span className="px-2">...</span>
-                              )}
-                              <PaginationItem>
-                                <PaginationLink
-                                  onClick={() => setCurrentPage(page)}
-                                  isActive={currentPage === page}
-                                  className="cursor-pointer"
-                                >
-                                  {page}
-                                </PaginationLink>
-                              </PaginationItem>
-                            </div>
-                          );
-                        })}
-                      <PaginationItem>
-                        <PaginationNext
-                          onClick={() =>
-                            setCurrentPage((p) => Math.min(totalPages, p + 1))
-                          }
-                          className={
-                            currentPage === totalPages
-                              ? "pointer-events-none opacity-50"
-                              : "cursor-pointer"
-                          }
-                        />
-                      </PaginationItem>
-                    </PaginationContent>
-                  </Pagination>
-                </div>
-              )}
+              <PaginationBar
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={allTasks.length}
+                onPageChange={setCurrentPage}
+                itemLabel={tp("tasks")}
+              />
           </>
         )}
       </div>

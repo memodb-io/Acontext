@@ -32,6 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, Upload, RefreshCw } from "lucide-react";
+import { PaginationBar } from "@/components/pagination-bar";
 import {
   getAgentSkills,
   createAgentSkill,
@@ -39,14 +40,18 @@ import {
 } from "@/app/agent_skills/actions";
 import { AgentSkill } from "@/types";
 
+const PAGE_SIZE = 20;
+
 export default function AgentSkillsPage() {
   const t = useTranslations("agentSkills");
+  const tp = useTranslations("pagination");
   const router = useRouter();
 
   const [skills, setSkills] = useState<AgentSkill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filterText, setFilterText] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [skillToDelete, setSkillToDelete] = useState<AgentSkill | null>(null);
@@ -61,6 +66,12 @@ export default function AgentSkillsPage() {
 
   const filteredSkills = skills.filter((skill) =>
     skill.name.toLowerCase().includes(filterText.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filteredSkills.length / PAGE_SIZE);
+  const paginatedSkills = filteredSkills.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
   );
 
   const loadSkills = async () => {
@@ -82,6 +93,7 @@ export default function AgentSkillsPage() {
       }
 
       setSkills(allSkills);
+      setCurrentPage(1);
     } catch (error) {
       console.error("Failed to load agent skills:", error);
     } finally {
@@ -197,7 +209,10 @@ export default function AgentSkillsPage() {
             type="text"
             placeholder={t("filterById")}
             value={filterText}
-            onChange={(e) => setFilterText(e.target.value)}
+            onChange={(e) => {
+              setFilterText(e.target.value);
+              setCurrentPage(1);
+            }}
             className="max-w-sm"
           />
         </div>
@@ -215,7 +230,8 @@ export default function AgentSkillsPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-auto">
+          <>
+          <div className="overflow-auto flex-1">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -227,7 +243,7 @@ export default function AgentSkillsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredSkills.map((skill) => (
+                {paginatedSkills.map((skill) => (
                   <TableRow key={skill.id}>
                     <TableCell className="font-medium">
                       {skill.name}
@@ -272,6 +288,14 @@ export default function AgentSkillsPage() {
               </TableBody>
             </Table>
           </div>
+          <PaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredSkills.length}
+            onPageChange={setCurrentPage}
+            itemLabel={tp("skills")}
+          />
+          </>
         )}
       </div>
 

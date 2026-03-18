@@ -67,6 +67,7 @@ import {
   ChevronsUpDown,
   MoreHorizontal,
 } from "lucide-react";
+import { PaginationBar } from "@/components/pagination-bar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -96,6 +97,8 @@ import {
 } from "./actions";
 import { getAllUsers } from "../actions";
 import { toast } from "sonner";
+
+const PAGE_SIZE = 20;
 
 interface DiskTreeNode extends TreeNode {
   path: string;
@@ -128,9 +131,7 @@ export function DiskPageClient({
   const [disks, setDisks] = useState<Disk[]>([]);
   const [selectedDisk, setSelectedDisk] = useState<Disk | null>(null);
   const [isLoadingDisks, setIsLoadingDisks] = useState(true);
-  const [nextCursor, setNextCursor] = useState<string | undefined>(undefined);
-  const [hasMoreDisks, setHasMoreDisks] = useState(false);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // File preview states
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -222,14 +223,30 @@ export function DiskPageClient({
     disk.id.toLowerCase().includes(filterText.toLowerCase())
   );
 
+  const totalPages = Math.ceil(filteredDisks.length / PAGE_SIZE);
+  const paginatedDisks = filteredDisks.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
   const loadDisks = useCallback(async () => {
     try {
       setIsLoadingDisks(true);
       const userParam = userFilter === "all" ? undefined : userFilter;
-      const res = await getDisks(project.id, 50, undefined, true, userParam);
-      setDisks(res.items || []);
-      setNextCursor(res.next_cursor);
-      setHasMoreDisks(res.has_more || false);
+
+      const allDisks: Disk[] = [];
+      let cursor: string | undefined = undefined;
+      let hasMore = true;
+
+      while (hasMore) {
+        const res = await getDisks(project.id, 50, cursor, true, userParam);
+        allDisks.push(...(res.items || []));
+        cursor = res.next_cursor;
+        hasMore = res.has_more || false;
+      }
+
+      setDisks(allDisks);
+      setCurrentPage(1);
     } catch (error) {
       console.error("Failed to load disks:", error);
       toast.error("Failed to load disks");
@@ -237,23 +254,6 @@ export function DiskPageClient({
       setIsLoadingDisks(false);
     }
   }, [project.id, userFilter]);
-
-  const loadMoreDisks = useCallback(async () => {
-    if (!nextCursor || isLoadingMore) return;
-    try {
-      setIsLoadingMore(true);
-      const userParam = userFilter === "all" ? undefined : userFilter;
-      const res = await getDisks(project.id, 50, nextCursor, true, userParam);
-      setDisks((prev) => [...prev, ...(res.items || [])]);
-      setNextCursor(res.next_cursor);
-      setHasMoreDisks(res.has_more || false);
-    } catch (error) {
-      console.error("Failed to load more disks:", error);
-      toast.error("Failed to load more disks");
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }, [project.id, nextCursor, userFilter, isLoadingMore]);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -856,12 +856,15 @@ export function DiskPageClient({
                 type="text"
                 placeholder="Filter by ID..."
                 value={filterText}
-                onChange={(e) => setFilterText(e.target.value)}
+                onChange={(e) => {
+                  setFilterText(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className="w-full"
               />
             </div>
 
-            <div className="flex-1 overflow-auto">
+            <div className="flex-1 flex flex-col min-h-0">
               {isLoadingDisks ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="flex flex-col items-center gap-2">
@@ -877,8 +880,8 @@ export function DiskPageClient({
                 </div>
               ) : (
                 <>
-                  <div className="space-y-2">
-                    {filteredDisks.map((disk) => {
+                  <div className="space-y-2 overflow-auto flex-1">
+                    {paginatedDisks.map((disk) => {
                       const isSelected = selectedDisk?.id === disk.id;
                       return (
                         <div
@@ -925,13 +928,13 @@ export function DiskPageClient({
                       );
                     })}
                   </div>
-                  {hasMoreDisks && !filterText && (
-                    <div className="p-4 flex justify-center">
-                      <Button variant="outline" onClick={loadMoreDisks} disabled={isLoadingMore}>
-                        {isLoadingMore ? (<><Loader2 className="h-4 w-4 animate-spin" />Loading...</>) : "Load More"}
-                      </Button>
-                    </div>
-                  )}
+                  <PaginationBar
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    totalItems={filteredDisks.length}
+                    onPageChange={setCurrentPage}
+                    itemLabel="disks"
+                  />
                 </>
               )}
             </div>

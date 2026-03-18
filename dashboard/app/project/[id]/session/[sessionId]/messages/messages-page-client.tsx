@@ -70,6 +70,7 @@ import {
   getAllowedPartTypes,
 } from "@/lib/message-utils";
 import { CodeEditor } from "@/components/code-editor";
+import { PaginationBar } from "@/components/pagination-bar";
 import type { MessageRole, PartType, UploadedFile, ToolCall, ToolResult } from "@/types";
 import { formatBytes } from "@/lib/utils";
 
@@ -596,8 +597,8 @@ export function MessagesPageClient({
   };
 
   return (
-    <div className="bg-background p-6">
-      <div className="space-y-4">
+    <div className="h-full bg-background p-6 flex flex-col overflow-hidden space-y-2">
+      <div className="shrink-0 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-stretch gap-2">
             <Button
@@ -730,14 +731,15 @@ export function MessagesPageClient({
             )}
           </div>
         )}
+      </div>
 
-        <div className="rounded-md border overflow-hidden flex flex-col">
+        <div className="flex-1 rounded-md border overflow-hidden flex flex-col min-h-0">
           {isLoadingMessages ? (
-            <div className="flex items-center justify-center h-64">
+            <div className="flex items-center justify-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : allMessages.length === 0 ? (
-            <div className="flex items-center justify-center h-64">
+            <div className="flex items-center justify-center h-full">
               <p className="text-sm text-muted-foreground">No data</p>
             </div>
           ) : (
@@ -878,58 +880,16 @@ export function MessagesPageClient({
                 </Table>
               </div>
 
-              {totalPages > 1 && (
-                <div className="border-t p-4">
-                  <div className="flex items-center justify-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter(
-                        (page) =>
-                          page === 1 ||
-                          page === totalPages ||
-                          Math.abs(page - currentPage) <= 1
-                      )
-                      .map((page, idx, arr) => {
-                        const showEllipsisBefore =
-                          idx > 0 && page - arr[idx - 1] > 1;
-                        return (
-                          <div key={page} className="flex items-center">
-                            {showEllipsisBefore && (
-                              <span className="px-2 text-sm text-muted-foreground">...</span>
-                            )}
-                            <Button
-                              variant={currentPage === page ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setCurrentPage(page)}
-                              className="min-w-10"
-                            >
-                              {page}
-                            </Button>
-                          </div>
-                        );
-                      })}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <PaginationBar
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={filteredTimelineItems.length}
+                onPageChange={setCurrentPage}
+                itemLabel="messages"
+              />
             </>
           )}
         </div>
-      </div>
 
       {/* Create Message Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>

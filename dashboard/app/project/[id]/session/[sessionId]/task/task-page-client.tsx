@@ -24,6 +24,7 @@ import { Loader2, RefreshCw, ArrowLeft, ChevronDown, ChevronUp } from "lucide-re
 import { Project, Task } from "@/types";
 import { getTasks, getSessionConfigs } from "../../actions";
 import { CodeEditor } from "@/components/code-editor";
+import { PaginationBar } from "@/components/pagination-bar";
 import { toast } from "sonner";
 
 interface TaskPageClientProps {
@@ -268,29 +269,13 @@ export function TaskPageClient({
               </Table>
             </div>
 
-            {totalPages > 1 && (
-              <div className="border-t p-4 flex items-center justify-between">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                <span className="text-sm text-muted-foreground">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            )}
+            <PaginationBar
+              currentPage={currentPage}
+              totalPages={totalPages}
+              totalItems={allTasks.length}
+              onPageChange={setCurrentPage}
+              itemLabel="tasks"
+            />
           </>
         )}
       </div>

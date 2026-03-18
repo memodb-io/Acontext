@@ -33,6 +33,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Loader2, Plus, RefreshCw } from "lucide-react";
+import { PaginationBar } from "@/components/pagination-bar";
 import {
   getSessions,
   createSession,
@@ -47,8 +48,11 @@ import { json } from "@codemirror/lang-json";
 import { EditorView } from "@codemirror/view";
 import { Checkbox } from "@/components/ui/checkbox";
 
+const PAGE_SIZE = 20;
+
 export default function SessionsPage() {
   const t = useTranslations("session");
+  const tp = useTranslations("pagination");
   const router = useRouter();
   const { resolvedTheme } = useTheme();
 
@@ -59,6 +63,7 @@ export default function SessionsPage() {
   const [isRefreshingSessions, setIsRefreshingSessions] = useState(false);
   const [sessionFilterText, setSessionFilterText] = useState("");
   const [userFilter, setUserFilter] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
@@ -87,6 +92,12 @@ export default function SessionsPage() {
     return matchesId;
   });
 
+  const totalPages = Math.ceil(filteredSessions.length / PAGE_SIZE);
+  const paginatedSessions = filteredSessions.slice(
+    (currentPage - 1) * PAGE_SIZE,
+    currentPage * PAGE_SIZE
+  );
+
   const loadSessions = async () => {
     try {
       setIsLoadingSessions(true);
@@ -113,6 +124,7 @@ export default function SessionsPage() {
       }
 
       setSessions(allSsns);
+      setCurrentPage(1);
     } catch (error) {
       console.error("Failed to load sessions:", error);
     } finally {
@@ -357,7 +369,10 @@ export default function SessionsPage() {
             type="text"
             placeholder={t("filterById")}
             value={sessionFilterText}
-            onChange={(e) => setSessionFilterText(e.target.value)}
+            onChange={(e) => {
+              setSessionFilterText(e.target.value);
+              setCurrentPage(1);
+            }}
             className="max-w-sm"
           />
         </div>
@@ -375,7 +390,8 @@ export default function SessionsPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-auto">
+          <>
+          <div className="overflow-auto flex-1">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -386,7 +402,7 @@ export default function SessionsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredSessions.map((session) => (
+                {paginatedSessions.map((session) => (
                   <TableRow
                     key={session.id}
                     className="cursor-pointer"
@@ -449,6 +465,14 @@ export default function SessionsPage() {
               </TableBody>
             </Table>
           </div>
+          <PaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filteredSessions.length}
+            onPageChange={setCurrentPage}
+            itemLabel={tp("sessions")}
+          />
+          </>
         )}
       </div>
 

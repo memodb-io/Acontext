@@ -397,6 +397,18 @@
     "cancel": "Cancel",
     "saveSuccess": "Settings saved successfully."
   },
+  "pagination": {
+    "previous": "Previous",
+    "next": "Next",
+    "items": "items",
+    "sessions": "sessions",
+    "disks": "disks",
+    "users": "users",
+    "spaces": "spaces",
+    "skills": "skills",
+    "messages": "messages",
+    "tasks": "tasks"
+  },
   "traces": {
     "title": "Traces",
     "timeRangeOptions": {
