@@ -23,9 +23,9 @@ type Client struct {
 	headers    map[string]string
 }
 
-// NewClient creates a client that authenticates with both JWT and API key.
-// The /api/v1 routes require ProjectAuth (API key) + SupabaseAuth (JWT).
-func NewClient(baseURL, apiKey, accessToken string) *Client {
+// NewClient creates a client that authenticates with an API key.
+// The /api/v1 routes require ProjectAuth (API key) via Authorization header.
+func NewClient(baseURL, apiKey string) *Client {
 	if baseURL == "" {
 		baseURL = DefaultBaseURL
 	}
@@ -34,9 +34,6 @@ func NewClient(baseURL, apiKey, accessToken string) *Client {
 	}
 	if apiKey != "" {
 		headers["Authorization"] = "Bearer " + apiKey
-	}
-	if accessToken != "" {
-		headers["X-Access-Token"] = accessToken
 	}
 	return &Client{
 		baseURL:    baseURL,

@@ -19,7 +19,7 @@ var (
 var SkillCmd = &cobra.Command{
 	Use:   "skill",
 	Short: "Manage agent skills",
-	Long:  "Upload and manage agent skills. Requires login (run 'acontext login' first).",
+	Long:  "Upload and manage agent skills. Requires an API key (run 'acontext dash projects select' first).",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Inherit parent persistent pre-run hooks (telemetry, etc.)
 		if parentE := cmd.Root().PersistentPreRunE; parentE != nil {
@@ -30,18 +30,6 @@ var SkillCmd = &cobra.Command{
 			parent(cmd, args)
 		}
 
-		// Require login
-		af, err := auth.Load()
-		if err != nil || af == nil {
-			return fmt.Errorf("not logged in — run 'acontext login' first")
-		}
-		af, err = auth.ValidateAndRefresh(af)
-		if err != nil {
-			return fmt.Errorf("session invalid — run 'acontext login' again: %w", err)
-		}
-		dashUserEmail = af.User.Email
-		dashAccessToken = af.AccessToken
-
 		// Resolve API key: flag > default project keystore
 		apiKey := skillAPIKey
 		if apiKey == "" {
@@ -51,7 +39,7 @@ var SkillCmd = &cobra.Command{
 			}
 		}
 		if apiKey != "" {
-			dashClient = api.NewClient(skillBaseURL, apiKey, af.AccessToken)
+			dashClient = api.NewClient(skillBaseURL, apiKey)
 		}
 
 		return nil
@@ -86,7 +74,10 @@ func init() {
 
 			user, _ := cmd.Flags().GetString("user")
 			if user == "" {
-				user = dashUserEmail
+				// Best-effort: read email from auth.json without token validation
+				if af, _ := auth.Load(); af != nil {
+					user = af.User.Email
+				}
 			}
 			meta, _ := cmd.Flags().GetString("meta")
 

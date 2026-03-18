@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/memodb-io/Acontext/acontext-cli/internal/api"
 	"github.com/memodb-io/Acontext/acontext-cli/internal/auth"
@@ -23,11 +24,14 @@ var (
 	dashAccessToken string
 )
 
+var adminOnce sync.Once
+var adminErr error
+
 // DashCmd is the parent command for all dashboard operations.
 var DashCmd = &cobra.Command{
 	Use:   "dash",
 	Short: "Dashboard operations — manage projects, sessions, skills, and more",
-	Long:  "Interact with the Acontext Dashboard API. Requires login (run 'acontext login' first).",
+	Long:  "Interact with the Acontext Dashboard API. Most commands require an API key; admin commands (projects) also require login.",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Inherit parent persistent pre-run hooks (telemetry, etc.)
 		if parentE := cmd.Root().PersistentPreRunE; parentE != nil {
@@ -38,23 +42,11 @@ var DashCmd = &cobra.Command{
 			parent(cmd, args)
 		}
 
-		// 1. Require login
-		af, err := auth.Load()
-		if err != nil || af == nil {
-			return fmt.Errorf("not logged in — run 'acontext login' first")
-		}
-		af, err = auth.ValidateAndRefresh(af)
-		if err != nil {
-			return fmt.Errorf("session invalid — run 'acontext login' again: %w", err)
-		}
-		dashUserEmail = af.User.Email
-		dashUserID = af.User.ID
-		dashAccessToken = af.AccessToken
+		// Reset adminOnce for each command invocation
+		adminOnce = sync.Once{}
+		adminErr = nil
 
-		// 2. Admin client always available (JWT only)
-		dashAdminClient = api.NewAdminClient(dashBaseURL, af.AccessToken)
-
-		// 3. Resolve API key for /api/v1 routes: --api-key flag > --project flag > credentials.json default
+		// Resolve API key for /api/v1 routes: --api-key flag > --project flag > credentials.json default
 		apiKey := dashAPIKey
 		if apiKey == "" && dashProject != "" {
 			apiKey = auth.GetProjectKey(dashProject)
@@ -71,7 +63,7 @@ var DashCmd = &cobra.Command{
 		}
 
 		if apiKey != "" {
-			dashClient = api.NewClient(dashBaseURL, apiKey, af.AccessToken)
+			dashClient = api.NewClient(dashBaseURL, apiKey)
 		}
 
 		return nil
@@ -93,4 +85,26 @@ func requireClient() (*api.Client, error) {
 		return nil, fmt.Errorf("no project selected and no API key available\n\nTo fix this, run:\n  acontext login                        (login and select a project)\n  acontext dash projects select         (select a project interactively)\n  acontext dash projects list           (see your projects)")
 	}
 	return dashClient, nil
+}
+
+// requireAdmin validates the Supabase login and creates the admin client.
+// It is cached: multiple calls within the same command invocation are no-ops.
+func requireAdmin() error {
+	adminOnce.Do(func() {
+		af, err := auth.Load()
+		if err != nil || af == nil {
+			adminErr = fmt.Errorf("not logged in — run 'acontext login' first")
+			return
+		}
+		af, err = auth.ValidateAndRefresh(af)
+		if err != nil {
+			adminErr = fmt.Errorf("session invalid — run 'acontext login' again: %w", err)
+			return
+		}
+		dashAccessToken = af.AccessToken
+		dashUserEmail = af.User.Email
+		dashUserID = af.User.ID
+		dashAdminClient = api.NewAdminClient(dashBaseURL, af.AccessToken)
+	})
+	return adminErr
 }

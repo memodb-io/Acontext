@@ -24,6 +24,9 @@ func init() {
 	listCmd := &cobra.Command{
 		Use: "list", Short: "List your organizations and projects",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireAdmin(); err != nil {
+				return err
+			}
 			orgs, err := auth.ListOrganizations(dashAccessToken, dashUserID)
 			if err != nil {
 				return fmt.Errorf("fetch organizations: %w", err)
@@ -74,6 +77,9 @@ func init() {
 		Short: "Select and configure a default project",
 		Long:  "Interactively select a project, or use --project <id> for non-interactive mode. Generates and saves an API key locally.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireAdmin(); err != nil {
+				return err
+			}
 			projectFlag, _ := cmd.Flags().GetString("project")
 			apiKeyFlag, _ := cmd.Flags().GetString("api-key")
 			rotateFlag, _ := cmd.Flags().GetBool("rotate")
@@ -147,6 +153,9 @@ func init() {
 	createCmd := &cobra.Command{
 		Use: "create", Short: "Create a new project",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireAdmin(); err != nil {
+				return err
+			}
 			name, _ := cmd.Flags().GetString("name")
 			orgFlag, _ := cmd.Flags().GetString("org")
 
@@ -231,6 +240,9 @@ func init() {
 	deleteCmd := &cobra.Command{
 		Use: "delete <project-id>", Short: "Delete a project", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireAdmin(); err != nil {
+				return err
+			}
 			yes, _ := cmd.Flags().GetBool("yes")
 			if !yes {
 				if !auth.IsTTY() {
@@ -261,6 +273,9 @@ func init() {
 	statsCmd := &cobra.Command{
 		Use: "stats <project-id>", Short: "Show project statistics", Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := requireAdmin(); err != nil {
+				return err
+			}
 			stats, err := dashAdminClient.AdminGetProjectStats(context.Background(), args[0])
 			if err != nil {
 				return err

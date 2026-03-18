@@ -123,8 +123,17 @@ All dashboard commands are under `acontext dash`:
 Example — upload a skill directory:
 ```bash
 acontext skill upload ./my-skill-dir
+acontext skill upload ./my-skill-dir --user alice@example.com
+acontext skill upload ./my-skill-dir --api-key sk-ac-xxx
 ```
 The directory must contain a `SKILL.md` with name and description in YAML front-matter.
+
+| Flag        | Default                  | Description                    |
+| ----------- | ------------------------ | ------------------------------ |
+| `--user`    | logged-in email (if any) | User identifier for the skill  |
+| `--api-key` | credentials.json default | Project API key                |
+| `--meta`    | —                        | Metadata as JSON string        |
+| `--base-url`| —                        | API base URL override          |
 
 ### Other CLI Commands
 

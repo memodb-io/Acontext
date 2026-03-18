@@ -53,7 +53,7 @@ func TestAPIError_WithoutMessage(t *testing.T) {
 func TestClientGet_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "Bearer sk-ac-test", r.Header.Get("Authorization"))
-		assert.Equal(t, "my-jwt", r.Header.Get("X-Access-Token"))
+		assert.Empty(t, r.Header.Get("X-Access-Token"))
 
 		resp := map[string]interface{}{
 			"code": 200,
@@ -66,7 +66,7 @@ func TestClientGet_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "sk-ac-test", "my-jwt")
+	client := NewClient(server.URL, "sk-ac-test")
 	var session Session
 	err := client.Get(context.Background(), "/api/v1/session/s1", &session)
 	require.NoError(t, err)
@@ -83,7 +83,7 @@ func TestClientGet_401(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "bad-key", "")
+	client := NewClient(server.URL, "bad-key")
 	var result interface{}
 	err := client.Get(context.Background(), "/api/v1/session", &result)
 	require.Error(t, err)
@@ -123,7 +123,7 @@ func TestClientPost_WithBody(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	var session Session
 	err := client.Post(context.Background(), "/api/v1/session", &CreateSessionRequest{User: "alice@test.com"}, &session)
 	require.NoError(t, err)
@@ -137,7 +137,7 @@ func TestClientDelete(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	err := client.Delete(context.Background(), "/api/v1/session/s1", nil)
 	require.NoError(t, err)
 }
@@ -161,7 +161,7 @@ func TestListSessions_PaginatedResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	sessions, err := client.ListSessions(context.Background(), nil)
 	require.NoError(t, err)
 	assert.Len(t, sessions, 2)
@@ -182,7 +182,7 @@ func TestListSessions_EmptyItems(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	sessions, err := client.ListSessions(context.Background(), nil)
 	require.NoError(t, err)
 	assert.Empty(t, sessions)
@@ -203,7 +203,7 @@ func TestListDisks_PaginatedResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	disks, err := client.ListDisks(context.Background(), nil)
 	require.NoError(t, err)
 	assert.Len(t, disks, 1)
@@ -226,7 +226,7 @@ func TestListMessages_PaginatedResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	messages, err := client.ListMessages(context.Background(), "s1", nil)
 	require.NoError(t, err)
 	assert.Len(t, messages, 2)
@@ -250,7 +250,7 @@ func TestListArtifacts_Response(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	artifacts, err := client.ListArtifacts(context.Background(), "d1")
 	require.NoError(t, err)
 	assert.Len(t, artifacts, 2)
@@ -273,7 +273,7 @@ func TestListAgentSkills_PaginatedResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	skills, err := client.ListAgentSkills(context.Background(), nil)
 	require.NoError(t, err)
 	assert.Len(t, skills, 1)
@@ -295,7 +295,7 @@ func TestListUsers_PaginatedResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	users, err := client.ListUsers(context.Background(), nil)
 	require.NoError(t, err)
 	assert.Len(t, users, 1)
@@ -317,7 +317,7 @@ func TestListLearningSpaces_PaginatedResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	spaces, err := client.ListLearningSpaces(context.Background(), nil)
 	require.NoError(t, err)
 	assert.Len(t, spaces, 1)
@@ -335,7 +335,7 @@ func TestPing_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	err := client.Ping(context.Background())
 	require.NoError(t, err)
 }
@@ -350,7 +350,7 @@ func TestPing_Failure(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "bad-key", "jwt")
+	client := NewClient(server.URL, "bad-key")
 	err := client.Ping(context.Background())
 	require.Error(t, err)
 	apiErr, ok := err.(*APIError)
@@ -381,7 +381,7 @@ func TestCreateSession(t *testing.T) {
 	}, map[string]string{"id": "s-new", "project_id": "p1"})
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	session, err := client.CreateSession(context.Background(), &CreateSessionRequest{User: "alice@test.com"})
 	require.NoError(t, err)
 	assert.Equal(t, "s-new", session.ID)
@@ -395,7 +395,7 @@ func TestGetSession_Success(t *testing.T) {
 	})
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	session, err := client.GetSession(context.Background(), "s1")
 	require.NoError(t, err)
 	assert.Equal(t, "s1", session.ID)
@@ -407,7 +407,7 @@ func TestGetSession_404WhenEmpty(t *testing.T) {
 	})
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	_, err := client.GetSession(context.Background(), "missing")
 	require.Error(t, err)
 	apiErr, ok := err.(*APIError)
@@ -423,7 +423,7 @@ func TestDeleteSession(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	err := client.DeleteSession(context.Background(), "s1")
 	require.NoError(t, err)
 }
@@ -438,7 +438,7 @@ func TestStoreMessage(t *testing.T) {
 	}, map[string]string{"id": "m1", "role": "user", "content": "hello"})
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	msg, err := client.StoreMessage(context.Background(), "s1", &StoreMessageRequest{Role: "user", Content: "hello"})
 	require.NoError(t, err)
 	assert.Equal(t, "m1", msg.ID)
@@ -452,7 +452,7 @@ func TestCreateDisk(t *testing.T) {
 	}, map[string]string{"id": "d-new"})
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	disk, err := client.CreateDisk(context.Background(), &CreateDiskRequest{User: "alice"})
 	require.NoError(t, err)
 	assert.Equal(t, "d-new", disk.ID)
@@ -466,7 +466,7 @@ func TestGetDisk_Success(t *testing.T) {
 	})
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	disk, err := client.GetDisk(context.Background(), "d1")
 	require.NoError(t, err)
 	assert.Equal(t, "d1", disk.ID)
@@ -478,7 +478,7 @@ func TestGetDisk_404WhenEmpty(t *testing.T) {
 	})
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	_, err := client.GetDisk(context.Background(), "missing")
 	require.Error(t, err)
 	apiErr, ok := err.(*APIError)
@@ -494,7 +494,7 @@ func TestDeleteDisk(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	err := client.DeleteDisk(context.Background(), "d1")
 	require.NoError(t, err)
 }
@@ -507,7 +507,7 @@ func TestDeleteArtifact(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	err := client.DeleteArtifact(context.Background(), "d1", "/docs/readme.md")
 	require.NoError(t, err)
 }
@@ -518,7 +518,7 @@ func TestGetAgentSkill(t *testing.T) {
 	}, map[string]string{"id": "sk1", "name": "my-skill"})
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	skill, err := client.GetAgentSkill(context.Background(), "sk1")
 	require.NoError(t, err)
 	assert.Equal(t, "sk1", skill.ID)
@@ -533,7 +533,7 @@ func TestDeleteAgentSkill(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	err := client.DeleteAgentSkill(context.Background(), "sk1")
 	require.NoError(t, err)
 }
@@ -546,7 +546,7 @@ func TestDeleteUser(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	err := client.DeleteUser(context.Background(), "alice@test.com")
 	require.NoError(t, err)
 }
@@ -559,7 +559,7 @@ func TestCreateLearningSpace(t *testing.T) {
 	}, map[string]string{"id": "ls-new"})
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	space, err := client.CreateLearningSpace(context.Background(), &CreateLearningSpaceRequest{User: "alice"})
 	require.NoError(t, err)
 	assert.Equal(t, "ls-new", space.ID)
@@ -571,7 +571,7 @@ func TestGetLearningSpace(t *testing.T) {
 	}, map[string]string{"id": "ls1"})
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	space, err := client.GetLearningSpace(context.Background(), "ls1")
 	require.NoError(t, err)
 	assert.Equal(t, "ls1", space.ID)
@@ -585,7 +585,7 @@ func TestDeleteLearningSpace(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	err := client.DeleteLearningSpace(context.Background(), "ls1")
 	require.NoError(t, err)
 }
@@ -599,7 +599,7 @@ func TestLearnFromSession(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	err := client.LearnFromSession(context.Background(), "ls1", "s1")
 	require.NoError(t, err)
 }
@@ -682,7 +682,7 @@ func TestClientPut(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	var result map[string]string
 	err := client.Put(context.Background(), "/test", map[string]string{"a": "b"}, &result)
 	require.NoError(t, err)
@@ -696,7 +696,7 @@ func TestClientPatch(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	var result map[string]string
 	err := client.Patch(context.Background(), "/test", map[string]string{"a": "b"}, &result)
 	require.NoError(t, err)
@@ -712,7 +712,7 @@ func TestErrorHandling_NonJSONBody(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	var result interface{}
 	err := client.Get(context.Background(), "/fail", &result)
 	require.Error(t, err)
@@ -732,7 +732,7 @@ func TestErrorHandling_EnvelopeWithMsg(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "key", "jwt")
+	client := NewClient(server.URL, "key")
 	var result interface{}
 	err := client.Get(context.Background(), "/forbidden", &result)
 	require.Error(t, err)
