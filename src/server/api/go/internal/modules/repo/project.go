@@ -472,9 +472,9 @@ func (r *projectRepo) AnalyzeUsages(ctx context.Context, projectID uuid.UUID, in
 				)
 				SELECT
 					TO_CHAR(ds.date, 'YYYY-MM-DD') AS date,
-					COUNT(sp.id) AS count
+					COUNT(ls.id) AS count
 				FROM date_series ds
-				LEFT JOIN spaces sp ON DATE(sp.created_at) = ds.date AND sp.project_id = ?
+				LEFT JOIN learning_spaces ls ON DATE(ls.created_at) = ds.date AND ls.project_id = ?
 				GROUP BY ds.date
 				ORDER BY ds.date ASC
 			`, intervalDays, projectID).Scan(&rows).Error; err != nil {
@@ -509,7 +509,7 @@ func (r *projectRepo) AnalyzeStatistics(ctx context.Context, projectID uuid.UUID
 	if err := r.db.WithContext(ctx).Model(&struct {
 		ID uuid.UUID `gorm:"type:uuid"`
 	}{}).
-		Table("tool_references").
+		Table("agent_skills").
 		Where("project_id = ?", projectID).
 		Count(&skillCount).Error; err != nil {
 		return nil, err
