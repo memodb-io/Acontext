@@ -11,6 +11,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/infra/blob"
 	"github.com/memodb-io/Acontext/internal/infra/cache"
+	encryptionpkg "github.com/memodb-io/Acontext/internal/infra/crypto"
 	"github.com/memodb-io/Acontext/internal/infra/db"
 	"github.com/memodb-io/Acontext/internal/infra/httpclient"
 	"github.com/memodb-io/Acontext/internal/infra/logger"
@@ -185,10 +186,17 @@ func BuildContainer() *do.Injector {
 		return mq.NewPublisher(conn, log, cfg, dialFn)
 	})
 
+	// Encryption
+	do.Provide(inj, func(i *do.Injector) (*encryptionpkg.EncryptionService, error) {
+		cfg := do.MustInvoke[*config.Config](i)
+		return encryptionpkg.NewEncryptionService(cfg.Encryption.MasterKey, cfg.Encryption.Enabled)
+	})
+
 	// S3
 	do.Provide(inj, func(i *do.Injector) (*blob.S3Deps, error) {
 		cfg := do.MustInvoke[*config.Config](i)
-		return blob.NewS3(context.Background(), cfg)
+		encSvc := do.MustInvoke[*encryptionpkg.EncryptionService](i)
+		return blob.NewS3(context.Background(), cfg, encSvc)
 	})
 	// get presign expire duration
 	do.Provide(inj, func(i *do.Injector) (func() time.Duration, error) {

@@ -37,6 +37,7 @@ type SessionService interface {
 	PatchMessageMeta(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, messageID uuid.UUID, patchMeta map[string]interface{}) (map[string]interface{}, error)
 	PatchConfigs(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, patchConfigs map[string]interface{}) (map[string]interface{}, error)
 	CopySession(ctx context.Context, in CopySessionInput) (*CopySessionOutput, error)
+	DownloadAsset(ctx context.Context, s3Key string) ([]byte, error)
 }
 
 type CopySessionInput struct {
@@ -162,6 +163,7 @@ type StoreMessageInput struct {
 	Format      model.MessageFormat    // Message format (acontext, openai, anthropic, gemini)
 	MessageMeta map[string]interface{} // Message-level metadata (e.g., name, source_format)
 	Files       map[string]*multipart.FileHeader
+	UserKEK     []byte // optional: for envelope encryption
 }
 
 type StoreMQPublishJSON struct {
@@ -317,7 +319,7 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 			}
 
 			// upload asset to S3
-			asset, err := s.s3.UploadFormFile(ctx, "assets/"+in.ProjectID.String(), fh)
+			asset, err := s.s3.UploadFormFile(ctx, "assets/"+in.ProjectID.String(), fh, in.UserKEK)
 			if err != nil {
 				return nil, fmt.Errorf("upload %s failed: %w", partIn.FileField, err)
 			}
@@ -335,7 +337,7 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 	}
 
 	// upload parts to S3 as JSON file
-	asset, err := s.s3.UploadJSON(ctx, "parts/"+in.ProjectID.String(), parts)
+	asset, err := s.s3.UploadJSON(ctx, "parts/"+in.ProjectID.String(), parts, in.UserKEK)
 	if err != nil {
 		return nil, fmt.Errorf("upload parts to S3 failed: %w", err)
 	}
@@ -512,8 +514,8 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 		out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
 	}
 
-	// Generate presigned URLs for assets if requested
-	if in.WithAssetPublicURL && s.s3 != nil {
+	// Generate presigned URLs for assets if requested (only when encryption is off)
+	if in.WithAssetPublicURL && s.s3 != nil && !s.s3.EncryptionEnabled() {
 		out.PublicURLs = make(map[string]PublicURL)
 		for _, m := range out.Items {
 			for _, p := range m.Parts {
@@ -533,6 +535,14 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	}
 
 	return out, nil
+}
+
+// DownloadAsset downloads and decrypts an asset from S3 by its key.
+func (s *sessionService) DownloadAsset(ctx context.Context, s3Key string) ([]byte, error) {
+	if s.s3 == nil {
+		return nil, errors.New("S3 not configured")
+	}
+	return s.s3.DownloadFile(ctx, s3Key)
 }
 
 // cachePartsInRedis stores message parts in Redis with a fixed TTL

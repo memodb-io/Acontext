@@ -64,6 +64,14 @@ class GetSkillFileResp(BaseModel):
         None,
         description="Parsed file content if available (present if file is parseable)",
     )
+    raw_content: str | None = Field(
+        None,
+        description="Base64-encoded binary content (present when encryption is enabled for non-text files)",
+    )
+    content_mime: str | None = Field(
+        None,
+        description="MIME type of raw_content",
+    )
 
 
 class DownloadSkillToSandboxResp(BaseModel):

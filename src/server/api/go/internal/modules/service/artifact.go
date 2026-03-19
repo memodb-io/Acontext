@@ -25,6 +25,7 @@ type ArtifactService interface {
 	GetByPath(ctx context.Context, diskID uuid.UUID, path string, filename string) (*model.Artifact, error)
 	GetPresignedURL(ctx context.Context, artifact *model.Artifact, expire time.Duration) (string, error)
 	GetFileContent(ctx context.Context, artifact *model.Artifact) (*fileparser.FileContent, error)
+	DownloadRawContent(ctx context.Context, artifact *model.Artifact) ([]byte, string, error) // returns content, mime, error
 	UpdateArtifactMetaByPath(ctx context.Context, diskID uuid.UUID, path string, filename string, userMeta map[string]interface{}) (*model.Artifact, error)
 	ListByPath(ctx context.Context, diskID uuid.UUID, path string) ([]*model.Artifact, error)
 	GetAllPaths(ctx context.Context, diskID uuid.UUID) ([]string, error)
@@ -63,6 +64,7 @@ type CreateArtifactInput struct {
 	Filename   string
 	FileHeader *multipart.FileHeader
 	UserMeta   map[string]interface{}
+	UserKEK    []byte // optional: for envelope encryption
 }
 
 type CreateArtifactFromBytesInput struct {
@@ -71,6 +73,7 @@ type CreateArtifactFromBytesInput struct {
 	Path      string
 	Filename  string
 	Content   []byte
+	UserKEK   []byte // optional: for envelope encryption
 }
 
 func (s *artifactService) Create(ctx context.Context, in CreateArtifactInput) (*model.Artifact, error) {
@@ -85,7 +88,7 @@ func (s *artifactService) Create(ctx context.Context, in CreateArtifactInput) (*
 		}
 	}
 
-	asset, err := s.s3.UploadFormFile(ctx, "disks/"+in.ProjectID.String(), in.FileHeader)
+	asset, err := s.s3.UploadFormFile(ctx, "disks/"+in.ProjectID.String(), in.FileHeader, in.UserKEK)
 	if err != nil {
 		return nil, fmt.Errorf("upload file to S3: %w", err)
 	}
@@ -152,7 +155,7 @@ func (s *artifactService) CreateFromBytes(ctx context.Context, in CreateArtifact
 	}
 
 	// Upload bytes to S3 with deduplication
-	asset, err := s.s3.UploadBytes(ctx, "disks/"+in.ProjectID.String(), in.Filename, in.Content)
+	asset, err := s.s3.UploadBytes(ctx, "disks/"+in.ProjectID.String(), in.Filename, in.Content, in.UserKEK)
 	if err != nil {
 		return nil, fmt.Errorf("upload bytes to S3: %w", err)
 	}
@@ -255,6 +258,23 @@ func (s *artifactService) GetFileContent(ctx context.Context, artifact *model.Ar
 	}
 
 	return fileContent, nil
+}
+
+// DownloadRawContent downloads the raw file bytes from S3 (auto-decrypts if encrypted).
+// Returns content bytes, MIME type, and error.
+func (s *artifactService) DownloadRawContent(ctx context.Context, artifact *model.Artifact) ([]byte, string, error) {
+	if artifact == nil {
+		return nil, "", errors.New("artifact is nil")
+	}
+	assetData := artifact.AssetMeta.Data()
+	if assetData.S3Key == "" {
+		return nil, "", errors.New("artifact has no S3 key")
+	}
+	content, err := s.s3.DownloadFile(ctx, assetData.S3Key)
+	if err != nil {
+		return nil, "", fmt.Errorf("download file: %w", err)
+	}
+	return content, assetData.MIME, nil
 }
 
 func (s *artifactService) UpdateArtifactMetaByPath(ctx context.Context, diskID uuid.UUID, path string, filename string, userMeta map[string]interface{}) (*model.Artifact, error) {

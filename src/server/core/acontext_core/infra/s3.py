@@ -11,6 +11,7 @@ from botocore.exceptions import ClientError, NoCredentialsError
 
 from ..env import LOG as logger
 from ..env import DEFAULT_CORE_CONFIG
+from .crypto import get_encryption_service, metadata_from_map
 
 
 def _handle_s3_client_error(
@@ -188,13 +189,14 @@ class S3Client:
     async def download_object(self, key: str, bucket: Optional[str] = None) -> bytes:
         """
         Download S3 object content as bytes.
+        Auto-decrypts if the object has encryption metadata (using admin KEK).
 
         Args:
             key: The S3 object key
             bucket: Optional bucket name (uses default if not specified)
 
         Returns:
-            bytes: The object content
+            bytes: The object content (plaintext)
 
         Raises:
             ClientError: If the object doesn't exist or other S3 errors
@@ -206,6 +208,18 @@ class S3Client:
             async with self.get_client() as client:
                 response = await client.get_object(Bucket=bucket_name, Key=key)
                 content = await response["Body"].read()
+                s3_metadata = response.get("Metadata", {})
+
+                # Auto-decrypt if encrypted
+                enc_meta = metadata_from_map(s3_metadata)
+                if enc_meta is not None:
+                    enc_svc = get_encryption_service()
+                    if not enc_svc.enabled:
+                        raise RuntimeError(
+                            f"Encrypted object found but encryption service not enabled: {key}"
+                        )
+                    content = enc_svc.decrypt_with_admin_kek(content, enc_meta)
+
                 logger.debug(
                     f"Downloaded object - bucket: {bucket_name}, key: {key}, size: {len(content)} bytes"
                 )
@@ -226,6 +240,7 @@ class S3Client:
     ) -> Dict[str, Any]:
         """
         Upload data to S3 object.
+        Auto-encrypts if encryption is enabled (using admin KEK only — Core has no user KEK).
 
         Args:
             key: The S3 object key
@@ -244,8 +259,18 @@ class S3Client:
         bucket_name = bucket or self.bucket
 
         try:
+            upload_data = data
+            if metadata is None:
+                metadata = {}
+
+            # Encrypt if enabled
+            enc_svc = get_encryption_service()
+            if enc_svc.enabled:
+                upload_data, enc_meta = enc_svc.encrypt_with_admin_kek(data)
+                metadata.update(enc_meta)
+
             # Prepare put_object arguments
-            put_args = {"Bucket": bucket_name, "Key": key, "Body": data}
+            put_args = {"Bucket": bucket_name, "Key": key, "Body": upload_data}
 
             if content_type:
                 put_args["ContentType"] = content_type

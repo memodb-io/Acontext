@@ -156,6 +156,10 @@ export class SkillsAPI {
 
       if (resp.content) {
         await fs.writeFile(fileDest, resp.content.raw, 'utf-8');
+      } else if (resp.raw_content) {
+        // Binary content returned as base64 (when encryption is enabled)
+        const buffer = Buffer.from(resp.raw_content, 'base64');
+        await fs.writeFile(fileDest, buffer);
       } else if (resp.url) {
         const r = await fetch(resp.url);
         if (!r.ok) {

@@ -138,6 +138,14 @@ func (m *MockArtifactService) GetFileContent(ctx context.Context, artifact *mode
 	return args.Get(0).(*fileparser.FileContent), args.Error(1)
 }
 
+func (m *MockArtifactService) DownloadRawContent(ctx context.Context, artifact *model.Artifact) ([]byte, string, error) {
+	args := m.Called(ctx, artifact)
+	if args.Get(0) == nil {
+		return nil, args.String(1), args.Error(2)
+	}
+	return args.Get(0).([]byte), args.String(1), args.Error(2)
+}
+
 func (m *MockArtifactService) UpdateArtifactMetaByPath(ctx context.Context, diskID uuid.UUID, path string, filename string, userMeta map[string]interface{}) (*model.Artifact, error) {
 	args := m.Called(ctx, diskID, path, filename, userMeta)
 	if args.Get(0) == nil {
@@ -844,21 +852,22 @@ func TestAgentSkillsService_GetFile(t *testing.T) {
 		assert.NotNil(t, result.Content)
 	})
 
-	t.Run("file with presigned URL (binary)", func(t *testing.T) {
+	t.Run("file with raw content download (binary)", func(t *testing.T) {
 		m := newTestMocks()
 		m.repo.On("GetByID", ctx, projectID, skillID).Return(skill, nil)
 
 		artifact := makeArtifact(diskID, "/", "image.png", "image/png", "disks/hash")
 		m.artifact.On("GetByPath", ctx, diskID, "/", "image.png").Return(artifact, nil)
-		m.artifact.On("GetPresignedURL", ctx, artifact, time.Hour).Return("https://s3.example.com/url", nil)
+		m.artifact.On("DownloadRawContent", ctx, artifact).Return([]byte("binary-content"), "image/png", nil)
 
 		result, err := m.service().GetFile(ctx, projectID, skillID, "image.png", time.Hour)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.Equal(t, "image.png", result.Path)
-		assert.NotNil(t, result.URL)
-		assert.Equal(t, "https://s3.example.com/url", *result.URL)
+		assert.NotNil(t, result.RawContent)
+		assert.Equal(t, []byte("binary-content"), result.RawContent)
+		assert.Equal(t, "image/png", result.ContentMIME)
 	})
 
 	t.Run("nested path resolves correctly", func(t *testing.T) {

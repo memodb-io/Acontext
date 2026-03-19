@@ -290,11 +290,12 @@ export class DownloadFileTool extends AbstractBaseTool {
       expire,
     });
 
-    if (!result.public_url) {
-      throw new Error('Failed to get public URL: server did not return a URL.');
+    if (result.public_url) {
+      return `Public download URL for '${normalizedPath}${filename}' (expires in ${expire}s):\n${result.public_url}`;
     }
 
-    return `Public download URL for '${normalizedPath}${filename}' (expires in ${expire}s):\n${result.public_url}`;
+    // Encryption enabled — no presigned URL, content available via API proxy
+    return `File '${normalizedPath}${filename}' is available. Use the download API endpoint to retrieve its content.`;
   }
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/infra/httpclient"
+	"github.com/memodb-io/Acontext/internal/middleware"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
@@ -434,6 +435,7 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 		Format:      format,
 		MessageMeta: normalizedMeta,
 		Files:       fileMap,
+		UserKEK:     middleware.GetUserKEK(c),
 	})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.DBErr("", err))
@@ -557,6 +559,33 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, serializer.Response{Data: convertedOut})
+}
+
+// DownloadSessionAsset godoc
+//
+//	@Summary		Download session asset
+//	@Description	Download a session asset (file attachment) by its S3 key. Decrypts if encryption is enabled.
+//	@Tags			session
+//	@Produce		octet-stream
+//	@Param			session_id	path	string	true	"Session ID"	format(uuid)
+//	@Param			s3_key		query	string	true	"S3 key of the asset"
+//	@Security		BearerAuth
+//	@Success		200	"Asset content"
+//	@Router			/session/{session_id}/asset/download [get]
+func (h *SessionHandler) DownloadSessionAsset(c *gin.Context) {
+	s3Key := c.Query("s3_key")
+	if s3Key == "" {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("s3_key is required")))
+		return
+	}
+
+	content, err := h.svc.DownloadAsset(c.Request.Context(), s3Key)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "download asset failed", err))
+		return
+	}
+
+	c.Data(http.StatusOK, "application/octet-stream", content)
 }
 
 // SessionFlush godoc

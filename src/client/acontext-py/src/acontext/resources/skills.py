@@ -172,6 +172,9 @@ class SkillsAPI:
 
             if resp.content is not None:
                 file_dest.write_text(resp.content.raw, encoding="utf-8")
+            elif resp.raw_content is not None:
+                import base64
+                file_dest.write_bytes(base64.b64decode(resp.raw_content))
             elif resp.url is not None:
                 r = httpx.get(resp.url)
                 r.raise_for_status()

@@ -455,10 +455,11 @@ class DownloadFileTool(BaseTool):
             expire=expire,
         )
 
-        if not result.public_url:
-            raise RuntimeError("Failed to get public URL: server did not return a URL.")
+        if result.public_url:
+            return f"Public download URL for '{normalized_path}{filename}' (expires in {expire}s):\n{result.public_url}"
 
-        return f"Public download URL for '{normalized_path}{filename}' (expires in {expire}s):\n{result.public_url}"
+        # Encryption enabled — no presigned URL
+        return f"File '{normalized_path}{filename}' is available. Use the download API endpoint to retrieve its content."
 
     async def async_execute(self, ctx: AsyncDiskContext, llm_arguments: dict) -> str:
         """Get a public download URL for a file (async)."""
@@ -478,10 +479,10 @@ class DownloadFileTool(BaseTool):
             expire=expire,
         )
 
-        if not result.public_url:
-            raise RuntimeError("Failed to get public URL: server did not return a URL.")
+        if result.public_url:
+            return f"Public download URL for '{normalized_path}{filename}' (expires in {expire}s):\n{result.public_url}"
 
-        return f"Public download URL for '{normalized_path}{filename}' (expires in {expire}s):\n{result.public_url}"
+        return f"File '{normalized_path}{filename}' is available. Use the download API endpoint to retrieve its content."
 
 
 class GrepArtifactsTool(BaseTool):

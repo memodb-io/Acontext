@@ -15,7 +15,7 @@ _SENSITIVE_KEYS = {
     "llm_api_key", "mq_url", "database_url", "redis_url",
     "s3_secret_key", "s3_access_key", "novita_api_key", "e2b_api_key",
     "cloudflare_worker_auth_token", "aws_agentcore_secret_key",
-    "aws_agentcore_access_key",
+    "aws_agentcore_access_key", "encryption_master_key",
 }
 
 

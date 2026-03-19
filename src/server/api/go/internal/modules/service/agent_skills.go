@@ -521,12 +521,14 @@ func (s *agentSkillsService) List(ctx context.Context, in ListAgentSkillsInput) 
 }
 
 // GetFileOutput represents the response for getting a file from a skill.
-// It contains either parsed content (for text files) or a presigned URL (for binary files).
+// It contains either parsed content (for text files), a presigned URL, or raw bytes (for binary files when encrypted).
 type GetFileOutput struct {
-	Path    string                  `json:"path"`
-	MIME    string                  `json:"mime"`
-	Content *fileparser.FileContent `json:"content,omitempty"` // Present if file is text-based and parseable
-	URL     *string                 `json:"url,omitempty"`     // Present if file is not text-based or not parseable
+	Path        string                  `json:"path"`
+	MIME        string                  `json:"mime"`
+	Content     *fileparser.FileContent `json:"content,omitempty"`      // Present if file is text-based and parseable
+	URL         *string                 `json:"url,omitempty"`          // Present if file is not text-based (no encryption)
+	RawContent  []byte                  `json:"raw_content,omitempty"`  // Present if file is binary and encryption is enabled
+	ContentMIME string                  `json:"content_mime,omitempty"` // MIME type when raw_content is present
 }
 
 func (s *agentSkillsService) GetFile(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID, filePath string, expire time.Duration) (*GetFileOutput, error) {
@@ -563,12 +565,13 @@ func (s *agentSkillsService) GetFile(ctx context.Context, projectID uuid.UUID, s
 		}
 		output.Content = fileContent
 	} else {
-		// Generate presigned URL for non-text files via ArtifactService
-		url, err := s.artifactSvc.GetPresignedURL(ctx, artifact, expire)
+		// For non-text files: try downloading raw content (works for both encrypted and non-encrypted)
+		rawContent, rawMIME, err := s.artifactSvc.DownloadRawContent(ctx, artifact)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate presigned URL: %w", err)
+			return nil, fmt.Errorf("failed to download file content: %w", err)
 		}
-		output.URL = &url
+		output.RawContent = rawContent
+		output.ContentMIME = rawMIME
 	}
 
 	return output, nil

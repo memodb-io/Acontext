@@ -77,6 +77,10 @@ class CoreConfig(BaseModel):
     s3_connection_timeout: float = 60.0
     s3_read_timeout: float = 60.0
 
+    # Encryption
+    encryption_enabled: bool = False
+    encryption_master_key: str = ""  # Admin master key for envelope encryption
+
     # otel
     otel_exporter_otlp_endpoint: str = "http://localhost:4317"
     otel_enabled: bool = True

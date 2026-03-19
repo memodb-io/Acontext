@@ -115,6 +115,14 @@ func (m *MockSessionService) CopySession(ctx context.Context, in service.CopySes
 	return args.Get(0).(*service.CopySessionOutput), args.Error(1)
 }
 
+func (m *MockSessionService) DownloadAsset(ctx context.Context, s3Key string) ([]byte, error) {
+	args := m.Called(ctx, s3Key)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]byte), args.Error(1)
+}
+
 func setupSessionRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	return gin.New()

@@ -12,14 +12,30 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/memodb-io/Acontext/internal/config"
+	encryptionpkg "github.com/memodb-io/Acontext/internal/infra/crypto"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/pkg/utils/secrets"
 	"github.com/memodb-io/Acontext/internal/pkg/utils/tokens"
 )
 
+// GetUserKEK extracts the user KEK from gin context.
+// Returns nil if encryption is disabled or KEK is not set.
+func GetUserKEK(c *gin.Context) []byte {
+	v, exists := c.Get("user_kek")
+	if !exists {
+		return nil
+	}
+	kek, ok := v.([]byte)
+	if !ok {
+		return nil
+	}
+	return kek
+}
+
 // ProjectAuth returns a middleware that authenticates requests using project bearer tokens.
-func ProjectAuth(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
+// When encryption is enabled, it derives a user KEK from the raw API key and stores it in context.
+func ProjectAuth(cfg *config.Config, db *gorm.DB, encSvc *encryptionpkg.EncryptionService) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Create auth span without propagating context to avoid nested span hierarchy
 		authCtx, authSpan := otel.Tracer("middleware").Start(
@@ -90,6 +106,19 @@ func ProjectAuth(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
 
 		c.Set("project", &project)
 		SetWideEventField(c, "project_id", project.ID.String())
+
+		// Derive user KEK when encryption is enabled
+		if encSvc != nil && encSvc.Enabled() {
+			userKEK, kerr := encryptionpkg.DeriveUserKEK(secret, cfg.Root.SecretPepper)
+			if kerr != nil {
+				authSpan.RecordError(kerr)
+				authSpan.End()
+				c.AbortWithStatusJSON(http.StatusInternalServerError, serializer.DBErr("derive user KEK", kerr))
+				return
+			}
+			c.Set("user_kek", userKEK)
+		}
+
 		c.Next()
 	}
 }

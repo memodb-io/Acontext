@@ -47,6 +47,8 @@ export const GetSkillFileRespSchema = z.object({
   mime: z.string(),
   url: z.string().nullable().optional(),
   content: FileContentSchema.nullable().optional(),
+  raw_content: z.string().nullable().optional(), // base64-encoded binary content (when encryption enabled)
+  content_mime: z.string().nullable().optional(),
 });
 
 export type GetSkillFileResp = z.infer<typeof GetSkillFileRespSchema>;

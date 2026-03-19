@@ -53,3 +53,7 @@ telemetry:
 
 artifact:
   maxUploadSizeBytes: ${ARTIFACT_MAX_UPLOAD_SIZE_BYTES}  # Default 16MB (16 * 1024 * 1024 bytes)
+
+encryption:
+  enabled: ${ENCRYPTION_ENABLED}       # Set to true to enable S3 envelope encryption
+  masterKey: "${ENCRYPTION_MASTER_KEY}" # Admin master key (required when enabled)

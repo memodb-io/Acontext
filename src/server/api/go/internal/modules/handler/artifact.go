@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/infra/blob"
+	"github.com/memodb-io/Acontext/internal/middleware"
 	"github.com/memodb-io/Acontext/internal/infra/httpclient"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
@@ -133,6 +134,7 @@ func (h *ArtifactHandler) UpsertArtifact(c *gin.Context) {
 		Filename:   actualFilename,
 		FileHeader: file,
 		UserMeta:   userMeta,
+		UserKEK:    middleware.GetUserKEK(c),
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
@@ -254,8 +256,8 @@ func (h *ArtifactHandler) GetArtifact(c *gin.Context) {
 
 	resp := GetArtifactResp{Artifact: artifact}
 
-	// Generate presigned URL if requested
-	if req.WithPublicURL {
+	// Generate presigned URL if requested (only when encryption is off)
+	if req.WithPublicURL && !h.s3.EncryptionEnabled() {
 		url, err := h.svc.GetPresignedURL(c.Request.Context(), artifact, time.Duration(req.Expire)*time.Second)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
@@ -276,6 +278,55 @@ func (h *ArtifactHandler) GetArtifact(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, serializer.Response{Data: resp})
+}
+
+type DownloadArtifactReq struct {
+	FilePath string `form:"file_path" json:"file_path" binding:"required"` // File path including filename
+}
+
+// DownloadArtifact godoc
+//
+//	@Summary		Download artifact content
+//	@Description	Download raw artifact file content. Decrypts content if encryption is enabled.
+//	@Tags			artifact
+//	@Produce		octet-stream
+//	@Param			disk_id		path	string	true	"Disk ID"			Format(uuid)
+//	@Param			file_path	query	string	true	"File path including filename"
+//	@Security		BearerAuth
+//	@Success		200	"File content"
+//	@Router			/disk/{disk_id}/artifact/download [get]
+func (h *ArtifactHandler) DownloadArtifact(c *gin.Context) {
+	req := DownloadArtifactReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	diskID, err := uuid.Parse(c.Param("disk_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	filePath, filename := path.SplitFilePath(req.FilePath)
+	if err := path.ValidatePath(filePath); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid path", err))
+		return
+	}
+
+	artifact, err := h.svc.GetByPath(c.Request.Context(), diskID, filePath, filename)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		return
+	}
+
+	content, mimeType, err := h.svc.DownloadRawContent(c.Request.Context(), artifact)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "download failed", err))
+		return
+	}
+
+	c.Data(http.StatusOK, mimeType, content)
 }
 
 type UpdateArtifactReq struct {
@@ -685,6 +736,7 @@ func (h *ArtifactHandler) UploadFromSandbox(c *gin.Context) {
 		Path:      req.FilePath,
 		Filename:  req.SandboxFilename,
 		Content:   content,
+		UserKEK:   middleware.GetUserKEK(c),
 	})
 
 	// Cleanup temp S3 file regardless of artifact creation result

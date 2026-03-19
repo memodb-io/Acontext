@@ -9,6 +9,7 @@ import (
 
 	_ "github.com/memodb-io/Acontext/docs"
 	"github.com/memodb-io/Acontext/internal/config"
+	encryptionpkg "github.com/memodb-io/Acontext/internal/infra/crypto"
 	"github.com/memodb-io/Acontext/internal/middleware"
 	"github.com/memodb-io/Acontext/internal/modules/handler"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
@@ -20,6 +21,7 @@ type RouterDeps struct {
 	Config               *config.Config
 	DB                   *gorm.DB
 	Log                  *zap.Logger
+	EncryptionService    *encryptionpkg.EncryptionService
 	SessionHandler       *handler.SessionHandler
 	DiskHandler          *handler.DiskHandler
 	ArtifactHandler      *handler.ArtifactHandler
@@ -59,7 +61,7 @@ func NewRouter(d RouterDeps) *gin.Engine {
 
 	v1 := r.Group("/api/v1")
 	{
-		v1.Use(middleware.ProjectAuth(d.Config, d.DB))
+		v1.Use(middleware.ProjectAuth(d.Config, d.DB, d.EncryptionService))
 
 		// ping endpoint
 		v1.GET("/ping", func(c *gin.Context) { c.JSON(http.StatusOK, serializer.Response{Msg: "pong"}) })
@@ -78,6 +80,7 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			session.GET("/:session_id/messages", d.SessionHandler.GetMessages)
 			session.PATCH("/:session_id/messages/:message_id/meta", d.SessionHandler.PatchMessageMeta)
 
+			session.GET("/:session_id/asset/download", d.SessionHandler.DownloadSessionAsset)
 			session.POST("/:session_id/flush", d.SessionHandler.SessionFlush)
 
 			session.GET("/:session_id/token_counts", d.SessionHandler.GetTokenCounts)
@@ -107,7 +110,8 @@ func NewRouter(d RouterDeps) *gin.Engine {
 				artifact.GET("", d.ArtifactHandler.GetArtifact)
 				artifact.PUT("", d.ArtifactHandler.UpdateArtifact)
 				artifact.DELETE("", d.ArtifactHandler.DeleteArtifact)
-				artifact.GET("/ls", d.ArtifactHandler.ListArtifacts)
+				artifact.GET("/download", d.ArtifactHandler.DownloadArtifact)
+			artifact.GET("/ls", d.ArtifactHandler.ListArtifacts)
 
 				artifact.GET("/grep", d.ArtifactHandler.GrepArtifacts)
 				artifact.GET("/glob", d.ArtifactHandler.GlobArtifacts)

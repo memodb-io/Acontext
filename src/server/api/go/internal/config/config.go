@@ -89,17 +89,23 @@ type ArtifactCfg struct {
 	MaxUploadSizeBytes int64 // Maximum file upload size in bytes
 }
 
+type EncryptionCfg struct {
+	MasterKey string // Admin master key for envelope encryption (env: APP_ENCRYPTION_MASTERKEY)
+	Enabled   bool   // Enable S3 envelope encryption (default: false)
+}
+
 type Config struct {
-	App       AppCfg
-	Root      RootCfg
-	Log       LogCfg
-	Database  DBCfg
-	Redis     RedisCfg
-	RabbitMQ  MQCfg
-	S3        S3Cfg
-	Core      CoreCfg
-	Telemetry TelemetryCfg
-	Artifact  ArtifactCfg
+	App        AppCfg
+	Root       RootCfg
+	Log        LogCfg
+	Database   DBCfg
+	Redis      RedisCfg
+	RabbitMQ   MQCfg
+	S3         S3Cfg
+	Core       CoreCfg
+	Telemetry  TelemetryCfg
+	Artifact   ArtifactCfg
+	Encryption EncryptionCfg
 }
 
 func setDefaults(v *viper.Viper) {
@@ -132,6 +138,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("telemetry.enabled", true)
 	v.SetDefault("telemetry.sampleRatio", 1.0)            // Default 100% sampling
 	v.SetDefault("artifact.maxUploadSizeBytes", 16777216) // Default 16MB (16 * 1024 * 1024 bytes)
+	v.SetDefault("encryption.enabled", false)
+	v.SetDefault("encryption.masterKey", "")
 }
 
 func Load() (*Config, error) {

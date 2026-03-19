@@ -25,6 +25,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/bootstrap"
 	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/infra/cache"
+	encryptionpkg "github.com/memodb-io/Acontext/internal/infra/crypto"
 	dbpkg "github.com/memodb-io/Acontext/internal/infra/db"
 	"github.com/memodb-io/Acontext/internal/modules/handler"
 	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
@@ -93,11 +94,13 @@ func main() {
 	learningSpaceHandler := do.MustInvoke[*handler.LearningSpaceHandler](inj)
 	sessionEventHandler := do.MustInvoke[*handler.SessionEventHandler](inj)
 	projectHandler := do.MustInvoke[*handler.ProjectHandler](inj)
+	encSvc := do.MustInvoke[*encryptionpkg.EncryptionService](inj)
 
 	engine := router.NewRouter(router.RouterDeps{
 		Config:               cfg,
 		DB:                   db,
 		Log:                  log,
+		EncryptionService:    encSvc,
 		SessionHandler:       sessionHandler,
 		DiskHandler:          diskHandler,
 		ArtifactHandler:      artifactHandler,
