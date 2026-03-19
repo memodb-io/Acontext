@@ -151,6 +151,7 @@ func (h *SessionHandler) CreateSession(c *gin.Context) {
 	}
 
 	// If use_uuid is provided, validate and set the session ID
+	var useCustomID bool
 	if req.UseUUID != nil && *req.UseUUID != "" {
 		parsedUUID, err := uuid.Parse(*req.UseUUID)
 		if err != nil {
@@ -158,6 +159,7 @@ func (h *SessionHandler) CreateSession(c *gin.Context) {
 			return
 		}
 		session.ID = parsedUUID
+		useCustomID = true
 	}
 
 	// If user identifier is provided, get or create the user
@@ -173,8 +175,19 @@ func (h *SessionHandler) CreateSession(c *gin.Context) {
 	if req.DisableTaskTracking != nil {
 		session.DisableTaskTracking = *req.DisableTaskTracking
 	}
+
+	// When client provides a custom UUID, try to return the existing session
+	// to make the endpoint idempotent and avoid duplicate key errors.
+	if useCustomID {
+		existing, err := h.svc.GetByID(c.Request.Context(), &model.Session{ID: session.ID})
+		if err == nil && existing.ProjectID == project.ID {
+			c.JSON(http.StatusOK, serializer.Response{Data: *existing})
+			return
+		}
+	}
+
 	if err := h.svc.Create(c.Request.Context(), &session); err != nil {
-		// Check for duplicate key error (PostgreSQL unique violation)
+		// Check for duplicate key error (race condition: created between Get and Create)
 		if strings.Contains(err.Error(), "duplicate key") || strings.Contains(err.Error(), "23505") {
 			c.JSON(http.StatusConflict, serializer.Err(http.StatusConflict, "session with this UUID already exists", nil))
 			return

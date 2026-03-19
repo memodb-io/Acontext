@@ -315,11 +315,33 @@ func TestSessionHandler_CreateSession(t *testing.T) {
 				UseUUID: &customUUID,
 			},
 			setup: func(svc *MockSessionService) {
+				// GetByID returns not found, so Create is called
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
+					return s.ID == customUUIDParsed
+				})).Return(nil, errors.New("record not found"))
 				svc.On("Create", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
 					return s.ProjectID == projectID && s.ID == customUUIDParsed
 				})).Return(nil)
 			},
 			expectedStatus: http.StatusCreated,
+			expectedError:  false,
+		},
+		{
+			name: "idempotent creation returns existing session",
+			requestBody: CreateSessionReq{
+				Configs: map[string]interface{}{},
+				UseUUID: &customUUID,
+			},
+			setup: func(svc *MockSessionService) {
+				// GetByID returns the existing session
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
+					return s.ID == customUUIDParsed
+				})).Return(&model.Session{
+					ID:        customUUIDParsed,
+					ProjectID: projectID,
+				}, nil)
+			},
+			expectedStatus: http.StatusOK,
 			expectedError:  false,
 		},
 		{
@@ -333,29 +355,19 @@ func TestSessionHandler_CreateSession(t *testing.T) {
 			expectedError:  true,
 		},
 		{
-			name: "duplicate UUID conflict",
+			name: "duplicate UUID conflict on race condition",
 			requestBody: CreateSessionReq{
 				Configs: map[string]interface{}{},
 				UseUUID: &customUUID,
 			},
 			setup: func(svc *MockSessionService) {
+				// GetByID returns not found, but Create hits race condition
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
+					return s.ID == customUUIDParsed
+				})).Return(nil, errors.New("record not found"))
 				svc.On("Create", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
 					return s.ID == customUUIDParsed
 				})).Return(errors.New("duplicate key value violates unique constraint"))
-			},
-			expectedStatus: http.StatusConflict,
-			expectedError:  true,
-		},
-		{
-			name: "duplicate UUID conflict with postgres error code",
-			requestBody: CreateSessionReq{
-				Configs: map[string]interface{}{},
-				UseUUID: &customUUID,
-			},
-			setup: func(svc *MockSessionService) {
-				svc.On("Create", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
-					return s.ID == customUUIDParsed
-				})).Return(errors.New("ERROR: 23505 unique_violation"))
 			},
 			expectedStatus: http.StatusConflict,
 			expectedError:  true,
