@@ -9,11 +9,8 @@ import (
 // MetricTags defines the constants for metric tag values
 // These should match the MetricTags class in Python (acontext_core/constants.py)
 const (
-	MetricTagStorageUsage              = "storage.usage"
-	MetricTagTaskCreated               = "task.created"
-	MetricTagSpaceLearned              = "space.learned"
-	MetricTagSearchExperienceAgentic   = "search.experience.agentic"
-	MetricTagSearchExperienceEmbedding = "search.experience.embedding"
+	MetricTagStorageUsage = "storage.usage"
+	MetricTagTaskCreated  = "task.created"
 )
 
 type Metric struct {

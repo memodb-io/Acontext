@@ -242,8 +242,19 @@ func (s *projectService) AnalyzeMetrics(ctx context.Context, projectID uuid.UUID
 	// Build Jaeger API URL - use /api/traces endpoint
 	jaegerAPIURL := strings.TrimSuffix(jaegerURL, "/") + "/api/traces"
 
-	// Parse query parameters from the incoming request and pass them through
-	queryParams := reqURL.Query()
+	// Only allow known Jaeger /api/traces query parameters
+	allowedParams := map[string]bool{
+		"service": true, "operation": true, "start": true, "end": true,
+		"limit": true, "lookback": true, "minDuration": true, "maxDuration": true,
+		"tags": true,
+	}
+	incomingParams := reqURL.Query()
+	queryParams := make(url.Values)
+	for key, values := range incomingParams {
+		if allowedParams[key] {
+			queryParams[key] = values
+		}
+	}
 
 	// Add fixed tags parameter with project_id as JSON format
 	tags := map[string]string{

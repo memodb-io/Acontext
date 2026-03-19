@@ -4,7 +4,7 @@ package main
 //	@version		1.0
 //	@description	API for Acontext Admin.
 //	@schemes		http https
-//	@BasePath		/api/v1
+//	@BasePath		/
 
 //  Bearer at Project level
 //	@securityDefinitions.apikey	BearerAuth

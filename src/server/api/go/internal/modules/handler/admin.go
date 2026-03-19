@@ -227,10 +227,16 @@ func (h *AdminHandler) AnalyzeProjectMetrics(c *gin.Context) {
 		return
 	}
 
-	// Copy response status and headers
+	// Only forward safe response headers from Jaeger
+	safeHeaders := map[string]bool{
+		"Content-Type":     true,
+		"Content-Encoding": true,
+	}
 	for key, values := range resp.Header {
-		for _, value := range values {
-			c.Header(key, value)
+		if safeHeaders[http.CanonicalHeaderKey(key)] {
+			for _, value := range values {
+				c.Header(key, value)
+			}
 		}
 	}
 
