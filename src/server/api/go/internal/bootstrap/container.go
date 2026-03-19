@@ -127,6 +127,9 @@ func BuildContainer() *do.Injector {
 				&model.LearningSpaceSession{},
 				&model.SessionEvent{},
 			)
+
+
+
 		}
 
 		// ensure default project exists

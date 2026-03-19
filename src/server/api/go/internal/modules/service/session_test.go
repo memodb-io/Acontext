@@ -772,7 +772,7 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 				repo.On("PopGeminiCallIDAndName", ctx, sessionID).Return("call_abc123", "get_weather", nil)
 				repo.On("CreateMessageWithAssets", ctx, mock.AnythingOfType("*model.Message")).Return(nil)
 				repo.On("GetDisableTaskTracking", ctx, sessionID).Return(false, nil)
-				assetRepo.On("IncrementAssetRef", ctx, projectID, mock.AnythingOfType("model.Asset")).Return(nil).Once() // parts asset
+				assetRepo.On("BatchIncrementAssetRefs", ctx, projectID, mock.AnythingOfType("[]model.Asset")).Return(nil).Once() // all assets batched
 			},
 			wantErr: false,
 			verify: func(t *testing.T, msg *model.Message, repo *MockSessionRepo) {
@@ -828,7 +828,7 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 				repo.On("PopGeminiCallIDAndName", ctx, sessionID).Return("call_abc123", "get_weather", nil)
 				repo.On("CreateMessageWithAssets", ctx, mock.AnythingOfType("*model.Message")).Return(nil)
 				repo.On("GetDisableTaskTracking", ctx, sessionID).Return(false, nil)
-				assetRepo.On("IncrementAssetRef", ctx, projectID, mock.AnythingOfType("model.Asset")).Return(nil).Once()
+				assetRepo.On("BatchIncrementAssetRefs", ctx, projectID, mock.AnythingOfType("[]model.Asset")).Return(nil).Once()
 			},
 			wantErr: false,
 		},
@@ -975,7 +975,7 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 				repo.On("PopGeminiCallIDAndName", ctx, sessionID).Return("call_def456", "calculate", nil).Once()
 				repo.On("CreateMessageWithAssets", ctx, mock.AnythingOfType("*model.Message")).Return(nil)
 				repo.On("GetDisableTaskTracking", ctx, sessionID).Return(false, nil)
-				assetRepo.On("IncrementAssetRef", ctx, projectID, mock.AnythingOfType("model.Asset")).Return(nil).Once()
+				assetRepo.On("BatchIncrementAssetRefs", ctx, projectID, mock.AnythingOfType("[]model.Asset")).Return(nil).Once()
 			},
 			wantErr: false,
 		},

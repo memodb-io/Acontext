@@ -134,7 +134,7 @@ func (r *sessionRepo) Update(ctx context.Context, s *model.Session) error {
 }
 
 func (r *sessionRepo) Get(ctx context.Context, s *model.Session) (*model.Session, error) {
-	return s, r.db.WithContext(ctx).Where(&model.Session{ID: s.ID}).First(s).Error
+	return s, r.db.WithContext(ctx).First(s).Error
 }
 
 func (r *sessionRepo) GetDisableTaskTracking(ctx context.Context, sessionID uuid.UUID) (bool, error) {

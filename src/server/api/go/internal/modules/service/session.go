@@ -292,6 +292,7 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 	}
 
 	parts := make([]model.Part, 0, len(in.Parts))
+	var uploadedAssets []model.Asset
 
 	for idx := range in.Parts {
 		partIn := &in.Parts[idx] // Use pointer to avoid repeated indexing and allow modifications
@@ -321,10 +322,7 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 				return nil, fmt.Errorf("upload %s failed: %w", partIn.FileField, err)
 			}
 
-			if err := s.assetReferenceRepo.IncrementAssetRef(ctx, in.ProjectID, *asset); err != nil {
-				return nil, fmt.Errorf("increment asset reference: %w", err)
-			}
-
+			uploadedAssets = append(uploadedAssets, *asset)
 			part.Asset = asset
 			part.Filename = fh.Filename
 		}
@@ -342,8 +340,11 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 		return nil, fmt.Errorf("upload parts to S3 failed: %w", err)
 	}
 
-	if err := s.assetReferenceRepo.IncrementAssetRef(ctx, in.ProjectID, *asset); err != nil {
-		return nil, fmt.Errorf("increment asset reference: %w", err)
+	uploadedAssets = append(uploadedAssets, *asset)
+
+	// Batch increment all asset references in a single DB round-trip
+	if err := s.assetReferenceRepo.BatchIncrementAssetRefs(ctx, in.ProjectID, uploadedAssets); err != nil {
+		return nil, fmt.Errorf("batch increment asset references: %w", err)
 	}
 
 	// Cache parts data in Redis after successful S3 upload

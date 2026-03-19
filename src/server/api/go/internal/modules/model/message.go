@@ -204,7 +204,7 @@ type Message struct {
 
 	Role string `gorm:"type:text;not null;check:role IN ('user','assistant')" json:"role"`
 
-	Meta datatypes.JSONType[map[string]any] `gorm:"type:jsonb;not null;default:'{}'" swaggertype:"object" json:"meta"`
+	Meta datatypes.JSONType[map[string]any] `gorm:"type:jsonb;not null;default:'{}';index:idx_messages_meta,type:gin" swaggertype:"object" json:"meta"`
 
 	PartsAssetMeta datatypes.JSONType[Asset] `gorm:"type:jsonb;not null" swaggertype:"-" json:"-"`
 	Parts          []Part                    `gorm:"-" swaggertype:"array,object" json:"parts"`
