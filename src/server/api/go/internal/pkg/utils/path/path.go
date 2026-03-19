@@ -169,3 +169,71 @@ func SplitFilePath(filePath string) (path, filename string) {
 
 	return path, filename
 }
+
+// MatchPath matches a path against a pattern with :param style parameters.
+// Returns whether it matched and a map of extracted parameters (including query params).
+func MatchPath(pattern, path string) (bool, map[string]string) {
+	params := make(map[string]string)
+	queryString := ""
+	if idx := strings.Index(path, "?"); idx != -1 {
+		queryString = path[idx+1:]
+		if fragIdx := strings.Index(queryString, "#"); fragIdx != -1 {
+			queryString = queryString[:fragIdx]
+		}
+		path = path[:idx]
+	}
+	if idx := strings.Index(path, "#"); idx != -1 {
+		path = path[:idx]
+	}
+
+	if queryString != "" {
+		for _, pair := range strings.Split(queryString, "&") {
+			if pair == "" {
+				continue
+			}
+			parts := strings.SplitN(pair, "=", 2)
+			key := parts[0]
+			value := ""
+			if len(parts) > 1 {
+				value = parts[1]
+			}
+			params[key] = value
+		}
+	}
+
+	patternParts := strings.Split(strings.Trim(pattern, "/"), "/")
+	pathParts := strings.Split(strings.Trim(path, "/"), "/")
+
+	if len(patternParts) != len(pathParts) {
+		return false, nil
+	}
+
+	for i, part := range patternParts {
+		if strings.HasPrefix(part, ":") {
+			params[part[1:]] = pathParts[i]
+		} else if part != pathParts[i] {
+			return false, nil
+		}
+	}
+	return true, params
+}
+
+// PathMatcher matches paths against registered patterns and returns the matched pattern
+type PathMatcher struct {
+	patterns []string
+}
+
+// NewPathMatcher creates a new PathMatcher with the given patterns
+func NewPathMatcher(patterns ...string) *PathMatcher {
+	return &PathMatcher{patterns: patterns}
+}
+
+// MatchWithParams returns the matched pattern and extracted parameters
+func (m *PathMatcher) MatchWithParams(path string) (string, map[string]string) {
+	for _, pattern := range m.patterns {
+		if matched, params := MatchPath(pattern, path); matched {
+			return pattern, params
+		}
+	}
+	return "", nil
+}

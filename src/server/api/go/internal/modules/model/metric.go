@@ -6,6 +6,16 @@ import (
 	"github.com/google/uuid"
 )
 
+// MetricTags defines the constants for metric tag values
+// These should match the MetricTags class in Python (acontext_core/constants.py)
+const (
+	MetricTagStorageUsage              = "storage.usage"
+	MetricTagTaskCreated               = "task.created"
+	MetricTagSpaceLearned              = "space.learned"
+	MetricTagSearchExperienceAgentic   = "search.experience.agentic"
+	MetricTagSearchExperienceEmbedding = "search.experience.embedding"
+)
+
 type Metric struct {
 	ID        uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
 	ProjectID uuid.UUID `gorm:"type:uuid;not null;index:idx_metric_project_id_tag_created_at,priority:1" json:"project_id"`

@@ -1,0 +1,63 @@
+app:
+  name: acontext-admin
+  env: ${APP_ENV} # available mode: debug / release / test
+  host: 0.0.0.0
+  port: ${API_EXPORT_PORT} # Bind to .env 8028
+
+root:
+  apiBearerToken: "${ROOT_API_BEARER_TOKEN}"
+  secretPepper: "your-secret-pepper"
+  enableArgon2Verification: ${ENABLE_ARGON2_VERIFICATION}
+
+log:
+  level: info # debug/info/warn/error
+
+database:
+  dsn: "host=${DATABASE_HOST} user=${DATABASE_USER} password=${DATABASE_PASSWORD} dbname=${DATABASE_NAME} port=${DATABASE_EXPORT_PORT} sslmode=disable TimeZone=UTC"
+  maxOpen: 20
+  maxIdle: 10
+  autoMigrate: true
+  enableTLS: ${DATABASE_ENABLE_TLS}
+
+redis:
+  addr: "${REDIS_HOST}:${REDIS_EXPORT_PORT}"
+  password: "${REDIS_PASSWORD}"
+  db: 0
+  poolSize: 10
+  enableTLS: ${REDIS_ENABLE_TLS}
+
+rabbitmq:
+  url: "amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@${RABBITMQ_HOST}:${RABBITMQ_EXPORT_PORT}/${RABBITMQ_VHOST_ENCODED}"
+  prefetch: 10
+  enableTLS: ${RABBITMQ_ENABLE_TLS}
+
+s3:
+  endpoint: "${S3_ENDPOINT}"
+  internalEndpoint: "${S3_INTERNAL_ENDPOINT}"
+  region: "${S3_REGION}"
+  accessKey: "${S3_ACCESS_KEY}"
+  secretKey: "${S3_SECRET_KEY}"
+  bucket: "${S3_BUCKET}"
+  usePathStyle: true
+  presignExpireSec: 900
+  # sse: "aws:kms"
+
+core:
+  baseURL: "${CORE_BASE_URL}"
+
+metrics:
+  pushURL: "${METRICS_PUSH_URL}"
+
+telemetry:
+  otlpEndpoint: "${OTEL_EXPORTER_OTLP_ENDPOINT}"
+  enabled: true
+  sampleRatio: 1.0  # Sampling ratio, 0.0-1.0, default 1.0 (100%)
+  jaegerQueryEndpoint: "${JAEGER_QUERY_ENDPOINT}"
+
+supabase:
+  projectReference: "${SUPABASE_PROJECT_REFERENCE}"
+  apiKey: "${SUPABASE_API_KEY}"
+  authURL: "${SUPABASE_AUTH_URL}"  # Optional: custom auth URL
+
+artifact:
+  maxUploadSizeBytes: ${ARTIFACT_MAX_UPLOAD_SIZE_BYTES}  # Default 16MB (16 * 1024 * 1024 bytes)

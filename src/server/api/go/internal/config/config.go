@@ -76,10 +76,22 @@ type CoreCfg struct {
 	BaseURL string
 }
 
+type MetricsCfg struct {
+	PushURL            string
+	PushLastRequestKey string
+}
+
 type TelemetryCfg struct {
-	OtlpEndpoint string
-	Enabled      bool
-	SampleRatio  float64 // Sampling ratio, range 0.0-1.0, default 1.0 (100%)
+	OtlpEndpoint        string
+	Enabled             bool
+	SampleRatio         float64 // Sampling ratio, range 0.0-1.0, default 1.0 (100%)
+	JaegerQueryEndpoint string
+}
+
+type SupabaseCfg struct {
+	ProjectReference string
+	APIKey           string
+	AuthURL          string // Optional: custom auth URL, defaults to https://<project_ref>.supabase.com/auth/v1/
 }
 
 type ArtifactCfg struct {
@@ -95,7 +107,9 @@ type Config struct {
 	RabbitMQ  MQCfg
 	S3        S3Cfg
 	Core      CoreCfg
+	Metrics   MetricsCfg
 	Telemetry TelemetryCfg
+	Supabase  SupabaseCfg
 	Artifact  ArtifactCfg
 }
 
@@ -123,9 +137,14 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("rabbitmq.exchangeName.sessionMessage", "session.message")
 	v.SetDefault("rabbitmq.routingKey.sessionMessageInsert", "session.message.insert")
 	v.SetDefault("core.baseURL", "http://127.0.0.1:8019")
+	v.SetDefault("metrics.pushURL", "http://127.0.0.1:8080/metrics/push")
+	v.SetDefault("metrics.pushLastRequestKey", "push_metrics:last_request_time")
 	v.SetDefault("telemetry.otlpEndpoint", "http://127.0.0.1:4317")
 	v.SetDefault("telemetry.enabled", true)
 	v.SetDefault("telemetry.sampleRatio", 1.0)            // Default 100% sampling
+	v.SetDefault("supabase.projectReference", "")
+	v.SetDefault("supabase.apiKey", "")
+	v.SetDefault("supabase.authURL", "")
 	v.SetDefault("artifact.maxUploadSizeBytes", 16777216) // Default 16MB (16 * 1024 * 1024 bytes)
 }
 

@@ -77,6 +77,7 @@ When releasing a new version, follow these steps in order:
 | Component          | Tag Pattern                         | Publishes To                                | Source Directory                  | Workflow                                  |
 | ------------------ | ----------------------------------- | ------------------------------------------- | --------------------------------- | ----------------------------------------- |
 | API                | `api/vX.Y.Z`                        | ghcr.io (Docker, multi-arch)                | `src/server/api/go`               | `api-release.yaml`                        |
+| Admin API          | `admin/vX.Y.Z`                      | ghcr.io (Docker, multi-arch)                | `src/server/api/go`               | `admin-release.yaml`                      |
 | Core               | `core/vX.Y.Z`                       | ghcr.io (Docker, multi-arch)                | `src/server/core`                 | `core-release.yaml`                       |
 | UI (OSS)           | `ui/vX.Y.Z`                         | ghcr.io (Docker, multi-arch)                | `src/server/ui`                   | `ui-release.yaml`                         |
 | TypeScript SDK     | `sdk-ts/vX.Y.Z`                     | npm (`@acontext/acontext`)                  | `src/client/acontext-ts`          | `client-release-ts.yaml`                  |
