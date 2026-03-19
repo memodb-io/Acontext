@@ -130,7 +130,6 @@ func main() {
 	go func() {
 		log.Sugar().Infow("starting admin http server", "addr", addr)
 		log.Sugar().Infow("swagger url", "url", addr+"/swagger/index.html")
-		log.Sugar().Infow("bearer for project signature", "signature", cfg.Root.ApiBearerToken)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Sugar().Fatalw("listen error", "err", err)
 		}

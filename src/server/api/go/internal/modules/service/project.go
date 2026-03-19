@@ -30,14 +30,18 @@ type ProjectService interface {
 }
 
 type projectService struct {
-	r   repo.ProjectRepo
-	cfg *config.Config
+	r      repo.ProjectRepo
+	cfg    *config.Config
+	client *http.Client
 }
 
 func NewProjectService(r repo.ProjectRepo, cfg *config.Config) ProjectService {
 	return &projectService{
 		r:   r,
 		cfg: cfg,
+		client: &http.Client{
+			Timeout: 30 * time.Second,
+		},
 	}
 }
 
@@ -273,18 +277,14 @@ func (s *projectService) AnalyzeMetrics(ctx context.Context, projectID uuid.UUID
 		return nil, err
 	}
 
-	// Copy headers from original request (except Host)
-	for key, values := range requestHeaders {
-		if strings.ToLower(key) != "host" {
+	// Only forward safe headers to internal Jaeger service
+	for _, key := range []string{"Accept", "Content-Type"} {
+		if values := requestHeaders.Values(key); len(values) > 0 {
 			for _, value := range values {
 				httpReq.Header.Add(key, value)
 			}
 		}
 	}
 
-	// Make request to Jaeger
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-	return client.Do(httpReq)
+	return s.client.Do(httpReq)
 }

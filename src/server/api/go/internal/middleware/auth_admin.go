@@ -18,6 +18,12 @@ import (
 // and sets the user in the context. It also sets the user_id attribute on the current span for telemetry filtering.
 // The token should be provided in the X-Access-Token header.
 func SupabaseAuth(cfg *config.Config) gin.HandlerFunc {
+	// Initialize Supabase auth client once (reused across requests)
+	client := supabaseauth.New(cfg.Supabase.ProjectReference, cfg.Supabase.APIKey)
+	if cfg.Supabase.AuthURL != "" {
+		client = client.WithCustomAuthURL(cfg.Supabase.AuthURL)
+	}
+
 	return func(c *gin.Context) {
 		// Get token from X-Access-Token header
 		token := c.GetHeader("X-Access-Token")
@@ -32,15 +38,7 @@ func SupabaseAuth(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
-		// Initialize Supabase auth client
-		client := supabaseauth.New(cfg.Supabase.ProjectReference, cfg.Supabase.APIKey)
-
-		// Set custom auth URL if provided
-		if cfg.Supabase.AuthURL != "" {
-			client = client.WithCustomAuthURL(cfg.Supabase.AuthURL)
-		}
-
-		// Create authenticated client with token
+		// Create authenticated client with token (per-request)
 		authedClient := client.WithToken(token)
 
 		// Verify token and get user information

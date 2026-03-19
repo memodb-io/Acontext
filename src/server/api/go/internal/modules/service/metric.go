@@ -82,15 +82,10 @@ func (s *metricService) CreateStorageUsageMetrics(ctx context.Context, in Create
 			Tag:       model.MetricTagStorageUsage,
 			Increment: sumSizeB,
 		})
-
-		// Delete existing storage usage metrics
-		if err := s.r.DeleteByProjectIDAndTag(ctx, projectID, model.MetricTagStorageUsage); err != nil {
-			return nil, err
-		}
 	}
 
-	// Create Metric records
-	if err := s.r.CreateMetrics(ctx, metrics); err != nil {
+	// Atomically delete old and create new storage usage metrics
+	if err := s.r.ReplaceStorageMetrics(ctx, model.MetricTagStorageUsage, metrics); err != nil {
 		return nil, err
 	}
 

@@ -16,6 +16,7 @@ type MetricRepo interface {
 	CreateMetrics(ctx context.Context, metrics []model.Metric) error
 	SaveMetrics(ctx context.Context, metrics []model.Metric) error
 	DeleteByProjectIDAndTag(ctx context.Context, projectID uuid.UUID, tag string) error
+	ReplaceStorageMetrics(ctx context.Context, tag string, metrics []model.Metric) error
 }
 
 type metricRepo struct{ db *gorm.DB }
@@ -107,4 +108,21 @@ func (r *metricRepo) DeleteByProjectIDAndTag(ctx context.Context, projectID uuid
 	return r.db.WithContext(ctx).
 		Where("project_id = ? AND tag = ?", projectID, tag).
 		Delete(&model.Metric{}).Error
+}
+
+// ReplaceStorageMetrics atomically deletes existing metrics for each project in the
+// provided slice (matching the given tag) and creates the new metrics in a single transaction.
+func (r *metricRepo) ReplaceStorageMetrics(ctx context.Context, tag string, metrics []model.Metric) error {
+	if len(metrics) == 0 {
+		return nil
+	}
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, m := range metrics {
+			if err := tx.Where("project_id = ? AND tag = ?", m.ProjectID, tag).
+				Delete(&model.Metric{}).Error; err != nil {
+				return err
+			}
+		}
+		return tx.CreateInBatches(&metrics, 100).Error
+	})
 }
