@@ -213,45 +213,49 @@ func (u *S3Deps) uploadWithDedup(
 	metadata map[string]string,
 	userKEK []byte,
 ) (*model.Asset, error) {
-	// Check for existing object with pagination support
-	listInput := &s3.ListObjectsV2Input{
-		Bucket: &u.Bucket,
-		Prefix: &keyPrefix,
-	}
-
-	var continuationToken *string
-	for {
-		listInput.ContinuationToken = continuationToken
-		result, err := u.Client.ListObjectsV2(ctx, listInput)
-		if err != nil {
-			break
+	// Skip dedup when encryption is enabled: different users need different wrapped DEKs,
+	// so we cannot reuse an existing encrypted object for a different user.
+	if !u.EncryptionEnabled() || userKEK == nil {
+		// Check for existing object with pagination support
+		listInput := &s3.ListObjectsV2Input{
+			Bucket: &u.Bucket,
+			Prefix: &keyPrefix,
 		}
 
-		if result.Contents != nil {
-			for _, obj := range result.Contents {
-				if obj.Key != nil && strings.Contains(*obj.Key, sumHex) {
-					if headResult, herr := u.Client.HeadObject(ctx, &s3.HeadObjectInput{
-						Bucket: &u.Bucket,
-						Key:    obj.Key,
-					}); herr == nil {
-						return &model.Asset{
-							Bucket: u.Bucket,
-							S3Key:  *obj.Key,
-							ETag:   cleanETag(*headResult.ETag),
-							SHA256: sumHex,
-							MIME:   contentType,
-							SizeB:  aws.ToInt64(headResult.ContentLength),
-						}, nil
+		var continuationToken *string
+		for {
+			listInput.ContinuationToken = continuationToken
+			result, err := u.Client.ListObjectsV2(ctx, listInput)
+			if err != nil {
+				break
+			}
+
+			if result.Contents != nil {
+				for _, obj := range result.Contents {
+					if obj.Key != nil && strings.Contains(*obj.Key, sumHex) {
+						if headResult, herr := u.Client.HeadObject(ctx, &s3.HeadObjectInput{
+							Bucket: &u.Bucket,
+							Key:    obj.Key,
+						}); herr == nil {
+							return &model.Asset{
+								Bucket: u.Bucket,
+								S3Key:  *obj.Key,
+								ETag:   cleanETag(*headResult.ETag),
+								SHA256: sumHex,
+								MIME:   contentType,
+								SizeB:  aws.ToInt64(headResult.ContentLength),
+							}, nil
+						}
 					}
 				}
 			}
-		}
 
-		// Check if there are more pages
-		if !aws.ToBool(result.IsTruncated) {
-			break
+			// Check if there are more pages
+			if !aws.ToBool(result.IsTruncated) {
+				break
+			}
+			continuationToken = result.NextContinuationToken
 		}
-		continuationToken = result.NextContinuationToken
 	}
 
 	// No existing file found, upload new file with date prefix

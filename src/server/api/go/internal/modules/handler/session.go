@@ -573,9 +573,22 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 //	@Success		200	"Asset content"
 //	@Router			/session/{session_id}/asset/download [get]
 func (h *SessionHandler) DownloadSessionAsset(c *gin.Context) {
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
 	s3Key := c.Query("s3_key")
 	if s3Key == "" {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("s3_key is required")))
+		return
+	}
+
+	// Verify the S3 key belongs to this project's assets
+	expectedPrefix := "assets/" + project.ID.String() + "/"
+	if !strings.HasPrefix(s3Key, expectedPrefix) {
+		c.JSON(http.StatusForbidden, serializer.Err(http.StatusForbidden, "access denied: asset does not belong to this project", nil))
 		return
 	}
 

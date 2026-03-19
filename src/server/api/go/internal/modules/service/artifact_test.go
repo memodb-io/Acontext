@@ -322,6 +322,10 @@ func (s *testArtifactService) GlobArtifacts(ctx context.Context, projectID uuid.
 	return []*model.Artifact{}, nil
 }
 
+func (s *testArtifactService) IsEncryptionEnabled() bool {
+	return false
+}
+
 func (s *testArtifactService) CreateFromBytes(ctx context.Context, in CreateArtifactFromBytesInput) (*model.Artifact, error) {
 	// Check if artifact with same path and filename already exists in the same disk
 	exists, err := s.r.ExistsByPathAndFilename(ctx, in.DiskID, in.Path, in.Filename, nil)

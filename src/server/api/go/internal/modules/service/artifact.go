@@ -26,6 +26,7 @@ type ArtifactService interface {
 	GetPresignedURL(ctx context.Context, artifact *model.Artifact, expire time.Duration) (string, error)
 	GetFileContent(ctx context.Context, artifact *model.Artifact) (*fileparser.FileContent, error)
 	DownloadRawContent(ctx context.Context, artifact *model.Artifact) ([]byte, string, error) // returns content, mime, error
+	IsEncryptionEnabled() bool
 	UpdateArtifactMetaByPath(ctx context.Context, diskID uuid.UUID, path string, filename string, userMeta map[string]interface{}) (*model.Artifact, error)
 	ListByPath(ctx context.Context, diskID uuid.UUID, path string) ([]*model.Artifact, error)
 	GetAllPaths(ctx context.Context, diskID uuid.UUID) ([]string, error)
@@ -275,6 +276,11 @@ func (s *artifactService) DownloadRawContent(ctx context.Context, artifact *mode
 		return nil, "", fmt.Errorf("download file: %w", err)
 	}
 	return content, assetData.MIME, nil
+}
+
+// IsEncryptionEnabled returns whether S3 envelope encryption is active.
+func (s *artifactService) IsEncryptionEnabled() bool {
+	return s.s3 != nil && s.s3.EncryptionEnabled()
 }
 
 func (s *artifactService) UpdateArtifactMetaByPath(ctx context.Context, diskID uuid.UUID, path string, filename string, userMeta map[string]interface{}) (*model.Artifact, error) {

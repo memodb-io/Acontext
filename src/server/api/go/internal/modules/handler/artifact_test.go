@@ -104,6 +104,11 @@ func (m *MockArtifactService) DownloadRawContent(ctx context.Context, artifact *
 	return args.Get(0).([]byte), args.String(1), args.Error(2)
 }
 
+func (m *MockArtifactService) IsEncryptionEnabled() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
 func (m *MockArtifactService) GrepArtifacts(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
 	args := m.Called(ctx, projectID, diskID, pattern, limit)
 	if args.Get(0) == nil {

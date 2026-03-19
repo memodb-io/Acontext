@@ -564,14 +564,21 @@ func (s *agentSkillsService) GetFile(ctx context.Context, projectID uuid.UUID, s
 			return nil, fmt.Errorf("failed to get file content: %w", err)
 		}
 		output.Content = fileContent
-	} else {
-		// For non-text files: try downloading raw content (works for both encrypted and non-encrypted)
+	} else if s.artifactSvc.IsEncryptionEnabled() {
+		// Encryption enabled: download and decrypt server-side, return raw bytes
 		rawContent, rawMIME, err := s.artifactSvc.DownloadRawContent(ctx, artifact)
 		if err != nil {
 			return nil, fmt.Errorf("failed to download file content: %w", err)
 		}
 		output.RawContent = rawContent
 		output.ContentMIME = rawMIME
+	} else {
+		// No encryption: use presigned URL for direct S3 download
+		url, err := s.artifactSvc.GetPresignedURL(ctx, artifact, expire)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get presigned URL: %w", err)
+		}
+		output.URL = &url
 	}
 
 	return output, nil
