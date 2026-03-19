@@ -14,8 +14,9 @@ log:
 
 database:
   dsn: "host=${DATABASE_HOST} user=${DATABASE_USER} password=${DATABASE_PASSWORD} dbname=${DATABASE_NAME} port=${DATABASE_EXPORT_PORT} sslmode=disable TimeZone=UTC"
-  maxOpen: 20
-  maxIdle: 10
+  maxOpen: 50
+  maxIdle: 25
+  maxIdleTimeSec: 300
   autoMigrate: true
   enableTLS: ${DATABASE_ENABLE_TLS}
 
@@ -23,7 +24,7 @@ redis:
   addr: "${REDIS_HOST}:${REDIS_EXPORT_PORT}"
   password: "${REDIS_PASSWORD}"
   db: 0
-  poolSize: 10
+  poolSize: 30
   enableTLS: ${REDIS_ENABLE_TLS}
 
 rabbitmq:

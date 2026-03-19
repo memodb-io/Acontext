@@ -47,6 +47,11 @@ func New(cfg *config.Config, log *zap.Logger) (*gorm.DB, error) {
 	sqlDB.SetMaxOpenConns(cfg.Database.MaxOpen)
 	sqlDB.SetMaxIdleConns(cfg.Database.MaxIdle)
 	sqlDB.SetConnMaxLifetime(1 * time.Hour)
+	if cfg.Database.MaxIdleTimeSec > 0 {
+		sqlDB.SetConnMaxIdleTime(time.Duration(cfg.Database.MaxIdleTimeSec) * time.Second)
+	} else {
+		sqlDB.SetConnMaxIdleTime(5 * time.Minute)
+	}
 	return db, nil
 }
 

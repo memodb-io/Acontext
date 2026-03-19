@@ -29,11 +29,12 @@ type LogCfg struct {
 }
 
 type DBCfg struct {
-	DSN         string
-	MaxOpen     int
-	MaxIdle     int
-	AutoMigrate bool
-	EnableTLS   bool
+	DSN            string
+	MaxOpen        int
+	MaxIdle        int
+	MaxIdleTimeSec int
+	AutoMigrate    bool
+	EnableTLS      bool
 }
 
 type RedisCfg struct {
