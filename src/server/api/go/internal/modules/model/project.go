@@ -9,7 +9,7 @@ import (
 
 type Project struct {
 	ID               uuid.UUID         `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
-	SecretKeyHMAC    string            `gorm:"type:char(64);uniqueIndex;not null" json:"-"`
+	SecretKeyHMAC    string            `gorm:"type:varchar(64);uniqueIndex;not null" json:"-"`
 	SecretKeyHashPHC string            `gorm:"type:varchar(255);not null" json:"-"`
 	Configs          datatypes.JSONMap `gorm:"type:jsonb;index:idx_projects_configs,type:gin" swaggertype:"object" json:"configs"`
 

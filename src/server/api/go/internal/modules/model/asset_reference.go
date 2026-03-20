@@ -23,7 +23,7 @@ type AssetReference struct {
 
 	// SHA256 hash as unique identifier for content-based deduplication
 	// Combined with ProjectID as composite unique key
-	SHA256 string `gorm:"type:char(64);not null;uniqueIndex:idx_project_sha256,priority:2" json:"sha256"`
+	SHA256 string `gorm:"type:varchar(64);not null;uniqueIndex:idx_project_sha256,priority:2" json:"sha256"`
 
 	// Canonical S3 key - the first uploaded location or preferred location
 	// When same content is uploaded multiple times within a project, we keep only one copy
