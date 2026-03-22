@@ -203,7 +203,12 @@ func runWhoami(cmd *cobra.Command, args []string) error {
 	// Validate token with Supabase and refresh if needed
 	af, err = auth.ValidateAndRefresh(af)
 	if err != nil {
-		return fmt.Errorf("session invalid — run 'acontext login' again: %w", err)
+		// If session was auto-cleared (e.g. another device consumed the refresh token),
+		// show "not logged in" instead of the underlying error.
+		if !auth.IsLoggedIn() {
+			return fmt.Errorf("not logged in — run 'acontext login' first")
+		}
+		return err
 	}
 
 	fmt.Printf("Logged in as %s\n", tui.SuccessStyle.Render(af.User.Email))

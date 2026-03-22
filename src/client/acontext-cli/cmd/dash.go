@@ -106,7 +106,11 @@ func requireAdmin() error {
 		}
 		af, err = auth.ValidateAndRefresh(af)
 		if err != nil {
-			adminErr = fmt.Errorf("session invalid — run 'acontext login' again: %w", err)
+			if !auth.IsLoggedIn() {
+				adminErr = fmt.Errorf("not logged in — run 'acontext login' first")
+			} else {
+				adminErr = err
+			}
 			return
 		}
 		dashAccessToken = af.AccessToken

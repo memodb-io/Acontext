@@ -97,6 +97,20 @@ func Clear() error {
 	return nil
 }
 
+// ClearSession removes only auth.json (keeping credentials.json intact).
+// Used when the session is invalidated by another device but API keys are still valid.
+func ClearSession() error {
+	dir, err := getConfigDir()
+	if err != nil {
+		return err
+	}
+	p := filepath.Join(dir, authFileName)
+	if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("cannot remove auth file: %w", err)
+	}
+	return nil
+}
+
 // IsLoggedIn returns true if a valid auth file exists with a token.
 func IsLoggedIn() bool {
 	af, err := Load()

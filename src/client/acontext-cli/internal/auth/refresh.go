@@ -34,7 +34,7 @@ func RefreshIfNeeded(af *AuthFile) (*AuthFile, error) {
 
 	newTokens, err := refreshToken(af.RefreshToken)
 	if err != nil {
-		return nil, fmt.Errorf("refresh token: %w", err)
+		return nil, err
 	}
 
 	af.AccessToken = newTokens.AccessToken
@@ -134,7 +134,7 @@ func ValidateAndRefresh(af *AuthFile) (*AuthFile, error) {
 
 	newTokens, refreshErr := refreshToken(af.RefreshToken)
 	if refreshErr != nil {
-		return nil, fmt.Errorf("token invalid and refresh failed — run 'acontext login' again: %w", refreshErr)
+		return nil, refreshErr
 	}
 
 	af.AccessToken = newTokens.AccessToken
@@ -180,6 +180,10 @@ func refreshToken(refreshTok string) (*tokenResponse, error) {
 		return nil, fmt.Errorf("read refresh response: %w", err)
 	}
 	if resp.StatusCode != 200 {
+		if strings.Contains(string(respBody), "refresh_token_already_used") {
+			_ = ClearSession()
+			return nil, fmt.Errorf("session was refreshed by another device — run 'acontext login' again")
+		}
 		return nil, fmt.Errorf("refresh failed (%d): %s", resp.StatusCode, string(respBody))
 	}
 
