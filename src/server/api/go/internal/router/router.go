@@ -30,6 +30,7 @@ type RouterDeps struct {
 	LearningSpaceHandler *handler.LearningSpaceHandler
 	SessionEventHandler  *handler.SessionEventHandler
 	ProjectHandler       *handler.ProjectHandler
+	ProjectAuthOverride  gin.HandlerFunc // If set, used instead of default ProjectAuth for /api/v1
 }
 
 func NewRouter(d RouterDeps) *gin.Engine {
@@ -59,7 +60,11 @@ func NewRouter(d RouterDeps) *gin.Engine {
 
 	v1 := r.Group("/api/v1")
 	{
-		v1.Use(middleware.ProjectAuth(d.Config, d.DB))
+		projectAuth := d.ProjectAuthOverride
+		if projectAuth == nil {
+			projectAuth = middleware.ProjectAuth(d.Config, d.DB)
+		}
+		v1.Use(projectAuth)
 
 		// ping endpoint
 		v1.GET("/ping", func(c *gin.Context) { c.JSON(http.StatusOK, serializer.Response{Msg: "pong"}) })

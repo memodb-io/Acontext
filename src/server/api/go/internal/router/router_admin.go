@@ -17,6 +17,9 @@ type AdminRouterDeps struct {
 // NewAdminRouter creates a Gin engine that includes all base routes
 // plus admin-specific route groups (/admin/v1 and /metrics/v1).
 func NewAdminRouter(d AdminRouterDeps) *gin.Engine {
+	// Override /api/v1 auth with admin's token format (base64 JSON with project_id + signature)
+	d.RouterDeps.ProjectAuthOverride = middleware.AdminProjectAuth(d.Config, d.DB)
+
 	// Start with the base router (includes /api/v1, /health, /swagger)
 	r := NewRouter(d.RouterDeps)
 
