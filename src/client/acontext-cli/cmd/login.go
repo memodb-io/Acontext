@@ -197,7 +197,8 @@ func runLogout(cmd *cobra.Command, args []string) error {
 func runWhoami(cmd *cobra.Command, args []string) error {
 	af, err := auth.MustLoad()
 	if err != nil {
-		return err
+		fmt.Println("Not logged in — run 'acontext login' first")
+		return nil
 	}
 
 	// Validate token with Supabase and refresh if needed
@@ -206,7 +207,8 @@ func runWhoami(cmd *cobra.Command, args []string) error {
 		// If session was auto-cleared (e.g. another device consumed the refresh token),
 		// show "not logged in" instead of the underlying error.
 		if !auth.IsLoggedIn() {
-			return fmt.Errorf("not logged in — run 'acontext login' first")
+			fmt.Println("Not logged in — run 'acontext login' first")
+			return nil
 		}
 		return err
 	}

@@ -36,7 +36,6 @@ func main() {
 	}
 
 	if cmdErr := rootCmd.Execute(); cmdErr != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", cmdErr)
 		executedCmd, _, _ := rootCmd.Find(os.Args[1:])
 		if executedCmd == nil {
 			executedCmd = rootCmd
@@ -111,8 +110,9 @@ func buildCommandPath(cmd *cobra.Command) string {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "acontext",
-	Short: "Acontext CLI - Agent Skills as a Memory Layer",
+	Use:          "acontext",
+	SilenceUsage: true,
+	Short:        "Acontext CLI - Agent Skills as a Memory Layer",
 	Long: `Acontext CLI is a command-line tool for quickly creating Acontext projects.
 	
 It helps you:

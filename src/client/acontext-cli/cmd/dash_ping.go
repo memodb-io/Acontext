@@ -16,7 +16,9 @@ func init() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// 1. Verify that we have a local key for the resolved project
 			if dashProject == "" {
-				return fmt.Errorf("no project selected\n\nTo fix this, run:\n  acontext dash projects select")
+				fmt.Println(tui.RenderWarning("No project selected"))
+				fmt.Println("\nTo fix this, run:\n  acontext dash projects select")
+				return nil
 			}
 
 			ks, err := auth.LoadKeyStore()
@@ -24,7 +26,9 @@ func init() {
 				return fmt.Errorf("failed to load credentials: %w", err)
 			}
 			if ks.Keys[dashProject] == "" {
-				return fmt.Errorf("no API key found in credentials.json for project %s\n\nTo fix this, run:\n  acontext dash projects select --project %s --api-key <sk-ac-...>\n\nThe API key can be found on the Acontext Dashboard:\n  https://dash.acontext.io", dashProject, dashProject)
+				fmt.Println(tui.RenderWarning(fmt.Sprintf("No API key found in credentials.json for project %s", dashProject)))
+				fmt.Printf("\nTo fix this, run:\n  acontext dash projects select --project %s --api-key <sk-ac-...>\n\nThe API key can be found on the Acontext Dashboard:\n  https://dash.acontext.io\n", dashProject)
+				return nil
 			}
 
 			// 2. Check API connectivity
@@ -36,7 +40,7 @@ func init() {
 			if err := client.Ping(cmd.Context()); err != nil {
 				fmt.Printf("Ping failed for project %s: %v\n", dashProject, err)
 				fmt.Printf("Fix with: acontext dash projects select --project %s --api-key <sk-ac-...>\n", dashProject)
-				return fmt.Errorf("ping failed")
+				return nil
 			}
 
 			fmt.Println(tui.RenderSuccess(fmt.Sprintf("Project %s is reachable. Setup complete.", dashProject)))
