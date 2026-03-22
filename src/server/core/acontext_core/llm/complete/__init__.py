@@ -1,6 +1,7 @@
 from typing import Callable, Awaitable, Mapping, Optional
 from .openai_sdk import openai_complete
 from .anthropic_sdk import anthropic_complete
+from .litellm_sdk import litellm_complete
 from .mock_sdk import mock_complete
 from ...schema.llm import LLMResponse
 from ...schema.result import Result
@@ -13,6 +14,7 @@ COMPLETE_FUNC = Callable[..., Awaitable[LLMResponse]]
 FACTORIES: Mapping[str, COMPLETE_FUNC] = {
     "openai": openai_complete,
     "anthropic": anthropic_complete,
+    "litellm": litellm_complete,
     "mock": mock_complete,
 }
 
@@ -62,6 +64,9 @@ async def llm_sanity_check():
 
 def response_to_sendable_message(message: LLMResponse) -> dict:
     if DEFAULT_CORE_CONFIG.llm_sdk == "openai":
+        return message.raw_response.choices[0].message.model_dump()
+    elif DEFAULT_CORE_CONFIG.llm_sdk == "litellm":
+        # litellm returns OpenAI-compatible ModelResponse
         return message.raw_response.choices[0].message.model_dump()
     elif DEFAULT_CORE_CONFIG.llm_sdk == "anthropic":
         dp = {"role": message.role, "content": []}

@@ -21,7 +21,7 @@ class CoreConfig(BaseModel):
     llm_openai_default_header: Optional[Mapping[str, Any]] = None
     llm_openai_completion_kwargs: Mapping[str, Any] = {}
     llm_response_timeout: float = 60
-    llm_sdk: Literal["openai", "anthropic", "mock"] = "openai"
+    llm_sdk: Literal["openai", "anthropic", "litellm", "mock"] = "openai"
 
     llm_simple_model: str = "gpt-4.1"
 
