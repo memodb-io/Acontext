@@ -299,6 +299,71 @@ func TestFlush_MultipleProjects(t *testing.T) {
 	assert.Equal(t, 2, countByProject[p2])
 }
 
+func TestFlush_MissingMetadata_DropsOrphanedEntry(t *testing.T) {
+	rdb := newTestRedis(t)
+	ctx := context.Background()
+	mockRepo := &mockAssetReferenceRepo{}
+	log := zap.NewNop()
+
+	w := New(rdb, mockRepo, log, WithFlushInterval(time.Hour))
+	w.Start()
+
+	projectID := uuid.New()
+	pid := projectID.String()
+	pendingKey := pendingKeyPrefix + pid
+
+	// Manually create a pending entry WITHOUT metadata (simulates expired meta key)
+	rdb.HSet(ctx, pendingKey, "orphan_sha256", "3")
+	rdb.SAdd(ctx, dirtySetKey, pid)
+
+	// Also enqueue a valid asset
+	validAsset := model.Asset{SHA256: "valid_sha256", S3Key: "s3/valid", Bucket: "b", MIME: "application/json", SizeB: 100}
+	require.NoError(t, w.Enqueue(ctx, projectID, []model.Asset{validAsset}))
+
+	// Close triggers flush
+	w.Close(ctx)
+
+	// The valid asset should have been flushed to DB
+	require.Len(t, mockRepo.calls, 1)
+	assert.Equal(t, 1, len(mockRepo.calls[0].Assets))
+	assert.Equal(t, "valid_sha256", mockRepo.calls[0].Assets[0].SHA256)
+
+	// The orphaned entry should NOT be restored to Redis
+	count, err := rdb.HLen(ctx, pendingKey).Result()
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), count, "orphaned pending entry should be dropped, not restored")
+}
+
+func TestEnqueue_RefreshesMetaTTL(t *testing.T) {
+	rdb := newTestRedis(t)
+	ctx := context.Background()
+	mockRepo := &mockAssetReferenceRepo{}
+	log := zap.NewNop()
+
+	w := New(rdb, mockRepo, log, WithFlushInterval(time.Hour))
+	w.Start()
+	defer w.Close(ctx)
+
+	projectID := uuid.New()
+	asset := model.Asset{SHA256: "aaa", S3Key: "s3/aaa", Bucket: "b"}
+
+	// First enqueue
+	require.NoError(t, w.Enqueue(ctx, projectID, []model.Asset{asset}))
+
+	metaKey := metaKeyPrefix + projectID.String() + ":aaa"
+
+	// Reduce TTL artificially to simulate time passing
+	rdb.Expire(ctx, metaKey, 1*time.Second)
+
+	// Second enqueue should refresh TTL
+	require.NoError(t, w.Enqueue(ctx, projectID, []model.Asset{asset}))
+
+	ttl, err := rdb.TTL(ctx, metaKey).Result()
+	require.NoError(t, err)
+	// TTL should have been refreshed to ~24h, not the 1s we set
+	assert.Greater(t, ttl, 1*time.Minute, "meta key TTL should be refreshed on re-enqueue")
+}
+
 func TestMetadata_SETNXIdempotent(t *testing.T) {
 	rdb := newTestRedis(t)
 	ctx := context.Background()

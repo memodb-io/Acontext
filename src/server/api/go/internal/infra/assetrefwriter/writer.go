@@ -112,6 +112,8 @@ func (w *AssetRefWriter) Enqueue(ctx context.Context, projectID uuid.UUID, asset
 			continue
 		}
 		pipe.SetNX(ctx, metaKey, metaJSON, defaultKeyTTL)
+		// Always refresh meta key TTL so it doesn't expire before the pending count is flushed
+		pipe.Expire(ctx, metaKey, defaultKeyTTL)
 	}
 
 	// Mark project as dirty
@@ -222,8 +224,15 @@ func (w *AssetRefWriter) flushProject(ctx context.Context, projectID uuid.UUID) 
 		metaKey := metaKeyPrefix + pid + ":" + e.sha256
 		metaJSON, err := w.redis.Get(ctx, metaKey).Bytes()
 		if err != nil {
+			if err == redis.Nil {
+				// Metadata expired or was never written — drop the orphaned pending entry
+				// to avoid infinite retry loops. The next real Enqueue will recreate it.
+				w.log.Warn("asset meta expired, dropping orphaned pending entry",
+					zap.String("key", metaKey), zap.Int64("lost_count", e.count))
+				continue
+			}
 			w.log.Error("get asset meta", zap.String("key", metaKey), zap.Error(err))
-			// Restore count to Redis since we can't flush without metadata
+			// Restore count to Redis since we can't flush without metadata (transient error)
 			w.redis.HIncrBy(ctx, pendingKey, e.sha256, e.count)
 			w.redis.SAdd(ctx, dirtySetKey, pid)
 			continue
