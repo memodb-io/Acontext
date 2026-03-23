@@ -1,11 +1,15 @@
 package middleware
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
@@ -18,8 +22,14 @@ import (
 	"github.com/memodb-io/Acontext/internal/pkg/utils/tokens"
 )
 
+const (
+	projectAuthCachePrefix = "project:auth:"
+	projectAuthCacheTTL    = 5 * time.Minute
+)
+
 // ProjectAuth returns a middleware that authenticates requests using project bearer tokens.
-func ProjectAuth(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
+// It caches project lookups in Redis to avoid hitting the database on every request.
+func ProjectAuth(cfg *config.Config, db *gorm.DB, rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Create auth span without propagating context to avoid nested span hierarchy
 		authCtx, authSpan := otel.Tracer("middleware").Start(
@@ -47,8 +57,8 @@ func ProjectAuth(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
 
 		lookup := tokens.HMAC256Hex(cfg.Root.SecretPepper, secret)
 
-		var project model.Project
-		if err := db.WithContext(authCtx).Where(&model.Project{SecretKeyHMAC: lookup}).First(&project).Error; err != nil {
+		project, err := lookupProject(authCtx, db, rdb, lookup)
+		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				authSpan.SetAttributes(attribute.Bool("authenticated", false))
 				authSpan.End()
@@ -88,8 +98,40 @@ func ProjectAuth(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
 		)
 		authSpan.End()
 
-		c.Set("project", &project)
+		c.Set("project", project)
 		SetWideEventField(c, "project_id", project.ID.String())
 		c.Next()
 	}
+}
+
+// lookupProject tries Redis cache first, falls back to DB on miss or Redis error.
+func lookupProject(ctx context.Context, db *gorm.DB, rdb *redis.Client, hmac string) (*model.Project, error) {
+	cacheKey := projectAuthCachePrefix + hmac
+
+	// Try Redis first
+	if rdb != nil {
+		data, err := rdb.Get(ctx, cacheKey).Bytes()
+		if err == nil {
+			var project model.Project
+			if json.Unmarshal(data, &project) == nil {
+				return &project, nil
+			}
+		}
+		// On redis.Nil or any other error, fall through to DB
+	}
+
+	// DB lookup
+	var project model.Project
+	if err := db.WithContext(ctx).Where(&model.Project{SecretKeyHMAC: hmac}).First(&project).Error; err != nil {
+		return nil, err
+	}
+
+	// Write-back to Redis (best-effort, don't block on failure)
+	if rdb != nil {
+		if data, err := json.Marshal(&project); err == nil {
+			_ = rdb.Set(ctx, cacheKey, data, projectAuthCacheTTL).Err()
+		}
+	}
+
+	return &project, nil
 }

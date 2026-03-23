@@ -98,6 +98,7 @@ func main() {
 	engine := router.NewRouter(router.RouterDeps{
 		Config:               cfg,
 		DB:                   db,
+		Redis:                rdb,
 		Log:                  log,
 		SessionHandler:       sessionHandler,
 		DiskHandler:          diskHandler,

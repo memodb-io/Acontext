@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
 
@@ -19,6 +20,7 @@ import (
 type RouterDeps struct {
 	Config               *config.Config
 	DB                   *gorm.DB
+	Redis                *redis.Client
 	Log                  *zap.Logger
 	SessionHandler       *handler.SessionHandler
 	DiskHandler          *handler.DiskHandler
@@ -62,7 +64,7 @@ func NewRouter(d RouterDeps) *gin.Engine {
 	{
 		projectAuth := d.ProjectAuthOverride
 		if projectAuth == nil {
-			projectAuth = middleware.ProjectAuth(d.Config, d.DB)
+			projectAuth = middleware.ProjectAuth(d.Config, d.DB, d.Redis)
 		}
 		v1.Use(projectAuth)
 
