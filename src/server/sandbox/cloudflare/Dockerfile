@@ -13,6 +13,9 @@ RUN apt-get update && \
     fi && \
     rm -rf /var/lib/apt/lists/*
 
+# Install db9 CLI
+RUN curl -fsSL https://db9.ai/install | sh
+
 # Optional: Install additional dependencies if needed
 # RUN pip install ...
 # RUN npm install -g ...
