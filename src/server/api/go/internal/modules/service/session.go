@@ -293,6 +293,7 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 
 	parts := make([]model.Part, 0, len(in.Parts))
 	var uploadedAssets []model.Asset
+	var pendingUploads []*blob.PreparedUpload
 
 	for idx := range in.Parts {
 		partIn := &in.Parts[idx] // Use pointer to avoid repeated indexing and allow modifications
@@ -316,14 +317,15 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 				return nil, fmt.Errorf("parts[%d]: missing uploaded file %s", idx, partIn.FileField)
 			}
 
-			// upload asset to S3
-			asset, err := s.s3.UploadFormFile(ctx, "assets/"+in.ProjectID.String(), fh)
+			// Pre-compute asset metadata without S3 calls
+			prepared, err := s.s3.PrepareFormFileAsset("assets/"+in.ProjectID.String(), fh)
 			if err != nil {
-				return nil, fmt.Errorf("upload %s failed: %w", partIn.FileField, err)
+				return nil, fmt.Errorf("prepare %s failed: %w", partIn.FileField, err)
 			}
 
-			uploadedAssets = append(uploadedAssets, *asset)
-			part.Asset = asset
+			pendingUploads = append(pendingUploads, prepared)
+			uploadedAssets = append(uploadedAssets, prepared.Asset)
+			part.Asset = &prepared.Asset
 			part.Filename = fh.Filename
 		}
 
@@ -334,13 +336,37 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 		parts = append(parts, part)
 	}
 
-	// upload parts to S3 as JSON file
-	asset, err := s.s3.UploadJSON(ctx, "parts/"+in.ProjectID.String(), parts)
+	// Pre-compute parts JSON asset metadata without S3 calls
+	partsAssetPrepared, err := s.s3.PrepareJSONAsset("parts/"+in.ProjectID.String(), parts)
 	if err != nil {
-		return nil, fmt.Errorf("upload parts to S3 failed: %w", err)
+		return nil, fmt.Errorf("prepare parts asset failed: %w", err)
 	}
 
-	uploadedAssets = append(uploadedAssets, *asset)
+	pendingUploads = append(pendingUploads, partsAssetPrepared)
+	partsAsset := partsAssetPrepared.Asset
+	uploadedAssets = append(uploadedAssets, partsAsset)
+
+	// Cache parts data in Redis before responding (uses pre-computed SHA256)
+	if s.redis != nil {
+		if err := s.cachePartsInRedis(ctx, partsAsset.SHA256, parts); err != nil {
+			s.log.Warn("failed to cache parts in Redis", zap.String("sha256", partsAsset.SHA256), zap.Error(err))
+		}
+	}
+
+	// Upload all assets to S3 asynchronously — not on the request critical path.
+	// Since S3 keys are content-addressed (SHA256), uploads are idempotent.
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		for _, p := range pendingUploads {
+			if err := s.s3.UploadPrepared(bgCtx, p); err != nil {
+				s.log.Error("async S3 upload failed",
+					zap.String("s3_key", p.Asset.S3Key),
+					zap.String("sha256", p.Asset.SHA256),
+					zap.Error(err))
+			}
+		}
+	}()
 
 	// Increment asset reference counts asynchronously to avoid blocking the response.
 	go func() {
@@ -352,14 +378,6 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 		}
 	}()
 
-	// Cache parts data in Redis after successful S3 upload
-	if s.redis != nil {
-		if err := s.cachePartsInRedis(ctx, asset.SHA256, parts); err != nil {
-			// Log error but don't fail the request if Redis caching fails
-			s.log.Warn("failed to cache parts in Redis", zap.String("sha256", asset.SHA256), zap.Error(err))
-		}
-	}
-
 	// Prepare message metadata
 	messageMeta := in.MessageMeta
 	if messageMeta == nil {
@@ -370,7 +388,7 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 		SessionID:      in.SessionID,
 		Role:           in.Role,
 		Meta:           datatypes.NewJSONType(messageMeta), // Store message-level metadata
-		PartsAssetMeta: datatypes.NewJSONType(*asset),
+		PartsAssetMeta: datatypes.NewJSONType(partsAsset),
 		Parts:          parts,
 	}
 

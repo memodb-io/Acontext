@@ -353,6 +353,98 @@ func (u *S3Deps) UploadJSON(ctx context.Context, keyPrefix string, data interfac
 	)
 }
 
+// PreparedUpload holds pre-computed asset metadata and content for deferred S3 upload.
+type PreparedUpload struct {
+	Asset    model.Asset       // Pre-computed asset metadata (S3Key, SHA256, MIME, SizeB)
+	Content  []byte            // Serialized content to upload
+	Metadata map[string]string // S3 object metadata
+}
+
+// PrepareJSONAsset pre-computes asset metadata for JSON data without making any S3 calls.
+// Returns a PreparedUpload that can later be uploaded via UploadPrepared.
+func (u *S3Deps) PrepareJSONAsset(keyPrefix string, data interface{}) (*PreparedUpload, error) {
+	jsonData, err := sonic.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf("marshal json: %w", err)
+	}
+
+	h := sha256.New()
+	h.Write(jsonData)
+	sumHex := hex.EncodeToString(h.Sum(nil))
+
+	datePrefix := time.Now().UTC().Format("2006/01/02")
+	key := fmt.Sprintf("%s/%s/%s.json", keyPrefix, datePrefix, sumHex)
+
+	return &PreparedUpload{
+		Asset: model.Asset{
+			Bucket: u.Bucket,
+			S3Key:  key,
+			SHA256: sumHex,
+			MIME:   "application/json",
+			SizeB:  int64(len(jsonData)),
+		},
+		Content:  jsonData,
+		Metadata: map[string]string{"sha256": sumHex},
+	}, nil
+}
+
+// PrepareFormFileAsset pre-computes asset metadata for a multipart file without making any S3 calls.
+// Returns a PreparedUpload that can later be uploaded via UploadPrepared.
+func (u *S3Deps) PrepareFormFileAsset(keyPrefix string, fh *multipart.FileHeader) (*PreparedUpload, error) {
+	file, err := fh.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, file); err != nil {
+		return nil, err
+	}
+	fileContent := buf.Bytes()
+
+	h := sha256.New()
+	h.Write(fileContent)
+	sumHex := hex.EncodeToString(h.Sum(nil))
+
+	ext := strings.ToLower(filepath.Ext(fh.Filename))
+	contentType := mime.DetectMimeType(fileContent, fh.Filename)
+
+	datePrefix := time.Now().UTC().Format("2006/01/02")
+	key := fmt.Sprintf("%s/%s/%s%s", keyPrefix, datePrefix, sumHex, ext)
+
+	return &PreparedUpload{
+		Asset: model.Asset{
+			Bucket: u.Bucket,
+			S3Key:  key,
+			SHA256: sumHex,
+			MIME:   contentType,
+			SizeB:  int64(len(fileContent)),
+		},
+		Content:  fileContent,
+		Metadata: map[string]string{"sha256": sumHex, "name": fh.Filename},
+	}, nil
+}
+
+// UploadPrepared executes a deferred S3 upload for a previously prepared asset.
+// It uploads directly using the pre-computed S3 key. Since the key contains the
+// content SHA256, re-uploading identical content is naturally idempotent.
+func (u *S3Deps) UploadPrepared(ctx context.Context, p *PreparedUpload) error {
+	input := &s3.PutObjectInput{
+		Bucket:      aws.String(u.Bucket),
+		Key:         aws.String(p.Asset.S3Key),
+		Body:        bytes.NewReader(p.Content),
+		ContentType: aws.String(p.Asset.MIME),
+		Metadata:    p.Metadata,
+	}
+	if u.SSE != nil {
+		input.ServerSideEncryption = *u.SSE
+	}
+
+	_, err := u.Uploader.Upload(ctx, input)
+	return err
+}
+
 // UploadFileDirect uploads a file directly to S3 at the specified key (no deduplication)
 // This is used when you need to preserve the exact file structure
 func (u *S3Deps) UploadFileDirect(ctx context.Context, key string, content []byte, contentType string) (*model.Asset, error) {
