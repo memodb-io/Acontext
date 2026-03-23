@@ -101,19 +101,25 @@ type ArtifactCfg struct {
 	MaxUploadSizeBytes int64 // Maximum file upload size in bytes
 }
 
+type AssetRefWriterCfg struct {
+	Enabled         bool // Enable async buffered writes for asset references (default true)
+	FlushIntervalMs int  // Flush interval in milliseconds (default 1000)
+}
+
 type Config struct {
-	App       AppCfg
-	Root      RootCfg
-	Log       LogCfg
-	Database  DBCfg
-	Redis     RedisCfg
-	RabbitMQ  MQCfg
-	S3        S3Cfg
-	Core      CoreCfg
-	Metrics   MetricsCfg
-	Telemetry TelemetryCfg
-	Supabase  SupabaseCfg
-	Artifact  ArtifactCfg
+	App            AppCfg
+	Root           RootCfg
+	Log            LogCfg
+	Database       DBCfg
+	Redis          RedisCfg
+	RabbitMQ       MQCfg
+	S3             S3Cfg
+	Core           CoreCfg
+	Metrics        MetricsCfg
+	Telemetry      TelemetryCfg
+	Supabase       SupabaseCfg
+	Artifact       ArtifactCfg
+	AssetRefWriter AssetRefWriterCfg
 }
 
 func setDefaults(v *viper.Viper) {
@@ -151,6 +157,8 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("supabase.apiKey", "")
 	v.SetDefault("supabase.authURL", "")
 	v.SetDefault("artifact.maxUploadSizeBytes", 16777216) // Default 16MB (16 * 1024 * 1024 bytes)
+	v.SetDefault("assetRefWriter.enabled", true)
+	v.SetDefault("assetRefWriter.flushIntervalMs", 1000)
 }
 
 func Load() (*Config, error) {

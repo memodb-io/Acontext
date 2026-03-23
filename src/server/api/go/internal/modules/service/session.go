@@ -12,6 +12,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/config"
+	"github.com/memodb-io/Acontext/internal/infra/assetrefwriter"
 	"github.com/memodb-io/Acontext/internal/infra/blob"
 	mq "github.com/memodb-io/Acontext/internal/infra/queue"
 	"github.com/memodb-io/Acontext/internal/modules/model"
@@ -53,6 +54,7 @@ type sessionService struct {
 	sessionRepo        repo.SessionRepo
 	sessionEventRepo   repo.SessionEventRepo
 	assetReferenceRepo repo.AssetReferenceRepo
+	assetRefWriter     *assetrefwriter.AssetRefWriter
 	log                *zap.Logger
 	s3                 *blob.S3Deps
 	publisher          *mq.Publisher
@@ -67,11 +69,12 @@ const (
 	defaultPartsCacheTTL = time.Hour
 )
 
-func NewSessionService(sessionRepo repo.SessionRepo, sessionEventRepo repo.SessionEventRepo, assetReferenceRepo repo.AssetReferenceRepo, log *zap.Logger, s3 *blob.S3Deps, publisher *mq.Publisher, cfg *config.Config, redis *redis.Client) SessionService {
+func NewSessionService(sessionRepo repo.SessionRepo, sessionEventRepo repo.SessionEventRepo, assetReferenceRepo repo.AssetReferenceRepo, assetRefWriter *assetrefwriter.AssetRefWriter, log *zap.Logger, s3 *blob.S3Deps, publisher *mq.Publisher, cfg *config.Config, redis *redis.Client) SessionService {
 	return &sessionService{
 		sessionRepo:        sessionRepo,
 		sessionEventRepo:   sessionEventRepo,
 		assetReferenceRepo: assetReferenceRepo,
+		assetRefWriter:     assetRefWriter,
 		log:                log,
 		s3:                 s3,
 		publisher:          publisher,

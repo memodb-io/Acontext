@@ -9,6 +9,7 @@ import (
 
 	"github.com/memodb-io/Acontext/configs"
 	"github.com/memodb-io/Acontext/internal/config"
+	"github.com/memodb-io/Acontext/internal/infra/assetrefwriter"
 	"github.com/memodb-io/Acontext/internal/infra/blob"
 	"github.com/memodb-io/Acontext/internal/infra/cache"
 	"github.com/memodb-io/Acontext/internal/infra/db"
@@ -269,6 +270,7 @@ func BuildContainer() *do.Injector {
 			do.MustInvoke[repo.SessionRepo](i),
 			do.MustInvoke[repo.SessionEventRepo](i),
 			do.MustInvoke[repo.AssetReferenceRepo](i),
+			do.MustInvoke[*assetrefwriter.AssetRefWriter](i),
 			do.MustInvoke[*zap.Logger](i),
 			do.MustInvoke[*blob.S3Deps](i),
 			do.MustInvoke[*mq.Publisher](i),
