@@ -24,6 +24,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/memodb-io/Acontext/internal/bootstrap"
 	"github.com/memodb-io/Acontext/internal/config"
+	"github.com/memodb-io/Acontext/internal/infra/assetrefwriter"
 	"github.com/memodb-io/Acontext/internal/infra/cache"
 	dbpkg "github.com/memodb-io/Acontext/internal/infra/db"
 	"github.com/memodb-io/Acontext/internal/modules/handler"
@@ -138,5 +139,13 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Sugar().Errorw("server shutdown", "err", err)
 	}
+
+	// Flush buffered asset reference writes before exit
+	if writer := do.MustInvoke[*assetrefwriter.AssetRefWriter](inj); writer != nil {
+		if err := writer.Close(ctx); err != nil {
+			log.Sugar().Errorw("asset ref writer shutdown", "err", err)
+		}
+	}
+
 	log.Sugar().Info("server exited")
 }
