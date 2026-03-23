@@ -14,8 +14,8 @@ log:
 
 database:
   dsn: "host=${DATABASE_HOST} user=${DATABASE_USER} password=${DATABASE_PASSWORD} dbname=${DATABASE_NAME} port=${DATABASE_EXPORT_PORT} sslmode=disable TimeZone=UTC"
-  maxOpen: 50
-  maxIdle: 25
+  maxOpen: 100
+  maxIdle: 50
   maxIdleTimeSec: 300
   autoMigrate: true
   enableTLS: ${DATABASE_ENABLE_TLS}
