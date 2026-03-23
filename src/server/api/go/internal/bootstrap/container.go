@@ -9,7 +9,6 @@ import (
 
 	"github.com/memodb-io/Acontext/configs"
 	"github.com/memodb-io/Acontext/internal/config"
-	"github.com/memodb-io/Acontext/internal/infra/assetrefwriter"
 	"github.com/memodb-io/Acontext/internal/infra/blob"
 	"github.com/memodb-io/Acontext/internal/infra/cache"
 	"github.com/memodb-io/Acontext/internal/infra/db"
@@ -217,26 +216,6 @@ func BuildContainer() *do.Injector {
 		), nil
 	})
 
-	// AssetRefWriter — buffers asset reference increments in Redis for async batch flush
-	do.Provide(inj, func(i *do.Injector) (*assetrefwriter.AssetRefWriter, error) {
-		cfg := do.MustInvoke[*config.Config](i)
-		if !cfg.AssetRefWriter.Enabled {
-			return nil, nil
-		}
-		interval := time.Duration(cfg.AssetRefWriter.FlushIntervalMs) * time.Millisecond
-		if interval <= 0 {
-			interval = time.Second
-		}
-		w := assetrefwriter.New(
-			do.MustInvoke[*redis.Client](i),
-			do.MustInvoke[repo.AssetReferenceRepo](i),
-			do.MustInvoke[*zap.Logger](i),
-			assetrefwriter.WithFlushInterval(interval),
-		)
-		w.Start()
-		return w, nil
-	})
-
 	do.Provide(inj, func(i *do.Injector) (repo.SessionRepo, error) {
 		return repo.NewSessionRepo(
 			do.MustInvoke[*gorm.DB](i),
@@ -290,7 +269,6 @@ func BuildContainer() *do.Injector {
 			do.MustInvoke[repo.SessionRepo](i),
 			do.MustInvoke[repo.SessionEventRepo](i),
 			do.MustInvoke[repo.AssetReferenceRepo](i),
-			do.MustInvoke[*assetrefwriter.AssetRefWriter](i),
 			do.MustInvoke[*zap.Logger](i),
 			do.MustInvoke[*blob.S3Deps](i),
 			do.MustInvoke[*mq.Publisher](i),

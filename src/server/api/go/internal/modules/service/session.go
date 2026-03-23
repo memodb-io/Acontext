@@ -12,7 +12,6 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/config"
-	"github.com/memodb-io/Acontext/internal/infra/assetrefwriter"
 	"github.com/memodb-io/Acontext/internal/infra/blob"
 	mq "github.com/memodb-io/Acontext/internal/infra/queue"
 	"github.com/memodb-io/Acontext/internal/modules/model"
@@ -54,7 +53,6 @@ type sessionService struct {
 	sessionRepo        repo.SessionRepo
 	sessionEventRepo   repo.SessionEventRepo
 	assetReferenceRepo repo.AssetReferenceRepo
-	assetRefWriter     *assetrefwriter.AssetRefWriter
 	log                *zap.Logger
 	s3                 *blob.S3Deps
 	publisher          *mq.Publisher
@@ -69,12 +67,11 @@ const (
 	defaultPartsCacheTTL = time.Hour
 )
 
-func NewSessionService(sessionRepo repo.SessionRepo, sessionEventRepo repo.SessionEventRepo, assetReferenceRepo repo.AssetReferenceRepo, assetRefWriter *assetrefwriter.AssetRefWriter, log *zap.Logger, s3 *blob.S3Deps, publisher *mq.Publisher, cfg *config.Config, redis *redis.Client) SessionService {
+func NewSessionService(sessionRepo repo.SessionRepo, sessionEventRepo repo.SessionEventRepo, assetReferenceRepo repo.AssetReferenceRepo, log *zap.Logger, s3 *blob.S3Deps, publisher *mq.Publisher, cfg *config.Config, redis *redis.Client) SessionService {
 	return &sessionService{
 		sessionRepo:        sessionRepo,
 		sessionEventRepo:   sessionEventRepo,
 		assetReferenceRepo: assetReferenceRepo,
-		assetRefWriter:     assetRefWriter,
 		log:                log,
 		s3:                 s3,
 		publisher:          publisher,
@@ -345,20 +342,15 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 
 	uploadedAssets = append(uploadedAssets, *asset)
 
-	// Buffer asset reference increments in Redis for async batch flush.
-	// This avoids PostgreSQL row-level lock contention under high concurrency.
-	if s.assetRefWriter != nil {
-		if err := s.assetRefWriter.Enqueue(ctx, in.ProjectID, uploadedAssets); err != nil {
-			s.log.Warn("async asset ref enqueue failed, falling back to sync", zap.Error(err))
-			if err := s.assetReferenceRepo.BatchIncrementAssetRefs(ctx, in.ProjectID, uploadedAssets); err != nil {
-				return nil, fmt.Errorf("batch increment asset references: %w", err)
-			}
+	// Increment asset reference counts asynchronously to avoid blocking the response.
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := s.assetReferenceRepo.BatchIncrementAssetRefs(bgCtx, in.ProjectID, uploadedAssets); err != nil {
+			s.log.Error("async batch increment asset refs failed",
+				zap.String("project_id", in.ProjectID.String()), zap.Error(err))
 		}
-	} else {
-		if err := s.assetReferenceRepo.BatchIncrementAssetRefs(ctx, in.ProjectID, uploadedAssets); err != nil {
-			return nil, fmt.Errorf("batch increment asset references: %w", err)
-		}
-	}
+	}()
 
 	// Cache parts data in Redis after successful S3 upload
 	if s.redis != nil {
