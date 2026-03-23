@@ -263,12 +263,22 @@ func BuildContainer() *do.Injector {
 		return repo.NewSessionEventRepo(do.MustInvoke[*gorm.DB](i)), nil
 	})
 
+	// Asset reference buffer (Redis-backed, flushed to DB periodically)
+	do.Provide(inj, func(i *do.Injector) (repo.AssetRefBuffer, error) {
+		return repo.NewAssetRefBuffer(
+			do.MustInvoke[*redis.Client](i),
+			do.MustInvoke[repo.AssetReferenceRepo](i),
+			do.MustInvoke[*zap.Logger](i),
+		), nil
+	})
+
 	// Service
 	do.Provide(inj, func(i *do.Injector) (service.SessionService, error) {
 		return service.NewSessionService(
 			do.MustInvoke[repo.SessionRepo](i),
 			do.MustInvoke[repo.SessionEventRepo](i),
 			do.MustInvoke[repo.AssetReferenceRepo](i),
+			do.MustInvoke[repo.AssetRefBuffer](i),
 			do.MustInvoke[*zap.Logger](i),
 			do.MustInvoke[*blob.S3Deps](i),
 			do.MustInvoke[*mq.Publisher](i),

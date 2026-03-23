@@ -13,10 +13,18 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// AssetRefIncrement holds a pre-aggregated increment for a single asset.
+// Used by the Redis-buffered writer to flush coalesced counts to the database.
+type AssetRefIncrement struct {
+	Asset model.Asset
+	Count int
+}
+
 type AssetReferenceRepo interface {
 	IncrementAssetRef(ctx context.Context, projectID uuid.UUID, asset model.Asset) error
 	DecrementAssetRef(ctx context.Context, projectID uuid.UUID, asset model.Asset) error
 	BatchIncrementAssetRefs(ctx context.Context, projectID uuid.UUID, assets []model.Asset) error
+	BatchIncrementAssetRefsWithCounts(ctx context.Context, projectID uuid.UUID, increments []AssetRefIncrement) error
 	BatchDecrementAssetRefs(ctx context.Context, projectID uuid.UUID, assets []model.Asset) error
 }
 
@@ -146,6 +154,49 @@ func (r *assetReferenceRepo) BatchIncrementAssetRefs(ctx context.Context, projec
 	}
 
 	// Use SkipHooks to prevent recursive hook triggers when called from other hooks
+	return r.db.WithContext(ctx).Session(&gorm.Session{SkipHooks: true}).Clauses(
+		clause.OnConflict{
+			Columns: []clause.Column{{Name: "project_id"}, {Name: "sha256"}},
+			DoUpdates: clause.Assignments(map[string]any{
+				"ref_count":          gorm.Expr("asset_references.ref_count + EXCLUDED.ref_count"),
+				"s3_key":             gorm.Expr("COALESCE(NULLIF(asset_references.s3_key, ''), EXCLUDED.s3_key)"),
+				"last_referenced_at": now,
+				"updated_at":         now,
+			}),
+		},
+	).Omit(clause.Associations).Create(&rows).Error
+}
+
+// BatchIncrementAssetRefsWithCounts upserts asset references using pre-aggregated counts.
+// Unlike BatchIncrementAssetRefs which counts occurrences in a slice, this method accepts
+// explicit counts per asset — designed for the Redis-buffered writer that coalesces deltas.
+func (r *assetReferenceRepo) BatchIncrementAssetRefsWithCounts(ctx context.Context, projectID uuid.UUID, increments []AssetRefIncrement) error {
+	if projectID == uuid.Nil {
+		return fmt.Errorf("BatchIncrementAssetRefsWithCounts: project_id is required")
+	}
+	if len(increments) == 0 {
+		return nil
+	}
+
+	now := time.Now()
+	rows := make([]model.AssetReference, 0, len(increments))
+	for _, inc := range increments {
+		if inc.Asset.SHA256 == "" || inc.Count <= 0 {
+			continue
+		}
+		rows = append(rows, model.AssetReference{
+			ProjectID:        projectID,
+			SHA256:           inc.Asset.SHA256,
+			S3Key:            inc.Asset.S3Key,
+			RefCount:         inc.Count,
+			AssetMeta:        datatypes.NewJSONType(inc.Asset),
+			LastReferencedAt: now,
+		})
+	}
+	if len(rows) == 0 {
+		return nil
+	}
+
 	return r.db.WithContext(ctx).Session(&gorm.Session{SkipHooks: true}).Clauses(
 		clause.OnConflict{
 			Columns: []clause.Column{{Name: "project_id"}, {Name: "sha256"}},

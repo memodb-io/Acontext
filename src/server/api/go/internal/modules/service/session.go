@@ -53,6 +53,7 @@ type sessionService struct {
 	sessionRepo        repo.SessionRepo
 	sessionEventRepo   repo.SessionEventRepo
 	assetReferenceRepo repo.AssetReferenceRepo
+	assetRefBuffer     repo.AssetRefBuffer
 	log                *zap.Logger
 	s3                 *blob.S3Deps
 	publisher          *mq.Publisher
@@ -67,11 +68,12 @@ const (
 	defaultPartsCacheTTL = time.Hour
 )
 
-func NewSessionService(sessionRepo repo.SessionRepo, sessionEventRepo repo.SessionEventRepo, assetReferenceRepo repo.AssetReferenceRepo, log *zap.Logger, s3 *blob.S3Deps, publisher *mq.Publisher, cfg *config.Config, redis *redis.Client) SessionService {
+func NewSessionService(sessionRepo repo.SessionRepo, sessionEventRepo repo.SessionEventRepo, assetReferenceRepo repo.AssetReferenceRepo, assetRefBuffer repo.AssetRefBuffer, log *zap.Logger, s3 *blob.S3Deps, publisher *mq.Publisher, cfg *config.Config, redis *redis.Client) SessionService {
 	return &sessionService{
 		sessionRepo:        sessionRepo,
 		sessionEventRepo:   sessionEventRepo,
 		assetReferenceRepo: assetReferenceRepo,
+		assetRefBuffer:     assetRefBuffer,
 		log:                log,
 		s3:                 s3,
 		publisher:          publisher,
@@ -368,15 +370,11 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 		}
 	}()
 
-	// Increment asset reference counts asynchronously to avoid blocking the response.
-	go func() {
-		bgCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		if err := s.assetReferenceRepo.BatchIncrementAssetRefs(bgCtx, in.ProjectID, uploadedAssets); err != nil {
-			s.log.Error("async batch increment asset refs failed",
-				zap.String("project_id", in.ProjectID.String()), zap.Error(err))
-		}
-	}()
+	// Buffer asset reference increments in Redis for coalesced DB flush.
+	if err := s.assetRefBuffer.Enqueue(ctx, in.ProjectID, uploadedAssets); err != nil {
+		s.log.Error("failed to enqueue asset ref increments",
+			zap.String("project_id", in.ProjectID.String()), zap.Error(err))
+	}
 
 	// Prepare message metadata
 	messageMeta := in.MessageMeta
