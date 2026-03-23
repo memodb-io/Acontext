@@ -27,6 +27,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/infra/cache"
 	dbpkg "github.com/memodb-io/Acontext/internal/infra/db"
 	"github.com/memodb-io/Acontext/internal/modules/handler"
+	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"github.com/memodb-io/Acontext/internal/router"
 	"github.com/memodb-io/Acontext/internal/telemetry"
@@ -120,6 +121,10 @@ func main() {
 		IdleTimeout:       120 * time.Second,
 	}
 
+	// Start the Redis-buffered asset reference writer.
+	assetRefBuffer := do.MustInvoke[repo.AssetRefBuffer](inj)
+	assetRefBuffer.Start()
+
 	go func() {
 		log.Sugar().Infow("starting http server", "addr", addr)
 		log.Sugar().Infow("swagger url", "url", addr+"/swagger/index.html")
@@ -133,6 +138,9 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+
+	// Stop the asset reference buffer first (final flush to DB).
+	assetRefBuffer.Stop()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

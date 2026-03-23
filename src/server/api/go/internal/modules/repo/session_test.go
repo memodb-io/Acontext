@@ -422,6 +422,10 @@ func (m *MockAssetReferenceRepoForCopy) BatchIncrementAssetRefs(ctx context.Cont
 	return nil
 }
 
+func (m *MockAssetReferenceRepoForCopy) BatchIncrementAssetRefsWithCounts(ctx context.Context, projectID uuid.UUID, increments []AssetRefIncrement) error {
+	return nil
+}
+
 func (m *MockAssetReferenceRepoForCopy) BatchDecrementAssetRefs(ctx context.Context, projectID uuid.UUID, assets []model.Asset) error {
 	return nil
 }
