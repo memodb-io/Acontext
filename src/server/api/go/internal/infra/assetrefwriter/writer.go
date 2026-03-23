@@ -138,18 +138,20 @@ func (w *AssetRefWriter) loop() {
 	for {
 		select {
 		case <-ticker.C:
-			w.flush()
+			ctx, cancel := context.WithTimeout(context.Background(), w.interval)
+			w.flush(ctx)
+			cancel()
 		case <-w.stopCh:
-			// Final flush before exit
-			w.flush()
+			// Final flush before exit — use background context;
+			// Close() enforces the overall deadline via its own select.
+			w.flush(context.Background())
 			return
 		}
 	}
 }
 
 // flush pops dirty projects and flushes each one.
-func (w *AssetRefWriter) flush() {
-	ctx := context.Background()
+func (w *AssetRefWriter) flush(ctx context.Context) {
 
 	for {
 		// SPOP one project at a time to avoid holding too many in memory

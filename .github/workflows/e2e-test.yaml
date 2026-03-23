@@ -47,3 +47,9 @@ jobs:
         run: |
           cd src/server
           docker compose -f docker-compose.test.yml logs
+
+      - name: Teardown
+        if: always()
+        run: |
+          cd src/server
+          docker compose -f docker-compose.test.yml down --timeout 10
