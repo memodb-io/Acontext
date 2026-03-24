@@ -133,14 +133,33 @@ export function AdminOperations<T extends Constructor<BaseClient>>(Base: T) {
     }
 
     /**
-     * Update/rotate project secret key via acontext API
-     * Returns the new secret key
+     * Rotate project secret key via admin JWT route (no master key preservation).
+     * Only works for non-encrypted projects.
+     * Returns the new secret key.
      */
-    async updateProjectSecretKey(projectId: string): Promise<string> {
+    async rotateProjectSecretKeyAdmin(projectId: string): Promise<string> {
       const result = await this.request<{ secret_key?: string; secretKey?: string }>(
         `/admin/v1/project/${projectId}/secret_key`,
         {
           method: "PUT",
+        }
+      );
+      return result.secret_key || result.secretKey || "";
+    }
+
+    /**
+     * Rotate project secret key via Bearer project auth route.
+     * Preserves the master key (required for encrypted projects).
+     * Returns the new secret key.
+     */
+    async rotateProjectSecretKey(apiKey: string): Promise<string> {
+      const result = await this.request<{ secret_key?: string; secretKey?: string }>(
+        `/admin/v1/project/secret_key`,
+        {
+          method: "PUT",
+          headers: {
+            "Authorization": `Bearer ${apiKey}`,
+          },
         }
       );
       return result.secret_key || result.secretKey || "";
@@ -211,6 +230,36 @@ export function AdminOperations<T extends Constructor<BaseClient>>(Base: T) {
       };
 
       return result;
+    }
+
+    /**
+     * Encrypt a project — POST /admin/v1/project/encrypt
+     * Requires the user's API key as Bearer auth
+     */
+    async encryptProject(projectId: string, apiKey: string): Promise<void> {
+      await this.request<void>("/admin/v1/project/encrypt", {
+        method: "POST",
+        projectId,
+        body: JSON.stringify({ project_id: projectId }),
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+        },
+      });
+    }
+
+    /**
+     * Decrypt a project — POST /admin/v1/project/decrypt
+     * Requires the user's API key as Bearer auth
+     */
+    async decryptProject(projectId: string, apiKey: string): Promise<void> {
+      await this.request<void>("/admin/v1/project/decrypt", {
+        method: "POST",
+        projectId,
+        body: JSON.stringify({ project_id: projectId }),
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+        },
+      });
     }
 
     /**

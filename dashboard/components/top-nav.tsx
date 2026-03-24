@@ -14,6 +14,8 @@ import {
   Github,
   Receipt,
   ExternalLink,
+  ShieldCheck,
+  ShieldX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -236,6 +238,16 @@ function ProjectSelector({
       <span className="text-foreground max-w-[120px] sm:max-w-32 lg:max-w-none truncate text-sm">
         {currentProject?.name || "Acontext"}
       </span>
+      {currentProject && (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="shrink-0 hidden sm:inline-flex">
+              {currentProject.encryption_enabled ? <ShieldCheck className="h-3.5 w-3.5 text-green-500" /> : <ShieldX className="h-3.5 w-3.5 text-red-500" />}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>{currentProject.encryption_enabled ? "Encrypted" : "Not Encrypted"}</TooltipContent>
+        </Tooltip>
+      )}
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -259,9 +271,15 @@ function ProjectSelector({
                         key={proj.id}
                         value={`${proj.name} ${proj.id}`}
                         onSelect={() => handleSelect(proj)}
-                        className="flex items-center justify-between"
+                        className="flex items-center justify-between min-w-0"
                       >
-                        <span>{proj.name}</span>
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className="truncate">{proj.name}</span>
+                          {proj.encryption_enabled
+                            ? <ShieldCheck className="h-3 w-3 text-green-500 shrink-0" />
+                            : <ShieldX className="h-3 w-3 text-red-500 shrink-0" />
+                          }
+                        </div>
                         {currentProject?.id === proj.id && (
                           <Check className="h-4 w-4" />
                         )}

@@ -24,6 +24,7 @@ export interface Project {
   id: string
   name: string
   organization_id: string
+  encryption_enabled?: boolean
   created_at?: string
 }
 

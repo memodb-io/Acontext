@@ -59,7 +59,7 @@ export async function getSecretKeyHistory(projectId: string) {
  * Rotate (generate new) secret key for a project
  * Returns the full key for one-time display
  */
-export async function rotateSecretKey(projectId: string) {
+export async function rotateSecretKey(projectId: string, apiKey?: string) {
   // Get current user (will redirect if not authenticated)
   const user = await getCurrentUser();
 
@@ -85,9 +85,16 @@ export async function rotateSecretKey(projectId: string) {
   }
 
   try {
-    // Call API to generate new secret key
+    // When an API key is available, use the Bearer route (preserves master key
+    // for encrypted projects).  Otherwise fall back to the admin route, which
+    // will reject the request server-side if the project has encryption enabled.
     const client = new AcontextClient();
-    const fullSecretKey = await client.updateProjectSecretKey(projectId);
+    let fullSecretKey: string;
+    if (apiKey) {
+      fullSecretKey = await client.rotateProjectSecretKey(apiKey);
+    } else {
+      fullSecretKey = await client.rotateProjectSecretKeyAdmin(projectId);
+    }
 
     if (!fullSecretKey) {
       return { error: "Failed to generate secret key" };

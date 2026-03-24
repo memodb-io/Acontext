@@ -8,6 +8,11 @@ import {
   RefreshCw,
   AlertTriangle,
   KeyRound,
+  Save,
+  Trash2,
+  Eye,
+  EyeOff,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTopNavStore } from "@/stores/top-nav";
@@ -54,6 +59,7 @@ import {
 import { rotateSecretKey } from "./actions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CodeEditor } from "@/components/code-editor";
+import { useApiKeyStorage } from "@/lib/hooks/use-api-key-storage";
 
 const SERVICE_URL = "api.acontext.app/api/v1";
 
@@ -87,6 +93,11 @@ export function ApiKeysPageClient({
   const [activeCodeTab, setActiveCodeTab] = useState<"python" | "typescript">(
     "python"
   );
+
+  // Saved API key in localStorage
+  const { apiKey: savedApiKey, hasApiKey: hasSavedApiKey, saveApiKey, removeApiKey } = useApiKeyStorage(project.id);
+  const [apiKeyInput, setApiKeyInput] = useState("");
+  const [showSavedKey, setShowSavedKey] = useState(false);
 
   const isOwner = role === "owner";
   const hasExistingKey = keyRotations.length > 0;
@@ -153,12 +164,20 @@ console.log(await client.ping());`,
 
   const performKeyGeneration = () => {
     startTransition(async () => {
-      const result = await rotateSecretKey(project.id);
+      const result = await rotateSecretKey(
+        project.id,
+        savedApiKey ?? undefined,
+      );
       if (result.error) {
         toast.error(result.error);
       } else if (result.secretKey) {
         setNewlyGeneratedKey(result.secretKey);
         setShowKeyDialog(true);
+        // Auto-update localStorage if the user had a saved key
+        if (hasSavedApiKey) {
+          saveApiKey(result.secretKey);
+          toast.info("Saved API key in your browser has been updated with the new key.");
+        }
         router.refresh();
         toast.success(
           hasExistingKey
@@ -426,6 +445,115 @@ IMPORTANT: Store this key securely. It will not be shown again.
                   )}
                 </Button>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Saved API Key Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Save className="h-5 w-5" />
+                Saved API Key
+              </CardTitle>
+              <CardDescription>
+                Save your API key in your browser for encryption features.
+                Your API key is stored only in your browser and is never sent to our servers.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {hasSavedApiKey ? (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label>Current Saved Key</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        value={showSavedKey ? (savedApiKey ?? "") : "****************************************"}
+                        readOnly
+                        className="font-mono text-sm"
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => setShowSavedKey(!showSavedKey)}
+                        title={showSavedKey ? "Hide key" : "Show key"}
+                      >
+                        {showSavedKey ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          if (savedApiKey) {
+                            navigator.clipboard.writeText(savedApiKey);
+                            toast.success("Saved API key copied to clipboard");
+                          }
+                        }}
+                        title="Copy saved key"
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        onClick={() => {
+                          removeApiKey();
+                          setShowSavedKey(false);
+                          toast.success("Saved API key removed from browser");
+                        }}
+                        title="Remove saved key"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      Your API key is stored only in your browser. It is used for encryption/decryption operations.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="api-key-input">API Key</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="api-key-input"
+                        type="password"
+                        value={apiKeyInput}
+                        onChange={(e) => setApiKeyInput(e.target.value)}
+                        placeholder="Paste your API key here"
+                        className="font-mono text-sm"
+                      />
+                      <Button
+                        onClick={() => {
+                          if (apiKeyInput.trim()) {
+                            saveApiKey(apiKeyInput.trim());
+                            setApiKeyInput("");
+                            toast.success("API key saved to browser");
+                          }
+                        }}
+                        disabled={!apiKeyInput.trim()}
+                      >
+                        <Save className="h-4 w-4" />
+                        Save
+                      </Button>
+                    </div>
+                  </div>
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      Your API key is stored only in your browser. It is used for encryption/decryption operations.
+                      Save your API key here after generating or rotating it.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
             </CardContent>
           </Card>
 
