@@ -32,10 +32,43 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd
 
-      - name: Build Images
+      - name: Build Docker Images (parallel)
         run: |
-          cd src/server
-          docker compose -f docker-compose.test.yml build
+          docker buildx build \
+            --load \
+            --cache-from type=gha,scope=e2e-core \
+            --cache-to type=gha,mode=max,scope=e2e-core \
+            -t acontext-e2e-test-core:latest \
+            ./src/server/core &
+          PID_CORE=$!
+
+          docker buildx build \
+            --load \
+            --cache-from type=gha,scope=e2e-api \
+            --cache-to type=gha,mode=max,scope=e2e-api \
+            -t acontext-e2e-test-api:latest \
+            ./src/server/api/go &
+          PID_API=$!
+
+          docker buildx build \
+            --load \
+            --file ./src/server/api/go/Dockerfile.admin \
+            --cache-from type=gha,scope=e2e-admin \
+            --cache-to type=gha,mode=max,scope=e2e-admin \
+            -t acontext-e2e-test-admin:latest \
+            ./src/server/api/go &
+          PID_ADMIN=$!
+
+          docker buildx build \
+            --load \
+            --cache-from type=gha,scope=e2e-runner \
+            --cache-to type=gha,mode=max,scope=e2e-runner \
+            -t acontext-e2e-test-runner:latest \
+            -f ./src/server/tests/Dockerfile.e2e \
+            ./src/server/tests &
+          PID_RUNNER=$!
+
+          wait $PID_CORE $PID_API $PID_ADMIN $PID_RUNNER
 
       - name: Run E2E Test
         run: |
@@ -47,9 +80,3 @@ jobs:
         run: |
           cd src/server
           docker compose -f docker-compose.test.yml logs
-
-      - name: Teardown
-        if: always()
-        run: |
-          cd src/server
-          docker compose -f docker-compose.test.yml down --timeout 10

@@ -6,7 +6,7 @@ import httpx
 import uuid
 from typing import Dict
 
-from test_simple import (
+from conftest import (
     API_URL,
     db_conn,
     test_project,
@@ -157,6 +157,18 @@ async def test_events_with_messages(test_project: ProjectCredentials):
             {"text": "Event during conversation"},
             test_project.headers,
         )
+
+        # Send a second message so the event falls within the time window
+        # (events query uses [first_msg.created_at, last_msg.created_at])
+        msg_resp2 = await client.post(
+            f"{API_URL}/api/v1/session/{session_id}/messages",
+            json={
+                "blob": {"role": "user", "content": "Second message"},
+                "format": "openai",
+            },
+            headers=test_project.headers,
+        )
+        assert msg_resp2.status_code in (200, 201)
 
         # Get messages with events
         resp = await client.get(

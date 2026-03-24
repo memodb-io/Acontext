@@ -69,6 +69,7 @@ services:
 
   # --- Python Core ---
   core:
+    image: acontext-e2e-test-core:latest
     build:
       context: ./core
     environment:
@@ -95,6 +96,7 @@ services:
 
   # --- Go API ---
   api:
+    image: acontext-e2e-test-api:latest
     build:
       context: ./api/go
     environment:
@@ -127,6 +129,7 @@ services:
       ARTIFACT_MAX_UPLOAD_SIZE_BYTES: 16777216
       ROOT_API_BEARER_TOKEN: test-token
       APP_ROOT_SECRETPEPPER: test-pepper
+      APP_EXTERNALURL: http://api:8029
     depends_on:
       core: { condition: service_healthy }
     healthcheck:
@@ -135,13 +138,64 @@ services:
       timeout: 5s
       retries: 5
 
+  # --- Go Admin API ---
+  admin:
+    image: acontext-e2e-test-admin:latest
+    build:
+      context: ./api/go
+      dockerfile: Dockerfile.admin
+    environment:
+      APP_ENV: debug
+      API_EXPORT_PORT: 8028
+      DATABASE_HOST: pg
+      DATABASE_USER: acontext
+      DATABASE_PASSWORD: helloworld
+      DATABASE_NAME: acontext_test
+      DATABASE_EXPORT_PORT: 5432
+      DATABASE_ENABLE_TLS: "false"
+      REDIS_HOST: redis
+      REDIS_PASSWORD: helloworld
+      REDIS_EXPORT_PORT: 6379
+      REDIS_ENABLE_TLS: "false"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USER: acontext
+      RABBITMQ_PASSWORD: helloworld
+      RABBITMQ_VHOST: /
+      RABBITMQ_VHOST_ENCODED: "%2F"
+      RABBITMQ_EXPORT_PORT: 5672
+      RABBITMQ_ENABLE_TLS: "false"
+      S3_ENDPOINT: http://seaweedfs:9000
+      S3_INTERNAL_ENDPOINT: http://seaweedfs:9000
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: acontext
+      S3_SECRET_KEY: helloworld
+      S3_BUCKET: acontext-assets
+      CORE_BASE_URL: http://core:8000
+      APP_TELEMETRY_ENABLED: "false"
+      ENABLE_ARGON2_VERIFICATION: "false"
+      ARTIFACT_MAX_UPLOAD_SIZE_BYTES: 16777216
+      ROOT_API_BEARER_TOKEN: test-token
+      APP_ROOT_SECRETPEPPER: test-pepper
+    depends_on:
+      core: { condition: service_healthy }
+    healthcheck:
+      test: [ "CMD-SHELL", "wget -q -O- http://localhost:8028/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # --- Test Runner ---
   tests:
-    image: python:3.12-slim
+    image: acontext-e2e-test-runner:latest
+    build:
+      context: ./tests
+      dockerfile: Dockerfile.e2e
     environment:
       API_URL: http://api:8029
+      ADMIN_URL: http://admin:8028
       CORE_URL: http://core:8000
       DB_URL: postgresql://acontext:helloworld@pg:5432/acontext_test
+      REDIS_URL: redis://:helloworld@redis:6379
       TEST_TOKEN: test-token
     volumes:
       - ./tests:/app/tests
@@ -149,7 +203,8 @@ services:
     working_dir: /app
     depends_on:
       api: { condition: service_healthy }
-    command: [ "sh", "-c", "pip install httpx asyncpg pydantic pytest pytest-asyncio==0.21.* && pytest tests/e2e/test_simple.py -v --asyncio-mode=auto" ]
+      admin: { condition: service_healthy }
+    command: [ "pytest", "tests/e2e/test_simple.py", "tests/e2e/test_encryption.py", "tests/e2e/test_session_events.py", "tests/e2e/test_agent_skills.py", "tests/e2e/test_learning_spaces.py", "tests/e2e/test_users.py", "tests/e2e/test_disk_artifact.py", "tests/e2e/test_project_isolation.py", "-v", "--asyncio-mode=auto" ]
 
 networks:
   default:

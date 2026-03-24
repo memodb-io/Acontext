@@ -1,0 +1,7 @@
+httpx
+asyncpg
+pydantic
+pytest
+pytest-asyncio==0.21.*
+redis
+cryptography

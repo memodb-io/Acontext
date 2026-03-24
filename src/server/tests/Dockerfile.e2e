@@ -1,0 +1,9 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY requirements-e2e.txt .
+RUN pip install --no-cache-dir -r requirements-e2e.txt
+
+# Tests are mounted at runtime via docker-compose volume, not copied in.
+# This lets the image be cached even when test code changes.
