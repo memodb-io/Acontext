@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, forwardRef } from 'react'
 import gsap from 'gsap'
 import {
   MessageSquare,
@@ -53,135 +53,155 @@ interface Skill {
 // ─── Data ────────────────────────────────────────────────────────────────────
 
 const SKILLS: Skill[] = [
-  { id: 'deployment-sop', name: 'deployment-sop', files: ['SKILL.md', 'staging-steps.md', 'rollback.md'] },
-  { id: 'api-testing', name: 'api-testing', files: ['SKILL.md', 'smoke-tests.md'] },
-  { id: 'sdk-doc-patterns', name: 'sdk-doc-patterns', files: ['SKILL.md', 'ts-patterns.md', 'py-patterns.md'] },
-  { id: 'git-pr-workflows', name: 'git-pr-workflows', files: ['SKILL.md', 'pr-template.md'] },
-  { id: 'db-migration-sop', name: 'db-migration-sop', files: ['SKILL.md', 'migration-steps.md'] },
+  { id: 'user-general-facts', name: 'user-general-facts', files: ['SKILL.md', 'work-context.md', 'tech-stack.md'] },
+  { id: 'daily-logs', name: 'daily-logs', files: ['SKILL.md', '2026-03-24.md'] },
+  { id: 'deployment-sop', name: 'deployment-sop', files: ['SKILL.md', 'troubleshooting.md'] },
+  { id: 'api-testing', name: 'api-testing', files: ['SKILL.md', 'param-validation.md'] },
+  { id: 'db-migration-sop', name: 'db-migration-sop', files: ['SKILL.md', 'safety-checks.md'] },
+  { id: 'git-pr-workflows', name: 'git-pr-workflows', files: ['SKILL.md', 'ci-config.md'] },
 ]
 
 const MESSAGE_PAIRS: MessagePair[] = [
   {
     id: 'p1',
-    user: 'Deploy the API to staging environment',
-    assistant: 'Deployed to staging. All 12 health checks pass.',
-    userDetail: [{ type: 'text', text: 'Deploy the API to staging and make sure all health checks pass.' }],
+    user: "I'm Gus, backend lead at MemoDB. Gener handles infra.",
+    assistant: 'Got it — saved your role and team context.',
+    userDetail: [{ type: 'text', text: "Hey, I'm Gus, backend lead on the MemoDB team. Gener handles all the infra and DevOps." }],
     assistantDetail: [
-      { type: 'tool-call', text: 'get_skill("deployment-sop")' },
-      { type: 'tool-result', text: '✓ Skill loaded (3 files)' },
-      { type: 'tool-call', text: 'deploy("staging")' },
-      { type: 'tool-result', text: '✓ 12/12 health checks passed' },
+      { type: 'text', text: "Got it! I've saved your role and team info so I can tailor responses to your context." },
+      { type: 'tool-call', text: 'get_skill("user-general-facts")' },
+      { type: 'tool-result', text: '✓ Skill loaded (1 file)' },
+      { type: 'tool-call', text: 'upsert_skill_file("work-context.md")' },
+      { type: 'tool-result', text: '✓ Created work-context.md' },
     ],
     skillEffect: {
-      skillId: 'deployment-sop', file: 'SKILL.md', action: 'updated',
+      skillId: 'user-general-facts', file: 'work-context.md', action: 'updated',
       diff: [
-        { type: ' ', text: '# Deployment SOP' },
-        { type: ' ', text: '1. Run pre-deploy checks' },
-        { type: '+', text: '3. Verify all 12 health endpoints' },
-        { type: '-', text: '3. Verify health endpoints' },
-        { type: ' ', text: '4. Monitor for 15 minutes' },
+        { type: '+', text: '# Work Context' },
+        { type: '+', text: '' },
+        { type: '+', text: '- Gus is the backend lead at MemoDB' },
+        { type: '+', text: '- Gener handles infra and DevOps' },
+        { type: '+', text: '- Team uses Go API + Python CORE' },
       ],
     },
   },
   {
     id: 'p2',
-    user: 'Run the full smoke test suite',
-    assistant: 'All 48 smoke tests passed. No regressions.',
-    userDetail: [{ type: 'text', text: 'Run the complete API smoke tests against staging.' }],
+    user: 'Staging deploy failed — pods crashing with OOM',
+    assistant: 'Found it: memory limit was 256Mi, bumped to 512Mi. Redeployed OK.',
+    userDetail: [{ type: 'text', text: 'The staging deploy just failed. Pods are crash-looping with OOMKilled. Can you figure out what happened and fix it?' }],
     assistantDetail: [
-      { type: 'tool-call', text: 'run_smoke_tests("staging")' },
-      { type: 'tool-result', text: '✓ 48/48 tests passed (34.2s)' },
+      { type: 'text', text: 'Found the issue — memory limit was set to 256Mi but usage peaked at 481Mi. Bumped to 512Mi and redeployed. All pods healthy now.' },
+      { type: 'tool-call', text: 'kubectl_logs("api-staging")' },
+      { type: 'tool-result', text: '✗ OOMKilled — limit 256Mi, usage peaked 481Mi' },
+      { type: 'tool-call', text: 'edit_file("k8s/staging/api.yaml")' },
+      { type: 'tool-result', text: '✓ Memory limit: 256Mi → 512Mi' },
+      { type: 'tool-call', text: 'deploy("staging")' },
+      { type: 'tool-result', text: '✓ All pods running (3/3 ready)' },
     ],
     skillEffect: {
-      skillId: 'api-testing', file: 'SKILL.md', action: 'created',
+      skillId: 'daily-logs', file: '2026-03-24.md', action: 'updated',
       diff: [
-        { type: '+', text: '---' },
-        { type: '+', text: 'name: api-testing' },
-        { type: '+', text: '---' },
-        { type: '+', text: '# API Testing Patterns' },
-        { type: '+', text: '- Run against staging first' },
-        { type: '+', text: '- Full suite: 48 endpoints' },
+        { type: '+', text: '# 2026-03-24' },
+        { type: '+', text: '' },
+        { type: '+', text: '## Fixed staging OOM crash' },
+        { type: '+', text: '- API pods OOMKilled at 256Mi limit' },
+        { type: '+', text: '- Bumped to 512Mi, redeployed OK' },
       ],
     },
   },
   {
     id: 'p3',
-    user: 'Update the SDK docs for v2.1',
-    assistant: 'SDK docs updated with migration guide.',
-    userDetail: [{ type: 'text', text: 'Update TypeScript and Python SDK docs for v2.1 with migration guide.' }],
+    user: 'I sent wrong params to /billing/charge — got 422',
+    assistant: 'Fixed: amount was string, needs int. Also added validation rules.',
+    userDetail: [{ type: 'text', text: 'I called POST /api/v1/billing/charge with { "amount": "50.00", "currency": "usd" } and got a 422. The amount should be an integer in cents — I forgot.' }],
     assistantDetail: [
-      { type: 'tool-call', text: 'get_skill("sdk-doc-patterns")' },
-      { type: 'tool-result', text: '✓ Skill loaded (3 files)' },
-      { type: 'tool-call', text: 'edit_file("sdk-ts/MIGRATION.md")' },
-      { type: 'tool-result', text: '✓ Created migration guide' },
+      { type: 'text', text: 'The amount field needs to be an integer in cents, not a string. I retried with 5000 and it went through. Saved the validation rules as a skill.' },
+      { type: 'tool-call', text: 'api_call("POST /billing/charge", {"amount": 5000, "currency": "usd"})' },
+      { type: 'tool-result', text: '✓ 200 OK — charge_id: ch_9f3k2m' },
+      { type: 'tool-call', text: 'create_skill("api-testing")' },
+      { type: 'tool-result', text: '✓ Skill created with param-validation.md' },
     ],
     skillEffect: {
-      skillId: 'sdk-doc-patterns', file: 'SKILL.md', action: 'updated',
+      skillId: 'api-testing', file: 'param-validation.md', action: 'created',
       diff: [
-        { type: ' ', text: '# SDK Doc Patterns' },
-        { type: '+', text: '- Always update CHANGELOG.md' },
-        { type: '+', text: '- Include migration guide' },
-        { type: ' ', text: '- Mirror structure across langs' },
+        { type: '+', text: '# Parameter Validation Rules' },
+        { type: '+', text: '' },
+        { type: '+', text: '## /billing/charge' },
+        { type: '+', text: '- amount: integer (cents), NOT string' },
+        { type: '+', text: '- currency: lowercase ISO 4217' },
+        { type: '+', text: '- idempotency_key: required for retries' },
       ],
     },
   },
   {
     id: 'p4',
-    user: 'Create a PR and merge to dev',
-    assistant: 'PR #247 merged to dev.',
-    userDetail: [{ type: 'text', text: 'Create a pull request with all changes and merge to dev.' }],
+    user: 'I accidentally ran the migration on prod instead of staging',
+    assistant: 'Rolled back in 3.2s. No data loss — schema restored.',
+    userDetail: [{ type: 'text', text: "I just ran the add_billing_cols migration on prod by mistake instead of staging. The columns got added but the data backfill didn't finish. Can you roll it back?" }],
     assistantDetail: [
-      { type: 'tool-call', text: 'get_skill("git-pr-workflows")' },
-      { type: 'tool-result', text: '✓ Skill loaded (2 files)' },
-      { type: 'tool-call', text: 'gh_pr_merge("#247")' },
-      { type: 'tool-result', text: '✓ PR #247 merged to dev' },
+      { type: 'text', text: 'Rolled back successfully in 3.2s — schema is restored, no data loss. I created a safety checklist skill so this doesn\'t happen again.' },
+      { type: 'tool-call', text: 'check_migration_status("prod")' },
+      { type: 'tool-result', text: '✗ add_billing_cols: partial — 3 cols added, backfill at 12%' },
+      { type: 'tool-call', text: 'rollback_migration("prod", "add_billing_cols")' },
+      { type: 'tool-result', text: '✓ Rolled back in 3.2s — schema restored' },
     ],
     skillEffect: {
-      skillId: 'git-pr-workflows', file: 'SKILL.md', action: 'updated',
+      skillId: 'db-migration-sop', file: 'safety-checks.md', action: 'created',
       diff: [
-        { type: ' ', text: '# Git PR Workflows' },
-        { type: '+', text: '- Include "Impact Areas" in PR body' },
-        { type: ' ', text: '- Squash merge to main' },
+        { type: '+', text: '# Migration Safety Checks' },
+        { type: '+', text: '' },
+        { type: '+', text: '## Before Running' },
+        { type: '+', text: '- ALWAYS confirm target env (staging vs prod)' },
+        { type: '+', text: '- Require --env flag, never use default' },
+        { type: '+', text: '- Take schema snapshot before applying' },
       ],
     },
   },
   {
     id: 'p5',
-    user: 'Run the pending DB migration',
-    assistant: 'Migration applied. Performance +40%.',
-    userDetail: [{ type: 'text', text: 'Apply the pending migration for the new users table index.' }],
+    user: 'CI is failing — wrong test command in the workflow',
+    assistant: 'Fixed: was `npm test`, should be `go test ./...`. Pipeline green.',
+    userDetail: [{ type: 'text', text: "The CI pipeline is failing on every PR. Looks like someone changed the test command to `npm test` but this is a Go repo. It should be `go test ./...`." }],
     assistantDetail: [
-      { type: 'tool-call', text: 'run_migration("add_users_idx")' },
-      { type: 'tool-result', text: '✓ Migration applied in 2.3s' },
+      { type: 'text', text: 'Found it — the test command was changed to `npm test` but this is a Go repo. Fixed to `go test ./...` and the pipeline is green now.' },
+      { type: 'tool-call', text: 'edit_file(".github/workflows/ci.yml")' },
+      { type: 'tool-result', text: '✓ Test command: npm test → go test ./...' },
+      { type: 'tool-call', text: 'trigger_ci("main")' },
+      { type: 'tool-result', text: '✓ Pipeline passed (2m 14s)' },
     ],
     skillEffect: {
-      skillId: 'db-migration-sop', file: 'SKILL.md', action: 'created',
+      skillId: 'git-pr-workflows', file: 'ci-config.md', action: 'created',
       diff: [
-        { type: '+', text: '---' },
-        { type: '+', text: 'name: db-migration-sop' },
-        { type: '+', text: '---' },
-        { type: '+', text: '# DB Migration SOP' },
-        { type: '+', text: '- Backup schema first' },
-        { type: '+', text: '- Always run on staging' },
+        { type: '+', text: '# CI Configuration Notes' },
+        { type: '+', text: '' },
+        { type: '+', text: '## Test Commands' },
+        { type: '+', text: '- API (Go): go test ./...' },
+        { type: '+', text: '- SDK-TS: npm run test' },
+        { type: '+', text: '- SDK-PY: pytest tests/' },
       ],
     },
   },
   {
     id: 'p6',
-    user: 'Verify the rollback procedure',
-    assistant: 'Rollback tested. Recovery in 4.1s.',
-    userDetail: [{ type: 'text', text: 'Test that the rollback procedure works.' }],
+    user: 'We use Go 1.22 and prefer table-driven tests',
+    assistant: 'Noted — saved to your tech stack preferences.',
+    userDetail: [{ type: 'text', text: "By the way, we're on Go 1.22 and we prefer table-driven tests everywhere. Also using pgvector for embeddings." }],
     assistantDetail: [
-      { type: 'tool-call', text: 'test_rollback("add_users_idx")' },
-      { type: 'tool-result', text: '✓ Rollback completed in 4.1s' },
+      { type: 'text', text: 'Noted! Saved Go 1.22, table-driven tests preference, and pgvector usage to your tech stack profile.' },
+      { type: 'tool-call', text: 'get_skill("user-general-facts")' },
+      { type: 'tool-result', text: '✓ Skill loaded (2 files)' },
+      { type: 'tool-call', text: 'upsert_skill_file("tech-stack.md")' },
+      { type: 'tool-result', text: '✓ Created tech-stack.md' },
     ],
     skillEffect: {
-      skillId: 'db-migration-sop', file: 'migration-steps.md', action: 'updated',
+      skillId: 'user-general-facts', file: 'tech-stack.md', action: 'updated',
       diff: [
-        { type: ' ', text: '# Migration Steps' },
-        { type: '+', text: '3. Test rollback procedure' },
-        { type: '+', text: '4. Verify schema integrity' },
-        { type: ' ', text: '5. Run performance checks' },
+        { type: '+', text: '# Tech Stack' },
+        { type: '+', text: '' },
+        { type: '+', text: '- Go 1.22 with table-driven tests' },
+        { type: '+', text: '- PostgreSQL + pgvector for embeddings' },
+        { type: '+', text: '- Redis for caching and queues' },
       ],
     },
   },
@@ -201,18 +221,19 @@ for (const pair of MESSAGE_PAIRS) {
 }
 
 const FILE_CONTENTS: Record<string, string> = {
-  'deployment-sop/SKILL.md': '---\nname: deployment-sop\ndescription: Standard operating procedure\n---\n\n# Deployment SOP\n1. Run pre-deploy checks\n2. Deploy to staging first\n3. Verify all 12 health endpoints\n4. Monitor for 15 minutes',
-  'deployment-sop/staging-steps.md': '# Staging Deployment\n\n## Pre-checks\n- All tests passing\n- No pending migrations\n\n## Steps\n1. Tag release branch\n2. Deploy via CI pipeline\n3. Run smoke tests',
-  'deployment-sop/rollback.md': '# Rollback Procedure\n\n## When to Rollback\n- Health check failures > 3\n- Error rate exceeds 1%\n\n## Steps\n1. Revert to previous tag\n2. Trigger CI rollback',
-  'api-testing/SKILL.md': '---\nname: api-testing\ndescription: API endpoint testing\n---\n\n# API Testing Patterns\n- Run against staging first\n- Full suite: 48 endpoints\n- Check for regressions',
-  'api-testing/smoke-tests.md': '# Smoke Tests\n\n## Endpoints\n- GET /health -> 200\n- GET /api/v1/status -> 200\n- POST /api/v1/ping -> 200',
-  'sdk-doc-patterns/SKILL.md': '---\nname: sdk-doc-patterns\n---\n\n# SDK Doc Patterns\n- Keep README.md as entry point\n- Always update CHANGELOG.md\n- Include migration guide\n- Mirror structure across langs',
-  'sdk-doc-patterns/ts-patterns.md': '# TypeScript SDK Patterns\n\n## Code Examples\nAlways include import statements\nUse async/await, not .then()',
-  'sdk-doc-patterns/py-patterns.md': '# Python SDK Patterns\n\n## Code Examples\nUse type hints in all examples\nInclude both sync and async',
-  'git-pr-workflows/SKILL.md': '---\nname: git-pr-workflows\n---\n\n# Git PR Workflows\n- Always branch from dev\n- Use conventional commits\n- Include "Impact Areas" in PR body\n- Squash merge to main',
-  'git-pr-workflows/pr-template.md': '# PR Template\n\n## Summary\n## Impact Areas\n## Test Plan\n- [ ] Unit tests pass\n- [ ] E2E tests pass',
+  'user-general-facts/SKILL.md': '---\nname: user-general-facts\ndescription: Capture and organize general facts about the user by topic\n---\n\n# User General Facts\n\nLearn and recall general facts about the user — preferences, background, goals.',
+  'user-general-facts/work-context.md': '# Work Context\n\n- Gus is the backend lead at MemoDB\n- Gener handles infra and DevOps\n- Team uses Go API + Python CORE',
+  'user-general-facts/tech-stack.md': '# Tech Stack\n\n- Go 1.22 with table-driven tests\n- PostgreSQL + pgvector for embeddings\n- Redis for caching and queues',
+  'daily-logs/SKILL.md': '---\nname: daily-logs\ndescription: Track daily activity logs and summaries\n---\n\n# Daily Logs\n\nRecord daily activities, progress, decisions in chronological format.\nOne file per day: yyyy-mm-dd.md',
+  'daily-logs/2026-03-24.md': '# 2026-03-24\n\n## Fixed staging OOM crash\n- API pods OOMKilled at 256Mi limit\n- Bumped to 512Mi, redeployed OK',
+  'deployment-sop/SKILL.md': '---\nname: deployment-sop\ndescription: Standard deployment procedures\n---\n\n# Deployment SOP\n1. Run pre-deploy checks\n2. Deploy to staging first\n3. Verify health endpoints\n4. Monitor for 15 minutes',
+  'deployment-sop/troubleshooting.md': '# Deployment Troubleshooting\n\n## OOMKilled Pods\n- Check current limits in k8s/*.yaml\n- Compare against actual peak usage\n- Bump limit to 2x observed peak',
+  'api-testing/SKILL.md': '---\nname: api-testing\ndescription: API testing patterns and rules\n---\n\n# API Testing Patterns\n- Run against staging first\n- Full suite: 48 endpoints\n- Check for regressions',
+  'api-testing/param-validation.md': '# Parameter Validation Rules\n\n## /billing/charge\n- amount: integer (cents), NOT string\n- currency: lowercase ISO 4217\n- idempotency_key: required for retries',
   'db-migration-sop/SKILL.md': '---\nname: db-migration-sop\n---\n\n# DB Migration SOP\n- Backup schema first\n- Always run on staging\n- Monitor query performance after',
-  'db-migration-sop/migration-steps.md': '# Migration Steps\n\n1. Backup current schema\n2. Apply migration\n3. Test rollback procedure\n4. Verify schema integrity\n5. Run performance checks',
+  'db-migration-sop/safety-checks.md': '# Migration Safety Checks\n\n## Before Running\n- ALWAYS confirm target env (staging vs prod)\n- Require --env flag, never use default\n- Take schema snapshot before applying',
+  'git-pr-workflows/SKILL.md': '---\nname: git-pr-workflows\n---\n\n# Git PR Workflows\n- Always branch from dev\n- Use conventional commits\n- Include "Impact Areas" in PR body\n- Squash merge to main',
+  'git-pr-workflows/ci-config.md': '# CI Configuration Notes\n\n## Test Commands\n- API (Go): go test ./...\n- SDK-TS: npm run test\n- SDK-PY: pytest tests/',
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -222,6 +243,72 @@ function PartIcon({ type }: { type: string }) {
   if (type === 'tool-result') return <CheckCircle2 className="w-3 h-3 text-emerald-500 shrink-0" />
   return <FileText className="w-3 h-3 text-zinc-400 shrink-0" />
 }
+
+const DetailContent = forwardRef<HTMLDivElement, { pair: MessagePair }>(
+  function DetailContent({ pair }, ref) {
+    const innerRef = useRef<HTMLDivElement>(null)
+
+    // Slide in from the left on mount
+    useEffect(() => {
+      const el = innerRef.current
+      if (el) {
+        gsap.fromTo(el, { x: -30, opacity: 0 }, { x: 0, opacity: 1, duration: 0.25, ease: 'power2.out' })
+      }
+    }, [])
+
+    return (
+      <div
+        ref={(node) => {
+          (innerRef as React.MutableRefObject<HTMLDivElement | null>).current = node
+          if (typeof ref === 'function') ref(node)
+          else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node
+        }}
+        className="skill-scroll flex-1 overflow-y-auto p-3 space-y-2.5"
+      >
+        {/* User detail */}
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
+              <User className="w-2.5 h-2.5 text-white" />
+            </div>
+            <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 uppercase">User</span>
+          </div>
+          <div className="pl-7 space-y-0.5">
+            {pair.userDetail.map((part, i) => (
+              <p key={i} className="text-[11px] sm:text-xs text-zinc-700 dark:text-zinc-300 leading-relaxed">{part.text}</p>
+            ))}
+          </div>
+        </div>
+        {/* Assistant detail */}
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center shrink-0">
+              <Bot className="w-2.5 h-2.5 text-white" />
+            </div>
+            <span className="text-[10px] font-medium text-zinc-500 dark:text-zinc-400 uppercase">Agent</span>
+          </div>
+          <div className="pl-7 space-y-1">
+            {pair.assistantDetail.map((part, i) => (
+              <div key={i} className={cn(
+                'flex items-start gap-1.5 text-[10px] sm:text-xs px-2 py-1 rounded',
+                part.type === 'text' ? '' : 'opacity-50',
+                part.type === 'tool-call' ? 'bg-blue-50/60 dark:bg-blue-950/20 border border-blue-100 dark:border-blue-900/40' : '',
+                part.type === 'tool-result' ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40' : '',
+              )}>
+                {part.type !== 'text' && <PartIcon type={part.type} />}
+                <span className={cn(
+                  part.type === 'tool-call' ? 'font-mono text-blue-600 dark:text-blue-400'
+                    : part.type === 'tool-result' ? 'font-mono text-emerald-600 dark:text-emerald-400'
+                      : 'text-zinc-700 dark:text-zinc-300',
+                )}>{part.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  },
+)
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 
@@ -235,6 +322,41 @@ export function SkillMemoryDemo() {
   const [highlightedFile, setHighlightedFile] = useState<{ skillId: string; file: string } | null>(null)
   const [detailPair, setDetailPair] = useState<MessagePair | null>(null)
   const [animDone, setAnimDone] = useState(false)
+  // Index of the message pair currently being animated (-1 = none / done)
+  const [focusedPairIndex, setFocusedPairIndex] = useState<number>(-1)
+  // The pair index actually rendered inside the popup (lags behind focusedPairIndex for exit anim)
+  const [displayedPairIndex, setDisplayedPairIndex] = useState<number>(-1)
+  // How many message pairs have been fully shown (used to know which ones to dim)
+  const [shownCount, setShownCount] = useState<number>(0)
+  // Whether the file tree is in dimmed/focus mode (during sweep)
+  const [treeDimmed, setTreeDimmed] = useState(false)
+
+  const detailContentRef = useRef<HTMLDivElement>(null)
+
+  // When focusedPairIndex changes: animate old content right-out, then swap to new content
+  useEffect(() => {
+    // First render or closing popup — just sync immediately
+    if (focusedPairIndex < 0 || displayedPairIndex < 0) {
+      setDisplayedPairIndex(focusedPairIndex)
+      return
+    }
+    // Same index — no transition needed
+    if (focusedPairIndex === displayedPairIndex) return
+
+    const el = detailContentRef.current
+    if (el) {
+      // Slide old content out to the right
+      gsap.to(el, {
+        x: 30, opacity: 0, duration: 0.2, ease: 'power2.in',
+        onComplete: () => {
+          // Swap to new content
+          setDisplayedPairIndex(focusedPairIndex)
+        },
+      })
+    } else {
+      setDisplayedPairIndex(focusedPairIndex)
+    }
+  }, [focusedPairIndex, displayedPairIndex])
 
   const previewMode = selectedFile ? 'file' : activeDiff ? 'diff' : 'empty'
 
@@ -294,12 +416,16 @@ export function SkillMemoryDemo() {
 
     // Reset all state — pre-existing skills visible + expanded from the start
     setVisibleSkills(new Set(PRE_EXISTING_SKILLS))
-    setExpandedSkills(new Set(PRE_EXISTING_SKILLS))
+    setExpandedSkills(new Set())
     setSelectedFile(null)
     setActiveDiff(null)
     setHighlightedFile(null)
     setDetailPair(null)
     setAnimDone(false)
+    setFocusedPairIndex(-1)
+    setDisplayedPairIndex(-1)
+    setShownCount(0)
+    setTreeDimmed(false)
 
     // Reset DOM opacity for messages
     containerRef.current.querySelectorAll('[data-msg-user], [data-msg-assistant]').forEach((el) => {
@@ -310,51 +436,59 @@ export function SkillMemoryDemo() {
     const ctx = gsap.context(() => {
       const tl = gsap.timeline()
 
-      // Messages appear one by one, slower pacing
+      // Timeline: message detail (1.2s) → sweep + tree/view update (1s) → wait (1s) → next
+      const STEP = 3.2 // seconds per message pair
       MESSAGE_PAIRS.forEach((pair, pi) => {
-        const baseT = 0.5 + pi * 1.5
+        const baseT = 0.8 + pi * STEP
 
-        // User message
+        // 1) Show message detail popup
         tl.call(() => {
-          const el = containerRef.current?.querySelector(`[data-msg-user="${pi}"]`) as HTMLElement
-          if (el) gsap.fromTo(el, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.4, ease: 'power3.out' })
+          setFocusedPairIndex(pi)
+          setShownCount(pi)
         }, [], baseT)
 
-        // Assistant message
+        // Fade in underlying message row
         tl.call(() => {
-          const el = containerRef.current?.querySelector(`[data-msg-assistant="${pi}"]`) as HTMLElement
-          if (el) gsap.fromTo(el, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.4, ease: 'power3.out' })
-        }, [], baseT + 0.5)
+          const uEl = containerRef.current?.querySelector(`[data-msg-user="${pi}"]`) as HTMLElement
+          if (uEl) gsap.fromTo(uEl, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.5, ease: 'power3.out' })
+        }, [], baseT + 0.1)
+        tl.call(() => {
+          const aEl = containerRef.current?.querySelector(`[data-msg-assistant="${pi}"]`) as HTMLElement
+          if (aEl) gsap.fromTo(aEl, { opacity: 0, x: -10 }, { opacity: 1, x: 0, duration: 0.5, ease: 'power3.out' })
+        }, [], baseT + 0.1)
 
-        // After both messages: sweep + skill effect
+        // 2) Sweep starts: simultaneously update tree (dim + highlight) + view (diff)
         if (pair.skillEffect) {
           const effect = pair.skillEffect
           tl.call(() => {
-            fireSweep()
+            // Tree: dim non-active, collapse others, highlight target file
+            setTreeDimmed(true)
+            if (effect.action === 'created') {
+              setVisibleSkills((prev) => new Set(prev).add(effect.skillId))
+            }
+            // Only expand the active skill, collapse the rest
+            setExpandedSkills(new Set([effect.skillId]))
+            setHighlightedFile({ skillId: effect.skillId, file: effect.file })
+            // View: show diff immediately
+            setActiveDiff(effect)
+            setSelectedFile(null)
 
-            // Skill effect triggers when sweep reaches the middle columns
-            setTimeout(() => {
-              // New skill: add to tree. Existing skill: already visible.
-              if (effect.action === 'created') {
-                setVisibleSkills((prev) => new Set(prev).add(effect.skillId))
-              }
-              setExpandedSkills((prev) => new Set(prev).add(effect.skillId))
-              setHighlightedFile({ skillId: effect.skillId, file: effect.file })
-              setActiveDiff(effect)
-              setSelectedFile(null)
-            }, 400)
-          }, [], baseT + 0.9)
+            fireSweep()
+          }, [], baseT + 1.2)
         }
       })
 
-      // Animation done: clear diff, expand all, open first file
-      const endTime = 0.5 + MESSAGE_PAIRS.length * 1.5 + 1.2
+      // Animation done: clear focus, expand all, open first file
+      const endTime = 0.8 + MESSAGE_PAIRS.length * STEP + 1.0
       tl.call(() => {
+        setFocusedPairIndex(-1)
+        setShownCount(MESSAGE_PAIRS.length)
         setActiveDiff(null)
         setHighlightedFile(null)
         setVisibleSkills(new Set(SKILLS.map((s) => s.id)))
         setExpandedSkills(new Set(SKILLS.map((s) => s.id)))
         setSelectedFile({ skillId: SKILLS[0].id, file: SKILLS[0].files[0] })
+        setTreeDimmed(false)
         setAnimDone(true)
       }, [], endTime)
     }, containerRef)
@@ -379,38 +513,59 @@ export function SkillMemoryDemo() {
           <MessageSquare className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 mr-2" />
           <span className="text-xs sm:text-sm font-medium text-zinc-600 dark:text-zinc-400">Messages</span>
         </div>
-        <div className="skill-scroll flex-1 overflow-y-auto min-h-0 flex flex-col">
-          {MESSAGE_PAIRS.map((pair, pi) => (
-            <div
-              key={pair.id}
-              onClick={() => handlePairClick(pair)}
-              className="flex-1 min-h-0 flex flex-col border-b border-zinc-100 dark:border-zinc-800/60 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-colors"
-            >
-              {/* User */}
+        <div className="skill-scroll flex-1 overflow-y-auto min-h-0 flex flex-col relative">
+          {MESSAGE_PAIRS.map((pair, pi) => {
+            const isFocused = focusedPairIndex === pi
+            const isShown = pi < shownCount || isFocused
+            const isDimmed = focusedPairIndex >= 0 && !isFocused && isShown
+            return (
               <div
-                data-msg-user={pi}
-                style={{ opacity: 0 }}
-                className="flex items-center gap-2 px-3 flex-1"
+                key={pair.id}
+                onClick={() => handlePairClick(pair)}
+                className={cn(
+                  'flex-1 min-h-0 flex flex-col border-b border-zinc-100 dark:border-zinc-800/60 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-900/40 transition-all duration-300',
+                  isFocused ? 'bg-violet-50/40 dark:bg-violet-950/20' : '',
+                  isDimmed ? 'opacity-30' : '',
+                )}
               >
-                <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
-                  <User className="w-2.5 h-2.5 text-white" />
+                {/* User */}
+                <div
+                  data-msg-user={pi}
+                  style={{ opacity: 0 }}
+                  className="flex items-center gap-2 px-3 flex-1"
+                >
+                  <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
+                    <User className="w-2.5 h-2.5 text-white" />
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-zinc-700 dark:text-zinc-300 truncate flex-1">{pair.user}</p>
                 </div>
-                <p className="text-[11px] sm:text-xs text-zinc-700 dark:text-zinc-300 truncate flex-1">{pair.user}</p>
-              </div>
-              {/* Assistant */}
-              <div
-                data-msg-assistant={pi}
-                style={{ opacity: 0 }}
-                className="flex items-center gap-2 px-3 flex-1"
-              >
-                <div className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center shrink-0">
-                  <Bot className="w-2.5 h-2.5 text-white" />
+                {/* Assistant */}
+                <div
+                  data-msg-assistant={pi}
+                  style={{ opacity: 0 }}
+                  className="flex items-center gap-2 px-3 flex-1"
+                >
+                  <div className="w-5 h-5 rounded-full bg-emerald-600 flex items-center justify-center shrink-0">
+                    <Bot className="w-2.5 h-2.5 text-white" />
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-zinc-700 dark:text-zinc-300 truncate flex-1">{pair.assistant}</p>
+                  {pair.skillEffect && <Sparkles className="w-3 h-3 text-violet-400 shrink-0" />}
                 </div>
-                <p className="text-[11px] sm:text-xs text-zinc-700 dark:text-zinc-300 truncate flex-1">{pair.assistant}</p>
-                {pair.skillEffect && <Sparkles className="w-3 h-3 text-violet-400 shrink-0" />}
               </div>
+            )
+          })}
+
+          {/* ── Focused pair detail popup (overlays the message list) ── */}
+          {displayedPairIndex >= 0 && displayedPairIndex < MESSAGE_PAIRS.length && (
+            <div className="absolute inset-x-2 top-2 bottom-2 z-10 flex flex-col border border-violet-200 dark:border-violet-800/60 rounded-lg overflow-hidden bg-white/95 dark:bg-zinc-950/95 backdrop-blur shadow-lg">
+              {/* Inner content — GSAP handles slide-in/out */}
+              <DetailContent
+                key={`focus-inner-${displayedPairIndex}`}
+                ref={detailContentRef}
+                pair={MESSAGE_PAIRS[displayedPairIndex]}
+              />
             </div>
-          ))}
+          )}
         </div>
       </div>
 
@@ -423,8 +578,10 @@ export function SkillMemoryDemo() {
         <div className="skill-scroll flex-1 overflow-y-auto min-h-0 py-1">
           {SKILLS.filter((s) => visibleSkills.has(s.id)).map((skill) => {
             const isExpanded = expandedSkills.has(skill.id)
+            const isActiveSkill = highlightedFile?.skillId === skill.id
+            const isDimmedSkill = treeDimmed && !isActiveSkill
             return (
-              <div key={skill.id} data-skill-folder className="select-none">
+              <div key={skill.id} data-skill-folder className={cn('select-none transition-opacity duration-300', isDimmedSkill ? 'opacity-30' : '')}>
                 <div
                   onClick={() => toggleSkill(skill.id)}
                   className="flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors"
@@ -439,8 +596,11 @@ export function SkillMemoryDemo() {
                     {skill.name}/
                   </span>
                 </div>
-                {isExpanded && (
-                  <div className="ml-4">
+                <div
+                  className="ml-4 grid transition-[grid-template-rows] duration-300 ease-in-out"
+                  style={{ gridTemplateRows: isExpanded ? '1fr' : '0fr' }}
+                >
+                  <div className="overflow-hidden">
                     {skill.files.map((file) => {
                       const isHL = highlightedFile?.skillId === skill.id && highlightedFile?.file === file
                       const isSel = selectedFile?.skillId === skill.id && selectedFile?.file === file
@@ -462,7 +622,7 @@ export function SkillMemoryDemo() {
                       )
                     })}
                   </div>
-                )}
+                </div>
               </div>
             )
           })}
@@ -499,15 +659,15 @@ export function SkillMemoryDemo() {
 
         <div className="skill-scroll flex-1 overflow-y-auto min-h-0">
           {previewMode === 'diff' && activeDiff && (
-            <div className="px-3 py-2 bg-zinc-950 dark:bg-black font-mono text-[10px] sm:text-[11px] leading-relaxed min-h-full">
+            <div className="px-3 py-2 bg-zinc-100 dark:bg-zinc-950 font-mono text-[10px] sm:text-[11px] leading-relaxed min-h-full">
               {activeDiff.diff.map((line, li) => (
                 <div key={li} className={cn(
                   'px-1.5',
-                  line.type === '+' && 'bg-emerald-950/40 text-emerald-400',
-                  line.type === '-' && 'bg-red-950/40 text-red-400 line-through opacity-60',
-                  line.type === ' ' && 'text-zinc-500',
+                  line.type === '+' && 'bg-emerald-100/60 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400',
+                  line.type === '-' && 'bg-red-100/60 text-red-500 line-through opacity-60 dark:bg-red-950/40 dark:text-red-400',
+                  line.type === ' ' && 'text-zinc-400 dark:text-zinc-500',
                 )}>
-                  <span className="select-none mr-2 text-zinc-600 inline-block w-3 text-right">
+                  <span className="select-none mr-2 text-zinc-400 dark:text-zinc-600 inline-block w-3 text-right">
                     {line.type === ' ' ? '' : line.type}
                   </span>
                   {line.text}
@@ -532,7 +692,10 @@ export function SkillMemoryDemo() {
           )}
 
           {previewMode === 'empty' && (
-            <div className="flex items-center justify-center h-full p-8">
+            <div className={cn(
+              'flex items-center justify-center h-full p-8 transition-opacity duration-300',
+              focusedPairIndex >= 0 ? 'opacity-30' : '',
+            )}>
               <div className="text-center">
                 <FileText className="w-8 h-8 text-zinc-300 dark:text-zinc-700 mx-auto mb-2" />
                 <p className="text-xs text-zinc-400 dark:text-zinc-600">Select a file to preview</p>
