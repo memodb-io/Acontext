@@ -1,0 +1,117 @@
+---
+title: "End-to-End Encryption"
+description: "Per-project data-at-rest encryption with zero-knowledge key management"
+---
+
+Acontext supports per-project end-to-end encryption. Your data is encrypted with a master key embedded in your API key. The server never stores your API key or plaintext encryption key — only you can decrypt your data.
+
+## How It Works
+
+Acontext uses **envelope encryption** with AES-256-GCM:
+
+1. Your API key contains two parts: an **auth secret** (for authentication) and an encrypted **master key** (for encryption)
+2. The **master key** is your KEK (Key Encryption Key) — it is generated once when your project is created and never changes during key rotation
+3. Each stored object gets its own **DEK** (Data Encryption Key), generated server-side
+4. The DEK is encrypted (wrapped) with your master key before being stored
+5. To decrypt, the system extracts the master key from your API key and unwraps the DEK
+
+### API Key Format
+
+Your API key has the format: `sk-ac-{auth_secret}.{encrypted_master_key}`
+
+- **auth_secret**: Used for authentication (HMAC lookup + verification)
+- **encrypted_master_key**: Your master key, encrypted with a wrapping key derived from the auth_secret
+
+This is a **zero-knowledge architecture** — the server stores only encrypted DEKs and encrypted data. Your API key is never stored on the server. Only someone who possesses the API key can decrypt the data.
+
+## Enable Encryption
+
+<Steps>
+<Step title="Generate and save an API key">
+
+Go to **Project Settings → API Keys** and generate a new API key. Click **Save to Browser** to store it in your browser's localStorage. This key is required for encryption operations.
+
+<Warning>
+Copy and store your API key somewhere safe. The server does not store it — if you lose it, encrypted data **cannot be recovered**.
+</Warning>
+
+</Step>
+
+<Step title="Ensure V2 key format">
+
+Encryption requires the V2 key format (keys containing a `.` separator). All newly created projects use V2 format automatically. If your project uses a legacy key, rotate it first to upgrade to V2 format.
+
+</Step>
+
+<Step title="Enable encryption">
+
+Go to **Project Settings → Encryption** tab and toggle **Enable Encryption**.
+
+</Step>
+
+<Step title="Confirm">
+
+Confirm the prompt. All existing project data will be encrypted. New data will be automatically encrypted going forward.
+
+</Step>
+</Steps>
+
+## Key Rotation
+
+Key rotation replaces only the auth_secret while preserving the same master key. This means **no S3 data needs to be re-encrypted** — rotation is fast regardless of project size.
+
+<Steps>
+<Step title="Rotate your API key">
+
+Go to **Project Settings → API Keys** and click **Rotate**. Make sure your current API key is saved in the browser so the system can preserve the master key.
+
+</Step>
+
+<Step title="Confirm rotation">
+
+Confirm the prompt. The system will generate a new auth_secret and re-wrap your master key. No data is re-encrypted — only the API key token changes.
+
+</Step>
+
+<Step title="New key auto-saved">
+
+If you previously saved the key to your browser, the new key is automatically saved to localStorage.
+
+</Step>
+</Steps>
+
+## Important Notes
+
+<Warning>
+Your API key is **never stored on the server**. In the Dashboard, you can optionally save it to your browser's localStorage for convenience — but if you clear browser data or switch browsers, you will need to re-import it. When using SDKs or the API, you manage the key yourself.
+</Warning>
+
+<Note>
+Only **project owners** can enable or disable encryption for a project.
+</Note>
+
+<Warning>
+**Text search is not available** for encrypted projects. Encrypted data cannot be indexed for search.
+</Warning>
+
+<Note>
+**Deduplication is disabled** for encrypted projects. Each object is encrypted with a unique DEK, so identical content produces different ciphertext. This may increase storage usage.
+</Note>
+
+<Warning>
+If you lose your API key, your encrypted data **cannot be recovered**. The server has no copy of your key and no recovery mechanism — this is by design.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+
+<Card title="Project Settings" icon="settings" href="/settings/runtime">
+Configure project runtime settings
+</Card>
+
+<Card title="Per-User Sessions" icon="users" href="/store/per-user">
+Manage per-user session storage
+</Card>
+
+</CardGroup>
