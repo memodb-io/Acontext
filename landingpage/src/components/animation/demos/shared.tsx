@@ -320,3 +320,183 @@ export const TAB_COLORS: Record<FeatureTabId, string> = {
   skills: '#a78bfa',   // violet-400
   dashboard: '#fbbf24', // amber-400
 }
+
+// ─── GSAP-compatible static components ─────────────────────────────────────
+// These render all elements upfront (hidden) so GSAP timelines can animate them
+// without React re-renders. The parent timeline controls visibility via data-* selectors.
+
+import gsap from 'gsap'
+
+/**
+ * Static tool call log — renders all entries at opacity:0 for GSAP animation.
+ * Parent timeline animates `[data-tool-call="N"]` elements.
+ */
+export function ToolCallLogStatic({
+  calls,
+  size = 'sm',
+}: {
+  calls: ToolCall[]
+  size?: 'sm' | 'lg'
+}) {
+  const isLg = size === 'lg'
+  return (
+    <div className="space-y-0">
+      {calls.map((call, i) => {
+        const Icon = call.icon
+        return (
+          <div
+            key={call.id}
+            data-tool-call={i}
+            style={{ display: 'none', opacity: 0, transform: 'translateY(12px)' }}
+            className={`flex items-stretch ${isLg ? 'gap-3' : 'gap-2'}`}
+          >
+            <div className="flex flex-col items-center self-stretch">
+              <div
+                data-tool-icon={i}
+                style={{ opacity: 0, transform: 'scale(0)' }}
+                className={cn(
+                  'bg-zinc-200 dark:bg-zinc-800 rounded-lg backdrop-blur flex items-center justify-center',
+                  isLg ? 'p-2.5 min-w-10 min-h-10' : 'p-1.5 min-w-8 min-h-8',
+                )}
+              >
+                <Icon className={cn('w-4 h-4 text-zinc-500 dark:text-zinc-400', call.iconClassName)} />
+              </div>
+              {i < calls.length - 1 && (
+                <div
+                  data-tool-connector={i}
+                  style={{ transform: 'scaleY(0)' }}
+                  className={cn(
+                    'w-px flex-1 bg-zinc-300 dark:bg-zinc-700 origin-top',
+                    isLg ? 'min-h-4' : 'min-h-3',
+                  )}
+                />
+              )}
+            </div>
+            <div className={cn('flex-1 min-w-0', isLg ? 'pb-2' : 'pb-1')}>
+              <p className={cn('text-zinc-600 dark:text-zinc-400 font-medium', isLg ? 'text-sm' : 'text-xs')}>
+                {call.message}
+              </p>
+              <p className={cn('text-zinc-400 dark:text-zinc-500 capitalize', isLg ? 'text-xs' : 'text-[11px]')}>
+                {call.label}
+              </p>
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/**
+ * Animate a single tool call log entry into the GSAP timeline.
+ * @param entryIndex — which entry (0-based) to animate
+ * @param startTime — when in the timeline to start
+ * @param showConnector — whether to animate the connector line below this entry
+ */
+export function animateToolCallEntry(
+  tl: gsap.core.Timeline,
+  entryIndex: number,
+  startTime: number,
+  showConnector = true,
+) {
+  const sel = (attr: string) => `[${attr}="${entryIndex}"]`
+  tl.set(sel('data-tool-call'), { display: '' }, startTime)
+  tl.to(sel('data-tool-call'), { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, startTime)
+  tl.to(sel('data-tool-icon'), { opacity: 1, scale: 1, duration: 0.4, ease: 'back.out(1.5)' }, startTime + 0.15)
+  if (showConnector) {
+    tl.to(sel('data-tool-connector'), { scaleY: 1, duration: 0.3 }, startTime + 0.3)
+  }
+}
+
+/** @deprecated Use animateToolCallEntry instead */
+export function animateToolCallLog(
+  tl: gsap.core.Timeline,
+  count: number,
+  startTime: number,
+  stagger = 0.8,
+) {
+  for (let i = 0; i < count; i++) {
+    animateToolCallEntry(tl, i, startTime + i * stagger, i < count - 1)
+  }
+}
+
+/**
+ * Static status badge — plain span for GSAP animation.
+ */
+export function StatusBadgeStatic({
+  status,
+  dataAttr,
+}: {
+  status: 'pending' | 'running' | 'done'
+  dataAttr?: string
+}) {
+  const style = statusStyles[status]
+  return (
+    <span
+      data-status-badge={dataAttr || ''}
+      className={cn(
+        'text-[10px] sm:text-xs px-1.5 py-0.5 border font-mono uppercase',
+        style.bg,
+        style.text,
+        style.border,
+      )}
+    >
+      {status}
+    </span>
+  )
+}
+
+/**
+ * Animate typing text directly into a DOM element.
+ * Returns a gsap.delayedCall that can be killed for cleanup.
+ */
+export function typeTextToElement(
+  el: HTMLElement,
+  text: string,
+  speed = 50,
+): gsap.core.Tween {
+  let i = 0
+  el.textContent = ''
+  const proxy = { progress: 0 }
+  return gsap.to(proxy, {
+    progress: 1,
+    duration: (text.length * speed) / 1000,
+    ease: 'none',
+    onUpdate() {
+      const newI = Math.floor(proxy.progress * text.length)
+      if (newI !== i) {
+        i = newI
+        el.textContent = text.slice(0, i)
+      }
+    },
+    onComplete() {
+      el.textContent = text
+    },
+  })
+}
+
+/**
+ * Add a count-up tween to a GSAP timeline.
+ * Animates a number into an element's textContent.
+ */
+export function countUpTween(
+  tl: gsap.core.Timeline,
+  selector: string,
+  end: number,
+  position: number,
+  opts: { duration?: number; suffix?: string; prefix?: string; decimals?: number } = {},
+) {
+  const { duration = 2, suffix = '', prefix = '', decimals = 0 } = opts
+  const proxy = { val: 0 }
+  tl.to(proxy, {
+    val: end,
+    duration,
+    ease: 'power3.out',
+    onUpdate() {
+      const el = document.querySelector(selector) as HTMLElement | null
+      if (!el) return
+      const formatted = decimals > 0 ? proxy.val.toFixed(decimals) : Math.round(proxy.val).toLocaleString()
+      el.textContent = `${prefix}${formatted}${suffix}`
+    },
+  }, position)
+}

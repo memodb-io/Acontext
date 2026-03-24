@@ -55,7 +55,6 @@ const TIMELINE: Record<Stage, number> = {
 }
 
 const STAGES = Object.keys(TIMELINE) as Stage[]
-const CYCLE_MS = 19500
 
 // ─── Connector (desktop: horizontal, mobile: vertical) ─────────────────────
 
@@ -162,33 +161,21 @@ function Connector({
 
 export function FlowDiagram() {
   const containerRef = useRef<HTMLDivElement>(null)
-  const isInView = useInView(containerRef, { once: false, margin: '-60px' })
+  const isInView = useInView(containerRef, { once: true, margin: '-60px' })
   const [stage, setStage] = useState<Stage>('idle')
 
   useEffect(() => {
     if (!isInView) return
 
-    let timers: ReturnType<typeof setTimeout>[] = []
+    const timers: ReturnType<typeof setTimeout>[] = []
 
-    const runCycle = () => {
-      timers.forEach(clearTimeout)
-      timers = []
-      setStage('idle')
-
-      for (const [s, delay] of Object.entries(TIMELINE)) {
-        if (delay > 0) {
-          timers.push(setTimeout(() => setStage(s as Stage), delay))
-        }
+    for (const [s, delay] of Object.entries(TIMELINE)) {
+      if (delay > 0) {
+        timers.push(setTimeout(() => setStage(s as Stage), delay))
       }
     }
 
-    runCycle()
-    const loop = setInterval(runCycle, CYCLE_MS)
-
-    return () => {
-      timers.forEach(clearTimeout)
-      clearInterval(loop)
-    }
+    return () => timers.forEach(clearTimeout)
   }, [isInView])
 
   const si = STAGES.indexOf(stage)

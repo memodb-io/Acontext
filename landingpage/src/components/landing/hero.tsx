@@ -196,6 +196,7 @@ export function Hero() {
               command={ROTATING_COPY_TEXT[currentIndex]}
               copyText={ROTATING_COPY_TEXT[currentIndex]}
               className="max-w-xl"
+              label="Copy and Paste Into Your Agent's Chat to Get Started"
             >
               Read{' '}
               <a

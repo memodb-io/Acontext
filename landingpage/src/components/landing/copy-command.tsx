@@ -1,21 +1,79 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import gsap from 'gsap'
 
 interface CopyCommandProps {
   command: string
   copyText?: string
   children?: React.ReactNode
   className?: string
+  label?: string
 }
 
-export function CopyCommand({ command, copyText, children, className }: CopyCommandProps) {
+export function CopyCommand({ command, copyText, children, className, label }: CopyCommandProps) {
   const [copied, setCopied] = useState(false)
   const [isActive, setIsActive] = useState(false)
   const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
+  const labelRef = useRef<HTMLSpanElement>(null)
+  const labelShimmerRef = useRef<HTMLSpanElement>(null)
+  const borderGlowRef = useRef<HTMLDivElement>(null)
+
+  // GSAP: label shimmer loop
+  useEffect(() => {
+    if (!labelShimmerRef.current) return
+    const shimmer = labelShimmerRef.current
+
+    gsap.set(shimmer, { xPercent: -200 })
+    const tl = gsap.timeline({ repeat: -1, repeatDelay: 3 })
+    tl.to(shimmer, {
+      xPercent: 200,
+      duration: 1.2,
+      ease: 'power2.inOut',
+    })
+
+    return () => { tl.kill() }
+  }, [label])
+
+  // GSAP: hover – coordinated glow on label + border
+  const handleMouseEnter = useCallback(() => {
+    if (labelRef.current) {
+      gsap.to(labelRef.current, {
+        boxShadow: '0 0 12px rgba(62,207,142,0.5), 0 0 24px rgba(62,207,142,0.2)',
+        borderColor: 'rgba(62,207,142,0.6)',
+        duration: 0.4,
+        ease: 'power2.out',
+      })
+    }
+    if (borderGlowRef.current) {
+      gsap.to(borderGlowRef.current, {
+        opacity: 1,
+        duration: 0.4,
+        ease: 'power2.out',
+      })
+    }
+  }, [])
+
+  const handleMouseLeave = useCallback(() => {
+    if (labelRef.current) {
+      gsap.to(labelRef.current, {
+        boxShadow: '0 0 0px rgba(62,207,142,0), 0 0 0px rgba(62,207,142,0)',
+        borderColor: 'rgba(62,207,142,0.25)',
+        duration: 0.5,
+        ease: 'power2.out',
+      })
+    }
+    if (borderGlowRef.current) {
+      gsap.to(borderGlowRef.current, {
+        opacity: 0,
+        duration: 0.5,
+        ease: 'power2.out',
+      })
+    }
+  }, [])
 
   const handleCopy = async (e: React.MouseEvent<HTMLDivElement>) => {
     // Create ripple effect at click position
@@ -42,21 +100,53 @@ export function CopyCommand({ command, copyText, children, className }: CopyComm
 
   return (
     <div
-      ref={containerRef}
-      className={cn(
-        'group relative flex items-center gap-3 px-5 py-3 rounded-xl overflow-hidden',
-        'bg-card/50 backdrop-blur border border-border/50',
-        'hover:border-primary/50 hover:bg-card/80',
-        'cursor-pointer select-none',
-        'transition-all duration-300 ease-out',
-        // Active state - scale down slightly and glow
-        isActive && 'scale-[0.98] border-primary/70 shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)]',
-        // Copied state - persistent glow
-        copied && 'border-green-500/50 shadow-[0_0_15px_rgba(34,197,94,0.2)]',
-        className,
-      )}
-      onClick={handleCopy}
+      className={cn('group relative', label && 'mt-3', className)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
+      {/* Label badge on top border */}
+      {label && (
+        <span
+          ref={labelRef}
+          className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 inline-flex items-center px-3 py-0.5 rounded-full text-[11px] font-semibold tracking-widest uppercase bg-background border border-primary/25 text-primary/80 overflow-hidden whitespace-nowrap"
+        >
+          {label}
+          {/* Shimmer sweep inside label */}
+          <span
+            ref={labelShimmerRef}
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: 'linear-gradient(90deg, transparent 0%, rgba(62,207,142,0.3) 50%, transparent 100%)',
+              width: '50%',
+            }}
+          />
+        </span>
+      )}
+
+      {/* Border glow overlay (synced with label on hover) */}
+      <div
+        ref={borderGlowRef}
+        className="absolute inset-0 rounded-xl pointer-events-none opacity-0 z-[1]"
+        style={{
+          boxShadow: 'inset 0 0 15px rgba(62,207,142,0.08), 0 0 20px rgba(62,207,142,0.1)',
+        }}
+      />
+
+      <div
+        ref={containerRef}
+        className={cn(
+          'relative flex items-center gap-3 px-5 py-3 rounded-xl overflow-hidden',
+          'bg-card/50 backdrop-blur border border-border/50',
+          'hover:border-primary/50 hover:bg-card/80',
+          'cursor-pointer select-none',
+          'transition-all duration-300 ease-out',
+          // Active state - scale down slightly and glow
+          isActive && 'scale-[0.98] border-primary/70 shadow-[0_0_20px_rgba(var(--primary-rgb),0.3)]',
+          // Copied state - persistent glow
+          copied && 'border-green-500/50 shadow-[0_0_15px_rgba(34,197,94,0.2)]',
+        )}
+        onClick={handleCopy}
+      >
       {/* Ripple effects */}
       {ripples.map((ripple) => (
         <span
@@ -132,6 +222,7 @@ export function CopyCommand({ command, copyText, children, className }: CopyComm
         {/* Tooltip arrow */}
         <span className="absolute -bottom-1 right-4 w-2 h-2 bg-green-500 rotate-45" />
       </span>
+      </div>
     </div>
   )
 }
