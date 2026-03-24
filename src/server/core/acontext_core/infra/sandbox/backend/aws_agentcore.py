@@ -288,7 +288,8 @@ class AWSAgentCoreSandboxBackend(SandboxBackend):
             )
 
     async def download_file(
-        self, sandbox_id: str, from_sandbox_file: str, download_to_s3_key: str
+        self, sandbox_id: str, from_sandbox_file: str, download_to_s3_key: str,
+        user_kek: Optional[bytes] = None,
     ) -> bool:
         """Download a file from the session and upload it to S3.
 
@@ -340,13 +341,14 @@ class AWSAgentCoreSandboxBackend(SandboxBackend):
             await S3_CLIENT.upload_object(
                 key=download_to_s3_key,
                 data=content_bytes,
+                user_kek=user_kek,
             )
-            
+
             logger.info(
                 f"Downloaded file from session {sandbox_id}: {from_sandbox_file} -> s3://{download_to_s3_key}"
             )
             return True
-        
+
         except Exception as e:
             logger.error(
                 f"Failed to download file from session {sandbox_id}: "
@@ -355,7 +357,8 @@ class AWSAgentCoreSandboxBackend(SandboxBackend):
             return False
 
     async def upload_file(
-        self, sandbox_id: str, from_s3_key: str, upload_to_sandbox_file: str
+        self, sandbox_id: str, from_s3_key: str, upload_to_sandbox_file: str,
+        user_kek: Optional[bytes] = None,
     ) -> bool:
         """Download a file from S3 and upload it to the session.
 
@@ -369,7 +372,7 @@ class AWSAgentCoreSandboxBackend(SandboxBackend):
         """
         try:
             # Download from S3
-            content = await S3_CLIENT.download_object(key=from_s3_key)
+            content = await S3_CLIENT.download_object(key=from_s3_key, user_kek=user_kek)
 
             # Upload to session via writeFiles (blob for bytes)
             file_payload: dict

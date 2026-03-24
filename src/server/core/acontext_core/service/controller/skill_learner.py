@@ -1,3 +1,4 @@
+import base64
 from typing import List, Optional
 from uuid import UUID
 
@@ -29,6 +30,7 @@ async def process_context_distillation(
     session_id: asUUID,
     task_id: asUUID,
     learning_space_id: asUUID,
+    user_kek: bytes | None = None,
 ) -> Result[SkillLearnDistilled | None]:
     """Steps 1-2: Fetch task + raw messages, run context distillation.
 
@@ -64,7 +66,7 @@ async def process_context_distillation(
         wide["has_raw_messages"] = has_raw
         if finished_task.raw_message_ids:
             r = await MD.fetch_messages_data_by_ids(
-                db_session, finished_task.raw_message_ids
+                db_session, finished_task.raw_message_ids, user_kek=user_kek
             )
             messages, eil = r.unpack()
             if not eil and messages:
@@ -138,6 +140,7 @@ async def process_context_distillation(
             task_id=task_id,
             learning_space_id=learning_space_id,
             distilled_context=outcome.distilled_text,
+            user_kek=base64.b64encode(user_kek).decode() if user_kek else None,
         )
     )
 
@@ -149,6 +152,7 @@ async def run_skill_agent(
     max_iterations: int = 5,
     lock_key: Optional[str] = None,
     lock_ttl_seconds: Optional[int] = None,
+    user_kek: Optional[bytes] = None,
 ) -> Result[List[UUID]]:
     """Steps 3-4: Fetch learning space (for user_id) + skills, run agent.
 
@@ -182,5 +186,6 @@ async def run_skill_agent(
         max_iterations=max_iterations,
         lock_key=lock_key,
         lock_ttl_seconds=lock_ttl_seconds,
+        user_kek=user_kek,
     )
     return r

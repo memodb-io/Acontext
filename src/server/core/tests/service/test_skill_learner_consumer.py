@@ -136,6 +136,7 @@ class TestDistillationConsumer:
                 body.session_id,
                 body.task_id,
                 ls_session.learning_space_id,
+                user_kek=None,
             )
             mock_publish.assert_called_once()
             call_kwargs = mock_publish.call_args.kwargs
@@ -368,6 +369,7 @@ class TestAgentConsumer:
                 max_iterations=DEFAULT_CORE_CONFIG.skill_learn_agent_max_iterations,
                 lock_key=f"skill_learn.{body.learning_space_id}",
                 lock_ttl_seconds=DEFAULT_CORE_CONFIG.skill_learn_lock_ttl_seconds,
+                user_kek=None,
             )
             mock_release.assert_called_once()
 

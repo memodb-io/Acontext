@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from sqlalchemy import String, Index, Column
+from sqlalchemy import Boolean, String, Index, Column
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from typing import TYPE_CHECKING, List, Optional
@@ -27,6 +27,11 @@ class Project(CommonMixin):
     secret_key_hmac: str = field(metadata={"db": Column(String(64), nullable=False)})
     secret_key_hash_phc: str = field(
         metadata={"db": Column(String(255), nullable=False)}
+    )
+
+    encryption_enabled: bool = field(
+        default=False,
+        metadata={"db": Column(Boolean, nullable=False, server_default="false")},
     )
 
     configs: Optional[dict] = field(

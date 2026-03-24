@@ -110,6 +110,7 @@ async def create_skill(
     content: str,
     *,
     user_id: Optional[asUUID] = None,
+    user_kek: Optional[bytes] = None,
     meta: Optional[dict] = None,
 ) -> Result[AgentSkill]:
     """Create a skill from SKILL.md content string.
@@ -138,7 +139,7 @@ async def create_skill(
 
     # 4. Upload to S3 and upsert SKILL.md artifact
     asset_meta, artifact_info_meta = await upload_and_build_artifact_meta(
-        project_id, "/", "SKILL.md", content
+        project_id, "/", "SKILL.md", content, user_kek=user_kek
     )
     artifact_result = await upsert_artifact(
         db_session, disk.id, "/", "SKILL.md", asset_meta, meta=artifact_info_meta

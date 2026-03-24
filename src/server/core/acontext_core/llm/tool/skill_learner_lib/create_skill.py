@@ -24,6 +24,7 @@ async def create_skill_handler(
         ctx.project_id,
         skill_md_content,
         user_id=ctx.user_id,
+        user_kek=ctx.user_kek,
     )
     skill, eil = r.unpack()
     if eil:

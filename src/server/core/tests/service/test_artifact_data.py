@@ -1,3 +1,5 @@
+import base64
+import os
 import pytest
 import re
 import uuid
@@ -12,6 +14,8 @@ from acontext_core.service.data.artifact import (
     delete_artifact_by_path,
     detect_mime_type,
     upload_and_build_artifact_meta,
+    encode_content,
+    decode_content,
 )
 from acontext_core.service.data.disk import create_disk
 from acontext_core.service.data.agent_skill import create_skill
@@ -1040,3 +1044,98 @@ class TestUploadAndBuildArtifactMeta:
 
         assert not asset_meta["s3_key"].endswith(".")
         assert asset_meta["mime"] == "text/plain"
+
+
+class TestEncodeDecodeContent:
+    """Tests for encode_content / decode_content round-trip and edge cases."""
+
+    def _generate_kek(self) -> bytes:
+        return os.urandom(32)
+
+    def test_encode_none_kek_returns_plaintext(self):
+        assert encode_content("hello world") == "hello world"
+        assert encode_content("hello world", None) == "hello world"
+
+    def test_encode_with_kek_returns_base64_with_prefix(self):
+        kek = self._generate_kek()
+        result = encode_content("hello world", kek)
+        assert result != "hello world"
+        raw = base64.b64decode(result)
+        assert raw[0] == 0x01
+
+    def test_round_trip(self):
+        kek = self._generate_kek()
+        plaintext = "# SKILL.md\nWith 日本語 content and emojis 🌍"
+        encoded = encode_content(plaintext, kek)
+        decoded = decode_content(encoded, kek)
+        assert decoded == plaintext
+
+    def test_decode_legacy_plaintext(self):
+        assert decode_content("legacy plaintext") == "legacy plaintext"
+
+    def test_decode_legacy_plaintext_with_kek(self):
+        kek = self._generate_kek()
+        assert decode_content("legacy plaintext", kek) == "legacy plaintext"
+
+    def test_decode_encrypted_without_kek_raises(self):
+        kek = self._generate_kek()
+        encoded = encode_content("secret", kek)
+        with pytest.raises(ValueError, match="no user KEK"):
+            decode_content(encoded, None)
+
+    def test_decode_wrong_kek_raises(self):
+        kek1 = self._generate_kek()
+        kek2 = self._generate_kek()
+        encoded = encode_content("secret", kek1)
+        with pytest.raises(Exception):
+            decode_content(encoded, kek2)
+
+    def test_decode_empty_string(self):
+        assert decode_content("") == ""
+        assert decode_content("", None) == ""
+
+    def test_encode_empty_plaintext(self):
+        kek = self._generate_kek()
+        encoded = encode_content("", kek)
+        decoded = decode_content(encoded, kek)
+        assert decoded == ""
+
+    @pytest.mark.asyncio
+    async def test_upload_and_build_with_kek_stores_content(self):
+        """upload_and_build_artifact_meta with user_kek stores encrypted content (not empty)."""
+        kek = self._generate_kek()
+        project_id = uuid.uuid4()
+        content = "# Encrypted skill content"
+
+        with patch("acontext_core.service.data.artifact.S3_CLIENT") as mock_s3:
+            mock_s3.bucket = "bucket"
+            mock_s3.upload_object = AsyncMock(return_value={"ETag": '"etag"'})
+
+            asset_meta, _ = await upload_and_build_artifact_meta(
+                project_id, "/", "SKILL.md", content, user_kek=kek
+            )
+
+        # Content should be present (encrypted, not empty)
+        assert "content" in asset_meta
+        assert asset_meta["content"] != ""
+        assert asset_meta["content"] != content  # not plaintext
+
+        # Should be decodable
+        decoded = decode_content(asset_meta["content"], kek)
+        assert decoded == content
+
+    @pytest.mark.asyncio
+    async def test_upload_and_build_without_kek_stores_plaintext(self):
+        """upload_and_build_artifact_meta without user_kek stores plaintext content."""
+        project_id = uuid.uuid4()
+        content = "# Plain skill content"
+
+        with patch("acontext_core.service.data.artifact.S3_CLIENT") as mock_s3:
+            mock_s3.bucket = "bucket"
+            mock_s3.upload_object = AsyncMock(return_value={"ETag": '"etag"'})
+
+            asset_meta, _ = await upload_and_build_artifact_meta(
+                project_id, "/", "SKILL.md", content
+            )
+
+        assert asset_meta["content"] == content

@@ -2,7 +2,7 @@ import os
 from ..base import Tool
 from ....schema.llm import ToolSchema
 from ....schema.result import Result
-from ....service.data.artifact import get_artifact_by_path
+from ....service.data.artifact import get_artifact_by_path, decode_content
 from .ctx import SkillLearnerCtx
 
 
@@ -46,7 +46,7 @@ async def get_skill_file_handler(
     if eil:
         return Result.resolve(f"File '{file_path}' not found in skill '{skill_name}'.")
 
-    content = artifact.asset_meta.get("content", "")
+    content = decode_content(artifact.asset_meta.get("content", ""), ctx.user_kek)
     return Result.resolve(content)
 
 

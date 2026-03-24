@@ -1,7 +1,7 @@
 from ..base import Tool
 from ....schema.llm import ToolSchema
 from ....schema.result import Result
-from ....service.data.artifact import get_artifact_by_path, upsert_artifact, upload_and_build_artifact_meta
+from ....service.data.artifact import get_artifact_by_path, upsert_artifact, upload_and_build_artifact_meta, decode_content
 from ....service.data.agent_skill import _parse_skill_md, _sanitize_name, get_agent_skill, touch_skill_updated_at
 from .ctx import SkillLearnerCtx
 from .get_skill_file import _validate_file_path, _split_file_path
@@ -38,7 +38,7 @@ async def str_replace_skill_file_handler(
     if eil:
         return Result.resolve(f"File '{file_path}' not found in skill '{skill_name}'.")
 
-    content = artifact.asset_meta.get("content", "")
+    content = decode_content(artifact.asset_meta.get("content", ""), ctx.user_kek)
     count = content.count(old_string)
     if count == 0:
         return Result.resolve(
@@ -66,7 +66,7 @@ async def str_replace_skill_file_handler(
             )
 
     asset_meta, new_artifact_info_meta = await upload_and_build_artifact_meta(
-        ctx.project_id, path, filename, new_content
+        ctx.project_id, path, filename, new_content, user_kek=ctx.user_kek
     )
     merged_meta = dict(artifact.meta) if artifact.meta else {}
     merged_meta.update(new_artifact_info_meta)

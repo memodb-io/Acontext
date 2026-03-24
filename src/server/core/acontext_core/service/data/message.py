@@ -14,12 +14,15 @@ from ...infra.s3 import S3_CLIENT
 from ...env import LOG
 
 
-async def _fetch_message_parts(parts_meta: dict) -> Result[List[Part]]:
+async def _fetch_message_parts(
+    parts_meta: dict, user_kek: bytes | None = None
+) -> Result[List[Part]]:
     """
     Helper function to fetch parts for a single message from S3.
 
     Args:
-        message: Message object with parts_meta containing S3 information
+        parts_meta: Dict containing S3 key information for parts
+        user_kek: Optional user KEK for decrypting encrypted S3 objects
 
     Returns:
         List of Part objects
@@ -32,7 +35,7 @@ async def _fetch_message_parts(parts_meta: dict) -> Result[List[Part]]:
             return Result.reject(f"Failed to validate parts asset {parts_meta}: {e}")
         s3_key = asset.s3_key
         # Download parts JSON from S3
-        parts_json_bytes = await S3_CLIENT.download_object(s3_key)
+        parts_json_bytes = await S3_CLIENT.download_object(s3_key, user_kek=user_kek)
         parts_json = json.loads(parts_json_bytes.decode("utf-8"))
         assert isinstance(parts_json, list), "Parts Json must be a list"
         try:
@@ -74,7 +77,9 @@ async def session_message_length(
 
 
 async def fetch_messages_data_by_ids(
-    db_session: AsyncSession, message_ids: List[asUUID]
+    db_session: AsyncSession,
+    message_ids: List[asUUID],
+    user_kek: bytes | None = None,
 ) -> Result[List[Message]]:
     """
     Fetch messages by their IDs with parts loaded from S3, maintaining the order of message_ids.
@@ -82,6 +87,7 @@ async def fetch_messages_data_by_ids(
     Args:
         db_session: Database session
         message_ids: List of message UUIDs to fetch
+        user_kek: Optional user KEK for decrypting encrypted S3 objects
 
     Returns:
         Result containing list of Message objects with parts loaded, in the same order as message_ids
@@ -108,7 +114,7 @@ async def fetch_messages_data_by_ids(
 
         # Fetch parts concurrently for all messages
         parts_tasks = [
-            _fetch_message_parts(message.parts_asset_meta)
+            _fetch_message_parts(message.parts_asset_meta, user_kek=user_kek)
             for message in ordered_messages
         ]
         parts_results = await asyncio.gather(*parts_tasks)
@@ -128,13 +134,19 @@ async def fetch_messages_data_by_ids(
 
 
 async def fetch_session_messages(
-    db_session: AsyncSession, session_id: asUUID, status: str = "pending"
+    db_session: AsyncSession,
+    session_id: asUUID,
+    status: str = "pending",
+    user_kek: bytes | None = None,
 ) -> Result[List[Message]]:
     """
     Fetch all pending messages for a given session with concurrent S3 parts loading.
 
     Args:
+        db_session: Database session
         session_id: UUID of the session to fetch messages from
+        status: Status filter for messages (default: "pending")
+        user_kek: Optional user KEK for decrypting encrypted S3 objects
 
     Returns:
         List of Message objects with parts loaded from S3
@@ -156,7 +168,7 @@ async def fetch_session_messages(
 
     if not message_ids:
         return Result.resolve([])
-    return await fetch_messages_data_by_ids(db_session, message_ids)
+    return await fetch_messages_data_by_ids(db_session, message_ids, user_kek=user_kek)
 
 
 async def get_message_ids(
@@ -218,7 +230,11 @@ async def check_session_message_status(
 
 
 async def fetch_previous_messages_by_datetime(
-    db_session: AsyncSession, session_id: asUUID, date_time: datetime, limit: int = 10
+    db_session: AsyncSession,
+    session_id: asUUID,
+    date_time: datetime,
+    limit: int = 10,
+    user_kek: bytes | None = None,
 ) -> Result[List[Message]]:
     query = (
         select(Message.id, Message.created_at)
@@ -230,7 +246,7 @@ async def fetch_previous_messages_by_datetime(
     _dp = sorted(result.all(), key=lambda x: x[1])
     message_ids = [dp[0] for dp in _dp]
 
-    return await fetch_messages_data_by_ids(db_session, message_ids)
+    return await fetch_messages_data_by_ids(db_session, message_ids, user_kek=user_kek)
 
 
 async def update_message_status_to(

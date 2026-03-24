@@ -1,3 +1,4 @@
+import base64
 from ..env import LOG, DEFAULT_CORE_CONFIG
 from ..infra.db import DB_CLIENT
 from ..infra.async_mq import (
@@ -47,8 +48,21 @@ async def process_skill_distillation(body: SkillLearnTask, message: Message):
     wide["learning_space_id"] = str(learning_space_id)
     wide["task_id"] = str(body.task_id)
 
+    # Decode user KEK from base64 if present.
+    # Hard-fail on invalid KEK — running without it would store plaintext in the DB.
+    user_kek_bytes = None
+    if body.user_kek:
+        try:
+            user_kek_bytes = base64.b64decode(body.user_kek)
+        except Exception:
+            LOG.error("skill_learner.invalid_user_kek", session_id=str(body.session_id))
+            async with DB_CLIENT.get_session_context() as db_session:
+                await LS.update_session_status(db_session, body.session_id, "failed")
+            return
+
     r = await SLC.process_context_distillation(
-        body.project_id, body.session_id, body.task_id, learning_space_id
+        body.project_id, body.session_id, body.task_id, learning_space_id,
+        user_kek=user_kek_bytes,
     )
     distilled_payload, eil = r.unpack()
     if eil:
@@ -108,6 +122,18 @@ async def process_skill_agent(body: SkillLearnDistilled, message: Message):
 
     wide["lock_acquired"] = True
 
+    # Decode user KEK from base64 if present.
+    # Hard-fail on invalid KEK — running without it would store plaintext in the DB.
+    user_kek_bytes = None
+    if body.user_kek:
+        try:
+            user_kek_bytes = base64.b64decode(body.user_kek)
+        except Exception:
+            LOG.error("skill_agent.invalid_user_kek", session_id=str(body.session_id))
+            async with DB_CLIENT.get_session_context() as db_session:
+                await LS.update_session_status(db_session, body.session_id, "failed")
+            return
+
     try:
         r = await SLC.run_skill_agent(
             body.project_id,
@@ -116,6 +142,7 @@ async def process_skill_agent(body: SkillLearnDistilled, message: Message):
             max_iterations=DEFAULT_CORE_CONFIG.skill_learn_agent_max_iterations,
             lock_key=lock_key,
             lock_ttl_seconds=DEFAULT_CORE_CONFIG.skill_learn_lock_ttl_seconds,
+            user_kek=user_kek_bytes,
         )
         drained_session_ids, eil = r.unpack()
         if eil:

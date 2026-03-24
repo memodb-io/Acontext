@@ -1,5 +1,5 @@
 from abc import abstractmethod, ABC
-from typing import Type
+from typing import Optional, Type
 from ....schema.sandbox import (
     SandboxCreateConfig,
     SandboxUpdateConfig,
@@ -38,7 +38,11 @@ class SandboxBackend(ABC):
 
     @abstractmethod
     async def download_file(
-        self, sandbox_id: str, from_sandbox_file: str, download_to_s3_key: str
+        self,
+        sandbox_id: str,
+        from_sandbox_file: str,
+        download_to_s3_key: str,
+        user_kek: Optional[bytes] = None,
     ) -> bool:
         """Download a file from the sandbox and upload it to S3.
 
@@ -46,6 +50,7 @@ class SandboxBackend(ABC):
             sandbox_id: The ID of the sandbox to download from.
             from_sandbox_file: The path to the file in the sandbox.
             download_to_s3_key: The full S3 key (path) to upload the file to.
+            user_kek: Optional user KEK for encrypting the S3 upload.
 
         Returns:
             True if the download and upload were successful, False otherwise.
@@ -54,7 +59,11 @@ class SandboxBackend(ABC):
 
     @abstractmethod
     async def upload_file(
-        self, sandbox_id: str, from_s3_key: str, upload_to_sandbox_file: str
+        self,
+        sandbox_id: str,
+        from_s3_key: str,
+        upload_to_sandbox_file: str,
+        user_kek: Optional[bytes] = None,
     ) -> bool:
         """Download a file from S3 and upload it to the sandbox.
 
@@ -62,6 +71,7 @@ class SandboxBackend(ABC):
             sandbox_id: The ID of the sandbox to upload to.
             from_s3_key: The S3 key to download the file from.
             upload_to_sandbox_file: The full path in the sandbox to upload the file to.
+            user_kek: Optional user KEK for decrypting the S3 download.
 
         Returns:
             True if the download and upload were successful, False otherwise.

@@ -1,4 +1,4 @@
-from typing import Type
+from typing import Optional, Type
 from e2b_code_interpreter import AsyncSandbox
 from e2b_code_interpreter import SandboxState as E2B_SandboxState
 
@@ -170,7 +170,8 @@ class E2BSandboxBackend(SandboxBackend):
         )
 
     async def download_file(
-        self, sandbox_id: str, from_sandbox_file: str, download_to_s3_key: str
+        self, sandbox_id: str, from_sandbox_file: str, download_to_s3_key: str,
+        user_kek: Optional[bytes] = None,
     ) -> bool:
         """Download a file from the sandbox and upload it to S3.
 
@@ -199,6 +200,7 @@ class E2BSandboxBackend(SandboxBackend):
             await S3_CLIENT.upload_object(
                 key=download_to_s3_key,
                 data=content_bytes,
+                user_kek=user_kek,
             )
 
             logger.info(
@@ -213,7 +215,8 @@ class E2BSandboxBackend(SandboxBackend):
             return False
 
     async def upload_file(
-        self, sandbox_id: str, from_s3_key: str, upload_to_sandbox_file: str
+        self, sandbox_id: str, from_s3_key: str, upload_to_sandbox_file: str,
+        user_kek: Optional[bytes] = None,
     ) -> bool:
         """Download a file from S3 and upload it to the sandbox.
 
@@ -227,7 +230,7 @@ class E2BSandboxBackend(SandboxBackend):
         """
         try:
             # Download from S3
-            content = await S3_CLIENT.download_object(key=from_s3_key)
+            content = await S3_CLIENT.download_object(key=from_s3_key, user_kek=user_kek)
 
             sandbox = await self.connect_sandbox(sandbox_id)
 

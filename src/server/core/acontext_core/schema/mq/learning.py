@@ -1,3 +1,4 @@
+from typing import Optional
 from pydantic import BaseModel
 from ..utils import asUUID
 
@@ -6,6 +7,7 @@ class SkillLearnTask(BaseModel):
     project_id: asUUID
     session_id: asUUID
     task_id: asUUID
+    user_kek: Optional[str] = None  # base64-encoded user KEK
 
 
 class SkillLearnDistilled(BaseModel):
@@ -16,3 +18,4 @@ class SkillLearnDistilled(BaseModel):
     task_id: asUUID
     learning_space_id: asUUID
     distilled_context: str
+    user_kek: Optional[str] = None  # base64-encoded user KEK (pass through)

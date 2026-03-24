@@ -373,6 +373,7 @@ async def upload_file(
     sandbox_id: asUUID,
     from_s3_key: str,
     upload_to_sandbox_file: str,
+    user_kek: str | None = None,
 ) -> Result[bool]:
     """
     Download a file from S3 and upload it to the sandbox.
@@ -382,11 +383,18 @@ async def upload_file(
         sandbox_id: The unified sandbox ID (UUID).
         from_s3_key: The S3 key of the file to download.
         upload_to_sandbox_file: The full path in the sandbox to upload the file to.
+        user_kek: Optional base64-encoded user KEK for decrypting encrypted S3 objects.
 
     Returns:
         Result containing True if the file was transferred successfully.
     """
     try:
+        # Decode base64 user_kek if provided
+        import base64
+        decoded_kek: bytes | None = None
+        if user_kek:
+            decoded_kek = base64.b64decode(user_kek)
+
         # Look up the backend sandbox ID
         result = await _get_backend_sandbox_id(db_session, sandbox_id)
         if not result.ok():
@@ -395,7 +403,8 @@ async def upload_file(
         backend_sandbox_id = result.data
         backend = SANDBOX_CLIENT.use_backend()
         success = await backend.upload_file(
-            backend_sandbox_id, from_s3_key, upload_to_sandbox_file
+            backend_sandbox_id, from_s3_key, upload_to_sandbox_file,
+            user_kek=decoded_kek,
         )
 
         # Update will_total_alive_seconds

@@ -46,7 +46,7 @@ async def create_skill_file_handler(
         )
 
     asset_meta, meta = await upload_and_build_artifact_meta(
-        ctx.project_id, path, filename, content
+        ctx.project_id, path, filename, content, user_kek=ctx.user_kek
     )
     r = await upsert_artifact(ctx.db_session, skill.disk_id, path, filename, asset_meta, meta=meta)
     _, eil = r.unpack()

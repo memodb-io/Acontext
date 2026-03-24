@@ -1,7 +1,7 @@
 import os
 import base64
 from datetime import datetime
-from typing import Type, Literal
+from typing import Optional, Type, Literal
 import httpx
 from pydantic import BaseModel, field_validator
 
@@ -295,7 +295,8 @@ class CloudflareSandboxBackend(SandboxBackend):
             raise ValueError(f"Failed to execute command: {e}")
 
     async def download_file(
-        self, sandbox_id: str, from_sandbox_file: str, download_to_s3_key: str
+        self, sandbox_id: str, from_sandbox_file: str, download_to_s3_key: str,
+        user_kek: Optional[bytes] = None,
     ) -> bool:
         """Download a file from the sandbox and upload it to S3.
 
@@ -334,6 +335,7 @@ class CloudflareSandboxBackend(SandboxBackend):
             await S3_CLIENT.upload_object(
                 key=download_to_s3_key,
                 data=content_bytes,
+                user_kek=user_kek,
             )
 
             logger.info(
@@ -348,7 +350,8 @@ class CloudflareSandboxBackend(SandboxBackend):
             return False
 
     async def upload_file(
-        self, sandbox_id: str, from_s3_key: str, upload_to_sandbox_file: str
+        self, sandbox_id: str, from_s3_key: str, upload_to_sandbox_file: str,
+        user_kek: Optional[bytes] = None,
     ) -> bool:
         """Download a file from S3 and upload it to the sandbox.
 
@@ -361,7 +364,7 @@ class CloudflareSandboxBackend(SandboxBackend):
             True if the download and upload were successful, False otherwise.
         """
         try:
-            content_bytes = await S3_CLIENT.download_object(key=from_s3_key)
+            content_bytes = await S3_CLIENT.download_object(key=from_s3_key, user_kek=user_kek)
             content_base64 = base64.b64encode(content_bytes).decode("utf-8")
 
             request_body = {

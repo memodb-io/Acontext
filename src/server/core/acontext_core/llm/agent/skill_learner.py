@@ -51,6 +51,7 @@ async def skill_learner_agent(
     max_iterations: int = 5,
     lock_key: Optional[str] = None,
     lock_ttl_seconds: Optional[int] = None,
+    user_kek: Optional[bytes] = None,
 ) -> Result[List[UUID]]:
     wide = get_wide_event()
     skills = {si.name: si for si in skills_info}
@@ -107,6 +108,7 @@ async def skill_learner_agent(
                     learning_space_id=learning_space_id,
                     user_id=user_id,
                     skills=skills,
+                    user_kek=user_kek,
                     has_reported_thinking=has_reported_thinking,
                 )
 

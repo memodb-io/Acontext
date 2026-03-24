@@ -27,7 +27,10 @@ async def _try_rollback_to_failed(pending_message_ids: list) -> None:
 
 
 async def process_session_pending_message(
-    project_config: ProjectConfig, project_id: asUUID, session_id: asUUID
+    project_config: ProjectConfig,
+    project_id: asUUID,
+    session_id: asUUID,
+    user_kek: bytes | None = None,
 ) -> Result[None]:
     wide = get_wide_event()
     disabled = await get_metrics(project_id, ExcessMetricTags.new_task_created)
@@ -66,7 +69,9 @@ async def process_session_pending_message(
             )
 
         async with DB_CLIENT.get_session_context() as session:
-            r = await MD.fetch_messages_data_by_ids(session, pending_message_ids)
+            r = await MD.fetch_messages_data_by_ids(
+                session, pending_message_ids, user_kek=user_kek
+            )
             messages, eil = r.unpack()
             if eil:
                 await _try_rollback_to_failed(pending_message_ids)
@@ -77,6 +82,7 @@ async def process_session_pending_message(
                 session_id,
                 messages[0].created_at,
                 limit=project_config.project_session_message_use_previous_messages_turns,
+                user_kek=user_kek,
             )
             messages_data = [
                 MessageBlob(
