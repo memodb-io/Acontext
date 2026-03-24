@@ -52,9 +52,11 @@ interface Skill {
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
+const TODAY = new Date().toISOString().slice(0, 10) // yyyy-mm-dd
+
 const SKILLS: Skill[] = [
   { id: 'user-general-facts', name: 'user-general-facts', files: ['SKILL.md', 'work-context.md', 'tech-stack.md'] },
-  { id: 'daily-logs', name: 'daily-logs', files: ['SKILL.md', '2026-03-24.md'] },
+  { id: 'daily-logs', name: 'daily-logs', files: ['SKILL.md', `${TODAY}.md`] },
   { id: 'deployment-sop', name: 'deployment-sop', files: ['SKILL.md', 'troubleshooting.md'] },
   { id: 'api-testing', name: 'api-testing', files: ['SKILL.md', 'param-validation.md'] },
   { id: 'db-migration-sop', name: 'db-migration-sop', files: ['SKILL.md', 'safety-checks.md'] },
@@ -100,9 +102,9 @@ const MESSAGE_PAIRS: MessagePair[] = [
       { type: 'tool-result', text: '✓ All pods running (3/3 ready)' },
     ],
     skillEffect: {
-      skillId: 'daily-logs', file: '2026-03-24.md', action: 'updated',
+      skillId: 'daily-logs', file: `${TODAY}.md`, action: 'updated',
       diff: [
-        { type: '+', text: '# 2026-03-24' },
+        { type: '+', text: `# ${TODAY}` },
         { type: '+', text: '' },
         { type: '+', text: '## Fixed staging OOM crash' },
         { type: '+', text: '- API pods OOMKilled at 256Mi limit' },
@@ -225,7 +227,7 @@ const FILE_CONTENTS: Record<string, string> = {
   'user-general-facts/work-context.md': '# Work Context\n\n- Gus is the backend lead at MemoDB\n- Gener handles infra and DevOps\n- Team uses Go API + Python CORE',
   'user-general-facts/tech-stack.md': '# Tech Stack\n\n- Go 1.22 with table-driven tests\n- PostgreSQL + pgvector for embeddings\n- Redis for caching and queues',
   'daily-logs/SKILL.md': '---\nname: daily-logs\ndescription: Track daily activity logs and summaries\n---\n\n# Daily Logs\n\nRecord daily activities, progress, decisions in chronological format.\nOne file per day: yyyy-mm-dd.md',
-  'daily-logs/2026-03-24.md': '# 2026-03-24\n\n## Fixed staging OOM crash\n- API pods OOMKilled at 256Mi limit\n- Bumped to 512Mi, redeployed OK',
+  [`daily-logs/${TODAY}.md`]: `# ${TODAY}\n\n## Fixed staging OOM crash\n- API pods OOMKilled at 256Mi limit\n- Bumped to 512Mi, redeployed OK`,
   'deployment-sop/SKILL.md': '---\nname: deployment-sop\ndescription: Standard deployment procedures\n---\n\n# Deployment SOP\n1. Run pre-deploy checks\n2. Deploy to staging first\n3. Verify health endpoints\n4. Monitor for 15 minutes',
   'deployment-sop/troubleshooting.md': '# Deployment Troubleshooting\n\n## OOMKilled Pods\n- Check current limits in k8s/*.yaml\n- Compare against actual peak usage\n- Bump limit to 2x observed peak',
   'api-testing/SKILL.md': '---\nname: api-testing\ndescription: API testing patterns and rules\n---\n\n# API Testing Patterns\n- Run against staging first\n- Full suite: 48 endpoints\n- Check for regressions',
