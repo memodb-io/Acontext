@@ -58,8 +58,8 @@ function CustomCursor({
   hideOnLeave = true,
 }: CustomCursorProps) {
   const cursorRef = useRef<HTMLDivElement>(null)
-  const [_isVisible, setIsVisible] = useState(false)
-  const [_mousePos, setMousePos] = useState({ x: 0, y: 0 })
+  const isInsideRef = useRef(false)
+  const quickSetterRef = useRef<{ x: (value: number) => void; y: (value: number) => void } | null>(null)
 
   useEffect(() => {
     if (!enabled || !containerRef.current || !cursorRef.current) return
@@ -67,72 +67,72 @@ function CustomCursor({
     const container = containerRef.current
     const cursor = cursorRef.current
 
-    // Show cursor with fade-in and scale animation when mouse enters
-    const handleMouseEnter = () => {
-      setIsVisible(true)
-      gsap.to(cursor, {
-        opacity: 1,
-        scale: 1,
-        duration: 0.2,
-      })
+    // Initial centering offset
+    gsap.set(cursor, { xPercent: -50, yPercent: -50 })
+
+    // For zero delay, use quickSetter for direct DOM writes (no GSAP overhead)
+    if (followDelay === 0) {
+      quickSetterRef.current = {
+        x: gsap.quickSetter(cursor, 'left', 'px') as (value: number) => void,
+        y: gsap.quickSetter(cursor, 'top', 'px') as (value: number) => void,
+      }
+    } else {
+      quickSetterRef.current = null
     }
 
-    // Hide cursor with fade-out and scale animation when mouse leaves
+    const handleMouseEnter = () => {
+      isInsideRef.current = true
+      gsap.to(cursor, { opacity: 1, scale: 1, duration: 0.2, overwrite: true })
+    }
+
     const handleMouseLeave = () => {
+      isInsideRef.current = false
       if (hideOnLeave) {
-        setIsVisible(false)
-        gsap.to(cursor, {
-          opacity: 0,
-          scale: 0,
-          duration: 0.2,
-        })
+        gsap.to(cursor, { opacity: 0, scale: 0, duration: 0.2, overwrite: true })
       }
     }
 
-    // Track mouse position and smoothly follow with GSAP animation
     const handleMouseMove = (e: MouseEvent) => {
-      if (!container || !cursor) return
-
-      // Calculate mouse position relative to container
       const rect = container.getBoundingClientRect()
       const x = e.clientX - rect.left
       const y = e.clientY - rect.top
 
-      setMousePos({ x, y })
+      if (followDelay === 0 && quickSetterRef.current) {
+        // Instant follow — no tween, direct DOM write
+        quickSetterRef.current.x(x)
+        quickSetterRef.current.y(y)
+      } else {
+        // Smooth follow with overwrite to prevent tween stacking
+        gsap.to(cursor, {
+          left: x,
+          top: y,
+          duration: followDelay,
+          ease: 'power2.out',
+          overwrite: true,
+        })
+      }
 
-      // Smooth cursor follow with GSAP
-      // Use xPercent and yPercent to maintain -50% offset for centering the cursor
-      gsap.set(cursor, {
-        left: x,
-        top: y,
-        xPercent: -50,
-        yPercent: -50,
-      })
-
-      // Animate to new position with configurable delay
-      gsap.to(cursor, {
-        left: x,
-        top: y,
-        duration: followDelay,
-        ease: 'power2.out',
-      })
+      // If cursor wasn't visible yet (e.g. fast move into container), show it
+      if (!isInsideRef.current) {
+        isInsideRef.current = true
+        gsap.set(cursor, { left: x, top: y })
+        gsap.to(cursor, { opacity: 1, scale: 1, duration: 0.2, overwrite: true })
+      }
     }
 
-    // Attach event listeners
     container.addEventListener('mouseenter', handleMouseEnter)
     container.addEventListener('mouseleave', handleMouseLeave)
     container.addEventListener('mousemove', handleMouseMove)
 
-    // Hide default system cursor on container
     const originalCursor = container.style.cursor
     container.style.cursor = 'none'
 
-    // Cleanup: remove event listeners and restore original cursor
     return () => {
       container.removeEventListener('mouseenter', handleMouseEnter)
       container.removeEventListener('mouseleave', handleMouseLeave)
       container.removeEventListener('mousemove', handleMouseMove)
       container.style.cursor = originalCursor
+      quickSetterRef.current = null
     }
   }, [enabled, followDelay, hideOnLeave, containerRef])
 
