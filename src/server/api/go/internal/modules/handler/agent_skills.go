@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/infra/httpclient"
+	"github.com/memodb-io/Acontext/internal/middleware"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
@@ -97,6 +98,7 @@ func (h *AgentSkillsHandler) CreateAgentSkill(c *gin.Context) {
 		UserID:    userID,
 		ZipFile:   fileHeader,
 		Meta:      meta,
+		UserKEK:   middleware.GetUserKEKIfEncrypted(c),
 	})
 	if err != nil {
 		// Check if error is a validation error (SKILL.md related)
@@ -168,6 +170,11 @@ func (h *AgentSkillsHandler) DeleteAgentSkill(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("invalid id")))
+		return
+	}
+
+	if _, err := h.svc.GetByID(c.Request.Context(), project.ID, id); err != nil {
+		c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "agent skill not found or access denied", nil))
 		return
 	}
 
@@ -269,7 +276,7 @@ func (h *AgentSkillsHandler) GetAgentSkillFile(c *gin.Context) {
 		}
 	}
 
-	output, err := h.svc.GetFile(c.Request.Context(), project.ID, id, filePath, expire)
+	output, err := h.svc.GetFile(c.Request.Context(), project.ID, id, filePath, expire, project.EncryptionEnabled, middleware.GetUserKEKIfEncrypted(c))
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			c.JSON(http.StatusNotFound, serializer.DBErr("", err))
@@ -380,7 +387,7 @@ func (h *AgentSkillsHandler) DownloadToSandbox(c *gin.Context) {
 			destPath := baseDirPath + "/" + file.Path
 
 			// Upload file to sandbox via CORE service using S3 key from artifact
-			result, err := h.coreClient.UploadSandboxFile(gctx, project.ID, sandboxID, file.S3Key, destPath)
+			result, err := h.coreClient.UploadSandboxFile(gctx, project.ID, sandboxID, file.S3Key, destPath, middleware.GetUserKEKIfEncrypted(c))
 			if err != nil {
 				return fmt.Errorf("failed to download file to sandbox: %s: %w", file.Path, err)
 			}

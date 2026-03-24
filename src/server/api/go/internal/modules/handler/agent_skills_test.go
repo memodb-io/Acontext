@@ -62,8 +62,8 @@ func (m *MockAgentSkillsService) List(ctx context.Context, in service.ListAgentS
 	return args.Get(0).(*service.ListAgentSkillsOutput), args.Error(1)
 }
 
-func (m *MockAgentSkillsService) GetFile(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID, filePath string, expire time.Duration) (*service.GetFileOutput, error) {
-	args := m.Called(ctx, projectID, skillID, filePath, expire)
+func (m *MockAgentSkillsService) GetFile(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID, filePath string, expire time.Duration, encryptionEnabled bool, userKEK []byte) (*service.GetFileOutput, error) {
+	args := m.Called(ctx, projectID, skillID, filePath, expire, encryptionEnabled, userKEK)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -499,6 +499,7 @@ func TestAgentSkillsHandler_DeleteAgentSkill(t *testing.T) {
 			name: "successful deletion",
 			id:   agentSkillsID.String(),
 			setup: func(svc *MockAgentSkillsService) {
+				svc.On("GetByID", mock.Anything, projectID, agentSkillsID).Return(&model.AgentSkills{ID: agentSkillsID, ProjectID: projectID}, nil)
 				svc.On("Delete", mock.Anything, projectID, agentSkillsID).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
@@ -511,9 +512,18 @@ func TestAgentSkillsHandler_DeleteAgentSkill(t *testing.T) {
 			expectedError:  "invalid id",
 		},
 		{
-			name: "service error",
+			name: "skill not found or wrong project",
 			id:   agentSkillsID.String(),
 			setup: func(svc *MockAgentSkillsService) {
+				svc.On("GetByID", mock.Anything, projectID, agentSkillsID).Return(nil, errors.New("record not found"))
+			},
+			expectedStatus: http.StatusNotFound,
+		},
+		{
+			name: "service error on delete",
+			id:   agentSkillsID.String(),
+			setup: func(svc *MockAgentSkillsService) {
+				svc.On("GetByID", mock.Anything, projectID, agentSkillsID).Return(&model.AgentSkills{ID: agentSkillsID, ProjectID: projectID}, nil)
 				svc.On("Delete", mock.Anything, projectID, agentSkillsID).Return(errors.New("service error"))
 			},
 			expectedStatus: http.StatusInternalServerError,
@@ -673,7 +683,7 @@ func TestAgentSkillsHandler_GetAgentSkillFile(t *testing.T) {
 			id:       agentSkills.ID.String(),
 			filePath: "file1.json",
 			setup: func(svc *MockAgentSkillsService) {
-				svc.On("GetFile", mock.Anything, projectID, agentSkills.ID, "file1.json", mock.Anything).Return(&service.GetFileOutput{
+				svc.On("GetFile", mock.Anything, projectID, agentSkills.ID, "file1.json", mock.Anything, mock.Anything, mock.Anything).Return(&service.GetFileOutput{
 					Path: "file1.json",
 					MIME: "application/json",
 					URL:  &testURL,
@@ -702,7 +712,7 @@ func TestAgentSkillsHandler_GetAgentSkillFile(t *testing.T) {
 			id:       agentSkills.ID.String(),
 			filePath: "non-existent.json",
 			setup: func(svc *MockAgentSkillsService) {
-				svc.On("GetFile", mock.Anything, projectID, agentSkills.ID, "non-existent.json", mock.Anything).Return(nil, errors.New("file not found"))
+				svc.On("GetFile", mock.Anything, projectID, agentSkills.ID, "non-existent.json", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("file not found"))
 			},
 			expectedStatus: http.StatusNotFound,
 		},

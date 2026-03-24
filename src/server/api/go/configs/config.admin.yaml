@@ -3,10 +3,11 @@ app:
   env: ${APP_ENV} # available mode: debug / release / test
   host: 0.0.0.0
   port: ${API_EXPORT_PORT} # Bind to .env 8028
+  externalURL: ${APP_EXTERNALURL}
 
 root:
   apiBearerToken: "${ROOT_API_BEARER_TOKEN}"
-  secretPepper: "your-secret-pepper"
+  secretPepper: "${ROOT_SECRET_PEPPER}"
   enableArgon2Verification: ${ENABLE_ARGON2_VERIFICATION}
 
 log:

@@ -104,11 +104,6 @@ func BuildContainer() *do.Injector {
 			return nil, err
 		}
 		// [optional] auto migrate
-		// NOTE: agent_skills.asset_meta and agent_skills.file_index columns are
-		// deprecated as of the Disk migration. They are no longer used by the
-		// application. Safe to drop manually:
-		//   ALTER TABLE agent_skills DROP COLUMN IF EXISTS asset_meta;
-		//   ALTER TABLE agent_skills DROP COLUMN IF EXISTS file_index;
 		if cfg.Database.AutoMigrate {
 			_ = d.AutoMigrate(
 				&model.Project{},
@@ -263,6 +258,15 @@ func BuildContainer() *do.Injector {
 		return repo.NewSessionEventRepo(do.MustInvoke[*gorm.DB](i)), nil
 	})
 
+	// Material Service (must be before other services that depend on it)
+	do.Provide(inj, func(i *do.Injector) (service.MaterialService, error) {
+		return service.NewMaterialService(
+			do.MustInvoke[*redis.Client](i),
+			do.MustInvoke[*blob.S3Deps](i),
+			do.MustInvoke[*config.Config](i),
+		), nil
+	})
+
 	// Asset reference buffer (Redis-backed, flushed to DB periodically)
 	do.Provide(inj, func(i *do.Injector) (repo.AssetRefBuffer, error) {
 		return repo.NewAssetRefBuffer(
@@ -284,6 +288,7 @@ func BuildContainer() *do.Injector {
 			do.MustInvoke[*mq.Publisher](i),
 			do.MustInvoke[*config.Config](i),
 			do.MustInvoke[*redis.Client](i),
+			do.MustInvoke[service.MaterialService](i),
 		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (service.DiskService, error) {
@@ -308,6 +313,7 @@ func BuildContainer() *do.Injector {
 			do.MustInvoke[repo.AgentSkillsRepo](i),
 			do.MustInvoke[service.DiskService](i),
 			do.MustInvoke[service.ArtifactService](i),
+			do.MustInvoke[service.MaterialService](i),
 		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (service.UserService, error) {
@@ -353,19 +359,22 @@ func BuildContainer() *do.Injector {
 	do.Provide(inj, func(i *do.Injector) (*handler.DiskHandler, error) {
 		return handler.NewDiskHandler(
 			do.MustInvoke[service.DiskService](i),
+			do.MustInvoke[repo.DiskRepo](i),
 			do.MustInvoke[service.UserService](i),
 		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.ArtifactHandler, error) {
 		return handler.NewArtifactHandler(
 			do.MustInvoke[service.ArtifactService](i),
+			do.MustInvoke[repo.DiskRepo](i),
 			do.MustInvoke[*config.Config](i),
 			do.MustInvoke[*httpclient.CoreClient](i),
 			do.MustInvoke[*blob.S3Deps](i),
+			do.MustInvoke[service.MaterialService](i),
 		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.TaskHandler, error) {
-		return handler.NewTaskHandler(do.MustInvoke[service.TaskService](i)), nil
+		return handler.NewTaskHandler(do.MustInvoke[service.TaskService](i), do.MustInvoke[repo.SessionRepo](i)), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.AgentSkillsHandler, error) {
 		return handler.NewAgentSkillsHandler(
@@ -392,6 +401,11 @@ func BuildContainer() *do.Injector {
 		return handler.NewLearningSpaceHandler(
 			do.MustInvoke[service.LearningSpaceService](i),
 			do.MustInvoke[service.UserService](i),
+		), nil
+	})
+	do.Provide(inj, func(i *do.Injector) (*handler.MaterialHandler, error) {
+		return handler.NewMaterialHandler(
+			do.MustInvoke[service.MaterialService](i),
 		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.ProjectHandler, error) {

@@ -87,8 +87,8 @@ type MockArtifactS3Deps struct {
 	mock.Mock
 }
 
-func (m *MockArtifactS3Deps) UploadFormFile(ctx context.Context, s3Key string, fileHeader *multipart.FileHeader) (*model.Asset, error) {
-	args := m.Called(ctx, s3Key, fileHeader)
+func (m *MockArtifactS3Deps) UploadFormFile(ctx context.Context, s3Key string, fileHeader *multipart.FileHeader, userKEK []byte) (*model.Asset, error) {
+	args := m.Called(ctx, s3Key, fileHeader, userKEK)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -178,7 +178,7 @@ func (s *testArtifactService) Create(ctx context.Context, in CreateArtifactInput
 	}
 
 	// Simulate S3 upload
-	asset, err := s.s3.UploadFormFile(ctx, "disks/"+in.ProjectID.String(), in.FileHeader)
+	asset, err := s.s3.UploadFormFile(ctx, "disks/"+in.ProjectID.String(), in.FileHeader, in.UserKEK)
 	if err != nil {
 		return nil, err
 	}
@@ -292,7 +292,7 @@ func (s *testArtifactService) UpdateArtifactMetaByPath(ctx context.Context, disk
 	return artifact, nil
 }
 
-func (s *testArtifactService) GetFileContent(ctx context.Context, artifact *model.Artifact) (*fileparser.FileContent, error) {
+func (s *testArtifactService) GetFileContent(ctx context.Context, artifact *model.Artifact, userKEK []byte) (*fileparser.FileContent, error) {
 	// This is a test implementation that doesn't actually download from S3
 	// In real tests, you would mock the S3 download and file parsing
 	if artifact == nil {
@@ -303,6 +303,13 @@ func (s *testArtifactService) GetFileContent(ctx context.Context, artifact *mode
 		Type: "text",
 		Raw:  "test content",
 	}, nil
+}
+
+func (s *testArtifactService) DownloadRawContent(ctx context.Context, artifact *model.Artifact, userKEK []byte) ([]byte, string, error) {
+	if artifact == nil {
+		return nil, "", errors.New("artifact is nil")
+	}
+	return []byte("test content"), "application/octet-stream", nil
 }
 
 func (s *testArtifactService) GrepArtifacts(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID, pattern string, limit int) ([]*model.Artifact, error) {
@@ -371,7 +378,7 @@ func TestArtifactService_Create(t *testing.T) {
 			name: "successful creation",
 			setup: func(repo *MockArtifactRepo, s3 *MockArtifactS3Deps) {
 				repo.On("ExistsByPathAndFilename", mock.Anything, diskID, path, filename, (*uuid.UUID)(nil)).Return(false, nil)
-				s3.On("UploadFormFile", mock.Anything, mock.AnythingOfType("string"), fileHeader).Return(createTestAsset(), nil)
+				s3.On("UploadFormFile", mock.Anything, mock.AnythingOfType("string"), fileHeader, mock.Anything).Return(createTestAsset(), nil)
 				repo.On("Create", mock.Anything, projectID, mock.MatchedBy(func(f *model.Artifact) bool {
 					return f.DiskID == diskID && f.Path == path && f.Filename == filename
 				})).Return(nil)
@@ -390,7 +397,7 @@ func TestArtifactService_Create(t *testing.T) {
 			name: "upload error",
 			setup: func(repo *MockArtifactRepo, s3 *MockArtifactS3Deps) {
 				repo.On("ExistsByPathAndFilename", mock.Anything, diskID, path, filename, (*uuid.UUID)(nil)).Return(false, nil)
-				s3.On("UploadFormFile", mock.Anything, mock.AnythingOfType("string"), fileHeader).Return(nil, errors.New("upload error"))
+				s3.On("UploadFormFile", mock.Anything, mock.AnythingOfType("string"), fileHeader, mock.Anything).Return(nil, errors.New("upload error"))
 			},
 			expectError: true,
 			errorMsg:    "upload error",
@@ -399,7 +406,7 @@ func TestArtifactService_Create(t *testing.T) {
 			name: "create record error",
 			setup: func(repo *MockArtifactRepo, s3 *MockArtifactS3Deps) {
 				repo.On("ExistsByPathAndFilename", mock.Anything, diskID, path, filename, (*uuid.UUID)(nil)).Return(false, nil)
-				s3.On("UploadFormFile", mock.Anything, mock.AnythingOfType("string"), fileHeader).Return(createTestAsset(), nil)
+				s3.On("UploadFormFile", mock.Anything, mock.AnythingOfType("string"), fileHeader, mock.Anything).Return(createTestAsset(), nil)
 				repo.On("Create", mock.Anything, projectID, mock.Anything).Return(errors.New("create error"))
 			},
 			expectError: true,

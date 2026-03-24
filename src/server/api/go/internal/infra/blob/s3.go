@@ -22,6 +22,7 @@ import (
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	"github.com/bytedance/sonic"
 	"github.com/memodb-io/Acontext/internal/config"
+	encryptionpkg "github.com/memodb-io/Acontext/internal/infra/crypto"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/pkg/utils/mime"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/aws/aws-sdk-go-v2/otelaws"
@@ -52,7 +53,6 @@ func NewS3(ctx context.Context, cfg *config.Config) (*S3Deps, error) {
 	}
 
 	// Add OpenTelemetry middleware if tracer provider is set
-	// This should be called after telemetry.SetupTracing() to ensure tracer provider is set
 	if otel.GetTracerProvider() != nil {
 		otelaws.AppendMiddlewares(&acfg.APIOptions)
 	}
@@ -172,9 +172,26 @@ func cleanETag(etag string) string {
 	return strings.Trim(etag, `"`)
 }
 
+// encryptAndMergeMetadata encrypts content if a userKEK is provided.
+// Returns the (possibly encrypted) content and updated metadata map.
+func encryptAndMergeMetadata(content []byte, userKEK []byte, metadata map[string]string) ([]byte, map[string]string, error) {
+	if userKEK == nil {
+		return content, metadata, nil
+	}
+	ciphertext, encMeta, err := encryptionpkg.EncryptData(userKEK, content)
+	if err != nil {
+		return nil, nil, fmt.Errorf("encrypt data: %w", err)
+	}
+	for k, v := range encMeta.MetadataToMap() {
+		metadata[k] = v
+	}
+	return ciphertext, metadata, nil
+}
+
 // uploadWithDedup performs content-addressed deduplicated upload.
 // It searches for existing objects under keyPrefix that contain the given sumHex in the key.
 // If found, returns its metadata; otherwise uploads the new content using date + sumHex + ext as key.
+// userKEK is optional; when non-nil, the data is encrypted before upload.
 func (u *S3Deps) uploadWithDedup(
 	ctx context.Context,
 	keyPrefix string,
@@ -184,56 +201,73 @@ func (u *S3Deps) uploadWithDedup(
 	size int64,
 	body io.Reader,
 	metadata map[string]string,
+	userKEK []byte,
 ) (*model.Asset, error) {
-	// Check for existing object with pagination support
-	listInput := &s3.ListObjectsV2Input{
-		Bucket: &u.Bucket,
-		Prefix: &keyPrefix,
-	}
-
-	var continuationToken *string
-	for {
-		listInput.ContinuationToken = continuationToken
-		result, err := u.Client.ListObjectsV2(ctx, listInput)
-		if err != nil {
-			break
+	// Skip dedup when encryption is enabled: different users need different wrapped DEKs,
+	// so we cannot reuse an existing encrypted object for a different user.
+	if userKEK == nil {
+		// Check for existing object with pagination support
+		listInput := &s3.ListObjectsV2Input{
+			Bucket: &u.Bucket,
+			Prefix: &keyPrefix,
 		}
 
-		if result.Contents != nil {
-			for _, obj := range result.Contents {
-				if obj.Key != nil && strings.Contains(*obj.Key, sumHex) {
-					if headResult, herr := u.Client.HeadObject(ctx, &s3.HeadObjectInput{
-						Bucket: &u.Bucket,
-						Key:    obj.Key,
-					}); herr == nil {
-						return &model.Asset{
-							Bucket: u.Bucket,
-							S3Key:  *obj.Key,
-							ETag:   cleanETag(*headResult.ETag),
-							SHA256: sumHex,
-							MIME:   contentType,
-							SizeB:  aws.ToInt64(headResult.ContentLength),
-						}, nil
+		var continuationToken *string
+		for {
+			listInput.ContinuationToken = continuationToken
+			result, err := u.Client.ListObjectsV2(ctx, listInput)
+			if err != nil {
+				break
+			}
+
+			if result.Contents != nil {
+				for _, obj := range result.Contents {
+					if obj.Key != nil && strings.Contains(*obj.Key, sumHex) {
+						if headResult, herr := u.Client.HeadObject(ctx, &s3.HeadObjectInput{
+							Bucket: &u.Bucket,
+							Key:    obj.Key,
+						}); herr == nil {
+							return &model.Asset{
+								Bucket: u.Bucket,
+								S3Key:  *obj.Key,
+								ETag:   cleanETag(*headResult.ETag),
+								SHA256: sumHex,
+								MIME:   contentType,
+								SizeB:  aws.ToInt64(headResult.ContentLength),
+							}, nil
+						}
 					}
 				}
 			}
-		}
 
-		// Check if there are more pages
-		if !aws.ToBool(result.IsTruncated) {
-			break
+			// Check if there are more pages
+			if !aws.ToBool(result.IsTruncated) {
+				break
+			}
+			continuationToken = result.NextContinuationToken
 		}
-		continuationToken = result.NextContinuationToken
 	}
 
 	// No existing file found, upload new file with date prefix
 	datePrefix := time.Now().UTC().Format("2006/01/02")
 	key := fmt.Sprintf("%s/%s/%s%s", keyPrefix, datePrefix, sumHex, ext)
 
+	var bodyBuf bytes.Buffer
+	if _, err := io.Copy(&bodyBuf, body); err != nil {
+		return nil, fmt.Errorf("read body: %w", err)
+	}
+	uploadBytes := bodyBuf.Bytes()
+
+	var encErr error
+	uploadBytes, metadata, encErr = encryptAndMergeMetadata(uploadBytes, userKEK, metadata)
+	if encErr != nil {
+		return nil, encErr
+	}
+
 	input := &s3.PutObjectInput{
 		Bucket:      aws.String(u.Bucket),
 		Key:         aws.String(key),
-		Body:        body,
+		Body:        bytes.NewReader(uploadBytes),
 		ContentType: aws.String(contentType),
 		Metadata:    metadata,
 	}
@@ -252,14 +286,13 @@ func (u *S3Deps) uploadWithDedup(
 		ETag:   cleanETag(*out.ETag),
 		SHA256: sumHex,
 		MIME:   contentType,
-		SizeB:  size,
+		SizeB:  size, // original plaintext size
 	}, nil
 }
 
-// UploadFormFile uploads a file to S3 with automatic deduplication
-// It checks if a file with the same SHA256 already exists under the keyPrefix
-// If found, returns the existing file metadata; otherwise uploads the new file
-func (u *S3Deps) UploadFormFile(ctx context.Context, keyPrefix string, fh *multipart.FileHeader) (*model.Asset, error) {
+// UploadFormFile uploads a file to S3 with automatic deduplication.
+// userKEK is optional; when non-nil, the data is encrypted before upload.
+func (u *S3Deps) UploadFormFile(ctx context.Context, keyPrefix string, fh *multipart.FileHeader, userKEK []byte) (*model.Asset, error) {
 	file, err := fh.Open()
 	if err != nil {
 		return nil, err
@@ -295,12 +328,13 @@ func (u *S3Deps) UploadFormFile(ctx context.Context, keyPrefix string, fh *multi
 			"sha256": sumHex,
 			"name":   fh.Filename,
 		},
+		userKEK,
 	)
 }
 
-// UploadBytes uploads raw bytes to S3 with automatic deduplication
-// Similar to UploadFormFile but accepts raw bytes instead of multipart.FileHeader
-func (u *S3Deps) UploadBytes(ctx context.Context, keyPrefix string, filename string, content []byte) (*model.Asset, error) {
+// UploadBytes uploads raw bytes to S3 with automatic deduplication.
+// userKEK is optional; when non-nil, the data is encrypted before upload.
+func (u *S3Deps) UploadBytes(ctx context.Context, keyPrefix string, filename string, content []byte, userKEK []byte) (*model.Asset, error) {
 	// Calculate SHA256 of the content
 	h := sha256.New()
 	h.Write(content)
@@ -323,11 +357,13 @@ func (u *S3Deps) UploadBytes(ctx context.Context, keyPrefix string, filename str
 			"sha256": sumHex,
 			"name":   filename,
 		},
+		userKEK,
 	)
 }
 
-// UploadJSON uploads JSON data to S3 and returns metadata
-func (u *S3Deps) UploadJSON(ctx context.Context, keyPrefix string, data interface{}) (*model.Asset, error) {
+// UploadJSON uploads JSON data to S3 and returns metadata.
+// userKEK is optional; when non-nil, the data is encrypted before upload.
+func (u *S3Deps) UploadJSON(ctx context.Context, keyPrefix string, data interface{}, userKEK []byte) (*model.Asset, error) {
 	// Serialize data to JSON
 	jsonData, err := sonic.Marshal(data)
 	if err != nil {
@@ -350,6 +386,7 @@ func (u *S3Deps) UploadJSON(ctx context.Context, keyPrefix string, data interfac
 		map[string]string{
 			"sha256": sumHex,
 		},
+		userKEK,
 	)
 }
 
@@ -429,13 +466,26 @@ func (u *S3Deps) PrepareFormFileAsset(keyPrefix string, fh *multipart.FileHeader
 // UploadPrepared executes a deferred S3 upload for a previously prepared asset.
 // It uploads directly using the pre-computed S3 key. Since the key contains the
 // content SHA256, re-uploading identical content is naturally idempotent.
-func (u *S3Deps) UploadPrepared(ctx context.Context, p *PreparedUpload) error {
+// userKEK is optional; when non-nil, the data is encrypted before upload.
+func (u *S3Deps) UploadPrepared(ctx context.Context, p *PreparedUpload, userKEK []byte) error {
+	uploadBytes := p.Content
+	metadata := make(map[string]string)
+	for k, v := range p.Metadata {
+		metadata[k] = v
+	}
+
+	var encErr error
+	uploadBytes, metadata, encErr = encryptAndMergeMetadata(uploadBytes, userKEK, metadata)
+	if encErr != nil {
+		return encErr
+	}
+
 	input := &s3.PutObjectInput{
 		Bucket:      aws.String(u.Bucket),
 		Key:         aws.String(p.Asset.S3Key),
-		Body:        bytes.NewReader(p.Content),
+		Body:        bytes.NewReader(uploadBytes),
 		ContentType: aws.String(p.Asset.MIME),
-		Metadata:    p.Metadata,
+		Metadata:    metadata,
 	}
 	if u.SSE != nil {
 		input.ServerSideEncryption = *u.SSE
@@ -445,9 +495,9 @@ func (u *S3Deps) UploadPrepared(ctx context.Context, p *PreparedUpload) error {
 	return err
 }
 
-// UploadFileDirect uploads a file directly to S3 at the specified key (no deduplication)
-// This is used when you need to preserve the exact file structure
-func (u *S3Deps) UploadFileDirect(ctx context.Context, key string, content []byte, contentType string) (*model.Asset, error) {
+// UploadFileDirect uploads a file directly to S3 at the specified key (no deduplication).
+// userKEK is optional; when non-nil, the data is encrypted before upload.
+func (u *S3Deps) UploadFileDirect(ctx context.Context, key string, content []byte, contentType string, userKEK []byte) (*model.Asset, error) {
 	if key == "" {
 		return nil, errors.New("key is empty")
 	}
@@ -457,14 +507,23 @@ func (u *S3Deps) UploadFileDirect(ctx context.Context, key string, content []byt
 	h.Write(content)
 	sumHex := hex.EncodeToString(h.Sum(nil))
 
+	metadata := map[string]string{
+		"sha256": sumHex,
+	}
+
+	uploadBytes := content
+	var encErr error
+	uploadBytes, metadata, encErr = encryptAndMergeMetadata(uploadBytes, userKEK, metadata)
+	if encErr != nil {
+		return nil, encErr
+	}
+
 	input := &s3.PutObjectInput{
 		Bucket:      aws.String(u.Bucket),
 		Key:         aws.String(key),
-		Body:        bytes.NewReader(content),
+		Body:        bytes.NewReader(uploadBytes),
 		ContentType: aws.String(contentType),
-		Metadata: map[string]string{
-			"sha256": sumHex,
-		},
+		Metadata:    metadata,
 	}
 	if u.SSE != nil {
 		input.ServerSideEncryption = *u.SSE
@@ -481,59 +540,206 @@ func (u *S3Deps) UploadFileDirect(ctx context.Context, key string, content []byt
 		ETag:   cleanETag(*out.ETag),
 		SHA256: sumHex,
 		MIME:   contentType,
-		SizeB:  int64(len(content)),
+		SizeB:  int64(len(content)), // original plaintext size
 	}, nil
 }
 
-// DownloadJSON downloads JSON data from S3 and unmarshals it into the provided interface
-func (u *S3Deps) DownloadJSON(ctx context.Context, key string, target interface{}) error {
+// decryptWithUserKEK checks S3 object metadata for encryption markers and decrypts with the user KEK.
+// If userKEK is nil and the object is encrypted, returns an error.
+// Returns the original data for non-encrypted objects (backward compatibility).
+func decryptWithUserKEK(data []byte, metadata map[string]string, userKEK []byte) ([]byte, error) {
+	encMeta := encryptionpkg.MetadataFromMap(metadata)
+	if encMeta == nil {
+		// Not encrypted, return as-is
+		return data, nil
+	}
+	if userKEK == nil {
+		return nil, errors.New("encrypted object but no user KEK provided")
+	}
+	return encryptionpkg.DecryptData(userKEK, data, encMeta)
+}
+
+// downloadRaw downloads the raw bytes, metadata, and content type from S3 without any decryption.
+func (u *S3Deps) downloadRaw(ctx context.Context, key string) ([]byte, map[string]string, string, error) {
+	if key == "" {
+		return nil, nil, "", errors.New("key is empty")
+	}
 	result, err := u.Client.GetObject(ctx, &s3.GetObjectInput{
 		Bucket: &u.Bucket,
 		Key:    &key,
 	})
 	if err != nil {
-		return fmt.Errorf("get object from S3: %w", err)
+		return nil, nil, "", fmt.Errorf("get object from S3: %w", err)
 	}
 	defer result.Body.Close()
 
-	// Read the response body
 	var buf bytes.Buffer
-	_, err = buf.ReadFrom(result.Body)
-	if err != nil {
-		return fmt.Errorf("read response body: %w", err)
+	if _, err = buf.ReadFrom(result.Body); err != nil {
+		return nil, nil, "", fmt.Errorf("read response body: %w", err)
 	}
 
-	// Unmarshal JSON
-	if err := sonic.Unmarshal(buf.Bytes(), target); err != nil {
+	metadata := make(map[string]string)
+	if result.Metadata != nil {
+		metadata = result.Metadata
+	}
+
+	contentType := aws.ToString(result.ContentType)
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	return buf.Bytes(), metadata, contentType, nil
+}
+
+// DownloadJSON downloads JSON data from S3, auto-decrypts if encrypted, and unmarshals.
+// userKEK is optional; required only if the object is encrypted.
+func (u *S3Deps) DownloadJSON(ctx context.Context, key string, target interface{}, userKEK []byte) error {
+	data, metadata, _, err := u.downloadRaw(ctx, key)
+	if err != nil {
+		return err
+	}
+
+	data, err = decryptWithUserKEK(data, metadata, userKEK)
+	if err != nil {
+		return fmt.Errorf("decrypt: %w", err)
+	}
+
+	if err := sonic.Unmarshal(data, target); err != nil {
 		return fmt.Errorf("unmarshal json: %w", err)
 	}
-
 	return nil
 }
 
-// DownloadFile downloads file content from S3 and returns the content as bytes
-func (u *S3Deps) DownloadFile(ctx context.Context, key string) ([]byte, error) {
-	if key == "" {
-		return nil, errors.New("key is empty")
+// DownloadFile downloads file content from S3, auto-decrypts if encrypted, returns plaintext.
+// userKEK is optional; required only if the object is encrypted.
+func (u *S3Deps) DownloadFile(ctx context.Context, key string, userKEK []byte) ([]byte, error) {
+	data, metadata, _, err := u.downloadRaw(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	return decryptWithUserKEK(data, metadata, userKEK)
+}
+
+// EncryptObject reads an unencrypted S3 object, encrypts it with userKEK, and writes it back.
+func (u *S3Deps) EncryptObject(ctx context.Context, key string, userKEK []byte) error {
+	data, metadata, contentType, err := u.downloadRaw(ctx, key)
+	if err != nil {
+		return fmt.Errorf("download for encrypt: %w", err)
 	}
 
-	result, err := u.Client.GetObject(ctx, &s3.GetObjectInput{
+	// Skip if already encrypted
+	if encryptionpkg.MetadataFromMap(metadata) != nil {
+		return nil
+	}
+
+	ciphertext, encMeta, err := encryptionpkg.EncryptData(userKEK, data)
+	if err != nil {
+		return fmt.Errorf("encrypt: %w", err)
+	}
+
+	for k, v := range encMeta.MetadataToMap() {
+		metadata[k] = v
+	}
+
+	input := &s3.PutObjectInput{
+		Bucket:      aws.String(u.Bucket),
+		Key:         aws.String(key),
+		Body:        bytes.NewReader(ciphertext),
+		ContentType: aws.String(contentType),
+		Metadata:    metadata,
+	}
+	if u.SSE != nil {
+		input.ServerSideEncryption = *u.SSE
+	}
+	_, err = u.Uploader.Upload(ctx, input)
+	return err
+}
+
+// DecryptObject reads an encrypted S3 object, decrypts it with userKEK, and writes it back without encryption metadata.
+func (u *S3Deps) DecryptObject(ctx context.Context, key string, userKEK []byte) error {
+	data, metadata, contentType, err := u.downloadRaw(ctx, key)
+	if err != nil {
+		return fmt.Errorf("download for decrypt: %w", err)
+	}
+
+	encMeta := encryptionpkg.MetadataFromMap(metadata)
+	if encMeta == nil {
+		// Not encrypted, nothing to do
+		return nil
+	}
+
+	plaintext, err := encryptionpkg.DecryptData(userKEK, data, encMeta)
+	if err != nil {
+		return fmt.Errorf("decrypt: %w", err)
+	}
+
+	encryptionpkg.ClearEncryptionMetadata(metadata)
+
+	input := &s3.PutObjectInput{
+		Bucket:      aws.String(u.Bucket),
+		Key:         aws.String(key),
+		Body:        bytes.NewReader(plaintext),
+		ContentType: aws.String(contentType),
+		Metadata:    metadata,
+	}
+	if u.SSE != nil {
+		input.ServerSideEncryption = *u.SSE
+	}
+	_, err = u.Uploader.Upload(ctx, input)
+	return err
+}
+
+// RewrapObjectDEK re-wraps the DEK of an encrypted S3 object from oldKEK to newKEK.
+func (u *S3Deps) RewrapObjectDEK(ctx context.Context, key string, oldKEK, newKEK []byte) error {
+	// HeadObject to get metadata
+	headResult, err := u.Client.HeadObject(ctx, &s3.HeadObjectInput{
 		Bucket: &u.Bucket,
 		Key:    &key,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("get object from S3: %w", err)
+		return fmt.Errorf("head object: %w", err)
 	}
-	defer result.Body.Close()
 
-	// Read the response body
-	var buf bytes.Buffer
-	_, err = buf.ReadFrom(result.Body)
+	metadata := make(map[string]string)
+	if headResult.Metadata != nil {
+		metadata = headResult.Metadata
+	}
+
+	encMeta := encryptionpkg.MetadataFromMap(metadata)
+	if encMeta == nil {
+		// Not encrypted, nothing to rewrap
+		return nil
+	}
+
+	newWrapped, err := encryptionpkg.RewrapDEK(encMeta, oldKEK, newKEK)
 	if err != nil {
-		return nil, fmt.Errorf("read response body: %w", err)
+		return fmt.Errorf("rewrap DEK: %w", err)
+	}
+	if newWrapped == "" {
+		// Already rewrapped with new KEK — skip
+		return nil
 	}
 
-	return buf.Bytes(), nil
+	metadata[encryptionpkg.MetaKeyDEKUser] = newWrapped
+
+	// CopyObject to update metadata in-place
+	source := u.Bucket + "/" + key
+	copyInput := &s3.CopyObjectInput{
+		Bucket:            &u.Bucket,
+		Key:               &key,
+		CopySource:        &source,
+		Metadata:          metadata,
+		MetadataDirective: s3types.MetadataDirectiveReplace,
+	}
+	if u.SSE != nil {
+		copyInput.ServerSideEncryption = *u.SSE
+	}
+	_, err = u.Client.CopyObject(ctx, copyInput)
+	if err != nil {
+		return fmt.Errorf("copy object with new metadata: %w", err)
+	}
+
+	return nil
 }
 
 // DeleteObject deletes an object from S3

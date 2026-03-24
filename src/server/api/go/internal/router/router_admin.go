@@ -30,11 +30,20 @@ func NewAdminRouter(d AdminRouterDeps) *gin.Engine {
 
 		admin.POST("/project", d.AdminHandler.CreateProject)
 		admin.DELETE("/project/:project_id", d.AdminHandler.DeleteProject)
-		admin.PUT("/project/:project_id/secret_key", d.AdminHandler.UpdateProjectSecretKey)
-
+		admin.PUT("/project/:project_id/secret_key", d.AdminHandler.RotateProjectSecretKeyAdmin)
 		admin.GET("/project/:project_id/usages", d.AdminHandler.AnalyzeProjectUsages)
 		admin.GET("/project/:project_id/statistics", d.AdminHandler.AnalyzeProjectStatistics)
 		admin.GET("/project/:project_id/metrics", d.AdminHandler.AnalyzeProjectMetrics)
+	}
+
+	// Admin project encryption routes - protected by ProjectAuth (Bearer API key)
+	adminProject := r.Group("/admin/v1")
+	{
+		adminProject.Use(middleware.ProjectAuth(d.Config, d.DB, d.Redis))
+
+		adminProject.POST("/project/encrypt", d.AdminHandler.EncryptProject)
+		adminProject.POST("/project/decrypt", d.AdminHandler.DecryptProject)
+		adminProject.PUT("/project/secret_key", d.AdminHandler.RotateProjectSecretKey)
 	}
 
 	// Metrics routes - protected by API bearer token

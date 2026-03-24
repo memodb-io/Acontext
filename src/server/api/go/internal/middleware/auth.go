@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -16,11 +17,53 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/memodb-io/Acontext/internal/config"
+	encryptionpkg "github.com/memodb-io/Acontext/internal/infra/crypto"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/pkg/utils/secrets"
 	"github.com/memodb-io/Acontext/internal/pkg/utils/tokens"
 )
+
+// GetUserKEK extracts the user KEK from gin context.
+// Returns the KEK regardless of project encryption status.
+// Use this for admin endpoints that need KEK even when encryption is not yet enabled.
+func GetUserKEK(c *gin.Context) []byte {
+	v, exists := c.Get("user_kek")
+	if !exists {
+		return nil
+	}
+	kek, ok := v.([]byte)
+	if !ok {
+		return nil
+	}
+	return kek
+}
+
+// GetUserKEKIfEncrypted returns the user KEK only if the project has encryption enabled.
+// Returns nil for non-encrypted projects (data operations should not encrypt).
+// Use this for regular API handlers (upload/download/store message).
+func GetUserKEKIfEncrypted(c *gin.Context) []byte {
+	p, exists := c.Get("project")
+	if !exists {
+		return nil
+	}
+	project, ok := p.(*model.Project)
+	if !ok || project == nil || !project.EncryptionEnabled {
+		return nil
+	}
+	return GetUserKEK(c)
+}
+
+// GetUserKEKBase64IfEncrypted returns the user KEK as a base64-encoded string
+// if the project has encryption enabled. Returns empty string otherwise.
+// Use this for material URL creation where the KEK needs to be serialized to Redis.
+func GetUserKEKBase64IfEncrypted(c *gin.Context) string {
+	kek := GetUserKEKIfEncrypted(c)
+	if kek == nil {
+		return ""
+	}
+	return base64.StdEncoding.EncodeToString(kek)
+}
 
 const (
 	projectAuthCachePrefix = "project:auth:"
@@ -28,6 +71,8 @@ const (
 )
 
 // ProjectAuth returns a middleware that authenticates requests using project bearer tokens.
+// Token format: sk-ac-{auth_secret}.{encrypted_master_key}
+// Derives a KEK and stores it in context for downstream encryption operations.
 // It caches project lookups in Redis to avoid hitting the database on every request.
 func ProjectAuth(cfg *config.Config, db *gorm.DB, rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -47,7 +92,7 @@ func ProjectAuth(cfg *config.Config, db *gorm.DB, rdb *redis.Client) gin.Handler
 		}
 		raw := strings.TrimPrefix(auth, "Bearer ")
 
-		secret, ok := tokens.ParseToken(raw, cfg.Root.ProjectBearerTokenPrefix)
+		parsed, ok := tokens.ParseProjectToken(raw, cfg.Root.ProjectBearerTokenPrefix)
 		if !ok {
 			authSpan.SetAttributes(attribute.Bool("authenticated", false))
 			authSpan.End()
@@ -55,7 +100,8 @@ func ProjectAuth(cfg *config.Config, db *gorm.DB, rdb *redis.Client) gin.Handler
 			return
 		}
 
-		lookup := tokens.HMAC256Hex(cfg.Root.SecretPepper, secret)
+		// HMAC lookup uses auth_secret (both formats)
+		lookup := tokens.HMAC256Hex(cfg.Root.SecretPepper, parsed.AuthSecret)
 
 		project, err := lookupProject(authCtx, db, rdb, lookup)
 		if err != nil {
@@ -71,9 +117,10 @@ func ProjectAuth(cfg *config.Config, db *gorm.DB, rdb *redis.Client) gin.Handler
 			return
 		}
 
+		// Argon2 verification uses auth_secret (both formats)
 		if cfg.Root.EnableArgon2Verification {
 			_, verifySpan := otel.Tracer("middleware").Start(authCtx, "project_auth.verify_secret")
-			pass, err := secrets.VerifySecret(secret, cfg.Root.SecretPepper, project.SecretKeyHashPHC)
+			pass, err := secrets.VerifySecret(parsed.AuthSecret, cfg.Root.SecretPepper, project.SecretKeyHashPHC)
 			verifySpan.End()
 			if err != nil || !pass {
 				authSpan.SetAttributes(
@@ -100,8 +147,35 @@ func ProjectAuth(cfg *config.Config, db *gorm.DB, rdb *redis.Client) gin.Handler
 
 		c.Set("project", project)
 		SetWideEventField(c, "project_id", project.ID.String())
+
+		// Derive KEK: unwrap master_key from token if present.
+		// Legacy keys without encrypted_master_key have no encryption support.
+		if parsed.EncryptedMasterKey != "" {
+			wrappingKey, wkErr := encryptionpkg.DeriveUserKEK(parsed.AuthSecret, cfg.Root.SecretPepper)
+			if wkErr != nil {
+				c.AbortWithStatusJSON(http.StatusInternalServerError, serializer.DBErr("derive wrapping key", wkErr))
+				return
+			}
+			userKEK, kerr := encryptionpkg.UnwrapMasterKey(wrappingKey, parsed.EncryptedMasterKey)
+			if kerr != nil {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, serializer.AuthErr("invalid API key: failed to unwrap master key"))
+				return
+			}
+			c.Set("user_kek", userKEK)
+		}
+
 		c.Next()
 	}
+}
+
+// InvalidateProjectAuthCache removes a project's auth cache entry from Redis.
+// Call this after any operation that changes project state cached here
+// (e.g., encryption_enabled flag, key rotation).
+func InvalidateProjectAuthCache(rdb *redis.Client, hmac string) {
+	if rdb == nil || hmac == "" {
+		return
+	}
+	_ = rdb.Del(context.Background(), projectAuthCachePrefix+hmac).Err()
 }
 
 // lookupProject tries Redis cache first, falls back to DB on miss or Redis error.

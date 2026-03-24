@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"mime/multipart"
@@ -13,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/infra/blob"
+	"github.com/memodb-io/Acontext/internal/infra/crypto"
 	mq "github.com/memodb-io/Acontext/internal/infra/queue"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
@@ -26,22 +29,24 @@ import (
 
 type SessionService interface {
 	Create(ctx context.Context, ss *model.Session) error
-	Delete(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID) error
+	Delete(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, userKEK []byte) error
 	UpdateByID(ctx context.Context, ss *model.Session) error
 	GetByID(ctx context.Context, ss *model.Session) (*model.Session, error)
 	List(ctx context.Context, in ListSessionsInput) (*ListSessionsOutput, error)
 	StoreMessage(ctx context.Context, in StoreMessageInput) (*model.Message, error)
 	GetMessages(ctx context.Context, in GetMessagesInput) (*GetMessagesOutput, error)
-	GetAllMessages(ctx context.Context, sessionID uuid.UUID) ([]model.Message, error)
+	GetAllMessages(ctx context.Context, sessionID uuid.UUID, userKEK []byte) ([]model.Message, error)
 	GetSessionObservingStatus(ctx context.Context, sessionID string) (*model.MessageObservingStatus, error)
 	PatchMessageMeta(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, messageID uuid.UUID, patchMeta map[string]interface{}) (map[string]interface{}, error)
 	PatchConfigs(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, patchConfigs map[string]interface{}) (map[string]interface{}, error)
 	CopySession(ctx context.Context, in CopySessionInput) (*CopySessionOutput, error)
+	DownloadAsset(ctx context.Context, s3Key string, userKEK []byte) ([]byte, error)
 }
 
 type CopySessionInput struct {
 	ProjectID uuid.UUID
 	SessionID uuid.UUID
+	UserKEK   []byte
 }
 
 type CopySessionOutput struct {
@@ -59,6 +64,7 @@ type sessionService struct {
 	publisher          *mq.Publisher
 	cfg                *config.Config
 	redis              *redis.Client
+	materialSvc        MaterialService
 }
 
 const (
@@ -66,9 +72,13 @@ const (
 	redisKeyPrefixParts = "message:parts:"
 	// Default TTL for message parts cache (1 hour)
 	defaultPartsCacheTTL = time.Hour
+
+	// Cache framing prefix bytes to distinguish encrypted vs plaintext cached data
+	cachePrefixPlaintext byte = 0x00
+	cachePrefixEncrypted byte = 0x01
 )
 
-func NewSessionService(sessionRepo repo.SessionRepo, sessionEventRepo repo.SessionEventRepo, assetReferenceRepo repo.AssetReferenceRepo, assetRefBuffer repo.AssetRefBuffer, log *zap.Logger, s3 *blob.S3Deps, publisher *mq.Publisher, cfg *config.Config, redis *redis.Client) SessionService {
+func NewSessionService(sessionRepo repo.SessionRepo, sessionEventRepo repo.SessionEventRepo, assetReferenceRepo repo.AssetReferenceRepo, assetRefBuffer repo.AssetRefBuffer, log *zap.Logger, s3 *blob.S3Deps, publisher *mq.Publisher, cfg *config.Config, redis *redis.Client, materialSvc MaterialService) SessionService {
 	return &sessionService{
 		sessionRepo:        sessionRepo,
 		sessionEventRepo:   sessionEventRepo,
@@ -79,6 +89,7 @@ func NewSessionService(sessionRepo repo.SessionRepo, sessionEventRepo repo.Sessi
 		publisher:          publisher,
 		cfg:                cfg,
 		redis:              redis,
+		materialSvc:        materialSvc,
 	}
 }
 
@@ -86,12 +97,12 @@ func (s *sessionService) Create(ctx context.Context, ss *model.Session) error {
 	return s.sessionRepo.Create(ctx, ss)
 }
 
-func (s *sessionService) Delete(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID) error {
+func (s *sessionService) Delete(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, userKEK []byte) error {
 	if len(sessionID) == 0 {
 		return errors.New("space id is empty")
 	}
 
-	if err := s.sessionRepo.Delete(ctx, projectID, sessionID); err != nil {
+	if err := s.sessionRepo.Delete(ctx, projectID, sessionID, userKEK); err != nil {
 		return fmt.Errorf("delete session: %w", err)
 	}
 
@@ -164,12 +175,14 @@ type StoreMessageInput struct {
 	Format      model.MessageFormat    // Message format (acontext, openai, anthropic, gemini)
 	MessageMeta map[string]interface{} // Message-level metadata (e.g., name, source_format)
 	Files       map[string]*multipart.FileHeader
+	UserKEK     []byte // optional: for envelope encryption
 }
 
 type StoreMQPublishJSON struct {
 	ProjectID uuid.UUID `json:"project_id"`
 	SessionID uuid.UUID `json:"session_id"`
 	MessageID uuid.UUID `json:"message_id"`
+	UserKEK   string    `json:"user_kek,omitempty"` // base64-encoded user KEK for envelope encryption
 }
 
 type PartIn struct {
@@ -350,7 +363,7 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 
 	// Cache parts data in Redis before responding (uses pre-computed SHA256)
 	if s.redis != nil {
-		if err := s.cachePartsInRedis(ctx, partsAsset.SHA256, parts); err != nil {
+		if err := s.cachePartsInRedis(ctx, partsAsset.SHA256, parts, in.UserKEK); err != nil {
 			s.log.Warn("failed to cache parts in Redis", zap.String("sha256", partsAsset.SHA256), zap.Error(err))
 		}
 	}
@@ -361,7 +374,7 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 		bgCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 		for _, p := range pendingUploads {
-			if err := s.s3.UploadPrepared(bgCtx, p); err != nil {
+			if err := s.s3.UploadPrepared(bgCtx, p, in.UserKEK); err != nil {
 				s.log.Error("async S3 upload failed",
 					zap.String("s3_key", p.Asset.S3Key),
 					zap.String("sha256", p.Asset.SHA256),
@@ -403,11 +416,18 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 	}
 
 	if !disableTaskTracking && s.publisher != nil {
-		if err := s.publisher.PublishJSON(ctx, s.cfg.RabbitMQ.ExchangeName.SessionMessage, s.cfg.RabbitMQ.RoutingKey.SessionMessageInsert, StoreMQPublishJSON{
+		mqMsg := StoreMQPublishJSON{
 			ProjectID: in.ProjectID,
 			SessionID: in.SessionID,
 			MessageID: msg.ID,
-		}); err != nil {
+		}
+		// TODO: UserKEK is transmitted in plaintext over RabbitMQ. Current deployment
+		// assumes a trusted internal network. Consider encrypting the MQ payload or
+		// using a short-lived Redis token to avoid persisting key material in the broker.
+		if in.UserKEK != nil {
+			mqMsg.UserKEK = base64.StdEncoding.EncodeToString(in.UserKEK)
+		}
+		if err := s.publisher.PublishJSON(ctx, s.cfg.RabbitMQ.ExchangeName.SessionMessage, s.cfg.RabbitMQ.RoutingKey.SessionMessageInsert, mqMsg); err != nil {
 			s.log.Error("publish session message", zap.Error(err))
 		}
 	}
@@ -416,6 +436,7 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 }
 
 type GetMessagesInput struct {
+	ProjectID                     uuid.UUID               `json:"project_id"`
 	SessionID                     uuid.UUID               `json:"session_id"`
 	Limit                         int                     `json:"limit"`
 	Cursor                        string                  `json:"cursor"`
@@ -425,6 +446,7 @@ type GetMessagesInput struct {
 	WithEvents                    bool                    `json:"with_events"`
 	EditStrategies                []editor.StrategyConfig `json:"edit_strategies,omitempty"`
 	PinEditingStrategiesAtMessage string                  `json:"pin_editing_strategies_at_message,omitempty"`
+	UserKEK                       []byte                  `json:"-"` // optional: for envelope encryption (decrypting parts)
 }
 
 type PublicURL struct {
@@ -442,8 +464,16 @@ type GetMessagesOutput struct {
 }
 
 func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (*GetMessagesOutput, error) {
+	// Verify session exists and belongs to project
+	session, err := s.sessionRepo.Get(ctx, &model.Session{ID: in.SessionID})
+	if err != nil {
+		return nil, fmt.Errorf("session not found")
+	}
+	if session.ProjectID != in.ProjectID {
+		return nil, fmt.Errorf("session not found")
+	}
+
 	var msgs []model.Message
-	var err error
 
 	// Retrieve messages based on limit
 	if in.Limit <= 0 {
@@ -474,7 +504,7 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	n := 0
 	for i, m := range msgs {
 		meta := m.PartsAssetMeta.Data()
-		parts, ok := s.loadPartsForMessage(ctx, meta)
+		parts, ok := s.loadPartsForMessage(ctx, meta, in.UserKEK)
 		if !ok {
 			continue // Drop messages with failed parts loading
 		}
@@ -533,21 +563,26 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 		out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
 	}
 
-	// Generate presigned URLs for assets if requested
-	if in.WithAssetPublicURL && s.s3 != nil {
+	// Generate material URLs for assets if requested (works for both encrypted and non-encrypted)
+	if in.WithAssetPublicURL && s.materialSvc != nil {
 		out.PublicURLs = make(map[string]PublicURL)
+		// Encode userKEK to base64 for material service
+		var userKEKB64 string
+		if in.UserKEK != nil {
+			userKEKB64 = base64.StdEncoding.EncodeToString(in.UserKEK)
+		}
 		for _, m := range out.Items {
 			for _, p := range m.Parts {
 				if p.Asset == nil {
 					continue
 				}
-				url, err := s.s3.PresignGet(ctx, p.Asset.S3Key, in.AssetExpire)
+				url, expireAt, err := s.materialSvc.CreateMaterialURL(ctx, p.Asset.S3Key, userKEKB64, in.AssetExpire, p.Asset.MIME, p.Filename)
 				if err != nil {
-					return nil, fmt.Errorf("get presigned url for asset %s: %w", p.Asset.S3Key, err)
+					return nil, fmt.Errorf("create material url for asset %s: %w", p.Asset.S3Key, err)
 				}
 				out.PublicURLs[p.Asset.SHA256] = PublicURL{
 					URL:      url,
-					ExpireAt: time.Now().Add(in.AssetExpire),
+					ExpireAt: expireAt,
 				}
 			}
 		}
@@ -556,8 +591,20 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	return out, nil
 }
 
-// cachePartsInRedis stores message parts in Redis with a fixed TTL
-func (s *sessionService) cachePartsInRedis(ctx context.Context, sha256 string, parts []model.Part) error {
+// DownloadAsset downloads and decrypts an asset from S3 by its key.
+func (s *sessionService) DownloadAsset(ctx context.Context, s3Key string, userKEK []byte) ([]byte, error) {
+	if s.s3 == nil {
+		return nil, errors.New("S3 not configured")
+	}
+	return s.s3.DownloadFile(ctx, s3Key, userKEK)
+}
+
+// cachePartsInRedis stores message parts in Redis with a fixed TTL.
+// When userKEK is provided, the serialized JSON is encrypted before caching.
+// Format: prefix_byte | payload
+//   - 0x00 | json_data (plaintext)
+//   - 0x01 | wrappedDEK_len (2 bytes BE) | wrappedDEK | ciphertext (encrypted)
+func (s *sessionService) cachePartsInRedis(ctx context.Context, sha256 string, parts []model.Part, userKEK []byte) error {
 	if s.redis == nil {
 		return errors.New("redis client is not available")
 	}
@@ -568,20 +615,42 @@ func (s *sessionService) cachePartsInRedis(ctx context.Context, sha256 string, p
 		return fmt.Errorf("marshal parts to JSON: %w", err)
 	}
 
+	var cacheData []byte
+	if userKEK != nil {
+		// Encrypt the JSON data
+		ciphertext, encMeta, err := crypto.EncryptData(userKEK, jsonData)
+		if err != nil {
+			return fmt.Errorf("encrypt parts for cache: %w", err)
+		}
+		wrappedDEK := []byte(encMeta.UserWrappedDEK)
+		// Frame: 0x01 | wrappedDEK_len (2 bytes BE) | wrappedDEK | ciphertext
+		cacheData = make([]byte, 1+2+len(wrappedDEK)+len(ciphertext))
+		cacheData[0] = cachePrefixEncrypted
+		binary.BigEndian.PutUint16(cacheData[1:3], uint16(len(wrappedDEK)))
+		copy(cacheData[3:3+len(wrappedDEK)], wrappedDEK)
+		copy(cacheData[3+len(wrappedDEK):], ciphertext)
+	} else {
+		// Frame: 0x00 | json_data
+		cacheData = make([]byte, 1+len(jsonData))
+		cacheData[0] = cachePrefixPlaintext
+		copy(cacheData[1:], jsonData)
+	}
+
 	// Use SHA256 as part of Redis key for content-based caching
 	redisKey := redisKeyPrefixParts + sha256
 
 	// Store in Redis with fixed TTL
-	if err := s.redis.Set(ctx, redisKey, jsonData, defaultPartsCacheTTL).Err(); err != nil {
+	if err := s.redis.Set(ctx, redisKey, cacheData, defaultPartsCacheTTL).Err(); err != nil {
 		return fmt.Errorf("set Redis key %s: %w", redisKey, err)
 	}
 
 	return nil
 }
 
-// getPartsFromRedis retrieves message parts from Redis cache
-// Returns (nil, redis.Nil) on cache miss, which is a normal condition
-func (s *sessionService) getPartsFromRedis(ctx context.Context, sha256 string) ([]model.Part, error) {
+// getPartsFromRedis retrieves message parts from Redis cache.
+// When userKEK is provided and the cached data is encrypted, it decrypts before unmarshalling.
+// Returns (nil, redis.Nil) on cache miss, which is a normal condition.
+func (s *sessionService) getPartsFromRedis(ctx context.Context, sha256 string, userKEK []byte) ([]model.Part, error) {
 	if s.redis == nil {
 		return nil, errors.New("redis client is not available")
 	}
@@ -589,7 +658,7 @@ func (s *sessionService) getPartsFromRedis(ctx context.Context, sha256 string) (
 	redisKey := redisKeyPrefixParts + sha256
 
 	// Get from Redis
-	val, err := s.redis.Get(ctx, redisKey).Result()
+	val, err := s.redis.Get(ctx, redisKey).Bytes()
 	if err != nil {
 		// redis.Nil means key doesn't exist (cache miss), which is normal
 		if err == redis.Nil {
@@ -599,9 +668,45 @@ func (s *sessionService) getPartsFromRedis(ctx context.Context, sha256 string) (
 		return nil, fmt.Errorf("get Redis key %s: %w", redisKey, err)
 	}
 
+	if len(val) == 0 {
+		return nil, fmt.Errorf("empty cached data for key %s", redisKey)
+	}
+
+	var jsonData []byte
+	switch val[0] {
+	case cachePrefixPlaintext:
+		// Plaintext: strip prefix byte
+		jsonData = val[1:]
+	case cachePrefixEncrypted:
+		// Encrypted: 0x01 | wrappedDEK_len (2 bytes BE) | wrappedDEK | ciphertext
+		if userKEK == nil {
+			return nil, fmt.Errorf("encrypted cache entry but no user KEK provided")
+		}
+		if len(val) < 3 {
+			return nil, fmt.Errorf("malformed encrypted cache entry: too short")
+		}
+		wrappedDEKLen := int(binary.BigEndian.Uint16(val[1:3]))
+		if len(val) < 3+wrappedDEKLen {
+			return nil, fmt.Errorf("malformed encrypted cache entry: wrappedDEK length exceeds data")
+		}
+		wrappedDEK := string(val[3 : 3+wrappedDEKLen])
+		ciphertext := val[3+wrappedDEKLen:]
+		encMeta := &crypto.EncryptedMeta{
+			Algo:           "AES-256-GCM",
+			UserWrappedDEK: wrappedDEK,
+		}
+		jsonData, err = crypto.DecryptData(userKEK, ciphertext, encMeta)
+		if err != nil {
+			return nil, fmt.Errorf("decrypt cached parts: %w", err)
+		}
+	default:
+		// Legacy cache entry without prefix byte — treat as raw plaintext JSON
+		jsonData = val
+	}
+
 	// Deserialize JSON to parts
 	var parts []model.Part
-	if err := sonic.Unmarshal([]byte(val), &parts); err != nil {
+	if err := sonic.Unmarshal(jsonData, &parts); err != nil {
 		return nil, fmt.Errorf("unmarshal parts from JSON: %w", err)
 	}
 
@@ -611,13 +716,14 @@ func (s *sessionService) getPartsFromRedis(ctx context.Context, sha256 string) (
 // loadPartsForMessage loads parts from cache/S3. Returns (parts, ok) where
 // ok=false means a load failure (the message should be skipped), and ok=true
 // with an empty slice means the message legitimately has no content parts.
-func (s *sessionService) loadPartsForMessage(ctx context.Context, meta model.Asset) ([]model.Part, bool) {
+// userKEK is the optional user key-encryption-key for decrypting envelope-encrypted parts.
+func (s *sessionService) loadPartsForMessage(ctx context.Context, meta model.Asset, userKEK []byte) ([]model.Part, bool) {
 	parts := []model.Part{}
 	cacheHit := false
 
 	// Try to get parts from Redis cache first, fallback to S3 if not found
 	if s.redis != nil {
-		if cachedParts, err := s.getPartsFromRedis(ctx, meta.SHA256); err == nil {
+		if cachedParts, err := s.getPartsFromRedis(ctx, meta.SHA256, userKEK); err == nil {
 			parts = cachedParts
 			cacheHit = true
 		} else if err != redis.Nil {
@@ -628,13 +734,13 @@ func (s *sessionService) loadPartsForMessage(ctx context.Context, meta model.Ass
 
 	// If cache miss, download from S3
 	if !cacheHit && s.s3 != nil {
-		if err := s.s3.DownloadJSON(ctx, meta.S3Key, &parts); err != nil {
+		if err := s.s3.DownloadJSON(ctx, meta.S3Key, &parts, userKEK); err != nil {
 			s.log.Warn("failed to download parts from S3", zap.String("sha256", meta.SHA256), zap.Error(err))
 			return nil, false
 		}
 		// Cache the parts in Redis after successful S3 download
 		if s.redis != nil {
-			if err := s.cachePartsInRedis(ctx, meta.SHA256, parts); err != nil {
+			if err := s.cachePartsInRedis(ctx, meta.SHA256, parts, userKEK); err != nil {
 				// Log error but don't fail the request if Redis caching fails
 				s.log.Warn("failed to cache parts in Redis", zap.String("sha256", meta.SHA256), zap.Error(err))
 			}
@@ -645,7 +751,7 @@ func (s *sessionService) loadPartsForMessage(ctx context.Context, meta model.Ass
 }
 
 // GetAllMessages retrieves all messages for a session and loads their parts
-func (s *sessionService) GetAllMessages(ctx context.Context, sessionID uuid.UUID) ([]model.Message, error) {
+func (s *sessionService) GetAllMessages(ctx context.Context, sessionID uuid.UUID, userKEK []byte) ([]model.Message, error) {
 	// Get all messages from repository
 	msgs, err := s.sessionRepo.ListAllMessagesBySession(ctx, sessionID)
 	if err != nil {
@@ -656,7 +762,7 @@ func (s *sessionService) GetAllMessages(ctx context.Context, sessionID uuid.UUID
 	n := 0
 	for i, m := range msgs {
 		meta := m.PartsAssetMeta.Data()
-		parts, ok := s.loadPartsForMessage(ctx, meta)
+		parts, ok := s.loadPartsForMessage(ctx, meta, userKEK)
 		if !ok {
 			continue
 		}
@@ -827,7 +933,7 @@ func (s *sessionService) CopySession(ctx context.Context, in CopySessionInput) (
 	}
 
 	// Perform copy operation (size limit check is done atomically inside the transaction)
-	result, err := s.sessionRepo.CopySession(ctx, in.SessionID)
+	result, err := s.sessionRepo.CopySession(ctx, in.SessionID, in.UserKEK)
 	if err != nil {
 		// Check for size limit error
 		if errors.Is(err, repo.ErrSessionTooLarge) {

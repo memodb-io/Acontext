@@ -33,8 +33,8 @@ func (m *MockSessionService) Create(ctx context.Context, s *model.Session) error
 	return args.Error(0)
 }
 
-func (m *MockSessionService) Delete(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID) error {
-	args := m.Called(ctx, projectID, sessionID)
+func (m *MockSessionService) Delete(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, userKEK []byte) error {
+	args := m.Called(ctx, projectID, sessionID, userKEK)
 	return args.Error(0)
 }
 
@@ -75,8 +75,8 @@ func (m *MockSessionService) List(ctx context.Context, in service.ListSessionsIn
 	return args.Get(0).(*service.ListSessionsOutput), args.Error(1)
 }
 
-func (m *MockSessionService) GetAllMessages(ctx context.Context, sessionID uuid.UUID) ([]model.Message, error) {
-	args := m.Called(ctx, sessionID)
+func (m *MockSessionService) GetAllMessages(ctx context.Context, sessionID uuid.UUID, userKEK []byte) ([]model.Message, error) {
+	args := m.Called(ctx, sessionID, userKEK)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -113,6 +113,14 @@ func (m *MockSessionService) CopySession(ctx context.Context, in service.CopySes
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*service.CopySessionOutput), args.Error(1)
+}
+
+func (m *MockSessionService) DownloadAsset(ctx context.Context, s3Key string, userKEK []byte) ([]byte, error) {
+	args := m.Called(ctx, s3Key, userKEK)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]byte), args.Error(1)
 }
 
 func setupSessionRouter() *gin.Engine {
@@ -426,7 +434,8 @@ func TestSessionHandler_DeleteSession(t *testing.T) {
 			name:           "successful session deletion",
 			sessionIDParam: sessionID.String(),
 			setup: func(svc *MockSessionService) {
-				svc.On("Delete", mock.Anything, projectID, sessionID).Return(nil)
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
+				svc.On("Delete", mock.Anything, projectID, sessionID, []byte(nil)).Return(nil)
 			},
 			expectedStatus: http.StatusOK,
 		},
@@ -437,10 +446,27 @@ func TestSessionHandler_DeleteSession(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
+			name:           "session not found",
+			sessionIDParam: sessionID.String(),
+			setup: func(svc *MockSessionService) {
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(nil, errors.New("not found"))
+			},
+			expectedStatus: http.StatusNotFound,
+		},
+		{
+			name:           "session belongs to different project",
+			sessionIDParam: sessionID.String(),
+			setup: func(svc *MockSessionService) {
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(&model.Session{ID: sessionID, ProjectID: uuid.New()}, nil)
+			},
+			expectedStatus: http.StatusForbidden,
+		},
+		{
 			name:           "service layer error",
 			sessionIDParam: sessionID.String(),
 			setup: func(svc *MockSessionService) {
-				svc.On("Delete", mock.Anything, projectID, sessionID).Return(errors.New("deletion failed"))
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
+				svc.On("Delete", mock.Anything, projectID, sessionID, []byte(nil)).Return(errors.New("deletion failed"))
 			},
 			expectedStatus: http.StatusInternalServerError,
 		},
@@ -471,6 +497,7 @@ func TestSessionHandler_DeleteSession(t *testing.T) {
 }
 
 func TestSessionHandler_UpdateConfigs(t *testing.T) {
+	projectID := uuid.New()
 	sessionID := uuid.New()
 
 	tests := []struct {
@@ -490,6 +517,9 @@ func TestSessionHandler_UpdateConfigs(t *testing.T) {
 				},
 			},
 			setup: func(svc *MockSessionService) {
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
+					return s.ID == sessionID
+				})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
 				svc.On("UpdateByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
 					return s.ID == sessionID
 				})).Return(nil)
@@ -512,6 +542,7 @@ func TestSessionHandler_UpdateConfigs(t *testing.T) {
 				Configs: map[string]interface{}{},
 			},
 			setup: func(svc *MockSessionService) {
+				svc.On("GetByID", mock.Anything, mock.Anything).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
 				svc.On("UpdateByID", mock.Anything, mock.Anything).Return(errors.New("update failed"))
 			},
 			expectedStatus: http.StatusInternalServerError,
@@ -525,7 +556,10 @@ func TestSessionHandler_UpdateConfigs(t *testing.T) {
 
 			handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 			router := setupSessionRouter()
-			router.PUT("/session/:session_id/configs", handler.UpdateConfigs)
+			router.PUT("/session/:session_id/configs", func(c *gin.Context) {
+				c.Set("project", &model.Project{ID: projectID})
+				handler.UpdateConfigs(c)
+			})
 
 			body, _ := sonic.Marshal(tt.requestBody)
 			req := httptest.NewRequest("PUT", "/session/"+tt.sessionIDParam+"/configs", bytes.NewBuffer(body))
@@ -541,6 +575,7 @@ func TestSessionHandler_UpdateConfigs(t *testing.T) {
 }
 
 func TestSessionHandler_GetConfigs(t *testing.T) {
+	projectID := uuid.New()
 	sessionID := uuid.New()
 
 	tests := []struct {
@@ -554,8 +589,9 @@ func TestSessionHandler_GetConfigs(t *testing.T) {
 			sessionIDParam: sessionID.String(),
 			setup: func(svc *MockSessionService) {
 				expectedSession := &model.Session{
-					ID:      sessionID,
-					Configs: datatypes.JSONMap{"temperature": 0.7},
+					ID:        sessionID,
+					ProjectID: projectID,
+					Configs:   datatypes.JSONMap{"temperature": 0.7},
 				}
 				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
 					return s.ID == sessionID
@@ -586,7 +622,10 @@ func TestSessionHandler_GetConfigs(t *testing.T) {
 
 			handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 			router := setupSessionRouter()
-			router.GET("/session/:session_id/configs", handler.GetConfigs)
+			router.GET("/session/:session_id/configs", func(c *gin.Context) {
+				c.Set("project", &model.Project{ID: projectID})
+				handler.GetConfigs(c)
+			})
 
 			req := httptest.NewRequest("GET", "/session/"+tt.sessionIDParam+"/configs", nil)
 			w := httptest.NewRecorder()
@@ -1951,6 +1990,7 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 }
 
 func TestSessionHandler_GetMessages(t *testing.T) {
+	projectID := uuid.New()
 	sessionID := uuid.New()
 
 	tests := []struct {
@@ -2321,7 +2361,11 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 
 			handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 			router := setupSessionRouter()
-			router.GET("/session/:session_id/messages", handler.GetMessages)
+			router.GET("/session/:session_id/messages", func(c *gin.Context) {
+				project := &model.Project{ID: projectID}
+				c.Set("project", project)
+				handler.GetMessages(c)
+			})
 
 			req := httptest.NewRequest("GET", "/session/"+tt.sessionIDParam+"/messages"+tt.queryParams, nil)
 			w := httptest.NewRecorder()
@@ -2625,7 +2669,11 @@ func TestOpenAI_ToolCalls_FieldPreservation(t *testing.T) {
 		c.Set("project", project)
 		handler.StoreMessage(c)
 	})
-	router.GET("/session/:session_id/messages", handler.GetMessages)
+	router.GET("/session/:session_id/messages", func(c *gin.Context) {
+		project := &model.Project{ID: projectID}
+		c.Set("project", project)
+		handler.GetMessages(c)
+	})
 
 	// Step 1: Store OpenAI format message with name and tool_calls
 	storeBody := map[string]interface{}{
@@ -2784,7 +2832,11 @@ func TestOpenAIToAnthropic_FieldMapping(t *testing.T) {
 		c.Set("project", project)
 		handler.StoreMessage(c)
 	})
-	router.GET("/session/:session_id/messages", handler.GetMessages)
+	router.GET("/session/:session_id/messages", func(c *gin.Context) {
+		project := &model.Project{ID: projectID}
+		c.Set("project", project)
+		handler.GetMessages(c)
+	})
 
 	// Step 1: Store OpenAI format message
 	storeBody := map[string]interface{}{
@@ -2912,7 +2964,11 @@ func TestAnthropicToOpenAI_FieldMapping(t *testing.T) {
 		c.Set("project", project)
 		handler.StoreMessage(c)
 	})
-	router.GET("/session/:session_id/messages", handler.GetMessages)
+	router.GET("/session/:session_id/messages", func(c *gin.Context) {
+		project := &model.Project{ID: projectID}
+		c.Set("project", project)
+		handler.GetMessages(c)
+	})
 
 	// Step 1: Store Anthropic format message
 	storeBody := map[string]interface{}{
@@ -3022,7 +3078,11 @@ func TestToolResult_OpenAIToAnthropic(t *testing.T) {
 		c.Set("project", project)
 		handler.StoreMessage(c)
 	})
-	router.GET("/session/:session_id/messages", handler.GetMessages)
+	router.GET("/session/:session_id/messages", func(c *gin.Context) {
+		project := &model.Project{ID: projectID}
+		c.Set("project", project)
+		handler.GetMessages(c)
+	})
 
 	// Step 1: Store OpenAI tool message
 	storeBody := map[string]interface{}{
@@ -3139,7 +3199,11 @@ func TestToolResult_AnthropicToOpenAI(t *testing.T) {
 		c.Set("project", project)
 		handler.StoreMessage(c)
 	})
-	router.GET("/session/:session_id/messages", handler.GetMessages)
+	router.GET("/session/:session_id/messages", func(c *gin.Context) {
+		project := &model.Project{ID: projectID}
+		c.Set("project", project)
+		handler.GetMessages(c)
+	})
 
 	// Step 1: Store Anthropic tool_result
 	storeBody := map[string]interface{}{
@@ -3241,7 +3305,11 @@ func TestAnthropic_CacheControl_Preservation(t *testing.T) {
 		c.Set("project", project)
 		handler.StoreMessage(c)
 	})
-	router.GET("/session/:session_id/messages", handler.GetMessages)
+	router.GET("/session/:session_id/messages", func(c *gin.Context) {
+		project := &model.Project{ID: projectID}
+		c.Set("project", project)
+		handler.GetMessages(c)
+	})
 
 	// Step 1: Store Anthropic message with cache_control
 	storeBody := map[string]interface{}{
@@ -3371,7 +3439,11 @@ func TestMultipleToolCalls_Conversion(t *testing.T) {
 		c.Set("project", project)
 		handler.StoreMessage(c)
 	})
-	router.GET("/session/:session_id/messages", handler.GetMessages)
+	router.GET("/session/:session_id/messages", func(c *gin.Context) {
+		project := &model.Project{ID: projectID}
+		c.Set("project", project)
+		handler.GetMessages(c)
+	})
 
 	// Step 1: Store OpenAI message with multiple tool_calls
 	storeBody := map[string]interface{}{
@@ -3452,6 +3524,7 @@ func TestMultipleToolCalls_Conversion(t *testing.T) {
 }
 
 func TestSessionHandler_GetTokenCounts(t *testing.T) {
+	projectID := uuid.New()
 	sessionID := uuid.New()
 
 	// Initialize tokenizer for testing with a test logger
@@ -3469,6 +3542,9 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 			name:           "successful token count retrieval",
 			sessionIDParam: sessionID.String(),
 			setup: func(svc *MockSessionService) {
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
+					return s.ID == sessionID
+				})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
 				messages := []model.Message{
 					{
 						ID:        uuid.New(),
@@ -3493,7 +3569,7 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 						},
 					},
 				}
-				svc.On("GetAllMessages", mock.Anything, sessionID).Return(messages, nil)
+				svc.On("GetAllMessages", mock.Anything, sessionID, mock.Anything).Return(messages, nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedTokens: 8, // Approximate token count for "Hello, world!\nHow can I help you?\n"
@@ -3502,6 +3578,9 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 			name:           "token count with tool-call",
 			sessionIDParam: sessionID.String(),
 			setup: func(svc *MockSessionService) {
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
+					return s.ID == sessionID
+				})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
 				messages := []model.Message{
 					{
 						ID:        uuid.New(),
@@ -3519,7 +3598,7 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 						},
 					},
 				}
-				svc.On("GetAllMessages", mock.Anything, sessionID).Return(messages, nil)
+				svc.On("GetAllMessages", mock.Anything, sessionID, mock.Anything).Return(messages, nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedTokens: 20, // Approximate token count for tool-call meta JSON
@@ -3528,6 +3607,9 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 			name:           "token count with mixed content",
 			sessionIDParam: sessionID.String(),
 			setup: func(svc *MockSessionService) {
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
+					return s.ID == sessionID
+				})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
 				messages := []model.Message{
 					{
 						ID:        uuid.New(),
@@ -3559,7 +3641,7 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 						},
 					},
 				}
-				svc.On("GetAllMessages", mock.Anything, sessionID).Return(messages, nil)
+				svc.On("GetAllMessages", mock.Anything, sessionID, mock.Anything).Return(messages, nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedTokens: 20, // Approximate token count
@@ -3568,7 +3650,10 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 			name:           "empty messages",
 			sessionIDParam: sessionID.String(),
 			setup: func(svc *MockSessionService) {
-				svc.On("GetAllMessages", mock.Anything, sessionID).Return([]model.Message{}, nil)
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
+					return s.ID == sessionID
+				})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
+				svc.On("GetAllMessages", mock.Anything, sessionID, mock.Anything).Return([]model.Message{}, nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedTokens: 0,
@@ -3577,6 +3662,9 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 			name:           "messages with only non-text parts (images, etc.)",
 			sessionIDParam: sessionID.String(),
 			setup: func(svc *MockSessionService) {
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
+					return s.ID == sessionID
+				})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
 				messages := []model.Message{
 					{
 						ID:        uuid.New(),
@@ -3593,7 +3681,7 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 						},
 					},
 				}
-				svc.On("GetAllMessages", mock.Anything, sessionID).Return(messages, nil)
+				svc.On("GetAllMessages", mock.Anything, sessionID, mock.Anything).Return(messages, nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedTokens: 0, // Images don't contribute to token count
@@ -3608,7 +3696,10 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 			name:           "service layer error - failed to get messages",
 			sessionIDParam: sessionID.String(),
 			setup: func(svc *MockSessionService) {
-				svc.On("GetAllMessages", mock.Anything, sessionID).Return(nil, errors.New("database error"))
+				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
+					return s.ID == sessionID
+				})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
+				svc.On("GetAllMessages", mock.Anything, sessionID, mock.Anything).Return(nil, errors.New("database error"))
 			},
 			expectedStatus: http.StatusInternalServerError,
 		},
@@ -3621,7 +3712,10 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 
 			handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 			router := setupSessionRouter()
-			router.GET("/session/:session_id/token_counts", handler.GetTokenCounts)
+			router.GET("/session/:session_id/token_counts", func(c *gin.Context) {
+				c.Set("project", &model.Project{ID: projectID})
+				handler.GetTokenCounts(c)
+			})
 
 			req := httptest.NewRequest("GET", "/session/"+tt.sessionIDParam+"/token_counts", nil)
 			w := httptest.NewRecorder()
@@ -3657,21 +3751,27 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 func TestSessionHandler_GetSessionObservingStatus_Success(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
+	projectID := uuid.New()
 	mockService := new(MockSessionService)
 	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 
 	sessionID := "550e8400-e29b-41d4-a716-446655440000"
+	sessionUUID := uuid.MustParse(sessionID)
 	expectedStatus := &model.MessageObservingStatus{
 		Observed:  10,
 		InProcess: 5,
 		Pending:   3,
 	}
 
+	mockService.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
+		return s.ID == sessionUUID
+	})).Return(&model.Session{ID: sessionUUID, ProjectID: projectID}, nil)
 	mockService.On("GetSessionObservingStatus", mock.Anything, sessionID).
 		Return(expectedStatus, nil)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
+	c.Set("project", &model.Project{ID: projectID})
 	c.Params = gin.Params{
 		{Key: "session_id", Value: sessionID},
 	}
@@ -3698,11 +3798,13 @@ func TestSessionHandler_GetSessionObservingStatus_Success(t *testing.T) {
 func TestSessionHandler_GetSessionObservingStatus_EmptySessionID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
+	projectID := uuid.New()
 	mockService := new(MockSessionService)
 	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
+	c.Set("project", &model.Project{ID: projectID})
 	c.Params = gin.Params{
 		{Key: "session_id", Value: ""},
 	}
@@ -3723,11 +3825,13 @@ func TestSessionHandler_GetSessionObservingStatus_EmptySessionID(t *testing.T) {
 func TestSessionHandler_GetSessionObservingStatus_InvalidSessionID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
+	projectID := uuid.New()
 	mockService := new(MockSessionService)
 	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
+	c.Set("project", &model.Project{ID: projectID})
 	c.Params = gin.Params{
 		{Key: "session_id", Value: "invalid-uuid"},
 	}
@@ -3748,17 +3852,23 @@ func TestSessionHandler_GetSessionObservingStatus_InvalidSessionID(t *testing.T)
 func TestSessionHandler_GetSessionObservingStatus_ServiceError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
+	projectID := uuid.New()
 	mockService := new(MockSessionService)
 	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
 
 	sessionID := "550e8400-e29b-41d4-a716-446655440000"
+	sessionUUID := uuid.MustParse(sessionID)
 	expectedError := errors.New("database connection failed")
 
+	mockService.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
+		return s.ID == sessionUUID
+	})).Return(&model.Session{ID: sessionUUID, ProjectID: projectID}, nil)
 	mockService.On("GetSessionObservingStatus", mock.Anything, sessionID).
 		Return(nil, expectedError)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
+	c.Set("project", &model.Project{ID: projectID})
 	c.Params = gin.Params{
 		{Key: "session_id", Value: sessionID},
 	}
@@ -4082,4 +4192,99 @@ func TestSessionHandler_CopySession_InternalError(t *testing.T) {
 	assert.Equal(t, "INTERNAL_ERROR", response["msg"])
 
 	mockService.AssertExpectations(t)
+}
+
+func TestSessionHandler_DownloadSessionAsset(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("returns 400 for invalid session_id", func(t *testing.T) {
+		mockService := new(MockSessionService)
+		handler := NewSessionHandler(mockService, nil, getMockSessionCoreClient())
+
+		projectID := uuid.New()
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Set("project", &model.Project{ID: projectID})
+		c.Request = httptest.NewRequest("GET", "/session/invalid-uuid/asset/download?s3_key=assets/"+projectID.String()+"/file.txt", nil)
+		c.Params = gin.Params{{Key: "session_id", Value: "invalid-uuid"}}
+
+		handler.DownloadSessionAsset(c)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("returns 404 when session not found", func(t *testing.T) {
+		mockService := new(MockSessionService)
+		handler := NewSessionHandler(mockService, nil, getMockSessionCoreClient())
+
+		projectID := uuid.New()
+		sessionID := uuid.New()
+
+		mockService.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
+			return s.ID == sessionID
+		})).Return(nil, errors.New("not found"))
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Set("project", &model.Project{ID: projectID})
+		c.Request = httptest.NewRequest("GET", "/session/"+sessionID.String()+"/asset/download?s3_key=assets/"+projectID.String()+"/file.txt", nil)
+		c.Params = gin.Params{{Key: "session_id", Value: sessionID.String()}}
+
+		handler.DownloadSessionAsset(c)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
+		mockService.AssertExpectations(t)
+	})
+
+	t.Run("returns 403 when session belongs to different project", func(t *testing.T) {
+		mockService := new(MockSessionService)
+		handler := NewSessionHandler(mockService, nil, getMockSessionCoreClient())
+
+		projectID := uuid.New()
+		otherProjectID := uuid.New()
+		sessionID := uuid.New()
+
+		mockService.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
+			return s.ID == sessionID
+		})).Return(&model.Session{ID: sessionID, ProjectID: otherProjectID}, nil)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Set("project", &model.Project{ID: projectID})
+		c.Request = httptest.NewRequest("GET", "/session/"+sessionID.String()+"/asset/download?s3_key=assets/"+projectID.String()+"/file.txt", nil)
+		c.Params = gin.Params{{Key: "session_id", Value: sessionID.String()}}
+
+		handler.DownloadSessionAsset(c)
+
+		assert.Equal(t, http.StatusForbidden, w.Code)
+		mockService.AssertExpectations(t)
+	})
+
+	t.Run("succeeds with valid session_id and matching project", func(t *testing.T) {
+		mockService := new(MockSessionService)
+		handler := NewSessionHandler(mockService, nil, getMockSessionCoreClient())
+
+		projectID := uuid.New()
+		sessionID := uuid.New()
+		s3Key := "assets/" + projectID.String() + "/file.txt"
+
+		mockService.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
+			return s.ID == sessionID
+		})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
+
+		mockService.On("DownloadAsset", mock.Anything, s3Key, mock.Anything).Return([]byte("file-content"), nil)
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Set("project", &model.Project{ID: projectID})
+		c.Request = httptest.NewRequest("GET", "/session/"+sessionID.String()+"/asset/download?s3_key="+s3Key, nil)
+		c.Params = gin.Params{{Key: "session_id", Value: sessionID.String()}}
+
+		handler.DownloadSessionAsset(c)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "file-content", w.Body.String())
+		mockService.AssertExpectations(t)
+	})
 }

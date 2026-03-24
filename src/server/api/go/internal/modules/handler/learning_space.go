@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/memodb-io/Acontext/internal/middleware"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
@@ -112,6 +113,7 @@ func (h *LearningSpaceHandler) Create(c *gin.Context) {
 		ProjectID: project.ID,
 		UserID:    userID,
 		Meta:      req.Meta,
+		UserKEK:   middleware.GetUserKEKIfEncrypted(c),
 	})
 	if err != nil {
 		h.handleErr(c, err)

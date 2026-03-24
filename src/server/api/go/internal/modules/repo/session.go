@@ -26,7 +26,7 @@ var ErrSessionTooLarge = errors.New("session exceeds maximum copyable size")
 
 type SessionRepo interface {
 	Create(ctx context.Context, s *model.Session) error
-	Delete(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID) error
+	Delete(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, userKEK []byte) error
 	Update(ctx context.Context, s *model.Session) error
 	Get(ctx context.Context, s *model.Session) (*model.Session, error)
 	GetDisableTaskTracking(ctx context.Context, sessionID uuid.UUID) (bool, error)
@@ -38,7 +38,7 @@ type SessionRepo interface {
 	PopGeminiCallIDAndName(ctx context.Context, sessionID uuid.UUID) (string, string, error)
 	GetMessageByID(ctx context.Context, sessionID uuid.UUID, messageID uuid.UUID) (*model.Message, error)
 	UpdateMessageMeta(ctx context.Context, messageID uuid.UUID, meta datatypes.JSONType[map[string]interface{}]) error
-	CopySession(ctx context.Context, sessionID uuid.UUID) (*CopySessionResult, error)
+	CopySession(ctx context.Context, sessionID uuid.UUID, userKEK []byte) (*CopySessionResult, error)
 	HasUnfinishedMessages(ctx context.Context, sessionID uuid.UUID) (bool, error)
 	HasFailedMessages(ctx context.Context, sessionID uuid.UUID) (bool, error)
 }
@@ -69,7 +69,7 @@ func (r *sessionRepo) Create(ctx context.Context, s *model.Session) error {
 	return r.db.WithContext(ctx).Create(s).Error
 }
 
-func (r *sessionRepo) Delete(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID) error {
+func (r *sessionRepo) Delete(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, userKEK []byte) error {
 	// Use transaction to ensure atomicity: query messages, delete session, and decrement asset references
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		// Verify session exists and belongs to project
@@ -96,7 +96,7 @@ func (r *sessionRepo) Delete(ctx context.Context, projectID uuid.UUID, sessionID
 			// Download and parse parts to extract assets from individual parts
 			if r.s3 != nil && partsAssetMeta.S3Key != "" {
 				parts := []model.Part{}
-				if err := r.s3.DownloadJSON(ctx, partsAssetMeta.S3Key, &parts); err != nil {
+				if err := r.s3.DownloadJSON(ctx, partsAssetMeta.S3Key, &parts, userKEK); err != nil {
 					// Log error but continue with other messages
 					r.log.Warn("failed to download parts", zap.Error(err), zap.String("s3_key", partsAssetMeta.S3Key))
 					continue
@@ -444,7 +444,7 @@ func (r *sessionRepo) UpdateMessageMeta(ctx context.Context, messageID uuid.UUID
 // The operation is split into two phases to keep the lock window small:
 //  1. Transaction: lock session, create new session/messages/tasks, increment partsAsset refs.
 //  2. Post-transaction: download S3 parts to discover per-part assets, increment those refs.
-func (r *sessionRepo) CopySession(ctx context.Context, sessionID uuid.UUID) (*CopySessionResult, error) {
+func (r *sessionRepo) CopySession(ctx context.Context, sessionID uuid.UUID, userKEK []byte) (*CopySessionResult, error) {
 	var result CopySessionResult
 	result.OldSessionID = sessionID
 
@@ -606,7 +606,7 @@ func (r *sessionRepo) CopySession(ctx context.Context, sessionID uuid.UUID) (*Co
 				continue
 			}
 			parts := []model.Part{}
-			if err := r.s3.DownloadJSON(ctx, partsAsset.S3Key, &parts); err != nil {
+			if err := r.s3.DownloadJSON(ctx, partsAsset.S3Key, &parts, userKEK); err != nil {
 				r.log.Warn("failed to download parts for asset extraction",
 					zap.Error(err), zap.String("s3_key", partsAsset.S3Key))
 				continue

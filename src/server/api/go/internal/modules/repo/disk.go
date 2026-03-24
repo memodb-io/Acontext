@@ -13,6 +13,7 @@ import (
 type DiskRepo interface {
 	Create(ctx context.Context, d *model.Disk) error
 	Delete(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID) error
+	GetByProjectAndID(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID) (*model.Disk, error)
 	ListWithCursor(ctx context.Context, projectID uuid.UUID, userIdentifier string, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]*model.Disk, error)
 }
 
@@ -27,6 +28,14 @@ func NewDiskRepo(db *gorm.DB, assetReferenceRepo AssetReferenceRepo) DiskRepo {
 
 func (r *diskRepo) Create(ctx context.Context, d *model.Disk) error {
 	return r.db.WithContext(ctx).Create(d).Error
+}
+
+func (r *diskRepo) GetByProjectAndID(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID) (*model.Disk, error) {
+	var disk model.Disk
+	if err := r.db.WithContext(ctx).Where("id = ? AND project_id = ?", diskID, projectID).First(&disk).Error; err != nil {
+		return nil, err
+	}
+	return &disk, nil
 }
 
 func (r *diskRepo) Delete(ctx context.Context, projectID uuid.UUID, diskID uuid.UUID) error {

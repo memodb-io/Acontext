@@ -23,6 +23,42 @@ func ParseToken(raw, prefix string) (secret string, ok bool) {
 	return strings.TrimPrefix(raw, prefix), true
 }
 
+// ParsedToken holds the parsed components of a project API key.
+// Format: sk-ac-{auth_secret}.{encrypted_master_key}
+// Legacy keys without encrypted_master_key have no encryption support.
+type ParsedToken struct {
+	AuthSecret         string // raw auth secret (used for HMAC lookup / Argon2 verification)
+	EncryptedMasterKey string // base64url-encoded encrypted master key (empty for legacy keys)
+}
+
+// ParseProjectToken parses a raw Bearer token into its components.
+// Format: sk-ac-{auth_secret}.{encrypted_master_key} (dot-separated)
+// Legacy keys without '.' are parsed with AuthSecret only (no encryption).
+//
+// Returns ok=false if the prefix doesn't match.
+func ParseProjectToken(raw, prefix string) (parsed ParsedToken, ok bool) {
+	if !strings.HasPrefix(raw, prefix) {
+		return ParsedToken{}, false
+	}
+	body := strings.TrimPrefix(raw, prefix)
+	if body == "" {
+		return ParsedToken{}, false
+	}
+
+	// New format uses '.' as separator between auth_secret and encrypted_master_key.
+	if idx := strings.IndexByte(body, '.'); idx > 0 && idx < len(body)-1 {
+		return ParsedToken{
+			AuthSecret:         body[:idx],
+			EncryptedMasterKey: body[idx+1:],
+		}, true
+	}
+
+	// Legacy format: entire body is the secret (no encryption support)
+	return ParsedToken{
+		AuthSecret: body,
+	}, true
+}
+
 func HMAC256Hex(pepper, secret string) string {
 	m := hmac.New(sha256.New, []byte(pepper))
 	m.Write([]byte(secret))

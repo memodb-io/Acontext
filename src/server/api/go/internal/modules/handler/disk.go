@@ -7,17 +7,19 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/modules/model"
+	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
 )
 
 type DiskHandler struct {
-	svc     service.DiskService
-	userSvc service.UserService
+	svc      service.DiskService
+	diskRepo repo.DiskRepo
+	userSvc  service.UserService
 }
 
-func NewDiskHandler(s service.DiskService, userSvc service.UserService) *DiskHandler {
-	return &DiskHandler{svc: s, userSvc: userSvc}
+func NewDiskHandler(s service.DiskService, diskRepo repo.DiskRepo, userSvc service.UserService) *DiskHandler {
+	return &DiskHandler{svc: s, diskRepo: diskRepo, userSvc: userSvc}
 }
 
 type CreateDiskReq struct {
@@ -141,6 +143,11 @@ func (h *DiskHandler) DeleteDisk(c *gin.Context) {
 	project, ok := c.MustGet("project").(*model.Project)
 	if !ok {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	if _, err := h.diskRepo.GetByProjectAndID(c.Request.Context(), project.ID, diskID); err != nil {
+		c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "disk not found or access denied", nil))
 		return
 	}
 

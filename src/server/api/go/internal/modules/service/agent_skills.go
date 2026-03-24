@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -28,7 +29,7 @@ type AgentSkillsService interface {
 	GetByID(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*model.AgentSkills, error)
 	Delete(ctx context.Context, projectID uuid.UUID, id uuid.UUID) error
 	List(ctx context.Context, in ListAgentSkillsInput) (*ListAgentSkillsOutput, error)
-	GetFile(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID, filePath string, expire time.Duration) (*GetFileOutput, error)
+	GetFile(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID, filePath string, expire time.Duration, encryptionEnabled bool, userKEK []byte) (*GetFileOutput, error)
 	ListFiles(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*ListFilesOutput, error)
 	TouchByDiskID(ctx context.Context, diskID uuid.UUID) error
 }
@@ -37,13 +38,15 @@ type agentSkillsService struct {
 	r           repo.AgentSkillsRepo
 	diskSvc     DiskService
 	artifactSvc ArtifactService
+	materialSvc MaterialService
 }
 
-func NewAgentSkillsService(r repo.AgentSkillsRepo, diskSvc DiskService, artifactSvc ArtifactService) AgentSkillsService {
+func NewAgentSkillsService(r repo.AgentSkillsRepo, diskSvc DiskService, artifactSvc ArtifactService, materialSvc MaterialService) AgentSkillsService {
 	return &agentSkillsService{
 		r:           r,
 		diskSvc:     diskSvc,
 		artifactSvc: artifactSvc,
+		materialSvc: materialSvc,
 	}
 }
 
@@ -52,6 +55,7 @@ type CreateAgentSkillsInput struct {
 	UserID    *uuid.UUID
 	ZipFile   *multipart.FileHeader
 	Meta      map[string]interface{}
+	UserKEK   []byte // optional: for envelope encryption
 }
 
 type CreateFromTemplateInput struct {
@@ -59,6 +63,7 @@ type CreateFromTemplateInput struct {
 	UserID    *uuid.UUID
 	Content   []byte                 // raw SKILL.md content read from embedded FS
 	Meta      map[string]interface{} // nil for default skills
+	UserKEK   []byte                 // optional: for envelope encryption
 }
 
 // SkillMetadata represents the YAML structure in SKILL.md
@@ -310,6 +315,7 @@ func (s *agentSkillsService) Create(ctx context.Context, in CreateAgentSkillsInp
 				Path:      dir,
 				Filename:  fname,
 				Content:   fileData.content,
+				UserKEK:   in.UserKEK,
 			})
 			if err != nil {
 				return fmt.Errorf("create artifact for %s: %w", fileData.relativePath, err)
@@ -380,6 +386,7 @@ func (s *agentSkillsService) CreateFromTemplate(ctx context.Context, in CreateFr
 		Path:      "/",
 		Filename:  "SKILL.md",
 		Content:   in.Content,
+		UserKEK:   in.UserKEK,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create artifact for template SKILL.md: %w", err)
@@ -521,15 +528,15 @@ func (s *agentSkillsService) List(ctx context.Context, in ListAgentSkillsInput) 
 }
 
 // GetFileOutput represents the response for getting a file from a skill.
-// It contains either parsed content (for text files) or a presigned URL (for binary files).
+// It contains either parsed content (for text files) or a material URL (for binary files).
 type GetFileOutput struct {
 	Path    string                  `json:"path"`
 	MIME    string                  `json:"mime"`
 	Content *fileparser.FileContent `json:"content,omitempty"` // Present if file is text-based and parseable
-	URL     *string                 `json:"url,omitempty"`     // Present if file is not text-based or not parseable
+	URL     *string                 `json:"url,omitempty"`     // Material URL for binary files (works for both encrypted and non-encrypted)
 }
 
-func (s *agentSkillsService) GetFile(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID, filePath string, expire time.Duration) (*GetFileOutput, error) {
+func (s *agentSkillsService) GetFile(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID, filePath string, expire time.Duration, encryptionEnabled bool, userKEK []byte) (*GetFileOutput, error) {
 	// Fetch skill record directly (no FileIndex population needed — just need DiskID)
 	skill, err := s.r.GetByID(ctx, projectID, skillID)
 	if err != nil {
@@ -557,16 +564,21 @@ func (s *agentSkillsService) GetFile(ctx context.Context, projectID uuid.UUID, s
 
 	if canParse {
 		// Download and parse file content via ArtifactService
-		fileContent, err := s.artifactSvc.GetFileContent(ctx, artifact)
+		fileContent, err := s.artifactSvc.GetFileContent(ctx, artifact, userKEK)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get file content: %w", err)
 		}
 		output.Content = fileContent
 	} else {
-		// Generate presigned URL for non-text files via ArtifactService
-		url, err := s.artifactSvc.GetPresignedURL(ctx, artifact, expire)
+		// Binary file: use material URL (handles both encrypted and non-encrypted)
+		assetData := artifact.AssetMeta.Data()
+		var userKEKB64 string
+		if encryptionEnabled && userKEK != nil {
+			userKEKB64 = base64.StdEncoding.EncodeToString(userKEK)
+		}
+		url, _, err := s.materialSvc.CreateMaterialURL(ctx, assetData.S3Key, userKEKB64, expire, mimeType, fname)
 		if err != nil {
-			return nil, fmt.Errorf("failed to generate presigned URL: %w", err)
+			return nil, fmt.Errorf("failed to create material URL: %w", err)
 		}
 		output.URL = &url
 	}

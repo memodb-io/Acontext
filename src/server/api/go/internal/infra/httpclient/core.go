@@ -3,6 +3,7 @@ package httpclient
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -110,6 +111,7 @@ type SandboxDownloadRequest struct {
 type SandboxUploadRequest struct {
 	FromS3Key           string `json:"from_s3_key"`
 	UploadToSandboxFile string `json:"upload_to_sandbox_file"`
+	UserKEK             string `json:"user_kek,omitempty"`
 }
 
 // SandboxFileTransferResponse represents the response from file transfer operations
@@ -351,12 +353,15 @@ func (c *CoreClient) DownloadSandboxFile(ctx context.Context, projectID, sandbox
 }
 
 // UploadSandboxFile downloads a file from S3 and uploads it to the sandbox
-func (c *CoreClient) UploadSandboxFile(ctx context.Context, projectID, sandboxID uuid.UUID, fromS3Key, uploadToSandboxFile string) (*SandboxFileTransferResponse, error) {
+func (c *CoreClient) UploadSandboxFile(ctx context.Context, projectID, sandboxID uuid.UUID, fromS3Key, uploadToSandboxFile string, userKEK []byte) (*SandboxFileTransferResponse, error) {
 	endpoint := fmt.Sprintf("%s/api/v1/project/%s/sandbox/%s/upload", c.BaseURL, projectID.String(), sandboxID.String())
 
 	reqBody := SandboxUploadRequest{
 		FromS3Key:           fromS3Key,
 		UploadToSandboxFile: uploadToSandboxFile,
+	}
+	if len(userKEK) > 0 {
+		reqBody.UserKEK = base64.StdEncoding.EncodeToString(userKEK)
 	}
 	body, err := sonic.Marshal(reqBody)
 	if err != nil {

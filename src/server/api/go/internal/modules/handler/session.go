@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/infra/httpclient"
+	"github.com/memodb-io/Acontext/internal/middleware"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
@@ -224,7 +225,17 @@ func (h *SessionHandler) DeleteSession(c *gin.Context) {
 		return
 	}
 
-	if err := h.svc.Delete(c.Request.Context(), project.ID, sessionID); err != nil {
+	session, err := h.svc.GetByID(c.Request.Context(), &model.Session{ID: sessionID})
+	if err != nil {
+		c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "session not found", nil))
+		return
+	}
+	if session.ProjectID != project.ID {
+		c.JSON(http.StatusForbidden, serializer.Err(http.StatusForbidden, "access denied: session does not belong to this project", nil))
+		return
+	}
+
+	if err := h.svc.Delete(c.Request.Context(), project.ID, sessionID, middleware.GetUserKEKIfEncrypted(c)); err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
 		return
 	}
@@ -261,6 +272,23 @@ func (h *SessionHandler) UpdateConfigs(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
 		return
 	}
+
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	session, err := h.svc.GetByID(c.Request.Context(), &model.Session{ID: sessionID})
+	if err != nil {
+		c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "session not found", nil))
+		return
+	}
+	if session.ProjectID != project.ID {
+		c.JSON(http.StatusForbidden, serializer.Err(http.StatusForbidden, "access denied: session does not belong to this project", nil))
+		return
+	}
+
 	if err := h.svc.UpdateByID(c.Request.Context(), &model.Session{
 		ID:      sessionID,
 		Configs: datatypes.JSONMap(req.Configs),
@@ -290,9 +318,20 @@ func (h *SessionHandler) GetConfigs(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
 		return
 	}
+
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
 	session, err := h.svc.GetByID(c.Request.Context(), &model.Session{ID: sessionID})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		return
+	}
+	if session.ProjectID != project.ID {
+		c.JSON(http.StatusForbidden, serializer.Err(http.StatusForbidden, "access denied: session does not belong to this project", nil))
 		return
 	}
 
@@ -434,6 +473,7 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 		Format:      format,
 		MessageMeta: normalizedMeta,
 		Files:       fileMap,
+		UserKEK:     middleware.GetUserKEKIfEncrypted(c),
 	})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.DBErr("", err))
@@ -485,6 +525,12 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		return
 	}
 
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
 	sessionID, err := uuid.Parse(c.Param("session_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
@@ -507,6 +553,7 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 	}
 
 	out, err := h.svc.GetMessages(c.Request.Context(), service.GetMessagesInput{
+		ProjectID:                     project.ID,
 		SessionID:                     sessionID,
 		Limit:                         limit,
 		Cursor:                        req.Cursor,
@@ -516,6 +563,7 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		TimeDesc:                      req.TimeDesc,
 		EditStrategies:                editStrategies,
 		PinEditingStrategiesAtMessage: req.PinEditingStrategiesAtMessage,
+		UserKEK:                       middleware.GetUserKEKIfEncrypted(c),
 	})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.DBErr("", err))
@@ -559,6 +607,63 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 	c.JSON(http.StatusOK, serializer.Response{Data: convertedOut})
 }
 
+// DownloadSessionAsset godoc
+//
+//	@Summary		Download session asset
+//	@Description	Download a session asset (file attachment) by its S3 key. Decrypts if encryption is enabled.
+//	@Tags			session
+//	@Produce		octet-stream
+//	@Param			session_id	path	string	true	"Session ID"	format(uuid)
+//	@Param			s3_key		query	string	true	"S3 key of the asset"
+//	@Security		BearerAuth
+//	@Success		200	"Asset content"
+//	@Router			/session/{session_id}/asset/download [get]
+func (h *SessionHandler) DownloadSessionAsset(c *gin.Context) {
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	// Validate session_id from path and verify it belongs to the project
+	sessionID, err := uuid.Parse(c.Param("session_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid session_id", err))
+		return
+	}
+
+	session, err := h.svc.GetByID(c.Request.Context(), &model.Session{ID: sessionID})
+	if err != nil {
+		c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "session not found", nil))
+		return
+	}
+	if session.ProjectID != project.ID {
+		c.JSON(http.StatusForbidden, serializer.Err(http.StatusForbidden, "access denied: session does not belong to this project", nil))
+		return
+	}
+
+	s3Key := c.Query("s3_key")
+	if s3Key == "" {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("s3_key is required")))
+		return
+	}
+
+	// Verify the S3 key belongs to this project's assets
+	expectedPrefix := "assets/" + project.ID.String() + "/"
+	if !strings.HasPrefix(s3Key, expectedPrefix) {
+		c.JSON(http.StatusForbidden, serializer.Err(http.StatusForbidden, "access denied: asset does not belong to this project", nil))
+		return
+	}
+
+	content, err := h.svc.DownloadAsset(c.Request.Context(), s3Key, middleware.GetUserKEKIfEncrypted(c))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "download asset failed", err))
+		return
+	}
+
+	c.Data(http.StatusOK, "application/octet-stream", content)
+}
+
 // SessionFlush godoc
 //
 //	@Summary		Flush session
@@ -581,6 +686,16 @@ func (h *SessionHandler) SessionFlush(c *gin.Context) {
 	sessionID, err := uuid.Parse(c.Param("session_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	session, err := h.svc.GetByID(c.Request.Context(), &model.Session{ID: sessionID})
+	if err != nil {
+		c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "session not found", nil))
+		return
+	}
+	if session.ProjectID != project.ID {
+		c.JSON(http.StatusForbidden, serializer.Err(http.StatusForbidden, "access denied: session does not belong to this project", nil))
 		return
 	}
 
@@ -616,8 +731,24 @@ func (h *SessionHandler) GetTokenCounts(c *gin.Context) {
 		return
 	}
 
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	session, err := h.svc.GetByID(c.Request.Context(), &model.Session{ID: sessionID})
+	if err != nil {
+		c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "session not found", nil))
+		return
+	}
+	if session.ProjectID != project.ID {
+		c.JSON(http.StatusForbidden, serializer.Err(http.StatusForbidden, "access denied: session does not belong to this project", nil))
+		return
+	}
+
 	// Get all messages for the session
-	messages, err := h.svc.GetAllMessages(c.Request.Context(), sessionID)
+	messages, err := h.svc.GetAllMessages(c.Request.Context(), sessionID, middleware.GetUserKEKIfEncrypted(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to get messages", err))
 		return
@@ -651,6 +782,22 @@ func (h *SessionHandler) GetSessionObservingStatus(c *gin.Context) {
 	sessionID, err := uuid.Parse(c.Param("session_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	session, err := h.svc.GetByID(c.Request.Context(), &model.Session{ID: sessionID})
+	if err != nil {
+		c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "session not found", nil))
+		return
+	}
+	if session.ProjectID != project.ID {
+		c.JSON(http.StatusForbidden, serializer.Err(http.StatusForbidden, "access denied: session does not belong to this project", nil))
 		return
 	}
 
@@ -834,6 +981,7 @@ func (h *SessionHandler) CopySession(c *gin.Context) {
 	result, err := h.svc.CopySession(c.Request.Context(), service.CopySessionInput{
 		ProjectID: project.ID,
 		SessionID: sessionID,
+		UserKEK:   middleware.GetUserKEKIfEncrypted(c),
 	})
 	if err != nil {
 		// Handle specific error cases using typed errors

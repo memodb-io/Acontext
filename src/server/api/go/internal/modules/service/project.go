@@ -13,6 +13,7 @@ import (
 	"github.com/bytedance/sonic"
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/config"
+	encryptionpkg "github.com/memodb-io/Acontext/internal/infra/crypto"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/pkg/utils/secrets"
@@ -23,7 +24,9 @@ import (
 type ProjectService interface {
 	Create(ctx context.Context, configs map[string]interface{}) (*CreateProjectOutput, error)
 	Delete(ctx context.Context, projectID uuid.UUID) error
-	UpdateSecretKey(ctx context.Context, projectID uuid.UUID) (*UpdateSecretKeyOutput, error)
+	// RotateSecretKey rotates the auth_secret and re-wraps the master_key.
+	// If masterKey is nil, a new master_key is generated.
+	RotateSecretKey(ctx context.Context, projectID uuid.UUID, masterKey []byte) (*UpdateSecretKeyOutput, error)
 	AnalyzeUsages(ctx context.Context, projectID uuid.UUID, intervalDays int, fields []string) (*AnalyzeUsagesOutput, error)
 	AnalyzeStatistics(ctx context.Context, projectID uuid.UUID) (*AnalyzeStatisticsOutput, error)
 	AnalyzeMetrics(ctx context.Context, projectID uuid.UUID, requestURL string, requestMethod string, requestHeaders http.Header) (*http.Response, error)
@@ -64,22 +67,38 @@ func generateRandomSecret(byteLength int) (string, error) {
 }
 
 func (s *projectService) Create(ctx context.Context, configs map[string]interface{}) (*CreateProjectOutput, error) {
-	// Generate a random secret key (32 bytes = 256 bits)
-	secret, err := generateRandomSecret(32)
-	if err != nil {
-		return nil, err
-	}
-
 	pepper := s.cfg.Root.SecretPepper
 	if pepper == "" {
 		return nil, errors.New("secret pepper is not configured")
 	}
 
-	// Generate HMAC for lookup
-	lookup := tokens.HMAC256Hex(pepper, secret)
+	// Generate auth_secret (32 bytes = 256 bits) for authentication
+	authSecret, err := generateRandomSecret(32)
+	if err != nil {
+		return nil, err
+	}
 
-	// Hash the secret with PHC format
-	phc, err := secrets.HashSecret(secret, pepper)
+	// Generate master_key (32 bytes) — used directly as KEK for S3 encryption
+	masterKey, err := encryptionpkg.GenerateMasterKey()
+	if err != nil {
+		return nil, err
+	}
+
+	// Derive wrapping key from auth_secret and wrap master_key
+	wrappingKey, err := encryptionpkg.DeriveUserKEK(authSecret, pepper)
+	if err != nil {
+		return nil, err
+	}
+	encryptedMKB64, err := encryptionpkg.WrapMasterKey(wrappingKey, masterKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate HMAC for lookup (based on auth_secret only)
+	lookup := tokens.HMAC256Hex(pepper, authSecret)
+
+	// Hash the auth_secret with PHC format
+	phc, err := secrets.HashSecret(authSecret, pepper)
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +108,6 @@ func (s *projectService) Create(ctx context.Context, configs map[string]interfac
 		configs = make(map[string]interface{})
 	}
 
-	// Create project
 	project := &model.Project{
 		SecretKeyHMAC:    lookup,
 		SecretKeyHashPHC: phc,
@@ -100,9 +118,12 @@ func (s *projectService) Create(ctx context.Context, configs map[string]interfac
 		return nil, err
 	}
 
+	// Token format: sk-ac-{auth_secret}.{encrypted_master_key}
+	token := s.cfg.Root.ProjectBearerTokenPrefix + authSecret + "." + encryptedMKB64
+
 	return &CreateProjectOutput{
 		ProjectID: project.ID,
-		SecretKey: s.cfg.Root.ProjectBearerTokenPrefix + secret,
+		SecretKey: token,
 	}, nil
 }
 
@@ -113,19 +134,14 @@ func (s *projectService) Delete(ctx context.Context, projectID uuid.UUID) error 
 	return s.r.Delete(ctx, projectID)
 }
 
-func (s *projectService) UpdateSecretKey(ctx context.Context, projectID uuid.UUID) (*UpdateSecretKeyOutput, error) {
+// RotateSecretKey rotates the auth_secret and re-wraps the master_key.
+// If masterKey is nil, a new master_key is generated (for legacy keys without encryption).
+func (s *projectService) RotateSecretKey(ctx context.Context, projectID uuid.UUID, masterKey []byte) (*UpdateSecretKeyOutput, error) {
 	if projectID == uuid.Nil {
 		return nil, errors.New("project id is empty")
 	}
 
-	// Get existing project
 	project, err := s.r.GetByID(ctx, projectID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Generate a new random secret key
-	secret, err := generateRandomSecret(32)
 	if err != nil {
 		return nil, err
 	}
@@ -135,11 +151,33 @@ func (s *projectService) UpdateSecretKey(ctx context.Context, projectID uuid.UUI
 		return nil, errors.New("secret pepper is not configured")
 	}
 
-	// Generate HMAC for lookup
-	lookup := tokens.HMAC256Hex(pepper, secret)
+	// If no master key provided, generate a new one
+	if masterKey == nil {
+		masterKey, err = encryptionpkg.GenerateMasterKey()
+		if err != nil {
+			return nil, err
+		}
+	}
 
-	// Hash the secret with PHC format
-	phc, err := secrets.HashSecret(secret, pepper)
+	// Generate new auth_secret
+	authSecret, err := generateRandomSecret(32)
+	if err != nil {
+		return nil, err
+	}
+
+	// Derive wrapping key from new auth_secret and wrap master_key
+	wrappingKey, err := encryptionpkg.DeriveUserKEK(authSecret, pepper)
+	if err != nil {
+		return nil, err
+	}
+	encryptedMKB64, err := encryptionpkg.WrapMasterKey(wrappingKey, masterKey)
+	if err != nil {
+		return nil, err
+	}
+
+	// Compute HMAC and PHC for new auth_secret
+	lookup := tokens.HMAC256Hex(pepper, authSecret)
+	phc, err := secrets.HashSecret(authSecret, pepper)
 	if err != nil {
 		return nil, err
 	}
@@ -152,8 +190,10 @@ func (s *projectService) UpdateSecretKey(ctx context.Context, projectID uuid.UUI
 		return nil, err
 	}
 
+	token := s.cfg.Root.ProjectBearerTokenPrefix + authSecret + "." + encryptedMKB64
+
 	return &UpdateSecretKeyOutput{
-		SecretKey: s.cfg.Root.ProjectBearerTokenPrefix + secret,
+		SecretKey: token,
 	}, nil
 }
 

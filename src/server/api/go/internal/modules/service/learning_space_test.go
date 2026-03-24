@@ -234,8 +234,8 @@ func (m *MockLSAgentSkillsService) List(ctx context.Context, in ListAgentSkillsI
 	return args.Get(0).(*ListAgentSkillsOutput), args.Error(1)
 }
 
-func (m *MockLSAgentSkillsService) GetFile(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID, filePath string, expire time.Duration) (*GetFileOutput, error) {
-	args := m.Called(ctx, projectID, skillID, filePath, expire)
+func (m *MockLSAgentSkillsService) GetFile(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID, filePath string, expire time.Duration, encryptionEnabled bool, userKEK []byte) (*GetFileOutput, error) {
+	args := m.Called(ctx, projectID, skillID, filePath, expire, encryptionEnabled, userKEK)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}

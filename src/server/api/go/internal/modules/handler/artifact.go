@@ -13,8 +13,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/infra/blob"
+	"github.com/memodb-io/Acontext/internal/middleware"
 	"github.com/memodb-io/Acontext/internal/infra/httpclient"
 	"github.com/memodb-io/Acontext/internal/modules/model"
+	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
 	"github.com/memodb-io/Acontext/internal/pkg/utils/fileparser"
@@ -22,14 +24,16 @@ import (
 )
 
 type ArtifactHandler struct {
-	svc        service.ArtifactService
-	config     *config.Config
-	coreClient *httpclient.CoreClient
-	s3         *blob.S3Deps
+	svc         service.ArtifactService
+	diskRepo    repo.DiskRepo
+	config      *config.Config
+	coreClient  *httpclient.CoreClient
+	s3          *blob.S3Deps
+	materialSvc service.MaterialService
 }
 
-func NewArtifactHandler(s service.ArtifactService, cfg *config.Config, coreClient *httpclient.CoreClient, s3 *blob.S3Deps) *ArtifactHandler {
-	return &ArtifactHandler{svc: s, config: cfg, coreClient: coreClient, s3: s3}
+func NewArtifactHandler(s service.ArtifactService, diskRepo repo.DiskRepo, cfg *config.Config, coreClient *httpclient.CoreClient, s3 *blob.S3Deps, materialSvc service.MaterialService) *ArtifactHandler {
+	return &ArtifactHandler{svc: s, diskRepo: diskRepo, config: cfg, coreClient: coreClient, s3: s3, materialSvc: materialSvc}
 }
 
 type CreateArtifactReq struct {
@@ -79,6 +83,11 @@ func (h *ArtifactHandler) UpsertArtifact(c *gin.Context) {
 	diskID, err := uuid.Parse(c.Param("disk_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	if _, err := h.diskRepo.GetByProjectAndID(c.Request.Context(), project.ID, diskID); err != nil {
+		c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "disk not found or access denied", nil))
 		return
 	}
 
@@ -133,6 +142,7 @@ func (h *ArtifactHandler) UpsertArtifact(c *gin.Context) {
 		Filename:   actualFilename,
 		FileHeader: file,
 		UserMeta:   userMeta,
+		UserKEK:    middleware.GetUserKEKIfEncrypted(c),
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
@@ -175,6 +185,12 @@ func (h *ArtifactHandler) DeleteArtifact(c *gin.Context) {
 	diskID, err := uuid.Parse(c.Param("disk_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	// Verify disk belongs to the authenticated project
+	if _, err := h.diskRepo.GetByProjectAndID(c.Request.Context(), project.ID, diskID); err != nil {
+		c.JSON(http.StatusForbidden, serializer.Err(http.StatusForbidden, "access denied: disk does not belong to this project", nil))
 		return
 	}
 
@@ -237,6 +253,13 @@ func (h *ArtifactHandler) GetArtifact(c *gin.Context) {
 		return
 	}
 
+	// Verify disk belongs to the authenticated project
+	project := c.MustGet("project").(*model.Project)
+	if _, err := h.diskRepo.GetByProjectAndID(c.Request.Context(), project.ID, diskID); err != nil {
+		c.JSON(http.StatusForbidden, serializer.Err(http.StatusForbidden, "access denied: disk does not belong to this project", nil))
+		return
+	}
+
 	// Parse FilePath to extract path and filename
 	filePath, filename := path.SplitFilePath(req.FilePath)
 
@@ -248,15 +271,18 @@ func (h *ArtifactHandler) GetArtifact(c *gin.Context) {
 
 	artifact, err := h.svc.GetByPath(c.Request.Context(), diskID, filePath, filename)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
+		c.JSON(http.StatusNotFound, serializer.DBErr("artifact not found", err))
 		return
 	}
 
 	resp := GetArtifactResp{Artifact: artifact}
 
-	// Generate presigned URL if requested
+	// Generate material URL if requested (works for both encrypted and non-encrypted projects)
 	if req.WithPublicURL {
-		url, err := h.svc.GetPresignedURL(c.Request.Context(), artifact, time.Duration(req.Expire)*time.Second)
+		assetData := artifact.AssetMeta.Data()
+		userKEK := middleware.GetUserKEKBase64IfEncrypted(c)
+		expire := time.Duration(req.Expire) * time.Second
+		url, _, err := h.materialSvc.CreateMaterialURL(c.Request.Context(), assetData.S3Key, userKEK, expire, assetData.MIME, artifact.Filename)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
 			return
@@ -266,7 +292,7 @@ func (h *ArtifactHandler) GetArtifact(c *gin.Context) {
 
 	// Parse file content if requested
 	if req.WithContent {
-		content, err := h.svc.GetFileContent(c.Request.Context(), artifact)
+		content, err := h.svc.GetFileContent(c.Request.Context(), artifact, middleware.GetUserKEKIfEncrypted(c))
 		// Only set content if parsing succeeded
 		// Unsupported file types (images, binaries, etc.) will not have content
 		if err == nil && content != nil {
@@ -276,6 +302,67 @@ func (h *ArtifactHandler) GetArtifact(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, serializer.Response{Data: resp})
+}
+
+type DownloadArtifactReq struct {
+	FilePath string `form:"file_path" json:"file_path" binding:"required"` // File path including filename
+}
+
+// DownloadArtifact godoc
+//
+//	@Summary		Download artifact content
+//	@Description	Download raw artifact file content. Decrypts content if encryption is enabled.
+//	@Tags			artifact
+//	@Produce		octet-stream
+//	@Param			disk_id		path	string	true	"Disk ID"			Format(uuid)
+//	@Param			file_path	query	string	true	"File path including filename"
+//	@Security		BearerAuth
+//	@Success		200	"File content"
+//	@Router			/disk/{disk_id}/artifact/download [get]
+func (h *ArtifactHandler) DownloadArtifact(c *gin.Context) {
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	req := DownloadArtifactReq{}
+	if err := c.ShouldBind(&req); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	diskID, err := uuid.Parse(c.Param("disk_id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	// Verify disk belongs to the authenticated project
+	if _, err := h.diskRepo.GetByProjectAndID(c.Request.Context(), project.ID, diskID); err != nil {
+		c.JSON(http.StatusForbidden, serializer.Err(http.StatusForbidden, "access denied: disk does not belong to this project", nil))
+		return
+	}
+
+	filePath, filename := path.SplitFilePath(req.FilePath)
+	if err := path.ValidatePath(filePath); err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid path", err))
+		return
+	}
+
+	artifact, err := h.svc.GetByPath(c.Request.Context(), diskID, filePath, filename)
+	if err != nil {
+		c.JSON(http.StatusNotFound, serializer.DBErr("artifact not found", err))
+		return
+	}
+
+	content, mimeType, err := h.svc.DownloadRawContent(c.Request.Context(), artifact, middleware.GetUserKEKIfEncrypted(c))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "download failed", err))
+		return
+	}
+
+	c.Data(http.StatusOK, mimeType, content)
 }
 
 type UpdateArtifactReq struct {
@@ -301,6 +388,12 @@ type UpdateArtifactResp struct {
 //	@Router			/disk/{disk_id}/artifact [put]
 //	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Update artifact metadata\nartifact = client.disks.update_artifact(\n    disk_id='disk-uuid',\n    file_path='/documents/report.pdf',\n    meta={'category': 'updated', 'reviewed': True, 'version': 2}\n)\nprint(f\"Updated artifact: {artifact.artifact.id}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Update artifact metadata\nconst artifact = await client.disks.updateArtifact('disk-uuid', {\n  filePath: '/documents/report.pdf',\n  meta: { category: 'updated', reviewed: true, version: 2 }\n});\nconsole.log(`Updated artifact: ${artifact.artifact.id}`);\n","label":"JavaScript"}]
 func (h *ArtifactHandler) UpdateArtifact(c *gin.Context) {
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
 	req := UpdateArtifactReq{}
 	if err := c.ShouldBind(&req); err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
@@ -310,6 +403,12 @@ func (h *ArtifactHandler) UpdateArtifact(c *gin.Context) {
 	diskID, err := uuid.Parse(c.Param("disk_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	// Verify disk belongs to the authenticated project
+	if _, err := h.diskRepo.GetByProjectAndID(c.Request.Context(), project.ID, diskID); err != nil {
+		c.JSON(http.StatusForbidden, serializer.Err(http.StatusForbidden, "access denied: disk does not belong to this project", nil))
 		return
 	}
 
@@ -373,9 +472,21 @@ type ListArtifactsResp struct {
 //	@Router			/disk/{disk_id}/artifact/ls [get]
 //	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# List artifacts in a path\nresult = client.disks.list_artifacts(\n    disk_id='disk-uuid',\n    path='/documents/'\n)\nprint(f\"Found {len(result.artifacts)} artifacts\")\nfor artifact in result.artifacts:\n    print(f\"  - {artifact.path}{artifact.filename}\")\nprint(f\"Subdirectories: {', '.join(result.directories)}\")\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// List artifacts in a path\nconst result = await client.disks.listArtifacts('disk-uuid', {\n  path: '/documents/'\n});\nconsole.log(`Found ${result.artifacts.length} artifacts`);\nfor (const artifact of result.artifacts) {\n  console.log(`  - ${artifact.path}${artifact.filename}`);\n}\nconsole.log(`Subdirectories: ${result.directories.join(', ')}`);\n","label":"JavaScript"}]
 func (h *ArtifactHandler) ListArtifacts(c *gin.Context) {
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
 	diskID, err := uuid.Parse(c.Param("disk_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
+		return
+	}
+
+	// Verify disk belongs to the authenticated project
+	if _, err := h.diskRepo.GetByProjectAndID(c.Request.Context(), project.ID, diskID); err != nil {
+		c.JSON(http.StatusForbidden, serializer.Err(http.StatusForbidden, "access denied: disk does not belong to this project", nil))
 		return
 	}
 
@@ -448,6 +559,12 @@ func (h *ArtifactHandler) GrepArtifacts(c *gin.Context) {
 		return
 	}
 
+	// Verify disk belongs to the authenticated project
+	if _, err := h.diskRepo.GetByProjectAndID(c.Request.Context(), project.ID, diskID); err != nil {
+		c.JSON(http.StatusForbidden, serializer.Err(http.StatusForbidden, "access denied: disk does not belong to this project", nil))
+		return
+	}
+
 	req := GrepArtifactsReq{}
 	if err := c.ShouldBindQuery(&req); err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
@@ -491,6 +608,12 @@ func (h *ArtifactHandler) GlobArtifacts(c *gin.Context) {
 	diskID, err := uuid.Parse(c.Param("disk_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid disk_id", err))
+		return
+	}
+
+	// Verify disk belongs to the authenticated project
+	if _, err := h.diskRepo.GetByProjectAndID(c.Request.Context(), project.ID, diskID); err != nil {
+		c.JSON(http.StatusForbidden, serializer.Err(http.StatusForbidden, "access denied: disk does not belong to this project", nil))
 		return
 	}
 
@@ -551,6 +674,12 @@ func (h *ArtifactHandler) DownloadToSandbox(c *gin.Context) {
 		return
 	}
 
+	// Verify disk belongs to the authenticated project
+	if _, err := h.diskRepo.GetByProjectAndID(c.Request.Context(), project.ID, diskID); err != nil {
+		c.JSON(http.StatusForbidden, serializer.Err(http.StatusForbidden, "access denied: disk does not belong to this project", nil))
+		return
+	}
+
 	req := DownloadToSandboxReq{}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("", err))
@@ -589,7 +718,7 @@ func (h *ArtifactHandler) DownloadToSandbox(c *gin.Context) {
 	sandboxDestPath := strings.TrimSuffix(req.SandboxPath, "/") + "/" + req.Filename
 
 	// Upload the file from S3 to the sandbox
-	result, err := h.coreClient.UploadSandboxFile(c.Request.Context(), project.ID, sandboxID, assetData.S3Key, sandboxDestPath)
+	result, err := h.coreClient.UploadSandboxFile(c.Request.Context(), project.ID, sandboxID, assetData.S3Key, sandboxDestPath, middleware.GetUserKEKIfEncrypted(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "failed to download artifact to sandbox", err))
 		return
@@ -628,6 +757,11 @@ func (h *ArtifactHandler) UploadFromSandbox(c *gin.Context) {
 	diskID, err := uuid.Parse(c.Param("disk_id"))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid disk_id", err))
+		return
+	}
+
+	if _, err := h.diskRepo.GetByProjectAndID(c.Request.Context(), project.ID, diskID); err != nil {
+		c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "disk not found or access denied", nil))
 		return
 	}
 
@@ -670,7 +804,7 @@ func (h *ArtifactHandler) UploadFromSandbox(c *gin.Context) {
 	}
 
 	// Download file content from temp S3 location
-	content, err := h.s3.DownloadFile(c.Request.Context(), tempS3Key)
+	content, err := h.s3.DownloadFile(c.Request.Context(), tempS3Key, nil)
 	if err != nil {
 		// Cleanup temp file on error
 		_ = h.s3.DeleteObject(c.Request.Context(), tempS3Key)
@@ -685,6 +819,7 @@ func (h *ArtifactHandler) UploadFromSandbox(c *gin.Context) {
 		Path:      req.FilePath,
 		Filename:  req.SandboxFilename,
 		Content:   content,
+		UserKEK:   middleware.GetUserKEKIfEncrypted(c),
 	})
 
 	// Cleanup temp S3 file regardless of artifact creation result

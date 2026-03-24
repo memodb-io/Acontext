@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"mime/multipart"
 	"testing"
@@ -130,12 +131,20 @@ func (m *MockArtifactService) GetPresignedURL(ctx context.Context, artifact *mod
 	return args.String(0), args.Error(1)
 }
 
-func (m *MockArtifactService) GetFileContent(ctx context.Context, artifact *model.Artifact) (*fileparser.FileContent, error) {
-	args := m.Called(ctx, artifact)
+func (m *MockArtifactService) GetFileContent(ctx context.Context, artifact *model.Artifact, userKEK []byte) (*fileparser.FileContent, error) {
+	args := m.Called(ctx, artifact, userKEK)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*fileparser.FileContent), args.Error(1)
+}
+
+func (m *MockArtifactService) DownloadRawContent(ctx context.Context, artifact *model.Artifact, userKEK []byte) ([]byte, string, error) {
+	args := m.Called(ctx, artifact, userKEK)
+	if args.Get(0) == nil {
+		return nil, args.String(1), args.Error(2)
+	}
+	return args.Get(0).([]byte), args.String(1), args.Error(2)
 }
 
 func (m *MockArtifactService) UpdateArtifactMetaByPath(ctx context.Context, diskID uuid.UUID, path string, filename string, userMeta map[string]interface{}) (*model.Artifact, error) {
@@ -248,15 +257,35 @@ func createTestAgentSkills() *model.AgentSkills {
 	}
 }
 
-func newService(repo *MockAgentSkillsRepo, diskSvc *MockDiskService, artifactSvc *MockArtifactService) AgentSkillsService {
-	return NewAgentSkillsService(repo, diskSvc, artifactSvc)
+// ── Mock: MaterialService ──
+
+type MockMaterialService struct {
+	mock.Mock
 }
 
-// testMocks bundles the three mocks used by every agentSkillsService test.
+func (m *MockMaterialService) CreateMaterialURL(ctx context.Context, s3Key string, userKEK string, expire time.Duration, mimeType string, fileName string) (string, time.Time, error) {
+	args := m.Called(ctx, s3Key, userKEK, expire, mimeType, fileName)
+	return args.String(0), args.Get(1).(time.Time), args.Error(2)
+}
+
+func (m *MockMaterialService) ServeMaterial(ctx context.Context, token string) ([]byte, string, string, error) {
+	args := m.Called(ctx, token)
+	if args.Get(0) == nil {
+		return nil, args.String(1), args.String(2), args.Error(3)
+	}
+	return args.Get(0).([]byte), args.String(1), args.String(2), args.Error(3)
+}
+
+func newService(repo *MockAgentSkillsRepo, diskSvc *MockDiskService, artifactSvc *MockArtifactService) AgentSkillsService {
+	return NewAgentSkillsService(repo, diskSvc, artifactSvc, nil)
+}
+
+// testMocks bundles the mocks used by agentSkillsService tests.
 type testMocks struct {
 	repo     *MockAgentSkillsRepo
 	disk     *MockDiskService
 	artifact *MockArtifactService
+	material *MockMaterialService
 }
 
 func newTestMocks() testMocks {
@@ -264,11 +293,12 @@ func newTestMocks() testMocks {
 		repo:     &MockAgentSkillsRepo{},
 		disk:     &MockDiskService{},
 		artifact: &MockArtifactService{},
+		material: &MockMaterialService{},
 	}
 }
 
 func (m testMocks) service() AgentSkillsService {
-	return newService(m.repo, m.disk, m.artifact)
+	return NewAgentSkillsService(m.repo, m.disk, m.artifact, m.material)
 }
 
 // ── Path helper tests ──
@@ -834,9 +864,9 @@ func TestAgentSkillsService_GetFile(t *testing.T) {
 
 		artifact := makeArtifact(diskID, "/", "file1.json", "application/json", "disks/hash")
 		m.artifact.On("GetByPath", ctx, diskID, "/", "file1.json").Return(artifact, nil)
-		m.artifact.On("GetFileContent", ctx, artifact).Return(&fileparser.FileContent{Raw: `{"key": "value"}`}, nil)
+		m.artifact.On("GetFileContent", ctx, artifact, mock.Anything).Return(&fileparser.FileContent{Raw: `{"key": "value"}`}, nil)
 
-		result, err := m.service().GetFile(ctx, projectID, skillID, "file1.json", time.Hour)
+		result, err := m.service().GetFile(ctx, projectID, skillID, "file1.json", time.Hour, false, nil)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -844,21 +874,43 @@ func TestAgentSkillsService_GetFile(t *testing.T) {
 		assert.NotNil(t, result.Content)
 	})
 
-	t.Run("file with presigned URL (binary)", func(t *testing.T) {
+	t.Run("file with material URL (binary, encryption enabled)", func(t *testing.T) {
 		m := newTestMocks()
 		m.repo.On("GetByID", ctx, projectID, skillID).Return(skill, nil)
 
+		fakeKEK := []byte("fake-kek-32-bytes-for-testing!!!")
+		fakeKEKB64 := base64.StdEncoding.EncodeToString(fakeKEK)
+
 		artifact := makeArtifact(diskID, "/", "image.png", "image/png", "disks/hash")
 		m.artifact.On("GetByPath", ctx, diskID, "/", "image.png").Return(artifact, nil)
-		m.artifact.On("GetPresignedURL", ctx, artifact, time.Hour).Return("https://s3.example.com/url", nil)
+		m.material.On("CreateMaterialURL", ctx, "disks/hash", fakeKEKB64, time.Hour, "image/png", "image.png").
+			Return("http://localhost:8029/api/v1/material/enc-token", time.Now().Add(time.Hour), nil)
 
-		result, err := m.service().GetFile(ctx, projectID, skillID, "image.png", time.Hour)
+		result, err := m.service().GetFile(ctx, projectID, skillID, "image.png", time.Hour, true, fakeKEK)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.Equal(t, "image.png", result.Path)
 		assert.NotNil(t, result.URL)
-		assert.Equal(t, "https://s3.example.com/url", *result.URL)
+		assert.Contains(t, *result.URL, "/api/v1/material/")
+	})
+
+	t.Run("file with material URL (binary, encryption disabled)", func(t *testing.T) {
+		m := newTestMocks()
+		m.repo.On("GetByID", ctx, projectID, skillID).Return(skill, nil)
+
+		artifact := makeArtifact(diskID, "/", "image.png", "image/png", "disks/hash")
+		m.artifact.On("GetByPath", ctx, diskID, "/", "image.png").Return(artifact, nil)
+		m.material.On("CreateMaterialURL", ctx, "disks/hash", "", time.Hour, "image/png", "image.png").
+			Return("http://localhost:8029/api/v1/material/abc123", time.Now().Add(time.Hour), nil)
+
+		result, err := m.service().GetFile(ctx, projectID, skillID, "image.png", time.Hour, false, nil)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Equal(t, "image.png", result.Path)
+		assert.NotNil(t, result.URL)
+		assert.Contains(t, *result.URL, "/api/v1/material/")
 	})
 
 	t.Run("nested path resolves correctly", func(t *testing.T) {
@@ -867,9 +919,9 @@ func TestAgentSkillsService_GetFile(t *testing.T) {
 
 		artifact := makeArtifact(diskID, "/scripts/sub/", "file.py", "text/x-python", "disks/hash")
 		m.artifact.On("GetByPath", ctx, diskID, "/scripts/sub/", "file.py").Return(artifact, nil)
-		m.artifact.On("GetFileContent", ctx, artifact).Return(&fileparser.FileContent{Raw: "print('hello')"}, nil)
+		m.artifact.On("GetFileContent", ctx, artifact, mock.Anything).Return(&fileparser.FileContent{Raw: "print('hello')"}, nil)
 
-		result, err := m.service().GetFile(ctx, projectID, skillID, "scripts/sub/file.py", time.Hour)
+		result, err := m.service().GetFile(ctx, projectID, skillID, "scripts/sub/file.py", time.Hour, false, nil)
 
 		assert.NoError(t, err)
 		assert.NotNil(t, result)
@@ -880,7 +932,7 @@ func TestAgentSkillsService_GetFile(t *testing.T) {
 		m := newTestMocks()
 		m.repo.On("GetByID", ctx, projectID, skillID).Return(nil, errors.New("not found"))
 
-		result, err := m.service().GetFile(ctx, projectID, skillID, "file1.json", time.Hour)
+		result, err := m.service().GetFile(ctx, projectID, skillID, "file1.json", time.Hour, false, nil)
 
 		assert.Error(t, err)
 		assert.Nil(t, result)
@@ -892,7 +944,7 @@ func TestAgentSkillsService_GetFile(t *testing.T) {
 		m.artifact.On("GetByPath", ctx, diskID, "/", "nonexistent.txt").
 			Return(nil, errors.New("not found"))
 
-		result, err := m.service().GetFile(ctx, projectID, skillID, "nonexistent.txt", time.Hour)
+		result, err := m.service().GetFile(ctx, projectID, skillID, "nonexistent.txt", time.Hour, false, nil)
 
 		assert.Error(t, err)
 		assert.Nil(t, result)

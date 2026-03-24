@@ -67,6 +67,95 @@ func TestParseToken(t *testing.T) {
 	}
 }
 
+func TestParseProjectToken(t *testing.T) {
+	prefix := "sk-ac-"
+
+	tests := []struct {
+		name    string
+		raw     string
+		want    ParsedToken
+		wantOK  bool
+	}{
+		{
+			name: "new format with dot separator",
+			raw:  "sk-ac-authsecret123.encryptedmasterkey456",
+			want: ParsedToken{
+				AuthSecret:         "authsecret123",
+				EncryptedMasterKey: "encryptedmasterkey456",
+			},
+			wantOK: true,
+		},
+		{
+			name: "legacy format without dot",
+			raw:  "sk-ac-somelegacysecretvalue",
+			want: ParsedToken{
+				AuthSecret: "somelegacysecretvalue",
+			},
+			wantOK: true,
+		},
+		{
+			name: "new format with base64url chars including dashes",
+			raw:  "sk-ac-abc-def_ghi.xyz-uvw_123",
+			want: ParsedToken{
+				AuthSecret:         "abc-def_ghi",
+				EncryptedMasterKey: "xyz-uvw_123",
+			},
+			wantOK: true,
+		},
+		{
+			name:   "wrong prefix",
+			raw:    "sk-xx-secret",
+			wantOK: false,
+		},
+		{
+			name:   "empty string",
+			raw:    "",
+			wantOK: false,
+		},
+		{
+			name:   "prefix only",
+			raw:    "sk-ac-",
+			wantOK: false,
+		},
+		{
+			name: "dot at end (no encrypted master key) → treated as legacy",
+			raw:  "sk-ac-authsecret.",
+			want: ParsedToken{
+				AuthSecret: "authsecret.",
+			},
+			wantOK: true,
+		},
+		{
+			name: "dot at start (no auth secret) → treated as legacy",
+			raw:  "sk-ac-.encryptedmasterkey",
+			want: ParsedToken{
+				AuthSecret: ".encryptedmasterkey",
+			},
+			wantOK: true,
+		},
+		{
+			name: "multiple dots uses first dot as separator",
+			raw:  "sk-ac-auth.enc.extra",
+			want: ParsedToken{
+				AuthSecret:         "auth",
+				EncryptedMasterKey: "enc.extra",
+			},
+			wantOK: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			parsed, ok := ParseProjectToken(tt.raw, prefix)
+			assert.Equal(t, tt.wantOK, ok)
+			if ok {
+				assert.Equal(t, tt.want.AuthSecret, parsed.AuthSecret)
+				assert.Equal(t, tt.want.EncryptedMasterKey, parsed.EncryptedMasterKey)
+			}
+		})
+	}
+}
+
 func TestHMAC256Hex(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -42,6 +42,9 @@ func (m *mockAssetReferenceRepoForBuffer) BatchIncrementAssetRefsWithCounts(_ co
 func (m *mockAssetReferenceRepoForBuffer) BatchDecrementAssetRefs(_ context.Context, _ uuid.UUID, _ []model.Asset) error {
 	return nil
 }
+func (m *mockAssetReferenceRepoForBuffer) ListS3KeysByProject(_ context.Context, _ uuid.UUID) ([]string, error) {
+	return nil, nil
+}
 
 func setupMiniRedis(t *testing.T) (*miniredis.Miniredis, *redis.Client) {
 	t.Helper()

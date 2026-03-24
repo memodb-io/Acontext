@@ -32,6 +32,7 @@ type RouterDeps struct {
 	LearningSpaceHandler *handler.LearningSpaceHandler
 	SessionEventHandler  *handler.SessionEventHandler
 	ProjectHandler       *handler.ProjectHandler
+	MaterialHandler      *handler.MaterialHandler
 	ProjectAuthOverride  gin.HandlerFunc // If set, used instead of default ProjectAuth for /api/v1
 }
 
@@ -60,6 +61,9 @@ func NewRouter(d RouterDeps) *gin.Engine {
 	})
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
+	// Material endpoint — public, no auth required
+	r.GET("/api/v1/material/:token", d.MaterialHandler.Serve)
+
 	v1 := r.Group("/api/v1")
 	{
 		projectAuth := d.ProjectAuthOverride
@@ -85,6 +89,7 @@ func NewRouter(d RouterDeps) *gin.Engine {
 			session.GET("/:session_id/messages", d.SessionHandler.GetMessages)
 			session.PATCH("/:session_id/messages/:message_id/meta", d.SessionHandler.PatchMessageMeta)
 
+			session.GET("/:session_id/asset/download", d.SessionHandler.DownloadSessionAsset)
 			session.POST("/:session_id/flush", d.SessionHandler.SessionFlush)
 
 			session.GET("/:session_id/token_counts", d.SessionHandler.GetTokenCounts)
@@ -114,6 +119,7 @@ func NewRouter(d RouterDeps) *gin.Engine {
 				artifact.GET("", d.ArtifactHandler.GetArtifact)
 				artifact.PUT("", d.ArtifactHandler.UpdateArtifact)
 				artifact.DELETE("", d.ArtifactHandler.DeleteArtifact)
+				artifact.GET("/download", d.ArtifactHandler.DownloadArtifact)
 				artifact.GET("/ls", d.ArtifactHandler.ListArtifacts)
 
 				artifact.GET("/grep", d.ArtifactHandler.GrepArtifacts)

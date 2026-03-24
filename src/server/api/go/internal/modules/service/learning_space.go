@@ -54,6 +54,7 @@ type CreateLearningSpaceInput struct {
 	ProjectID uuid.UUID
 	UserID    *uuid.UUID
 	Meta      map[string]interface{}
+	UserKEK   []byte // optional: for envelope encryption of default skill files
 }
 
 type UpdateLearningSpaceInput struct {
@@ -155,7 +156,7 @@ func (s *learningSpaceService) Create(ctx context.Context, in CreateLearningSpac
 	if err := s.lsRepo.Create(ctx, ls); err != nil {
 		return nil, fmt.Errorf("create learning space: %w", err)
 	}
-	if err := s.initDefaultSkills(ctx, ls); err != nil {
+	if err := s.initDefaultSkills(ctx, ls, in.UserKEK); err != nil {
 		return nil, err
 	}
 	return ls, nil
@@ -164,7 +165,7 @@ func (s *learningSpaceService) Create(ctx context.Context, in CreateLearningSpac
 // initDefaultSkills creates the default skills from embedded templates and
 // links them to the given learning space. On failure it performs best-effort
 // cleanup of any resources already created (skills, disks, the space itself).
-func (s *learningSpaceService) initDefaultSkills(ctx context.Context, ls *model.LearningSpace) (retErr error) {
+func (s *learningSpaceService) initDefaultSkills(ctx context.Context, ls *model.LearningSpace, userKEK []byte) (retErr error) {
 	var createdSkills []*model.AgentSkills
 	defer func() {
 		if retErr == nil {
@@ -195,6 +196,7 @@ func (s *learningSpaceService) initDefaultSkills(ctx context.Context, ls *model.
 			ProjectID: ls.ProjectID,
 			UserID:    ls.UserID,
 			Content:   content,
+			UserKEK:   userKEK,
 		})
 		if err != nil {
 			return fmt.Errorf("create skill from template %s: %w", tmplPath, err)

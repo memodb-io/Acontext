@@ -66,6 +66,11 @@ func ParamErr(msg string, err error) Response {
 	return Err(http.StatusBadRequest, msg, err)
 }
 
+// EncryptionKeyRequiredErr returns a 403 response indicating that an API key is required for encrypted data.
+func EncryptionKeyRequiredErr() Response {
+	return Response{Code: http.StatusForbidden, Msg: "encryption enabled, API key required", Error: "ENCRYPTION_KEY_REQUIRED"}
+}
+
 // AuthErr
 func AuthErr(msg string) Response {
 	if msg == "" {

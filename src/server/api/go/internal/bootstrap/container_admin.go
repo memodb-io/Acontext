@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"github.com/memodb-io/Acontext/internal/config"
+	"github.com/memodb-io/Acontext/internal/infra/blob"
 	"github.com/memodb-io/Acontext/internal/modules/handler"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/modules/service"
@@ -40,7 +41,15 @@ func BuildAdminContainer() *do.Injector {
 
 	// Admin-specific handlers
 	do.Provide(inj, func(i *do.Injector) (*handler.AdminHandler, error) {
-		return handler.NewAdminHandler(do.MustInvoke[service.ProjectService](i)), nil
+		return handler.NewAdminHandler(
+			do.MustInvoke[service.ProjectService](i),
+			do.MustInvoke[repo.ProjectRepo](i),
+			do.MustInvoke[*blob.S3Deps](i),
+			do.MustInvoke[repo.AssetReferenceRepo](i),
+			do.MustInvoke[*gorm.DB](i),
+			do.MustInvoke[*redis.Client](i),
+			do.MustInvoke[*config.Config](i),
+		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.MetricsHandler, error) {
 		return handler.NewMetricsHandler(
