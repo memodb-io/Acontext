@@ -96,6 +96,9 @@ updates:
       dependencies:
         patterns:
           - "*"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     directory: "/src/packages/sandbox-cloudflare"
@@ -109,6 +112,9 @@ updates:
       dependencies:
         patterns:
           - "*"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     directory: "/src/packages/openclaw"
@@ -122,6 +128,9 @@ updates:
       dependencies:
         patterns:
           - "*"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     directory: "/src/packages/claude-code"
@@ -135,6 +144,9 @@ updates:
       dependencies:
         patterns:
           - "*"
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     directory: "/docs"
