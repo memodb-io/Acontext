@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback, forwardRef } from 'react'
+import { useInView } from 'motion/react'
 import gsap from 'gsap'
 import {
   MessageSquare,
@@ -498,11 +499,14 @@ export function SkillMemoryDemo() {
     ctxRef.current = ctx
   }, [fireSweep])
 
-  // Run on mount
+  // Run when scrolled into view
+  const isInView = useInView(containerRef, { once: true, margin: '-60px' })
+
   useEffect(() => {
+    if (!isInView) return
     runAnimation()
     return () => { if (ctxRef.current) ctxRef.current.revert() }
-  }, [runAnimation])
+  }, [isInView, runAnimation])
 
   return (
     <div
