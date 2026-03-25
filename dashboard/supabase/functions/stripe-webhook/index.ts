@@ -167,6 +167,7 @@ Deno.serve(async (req: Request) => {
               stripe_subscription_id: null,
               period_end: null,
               pending_plan: null,
+              payment_status: "ok",
             })
             .eq("organization_id", organizationId);
 
@@ -198,31 +199,40 @@ Deno.serve(async (req: Request) => {
         // Check if subscription is scheduled for cancellation
         if (subscription.cancel_at_period_end) {
           const downgradeTarget = subscription.metadata.downgrade_to;
+          const validDowngradePlans = ["free", "pro", "team"];
+          const validatedDowngrade = (downgradeTarget && validDowngradePlans.includes(downgradeTarget)) ? downgradeTarget : undefined;
           console.log(
             `Subscription ${subscription.id} is scheduled for cancellation${
-              downgradeTarget ? ` (downgrade to ${downgradeTarget})` : ""
+              validatedDowngrade ? ` (downgrade to ${validatedDowngrade})` : ""
             }`
           );
 
-          // Update with pending_plan if downgrading
-          if (downgradeTarget) {
-            const { error } = await supabase
-              .from("organization_billing")
-              .update({
-                pending_plan: downgradeTarget,
-              })
-              .eq("organization_id", organizationId);
+          // Always update period_end and stripe_subscription_id even when scheduled for cancellation
+          const periodEnd = await getPeriodEnd(subscription);
+          const updateData: Record<string, unknown> = {
+            stripe_subscription_id: subscription.id,
+            period_end: periodEnd,
+          };
+          if (validatedDowngrade) {
+            updateData.pending_plan = validatedDowngrade;
+          }
 
-            if (error) {
-              console.error(
-                `Error setting pending_plan for organization ${organizationId}:`,
-                error
-              );
-            } else {
-              console.log(
-                `Set pending_plan to ${downgradeTarget} for organization ${organizationId}`
-              );
-            }
+          const { error } = await supabase
+            .from("organization_billing")
+            .update(updateData)
+            .eq("organization_id", organizationId);
+
+          if (error) {
+            console.error(
+              `Error updating organization ${organizationId} for scheduled cancellation:`,
+              error
+            );
+          } else {
+            console.log(
+              `Updated organization ${organizationId}: period_end=${periodEnd}${
+                validatedDowngrade ? `, pending_plan=${validatedDowngrade}` : ""
+              }`
+            );
           }
           break;
         }
@@ -245,6 +255,7 @@ Deno.serve(async (req: Request) => {
             stripe_subscription_id: subscription.id,
             period_end: periodEnd,
             pending_plan: null, // Clear any pending plan
+            payment_status: "ok", // Clear any payment failure state
           })
           .eq("organization_id", organizationId)
           .select();
@@ -273,17 +284,20 @@ Deno.serve(async (req: Request) => {
           break;
         }
 
-        // Check if this was a scheduled downgrade to free
+        // Check if this was a scheduled downgrade — validate against known plans
+        const validPlans = ["free", "pro", "team"];
         const downgradeTarget = subscription.metadata.downgrade_to;
+        const validatedPlan = (downgradeTarget && validPlans.includes(downgradeTarget)) ? downgradeTarget : "free";
 
         // Reset to free plan when subscription is cancelled
         const { error } = await supabase
           .from("organization_billing")
           .update({
-            plan: downgradeTarget || "free",
+            plan: validatedPlan,
             stripe_subscription_id: null,
             period_end: null,
             pending_plan: null,
+            payment_status: "ok",
           })
           .eq("organization_id", organizationId);
 
@@ -296,9 +310,7 @@ Deno.serve(async (req: Request) => {
         }
 
         console.log(
-          `Cancelled subscription for organization ${organizationId}, reset to ${
-            downgradeTarget || "free"
-          } plan`
+          `Cancelled subscription for organization ${organizationId}, reset to ${validatedPlan} plan`
         );
         break;
       }
@@ -476,10 +488,39 @@ Deno.serve(async (req: Request) => {
           `Updating period_end for organization ${organizationId} to: ${periodEnd}`
         );
 
+        // Determine invoice type so we only clear the matching payment_status.
+        // Plan invoice success clears 'past_due'; metered invoice success clears 'blocked'.
+        // This prevents a plan invoice success from incorrectly clearing a 'blocked' state
+        // caused by an unpaid metered invoice (and vice-versa).
+        const hasMeteredLineItems = invoice.lines?.data?.some(
+          (line) => {
+            const price = line.price as Stripe.Price;
+            return price?.type === "metered" || price?.recurring?.meter != null;
+          }
+        );
+        const isMeteredInvoice =
+          invoice.billing_reason === "subscription_threshold" || hasMeteredLineItems;
+
+        // Fetch current payment_status to decide whether to clear it
+        const { data: currentBilling } = await supabase
+          .from("organization_billing")
+          .select("payment_status")
+          .eq("organization_id", organizationId)
+          .maybeSingle();
+
+        const currentStatus = currentBilling?.payment_status || "ok";
+        let newPaymentStatus = currentStatus;
+        if (isMeteredInvoice && currentStatus === "blocked") {
+          newPaymentStatus = "ok";
+        } else if (!isMeteredInvoice && currentStatus === "past_due") {
+          newPaymentStatus = "ok";
+        }
+
         const { data, error } = await supabase
           .from("organization_billing")
           .update({
             period_end: periodEnd,
+            payment_status: newPaymentStatus,
           })
           .eq("organization_id", organizationId)
           .select();
@@ -493,7 +534,7 @@ Deno.serve(async (req: Request) => {
         }
 
         console.log(
-          `Payment succeeded for organization ${organizationId}, period_end updated to: ${periodEnd}`,
+          `Payment succeeded for organization ${organizationId}, period_end updated to: ${periodEnd}, payment_status: ${currentStatus} → ${newPaymentStatus} (${isMeteredInvoice ? "metered" : "plan"} invoice)`,
           data
         );
         break;
@@ -516,31 +557,75 @@ Deno.serve(async (req: Request) => {
           break;
         }
 
-        console.error(`Payment failed for organization ${organizationId}`);
+        console.error(`Payment failed for organization ${organizationId}, billing_reason: ${invoice.billing_reason}`);
 
-        // Check if this subscription was activated with a 100% off promo code
-        // and has no payment method (promo code expired scenario)
-        const wasActivatedWithPromo = subscription.metadata.activated_with_promo === "true";
-        const hasNoPaymentMethod = !subscription.default_payment_method;
+        // Determine if this is a metered usage invoice or a plan subscription invoice.
+        // Legacy metered prices have price.type === 'metered'.
+        // New Stripe Billing Meters have price.type === 'recurring' with price.recurring.meter set.
+        // billing_reason === 'subscription_threshold' also indicates metered usage.
+        const hasMeteredLineItems = invoice.lines?.data?.some(
+          (line) => {
+            const price = line.price as Stripe.Price;
+            return price?.type === "metered" || price?.recurring?.meter != null;
+          }
+        );
+        const isMeteredInvoice =
+          invoice.billing_reason === "subscription_threshold" || hasMeteredLineItems;
 
-        if (wasActivatedWithPromo && hasNoPaymentMethod) {
+        if (isMeteredInvoice) {
+          // Metered usage payment failed → hard block all writes
           console.log(
-            `Subscription ${subscriptionId} was activated with promo code and has no payment method. ` +
-            `Promo code likely expired. Scheduling downgrade to free plan.`
+            `Metered usage payment failed for organization ${organizationId}, setting payment_status to blocked`
           );
 
+          const { error } = await supabase
+            .from("organization_billing")
+            .update({
+              payment_status: "blocked",
+            })
+            .eq("organization_id", organizationId);
+
+          if (error) {
+            console.error(
+              `Error setting payment_status=blocked for organization ${organizationId}:`,
+              error
+            );
+          } else {
+            console.log(
+              `Set payment_status=blocked for organization ${organizationId} due to metered payment failure`
+            );
+          }
+        } else {
+          // Plan subscription payment failed → set past_due and schedule downgrade to free
+          console.log(
+            `Plan payment failed for organization ${organizationId}, setting payment_status to past_due and scheduling downgrade`
+          );
+
+          const { error: statusError } = await supabase
+            .from("organization_billing")
+            .update({
+              payment_status: "past_due",
+            })
+            .eq("organization_id", organizationId);
+
+          if (statusError) {
+            console.error(
+              `Error setting payment_status=past_due for organization ${organizationId}:`,
+              statusError
+            );
+          }
+
+          // Schedule downgrade to free plan
           try {
-            // Cancel subscription at period end (auto-downgrade to free)
             await stripe.subscriptions.update(subscriptionId, {
               cancel_at_period_end: true,
               metadata: {
                 ...subscription.metadata,
                 downgrade_to: "free",
-                downgrade_reason: "promo_expired_no_payment_method",
+                downgrade_reason: "plan_payment_failed",
               },
             });
 
-            // Update database to set pending_plan
             const { error } = await supabase
               .from("organization_billing")
               .update({
@@ -555,12 +640,12 @@ Deno.serve(async (req: Request) => {
               );
             } else {
               console.log(
-                `Set pending_plan to free for organization ${organizationId} due to promo expiration`
+                `Scheduled downgrade to free for organization ${organizationId} due to plan payment failure`
               );
             }
           } catch (err) {
             console.error(
-              `Error handling promo expiration for organization ${organizationId}:`,
+              `Error scheduling downgrade for organization ${organizationId}:`,
               err
             );
           }

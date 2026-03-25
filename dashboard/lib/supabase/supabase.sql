@@ -7,6 +7,7 @@ CREATE TABLE public.organization_billing (
   stripe_subscription_id text UNIQUE,
   plan text NOT NULL DEFAULT 'free'::text,
   pending_plan text,  -- Scheduled plan change (e.g., downgrade at period end)
+  payment_status text NOT NULL DEFAULT 'ok'::text,  -- 'ok' | 'past_due' | 'blocked'
   period_end timestamp with time zone,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
@@ -114,6 +115,66 @@ CREATE TABLE public.usage_sync_logs (
   CONSTRAINT usage_sync_logs_organization_id_fkey FOREIGN KEY (organization_id) REFERENCES public.organizations(id),
   CONSTRAINT usage_sync_logs_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.organization_projects(project_id)
 );
+
+-- Atomic increment for project_usage fields (avoids read-modify-write race conditions)
+-- Called from sync-usage Edge Function to safely increment usage counters.
+create or replace function public.increment_project_usage(
+  p_project_id uuid,
+  p_field text,
+  p_increment integer
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  -- Allowlist: only known usage columns may be incremented.
+  if p_field not in ('current_task', 'current_skill', 'current_fast_skill_search', 'current_agentic_skill_search', 'current_storage') then
+    raise exception 'Invalid field name: %', p_field;
+  end if;
+
+  -- Single atomic upsert: INSERT or UPDATE in one statement.
+  -- Avoids race condition where two concurrent UPDATEs both find NOT FOUND
+  -- and then both attempt INSERT, causing a unique constraint violation.
+  execute format(
+    'INSERT INTO public.project_usage (project_id, %I) VALUES ($1, $2)
+     ON CONFLICT (project_id) DO UPDATE SET %I = COALESCE(public.project_usage.%I, 0) + EXCLUDED.%I,
+     updated_at = now()',
+    p_field, p_field, p_field, p_field
+  ) using p_project_id, p_increment;
+end;
+$$;
+
+-- Atomically claim a monthly reset checkpoint for an org.
+-- Returns true if this call claimed it (i.e., the timestamp was actually changed),
+-- false if it was already set to the current month's timestamp.
+-- Uses ON CONFLICT with a WHERE clause so the UPDATE only fires when the value differs.
+create or replace function public.try_claim_monthly_reset(
+  p_checkpoint_id text,
+  p_month_start_timestamp bigint
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_row_count integer;
+begin
+  INSERT INTO public.usage_sync_global_checkpoint (id, last_processed_to_timestamp)
+  VALUES (p_checkpoint_id, p_month_start_timestamp)
+  ON CONFLICT (id) DO UPDATE
+    SET last_processed_to_timestamp = EXCLUDED.last_processed_to_timestamp
+    WHERE public.usage_sync_global_checkpoint.last_processed_to_timestamp != EXCLUDED.last_processed_to_timestamp;
+
+  -- ROW_COUNT is 0 when the WHERE clause suppresses the update (already claimed),
+  -- 1 when a row was actually inserted or updated.
+  -- FOUND cannot be used here because it is true even when the conditional UPDATE is skipped.
+  GET DIAGNOSTICS v_row_count = ROW_COUNT;
+  return v_row_count > 0;
+end;
+$$;
 
 -- Database function to create organization
 -- Uses auth.uid() to get the current authenticated user

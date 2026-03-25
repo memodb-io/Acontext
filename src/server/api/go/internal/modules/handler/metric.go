@@ -2,6 +2,7 @@ package handler
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -53,28 +54,37 @@ func (h *MetricsHandler) PushMetrics(c *gin.Context) {
 	now := time.Now().UTC()
 	to := now
 
-	// Check last request time from Redis
+	// Acquire distributed lock to prevent concurrent PushMetrics from double-reporting to Stripe.
+	// TTL must exceed max execution time (30s HTTP timeout + DB overhead).
+	const pushMetricsLockKey = "push_metrics:lock"
+	const pushMetricsLockTTL = 5 * time.Minute
+	ok, err := h.redis.SetNX(ctx, pushMetricsLockKey, "1", pushMetricsLockTTL).Result()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to acquire lock", err))
+		return
+	}
+	if !ok {
+		c.JSON(http.StatusTooManyRequests, serializer.ParamErr("another push is in progress, please try again later", nil))
+		return
+	}
+	// Release lock when done. Must be registered AFTER the !ok check above,
+	// otherwise returning early on !ok would delete the other caller's lock.
+	defer h.redis.Del(context.Background(), pushMetricsLockKey)
+
+	// Check last request time from Redis to determine the "from" window
 	var from time.Time
 	lastRequestStr, err := h.redis.Get(ctx, h.cfg.Metrics.PushLastRequestKey).Result()
 	switch err {
 	case nil:
-		// Parse last request time
 		lastRequest, parseErr := time.Parse(time.RFC3339, lastRequestStr)
 		if parseErr == nil {
-			// Rate limiting: if within 1 minute, return error
-			if now.Sub(lastRequest) < time.Minute {
-				c.JSON(http.StatusTooManyRequests, serializer.ParamErr("request too frequent, please try again later", nil))
-				return
-			}
 			from = lastRequest
 		} else {
 			from = to.Add(-1 * time.Hour)
 		}
 	case redis.Nil:
-		// Key not found, use default
 		from = to.Add(-1 * time.Hour)
 	default:
-		// Redis error
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to read from Redis", err))
 		return
 	}
@@ -101,6 +111,9 @@ func (h *MetricsHandler) PushMetrics(c *gin.Context) {
 	}
 
 	if len(metricsOut.Metrics) == 0 {
+		// Advance the time window even when no metrics exist, so subsequent calls
+		// don't re-scan the same range.
+		_ = h.redis.Set(ctx, h.cfg.Metrics.PushLastRequestKey, now.Format(time.RFC3339), 0).Err()
 		c.JSON(http.StatusOK, serializer.Response{Msg: "no metrics to push"})
 		return
 	}
