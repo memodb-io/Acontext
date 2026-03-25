@@ -12,6 +12,102 @@ const cryptoProvider = Stripe.createSubtleCryptoProvider();
 console.log("Stripe Webhook Function booted!");
 
 /**
+ * Send an async Feishu notification for payment events.
+ * Fire-and-forget: errors are logged but never thrown.
+ */
+async function sendPaymentFeishuNotification(
+  supabase: ReturnType<typeof createClient>,
+  opts: {
+    type: "new_subscription" | "renewal";
+    organizationId: string;
+    plan?: string;
+    amount?: number;
+    currency?: string;
+    customerEmail?: string;
+  }
+) {
+  const webhook = Deno.env.get("FEISHU_WEBHOOK_URL");
+  if (!webhook) return;
+
+  try {
+    // Fetch usage metrics for the org
+    const { data: usage } = await supabase
+      .from("organization_usage")
+      .select(
+        "current_task, current_skill, current_fast_skill_search, current_agentic_skill_search, current_storage"
+      )
+      .eq("organization_id", opts.organizationId)
+      .maybeSingle();
+
+    const task = usage?.current_task ?? 0;
+    const skill = usage?.current_skill ?? 0;
+    const fastSearch = usage?.current_fast_skill_search ?? 0;
+    const agenticSearch = usage?.current_agentic_skill_search ?? 0;
+    const storageMB = usage?.current_storage
+      ? (usage.current_storage / (1024 * 1024)).toFixed(2)
+      : "0";
+
+    const isNew = opts.type === "new_subscription";
+    const title = isNew ? "[Acontext] 💰 新订阅!" : "[Acontext] 💰 续费成功!";
+    const template = isNew ? "green" : "yellow";
+    const createdAt = new Date().toLocaleString("zh-CN", {
+      timeZone: "Asia/Shanghai",
+    });
+
+    const amountStr = opts.amount != null
+      ? `${(opts.amount / 100).toFixed(2)} ${(opts.currency || "usd").toUpperCase()}`
+      : "N/A";
+
+    const card = {
+      msg_type: "interactive",
+      card: {
+        config: { wide_screen_mode: true },
+        header: {
+          title: { tag: "plain_text", content: title },
+          template,
+        },
+        elements: [
+          {
+            tag: "div",
+            text: {
+              tag: "lark_md",
+              content: [
+                `**组织ID：** ${opts.organizationId}`,
+                `**用户邮箱：** ${opts.customerEmail || "N/A"}`,
+                `**套餐：** ${opts.plan || "N/A"}`,
+                `**金额：** ${amountStr}`,
+                `**时间：** ${createdAt}`,
+              ].join("\n"),
+            },
+          },
+          { tag: "hr" },
+          {
+            tag: "div",
+            text: {
+              tag: "lark_md",
+              content: [
+                "**📊 当月用量**",
+                `Task：${task}  |  Skill：${skill}`,
+                `Fast Search：${fastSearch}  |  Agentic Search：${agenticSearch}`,
+                `Storage：${storageMB} MB`,
+              ].join("\n"),
+            },
+          },
+        ],
+      },
+    };
+
+    await fetch(webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(card),
+    });
+  } catch (err) {
+    console.error("Feishu notification failed (non-fatal):", err);
+  }
+}
+
+/**
  * Extract plan from subscription metadata or product metadata
  */
 async function getPlanFromSubscription(
@@ -272,6 +368,24 @@ Deno.serve(async (req: Request) => {
           `Updated subscription for organization ${organizationId} with plan ${validPlan}, period_end: ${periodEnd}`,
           data
         );
+
+        // Async Feishu notification for new/upgraded subscription
+        const customerId = subscription.customer as string;
+        let customerEmail: string | undefined;
+        try {
+          const customer = await stripe.customers.retrieve(customerId);
+          if (customer && !customer.deleted) {
+            customerEmail = customer.email ?? undefined;
+          }
+        } catch (_) { /* best-effort */ }
+
+        sendPaymentFeishuNotification(supabase, {
+          type: event.type === "customer.subscription.created" ? "new_subscription" : "renewal",
+          organizationId,
+          plan: validPlan,
+          customerEmail,
+        });
+
         break;
       }
 
@@ -537,6 +651,27 @@ Deno.serve(async (req: Request) => {
           `Payment succeeded for organization ${organizationId}, period_end updated to: ${periodEnd}, payment_status: ${currentStatus} → ${newPaymentStatus} (${isMeteredInvoice ? "metered" : "plan"} invoice)`,
           data
         );
+
+        // Async Feishu notification for successful payment
+        let paymentCustomerEmail: string | undefined;
+        try {
+          const custId = invoice.customer as string;
+          const cust = await stripe.customers.retrieve(custId);
+          if (cust && !cust.deleted) {
+            paymentCustomerEmail = cust.email ?? undefined;
+          }
+        } catch (_) { /* best-effort */ }
+
+        const plan = await getPlanFromSubscription(subscription);
+        sendPaymentFeishuNotification(supabase, {
+          type: "renewal",
+          organizationId,
+          plan,
+          amount: invoice.amount_paid,
+          currency: invoice.currency,
+          customerEmail: paymentCustomerEmail,
+        });
+
         break;
       }
 
