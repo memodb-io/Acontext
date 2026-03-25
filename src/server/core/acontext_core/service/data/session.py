@@ -24,6 +24,21 @@ async def update_session_display_title(
     return Result.resolve(None)
 
 
+# Keep a separate write-once helper so callers can opt into "set if empty"
+# behavior without changing the existing force-update helper.
+async def update_session_display_title_once(
+    db_session: AsyncSession, session_id: asUUID, display_title: str
+) -> Result[bool]:
+    session_record, eil = (await fetch_session(db_session, session_id)).unpack()
+    if eil:
+        return Result.reject(eil.errmsg)
+    if (session_record.display_title or "").strip():
+        return Result.resolve(False)
+    session_record.display_title = display_title
+    await db_session.flush()
+    return Result.resolve(True)
+
+
 async def should_generate_session_display_title(
     db_session: AsyncSession, session_id: asUUID
 ) -> Result[bool]:
