@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { encodeId } from "@/lib/id-codec";
 import { useTopNavStore } from "@/stores/top-nav";
 import Image from "next/image";
@@ -808,16 +809,11 @@ export function MessagesPageClient({
                             </TableCell>
                             <TableCell>
                               {event.type === 'disk_event' && typeof event.data.disk_id === 'string' && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    const encodedProjectId = encodeId(project.id);
-                                    router.push(`/project/${encodedProjectId}/disk?diskId=${event.data.disk_id}`);
-                                  }}
-                                >
-                                  <HardDrive className="h-3.5 w-3.5" />
-                                  Disk
+                                <Button variant="outline" size="sm" asChild>
+                                  <Link href={`/project/${encodeId(project.id)}/disk?diskId=${event.data.disk_id}`}>
+                                    <HardDrive className="h-3.5 w-3.5" />
+                                    Disk
+                                  </Link>
                                 </Button>
                               )}
                             </TableCell>
@@ -855,29 +851,29 @@ export function MessagesPageClient({
                               >
                                 View
                               </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={!message.task_id}
-                                onClick={() => {
-                                  if (message.task_id) {
-                                    const encodedProjectId = encodeId(project.id);
-                                    const encodedSessionId = encodeId(sessionId);
-                                    const messagesReturnTo = `/project/${encodedProjectId}/session/${encodedSessionId}/messages`;
-                                    router.push(
-                                      `/project/${encodedProjectId}/session/${encodedSessionId}/task?taskId=${message.task_id}&returnTo=${encodeURIComponent(messagesReturnTo)}`
-                                    );
-                                  }
-                                }}
-                                title={
-                                  message.task_id
-                                    ? `View Task ${message.task_id.substring(0, 8)}...`
-                                    : "No task associated"
-                                }
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                                Task
-                              </Button>
+                              {message.task_id ? (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  asChild
+                                  title={`View Task ${message.task_id.substring(0, 8)}...`}
+                                >
+                                  <Link href={`/project/${encodeId(project.id)}/session/${encodeId(sessionId)}/task?taskId=${message.task_id}&returnTo=${encodeURIComponent(`/project/${encodeId(project.id)}/session/${encodeId(sessionId)}/messages`)}`}>
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                    Task
+                                  </Link>
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled
+                                  title="No task associated"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                  Task
+                                </Button>
+                              )}
                             </div>
                           </TableCell>
                         </TableRow>
