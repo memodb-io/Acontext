@@ -431,12 +431,20 @@ func (s *learningSpaceService) ListSessions(ctx context.Context, projectID, lear
 	return sessions, nil
 }
 
-// resolvePendingStatus lazily resolves a "pending" learning session to a
-// terminal status when it's clear that no SkillLearnTask will ever arrive.
-// If all messages are done but no task was marked "success", it promotes
-// non-planning tasks and publishes SkillLearnTask for each to trigger learning.
+// resolvePendingStatus lazily resolves a learning session to trigger learning
+// when tasks are stuck in "running" status. If all messages are done but no task
+// was marked "success", it promotes non-planning tasks and publishes SkillLearnTask
+// for each to trigger learning.
+//
+// This handles two scenarios:
+// 1. "pending" sessions: learn() created the session but Core never received MQ
+// 2. "completed" sessions: Core processed but skipped distillation due to running tasks
+//
+// We don't handle "distilling"/"queued"/"failed" states as they are either in progress
+// or already terminal with an error.
 func (s *learningSpaceService) resolvePendingStatus(ctx context.Context, projectID uuid.UUID, lss *model.LearningSpaceSession) {
-	if lss.Status != "pending" {
+	// Only handle "pending" (never processed by Core) and "completed" (processed but skipped)
+	if lss.Status != "pending" && lss.Status != "completed" {
 		return
 	}
 
