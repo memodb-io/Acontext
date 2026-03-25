@@ -74,26 +74,17 @@ export function SkillList({
                 ) : null}
               </div>
               <div className="flex gap-1">
-                {href ? (
-                  <Button variant="ghost" size="sm" asChild>
-                    <Link href={href} onClick={(e) => e.stopPropagation()}>
-                      <FolderOpen className="h-4 w-4" />
-                      View Files
-                    </Link>
-                  </Button>
-                ) : (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSkillClick(skill);
-                    }}
-                  >
-                    <FolderOpen className="h-4 w-4" />
-                    View Files
-                  </Button>
-                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!href) onSkillClick(skill);
+                  }}
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  View Files
+                </Button>
                 {onSkillDelete ? (
                   <Button
                     variant="ghost"
