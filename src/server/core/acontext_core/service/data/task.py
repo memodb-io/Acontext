@@ -3,11 +3,11 @@ from sqlalchemy import select, delete, update
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.ext.asyncio import AsyncSession
-from ...env import LOG
 from ...schema.orm import Task, Message
 from ...schema.result import Result
 from ...schema.utils import asUUID
 from ...schema.session.task import TaskSchema
+from . import session as SD
 
 
 async def fetch_planning_task(
@@ -102,6 +102,14 @@ async def fetch_first_task_description(
     return Result.resolve(description or None)
 
 
+async def _sync_session_display_title(
+    db_session: AsyncSession, session_id: asUUID
+) -> None:
+    title, eil = (await fetch_first_task_description(db_session, session_id)).unpack()
+    if eil is None and title:
+        await SD.update_session_display_title_once(db_session, session_id, title)
+
+
 async def update_task(
     db_session: AsyncSession,
     task_id: asUUID,
@@ -131,6 +139,7 @@ async def update_task(
         flag_modified(task, "data")
 
     await db_session.flush()
+    await _sync_session_display_title(db_session, task.session_id)
     # Changes will be committed when the session context exits
     return Result.resolve(task)
 
@@ -184,6 +193,7 @@ async def insert_task(
 
     db_session.add(task)
     await db_session.flush()
+    await _sync_session_display_title(db_session, session_id)
     return Result.resolve(task)
 
 
