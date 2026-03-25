@@ -58,7 +58,7 @@ jobs:
             echo "🔍 Auditing $dir..."
             cd $dir
             uv export --format requirements-txt --no-hashes --no-dev > reqs.txt
-            pip-audit -r reqs.txt --ignore-vuln CVE-2026-4539  # pygments ReDoS (low severity), no fix available yet
+            pip-audit -r reqs.txt
             rm reqs.txt
             cd - > /dev/null
           done
