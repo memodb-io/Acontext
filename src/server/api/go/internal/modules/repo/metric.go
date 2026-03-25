@@ -2,11 +2,13 @@ package repo
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type MetricRepo interface {
@@ -71,36 +73,51 @@ func (r *metricRepo) CreateMetrics(ctx context.Context, metrics []model.Metric) 
 // SaveMetrics upserts metrics by project_id and tag.
 // If a metric with the same project_id and tag exists, it updates the increment value.
 // If not, it creates a new record.
+//
+// Concurrency: The caller (PushMetrics handler) holds a Redis distributed lock,
+// so concurrent calls to this function are already serialized at the handler level.
+// The transaction with SELECT FOR UPDATE provides defense-in-depth for the update path.
+// For the insert path (ErrRecordNotFound), a duplicate row is possible if the Redis lock
+// is bypassed; the caller must ensure serialization.
 func (r *metricRepo) SaveMetrics(ctx context.Context, metrics []model.Metric) error {
 	if len(metrics) == 0 {
 		return nil
 	}
 
-	for _, metric := range metrics {
-		var existing model.Metric
-		err := r.db.WithContext(ctx).
-			Where("project_id = ? AND tag = ?", metric.ProjectID, metric.Tag).
-			Order("created_at DESC").
-			First(&existing).Error
+	// Sort by (project_id, tag) to ensure consistent lock ordering and prevent deadlocks
+	// when concurrent transactions acquire SELECT FOR UPDATE locks.
+	sort.Slice(metrics, func(i, j int) bool {
+		if metrics[i].ProjectID.String() != metrics[j].ProjectID.String() {
+			return metrics[i].ProjectID.String() < metrics[j].ProjectID.String()
+		}
+		return metrics[i].Tag < metrics[j].Tag
+	})
 
-		if err == gorm.ErrRecordNotFound {
-			// Create new record
-			if err := r.db.WithContext(ctx).Create(&metric).Error; err != nil {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		for _, metric := range metrics {
+			var existing model.Metric
+			err := tx.
+				Clauses(clause.Locking{Strength: "UPDATE"}).
+				Where("project_id = ? AND tag = ?", metric.ProjectID, metric.Tag).
+				Order("created_at DESC").
+				First(&existing).Error
+
+			if err == gorm.ErrRecordNotFound {
+				if err := tx.Create(&metric).Error; err != nil {
+					return err
+				}
+			} else if err != nil {
 				return err
-			}
-		} else if err != nil {
-			return err
-		} else {
-			// Update existing record
-			if err := r.db.WithContext(ctx).
-				Model(&existing).
-				Update("increment", metric.Increment).Error; err != nil {
-				return err
+			} else {
+				if err := tx.
+					Model(&existing).
+					Update("increment", metric.Increment).Error; err != nil {
+					return err
+				}
 			}
 		}
-	}
-
-	return nil
+		return nil
+	})
 }
 
 // DeleteByProjectIDAndTag deletes all metrics with the given project_id and tag.

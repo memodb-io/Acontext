@@ -137,40 +137,31 @@ function getCurrentHourTimestamp(): number {
   return Math.floor(now.getTime() / 1000)
 }
 
-// 检查指定 org 本月是否已经重置过
-async function hasOrgResetThisMonth(orgId: string): Promise<boolean> {
+// Atomically try to claim the monthly reset checkpoint for an org.
+// Returns true if this invocation claimed the reset (i.e., should proceed with reset).
+// Uses a Postgres RPC function with INSERT ... ON CONFLICT + WHERE clause to guarantee
+// only one concurrent caller succeeds (the upsert only fires when the value differs).
+async function tryClaimMonthlyReset(orgId: string): Promise<boolean> {
   const monthStartTimestamp = getCurrentMonthStartTimestamp()
   const checkpointId = `monthly_reset_${orgId}`
 
-  const { data: checkpoint } = await supabase
-    .from("usage_sync_global_checkpoint")
-    .select("last_processed_to_timestamp")
-    .eq("id", checkpointId)
-    .maybeSingle()
+  const { data: claimed, error } = await supabase.rpc("try_claim_monthly_reset", {
+    p_checkpoint_id: checkpointId,
+    p_month_start_timestamp: monthStartTimestamp,
+  })
 
-  if (!checkpoint) {
-    return false // 没有记录，说明还没重置过
+  if (error) {
+    console.error(`Failed to claim monthly reset checkpoint for ${orgId}:`, error)
+    return false
   }
 
-  // 检查 checkpoint 的时间戳是否等于当前月份第一天的时间戳
-  return checkpoint.last_processed_to_timestamp === monthStartTimestamp
-}
-
-// 记录指定 org 本月已重置
-async function markOrgMonthAsReset(orgId: string): Promise<void> {
-  const monthStartTimestamp = getCurrentMonthStartTimestamp()
-  const checkpointId = `monthly_reset_${orgId}`
-
-  await supabase.from("usage_sync_global_checkpoint").upsert({
-    id: checkpointId,
-    last_processed_to_timestamp: monthStartTimestamp,
-  })
+  return claimed === true
 }
 
 // 重置指定 org 的月初计数（针对需要重置的 metrics）
 async function resetOrgMonthlyCounters(orgId: string): Promise<void> {
-  // 检查是否已经重置过本月
-  if (await hasOrgResetThisMonth(orgId)) {
+  // Atomically claim the reset checkpoint — only one invocation proceeds
+  if (!(await tryClaimMonthlyReset(orgId))) {
     console.log(`Organization ${orgId} monthly counters already reset this month, skipping`)
     return
   }
@@ -221,9 +212,6 @@ async function resetOrgMonthlyCounters(orgId: string): Promise<void> {
       .eq("organization_id", orgId)
       .neq(usageField, 0) // 只更新非零值，提高效率
   }
-
-  // 记录本月已重置
-  await markOrgMonthAsReset(orgId)
 
   console.log(`Monthly counters reset completed for organization ${orgId}`)
 }
@@ -312,17 +300,25 @@ serve(async (req) => {
     }
 
     // Step 5: 先执行月初重置
+    // Track orgs whose reset failed — skip them in all subsequent steps
+    // to prevent Stripe from being billed on stale (pre-reset) cumulative counters.
+    const resetFailedOrgs = new Set<string>()
     for (const orgId of orgIdSet) {
       try {
         await resetOrgMonthlyCounters(orgId)
       } catch (error) {
         console.error(`Failed to reset monthly counters for ${orgId}:`, error)
+        resetFailedOrgs.add(orgId)
       }
+    }
+    if (resetFailedOrgs.size > 0) {
+      console.warn(`Skipping processing for ${resetFailedOrgs.size} org(s) with failed monthly reset: ${[...resetFailedOrgs].join(", ")}`)
     }
 
     // Step 5.5: 记录每个 org 处理前的 usage（用于 Stripe 超量计算）
     const orgInitialUsage = new Map<string, OrgUsageSnapshot>()
     for (const orgId of orgIdSet) {
+      if (resetFailedOrgs.has(orgId)) continue
       const { data: usage } = await supabase
         .from("organization_usage")
         .select("current_task, current_skill, current_fast_skill_search, current_agentic_skill_search, current_storage")
@@ -348,6 +344,7 @@ serve(async (req) => {
           console.warn(`No orgId found for project: ${m.project_id}`)
           continue
         }
+        if (resetFailedOrgs.has(orgId)) continue
         const processed = await processMetricWithoutStripe(m, orgId)
         if (processed) {
           processedMetrics.push(m)
@@ -359,6 +356,7 @@ serve(async (req) => {
 
     // Step 7: 聚合到 organization_usage
     for (const orgId of orgIdSet) {
+      if (resetFailedOrgs.has(orgId)) continue
       try {
         await aggregateOrganizationUsage(orgId)
       } catch (error) {
@@ -369,6 +367,7 @@ serve(async (req) => {
     // Step 8: 上报 Stripe
     // 8.1 上报 incremental metrics（只对有变化的 org，基于处理前后的 usage 差值）
     for (const orgId of orgIdSet) {
+      if (resetFailedOrgs.has(orgId)) continue
       try {
         const initialUsage = orgInitialUsage.get(orgId)
         if (!initialUsage) continue
@@ -390,16 +389,16 @@ serve(async (req) => {
     // 批量查询需要的数据，避免每个 metric 都查询数据库
     const quotaItems: QuotaItem[] = []
 
-    // 6.1 批量查询所有 org 的 billing 信息
-    const orgBillingMap = new Map<string, { plan: string }>()
+    // 6.1 批量查询所有 org 的 billing 信息（包含 payment_status）
+    const orgBillingMap = new Map<string, { plan: string; payment_status: string }>()
     const { data: allBillings } = await supabase
       .from("organization_billing")
-      .select("organization_id, plan")
+      .select("organization_id, plan, payment_status")
       .in("organization_id", [...orgIdSet])
 
     if (allBillings) {
       for (const b of allBillings) {
-        orgBillingMap.set(b.organization_id, { plan: b.plan })
+        orgBillingMap.set(b.organization_id, { plan: b.plan, payment_status: b.payment_status || "ok" })
       }
     }
 
@@ -447,6 +446,47 @@ serve(async (req) => {
       } catch (error) {
         console.error(`Failed to check quota for metric:`, m, error)
       }
+    }
+
+    // 6.5 For payment-blocked orgs, force excess=true for ALL metric tags on ALL their projects.
+    // This blocks both storage.usage (Go API) and task.created (CORE) enforcement.
+    const blockedOrgIds = [...orgBillingMap.entries()]
+      .filter(([, billing]) => billing.payment_status === "blocked")
+      .map(([orgId]) => orgId)
+
+    if (blockedOrgIds.length > 0) {
+      // Fetch ALL project_ids for blocked orgs from DB (not just those in current batch)
+      // to ensure enforcement even for projects that didn't send metrics this invocation.
+      const { data: blockedProjectRows } = await supabase
+        .from("organization_projects")
+        .select("project_id")
+        .in("organization_id", blockedOrgIds)
+      const blockedProjectIds = (blockedProjectRows ?? []).map((p) => p.project_id)
+
+      // All tracked metric tags that need blocking
+      const allTrackedTags = Object.keys(METRIC_HANDLERS)
+
+      for (const projectId of blockedProjectIds) {
+        for (const tag of allTrackedTags) {
+          // Force excess=true, overriding any existing excess=false entry
+          const existingIdx = quotaItems.findIndex(
+            (q) => q.project_id === projectId && q.tag === tag
+          )
+          if (existingIdx === -1) {
+            quotaItems.push({
+              project_id: projectId,
+              tag,
+              excess: true,
+            })
+          } else {
+            quotaItems[existingIdx].excess = true
+          }
+        }
+      }
+
+      console.log(
+        `Payment-blocked orgs: ${blockedOrgIds.join(", ")} — forced excess=true for ${blockedProjectIds.length} projects`
+      )
     }
 
     // 6️⃣ 返回结果（包含 quota 检查）
@@ -819,56 +859,33 @@ async function incrementUsage(
 ) {
   if (!config.usageField) return
 
-  // 先查询当前值（project 级别）
-  const { data: currentUsage } = await supabase
-    .from("project_usage")
-    .select(config.usageField)
-    .eq("project_id", projectId)
-    .maybeSingle()
+  // Use Postgres RPC for atomic increment to avoid read-modify-write race conditions.
+  // The function atomically: INSERT if not exists, or UPDATE field = field + increment.
+  const { error } = await supabase.rpc("increment_project_usage", {
+    p_project_id: projectId,
+    p_field: config.usageField,
+    p_increment: increment,
+  })
 
-  if (!currentUsage) {
-    // 如果记录不存在，创建新记录
-    await supabase.from("project_usage").insert({
-      project_id: projectId,
-      [config.usageField]: increment,
-    })
-  } else {
-    // 更新使用量（累加）
-    const currentValue = (currentUsage[config.usageField] as number) || 0
-    await supabase
-      .from("project_usage")
-      .update({
-        [config.usageField]: currentValue + increment,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("project_id", projectId)
+  if (error) {
+    console.error(`Failed to atomically increment usage for project ${projectId}, field ${config.usageField}:`, error)
   }
 }
 
 // 更新 storage usage（只更新数据，不上报 Stripe）
 async function updateStorageUsage(projectId: string, storageValue: number): Promise<void> {
-  // 直接设置 storage（因为 metric.increment 是总量，不是增量）
-  const { data: currentUsage } = await supabase
+  // Atomic upsert to avoid read-then-write race condition on first insert.
+  // Storage is a total (not a delta), so we always SET the value.
+  const { error } = await supabase
     .from("project_usage")
-    .select("current_storage")
-    .eq("project_id", projectId)
-    .maybeSingle()
-
-  if (!currentUsage) {
-    // 如果记录不存在，创建新记录
-    await supabase.from("project_usage").insert({
+    .upsert({
       project_id: projectId,
       current_storage: storageValue,
-    })
-  } else {
-    // 直接设置为 storageValue（因为是总量）
-    await supabase
-      .from("project_usage")
-      .update({
-        current_storage: storageValue,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("project_id", projectId)
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "project_id" })
+
+  if (error) {
+    console.error(`Failed to upsert storage usage for project ${projectId}:`, error)
   }
 }
 

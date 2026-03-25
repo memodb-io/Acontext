@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"crypto/subtle"
 	"errors"
 	"net/http"
 	"strings"
@@ -96,11 +97,13 @@ func AdminProjectAuth(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
 		// Parse and verify project token (base64 JSON with signature)
 		tokenData, err := tokens.ParseAndVerifyProjectToken(secret, cfg.Root.ApiBearerToken)
 		if err != nil {
+			authSpan.SetAttributes(attribute.Bool("authenticated", false))
 			authSpan.End()
 			c.AbortWithStatusJSON(http.StatusUnauthorized, serializer.AuthErr("Invalid token format"))
 			return
 		}
 		if !tokenData.Valid {
+			authSpan.SetAttributes(attribute.Bool("authenticated", false))
 			authSpan.End()
 			c.AbortWithStatusJSON(http.StatusUnauthorized, serializer.AuthErr("Invalid token signature"))
 			return
@@ -110,10 +113,12 @@ func AdminProjectAuth(cfg *config.Config, db *gorm.DB) gin.HandlerFunc {
 		var project model.Project
 		if err := db.WithContext(c.Request.Context()).Where(&model.Project{ID: tokenData.ProjectID}).First(&project).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
+				authSpan.SetAttributes(attribute.Bool("authenticated", false))
 				authSpan.End()
 				c.AbortWithStatusJSON(http.StatusUnauthorized, serializer.AuthErr("Project not found"))
 				return
 			}
+			authSpan.SetAttributes(attribute.Bool("authenticated", false))
 			authSpan.RecordError(err)
 			authSpan.End()
 			c.AbortWithStatusJSON(http.StatusInternalServerError, serializer.DBErr("", err))
@@ -153,7 +158,7 @@ func MetricsAuth(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
-		if raw != cfg.Root.ApiBearerToken {
+		if subtle.ConstantTimeCompare([]byte(raw), []byte(cfg.Root.ApiBearerToken)) != 1 {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, serializer.AuthErr("Unauthorized"))
 			return
 		}
