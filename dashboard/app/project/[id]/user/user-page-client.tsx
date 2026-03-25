@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { encodeId } from "@/lib/id-codec";
 import { useTopNavStore } from "@/stores/top-nav";
 import { Button } from "@/components/ui/button";
@@ -49,7 +49,6 @@ export function UserPageClient({
   allOrganizations,
   projects,
 }: UserPageClientProps) {
-  const router = useRouter();
   const { initialize, setHasSidebar } = useTopNavStore();
 
   useEffect(() => {
@@ -182,23 +181,7 @@ export function UserPageClient({
     return count.toString();
   };
 
-  const handleGoToDisks = (userIdentifier: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const encodedProjectId = encodeId(project.id);
-    router.push(`/project/${encodedProjectId}/disk?user=${encodeURIComponent(userIdentifier)}`);
-  };
-
-  const handleGoToSessions = (userIdentifier: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const encodedProjectId = encodeId(project.id);
-    router.push(`/project/${encodedProjectId}/session?user=${encodeURIComponent(userIdentifier)}`);
-  };
-
-  const handleGoToAgentSkills = (userIdentifier: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const encodedProjectId = encodeId(project.id);
-    router.push(`/project/${encodedProjectId}/agent-skills?user=${encodeURIComponent(userIdentifier)}`);
-  };
+  const encodedProjectId = encodeId(project.id);
 
   return (
     <div className="h-full bg-background p-6 flex flex-col overflow-hidden space-y-2">
@@ -302,30 +285,39 @@ export function UserPageClient({
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={(e) => handleGoToDisks(user.identifier, e)}
-                            disabled={!user.counts?.disks_count}
-                          >
-                            Disks
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={(e) => handleGoToSessions(user.identifier, e)}
-                            disabled={!user.counts?.sessions_count}
-                          >
-                            Sessions
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={(e) => handleGoToAgentSkills(user.identifier, e)}
-                            disabled={!user.counts?.skills_count}
-                          >
-                            Agent Skills
-                          </Button>
+                          {user.counts?.disks_count ? (
+                            <Button variant="secondary" size="sm" asChild>
+                              <Link href={`/project/${encodedProjectId}/disk?user=${encodeURIComponent(user.identifier)}`}>
+                                Disks
+                              </Link>
+                            </Button>
+                          ) : (
+                            <Button variant="secondary" size="sm" disabled>
+                              Disks
+                            </Button>
+                          )}
+                          {user.counts?.sessions_count ? (
+                            <Button variant="secondary" size="sm" asChild>
+                              <Link href={`/project/${encodedProjectId}/session?user=${encodeURIComponent(user.identifier)}`}>
+                                Sessions
+                              </Link>
+                            </Button>
+                          ) : (
+                            <Button variant="secondary" size="sm" disabled>
+                              Sessions
+                            </Button>
+                          )}
+                          {user.counts?.skills_count ? (
+                            <Button variant="secondary" size="sm" asChild>
+                              <Link href={`/project/${encodedProjectId}/agent-skills?user=${encodeURIComponent(user.identifier)}`}>
+                                Agent Skills
+                              </Link>
+                            </Button>
+                          ) : (
+                            <Button variant="secondary" size="sm" disabled>
+                              Agent Skills
+                            </Button>
+                          )}
                           <Button
                             variant="secondary"
                             size="sm"

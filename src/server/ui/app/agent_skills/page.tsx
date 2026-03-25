@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,8 +45,6 @@ const PAGE_SIZE = 20;
 export default function AgentSkillsPage() {
   const t = useTranslations("agentSkills");
   const tp = useTranslations("pagination");
-  const router = useRouter();
-
   const [skills, setSkills] = useState<AgentSkill[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -272,12 +270,10 @@ export default function AgentSkillsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => router.push(`/agent_skills/${skill.id}`)}
-                        >
-                          {t("viewDetails")}
+                        <Button variant="secondary" size="sm" asChild>
+                          <Link href={`/agent_skills/${skill.id}`}>
+                            {t("viewDetails")}
+                          </Link>
                         </Button>
                         <Button
                           variant="secondary"

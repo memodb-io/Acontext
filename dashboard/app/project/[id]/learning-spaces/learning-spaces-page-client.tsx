@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { encodeId } from "@/lib/id-codec";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,7 +86,6 @@ export function LearningSpacesPageClient({
   allOrganizations,
   projects,
 }: LearningSpacesPageClientProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { initialize, setHasSidebar } = useTopNavStore();
 
@@ -463,13 +463,6 @@ export function LearningSpacesPageClient({
                   {paginatedSpaces.map((space) => (
                     <TableRow
                       key={space.id}
-                      className="cursor-pointer"
-                      onClick={() => {
-                        const encodedSpaceId = encodeId(space.id);
-                        router.push(
-                          `/project/${encodedProjectId}/learning-spaces/${encodedSpaceId}`
-                        );
-                      }}
                     >
                       <TableCell className="font-mono text-sm">
                         {space.id}
@@ -494,18 +487,10 @@ export function LearningSpacesPageClient({
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const encodedSpaceId = encodeId(space.id);
-                              router.push(
-                                `/project/${encodedProjectId}/learning-spaces/${encodedSpaceId}`
-                              );
-                            }}
-                          >
-                            Details
+                          <Button variant="secondary" size="sm" asChild>
+                            <Link href={`/project/${encodedProjectId}/learning-spaces/${encodeId(space.id)}`}>
+                              Details
+                            </Link>
                           </Button>
                           <Button
                             variant="secondary"

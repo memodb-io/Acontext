@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import { encodeId } from "@/lib/id-codec";
 import { useTopNavStore } from "@/stores/top-nav";
 import { Button } from "@/components/ui/button";
@@ -86,7 +87,6 @@ export function SessionPageClient({
   allOrganizations,
   projects,
 }: SessionPageClientProps) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { initialize, setHasSidebar } = useTopNavStore();
 
@@ -369,19 +369,7 @@ export function SessionPageClient({
     }
   };
 
-  const handleGoToMessages = (sessionId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const encodedProjectId = encodeId(project.id);
-    const encodedSessionId = encodeId(sessionId);
-    router.push(`/project/${encodedProjectId}/session/${encodedSessionId}/messages`);
-  };
-
-  const handleGoToTasks = (sessionId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const encodedProjectId = encodeId(project.id);
-    const encodedSessionId = encodeId(sessionId);
-    router.push(`/project/${encodedProjectId}/session/${encodedSessionId}/task`);
-  };
+  const encodedProjectId = encodeId(project.id);
 
   return (
     <div className="h-full bg-background p-6 flex flex-col overflow-hidden space-y-2">
@@ -493,19 +481,15 @@ export function SessionPageClient({
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={(e) => handleGoToMessages(session.id, e)}
-                          >
-                            Messages
+                          <Button variant="secondary" size="sm" asChild>
+                            <Link href={`/project/${encodedProjectId}/session/${encodeId(session.id)}/messages`}>
+                              Messages
+                            </Link>
                           </Button>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={(e) => handleGoToTasks(session.id, e)}
-                          >
-                            Tasks
+                          <Button variant="secondary" size="sm" asChild>
+                            <Link href={`/project/${encodedProjectId}/session/${encodeId(session.id)}/task`}>
+                              Tasks
+                            </Link>
                           </Button>
                           <Button
                             variant="secondary"

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -53,7 +53,7 @@ function getValidMeta(meta: string, hasError: boolean): string | undefined {
 export default function LearningSpacesPage() {
   const t = useTranslations("learningSpaces");
   const tp = useTranslations("pagination");
-  const router = useRouter();
+
 
   const [spaces, setSpaces] = useState<LearningSpace[]>([]);
   const [userMap, setUserMap] = useState<Map<string, string>>(new Map());
@@ -354,10 +354,6 @@ export default function LearningSpacesPage() {
                 {paginatedSpaces.map((space) => (
                   <TableRow
                     key={space.id}
-                    className="cursor-pointer"
-                    onClick={() =>
-                      router.push(`/learning_spaces/${space.id}`)
-                    }
                   >
                     <TableCell className="font-mono text-sm">
                       {space.id.slice(0, 8)}&hellip;
@@ -382,15 +378,10 @@ export default function LearningSpacesPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/learning_spaces/${space.id}`);
-                          }}
-                        >
-                          {t("details")}
+                        <Button variant="secondary" size="sm" asChild>
+                          <Link href={`/learning_spaces/${space.id}`}>
+                            {t("details")}
+                          </Link>
                         </Button>
                         <Button
                           variant="secondary"

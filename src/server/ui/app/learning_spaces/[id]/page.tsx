@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -340,13 +341,11 @@ export default function LearningSpaceDetailPage() {
                       </Badge>
                     </div>
                     <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => router.push(`/agent_skills/${skill.id}?returnTo=${encodeURIComponent(`/learning_spaces/${id}`)}`)}
-                      >
-                        <FolderOpen className="h-4 w-4" />
-                        {t("viewFiles")}
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link href={`/agent_skills/${skill.id}?returnTo=${encodeURIComponent(`/learning_spaces/${id}`)}`}>
+                          <FolderOpen className="h-4 w-4" />
+                          {t("viewFiles")}
+                        </Link>
                       </Button>
                       <Button
                         variant="ghost"
@@ -441,17 +440,11 @@ export default function LearningSpaceDetailPage() {
                         {new Date(session.created_at).toLocaleString()}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() =>
-                            router.push(
-                              `/session/${session.session_id}/messages?returnTo=${encodeURIComponent(`/learning_spaces/${id}`)}`
-                            )
-                          }
-                        >
-                          <ExternalLink className="h-3 w-3 mr-1" />
-                          {t("viewSession")}
+                        <Button variant="secondary" size="sm" asChild>
+                          <Link href={`/session/${session.session_id}/messages?returnTo=${encodeURIComponent(`/learning_spaces/${id}`)}`}>
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            {t("viewSession")}
+                          </Link>
                         </Button>
                       </TableCell>
                     </TableRow>

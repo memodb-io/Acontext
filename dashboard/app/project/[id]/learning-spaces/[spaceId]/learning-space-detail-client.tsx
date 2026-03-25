@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { encodeId } from "@/lib/id-codec";
 import { useTopNavStore } from "@/stores/top-nav";
 import { Button } from "@/components/ui/button";
@@ -286,11 +287,13 @@ export function LearningSpaceDetailClient({
 
   const returnTo = `/project/${encodedProjectId}/learning-spaces/${encodeId(spaceId)}`;
 
-  const navigateToAgentSkills = (skill: SkillItem) => {
+  const getAgentSkillHref = (skill: SkillItem) => {
     const encodedSkillId = encodeId(skill.id);
-    router.push(
-      `/project/${encodedProjectId}/agent-skills/${encodedSkillId}?returnTo=${encodeURIComponent(returnTo)}`
-    );
+    return `/project/${encodedProjectId}/agent-skills/${encodedSkillId}?returnTo=${encodeURIComponent(returnTo)}`;
+  };
+
+  const navigateToAgentSkills = (skill: SkillItem) => {
+    router.push(getAgentSkillHref(skill));
   };
 
   if (isLoading) {
@@ -445,6 +448,7 @@ export function LearningSpaceDetailClient({
           <SkillList
             skills={skills}
             onSkillClick={navigateToAgentSkills}
+            getSkillHref={getAgentSkillHref}
             onSkillDelete={(skill) => setExcludeTarget(skill as AgentSkill)}
             emptyMessage="No skills associated. Add a skill to get started."
             deleteLabel="Remove"
@@ -490,20 +494,11 @@ export function LearningSpaceDetailClient({
                         {new Date(session.created_at).toLocaleString()}
                       </TableCell>
                       <TableCell>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => {
-                            const encodedSessionId = encodeId(
-                              session.session_id
-                            );
-                            router.push(
-                              `/project/${encodedProjectId}/session/${encodedSessionId}/messages?returnTo=${encodeURIComponent(returnTo)}`
-                            );
-                          }}
-                        >
-                          <ExternalLink className="h-3 w-3 mr-1" />
-                          View Session
+                        <Button variant="secondary" size="sm" asChild>
+                          <Link href={`/project/${encodedProjectId}/session/${encodeId(session.session_id)}/messages?returnTo=${encodeURIComponent(returnTo)}`}>
+                            <ExternalLink className="h-3 w-3 mr-1" />
+                            View Session
+                          </Link>
                         </Button>
                       </TableCell>
                     </TableRow>

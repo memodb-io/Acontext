@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ function getFileCount(skill: SkillItem): number {
 export interface SkillListProps {
   skills: SkillItem[];
   onSkillClick: (skill: SkillItem) => void;
+  getSkillHref?: (skill: SkillItem) => string;
   onSkillDelete?: (skill: SkillItem) => void;
   emptyMessage?: string;
   isLoading?: boolean;
@@ -28,6 +30,7 @@ export interface SkillListProps {
 export function SkillList({
   skills,
   onSkillClick,
+  getSkillHref,
   onSkillDelete,
   emptyMessage = "No skills found.",
   isLoading = false,
@@ -53,16 +56,16 @@ export function SkillList({
     );
   }
 
+  const cardClassName = "rounded-md border bg-card p-4 space-y-3 cursor-pointer hover:bg-accent/50 transition-colors block";
+
   return (
     <div className={cn("space-y-3", className)}>
       {skills.map((skill) => {
         const fileCount = getFileCount(skill);
-        return (
-          <div
-            key={skill.id}
-            className="rounded-md border bg-card p-4 space-y-3 cursor-pointer hover:bg-accent/50 transition-colors"
-            onClick={() => onSkillClick(skill)}
-          >
+        const href = getSkillHref?.(skill);
+
+        const cardContent = (
+          <>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <h3 className="font-medium text-sm">{skill.name}</h3>
@@ -71,17 +74,26 @@ export function SkillList({
                 ) : null}
               </div>
               <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSkillClick(skill);
-                  }}
-                >
-                  <FolderOpen className="h-4 w-4" />
-                  View Files
-                </Button>
+                {href ? (
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link href={href} onClick={(e) => e.stopPropagation()}>
+                      <FolderOpen className="h-4 w-4" />
+                      View Files
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSkillClick(skill);
+                    }}
+                  >
+                    <FolderOpen className="h-4 w-4" />
+                    View Files
+                  </Button>
+                )}
                 {onSkillDelete ? (
                   <Button
                     variant="ghost"
@@ -89,6 +101,7 @@ export function SkillList({
                     className="text-destructive hover:text-destructive"
                     onClick={(e) => {
                       e.stopPropagation();
+                      e.preventDefault();
                       onSkillDelete(skill);
                     }}
                   >
@@ -113,6 +126,16 @@ export function SkillList({
                 </pre>
               </div>
             ) : null}
+          </>
+        );
+
+        return href ? (
+          <Link key={skill.id} href={href} className={cn(cardClassName, "no-underline text-inherit")}>
+            {cardContent}
+          </Link>
+        ) : (
+          <div key={skill.id} className={cardClassName} onClick={() => onSkillClick(skill)}>
+            {cardContent}
           </div>
         );
       })}

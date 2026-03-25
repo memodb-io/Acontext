@@ -197,9 +197,13 @@ export function AgentSkillsPageClient({
     currentPage * PAGE_SIZE
   );
 
-  const handleSkillClick = (skill: SkillItem) => {
+  const getSkillHref = (skill: SkillItem) => {
     const encodedSkillId = encodeId(skill.id);
-    router.push(`/project/${encodedProjectId}/agent-skills/${encodedSkillId}`);
+    return `/project/${encodedProjectId}/agent-skills/${encodedSkillId}`;
+  };
+
+  const handleSkillClick = (skill: SkillItem) => {
+    router.push(getSkillHref(skill));
   };
 
   const handleSkillDelete = (skill: SkillItem) => {
@@ -445,6 +449,7 @@ export function AgentSkillsPageClient({
             <SkillList
               skills={paginatedSkills}
               onSkillClick={handleSkillClick}
+              getSkillHref={getSkillHref}
               onSkillDelete={handleSkillDelete}
               className="overflow-auto flex-1"
             />

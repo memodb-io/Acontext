@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,7 +53,6 @@ const PAGE_SIZE = 20;
 export default function SessionsPage() {
   const t = useTranslations("session");
   const tp = useTranslations("pagination");
-  const router = useRouter();
   const { resolvedTheme } = useTheme();
 
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -323,16 +322,6 @@ export default function SessionsPage() {
     }
   };
 
-  const handleGoToMessages = (sessionId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    router.push(`/session/${sessionId}/messages`);
-  };
-
-  const handleGoToTasks = (sessionId: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    router.push(`/session/${sessionId}/task`);
-  };
-
   return (
     <div className="h-full bg-background p-6 flex flex-col overflow-hidden space-y-2">
       <div className="shrink-0 space-y-4">
@@ -436,19 +425,15 @@ export default function SessionsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={(e) => handleGoToMessages(session.id, e)}
-                        >
-                          {t("messages")}
+                        <Button variant="secondary" size="sm" asChild>
+                          <Link href={`/session/${session.id}/messages`} onClick={(e) => e.stopPropagation()}>
+                            {t("messages")}
+                          </Link>
                         </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={(e) => handleGoToTasks(session.id, e)}
-                        >
-                          {t("tasks")}
+                        <Button variant="secondary" size="sm" asChild>
+                          <Link href={`/session/${session.id}/task`} onClick={(e) => e.stopPropagation()}>
+                            {t("tasks")}
+                          </Link>
                         </Button>
                         <Button
                           variant="secondary"

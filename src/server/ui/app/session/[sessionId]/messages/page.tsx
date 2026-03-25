@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
@@ -826,13 +827,11 @@ export default function MessagesPage() {
                             </TableCell>
                             <TableCell>
                               {event.type === 'disk_event' && typeof event.data.disk_id === 'string' && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => router.push(`/disk?diskId=${event.data.disk_id}`)}
-                                >
-                                  <HardDrive className="h-3.5 w-3.5" />
-                                  Disk
+                                <Button variant="outline" size="sm" asChild>
+                                  <Link href={`/disk?diskId=${event.data.disk_id}`}>
+                                    <HardDrive className="h-3.5 w-3.5" />
+                                    Disk
+                                  </Link>
                                 </Button>
                               )}
                             </TableCell>
@@ -872,26 +871,29 @@ export default function MessagesPage() {
                             >
                               {t("view")}
                             </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={!message.task_id}
-                              onClick={() => {
-                                if (message.task_id) {
-                                  router.push(
-                                    `/session/${sessionId}/task?taskId=${message.task_id}`
-                                  );
-                                }
-                              }}
-                              title={
-                                message.task_id
-                                  ? `${t("viewTask")} ${message.task_id.substring(0, 8)}...`
-                                  : t("noTaskAssociated")
-                              }
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                              {t("task")}
-                            </Button>
+                            {message.task_id ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                asChild
+                                title={`${t("viewTask")} ${message.task_id.substring(0, 8)}...`}
+                              >
+                                <Link href={`/session/${sessionId}/task?taskId=${message.task_id}`}>
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                  {t("task")}
+                                </Link>
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled
+                                title={t("noTaskAssociated")}
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                                {t("task")}
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
