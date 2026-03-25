@@ -42,10 +42,21 @@ const __EXTERNAL_MODULES = {
 handler = staticImports + handler;
 
 // Patch externalImport to check __EXTERNAL_MODULES first
+// The parameter name varies across bundler versions (id, id2, etc.), so match any identifier
+let externalImportPatched = false;
 handler = handler.replace(
-  /async function externalImport\(id\)\{let raw;try\{/g,
-  'async function externalImport(id){let raw;try{if(typeof __EXTERNAL_MODULES!=="undefined"&&id in __EXTERNAL_MODULES){raw=__EXTERNAL_MODULES[id]}else '
+  /async function externalImport\((\w+)\)\{let raw;try\{/g,
+  (_match, paramName) => {
+    externalImportPatched = true;
+    return `async function externalImport(${paramName}){let raw;try{if(typeof __EXTERNAL_MODULES!=="undefined"&&${paramName} in __EXTERNAL_MODULES){raw=__EXTERNAL_MODULES[${paramName}]}else `;
+  }
 );
+
+if (!externalImportPatched) {
+  console.error('ERROR: Failed to patch externalImport function — regex did not match.');
+  console.error('The bundled handler.mjs may have changed its function signature.');
+  process.exit(1);
+}
 
 writeFileSync(HANDLER_PATH, handler);
 
