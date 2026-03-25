@@ -87,6 +87,21 @@ async def fetch_current_tasks(
     return Result.resolve(tasks_d)
 
 
+async def fetch_first_task_description(
+    db_session: AsyncSession, session_id: asUUID
+) -> Result[str | None]:
+    query = (
+        select(Task)
+        .where(Task.session_id == session_id)
+        .where(Task.is_planning == False)  # noqa: E712
+        .order_by(Task.order.asc())
+        .limit(1)
+    )
+    task = (await db_session.execute(query)).scalars().first()
+    description = task.data.get("task_description", "").strip() if task else ""
+    return Result.resolve(description or None)
+
+
 async def update_task(
     db_session: AsyncSession,
     task_id: asUUID,
