@@ -381,6 +381,59 @@ interface DeleteCustomerResponse {
 /**
  * Delete Stripe customer and cancel subscriptions when organization is deleted
  */
+// ============ Upcoming Invoice (Overage) ============
+
+export interface OverageLineItem {
+  meter: string;
+  metric_key: string;
+  description: string;
+  quantity: number;
+  unit_amount: number; // in cents
+  amount: number; // in cents
+}
+
+export interface UpcomingInvoiceData {
+  line_items: OverageLineItem[];
+  total_overage: number; // in cents
+  currency: string;
+}
+
+export interface GetUpcomingInvoiceResult {
+  data?: UpcomingInvoiceData;
+  error?: string;
+}
+
+export async function getUpcomingInvoice(
+  organizationId: string
+): Promise<GetUpcomingInvoiceResult> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.functions.invoke(
+      "get-upcoming-invoice",
+      {
+        body: { organization_id: organizationId },
+      }
+    );
+
+    if (error) {
+      console.error("Error fetching upcoming invoice:", error);
+      return { error: error.message || "Failed to fetch upcoming invoice" };
+    }
+
+    return { data: data as UpcomingInvoiceData };
+  } catch (error) {
+    console.error("Error fetching upcoming invoice:", error);
+    return {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch upcoming invoice",
+    };
+  }
+}
+
+// ============ Delete Customer ============
+
 export async function deleteCustomer(
   organizationId: string
 ): Promise<DeleteCustomerResult> {

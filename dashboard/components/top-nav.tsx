@@ -328,9 +328,11 @@ function UsageIndicator({ className }: { className?: string }) {
     };
   }, [fetched, user]);
 
-  // Check if any org has critical usage (>=90%)
+  // Check if any FREE plan org has critical usage (>=90%)
+  // Paid plans use pay-per-use overage, so no warning needed
   const hasWarning = React.useMemo(() => {
     return usageData.some((org) => {
+      if (org.plan !== "free") return false;
       const metrics = [
         { current: org.usage.current_task, max: org.limits.max_task },
         { current: org.usage.current_storage, max: org.limits.max_storage },
@@ -341,7 +343,9 @@ function UsageIndicator({ className }: { className?: string }) {
     });
   }, [usageData]);
 
-  const getBarColor = (percentage: number) => {
+  const getBarColor = (percentage: number, plan: string) => {
+    // Paid plans use pay-per-use overage — no alarming colors needed
+    if (plan !== "free") return "bg-primary";
     if (percentage >= 90) return "bg-red-500";
     if (percentage >= 70) return "bg-amber-500";
     return "bg-primary";
@@ -390,13 +394,24 @@ function UsageIndicator({ className }: { className?: string }) {
                   : 0;
               const maxPct = Math.max(taskPct, storagePct);
               const encodedId = encodeId(org.orgId);
+              // For paid plans, check if any metric exceeds included quota
+              const hasOverage =
+                org.plan !== "free" &&
+                ((org.limits.max_task > 0 &&
+                  org.usage.current_task > org.limits.max_task) ||
+                  (org.limits.max_storage > 0 &&
+                    org.usage.current_storage > org.limits.max_storage));
 
               return (
                 <button
                   key={org.orgId}
                   className="w-full px-3 py-2.5 text-left hover:bg-muted/50 transition-colors border-b last:border-b-0 cursor-pointer"
                   onClick={() => {
-                    router.push(`/org/${encodedId}/billing`);
+                    router.push(
+                      hasOverage
+                        ? `/org/${encodedId}/usage`
+                        : `/org/${encodedId}/billing`
+                    );
                   }}
                 >
                   <div className="flex items-center justify-between mb-1.5">
@@ -404,7 +419,7 @@ function UsageIndicator({ className }: { className?: string }) {
                       <span className="text-sm font-medium truncate">
                         {org.orgName}
                       </span>
-                      {maxPct >= 90 && (
+                      {org.plan === "free" && maxPct >= 90 && (
                         <span className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0" />
                       )}
                     </div>
@@ -423,7 +438,7 @@ function UsageIndicator({ className }: { className?: string }) {
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                       <div
-                        className={`h-full rounded-full transition-all ${getBarColor(taskPct)}`}
+                        className={`h-full rounded-full transition-all ${getBarColor(taskPct, org.plan)}`}
                         style={{ width: `${taskPct}%` }}
                       />
                     </div>
@@ -441,11 +456,18 @@ function UsageIndicator({ className }: { className?: string }) {
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
                       <div
-                        className={`h-full rounded-full transition-all ${getBarColor(storagePct)}`}
+                        className={`h-full rounded-full transition-all ${getBarColor(storagePct, org.plan)}`}
                         style={{ width: `${storagePct}%` }}
                       />
                     </div>
                   </div>
+                  {/* Overage hint for paid plans */}
+                  {hasOverage && (
+                    <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
+                      <span>Overage detected — view details</span>
+                      <ExternalLink className="h-2.5 w-2.5" />
+                    </div>
+                  )}
                 </button>
               );
             })

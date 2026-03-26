@@ -960,7 +960,14 @@ function checkQuotaExcessWithCache(
   // 1. 检查是否为 free plan
   const billing = orgBillingMap.get(orgId)
   if (!billing || billing.plan !== "free") {
-    return null // 不是 free plan，不需要检查
+    // Non-free plan: explicitly return excess=false so the API clears any
+    // leftover quota enforcement items (Redis keys + DB records) that were
+    // set while the org was still on the free plan.
+    return {
+      project_id: m.project_id,
+      tag: m.tag,
+      excess: false,
+    }
   }
 
   // 2. 获取配置
