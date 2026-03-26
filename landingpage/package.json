@@ -87,16 +87,12 @@
       "workerd"
     ],
     "overrides": {
-      "@isaacs/brace-expansion": ">=5.0.1",
       "lodash": ">=4.17.23",
-      "esbuild": ">=0.25.0",
-      "qs": ">=6.14.2",
-      "fast-xml-parser": ">=5.3.6",
       "ajv@<6.14.0": "6.14.0",
       "ajv@>=7.0.0-alpha.0 <8.18.0": "8.18.0",
       "minimatch@>=8.0.0 <10.2.3": "10.2.3",
-      "dompurify": ">=3.2.8",
-      "undici": ">=7.24.0"
+      "picomatch@<4": ">=2.3.2",
+      "flatted": ">=3.4.2"
     }
   },
   "cloudflare": {

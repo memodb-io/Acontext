@@ -56,6 +56,7 @@
     "README.md"
   ],
   "overrides": {
-    "minimatch": ">=10.0.1"
+    "picomatch": ">=2.3.2",
+    "flatted": ">=3.4.2"
   }
 }

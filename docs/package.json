@@ -56,8 +56,6 @@
       "sharp",
       "workerd"
     ],
-    "overrides": {
-      "undici": ">=7.24.0"
-    }
+    "overrides": {}
   }
 }
