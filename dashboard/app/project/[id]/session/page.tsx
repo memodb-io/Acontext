@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { SessionPageClient } from "./session-page-client";
 import {
@@ -39,16 +40,18 @@ export default async function SessionPage({ params }: PageProps) {
   const { currentOrganization, allOrganizations, projects = [] } = orgData;
 
   return (
-    <SessionPageClient
-      project={{
-        id: project.project_id,
-        name: project.name,
-        organization_id: project.organization_id,
-        created_at: project.created_at,
-      }}
-      currentOrganization={currentOrganization}
-      allOrganizations={allOrganizations}
-      projects={projects}
-    />
+    <Suspense>
+      <SessionPageClient
+        project={{
+          id: project.project_id,
+          name: project.name,
+          organization_id: project.organization_id,
+          created_at: project.created_at,
+        }}
+        currentOrganization={currentOrganization}
+        allOrganizations={allOrganizations}
+        projects={projects}
+      />
+    </Suspense>
   );
 }

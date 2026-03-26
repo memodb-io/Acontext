@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { TaskPageClient } from "./task-page-client";
 import {
@@ -25,14 +26,16 @@ export default async function TaskPage({ params }: PageProps) {
   }
 
   return (
-    <TaskPageClient
-      project={{
-        id: project.project_id,
-        name: project.name,
-        organization_id: project.organization_id,
-        created_at: project.created_at,
-      }}
-      sessionId={actualSessionId}
-    />
+    <Suspense>
+      <TaskPageClient
+        project={{
+          id: project.project_id,
+          name: project.name,
+          organization_id: project.organization_id,
+          created_at: project.created_at,
+        }}
+        sessionId={actualSessionId}
+      />
+    </Suspense>
   );
 }

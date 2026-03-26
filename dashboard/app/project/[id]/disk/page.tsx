@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { DiskPageClient } from "./disk-page-client";
 import {
@@ -39,16 +40,18 @@ export default async function DiskPage({ params }: PageProps) {
   const { currentOrganization, allOrganizations, projects = [] } = orgData;
 
   return (
-    <DiskPageClient
-      project={{
-        id: project.project_id,
-        name: project.name,
-        organization_id: project.organization_id,
-        created_at: project.created_at,
-      }}
-      currentOrganization={currentOrganization}
-      allOrganizations={allOrganizations}
-      projects={projects}
-    />
+    <Suspense>
+      <DiskPageClient
+        project={{
+          id: project.project_id,
+          name: project.name,
+          organization_id: project.organization_id,
+          created_at: project.created_at,
+        }}
+        currentOrganization={currentOrganization}
+        allOrganizations={allOrganizations}
+        projects={projects}
+      />
+    </Suspense>
   );
 }

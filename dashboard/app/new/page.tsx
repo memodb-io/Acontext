@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { useSearchParams } from "next/navigation";
 
@@ -45,6 +45,14 @@ function SubmitButton({
 }
 
 export default function NewOrganizationPage() {
+  return (
+    <Suspense>
+      <NewOrganizationContent />
+    </Suspense>
+  );
+}
+
+function NewOrganizationContent() {
   const searchParams = useSearchParams();
   const error = searchParams.get("error");
   const { initialize } = useTopNavStore();

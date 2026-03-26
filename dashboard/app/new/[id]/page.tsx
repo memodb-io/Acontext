@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { NewProjectPageClient } from "./new-project-page-client";
 import { getOrganizationDataWithPlan } from "@/lib/supabase";
@@ -24,10 +25,12 @@ export default async function NewProjectPage({ params }: PageProps) {
   const { currentOrganization, allOrganizations } = orgData;
 
   return (
-    <NewProjectPageClient
-      orgId={actualId}
-      currentOrganization={currentOrganization}
-      allOrganizations={allOrganizations}
-    />
+    <Suspense>
+      <NewProjectPageClient
+        orgId={actualId}
+        currentOrganization={currentOrganization}
+        allOrganizations={allOrganizations}
+      />
+    </Suspense>
   );
 }

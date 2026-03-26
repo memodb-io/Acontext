@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { LearningSpacesPageClient } from "./learning-spaces-page-client";
 import {
@@ -35,16 +36,18 @@ export default async function LearningSpacesPage({ params }: PageProps) {
   const { currentOrganization, allOrganizations, projects = [] } = orgData;
 
   return (
-    <LearningSpacesPageClient
-      project={{
-        id: project.project_id,
-        name: project.name,
-        organization_id: project.organization_id,
-        created_at: project.created_at,
-      }}
-      currentOrganization={currentOrganization}
-      allOrganizations={allOrganizations}
-      projects={projects}
-    />
+    <Suspense>
+      <LearningSpacesPageClient
+        project={{
+          id: project.project_id,
+          name: project.name,
+          organization_id: project.organization_id,
+          created_at: project.created_at,
+        }}
+        currentOrganization={currentOrganization}
+        allOrganizations={allOrganizations}
+        projects={projects}
+      />
+    </Suspense>
   );
 }

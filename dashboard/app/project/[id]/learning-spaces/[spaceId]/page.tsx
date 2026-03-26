@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { LearningSpaceDetailClient } from "./learning-space-detail-client";
 import {
@@ -24,14 +25,16 @@ export default async function LearningSpaceDetailPage({ params }: PageProps) {
   }
 
   return (
-    <LearningSpaceDetailClient
-      project={{
-        id: project.project_id,
-        name: project.name,
-        organization_id: project.organization_id,
-        created_at: project.created_at,
-      }}
-      spaceId={actualSpaceId}
-    />
+    <Suspense>
+      <LearningSpaceDetailClient
+        project={{
+          id: project.project_id,
+          name: project.name,
+          organization_id: project.organization_id,
+          created_at: project.created_at,
+        }}
+        spaceId={actualSpaceId}
+      />
+    </Suspense>
   );
 }

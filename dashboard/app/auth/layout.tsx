@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -40,7 +41,7 @@ export default function AuthPage({ children }: { children: React.ReactNode }) {
           </div>
         </div>
         <div className="flex flex-1 items-center justify-center">
-          <div className="w-full max-w-xs">{children}</div>
+          <div className="w-full max-w-xs"><Suspense>{children}</Suspense></div>
         </div>
       </div>
       <div className="bg-muted relative hidden lg:block">

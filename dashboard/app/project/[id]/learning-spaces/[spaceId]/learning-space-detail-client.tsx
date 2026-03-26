@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { encodeId } from "@/lib/id-codec";
 import { useTopNavStore } from "@/stores/top-nav";
@@ -77,6 +77,8 @@ export function LearningSpaceDetailClient({
   spaceId,
 }: LearningSpaceDetailClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
   const { initialize, setHasSidebar } = useTopNavStore();
 
   useEffect(() => {
@@ -96,7 +98,22 @@ export function LearningSpaceDetailClient({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState("skills");
+  const validTabs = ["metadata", "skills", "sessions"];
+  const tabParam = searchParams.get("tab");
+  const activeTab = validTabs.includes(tabParam ?? "") ? tabParam! : "skills";
+  const setActiveTab = useCallback(
+    (tab: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (tab === "skills") {
+        params.delete("tab");
+      } else {
+        params.set("tab", tab);
+      }
+      const qs = params.toString();
+      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+    },
+    [searchParams, pathname, router],
+  );
 
   // Metadata editor
   const [metaValue, setMetaValue] = useState("{}");
