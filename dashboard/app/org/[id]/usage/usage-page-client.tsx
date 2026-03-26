@@ -138,7 +138,7 @@ export function UsagePageClient({
     totalOverage: number;
     currency: string;
   } | null>(null);
-  const [overageLoading, setOverageLoading] = useState(false);
+  const [overageLoading, setOverageLoading] = useState(!isFreePlan && !!currentOrganization.id);
 
   useEffect(() => {
     initialize({
@@ -160,7 +160,6 @@ export function UsagePageClient({
     if (isFreePlan || !currentOrganization.id) return;
 
     let cancelled = false;
-    setOverageLoading(true);
 
     getUpcomingInvoice(currentOrganization.id).then((result) => {
       if (cancelled) return;
