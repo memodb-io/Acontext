@@ -18,7 +18,7 @@ Custom base URL for LLM API endpoints. Leave unset to use the provider's default
 </ParamField>
 
 <ParamField path="LLM_SDK" type="string" default="openai">
-LLM provider to use. Supported values: `openai`, `anthropic`
+LLM provider to use. Supported values: `openai`, `anthropic`, `minimax`
 </ParamField>
 
 <ParamField path="LLM_SIMPLE_MODEL" type="string" default="gpt-4.1">
@@ -83,6 +83,17 @@ BLOCK_EMBEDDING_SEARCH_COSINE_DISTANCE_THRESHOLD=0.8
 LLM_API_KEY=your-anthropic-api-key
 LLM_SDK=anthropic
 LLM_SIMPLE_MODEL=claude-3-sonnet-20240229
+
+# Keep OpenAI for embeddings (recommended)
+BLOCK_EMBEDDING_PROVIDER=openai
+BLOCK_EMBEDDING_API_KEY=sk-your-openai-key-for-embeddings
+```
+
+```bash title="MiniMax Setup"
+# Using MiniMax (OpenAI-compatible API)
+LLM_API_KEY=your-minimax-api-key
+LLM_SDK=minimax
+LLM_SIMPLE_MODEL=MiniMax-M2.7
 
 # Keep OpenAI for embeddings (recommended)
 BLOCK_EMBEDDING_PROVIDER=openai

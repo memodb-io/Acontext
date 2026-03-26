@@ -128,7 +128,7 @@ mkdir acontext_server && cd acontext_server
 acontext server up
 ```
 
-> Make sure your LLM has the ability to [call tools](https://platform.openai.com/docs/guides/function-calling). By default, Acontext will use `gpt-4.1`.
+> Make sure your LLM has the ability to [call tools](https://platform.openai.com/docs/guides/function-calling). By default, Acontext will use `gpt-4.1`. You can also use other LLM providers by setting `LLM_SDK` to `anthropic` or `minimax` in your `.env` file.
 
 `acontext server up` will create/use `.env` and `config.yaml` for Acontext, and create a `db` folder to persist data.
 
