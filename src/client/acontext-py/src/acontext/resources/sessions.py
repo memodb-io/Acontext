@@ -5,11 +5,12 @@ from collections.abc import Mapping
 from dataclasses import asdict
 from typing import Any, BinaryIO, Literal, Optional, List
 
-from .._utils import build_params, validate_edit_strategies
+from .._utils import build_params, validate_edit_strategies, validate_editing_trigger
 from ..client_types import RequesterProtocol
 from ..messages import AcontextMessage
 from ..types.session import (
     EditStrategy,
+    EditingTrigger,
     CopySessionResult,
     GetMessagesOutput,
     GetTasksOutput,
@@ -373,6 +374,8 @@ class SessionsAPI:
         format: Literal["acontext", "openai", "anthropic", "gemini"] = "openai",
         time_desc: bool | None = None,
         edit_strategies: Optional[List[EditStrategy]] = None,
+        # editing_trigger triggers edit_strategies (v0 supports {"token_gte": int}).
+        editing_trigger: EditingTrigger | BaseModel | None = None,
         pin_editing_strategies_at_message: str | None = None,
     ) -> GetMessagesOutput:
         """Get messages for a session.
@@ -393,6 +396,7 @@ class SessionsAPI:
                     - Middle out: [{"type": "middle_out", "params": {"token_reduce_to": 5000}}]
                     - Token limit: [{"type": "token_limit", "params": {"limit_tokens": 20000}}]
                 Defaults to None.
+            editing_trigger: Trigger config for edit_strategies, e.g. {"token_gte": 30000}. Defaults to None.
             pin_editing_strategies_at_message: Message ID to pin editing strategies at.
                 When provided, strategies are only applied to messages up to and including
                 this message ID, keeping subsequent messages unchanged. This helps maintain
@@ -418,6 +422,11 @@ class SessionsAPI:
         if edit_strategies is not None:
             validate_edit_strategies(edit_strategies)
             params["edit_strategies"] = json.dumps(edit_strategies)
+        if editing_trigger is not None:
+            if isinstance(editing_trigger, BaseModel):
+                editing_trigger = editing_trigger.model_dump()
+            validate_editing_trigger(editing_trigger)
+            params["editing_trigger"] = json.dumps(editing_trigger)
         if pin_editing_strategies_at_message is not None:
             params["pin_editing_strategies_at_message"] = (
                 pin_editing_strategies_at_message

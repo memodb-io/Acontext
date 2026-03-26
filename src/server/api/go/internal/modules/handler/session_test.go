@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 
 	"github.com/bytedance/sonic"
@@ -4081,5 +4082,178 @@ func TestSessionHandler_CopySession_InternalError(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "INTERNAL_ERROR", response["msg"])
 
+	mockService.AssertExpectations(t)
+}
+
+func TestSessionHandler_GetMessages_ServiceTokenCountError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	sessionID := uuid.New()
+	mockService := &MockSessionService{}
+	mockService.On("GetMessages", mock.Anything, mock.Anything).Return(nil, service.ErrGetMessagesTokenCount)
+
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
+	router := setupSessionRouter()
+	router.GET("/session/:session_id/messages", handler.GetMessages)
+
+	req := httptest.NewRequest("GET", "/session/"+sessionID.String()+"/messages?limit=20", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+	mockService.AssertExpectations(t)
+}
+
+func TestSessionHandler_GetMessages_UsesServiceThisTimeTokens(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	sessionID := uuid.New()
+	mockService := &MockSessionService{}
+	mockService.On("GetMessages", mock.Anything, mock.Anything).Return(&service.GetMessagesOutput{
+		Items: []model.Message{
+			{
+				ID:        uuid.New(),
+				SessionID: sessionID,
+				Role:      model.RoleUser,
+			},
+		},
+		HasMore:        false,
+		ThisTimeTokens: 999,
+	}, nil)
+
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
+	router := setupSessionRouter()
+	router.GET("/session/:session_id/messages", handler.GetMessages)
+
+	req := httptest.NewRequest("GET", "/session/"+sessionID.String()+"/messages?limit=20", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	mockService.AssertExpectations(t)
+
+	var response map[string]interface{}
+	err := sonic.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+
+	data, ok := response["data"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, float64(999), data["this_time_tokens"])
+}
+
+func TestSessionHandler_GetMessages_RejectsEmptyEditingTrigger(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	sessionID := uuid.New()
+	mockService := &MockSessionService{}
+
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
+	router := setupSessionRouter()
+	router.GET("/session/:session_id/messages", handler.GetMessages)
+
+	editStrategies := `[{"type":"token_limit","params":{"limit_tokens":100}}]`
+	reqURL := "/session/" + sessionID.String() + "/messages?limit=20&edit_strategies=" +
+		url.QueryEscape(editStrategies) + "&editing_trigger=" + url.QueryEscape(`{}`)
+	req := httptest.NewRequest("GET", reqURL, nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	mockService.AssertNotCalled(t, "GetMessages")
+}
+
+func TestSessionHandler_GetMessages_RejectsUnknownEditingTrigger(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	sessionID := uuid.New()
+	mockService := &MockSessionService{}
+
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
+	router := setupSessionRouter()
+	router.GET("/session/:session_id/messages", handler.GetMessages)
+
+	editStrategies := `[{"type":"token_limit","params":{"limit_tokens":100}}]`
+	reqURL := "/session/" + sessionID.String() + "/messages?limit=20&edit_strategies=" +
+		url.QueryEscape(editStrategies) + "&editing_trigger=" + url.QueryEscape(`{"unknown":1}`)
+	req := httptest.NewRequest("GET", reqURL, nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	mockService.AssertNotCalled(t, "GetMessages")
+}
+
+func TestSessionHandler_GetMessages_RejectsInvalidTokenGte(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	sessionID := uuid.New()
+	mockService := &MockSessionService{}
+
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
+	router := setupSessionRouter()
+	router.GET("/session/:session_id/messages", handler.GetMessages)
+
+	editStrategies := `[{"type":"token_limit","params":{"limit_tokens":100}}]`
+	reqURL := "/session/" + sessionID.String() + "/messages?limit=20&edit_strategies=" +
+		url.QueryEscape(editStrategies) + "&editing_trigger=" + url.QueryEscape(`{"token_gte":0}`)
+	req := httptest.NewRequest("GET", reqURL, nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	mockService.AssertNotCalled(t, "GetMessages")
+}
+
+func TestSessionHandler_GetMessages_RejectsTriggerWithoutStrategies(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	sessionID := uuid.New()
+	mockService := &MockSessionService{}
+
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
+	router := setupSessionRouter()
+	router.GET("/session/:session_id/messages", handler.GetMessages)
+
+	reqURL := "/session/" + sessionID.String() + "/messages?limit=20&editing_trigger=" + url.QueryEscape(`{"token_gte":1}`)
+	req := httptest.NewRequest("GET", reqURL, nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	mockService.AssertNotCalled(t, "GetMessages")
+}
+
+func TestSessionHandler_GetMessages_AcceptsValidEditingTrigger(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	sessionID := uuid.New()
+	mockService := &MockSessionService{}
+	mockService.On(
+		"GetMessages",
+		mock.Anything,
+		mock.MatchedBy(func(in service.GetMessagesInput) bool {
+			if in.EditingTrigger == nil || in.EditingTrigger.TokenGte == nil {
+				return false
+			}
+			return *in.EditingTrigger.TokenGte == 30000
+		}),
+	).Return(&service.GetMessagesOutput{
+		Items:          []model.Message{},
+		HasMore:        false,
+		ThisTimeTokens: 0,
+	}, nil)
+
+	handler := NewSessionHandler(mockService, &MockUserService{}, getMockSessionCoreClient())
+	router := setupSessionRouter()
+	router.GET("/session/:session_id/messages", handler.GetMessages)
+
+	editStrategies := `[{"type":"token_limit","params":{"limit_tokens":100}}]`
+	reqURL := "/session/" + sessionID.String() + "/messages?limit=20&edit_strategies=" +
+		url.QueryEscape(editStrategies) + "&editing_trigger=" + url.QueryEscape(`{"token_gte":30000}`)
+	req := httptest.NewRequest("GET", reqURL, nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
 	mockService.AssertExpectations(t)
 }

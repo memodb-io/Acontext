@@ -318,3 +318,15 @@ export const EditStrategySchema = z.union([
 ]);
 
 export type EditStrategy = z.infer<typeof EditStrategySchema>;
+
+/**
+ * Trigger config for applying edit strategies.
+ * v0 supports only token_gte.
+ */
+export const EditingTriggerSchema = z.object({
+  token_gte: z.number().int().positive().optional(),
+}).strict().refine((value) => Object.keys(value).length > 0, {
+  message: 'editingTrigger must include at least one supported field',
+});
+
+export type EditingTrigger = z.infer<typeof EditingTriggerSchema>;
