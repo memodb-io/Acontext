@@ -516,7 +516,7 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 			c.JSON(http.StatusBadRequest, serializer.ParamErr("editing_trigger requires edit_strategies", errors.New("missing edit_strategies")))
 			return
 		}
-		allowedTriggerKeys := map[string]struct{}{if err := sonic.Unmarshal([]byte(req.EditingTrigger), &raw); err != nil {            c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger JSON", err))            return        }
+
 		var trig service.EditingTrigger
 		if err := json.Unmarshal([]byte(req.EditingTrigger), &trig); err != nil {
 			var unsupportedErr editingtrigger.UnsupportedTriggerError
