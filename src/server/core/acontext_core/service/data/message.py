@@ -1,7 +1,7 @@
 import asyncio
 import json
 from typing import List
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import ValidationError
 from datetime import datetime
@@ -127,6 +127,148 @@ async def fetch_messages_data_by_ids(
         return Result.reject(f"Error fetching messages by IDs {message_ids}: {e}")
 
 
+async def fetch_message_branch_path_ids(
+    db_session: AsyncSession,
+    message_id: asUUID,
+    session_id: asUUID | None = None,
+) -> Result[List[asUUID]]:
+    """
+    Fetch one message's branch path from root to the target message.
+
+    Uses a recursive CTE to walk parent_id upward in one query.
+
+    Args:
+        db_session: Database session
+        message_id: Leaf or intermediate message UUID to start from
+        session_id: Optional session UUID to verify the full path belongs to
+
+    Returns:
+        Result containing message IDs ordered from root to target message
+    """
+    try:
+        query = text(
+            """
+            WITH RECURSIVE message_path AS (
+                SELECT id, parent_id, session_id, 0 AS depth
+                FROM messages
+                WHERE id = :message_id
+
+                UNION ALL
+
+                SELECT parent.id, parent.parent_id, parent.session_id, child.depth + 1 AS depth
+                FROM messages AS parent
+                JOIN message_path AS child
+                  ON parent.id = child.parent_id
+            )
+            SELECT id, session_id, depth
+            FROM message_path
+            ORDER BY depth DESC, id ASC
+            """
+        )
+        result = await db_session.execute(query, {"message_id": message_id})
+        rows = result.mappings().all()
+
+        if not rows:
+            return Result.reject(f"Message {message_id} doesn't exist")
+
+        path_ids = [row["id"] for row in rows]
+        path_session_ids = {row["session_id"] for row in rows}
+
+        if session_id is not None and path_session_ids != {session_id}:
+            return Result.reject(
+                f"Message {message_id} does not belong to session {session_id}"
+            )
+
+        if len(path_session_ids) != 1:
+            return Result.reject(
+                f"Message {message_id} has an invalid cross-session parent chain"
+            )
+
+        return Result.resolve(path_ids)
+    except Exception as e:
+        return Result.reject(
+            f"Error fetching branch path for message {message_id}: {e}"
+        )
+
+
+async def branch_pending_message_length(
+    db_session: AsyncSession,
+    message_id: asUUID,
+    status: str = "pending",
+    session_id: asUUID | None = None,
+) -> Result[int]:
+    """
+    Count pending messages on one message's branch path from root to target.
+
+    Args:
+        db_session: Database session
+        message_id: Target message UUID
+        status: Status filter for messages on the branch
+        session_id: Optional session UUID to verify the full path belongs to
+
+    Returns:
+        Result containing the count of matching messages on the branch path
+    """
+    try:
+        query = text(
+            """
+            WITH RECURSIVE message_path AS (
+                SELECT id, parent_id, session_id, session_task_process_status
+                FROM messages
+                WHERE id = :message_id
+
+                UNION ALL
+
+                SELECT parent.id, parent.parent_id, parent.session_id, parent.session_task_process_status
+                FROM messages AS parent
+                JOIN message_path AS child
+                  ON parent.id = child.parent_id
+            )
+            SELECT id, session_id, session_task_process_status
+            FROM message_path
+            """
+        )
+        result = await db_session.execute(query, {"message_id": message_id})
+        rows = result.mappings().all()
+
+        if not rows:
+            return Result.reject(f"Message {message_id} doesn't exist")
+
+        path_session_ids = {row["session_id"] for row in rows}
+        if session_id is not None and path_session_ids != {session_id}:
+            return Result.reject(
+                f"Message {message_id} does not belong to session {session_id}"
+            )
+        if len(path_session_ids) != 1:
+            return Result.reject(
+                f"Message {message_id} has an invalid cross-session parent chain"
+            )
+
+        count = sum(
+            1 for row in rows if row["session_task_process_status"] == status
+        )
+        return Result.resolve(count)
+    except Exception as e:
+        return Result.reject(
+            f"Error counting branch messages for message {message_id}: {e}"
+        )
+
+
+async def fetch_message_branch_path_data(
+    db_session: AsyncSession,
+    message_id: asUUID,
+    session_id: asUUID | None = None,
+) -> Result[List[Message]]:
+    """
+    Fetch one message's branch path with parts loaded from S3.
+    """
+    r = await fetch_message_branch_path_ids(db_session, message_id, session_id)
+    message_ids, eil = r.unpack()
+    if eil:
+        return Result.reject(str(eil))
+    return await fetch_messages_data_by_ids(db_session, message_ids)
+
+
 async def fetch_session_messages(
     db_session: AsyncSession, session_id: asUUID, status: str = "pending"
 ) -> Result[List[Message]]:
@@ -163,7 +305,7 @@ async def get_message_ids(
     db_session: AsyncSession,
     session_id: asUUID,
     status: str = "pending",
-    limit: int = 1,
+    limit: int | None = 1,
     asc: bool = False,
 ) -> Result[List[asUUID]]:
     query = (
@@ -173,8 +315,9 @@ async def get_message_ids(
             Message.session_task_process_status == status,
         )
         .order_by(Message.created_at.asc() if asc else Message.created_at.desc())
-        .limit(limit)
     )
+    if limit is not None:
+        query = query.limit(limit)
 
     result = await db_session.execute(query)
     message_ids = list(result.scalars().all())

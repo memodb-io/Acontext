@@ -26,61 +26,44 @@ async def _try_rollback_to_failed(pending_message_ids: list) -> None:
         )
 
 
-async def process_session_pending_message(
-    project_config: ProjectConfig, project_id: asUUID, session_id: asUUID
+async def process_inserted_message(
+    project_config: ProjectConfig,
+    project_id: asUUID,
+    session_id: asUUID,
+    message_id: asUUID,
 ) -> Result[None]:
     wide = get_wide_event()
     disabled = await get_metrics(project_id, ExcessMetricTags.new_task_created)
+    target_message_ids = [message_id]
 
-    pending_message_ids = None
     try:
         async with DB_CLIENT.get_session_context() as session:
-            r = await MD.get_message_ids(
-                session,
-                session_id,
-                limit=(
-                    project_config.project_session_message_buffer_max_overflow
-                    + project_config.project_session_message_buffer_max_turns
-                ),
-                asc=True,
-            )
-            pending_message_ids, eil = r.unpack()
-            if eil:
-                return r
-            if not pending_message_ids:
-                return Result.resolve(None)
-
-            wide["pending_count"] = len(pending_message_ids)
-
             if disabled:
                 wide["project_disabled"] = True
                 await MD.update_message_status_to(
-                    session, pending_message_ids, TaskStatus.LIMIT_EXCEED
+                    session, target_message_ids, TaskStatus.LIMIT_EXCEED
                 )
                 return Result.resolve(None)
 
             wide["project_disabled"] = False
-
             await MD.update_message_status_to(
-                session, pending_message_ids, TaskStatus.RUNNING
+                session, target_message_ids, TaskStatus.RUNNING
             )
 
         async with DB_CLIENT.get_session_context() as session:
-            r = await MD.fetch_messages_data_by_ids(session, pending_message_ids)
+            r = await MD.fetch_message_branch_path_data(session, message_id, session_id)
             messages, eil = r.unpack()
             if eil:
-                await _try_rollback_to_failed(pending_message_ids)
+                await _try_rollback_to_failed(target_message_ids)
                 return r
 
-            r = await MD.fetch_previous_messages_by_datetime(
-                session,
-                session_id,
-                messages[0].created_at,
-                limit=project_config.project_session_message_use_previous_messages_turns,
-            )
             messages_data = [
                 MessageBlob(
-                    message_id=m.id, role=m.role, parts=m.parts, task_id=m.task_id
+                    message_id=m.id,
+                    parent_id=m.parent_id,
+                    role=m.role,
+                    parts=m.parts,
+                    task_id=m.task_id,
                 )
                 for m in messages
             ]
@@ -113,18 +96,16 @@ async def process_session_pending_message(
 
         async with DB_CLIENT.get_session_context() as session:
             await MD.update_message_status_to(
-                session, pending_message_ids, after_status
+                session, target_message_ids, after_status
             )
         return r
     except BaseException as e:
-        if pending_message_ids is None:
-            raise
         LOG.error(
-            "session.pending_message_exception",
+            "inserted_message_exception",
             error=str(e) or "(no message)",
             error_type=type(e).__name__,
-            rollback_count=len(pending_message_ids),
+            message_id=str(message_id),
         )
         wide["task_agent_outcome"] = "exception"
-        await _try_rollback_to_failed(pending_message_ids)
+        await _try_rollback_to_failed(target_message_ids)
         raise

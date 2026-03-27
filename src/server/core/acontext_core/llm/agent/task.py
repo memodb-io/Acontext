@@ -82,8 +82,23 @@ def pack_current_message_with_ids(messages: list[MessageBlob]) -> str:
     tool_mappings = {}
     return "\n".join(
         [
-            f"<message id={i}> {m.to_string(tool_mappings, truncate_chars=1024)} </message>"
+            f"<message id={i} branch_index={i} message_id={m.message_id} parent_id={m.parent_id}> "
+            f"{m.to_string(tool_mappings, truncate_chars=1024)} </message>"
             for i, m in enumerate(messages)
+        ]
+    )
+
+
+def pack_current_branch_context(messages: list[MessageBlob]) -> str:
+    if not messages:
+        return "- root_message_id: none\n- leaf_message_id: none\n- path_length: 0"
+
+    return "\n".join(
+        [
+            f"- root_message_id: {messages[0].message_id}",
+            f"- leaf_message_id: {messages[-1].message_id}",
+            f"- path_length: {len(messages)}",
+            "- message ids below are branch indexes on this root-to-leaf path",
         ]
     )
 
@@ -95,8 +110,17 @@ async def build_task_ctx(
     messages: list[MessageBlob],
     before_use_ctx: TaskCtx = None,
 ) -> TaskCtx:
+    message_ids_index = [m.message_id for m in messages]
+    message_parent_ids_index = [m.parent_id for m in messages]
+    branch_root_message_id = messages[0].message_id if messages else None
+    branch_leaf_message_id = messages[-1].message_id if messages else None
+
     if before_use_ctx is not None:
         before_use_ctx.db_session = db_session
+        before_use_ctx.message_ids_index = message_ids_index
+        before_use_ctx.message_parent_ids_index = message_parent_ids_index
+        before_use_ctx.branch_root_message_id = branch_root_message_id
+        before_use_ctx.branch_leaf_message_id = branch_leaf_message_id
         return before_use_ctx
 
     r = await TD.fetch_current_tasks(db_session, session_id)
@@ -109,7 +133,10 @@ async def build_task_ctx(
         session_id=session_id,
         task_ids_index=[t.id for t in current_tasks],
         task_index=current_tasks,
-        message_ids_index=[m.message_id for m in messages],
+        message_ids_index=message_ids_index,
+        message_parent_ids_index=message_parent_ids_index,
+        branch_root_message_id=branch_root_message_id,
+        branch_leaf_message_id=branch_leaf_message_id,
     )
     return use_ctx
 
@@ -148,6 +175,7 @@ async def task_agent_curd(
         tasks, previous_progress_num
     )
     current_messages_section = pack_current_message_with_ids(messages)
+    branch_context_section = pack_current_branch_context(messages)
 
     json_tools = [tool.model_dump() for tool in TaskPrompt.tool_schema()]
     already_iterations = 0
@@ -158,6 +186,7 @@ async def task_agent_curd(
             "role": "user",
             "content": TaskPrompt.pack_task_input(
                 previous_progress_section,
+                branch_context_section,
                 current_messages_section,
                 task_section,
                 known_preferences=known_preferences or None,
