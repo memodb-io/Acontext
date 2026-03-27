@@ -13,12 +13,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from acontext_core.schema.result import Result
 from acontext_core.schema.session.task import TaskSchema, TaskData, TaskStatus
+from acontext_core.schema.session.message import MessageBlob
+from acontext_core.schema.orm.message import Part
 from acontext_core.llm.tool.task_lib.ctx import TaskCtx
 from acontext_core.llm.tool.task_lib.progress import _append_task_progress_handler
 from acontext_core.llm.tool.task_lib.submit_preference import (
     _submit_user_preference_handler,
 )
 from acontext_core.llm.tool.task_lib.append import _append_messages_to_task_handler
+from acontext_core.llm.agent.task import build_task_ctx
 
 
 def _make_ctx(
@@ -452,6 +455,7 @@ class TestPackTaskInputKnownPreferences:
 
         result = TaskPrompt.pack_task_input(
             previous_progress="progress here",
+            branch_context="branch here",
             current_message_with_ids="messages here",
             current_tasks="tasks here",
             known_preferences=["prefers TypeScript", "uses VS Code"],
@@ -465,6 +469,7 @@ class TestPackTaskInputKnownPreferences:
 
         result = TaskPrompt.pack_task_input(
             previous_progress="progress here",
+            branch_context="branch here",
             current_message_with_ids="messages here",
             current_tasks="tasks here",
             known_preferences=None,
@@ -476,6 +481,7 @@ class TestPackTaskInputKnownPreferences:
 
         result = TaskPrompt.pack_task_input(
             previous_progress="progress here",
+            branch_context="branch here",
             current_message_with_ids="messages here",
             current_tasks="tasks here",
             known_preferences=[],
@@ -487,14 +493,65 @@ class TestPackTaskInputKnownPreferences:
 
         result = TaskPrompt.pack_task_input(
             previous_progress="progress here",
+            branch_context="branch here",
             current_message_with_ids="messages here",
             current_tasks="tasks here",
             known_preferences=["pref1"],
         )
         progress_pos = result.index("progress here")
         prefs_pos = result.index("Known User Preferences")
+        branch_pos = result.index("Current Branch Path")
         messages_pos = result.index("messages here")
-        assert progress_pos < prefs_pos < messages_pos
+        assert progress_pos < prefs_pos < branch_pos < messages_pos
+
+    def test_includes_branch_context_section(self):
+        from acontext_core.llm.prompt.task import TaskPrompt
+
+        result = TaskPrompt.pack_task_input(
+            previous_progress="progress here",
+            branch_context="- root_message_id: root-1\n- leaf_message_id: leaf-1",
+            current_message_with_ids="messages here",
+            current_tasks="tasks here",
+        )
+        assert "## Current Branch Path:" in result
+        assert "root_message_id: root-1" in result
+        assert "leaf_message_id: leaf-1" in result
+
+
+class TestBuildTaskCtxBranchMetadata:
+    @pytest.mark.asyncio
+    async def test_sets_branch_root_leaf_and_parent_indexes(self):
+        db_session = AsyncMock()
+        project_id = uuid.uuid4()
+        session_id = uuid.uuid4()
+        root_id = uuid.uuid4()
+        leaf_id = uuid.uuid4()
+        messages = [
+            MessageBlob(
+                message_id=root_id,
+                parent_id=None,
+                role="user",
+                parts=[Part(type="text", text="root")],
+            ),
+            MessageBlob(
+                message_id=leaf_id,
+                parent_id=root_id,
+                role="assistant",
+                parts=[Part(type="text", text="leaf")],
+            ),
+        ]
+
+        with patch(
+            "acontext_core.llm.agent.task.TD.fetch_current_tasks",
+            new_callable=AsyncMock,
+            return_value=Result.resolve([]),
+        ):
+            ctx = await build_task_ctx(db_session, project_id, session_id, messages)
+
+        assert ctx.message_ids_index == [root_id, leaf_id]
+        assert ctx.message_parent_ids_index == [None, root_id]
+        assert ctx.branch_root_message_id == root_id
+        assert ctx.branch_leaf_message_id == leaf_id
 
 
 # =============================================================================
