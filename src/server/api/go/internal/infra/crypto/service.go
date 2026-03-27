@@ -25,30 +25,6 @@ func DeriveUserKEK(authSecret, pepper string) ([]byte, error) {
 	return DeriveKEK(secret, salt, info)
 }
 
-// WrapMasterKey encrypts a 32-byte master key with a wrapping key derived from auth_secret.
-// Returns base64url-encoded ciphertext (nonce + encrypted master key).
-func WrapMasterKey(wrappingKey, masterKey []byte) (string, error) {
-	wrapped, err := WrapDEK(wrappingKey, masterKey)
-	if err != nil {
-		return "", fmt.Errorf("crypto: wrap master key: %w", err)
-	}
-	return base64.RawURLEncoding.EncodeToString(wrapped), nil
-}
-
-// UnwrapMasterKey decrypts a base64url-encoded encrypted master key using the wrapping key.
-// Returns the raw 32-byte master key.
-func UnwrapMasterKey(wrappingKey []byte, encryptedMasterKeyB64 string) ([]byte, error) {
-	wrapped, err := base64.RawURLEncoding.DecodeString(encryptedMasterKeyB64)
-	if err != nil {
-		return nil, fmt.Errorf("crypto: decode encrypted master key: %w", err)
-	}
-	mk, err := UnwrapDEK(wrappingKey, wrapped)
-	if err != nil {
-		return nil, fmt.Errorf("crypto: unwrap master key: %w", err)
-	}
-	return mk, nil
-}
-
 // GenerateMasterKey generates a random 32-byte master key for use as a KEK.
 func GenerateMasterKey() ([]byte, error) {
 	return GenerateDEK() // same size: 32 bytes

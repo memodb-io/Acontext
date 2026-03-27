@@ -71,36 +71,24 @@ func TestParseProjectToken(t *testing.T) {
 	prefix := "sk-ac-"
 
 	tests := []struct {
-		name    string
-		raw     string
-		want    ParsedToken
-		wantOK  bool
+		name       string
+		raw        string
+		wantAuth   string
+		wantCompact bool
+		wantOK     bool
 	}{
 		{
-			name: "new format with dot separator",
-			raw:  "sk-ac-authsecret123.encryptedmasterkey456",
-			want: ParsedToken{
-				AuthSecret:         "authsecret123",
-				EncryptedMasterKey: "encryptedmasterkey456",
-			},
-			wantOK: true,
+			name:     "legacy format",
+			raw:      "sk-ac-somelegacysecretvalue",
+			wantAuth: "somelegacysecretvalue",
+			wantOK:   true,
 		},
 		{
-			name: "legacy format without dot",
-			raw:  "sk-ac-somelegacysecretvalue",
-			want: ParsedToken{
-				AuthSecret: "somelegacysecretvalue",
-			},
-			wantOK: true,
-		},
-		{
-			name: "new format with base64url chars including dashes",
-			raw:  "sk-ac-abc-def_ghi.xyz-uvw_123",
-			want: ParsedToken{
-				AuthSecret:         "abc-def_ghi",
-				EncryptedMasterKey: "xyz-uvw_123",
-			},
-			wantOK: true,
+			name:       "compact format (76 chars)",
+			raw:        "sk-ac-AaGyw9Tl9qe4ydDh8qO0xdZNkrobQvwHWFRsnp5a3QtfbaDSDJQeRHxXPr4bGpc0g130EqBSjRNF",
+			wantAuth:   "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
+			wantCompact: true,
+			wantOK:     true,
 		},
 		{
 			name:   "wrong prefix",
@@ -118,29 +106,10 @@ func TestParseProjectToken(t *testing.T) {
 			wantOK: false,
 		},
 		{
-			name: "dot at end (no encrypted master key) → treated as legacy",
-			raw:  "sk-ac-authsecret.",
-			want: ParsedToken{
-				AuthSecret: "authsecret.",
-			},
-			wantOK: true,
-		},
-		{
-			name: "dot at start (no auth secret) → treated as legacy",
-			raw:  "sk-ac-.encryptedmasterkey",
-			want: ParsedToken{
-				AuthSecret: ".encryptedmasterkey",
-			},
-			wantOK: true,
-		},
-		{
-			name: "multiple dots uses first dot as separator",
-			raw:  "sk-ac-auth.enc.extra",
-			want: ParsedToken{
-				AuthSecret:         "auth",
-				EncryptedMasterKey: "enc.extra",
-			},
-			wantOK: true,
+			name:     "short token treated as legacy",
+			raw:      "sk-ac-short",
+			wantAuth: "short",
+			wantOK:   true,
 		},
 	}
 
@@ -149,8 +118,12 @@ func TestParseProjectToken(t *testing.T) {
 			parsed, ok := ParseProjectToken(tt.raw, prefix)
 			assert.Equal(t, tt.wantOK, ok)
 			if ok {
-				assert.Equal(t, tt.want.AuthSecret, parsed.AuthSecret)
-				assert.Equal(t, tt.want.EncryptedMasterKey, parsed.EncryptedMasterKey)
+				assert.Equal(t, tt.wantAuth, parsed.AuthSecret)
+				if tt.wantCompact {
+					assert.NotEmpty(t, parsed.CompactRaw)
+				} else {
+					assert.Empty(t, parsed.CompactRaw)
+				}
 			}
 		})
 	}

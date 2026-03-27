@@ -25,20 +25,17 @@ func ParseToken(raw, prefix string) (secret string, ok bool) {
 
 // ParsedToken holds the parsed components of a project API key.
 // Supported formats:
-//   - Compact: sk-ac-{base64url(0x01 | auth_16B | aes_kw(mk))} — no dot, CompactRaw set
-//   - V1:     sk-ac-{auth_secret}.{encrypted_master_key} — dot-separated
-//   - Legacy: sk-ac-{auth_secret} — no dot, no encryption
+//   - Compact: sk-ac-{base64url(0x01 | auth_16B | aes_kw(mk))} — 76 chars, CompactRaw set
+//   - Legacy: sk-ac-{auth_secret} — plain text, no encryption
 type ParsedToken struct {
-	AuthSecret         string // raw auth secret (used for HMAC lookup / Argon2 verification)
-	EncryptedMasterKey string // base64url-encoded encrypted master key (empty for legacy/compact)
-	CompactRaw         string // non-empty if compact format detected (the full base64url body)
+	AuthSecret string // auth secret string (used for HMAC lookup / Argon2 verification)
+	CompactRaw string // non-empty if compact format detected (the full base64url body)
 }
 
 // ParseProjectToken parses a raw Bearer token into its components.
 // Formats (checked in order):
-//  1. Dot-separated: sk-ac-{auth_secret}.{encrypted_master_key}
-//  2. Compact: sk-ac-{base64url(0x01 | auth_16B | aes_kw_40B)} — 76 chars, no dot
-//  3. Legacy: sk-ac-{auth_secret} — no dot, no encryption
+//  1. Compact: sk-ac-{base64url(0x01 | auth_16B | aes_kw_40B)} — 76 chars
+//  2. Legacy: sk-ac-{auth_secret} — no encryption
 //
 // Returns ok=false if the prefix doesn't match.
 func ParseProjectToken(raw, prefix string) (parsed ParsedToken, ok bool) {
@@ -50,19 +47,9 @@ func ParseProjectToken(raw, prefix string) (parsed ParsedToken, ok bool) {
 		return ParsedToken{}, false
 	}
 
-	// Dot-separated format: {auth_secret}.{encrypted_master_key}
-	if idx := strings.IndexByte(body, '.'); idx > 0 && idx < len(body)-1 {
-		return ParsedToken{
-			AuthSecret:         body[:idx],
-			EncryptedMasterKey: body[idx+1:],
-		}, true
-	}
-
 	// Compact format: base64url(0x01 | auth_16B | aes_kw_40B) = 57 raw bytes = 76 base64url chars
-	// Detected by: no dot + correct base64url length + version byte 0x01
-	if !strings.Contains(body, ".") && len(body) == 76 {
+	if len(body) == 76 {
 		if decoded, err := base64.RawURLEncoding.DecodeString(body); err == nil && len(decoded) == 57 && decoded[0] == 0x01 {
-			// Extract auth_secret as hex for HMAC/Argon2 compatibility
 			authSecretHex := hex.EncodeToString(decoded[1:17])
 			return ParsedToken{
 				AuthSecret: authSecretHex,

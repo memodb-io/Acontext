@@ -148,26 +148,12 @@ func ProjectAuth(cfg *config.Config, db *gorm.DB, rdb *redis.Client) gin.Handler
 		c.Set("project", project)
 		SetWideEventField(c, "project_id", project.ID.String())
 
-		// Derive KEK: unwrap master_key from token if present.
-		// Compact tokens carry AES-KW wrapped master key; v1 tokens carry AES-GCM wrapped.
-		// Legacy keys without encrypted_master_key have no encryption support.
+		// Derive KEK from compact token if present.
+		// Legacy keys without CompactRaw have no encryption support.
 		if parsed.CompactRaw != "" {
-			// Compact format: UnpackCompactToken handles derivation + AES-KW unwrap
 			_, userKEK, kerr := encryptionpkg.UnpackCompactToken(parsed.CompactRaw, cfg.Root.SecretPepper)
 			if kerr != nil {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, serializer.AuthErr("invalid API key: failed to unwrap compact token"))
-				return
-			}
-			c.Set("user_kek", userKEK)
-		} else if parsed.EncryptedMasterKey != "" {
-			wrappingKey, wkErr := encryptionpkg.DeriveUserKEK(parsed.AuthSecret, cfg.Root.SecretPepper)
-			if wkErr != nil {
-				c.AbortWithStatusJSON(http.StatusInternalServerError, serializer.DBErr("derive wrapping key", wkErr))
-				return
-			}
-			userKEK, kerr := encryptionpkg.UnwrapMasterKey(wrappingKey, parsed.EncryptedMasterKey)
-			if kerr != nil {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, serializer.AuthErr("invalid API key: failed to unwrap master key"))
 				return
 			}
 			c.Set("user_kek", userKEK)

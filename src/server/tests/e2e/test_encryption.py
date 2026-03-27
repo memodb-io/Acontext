@@ -24,9 +24,9 @@ from typing import AsyncGenerator, Dict
 import asyncpg
 import httpx
 import pytest
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.keywrap import aes_key_wrap
 from pydantic import BaseModel
 
 # Reuse infra from conftest
@@ -52,11 +52,12 @@ ADMIN_URL = os.getenv("ADMIN_URL", "http://admin:8028")
 
 
 # ---------------------------------------------------------------------------
-# Crypto helpers — must match Go's DeriveUserKEK / WrapMasterKey
+# Crypto helpers — must match Go's compact token format
 # ---------------------------------------------------------------------------
 
 KEY_SIZE = 32
-NONCE_SIZE = 12
+COMPACT_AUTH_SECRET_LEN = 16
+COMPACT_VERSION = 0x01
 
 
 def _derive_user_kek(auth_secret: str, pepper: str) -> bytes:
@@ -68,26 +69,23 @@ def _derive_user_kek(auth_secret: str, pepper: str) -> bytes:
     return hkdf.derive(secret)
 
 
-def _wrap_master_key(wrapping_key: bytes, master_key: bytes) -> str:
-    """Encrypt master_key with wrapping_key via AES-256-GCM, return base64url."""
-    nonce = os.urandom(NONCE_SIZE)
-    aesgcm = AESGCM(wrapping_key)
-    ct = aesgcm.encrypt(nonce, master_key, None)
-    return base64.urlsafe_b64encode(nonce + ct).rstrip(b"=").decode()
-
-
 def _generate_project_token(pepper: str) -> tuple[str, str, str]:
-    """Generate a project token with embedded encrypted master key.
+    """Generate a compact project token with AES Key Wrap.
 
-    Returns (auth_secret, bearer_token, hmac_hex).
+    Format: base64url(0x01 | auth_secret_16B | aes_kw(master_key_32B))
+    Returns (auth_secret_hex, bearer_token, hmac_hex).
     """
-    auth_secret = base64.urlsafe_b64encode(os.urandom(32)).rstrip(b"=").decode()
+    auth_secret_raw = os.urandom(COMPACT_AUTH_SECRET_LEN)
+    auth_secret_hex = auth_secret_raw.hex()
     master_key = os.urandom(KEY_SIZE)
-    wrapping_key = _derive_user_kek(auth_secret, pepper)
-    encrypted_mk_b64 = _wrap_master_key(wrapping_key, master_key)
-    bearer_token = f"{TEST_TOKEN_PREFIX}{auth_secret}.{encrypted_mk_b64}"
-    token_hmac = generate_hmac(auth_secret, pepper)
-    return auth_secret, bearer_token, token_hmac
+    wrapping_key = _derive_user_kek(auth_secret_hex, pepper)
+    wrapped_mk = aes_key_wrap(wrapping_key, master_key)
+    # Pack: version | auth_secret | wrapped_master_key
+    buf = bytes([COMPACT_VERSION]) + auth_secret_raw + wrapped_mk
+    compact_body = base64.urlsafe_b64encode(buf).rstrip(b"=").decode()
+    bearer_token = f"{TEST_TOKEN_PREFIX}{compact_body}"
+    token_hmac = generate_hmac(auth_secret_hex, pepper)
+    return auth_secret_hex, bearer_token, token_hmac
 
 
 # ---------------------------------------------------------------------------

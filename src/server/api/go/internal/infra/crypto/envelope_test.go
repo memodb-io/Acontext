@@ -288,43 +288,6 @@ func TestDeriveUserKEK_Deterministic(t *testing.T) {
 	}
 }
 
-func TestWrapUnwrapMasterKey(t *testing.T) {
-	wk, _ := DeriveUserKEK("auth-secret", "pepper")
-	mk, err := GenerateMasterKey()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	encB64, err := WrapMasterKey(wk, mk)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if encB64 == "" {
-		t.Fatal("encrypted master key should not be empty")
-	}
-
-	unwrapped, err := UnwrapMasterKey(wk, encB64)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(mk, unwrapped) {
-		t.Fatal("unwrapped master key should match original")
-	}
-}
-
-func TestUnwrapMasterKey_WrongWrappingKey(t *testing.T) {
-	wk1, _ := DeriveUserKEK("auth1", "pepper")
-	wk2, _ := DeriveUserKEK("auth2", "pepper")
-	mk, _ := GenerateMasterKey()
-
-	encB64, _ := WrapMasterKey(wk1, mk)
-
-	_, err := UnwrapMasterKey(wk2, encB64)
-	if err == nil {
-		t.Fatal("should fail with wrong wrapping key")
-	}
-}
-
 func TestMasterKeyAsKEK(t *testing.T) {
 	// master_key is used directly as KEK for wrapping S3 DEKs
 	mk, _ := GenerateMasterKey()
@@ -341,41 +304,6 @@ func TestMasterKeyAsKEK(t *testing.T) {
 	}
 	if !bytes.Equal(plaintext, decrypted) {
 		t.Fatal("decrypted should match plaintext when using master key as KEK")
-	}
-}
-
-func TestMasterKeyRewrapPreservesDecryption(t *testing.T) {
-	// Simulate: old auth_secret → new auth_secret, same master_key
-	// S3 data should still decrypt with the same master_key
-	mk, _ := GenerateMasterKey()
-
-	// Encrypt data with master_key as KEK
-	plaintext := []byte("data that should survive auth rotation")
-	ciphertext, meta, _ := EncryptData(mk, plaintext)
-
-	// Re-wrap master_key with new auth_secret (simulating rotation)
-	oldWK, _ := DeriveUserKEK("old-auth", "pepper")
-	newWK, _ := DeriveUserKEK("new-auth", "pepper")
-
-	encB64, _ := WrapMasterKey(oldWK, mk)
-	unwrapped, _ := UnwrapMasterKey(oldWK, encB64)
-
-	// Re-wrap with new wrapping key
-	newEncB64, _ := WrapMasterKey(newWK, unwrapped)
-	rewrappedMK, _ := UnwrapMasterKey(newWK, newEncB64)
-
-	// master_key should be the same
-	if !bytes.Equal(mk, rewrappedMK) {
-		t.Fatal("master key should be preserved across auth rotation")
-	}
-
-	// S3 data should still decrypt
-	decrypted, err := DecryptData(rewrappedMK, ciphertext, meta)
-	if err != nil {
-		t.Fatal("data should decrypt with same master key after auth rotation:", err)
-	}
-	if !bytes.Equal(plaintext, decrypted) {
-		t.Fatal("decrypted should match plaintext")
 	}
 }
 

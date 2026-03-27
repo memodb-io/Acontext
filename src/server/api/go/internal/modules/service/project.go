@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"crypto/rand"
-	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"net/http"
@@ -56,15 +55,6 @@ type CreateProjectOutput struct {
 
 type UpdateSecretKeyOutput struct {
 	SecretKey string `json:"secret_key"`
-}
-
-// generateRandomSecret generates a random secret key with the specified byte length
-func generateRandomSecret(byteLength int) (string, error) {
-	b := make([]byte, byteLength)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
 func (s *projectService) Create(ctx context.Context, configs map[string]interface{}) (*CreateProjectOutput, error) {
