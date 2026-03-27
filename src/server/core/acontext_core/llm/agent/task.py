@@ -83,7 +83,8 @@ def pack_current_message_with_ids(messages: list[MessageBlob]) -> str:
     tool_mappings = {}
     return "\n".join(
         [
-            f"<message id={i}> {m.to_string(tool_mappings, truncate_chars=1024)} </message>"
+            f"<message id={i} message_id={m.message_id} parent_id={m.parent_id}> "
+            f"{m.to_string(tool_mappings, truncate_chars=1024)} </message>"
             for i, m in enumerate(messages)
         ]
     )
