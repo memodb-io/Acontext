@@ -502,6 +502,7 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 type GetMessagesReq struct {
 	Limit                         *int   `form:"limit" json:"limit" binding:"omitempty,min=0,max=200" example:"20"`
 	Cursor                        string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
+	BranchMessageID               string `form:"branch_message_id" json:"branch_message_id" example:""`
 	WithAssetPublicURL            bool   `form:"with_asset_public_url,default=true" json:"with_asset_public_url" example:"true"`
 	WithEvents                    bool   `form:"with_events,default=false" json:"with_events" example:"false"`
 	Format                        string `form:"format,default=openai" json:"format" binding:"omitempty,oneof=acontext openai anthropic gemini" example:"openai" enums:"acontext,openai,anthropic,gemini"`
@@ -520,6 +521,7 @@ type GetMessagesReq struct {
 //	@Param			session_id							path	string	true	"Session ID"	format(uuid)
 //	@Param			limit								query	integer	false	"Limit of messages to return. Max 200. If limit is 0 or not provided, all messages will be returned. \n\nWARNING!\n Use `limit` only for read-only/display purposes (pagination, viewing). Do NOT use `limit` to truncate messages before sending to LLM as it may cause tool-call and tool-result unpairing issues. Instead, use the `token_limit` edit strategy in `edit_strategies` parameter to safely manage message context size."
 //	@Param			cursor								query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
+//	@Param			branch_message_id					query	string	false	"Return only the root-to-target branch for this message ID. Cannot be combined with limit, cursor, or time_desc."	format(uuid)
 //	@Param			with_asset_public_url				query	boolean	false	"Whether to return asset public url, default is true"																																																																							example(true)
 //	@Param			with_events							query	boolean	false	"Whether to include session events in the response, default is false"																																																																			example(false)
 //	@Param			format								query	string	false	"Format to convert messages to: acontext (original), openai (default), anthropic, gemini."																																																														enums(acontext,openai,anthropic,gemini)
@@ -555,6 +557,29 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		limit = *req.Limit
 	}
 
+	var branchMessageID *uuid.UUID
+	if req.BranchMessageID != "" {
+		if req.Limit != nil {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("branch_message_id cannot be combined with limit", nil))
+			return
+		}
+		if _, ok := c.GetQuery("cursor"); ok {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("branch_message_id cannot be combined with cursor", nil))
+			return
+		}
+		if _, ok := c.GetQuery("time_desc"); ok {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("branch_message_id cannot be combined with time_desc", nil))
+			return
+		}
+
+		parsedBranchMessageID, err := uuid.Parse(req.BranchMessageID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid branch_message_id", err))
+			return
+		}
+		branchMessageID = &parsedBranchMessageID
+	}
+
 	// Parse edit strategies if provided
 	var editStrategies []editor.StrategyConfig
 	if req.EditStrategies != "" {
@@ -567,6 +592,7 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 	out, err := h.svc.GetMessages(c.Request.Context(), service.GetMessagesInput{
 		ProjectID:                     project.ID,
 		SessionID:                     sessionID,
+		BranchMessageID:               branchMessageID,
 		Limit:                         limit,
 		Cursor:                        req.Cursor,
 		WithAssetPublicURL:            req.WithAssetPublicURL,

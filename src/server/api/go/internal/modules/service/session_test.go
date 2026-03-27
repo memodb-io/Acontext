@@ -86,6 +86,14 @@ func (m *MockSessionRepo) ListAllMessagesBySession(ctx context.Context, sessionI
 	return args.Get(0).([]model.Message), args.Error(1)
 }
 
+func (m *MockSessionRepo) ListMessageBranchPath(ctx context.Context, sessionID uuid.UUID, messageID uuid.UUID) ([]model.Message, error) {
+	args := m.Called(ctx, sessionID, messageID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.Message), args.Error(1)
+}
+
 func (m *MockSessionRepo) GetObservingStatus(ctx context.Context, sessionID string) (*model.MessageObservingStatus, error) {
 	args := m.Called(ctx, sessionID)
 	if args.Get(0) == nil {
@@ -1347,6 +1355,7 @@ func TestSessionService_StoreMessage_ParentID(t *testing.T) {
 func TestSessionService_GetMessages(t *testing.T) {
 	ctx := context.Background()
 	sessionID := uuid.New()
+	branchMessageID := uuid.New()
 	projectID := uuid.New()
 	matchSession := &model.Session{ID: sessionID, ProjectID: projectID}
 
@@ -1469,6 +1478,44 @@ func TestSessionService_GetMessages(t *testing.T) {
 				repo.On("ListAllMessagesBySession", ctx, sessionID).Return(nil, errors.New("database error"))
 			},
 			wantErr: true,
+		},
+		{
+			name: "branch_message_id retrieves root-to-target branch path",
+			input: GetMessagesInput{
+				SessionID:       sessionID,
+				BranchMessageID: &branchMessageID,
+			},
+			setup: func(repo *MockSessionRepo) {
+				msgs := []model.Message{
+					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleUser},
+					{ID: branchMessageID, SessionID: sessionID, Role: model.RoleAssistant},
+				}
+				repo.On("ListMessageBranchPath", ctx, sessionID, branchMessageID).Return(msgs, nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "branch_message_id with limit returns error",
+			input: GetMessagesInput{
+				SessionID:       sessionID,
+				BranchMessageID: &branchMessageID,
+				Limit:           10,
+			},
+			setup:   func(repo *MockSessionRepo) {},
+			wantErr: true,
+			errMsg:  "branch_message_id cannot be combined",
+		},
+		{
+			name: "branch_message_id missing target returns not found error",
+			input: GetMessagesInput{
+				SessionID:       sessionID,
+				BranchMessageID: &branchMessageID,
+			},
+			setup: func(repo *MockSessionRepo) {
+				repo.On("ListMessageBranchPath", ctx, sessionID, branchMessageID).Return(nil, gorm.ErrRecordNotFound)
+			},
+			wantErr: true,
+			errMsg:  "branch message not found",
 		},
 	}
 

@@ -2042,6 +2042,7 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 func TestSessionHandler_GetMessages(t *testing.T) {
 	projectID := uuid.New()
 	sessionID := uuid.New()
+	branchMessageID := uuid.New()
 
 	tests := []struct {
 		name           string
@@ -2106,6 +2107,55 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 			setup: func(svc *MockSessionService) {
 				svc.On("GetMessages", mock.Anything, mock.Anything).Return(nil, errors.New("retrieval failed"))
 			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "branch_message_id retrieves branch messages",
+			sessionIDParam: sessionID.String(),
+			queryParams:    "?branch_message_id=" + branchMessageID.String(),
+			setup: func(svc *MockSessionService) {
+				expectedOutput := &service.GetMessagesOutput{
+					Items: []model.Message{
+						{
+							ID:        branchMessageID,
+							SessionID: sessionID,
+							Role:      model.RoleUser,
+						},
+					},
+					HasMore: false,
+				}
+				svc.On("GetMessages", mock.Anything, mock.MatchedBy(func(in service.GetMessagesInput) bool {
+					return in.SessionID == sessionID && in.BranchMessageID != nil && *in.BranchMessageID == branchMessageID && in.Limit == 0
+				})).Return(expectedOutput, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "invalid branch_message_id",
+			sessionIDParam: sessionID.String(),
+			queryParams:    "?branch_message_id=not-a-uuid",
+			setup:          func(svc *MockSessionService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "branch_message_id rejects limit",
+			sessionIDParam: sessionID.String(),
+			queryParams:    "?branch_message_id=" + branchMessageID.String() + "&limit=20",
+			setup:          func(svc *MockSessionService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "branch_message_id rejects cursor",
+			sessionIDParam: sessionID.String(),
+			queryParams:    "?branch_message_id=" + branchMessageID.String() + "&cursor=abc",
+			setup:          func(svc *MockSessionService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "branch_message_id rejects time_desc",
+			sessionIDParam: sessionID.String(),
+			queryParams:    "?branch_message_id=" + branchMessageID.String() + "&time_desc=false",
+			setup:          func(svc *MockSessionService) {},
 			expectedStatus: http.StatusBadRequest,
 		},
 

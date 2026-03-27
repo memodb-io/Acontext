@@ -529,6 +529,83 @@ func (m *MockAssetReferenceRepoForCopy) ListS3KeysByProject(ctx context.Context,
 	return nil, nil
 }
 
+func TestSessionRepo_ListMessageBranchPath(t *testing.T) {
+	db := setupSessionTestDB(t)
+	if db == nil {
+		return
+	}
+
+	require.NoError(t, db.AutoMigrate(&model.Message{}))
+
+	logger, _ := zap.NewDevelopment()
+	repo := NewSessionRepo(db, nil, nil, logger)
+	ctx := context.Background()
+
+	project := &model.Project{
+		ID:               uuid.New(),
+		SecretKeyHMAC:    "test_hmac_branch_path",
+		SecretKeyHashPHC: "test_hash_branch_path",
+	}
+	require.NoError(t, db.Create(project).Error)
+	defer cleanupSessionTestDB(t, db, project.ID)
+
+	sessionA := &model.Session{
+		ID:        uuid.New(),
+		ProjectID: project.ID,
+	}
+	require.NoError(t, db.Create(sessionA).Error)
+
+	sessionB := &model.Session{
+		ID:        uuid.New(),
+		ProjectID: project.ID,
+	}
+	require.NoError(t, db.Create(sessionB).Error)
+
+	root := &model.Message{
+		ID:             uuid.New(),
+		SessionID:      sessionA.ID,
+		Role:           model.RoleUser,
+		PartsAssetMeta: datatypes.NewJSONType(model.Asset{SHA256: "sha-branch-root", S3Key: "parts/branch-root.json"}),
+	}
+	require.NoError(t, db.Create(root).Error)
+
+	child := &model.Message{
+		ID:             uuid.New(),
+		SessionID:      sessionA.ID,
+		ParentID:       &root.ID,
+		Role:           model.RoleAssistant,
+		PartsAssetMeta: datatypes.NewJSONType(model.Asset{SHA256: "sha-branch-child", S3Key: "parts/branch-child.json"}),
+	}
+	require.NoError(t, db.Create(child).Error)
+
+	leaf := &model.Message{
+		ID:             uuid.New(),
+		SessionID:      sessionA.ID,
+		ParentID:       &child.ID,
+		Role:           model.RoleUser,
+		PartsAssetMeta: datatypes.NewJSONType(model.Asset{SHA256: "sha-branch-leaf", S3Key: "parts/branch-leaf.json"}),
+	}
+	require.NoError(t, db.Create(leaf).Error)
+
+	t.Run("returns root-to-target branch order", func(t *testing.T) {
+		messages, err := repo.ListMessageBranchPath(ctx, sessionA.ID, leaf.ID)
+		require.NoError(t, err)
+		require.Len(t, messages, 3)
+		assert.Equal(t, []uuid.UUID{root.ID, child.ID, leaf.ID}, []uuid.UUID{
+			messages[0].ID,
+			messages[1].ID,
+			messages[2].ID,
+		})
+	})
+
+	t.Run("returns not found for wrong session", func(t *testing.T) {
+		messages, err := repo.ListMessageBranchPath(ctx, sessionB.ID, leaf.ID)
+		require.Error(t, err)
+		assert.Nil(t, messages)
+		assert.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	})
+}
+
 // TestSessionRepo_CopySession tests the CopySession method with comprehensive scenarios
 func TestSessionRepo_CopySession(t *testing.T) {
 	db := setupSessionTestDB(t)

@@ -34,6 +34,7 @@ type SessionRepo interface {
 	CreateMessageWithAssets(ctx context.Context, msg *model.Message) error
 	ListBySessionWithCursor(ctx context.Context, sessionID uuid.UUID, afterCreatedAt time.Time, afterID uuid.UUID, limit int, timeDesc bool) ([]model.Message, error)
 	ListAllMessagesBySession(ctx context.Context, sessionID uuid.UUID) ([]model.Message, error)
+	ListMessageBranchPath(ctx context.Context, sessionID uuid.UUID, messageID uuid.UUID) ([]model.Message, error)
 	GetObservingStatus(ctx context.Context, sessionID string) (*model.MessageObservingStatus, error)
 	PopGeminiCallIDAndName(ctx context.Context, sessionID uuid.UUID) (string, string, error)
 	GetMessageByID(ctx context.Context, sessionID uuid.UUID, messageID uuid.UUID) (*model.Message, error)
@@ -243,6 +244,36 @@ func (r *sessionRepo) ListAllMessagesBySession(ctx context.Context, sessionID uu
 	var messages []model.Message
 	err := r.db.WithContext(ctx).Where("session_id = ?", sessionID).Find(&messages).Error
 	return messages, err
+}
+
+func (r *sessionRepo) ListMessageBranchPath(ctx context.Context, sessionID uuid.UUID, messageID uuid.UUID) ([]model.Message, error) {
+	var messages []model.Message
+	err := r.db.WithContext(ctx).Raw(`
+		WITH RECURSIVE message_path AS (
+			SELECT id, parent_id, session_id, 0 AS depth
+			FROM messages
+			WHERE id = ? AND session_id = ?
+
+			UNION ALL
+
+			SELECT parent.id, parent.parent_id, parent.session_id, child.depth + 1 AS depth
+			FROM messages AS parent
+			JOIN message_path AS child
+			  ON parent.id = child.parent_id
+			WHERE parent.session_id = ?
+		)
+		SELECT m.*
+		FROM message_path AS mp
+		JOIN messages AS m ON m.id = mp.id
+		ORDER BY mp.depth DESC, m.id ASC
+	`, messageID, sessionID, sessionID).Scan(&messages).Error
+	if err != nil {
+		return nil, err
+	}
+	if len(messages) == 0 {
+		return nil, gorm.ErrRecordNotFound
+	}
+	return messages, nil
 }
 
 // GetObservingStatus returns the count of messages by status for a session

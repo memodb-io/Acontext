@@ -453,6 +453,7 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 type GetMessagesInput struct {
 	ProjectID                     uuid.UUID               `json:"project_id"`
 	SessionID                     uuid.UUID               `json:"session_id"`
+	BranchMessageID               *uuid.UUID              `json:"branch_message_id,omitempty"`
 	Limit                         int                     `json:"limit"`
 	Cursor                        string                  `json:"cursor"`
 	WithAssetPublicURL            bool                    `json:"with_public_url"`
@@ -490,28 +491,41 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 
 	var msgs []model.Message
 
-	// Retrieve messages based on limit
-	if in.Limit <= 0 {
-		// If limit <= 0, retrieve all messages
-		msgs, err = s.sessionRepo.ListAllMessagesBySession(ctx, in.SessionID)
+	if in.BranchMessageID != nil {
+		if in.Limit > 0 || in.Cursor != "" || in.TimeDesc {
+			return nil, fmt.Errorf("branch_message_id cannot be combined with limit, cursor, or time_desc")
+		}
+		msgs, err = s.sessionRepo.ListMessageBranchPath(ctx, in.SessionID, *in.BranchMessageID)
 		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, fmt.Errorf("branch message not found")
+			}
 			return nil, err
 		}
 	} else {
-		// Parse cursor (createdAt, id); an empty cursor indicates starting from the latest
-		var afterT time.Time
-		var afterID uuid.UUID
-		if in.Cursor != "" {
-			afterT, afterID, err = paging.DecodeCursor(in.Cursor)
+		// Retrieve messages based on limit
+		if in.Limit <= 0 {
+			// If limit <= 0, retrieve all messages
+			msgs, err = s.sessionRepo.ListAllMessagesBySession(ctx, in.SessionID)
 			if err != nil {
 				return nil, err
 			}
-		}
+		} else {
+			// Parse cursor (createdAt, id); an empty cursor indicates starting from the latest
+			var afterT time.Time
+			var afterID uuid.UUID
+			if in.Cursor != "" {
+				afterT, afterID, err = paging.DecodeCursor(in.Cursor)
+				if err != nil {
+					return nil, err
+				}
+			}
 
-		// Query limit+1 is used to determine has_more
-		msgs, err = s.sessionRepo.ListBySessionWithCursor(ctx, in.SessionID, afterT, afterID, in.Limit+1, in.TimeDesc)
-		if err != nil {
-			return nil, err
+			// Query limit+1 is used to determine has_more
+			msgs, err = s.sessionRepo.ListBySessionWithCursor(ctx, in.SessionID, afterT, afterID, in.Limit+1, in.TimeDesc)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
