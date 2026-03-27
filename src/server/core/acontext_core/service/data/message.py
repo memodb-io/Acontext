@@ -320,7 +320,7 @@ async def get_message_ids(
     db_session: AsyncSession,
     session_id: asUUID,
     status: str = "pending",
-    limit: int = 1,
+    limit: int | None = 1,
     asc: bool = False,
 ) -> Result[List[asUUID]]:
     query = (
@@ -330,8 +330,9 @@ async def get_message_ids(
             Message.session_task_process_status == status,
         )
         .order_by(Message.created_at.asc() if asc else Message.created_at.desc())
-        .limit(limit)
     )
+    if limit is not None:
+        query = query.limit(limit)
 
     result = await db_session.execute(query)
     message_ids = list(result.scalars().all())

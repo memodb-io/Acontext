@@ -112,8 +112,6 @@ async def process_inserted_message(
         wide["task_agent_outcome"] = "exception"
         await _try_rollback_to_failed(target_message_ids)
         raise
-
-
 async def process_session_pending_message(
     project_config: ProjectConfig,
     project_id: asUUID,
