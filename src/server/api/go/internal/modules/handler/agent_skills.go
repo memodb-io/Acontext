@@ -272,7 +272,7 @@ func (h *AgentSkillsHandler) GetAgentSkillFile(c *gin.Context) {
 	output, err := h.svc.GetFile(c.Request.Context(), project.ID, id, filePath, expire)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
-			c.JSON(http.StatusNotFound, serializer.DBErr("", err))
+			c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "file not found", err))
 		} else {
 			c.JSON(http.StatusInternalServerError, serializer.DBErr("", err))
 		}
