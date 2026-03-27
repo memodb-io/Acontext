@@ -68,6 +68,7 @@ def pack_part_line(
 
 class MessageBlob(BaseModel):
     message_id: asUUID
+    parent_id: Optional[asUUID] = None
     role: str
     parts: List[Part]
     task_id: Optional[asUUID] = None

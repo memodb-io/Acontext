@@ -59,7 +59,11 @@ async def process_inserted_message(
 
             messages_data = [
                 MessageBlob(
-                    message_id=m.id, role=m.role, parts=m.parts, task_id=m.task_id
+                    message_id=m.id,
+                    parent_id=m.parent_id,
+                    role=m.role,
+                    parts=m.parts,
+                    task_id=m.task_id,
                 )
                 for m in messages
             ]
@@ -161,7 +165,11 @@ async def process_session_pending_message(
             )
             messages_data = [
                 MessageBlob(
-                    message_id=m.id, role=m.role, parts=m.parts, task_id=m.task_id
+                    message_id=m.id,
+                    parent_id=m.parent_id,
+                    role=m.role,
+                    parts=m.parts,
+                    task_id=m.task_id,
                 )
                 for m in messages
             ]

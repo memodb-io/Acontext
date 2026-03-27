@@ -42,9 +42,10 @@ def _mock_project_config():
     return config
 
 
-def _make_message(message_id: uuid.UUID, role: str):
+def _make_message(message_id: uuid.UUID, role: str, parent_id: uuid.UUID | None = None):
     message = MagicMock()
     message.id = message_id
+    message.parent_id = parent_id
     message.role = role
     message.parts = []
     message.task_id = None
@@ -55,9 +56,10 @@ class TestProcessInsertedMessage:
     @pytest.mark.asyncio
     async def test_marks_inserted_message_running_then_success(self):
         update_status = AsyncMock()
+        root_id = uuid.uuid4()
         branch_messages = [
-            _make_message(uuid.uuid4(), "user"),
-            _make_message(_MESSAGE_ID, "assistant"),
+            _make_message(root_id, "user"),
+            _make_message(_MESSAGE_ID, "assistant", parent_id=root_id),
         ]
 
         with (
@@ -105,6 +107,10 @@ class TestProcessInsertedMessage:
             assert [message.message_id for message in task_messages] == [
                 branch_messages[0].id,
                 branch_messages[1].id,
+            ]
+            assert [message.parent_id for message in task_messages] == [
+                None,
+                root_id,
             ]
 
     @pytest.mark.asyncio
@@ -155,9 +161,10 @@ class TestProcessInsertedMessage:
     @pytest.mark.asyncio
     async def test_task_agent_exception_rolls_back_only_inserted_message(self):
         update_status = AsyncMock()
+        root_id = uuid.uuid4()
         branch_messages = [
-            _make_message(uuid.uuid4(), "user"),
-            _make_message(_MESSAGE_ID, "assistant"),
+            _make_message(root_id, "user"),
+            _make_message(_MESSAGE_ID, "assistant", parent_id=root_id),
         ]
 
         with (

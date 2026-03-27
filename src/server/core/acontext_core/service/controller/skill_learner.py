@@ -70,7 +70,11 @@ async def process_context_distillation(
             if not eil and messages:
                 task_messages = [
                     MessageBlob(
-                        message_id=m.id, role=m.role, parts=m.parts, task_id=m.task_id
+                        message_id=m.id,
+                        parent_id=m.parent_id,
+                        role=m.role,
+                        parts=m.parts,
+                        task_id=m.task_id,
                     )
                     for m in messages
                 ]
