@@ -637,9 +637,9 @@ async def test_key_rotation_plain_project(db_conn, plain_project):
         new_key = resp.json()["data"]["secret_key"]
         new_headers = {"Authorization": f"Bearer {new_key}"}
 
-        # New key should contain encrypted master key (dot separator)
+        # New key should be compact format (76-char base64url body, no dot)
         key_body = new_key.replace(TEST_TOKEN_PREFIX, "")
-        assert "." in key_body, f"Rotated key should have encrypted master key: {new_key}"
+        assert len(key_body) == 76, f"Rotated key should be compact format (76 chars): {new_key}"
 
         resp = await download_artifact(
             client, disk_id, "/plain-rotate.txt", new_headers,
@@ -871,7 +871,7 @@ async def test_redis_cache_encrypted_not_plaintext(db_conn, encrypted_project):
 
             # Look up the SHA256 from DB to find the Redis key
             sha256 = await _get_message_parts_sha256(db_conn, msg_id)
-            redis_key = REDIS_KEY_PREFIX_PARTS + sha256
+            redis_key = REDIS_KEY_PREFIX_PARTS + str(encrypted_project.project_id) + ":" + sha256
 
             raw: bytes = await rdb.get(redis_key)  # type: ignore
             assert raw is not None, (
@@ -919,7 +919,7 @@ async def test_redis_cache_plain_project_readable(db_conn, plain_project):
             )
 
             sha256 = await _get_message_parts_sha256(db_conn, msg_id)
-            redis_key = REDIS_KEY_PREFIX_PARTS + sha256
+            redis_key = REDIS_KEY_PREFIX_PARTS + str(plain_project.project_id) + ":" + sha256
 
             raw: bytes = await rdb.get(redis_key)  # type: ignore
             assert raw is not None, (
