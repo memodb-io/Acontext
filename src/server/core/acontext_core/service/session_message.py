@@ -25,6 +25,10 @@ from .utils import (
 )
 
 
+def _insert_message_lock_key(session_id: asUUID, message_id: asUUID) -> str:
+    return f"session.message.insert.{session_id}.{message_id}"
+
+
 @register_consumer(
     config=ConsumerConfigData(
         exchange_name=EX.session_message,
@@ -49,12 +53,14 @@ async def insert_new_message(body: InsertNewMessage, message: Message):
         if eil:
             return
 
-        r = await MD.session_message_length(session, body.session_id)
+        r = await MD.branch_pending_message_length(
+            session, body.message_id, session_id=body.session_id
+        )
         pending_count, eil = r.unpack()
         if eil:
             return
 
-    wide["pending_message_count"] = pending_count
+    wide["pending_branch_message_count"] = pending_count
 
     if (
         not body.process_rightnow
@@ -70,9 +76,8 @@ async def insert_new_message(body: InsertNewMessage, message: Message):
         )
         return
 
-    _l = await check_redis_lock_or_set(
-        body.project_id, f"session.message.insert.{body.session_id}"
-    )
+    lock_key = _insert_message_lock_key(body.session_id, body.message_id)
+    _l = await check_redis_lock_or_set(body.project_id, lock_key)
     if not _l:
         wide["lock_acquired"] = False
         wide["action"] = "retry_locked"
@@ -116,13 +121,15 @@ async def insert_new_message(body: InsertNewMessage, message: Message):
             )
         else:
             wide["action"] = "process"
-        await MC.process_session_pending_message(
-            project_config, body.project_id, body.session_id, user_kek=user_kek_bytes
+        await MC.process_inserted_message(
+            project_config,
+            body.project_id,
+            body.session_id,
+            body.message_id,
+            user_kek=user_kek_bytes,
         )
     finally:
-        await release_redis_lock(
-            body.project_id, f"session.message.insert.{body.session_id}"
-        )
+        await release_redis_lock(body.project_id, lock_key)
 
 
 # Delay queue: holds messages for buffer_ttl seconds, then DLX back to entry.
