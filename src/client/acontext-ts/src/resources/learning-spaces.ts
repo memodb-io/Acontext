@@ -16,6 +16,7 @@ import {
   ListLearningSpacesOutputSchema,
   Skill,
   SkillSchema,
+  TERMINAL_SESSION_STATUSES,
 } from '../types';
 
 export class LearningSpacesAPI {
@@ -135,7 +136,7 @@ export class LearningSpacesAPI {
   }): Promise<LearningSpaceSession> {
     const timeout = options.timeout ?? 120;
     const pollInterval = options.pollInterval ?? 1;
-    const terminal = new Set(['completed', 'failed']);
+    const terminal = TERMINAL_SESSION_STATUSES;
     const deadline = Date.now() + timeout * 1000;
 
     while (true) {

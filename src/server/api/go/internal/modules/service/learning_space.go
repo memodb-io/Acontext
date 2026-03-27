@@ -324,7 +324,7 @@ func (s *learningSpaceService) Learn(ctx context.Context, in LearnInput) (*model
 	record := &model.LearningSpaceSession{
 		LearningSpaceID: in.LearningSpaceID,
 		SessionID:       in.SessionID,
-		Status:          "pending",
+		Status:          model.SessionStatusPending,
 	}
 	if err := s.lsSessRepo.Create(ctx, record); err != nil {
 		return nil, fmt.Errorf("create learn record: %w", err)
@@ -438,7 +438,7 @@ func (s *learningSpaceService) ListSessions(ctx context.Context, projectID, lear
 // If all messages are done but no task was marked "success", it promotes
 // non-planning tasks and publishes SkillLearnTask for each to trigger learning.
 func (s *learningSpaceService) resolvePendingStatus(ctx context.Context, projectID uuid.UUID, lss *model.LearningSpaceSession) {
-	if lss.Status != "pending" {
+	if lss.Status != model.SessionStatusPending {
 		return
 	}
 
@@ -467,11 +467,11 @@ func (s *learningSpaceService) resolvePendingStatus(ctx context.Context, project
 		s.logger.Warn("lazy status resolution: failed to check failed messages, proceeding to promote",
 			zap.String("session_id", lss.SessionID.String()), zap.Error(err))
 	} else if hasFailed {
-		if err := s.lsSessRepo.UpdateStatus(ctx, lss.LearningSpaceID, lss.SessionID, "failed"); err != nil {
+		if err := s.lsSessRepo.UpdateStatus(ctx, lss.LearningSpaceID, lss.SessionID, model.SessionStatusFailed); err != nil {
 			s.logger.Warn("lazy status resolution: failed to persist failed status",
 				zap.String("session_id", lss.SessionID.String()), zap.Error(err))
 		}
-		lss.Status = "failed"
+		lss.Status = model.SessionStatusFailed
 		return
 	}
 
@@ -479,20 +479,20 @@ func (s *learningSpaceService) resolvePendingStatus(ctx context.Context, project
 	if err != nil {
 		s.logger.Warn("lazy status resolution: failed to promote tasks, falling back to completed",
 			zap.String("session_id", lss.SessionID.String()), zap.Error(err))
-		if err := s.lsSessRepo.UpdateStatus(ctx, lss.LearningSpaceID, lss.SessionID, "completed"); err != nil {
+		if err := s.lsSessRepo.UpdateStatus(ctx, lss.LearningSpaceID, lss.SessionID, model.SessionStatusCompleted); err != nil {
 			s.logger.Warn("lazy status resolution: failed to persist completed status",
 				zap.String("session_id", lss.SessionID.String()), zap.Error(err))
 		}
-		lss.Status = "completed"
+		lss.Status = model.SessionStatusCompleted
 		return
 	}
 
 	if len(promotedIDs) == 0 {
-		if err := s.lsSessRepo.UpdateStatus(ctx, lss.LearningSpaceID, lss.SessionID, "completed"); err != nil {
+		if err := s.lsSessRepo.UpdateStatus(ctx, lss.LearningSpaceID, lss.SessionID, model.SessionStatusCompleted); err != nil {
 			s.logger.Warn("lazy status resolution: failed to persist completed status",
 				zap.String("session_id", lss.SessionID.String()), zap.Error(err))
 		}
-		lss.Status = "completed"
+		lss.Status = model.SessionStatusCompleted
 		return
 	}
 
