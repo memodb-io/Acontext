@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -173,6 +174,16 @@ func InvalidateProjectAuthCache(rdb *redis.Client, hmac string) {
 	_ = rdb.Del(context.Background(), projectAuthCachePrefix+hmac).Err()
 }
 
+// projectAuthCache is a Redis-serializable subset of model.Project.
+// model.Project uses json:"-" on secret fields to prevent API leakage,
+// but we need those fields for auth validation in the cache.
+type projectAuthCache struct {
+	ID                string `json:"id"`
+	SecretKeyHMAC     string `json:"secret_key_hmac"`
+	SecretKeyHashPHC  string `json:"secret_key_hash_phc"`
+	EncryptionEnabled bool   `json:"encryption_enabled"`
+}
+
 // lookupProject tries Redis cache first, falls back to DB on miss or Redis error.
 func lookupProject(ctx context.Context, db *gorm.DB, rdb *redis.Client, hmac string) (*model.Project, error) {
 	cacheKey := projectAuthCachePrefix + hmac
@@ -181,9 +192,17 @@ func lookupProject(ctx context.Context, db *gorm.DB, rdb *redis.Client, hmac str
 	if rdb != nil {
 		data, err := rdb.Get(ctx, cacheKey).Bytes()
 		if err == nil {
-			var project model.Project
-			if json.Unmarshal(data, &project) == nil {
-				return &project, nil
+			var cached projectAuthCache
+			if json.Unmarshal(data, &cached) == nil && cached.SecretKeyHMAC != "" {
+				project := &model.Project{
+					SecretKeyHMAC:     cached.SecretKeyHMAC,
+					SecretKeyHashPHC:  cached.SecretKeyHashPHC,
+					EncryptionEnabled: cached.EncryptionEnabled,
+				}
+				if id, err := uuid.Parse(cached.ID); err == nil {
+					project.ID = id
+				}
+				return project, nil
 			}
 		}
 		// On redis.Nil or any other error, fall through to DB
@@ -197,7 +216,13 @@ func lookupProject(ctx context.Context, db *gorm.DB, rdb *redis.Client, hmac str
 
 	// Write-back to Redis (best-effort, don't block on failure)
 	if rdb != nil {
-		if data, err := json.Marshal(&project); err == nil {
+		cached := projectAuthCache{
+			ID:                project.ID.String(),
+			SecretKeyHMAC:     project.SecretKeyHMAC,
+			SecretKeyHashPHC:  project.SecretKeyHashPHC,
+			EncryptionEnabled: project.EncryptionEnabled,
+		}
+		if data, err := json.Marshal(&cached); err == nil {
 			_ = rdb.Set(ctx, cacheKey, data, projectAuthCacheTTL).Err()
 		}
 	}
