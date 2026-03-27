@@ -71,8 +71,8 @@ const (
 )
 
 // ProjectAuth returns a middleware that authenticates requests using project bearer tokens.
-// Token format: sk-ac-{auth_secret}.{encrypted_master_key}
-// Derives a KEK and stores it in context for downstream encryption operations.
+// Token formats: compact (sk-ac-{base64url, 76 chars}) or legacy (sk-ac-{plain_secret}).
+// For compact tokens, derives a KEK and stores it in context for downstream encryption.
 // It caches project lookups in Redis to avoid hitting the database on every request.
 func ProjectAuth(cfg *config.Config, db *gorm.DB, rdb *redis.Client) gin.HandlerFunc {
 	return func(c *gin.Context) {
