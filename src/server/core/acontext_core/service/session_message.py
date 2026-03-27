@@ -26,6 +26,11 @@ def _insert_message_lock_key(session_id: asUUID, message_id: asUUID) -> str:
     return f"session.message.insert.{session_id}.{message_id}"
 
 
+async def _get_pending_session_message_ids(session_id: asUUID) -> Result[list[asUUID]]:
+    async with DB_CLIENT.get_session_context() as session:
+        return await MD.get_message_ids(session, session_id, limit=None, asc=True)
+
+
 @register_consumer(
     config=ConsumerConfigData(
         exchange_name=EX.session_message,
@@ -153,39 +158,82 @@ async def flush_session_message_blocking(
 
     max_retries = DEFAULT_CORE_CONFIG.session_message_flush_max_retries
     try:
-        for _attempt in range(max_retries):
-            _l = await check_redis_lock_or_set(
-                project_id, f"session.message.insert.{session_id}"
-            )
-            if _l:
-                break
+        async with DB_CLIENT.get_session_context() as read_session:
+            r = await PD.get_project_config(read_session, project_id)
+            project_config, eil = r.unpack()
+            if eil:
+                wide_event["outcome"] = "error"
+                wide_event["error"] = str(eil)
+                return r
+
+        retry_count = 0
+        processed_count = 0
+        while retry_count < max_retries:
+            r = await _get_pending_session_message_ids(session_id)
+            pending_message_ids, eil = r.unpack()
+            if eil:
+                wide_event["outcome"] = "error"
+                wide_event["error"] = str(eil)
+                return r
+            if not pending_message_ids:
+                wide_event["outcome"] = "success"
+                wide_event["processed_count"] = processed_count
+                wide_event["lock_retries"] = retry_count
+                return Result.resolve(None)
+
+            wide_event["pending_count"] = len(pending_message_ids)
+            processed_this_round = False
+            busy_lock_count = 0
+
+            for message_id in pending_message_ids:
+                async with DB_CLIENT.get_session_context() as read_session:
+                    r = await MD.check_session_message_status(read_session, message_id)
+                    msg_status, eil = r.unpack()
+                    if eil:
+                        wide_event["outcome"] = "error"
+                        wide_event["error"] = str(eil)
+                        return r
+                    if msg_status != "pending":
+                        continue
+
+                lock_key = _insert_message_lock_key(session_id, message_id)
+                _l = await check_redis_lock_or_set(project_id, lock_key)
+                if not _l:
+                    busy_lock_count += 1
+                    continue
+
+                try:
+                    r = await MC.process_inserted_message(
+                        project_config, project_id, session_id, message_id
+                    )
+                    if not r.ok():
+                        wide_event["outcome"] = "failed"
+                        wide_event["processed_count"] = processed_count
+                        wide_event["lock_retries"] = retry_count
+                        return r
+                    processed_this_round = True
+                    processed_count += 1
+                finally:
+                    await release_redis_lock(project_id, lock_key)
+
+            wide_event["busy_lock_count"] = busy_lock_count
+            wide_event["processed_count"] = processed_count
+
+            if processed_this_round:
+                retry_count = 0
+                continue
+
+            retry_count += 1
+            wide_event["lock_retries"] = retry_count
             await asyncio.sleep(
                 DEFAULT_CORE_CONFIG.session_message_session_lock_wait_seconds
             )
-        else:
-            wide_event["outcome"] = "retries_exhausted"
-            wide_event["lock_retries"] = max_retries
-            return Result.reject(
-                f"Failed to acquire session lock after {max_retries} retries"
-            )
 
-        wide_event["lock_retries"] = _attempt
-
-        try:
-            async with DB_CLIENT.get_session_context() as read_session:
-                r = await PD.get_project_config(read_session, project_id)
-                project_config, eil = r.unpack()
-                if eil:
-                    wide_event["outcome"] = "error"
-                    wide_event["error"] = str(eil)
-                    return r
-            r = await MC.process_session_pending_message(
-                project_config, project_id, session_id
-            )
-            wide_event["outcome"] = "success" if r.ok() else "failed"
-            return r
-        finally:
-            await release_redis_lock(project_id, f"session.message.insert.{session_id}")
+        wide_event["outcome"] = "retries_exhausted"
+        wide_event["lock_retries"] = max_retries
+        return Result.reject(
+            f"Failed to flush pending session messages after {max_retries} retries"
+        )
     finally:
         wide_event["duration_ms"] = round((perf_counter() - _start) * 1000, 2)
         LOG.info("flush.message.processed", **wide_event)
