@@ -19,6 +19,7 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
@@ -1376,7 +1377,7 @@ func TestSessionService_GetMessages(t *testing.T) {
 			},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
-				repo.On("ListBySessionWithCursor", ctx, sessionID, time.Time{}, uuid.UUID{}, 11, false).Return(nil, errors.New("query failure"))
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return(nil, errors.New("query failure"))
 			},
 			wantErr: true,
 		},
@@ -1390,10 +1391,12 @@ func TestSessionService_GetMessages(t *testing.T) {
 			},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
-				msgs := []model.Message{
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
 					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleUser},
-				}
-				repo.On("ListBySessionWithCursor", ctx, sessionID, time.Time{}, uuid.UUID{}, 11, false).Return(msgs, nil)
+				}, nil)
+				repo.On("ListBySessionWithCursor", ctx, sessionID, time.Time{}, uuid.UUID{}, 11, false).Return([]model.Message{
+					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleUser},
+				}, nil)
 			},
 			wantErr: false,
 		},
@@ -1407,10 +1410,12 @@ func TestSessionService_GetMessages(t *testing.T) {
 			},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
-				msgs := []model.Message{
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
 					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleUser},
-				}
-				repo.On("ListBySessionWithCursor", ctx, sessionID, time.Time{}, uuid.UUID{}, 11, true).Return(msgs, nil)
+				}, nil)
+				repo.On("ListBySessionWithCursor", ctx, sessionID, time.Time{}, uuid.UUID{}, 11, true).Return([]model.Message{
+					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleUser},
+				}, nil)
 			},
 			wantErr: false,
 		},
@@ -1425,7 +1430,9 @@ func TestSessionService_GetMessages(t *testing.T) {
 			},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
-				// Expect an error due to invalid cursor format, so no repo call expected
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleUser},
+				}, nil)
 			},
 			wantErr: true,
 			errMsg:  "base64", // The actual error message is about base64 decoding
@@ -1440,11 +1447,12 @@ func TestSessionService_GetMessages(t *testing.T) {
 			},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
-				msgs := []model.Message{
-					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleUser},
-					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleAssistant},
-				}
-				repo.On("ListAllMessagesBySession", ctx, sessionID).Return(msgs, nil)
+				rootID := uuid.New()
+				leafID := uuid.New()
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+					{ID: rootID, SessionID: sessionID, Role: model.RoleUser},
+					{ID: leafID, SessionID: sessionID, ParentID: &rootID, Role: model.RoleAssistant},
+				}, nil)
 			},
 			wantErr: false,
 		},
@@ -1458,10 +1466,12 @@ func TestSessionService_GetMessages(t *testing.T) {
 			},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
-				msgs := []model.Message{
-					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleUser},
-				}
-				repo.On("ListAllMessagesBySession", ctx, sessionID).Return(msgs, nil)
+				rootID := uuid.New()
+				leafID := uuid.New()
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+					{ID: rootID, SessionID: sessionID, Role: model.RoleUser},
+					{ID: leafID, SessionID: sessionID, ParentID: &rootID, Role: model.RoleAssistant},
+				}, nil)
 			},
 			wantErr: false,
 		},
@@ -1482,10 +1492,12 @@ func TestSessionService_GetMessages(t *testing.T) {
 		{
 			name: "branch_message_id retrieves root-to-target branch path",
 			input: GetMessagesInput{
+				ProjectID:       projectID,
 				SessionID:       sessionID,
 				BranchMessageID: &branchMessageID,
 			},
 			setup: func(repo *MockSessionRepo) {
+				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
 				msgs := []model.Message{
 					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleUser},
 					{ID: branchMessageID, SessionID: sessionID, Role: model.RoleAssistant},
@@ -1497,21 +1509,26 @@ func TestSessionService_GetMessages(t *testing.T) {
 		{
 			name: "branch_message_id with limit returns error",
 			input: GetMessagesInput{
+				ProjectID:       projectID,
 				SessionID:       sessionID,
 				BranchMessageID: &branchMessageID,
 				Limit:           10,
 			},
-			setup:   func(repo *MockSessionRepo) {},
+			setup: func(repo *MockSessionRepo) {
+				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
+			},
 			wantErr: true,
 			errMsg:  "branch_message_id cannot be combined",
 		},
 		{
 			name: "branch_message_id missing target returns not found error",
 			input: GetMessagesInput{
+				ProjectID:       projectID,
 				SessionID:       sessionID,
 				BranchMessageID: &branchMessageID,
 			},
 			setup: func(repo *MockSessionRepo) {
+				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
 				repo.On("ListMessageBranchPath", ctx, sessionID, branchMessageID).Return(nil, gorm.ErrRecordNotFound)
 			},
 			wantErr: true,
@@ -1561,6 +1578,79 @@ func TestSessionService_GetMessages(t *testing.T) {
 	}
 }
 
+func TestSessionService_GetMessages_DefaultBranchSelection(t *testing.T) {
+	ctx := context.Background()
+	sessionID := uuid.New()
+	projectID := uuid.New()
+	rootID := uuid.MustParse("00000000-0000-0000-0000-000000000010")
+	leftLeafID := uuid.MustParse("00000000-0000-0000-0000-000000000011")
+	rightLeafID := uuid.MustParse("00000000-0000-0000-0000-000000000012")
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	matchSession := &model.Session{ID: sessionID, ProjectID: projectID}
+
+	repo := &MockSessionRepo{}
+	repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
+	repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+		{
+			ID:        leftLeafID,
+			SessionID: sessionID,
+			ParentID:  &rootID,
+			Role:      model.RoleUser,
+			CreatedAt: baseTime.Add(2 * time.Hour),
+		},
+		{
+			ID:        rootID,
+			SessionID: sessionID,
+			Role:      model.RoleUser,
+			CreatedAt: baseTime,
+		},
+		{
+			ID:        rightLeafID,
+			SessionID: sessionID,
+			ParentID:  &rootID,
+			Role:      model.RoleAssistant,
+			CreatedAt: baseTime.Add(2 * time.Hour),
+		},
+	}, nil)
+	repo.On("ListMessageBranchPath", ctx, sessionID, rightLeafID).Return([]model.Message{
+		{
+			ID:        rootID,
+			SessionID: sessionID,
+			Role:      model.RoleUser,
+			CreatedAt: baseTime,
+		},
+		{
+			ID:        rightLeafID,
+			SessionID: sessionID,
+			ParentID:  &rootID,
+			Role:      model.RoleAssistant,
+			CreatedAt: baseTime.Add(2 * time.Hour),
+		},
+	}, nil)
+
+	logger := zap.NewNop()
+	mockAssetRefRepo := &MockAssetReferenceRepo{}
+	cfg := &config.Config{
+		RabbitMQ: config.MQCfg{
+			ExchangeName: config.MQExchangeName{
+				SessionMessage: "session.message",
+			},
+			RoutingKey: config.MQRoutingKey{
+				SessionMessageInsert: "session.message.insert",
+			},
+		},
+	}
+	service := NewSessionService(repo, nil, mockAssetRefRepo, nil, logger, nil, nil, cfg, nil, nil)
+
+	result, err := service.GetMessages(ctx, GetMessagesInput{ProjectID: projectID, SessionID: sessionID})
+	require.NoError(t, err)
+	require.Len(t, result.Items, 2)
+	assert.Equal(t, rootID, result.Items[0].ID)
+	assert.Equal(t, rightLeafID, result.Items[1].ID)
+
+	repo.AssertExpectations(t)
+}
+
 func TestSessionService_GetMessages_SortOrder(t *testing.T) {
 	ctx := context.Background()
 	sessionID := uuid.New()
@@ -1599,6 +1689,9 @@ func TestSessionService_GetMessages_SortOrder(t *testing.T) {
 			expectedOrder: []uuid.UUID{msg1ID, msg2ID, msg3ID},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+					{ID: msg1ID, SessionID: sessionID, Role: model.RoleUser, CreatedAt: now.Add(-3 * time.Hour)},
+				}, nil)
 				msgs := []model.Message{
 					{ID: msg1ID, SessionID: sessionID, Role: model.RoleUser, CreatedAt: now.Add(-3 * time.Hour)},
 					{ID: msg2ID, SessionID: sessionID, Role: model.RoleAssistant, CreatedAt: now.Add(-2 * time.Hour)},
@@ -1624,6 +1717,9 @@ func TestSessionService_GetMessages_SortOrder(t *testing.T) {
 			expectedOrder: []uuid.UUID{msg1ID, msg2ID, msg3ID}, // Still old to new
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+					{ID: msg1ID, SessionID: sessionID, Role: model.RoleUser, CreatedAt: now.Add(-3 * time.Hour)},
+				}, nil)
 				// Repo returns messages in descending order (newest first)
 				msgs := []model.Message{
 					{ID: msg3ID, SessionID: sessionID, Role: model.RoleUser, CreatedAt: now.Add(-1 * time.Hour)},
@@ -1651,6 +1747,9 @@ func TestSessionService_GetMessages_SortOrder(t *testing.T) {
 			expectedOrder: []uuid.UUID{msg1ID, msg2ID, msg4ID}, // Assuming these IDs sort this way lexicographically
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+					{ID: msg1ID, SessionID: sessionID, Role: model.RoleUser, CreatedAt: now},
+				}, nil)
 				msgs := []model.Message{
 					{ID: msg4ID, SessionID: sessionID, Role: model.RoleUser, CreatedAt: now},
 					{ID: msg2ID, SessionID: sessionID, Role: model.RoleAssistant, CreatedAt: now},
@@ -1677,6 +1776,9 @@ func TestSessionService_GetMessages_SortOrder(t *testing.T) {
 			expectedOrder: []uuid.UUID{msg1ID, msg2ID, msg3ID, msg4ID},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+					{ID: msg1ID, SessionID: sessionID, Role: model.RoleUser, CreatedAt: now.Add(-3 * time.Hour)},
+				}, nil)
 				// Repo returns messages in random order
 				msgs := []model.Message{
 					{ID: msg2ID, SessionID: sessionID, Role: model.RoleAssistant, CreatedAt: now.Add(-2 * time.Hour)},

@@ -479,6 +479,87 @@ type GetMessagesOutput struct {
 	EditAtMessageID string               `json:"edit_at_message_id,omitempty"`
 }
 
+func latestLeafMessageID(messages []model.Message) (uuid.UUID, int, bool) {
+	if len(messages) == 0 {
+		return uuid.Nil, 0, false
+	}
+
+	hasChild := make(map[uuid.UUID]struct{}, len(messages))
+	for _, msg := range messages {
+		if msg.ParentID != nil {
+			hasChild[*msg.ParentID] = struct{}{}
+		}
+	}
+
+	var latest model.Message
+	found := false
+	leafCount := 0
+	for _, msg := range messages {
+		if _, ok := hasChild[msg.ID]; ok {
+			continue
+		}
+		leafCount++
+		if !found || msg.CreatedAt.After(latest.CreatedAt) || (msg.CreatedAt.Equal(latest.CreatedAt) && msg.ID.String() > latest.ID.String()) {
+			latest = msg
+			found = true
+		}
+	}
+
+	if !found {
+		return uuid.Nil, leafCount, false
+	}
+
+	return latest.ID, leafCount, true
+}
+
+func windowMessagesForRead(messages []model.Message, limit int, cursor string, timeDesc bool) ([]model.Message, error) {
+	if limit <= 0 {
+		return messages, nil
+	}
+
+	ordered := make([]model.Message, len(messages))
+	copy(ordered, messages)
+
+	if timeDesc {
+		for i, j := 0, len(ordered)-1; i < j; i, j = i+1, j-1 {
+			ordered[i], ordered[j] = ordered[j], ordered[i]
+		}
+	}
+
+	if cursor != "" {
+		afterT, afterID, err := paging.DecodeCursor(cursor)
+		if err != nil {
+			return nil, err
+		}
+
+		start := 0
+		for start < len(ordered) {
+			msg := ordered[start]
+			if timeDesc {
+				if msg.CreatedAt.Before(afterT) || (msg.CreatedAt.Equal(afterT) && msg.ID.String() < afterID.String()) {
+					break
+				}
+			} else {
+				if msg.CreatedAt.After(afterT) || (msg.CreatedAt.Equal(afterT) && msg.ID.String() > afterID.String()) {
+					break
+				}
+			}
+			start++
+		}
+
+		if start >= len(ordered) {
+			return []model.Message{}, nil
+		}
+		ordered = ordered[start:]
+	}
+
+	if len(ordered) > limit+1 {
+		ordered = ordered[:limit+1]
+	}
+
+	return ordered, nil
+}
+
 func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (*GetMessagesOutput, error) {
 	// Verify session exists and belongs to project
 	session, err := s.sessionRepo.Get(ctx, &model.Session{ID: in.SessionID})
@@ -490,6 +571,7 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	}
 
 	var msgs []model.Message
+	applyBranchWindow := false
 
 	if in.BranchMessageID != nil {
 		if in.Limit > 0 || in.Cursor != "" || in.TimeDesc {
@@ -503,29 +585,49 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 			return nil, err
 		}
 	} else {
-		// Retrieve messages based on limit
-		if in.Limit <= 0 {
-			// If limit <= 0, retrieve all messages
-			msgs, err = s.sessionRepo.ListAllMessagesBySession(ctx, in.SessionID)
-			if err != nil {
-				return nil, err
+		allMessages, err := s.sessionRepo.ListAllMessagesBySession(ctx, in.SessionID)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(allMessages) > 0 {
+			latestLeafID, leafCount, ok := latestLeafMessageID(allMessages)
+			if !ok {
+				return nil, fmt.Errorf("no leaf message found in session")
 			}
-		} else {
-			// Parse cursor (createdAt, id); an empty cursor indicates starting from the latest
-			var afterT time.Time
-			var afterID uuid.UUID
-			if in.Cursor != "" {
-				afterT, afterID, err = paging.DecodeCursor(in.Cursor)
+
+			if leafCount == 1 {
+				if in.Limit <= 0 {
+					msgs = allMessages
+				} else {
+					var afterT time.Time
+					var afterID uuid.UUID
+					if in.Cursor != "" {
+						afterT, afterID, err = paging.DecodeCursor(in.Cursor)
+						if err != nil {
+							return nil, err
+						}
+					}
+
+					msgs, err = s.sessionRepo.ListBySessionWithCursor(ctx, in.SessionID, afterT, afterID, in.Limit+1, in.TimeDesc)
+					if err != nil {
+						return nil, err
+					}
+				}
+			} else {
+				msgs, err = s.sessionRepo.ListMessageBranchPath(ctx, in.SessionID, latestLeafID)
 				if err != nil {
 					return nil, err
 				}
+				applyBranchWindow = true
 			}
+		}
+	}
 
-			// Query limit+1 is used to determine has_more
-			msgs, err = s.sessionRepo.ListBySessionWithCursor(ctx, in.SessionID, afterT, afterID, in.Limit+1, in.TimeDesc)
-			if err != nil {
-				return nil, err
-			}
+	if applyBranchWindow {
+		msgs, err = windowMessagesForRead(msgs, in.Limit, in.Cursor, in.TimeDesc)
+		if err != nil {
+			return nil, err
 		}
 	}
 
