@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"strings"
 
 	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/modules/model"
@@ -21,7 +22,14 @@ func EnsureDefaultProjectExists(ctx context.Context, db *gorm.DB, cfg *config.Co
 		return nil
 	}
 
-	lookup := tokens.HMAC256Hex(pepper, secret)
+	// Support new token format: auth_secret.encrypted_master_key
+	// HMAC and PHC are based on auth_secret only (the part before the dot).
+	authSecret := secret
+	if idx := strings.IndexByte(secret, '.'); idx > 0 {
+		authSecret = secret[:idx]
+	}
+
+	lookup := tokens.HMAC256Hex(pepper, authSecret)
 
 	// First, check if a default project exists by looking for the special config field
 	var defaultProject model.Project
@@ -32,7 +40,7 @@ func EnsureDefaultProjectExists(ctx context.Context, db *gorm.DB, cfg *config.Co
 	switch err {
 	case nil:
 		// Default project exists, update its secret
-		phc, err := secrets.HashSecret(secret, pepper)
+		phc, err := secrets.HashSecret(authSecret, pepper)
 		if err != nil {
 			return err
 		}
@@ -50,7 +58,7 @@ func EnsureDefaultProjectExists(ctx context.Context, db *gorm.DB, cfg *config.Co
 
 	case gorm.ErrRecordNotFound:
 		// No default project exists, create a new one
-		phc, err := secrets.HashSecret(secret, pepper)
+		phc, err := secrets.HashSecret(authSecret, pepper)
 		if err != nil {
 			return err
 		}
