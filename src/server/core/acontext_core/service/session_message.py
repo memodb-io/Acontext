@@ -14,6 +14,7 @@ from ..schema.mq.session import InsertNewMessage
 from ..schema.utils import asUUID
 from ..schema.result import Result
 from .constants import EX, RK
+from .data import learning_space as LS
 from .data import message as MD
 from .data import project as PD
 from .controller import message as MC
@@ -96,6 +97,8 @@ async def insert_new_message(body: InsertNewMessage, message: Message):
             user_kek_bytes = base64.b64decode(body.user_kek)
         except Exception:
             LOG.error("session_message.invalid_user_kek", session_id=str(body.session_id))
+            async with DB_CLIENT.get_session_context() as db_session:
+                await LS.update_session_status(db_session, body.session_id, "failed")
             return
 
     try:

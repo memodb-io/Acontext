@@ -41,6 +41,7 @@ func (h *ProjectHandler) GetConfigs(c *gin.Context) {
 			}
 		}
 	}
+	configs["encryption_enabled"] = project.EncryptionEnabled
 
 	c.JSON(http.StatusOK, serializer.Response{
 		Code: 0,

@@ -35,7 +35,7 @@ type SessionService interface {
 	List(ctx context.Context, in ListSessionsInput) (*ListSessionsOutput, error)
 	StoreMessage(ctx context.Context, in StoreMessageInput) (*model.Message, error)
 	GetMessages(ctx context.Context, in GetMessagesInput) (*GetMessagesOutput, error)
-	GetAllMessages(ctx context.Context, sessionID uuid.UUID, userKEK []byte) ([]model.Message, error)
+	GetAllMessages(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, userKEK []byte) ([]model.Message, error)
 	GetSessionObservingStatus(ctx context.Context, sessionID string) (*model.MessageObservingStatus, error)
 	PatchMessageMeta(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, messageID uuid.UUID, patchMeta map[string]interface{}) (map[string]interface{}, error)
 	PatchConfigs(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, patchConfigs map[string]interface{}) (map[string]interface{}, error)
@@ -363,7 +363,7 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 
 	// Cache parts data in Redis before responding (uses pre-computed SHA256)
 	if s.redis != nil {
-		if err := s.cachePartsInRedis(ctx, partsAsset.SHA256, parts, in.UserKEK); err != nil {
+		if err := s.cachePartsInRedis(ctx, in.ProjectID.String(), partsAsset.SHA256, parts, in.UserKEK); err != nil {
 			s.log.Warn("failed to cache parts in Redis", zap.String("sha256", partsAsset.SHA256), zap.Error(err))
 		}
 	}
@@ -504,7 +504,7 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	n := 0
 	for i, m := range msgs {
 		meta := m.PartsAssetMeta.Data()
-		parts, ok := s.loadPartsForMessage(ctx, meta, in.UserKEK)
+		parts, ok := s.loadPartsForMessage(ctx, in.ProjectID.String(), meta, in.UserKEK)
 		if !ok {
 			continue // Drop messages with failed parts loading
 		}
@@ -604,7 +604,7 @@ func (s *sessionService) DownloadAsset(ctx context.Context, s3Key string, userKE
 // Format: prefix_byte | payload
 //   - 0x00 | json_data (plaintext)
 //   - 0x01 | wrappedDEK_len (2 bytes BE) | wrappedDEK | ciphertext (encrypted)
-func (s *sessionService) cachePartsInRedis(ctx context.Context, sha256 string, parts []model.Part, userKEK []byte) error {
+func (s *sessionService) cachePartsInRedis(ctx context.Context, projectID string, sha256 string, parts []model.Part, userKEK []byte) error {
 	if s.redis == nil {
 		return errors.New("redis client is not available")
 	}
@@ -636,8 +636,8 @@ func (s *sessionService) cachePartsInRedis(ctx context.Context, sha256 string, p
 		copy(cacheData[1:], jsonData)
 	}
 
-	// Use SHA256 as part of Redis key for content-based caching
-	redisKey := redisKeyPrefixParts + sha256
+	// Use project ID + SHA256 as Redis key for project-scoped content-based caching
+	redisKey := redisKeyPrefixParts + projectID + ":" + sha256
 
 	// Store in Redis with fixed TTL
 	if err := s.redis.Set(ctx, redisKey, cacheData, defaultPartsCacheTTL).Err(); err != nil {
@@ -650,12 +650,12 @@ func (s *sessionService) cachePartsInRedis(ctx context.Context, sha256 string, p
 // getPartsFromRedis retrieves message parts from Redis cache.
 // When userKEK is provided and the cached data is encrypted, it decrypts before unmarshalling.
 // Returns (nil, redis.Nil) on cache miss, which is a normal condition.
-func (s *sessionService) getPartsFromRedis(ctx context.Context, sha256 string, userKEK []byte) ([]model.Part, error) {
+func (s *sessionService) getPartsFromRedis(ctx context.Context, projectID string, sha256 string, userKEK []byte) ([]model.Part, error) {
 	if s.redis == nil {
 		return nil, errors.New("redis client is not available")
 	}
 
-	redisKey := redisKeyPrefixParts + sha256
+	redisKey := redisKeyPrefixParts + projectID + ":" + sha256
 
 	// Get from Redis
 	val, err := s.redis.Get(ctx, redisKey).Bytes()
@@ -717,13 +717,13 @@ func (s *sessionService) getPartsFromRedis(ctx context.Context, sha256 string, u
 // ok=false means a load failure (the message should be skipped), and ok=true
 // with an empty slice means the message legitimately has no content parts.
 // userKEK is the optional user key-encryption-key for decrypting envelope-encrypted parts.
-func (s *sessionService) loadPartsForMessage(ctx context.Context, meta model.Asset, userKEK []byte) ([]model.Part, bool) {
+func (s *sessionService) loadPartsForMessage(ctx context.Context, projectID string, meta model.Asset, userKEK []byte) ([]model.Part, bool) {
 	parts := []model.Part{}
 	cacheHit := false
 
 	// Try to get parts from Redis cache first, fallback to S3 if not found
 	if s.redis != nil {
-		if cachedParts, err := s.getPartsFromRedis(ctx, meta.SHA256, userKEK); err == nil {
+		if cachedParts, err := s.getPartsFromRedis(ctx, projectID, meta.SHA256, userKEK); err == nil {
 			parts = cachedParts
 			cacheHit = true
 		} else if err != redis.Nil {
@@ -740,7 +740,7 @@ func (s *sessionService) loadPartsForMessage(ctx context.Context, meta model.Ass
 		}
 		// Cache the parts in Redis after successful S3 download
 		if s.redis != nil {
-			if err := s.cachePartsInRedis(ctx, meta.SHA256, parts, userKEK); err != nil {
+			if err := s.cachePartsInRedis(ctx, projectID, meta.SHA256, parts, userKEK); err != nil {
 				// Log error but don't fail the request if Redis caching fails
 				s.log.Warn("failed to cache parts in Redis", zap.String("sha256", meta.SHA256), zap.Error(err))
 			}
@@ -751,7 +751,7 @@ func (s *sessionService) loadPartsForMessage(ctx context.Context, meta model.Ass
 }
 
 // GetAllMessages retrieves all messages for a session and loads their parts
-func (s *sessionService) GetAllMessages(ctx context.Context, sessionID uuid.UUID, userKEK []byte) ([]model.Message, error) {
+func (s *sessionService) GetAllMessages(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, userKEK []byte) ([]model.Message, error) {
 	// Get all messages from repository
 	msgs, err := s.sessionRepo.ListAllMessagesBySession(ctx, sessionID)
 	if err != nil {
@@ -762,7 +762,7 @@ func (s *sessionService) GetAllMessages(ctx context.Context, sessionID uuid.UUID
 	n := 0
 	for i, m := range msgs {
 		meta := m.PartsAssetMeta.Data()
-		parts, ok := s.loadPartsForMessage(ctx, meta, userKEK)
+		parts, ok := s.loadPartsForMessage(ctx, projectID.String(), meta, userKEK)
 		if !ok {
 			continue
 		}

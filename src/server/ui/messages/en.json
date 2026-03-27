@@ -11,6 +11,7 @@
     "agentSkills": "Agent Skills",
     "learningSpaces": "Learning Spaces",
     "users": "Users",
+    "encryption": "Encryption",
     "settings": "Settings"
   },
   "dashboard": {
@@ -381,6 +382,29 @@
     "retry": "Retry",
     "path": "Path",
     "noPreviewAvailable": "No preview available for this file."
+  },
+  "encryption": {
+    "title": "Encryption",
+    "description": "Manage per-project encryption to protect your data at rest.",
+    "loading": "Loading encryption status...",
+    "statusTitle": "Encryption Status",
+    "enabled": "Encryption is currently enabled. All project data is encrypted using your API key.",
+    "disabled": "Encryption is currently disabled.",
+    "apiKeyLabel": "Project API Key",
+    "apiKeyPlaceholder": "sk-ac-...",
+    "apiKeyHint": "Your project API key is required to enable or disable encryption. It is not stored on the server.",
+    "apiKeyRequired": "Please enter your project API key.",
+    "enable": "Enable Encryption",
+    "disable": "Disable Encryption",
+    "processing": "Processing...",
+    "enableConfirmTitle": "Enable Encryption?",
+    "enableConfirmDesc": "This will encrypt all existing project data using your API key. This may take a while for large projects.",
+    "disableConfirmTitle": "Disable Encryption?",
+    "disableConfirmDesc": "This will decrypt all project data. Your data will no longer be encrypted at rest.",
+    "enableSuccess": "Encryption enabled successfully.",
+    "disableSuccess": "Encryption disabled successfully.",
+    "cancel": "Cancel",
+    "confirm": "Confirm"
   },
   "settings": {
     "title": "Settings",

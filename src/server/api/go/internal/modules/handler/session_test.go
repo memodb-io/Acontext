@@ -75,8 +75,8 @@ func (m *MockSessionService) List(ctx context.Context, in service.ListSessionsIn
 	return args.Get(0).(*service.ListSessionsOutput), args.Error(1)
 }
 
-func (m *MockSessionService) GetAllMessages(ctx context.Context, sessionID uuid.UUID, userKEK []byte) ([]model.Message, error) {
-	args := m.Called(ctx, sessionID, userKEK)
+func (m *MockSessionService) GetAllMessages(ctx context.Context, projectID uuid.UUID, sessionID uuid.UUID, userKEK []byte) ([]model.Message, error) {
+	args := m.Called(ctx, projectID, sessionID, userKEK)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -3569,7 +3569,7 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 						},
 					},
 				}
-				svc.On("GetAllMessages", mock.Anything, sessionID, mock.Anything).Return(messages, nil)
+				svc.On("GetAllMessages", mock.Anything, mock.Anything, sessionID, mock.Anything).Return(messages, nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedTokens: 8, // Approximate token count for "Hello, world!\nHow can I help you?\n"
@@ -3598,7 +3598,7 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 						},
 					},
 				}
-				svc.On("GetAllMessages", mock.Anything, sessionID, mock.Anything).Return(messages, nil)
+				svc.On("GetAllMessages", mock.Anything, mock.Anything, sessionID, mock.Anything).Return(messages, nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedTokens: 20, // Approximate token count for tool-call meta JSON
@@ -3641,7 +3641,7 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 						},
 					},
 				}
-				svc.On("GetAllMessages", mock.Anything, sessionID, mock.Anything).Return(messages, nil)
+				svc.On("GetAllMessages", mock.Anything, mock.Anything, sessionID, mock.Anything).Return(messages, nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedTokens: 20, // Approximate token count
@@ -3653,7 +3653,7 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
 					return s.ID == sessionID
 				})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
-				svc.On("GetAllMessages", mock.Anything, sessionID, mock.Anything).Return([]model.Message{}, nil)
+				svc.On("GetAllMessages", mock.Anything, mock.Anything, sessionID, mock.Anything).Return([]model.Message{}, nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedTokens: 0,
@@ -3681,7 +3681,7 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 						},
 					},
 				}
-				svc.On("GetAllMessages", mock.Anything, sessionID, mock.Anything).Return(messages, nil)
+				svc.On("GetAllMessages", mock.Anything, mock.Anything, sessionID, mock.Anything).Return(messages, nil)
 			},
 			expectedStatus: http.StatusOK,
 			expectedTokens: 0, // Images don't contribute to token count
@@ -3699,7 +3699,7 @@ func TestSessionHandler_GetTokenCounts(t *testing.T) {
 				svc.On("GetByID", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
 					return s.ID == sessionID
 				})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
-				svc.On("GetAllMessages", mock.Anything, sessionID, mock.Anything).Return(nil, errors.New("database error"))
+				svc.On("GetAllMessages", mock.Anything, mock.Anything, sessionID, mock.Anything).Return(nil, errors.New("database error"))
 			},
 			expectedStatus: http.StatusInternalServerError,
 		},

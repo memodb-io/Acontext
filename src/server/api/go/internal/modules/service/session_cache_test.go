@@ -51,11 +51,11 @@ func TestCachePartsInRedis_Plaintext_RoundTrip(t *testing.T) {
 	sha := "abc123plaintext"
 
 	// Write with nil KEK → plaintext
-	err := svc.cachePartsInRedis(ctx, sha, parts, nil)
+	err := svc.cachePartsInRedis(ctx, "proj1", sha, parts, nil)
 	require.NoError(t, err)
 
 	// Read back
-	got, err := svc.getPartsFromRedis(ctx, sha, nil)
+	got, err := svc.getPartsFromRedis(ctx, "proj1", sha, nil)
 	require.NoError(t, err)
 	assert.Equal(t, parts, got)
 }
@@ -65,11 +65,11 @@ func TestCachePartsInRedis_Plaintext_PrefixByte(t *testing.T) {
 	ctx := context.Background()
 	sha := "abc123prefix"
 
-	err := svc.cachePartsInRedis(ctx, sha, testParts(), nil)
+	err := svc.cachePartsInRedis(ctx, "proj1", sha, testParts(), nil)
 	require.NoError(t, err)
 
 	// Inspect raw Redis value — first byte must be 0x00
-	raw, err := mr.Get(redisKeyPrefixParts + sha)
+	raw, err := mr.Get(redisKeyPrefixParts + "proj1:" + sha)
 	require.NoError(t, err)
 	require.True(t, len(raw) > 0)
 	assert.Equal(t, byte(cachePrefixPlaintext), raw[0], "first byte should be 0x00 for plaintext")
@@ -93,11 +93,11 @@ func TestCachePartsInRedis_Encrypted_RoundTrip(t *testing.T) {
 	sha := "abc123encrypted"
 
 	// Write with KEK → encrypted
-	err := svc.cachePartsInRedis(ctx, sha, parts, kek)
+	err := svc.cachePartsInRedis(ctx, "proj1", sha, parts, kek)
 	require.NoError(t, err)
 
 	// Read back with same KEK
-	got, err := svc.getPartsFromRedis(ctx, sha, kek)
+	got, err := svc.getPartsFromRedis(ctx, "proj1", sha, kek)
 	require.NoError(t, err)
 	assert.Equal(t, parts, got)
 }
@@ -108,11 +108,11 @@ func TestCachePartsInRedis_Encrypted_NotPlaintext(t *testing.T) {
 	kek := testUserKEK(t)
 	sha := "abc123notplain"
 
-	err := svc.cachePartsInRedis(ctx, sha, testParts(), kek)
+	err := svc.cachePartsInRedis(ctx, "proj1", sha, testParts(), kek)
 	require.NoError(t, err)
 
 	// Inspect raw Redis value
-	raw, err := mr.Get(redisKeyPrefixParts + sha)
+	raw, err := mr.Get(redisKeyPrefixParts + "proj1:" + sha)
 	require.NoError(t, err)
 	require.True(t, len(raw) > 0)
 
@@ -131,14 +131,14 @@ func TestCachePartsInRedis_Encrypted_WrongKEK_Fails(t *testing.T) {
 	sha := "abc123wrongkek"
 
 	// Write with one KEK
-	err := svc.cachePartsInRedis(ctx, sha, parts, kek)
+	err := svc.cachePartsInRedis(ctx, "proj1", sha, parts, kek)
 	require.NoError(t, err)
 
 	// Read with different KEK → should fail
 	wrongKEK, err := crypto.DeriveKEK([]byte("wrong-secret"), []byte("salt"), []byte("info"))
 	require.NoError(t, err)
 
-	_, err = svc.getPartsFromRedis(ctx, sha, wrongKEK)
+	_, err = svc.getPartsFromRedis(ctx, "proj1", sha, wrongKEK)
 	assert.Error(t, err, "reading encrypted cache with wrong KEK should fail")
 }
 
@@ -149,11 +149,11 @@ func TestGetPartsFromRedis_Encrypted_NilKEK_Fails(t *testing.T) {
 	sha := "abc123nilkek"
 
 	// Write encrypted
-	err := svc.cachePartsInRedis(ctx, sha, testParts(), kek)
+	err := svc.cachePartsInRedis(ctx, "proj1", sha, testParts(), kek)
 	require.NoError(t, err)
 
 	// Read with nil KEK → should fail
-	_, err = svc.getPartsFromRedis(ctx, sha, nil)
+	_, err = svc.getPartsFromRedis(ctx, "proj1", sha, nil)
 	assert.Error(t, err, "reading encrypted cache without KEK should fail")
 	assert.Contains(t, err.Error(), "no user KEK provided")
 }
@@ -174,11 +174,11 @@ func TestGetPartsFromRedis_LegacyFormat(t *testing.T) {
 
 	// Write raw JSON directly (no 0x00 prefix — this is the pre-encryption format)
 	// JSON always starts with '[' (0x5B) or '{' (0x7B), neither matches 0x00 or 0x01
-	err = mr.Set(redisKeyPrefixParts+sha, string(jsonData))
+	err = mr.Set(redisKeyPrefixParts+"proj1:"+sha, string(jsonData))
 	require.NoError(t, err)
 
 	// Read should work via the "default" branch
-	got, err := svc.getPartsFromRedis(ctx, sha, nil)
+	got, err := svc.getPartsFromRedis(ctx, "proj1", sha, nil)
 	require.NoError(t, err)
 	assert.Equal(t, parts, got)
 }
@@ -191,7 +191,7 @@ func TestGetPartsFromRedis_CacheMiss(t *testing.T) {
 	svc, _ := newTestSessionServiceWithRedis(t)
 	ctx := context.Background()
 
-	_, err := svc.getPartsFromRedis(ctx, "nonexistent", nil)
+	_, err := svc.getPartsFromRedis(ctx, "proj1", "nonexistent", nil)
 	assert.ErrorIs(t, err, redis.Nil)
 }
 
@@ -206,11 +206,11 @@ func TestLoadPartsForMessage_CacheHit_Plaintext(t *testing.T) {
 	sha := "loadparts-plain"
 
 	// Pre-populate cache
-	err := svc.cachePartsInRedis(ctx, sha, parts, nil)
+	err := svc.cachePartsInRedis(ctx, "proj1", sha, parts, nil)
 	require.NoError(t, err)
 
 	meta := model.Asset{SHA256: sha, S3Key: "some/key.json"}
-	got, ok := svc.loadPartsForMessage(ctx, meta, nil)
+	got, ok := svc.loadPartsForMessage(ctx, "proj1", meta, nil)
 	assert.True(t, ok)
 	assert.Equal(t, parts, got)
 }
@@ -223,11 +223,11 @@ func TestLoadPartsForMessage_CacheHit_Encrypted(t *testing.T) {
 	sha := "loadparts-enc"
 
 	// Pre-populate cache with encrypted data
-	err := svc.cachePartsInRedis(ctx, sha, parts, kek)
+	err := svc.cachePartsInRedis(ctx, "proj1", sha, parts, kek)
 	require.NoError(t, err)
 
 	meta := model.Asset{SHA256: sha, S3Key: "some/key.json"}
-	got, ok := svc.loadPartsForMessage(ctx, meta, kek)
+	got, ok := svc.loadPartsForMessage(ctx, "proj1", meta, kek)
 	assert.True(t, ok)
 	assert.Equal(t, parts, got)
 }
@@ -238,7 +238,7 @@ func TestLoadPartsForMessage_CacheMiss_NoS3_ReturnsEmpty(t *testing.T) {
 
 	// No cache entry, no S3 configured → returns empty parts (ok=true)
 	meta := model.Asset{SHA256: "nonexistent", S3Key: "some/key.json"}
-	got, ok := svc.loadPartsForMessage(ctx, meta, nil)
+	got, ok := svc.loadPartsForMessage(ctx, "proj1", meta, nil)
 	assert.True(t, ok, "should return ok=true when cache miss with no S3")
 	assert.Empty(t, got)
 }
@@ -253,7 +253,7 @@ func TestLoadPartsForMessage_NilRedis_NilS3_ReturnsEmpty(t *testing.T) {
 	ctx := context.Background()
 
 	meta := model.Asset{SHA256: "anything", S3Key: "some/key.json"}
-	got, ok := svc.loadPartsForMessage(ctx, meta, nil)
+	got, ok := svc.loadPartsForMessage(ctx, "proj1", meta, nil)
 	assert.True(t, ok)
 	assert.Empty(t, got)
 }

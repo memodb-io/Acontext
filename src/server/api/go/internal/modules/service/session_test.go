@@ -1518,12 +1518,12 @@ func TestSessionService_GetMessages_MaterialURLs(t *testing.T) {
 	}
 
 	// Helper: seed Redis with plaintext-cached parts (prefix 0x00 + JSON)
-	seedPartsCache := func(t *testing.T, rdb *redis.Client, sha256 string, parts []model.Part) {
+	seedPartsCache := func(t *testing.T, rdb *redis.Client, projID uuid.UUID, sha256 string, parts []model.Part) {
 		t.Helper()
 		jsonData, err := json.Marshal(parts)
 		assert.NoError(t, err)
 		cacheData := append([]byte{0x00}, jsonData...)
-		err = rdb.Set(context.Background(), "message:parts:"+sha256, cacheData, time.Hour).Err()
+		err = rdb.Set(context.Background(), "message:parts:"+projID.String()+":"+sha256, cacheData, time.Hour).Err()
 		assert.NoError(t, err)
 	}
 
@@ -1554,7 +1554,7 @@ func TestSessionService_GetMessages_MaterialURLs(t *testing.T) {
 		repo.On("ListAllMessagesBySession", mock.Anything, sessionID).Return(msgs, nil)
 
 		// Seed Redis with cached parts containing the image asset
-		seedPartsCache(t, rdb, "sha-abc", imageParts)
+		seedPartsCache(t, rdb, projectID, "sha-abc", imageParts)
 
 		// Mock materialSvc
 		mockMaterialSvc.On("CreateMaterialURL", mock.Anything, "assets/proj/img.png", "", mock.AnythingOfType("time.Duration"), "image/png", "photo.png").
@@ -1606,7 +1606,7 @@ func TestSessionService_GetMessages_MaterialURLs(t *testing.T) {
 		}
 		repo.On("ListAllMessagesBySession", mock.Anything, sessionID).Return(msgs, nil)
 
-		seedPartsCache(t, rdb, "sha-abc", textParts)
+		seedPartsCache(t, rdb, projectID, "sha-abc", textParts)
 
 		svc := NewSessionService(repo, nil, mockAssetRefRepo, nil, logger, nil, nil, cfg, rdb, mockMaterialSvc)
 

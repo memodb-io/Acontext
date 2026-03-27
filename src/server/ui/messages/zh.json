@@ -11,6 +11,7 @@
     "agentSkills": "Agent Skills",
     "learningSpaces": "学习空间",
     "users": "用户",
+    "encryption": "加密",
     "settings": "设置"
   },
   "dashboard": {
@@ -381,6 +382,29 @@
     "retry": "重试",
     "path": "路径",
     "noPreviewAvailable": "此文件无法预览。"
+  },
+  "encryption": {
+    "title": "加密",
+    "description": "管理项目级加密，保护您的数据安全。",
+    "loading": "加载加密状态...",
+    "statusTitle": "加密状态",
+    "enabled": "加密已启用。所有项目数据均使用您的 API 密钥加密。",
+    "disabled": "加密当前未启用。",
+    "apiKeyLabel": "项目 API 密钥",
+    "apiKeyPlaceholder": "sk-ac-...",
+    "apiKeyHint": "需要项目 API 密钥才能启用或禁用加密。密钥不会存储在服务器上。",
+    "apiKeyRequired": "请输入项目 API 密钥。",
+    "enable": "启用加密",
+    "disable": "禁用加密",
+    "processing": "处理中...",
+    "enableConfirmTitle": "启用加密？",
+    "enableConfirmDesc": "这将使用您的 API 密钥加密所有现有项目数据。对于大型项目，此操作可能需要一些时间。",
+    "disableConfirmTitle": "禁用加密？",
+    "disableConfirmDesc": "这将解密所有项目数据。您的数据将不再进行静态加密。",
+    "enableSuccess": "加密已成功启用。",
+    "disableSuccess": "加密已成功禁用。",
+    "cancel": "取消",
+    "confirm": "确认"
   },
   "settings": {
     "title": "设置",

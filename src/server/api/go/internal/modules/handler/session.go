@@ -748,7 +748,7 @@ func (h *SessionHandler) GetTokenCounts(c *gin.Context) {
 	}
 
 	// Get all messages for the session
-	messages, err := h.svc.GetAllMessages(c.Request.Context(), sessionID, middleware.GetUserKEKIfEncrypted(c))
+	messages, err := h.svc.GetAllMessages(c.Request.Context(), project.ID, sessionID, middleware.GetUserKEKIfEncrypted(c))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to get messages", err))
 		return
