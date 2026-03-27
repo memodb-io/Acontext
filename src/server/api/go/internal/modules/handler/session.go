@@ -339,9 +339,10 @@ func (h *SessionHandler) GetConfigs(c *gin.Context) {
 }
 
 type StoreMessageReq struct {
-	Blob   interface{}            `form:"blob" json:"blob" binding:"required"`
-	Format string                 `form:"format" json:"format" binding:"omitempty,oneof=acontext openai anthropic gemini" example:"openai" enums:"acontext,openai,anthropic,gemini"`
-	Meta   map[string]interface{} `form:"meta" json:"meta"` // Optional user-provided metadata for the message
+	Blob     interface{}            `form:"blob" json:"blob" binding:"required"`
+	Format   string                 `form:"format" json:"format" binding:"omitempty,oneof=acontext openai anthropic gemini" example:"openai" enums:"acontext,openai,anthropic,gemini"`
+	ParentID string                 `form:"parent_id" json:"parent_id" example:"123e4567-e89b-12d3-a456-426614174000"`
+	Meta     map[string]interface{} `form:"meta" json:"meta"` // Optional user-provided metadata for the message
 }
 
 // StoreMessage godoc
@@ -457,6 +458,16 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 		return
 	}
 
+	var parentID *uuid.UUID
+	if strings.TrimSpace(req.ParentID) != "" {
+		parsedParentID, err := uuid.Parse(req.ParentID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid parent_id", err))
+			return
+		}
+		parentID = &parsedParentID
+	}
+
 	// Store user-provided meta in __user_meta__ field for complete isolation from system fields
 	if len(req.Meta) > 0 {
 		if normalizedMeta == nil {
@@ -468,6 +479,7 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 	out, err := h.svc.StoreMessage(c.Request.Context(), service.StoreMessageInput{
 		ProjectID:   project.ID,
 		SessionID:   sessionID,
+		ParentID:    parentID,
 		Role:        normalizedRole,
 		Parts:       normalizedParts,
 		Format:      format,

@@ -9,8 +9,11 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/config"
+	"github.com/memodb-io/Acontext/internal/infra/blob"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/redis/go-redis/v9"
@@ -18,6 +21,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 // MockSessionRepo is a mock implementation of SessionRepo
@@ -103,6 +107,14 @@ func (m *MockSessionRepo) GetMessageByID(ctx context.Context, sessionID uuid.UUI
 	return args.Get(0).(*model.Message), args.Error(1)
 }
 
+func (m *MockSessionRepo) GetMessageByIDAnySession(ctx context.Context, messageID uuid.UUID) (*model.Message, error) {
+	args := m.Called(ctx, messageID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Message), args.Error(1)
+}
+
 func (m *MockSessionRepo) UpdateMessageMeta(ctx context.Context, messageID uuid.UUID, meta datatypes.JSONType[map[string]interface{}]) error {
 	args := m.Called(ctx, messageID, meta)
 	return args.Error(0)
@@ -180,6 +192,35 @@ func (m *MockAssetRefBuffer) Stop()  {}
 // MockBlobService is a mock implementation of blob service
 type MockBlobService struct {
 	mock.Mock
+}
+
+type stubUploadAPIClient struct{}
+
+func (stubUploadAPIClient) PutObject(context.Context, *awss3.PutObjectInput, ...func(*awss3.Options)) (*awss3.PutObjectOutput, error) {
+	return &awss3.PutObjectOutput{}, nil
+}
+
+func (stubUploadAPIClient) UploadPart(context.Context, *awss3.UploadPartInput, ...func(*awss3.Options)) (*awss3.UploadPartOutput, error) {
+	return &awss3.UploadPartOutput{}, nil
+}
+
+func (stubUploadAPIClient) CreateMultipartUpload(context.Context, *awss3.CreateMultipartUploadInput, ...func(*awss3.Options)) (*awss3.CreateMultipartUploadOutput, error) {
+	return &awss3.CreateMultipartUploadOutput{}, nil
+}
+
+func (stubUploadAPIClient) CompleteMultipartUpload(context.Context, *awss3.CompleteMultipartUploadInput, ...func(*awss3.Options)) (*awss3.CompleteMultipartUploadOutput, error) {
+	return &awss3.CompleteMultipartUploadOutput{}, nil
+}
+
+func (stubUploadAPIClient) AbortMultipartUpload(context.Context, *awss3.AbortMultipartUploadInput, ...func(*awss3.Options)) (*awss3.AbortMultipartUploadOutput, error) {
+	return &awss3.AbortMultipartUploadOutput{}, nil
+}
+
+func newTestSessionS3Deps() *blob.S3Deps {
+	return &blob.S3Deps{
+		Bucket:   "test-bucket",
+		Uploader: manager.NewUploader(stubUploadAPIClient{}),
+	}
 }
 
 func (m *MockBlobService) UploadJSON(ctx context.Context, prefix string, data interface{}) (*model.Asset, error) {
@@ -1142,6 +1183,165 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 			mockAssetRefRepo.AssertExpectations(t)
 		})
 	}
+}
+
+func TestSessionService_StoreMessage_ParentID(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+	sessionID := uuid.New()
+	parentID := uuid.New()
+	otherSessionID := uuid.New()
+
+	newService := func(repo *MockSessionRepo, assetBuffer *MockAssetRefBuffer) SessionService {
+		logger := zap.NewNop()
+		cfg := &config.Config{
+			RabbitMQ: config.MQCfg{
+				ExchangeName: config.MQExchangeName{
+					SessionMessage: "session.message",
+				},
+				RoutingKey: config.MQRoutingKey{
+					SessionMessageInsert: "session.message.insert",
+				},
+			},
+		}
+		return NewSessionService(
+			repo,
+			nil,
+			&MockAssetReferenceRepo{},
+			assetBuffer,
+			logger,
+			newTestSessionS3Deps(),
+			nil,
+			cfg,
+			nil,
+			nil,
+		)
+	}
+
+	baseInput := StoreMessageInput{
+		ProjectID: projectID,
+		SessionID: sessionID,
+		Role:      model.RoleUser,
+		Parts: []PartIn{
+			{Type: model.PartTypeText, Text: "fork me"},
+		},
+		Format: model.FormatAcontext,
+		MessageMeta: map[string]interface{}{
+			model.MsgMetaSourceFormat: "acontext",
+		},
+	}
+
+	t.Run("returns error when parent message does not exist", func(t *testing.T) {
+		repo := &MockSessionRepo{}
+		assetBuffer := &MockAssetRefBuffer{}
+
+		repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool {
+			return s.ID == sessionID
+		})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
+		repo.On("GetMessageByIDAnySession", ctx, parentID).Return(nil, gorm.ErrRecordNotFound)
+
+		service := newService(repo, assetBuffer)
+		input := baseInput
+		input.ParentID = &parentID
+
+		result, err := service.StoreMessage(ctx, input)
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "parent message not found")
+
+		repo.AssertExpectations(t)
+		assetBuffer.AssertExpectations(t)
+	})
+
+	t.Run("returns error when parent message belongs to another session", func(t *testing.T) {
+		repo := &MockSessionRepo{}
+		assetBuffer := &MockAssetRefBuffer{}
+
+		repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool {
+			return s.ID == sessionID
+		})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
+		repo.On("GetMessageByIDAnySession", ctx, parentID).Return(&model.Message{
+			ID:        parentID,
+			SessionID: otherSessionID,
+		}, nil)
+
+		service := newService(repo, assetBuffer)
+		input := baseInput
+		input.ParentID = &parentID
+
+		result, err := service.StoreMessage(ctx, input)
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.Contains(t, err.Error(), "parent message does not belong to session")
+
+		repo.AssertExpectations(t)
+		assetBuffer.AssertExpectations(t)
+	})
+
+	t.Run("passes explicit parent id through to repo create", func(t *testing.T) {
+		repo := &MockSessionRepo{}
+		assetBuffer := &MockAssetRefBuffer{}
+
+		repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool {
+			return s.ID == sessionID
+		})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
+		repo.On("GetMessageByIDAnySession", ctx, parentID).Return(&model.Message{
+			ID:        parentID,
+			SessionID: sessionID,
+		}, nil)
+		repo.On("CreateMessageWithAssets", ctx, mock.MatchedBy(func(msg *model.Message) bool {
+			return msg.SessionID == sessionID &&
+				msg.ParentID != nil &&
+				*msg.ParentID == parentID &&
+				msg.Role == model.RoleUser
+		})).Run(func(args mock.Arguments) {
+			msg := args.Get(1).(*model.Message)
+			msg.ID = uuid.New()
+		}).Return(nil)
+		repo.On("GetDisableTaskTracking", ctx, sessionID).Return(false, nil)
+		assetBuffer.On("Enqueue", ctx, projectID, mock.AnythingOfType("[]model.Asset")).Return(nil)
+
+		service := newService(repo, assetBuffer)
+		input := baseInput
+		input.ParentID = &parentID
+
+		result, err := service.StoreMessage(ctx, input)
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		if assert.NotNil(t, result.ParentID) {
+			assert.Equal(t, parentID, *result.ParentID)
+		}
+
+		repo.AssertExpectations(t)
+		assetBuffer.AssertExpectations(t)
+	})
+
+	t.Run("leaves parent unset when parent id is omitted", func(t *testing.T) {
+		repo := &MockSessionRepo{}
+		assetBuffer := &MockAssetRefBuffer{}
+
+		repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool {
+			return s.ID == sessionID
+		})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
+		repo.On("CreateMessageWithAssets", ctx, mock.MatchedBy(func(msg *model.Message) bool {
+			return msg.SessionID == sessionID && msg.ParentID == nil
+		})).Run(func(args mock.Arguments) {
+			msg := args.Get(1).(*model.Message)
+			msg.ID = uuid.New()
+		}).Return(nil)
+		repo.On("GetDisableTaskTracking", ctx, sessionID).Return(false, nil)
+		assetBuffer.On("Enqueue", ctx, projectID, mock.AnythingOfType("[]model.Asset")).Return(nil)
+
+		service := newService(repo, assetBuffer)
+
+		result, err := service.StoreMessage(ctx, baseInput)
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Nil(t, result.ParentID)
+
+		repo.AssertExpectations(t)
+		assetBuffer.AssertExpectations(t)
+	})
 }
 
 func TestSessionService_GetMessages(t *testing.T) {

@@ -37,6 +37,7 @@ type SessionRepo interface {
 	GetObservingStatus(ctx context.Context, sessionID string) (*model.MessageObservingStatus, error)
 	PopGeminiCallIDAndName(ctx context.Context, sessionID uuid.UUID) (string, string, error)
 	GetMessageByID(ctx context.Context, sessionID uuid.UUID, messageID uuid.UUID) (*model.Message, error)
+	GetMessageByIDAnySession(ctx context.Context, messageID uuid.UUID) (*model.Message, error)
 	UpdateMessageMeta(ctx context.Context, messageID uuid.UUID, meta datatypes.JSONType[map[string]interface{}]) error
 	CopySession(ctx context.Context, sessionID uuid.UUID, userKEK []byte) (*CopySessionResult, error)
 	HasUnfinishedMessages(ctx context.Context, sessionID uuid.UUID) (bool, error)
@@ -193,11 +194,13 @@ func (r *sessionRepo) ListWithCursor(ctx context.Context, projectID uuid.UUID, u
 
 func (r *sessionRepo) CreateMessageWithAssets(ctx context.Context, msg *model.Message) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// First get the message parent id in session
-		parent := model.Message{}
-		if err := tx.Select("id").Where(&model.Message{SessionID: msg.SessionID}).Order("created_at desc").Limit(1).Find(&parent).Error; err == nil {
-			if parent.ID != uuid.Nil {
-				msg.ParentID = &parent.ID
+		if msg.ParentID == nil {
+			// Default linear append: parent is the latest message in the session.
+			parent := model.Message{}
+			if err := tx.Select("id").Where(&model.Message{SessionID: msg.SessionID}).Order("created_at desc").Limit(1).Find(&parent).Error; err == nil {
+				if parent.ID != uuid.Nil {
+					msg.ParentID = &parent.ID
+				}
 			}
 		}
 
@@ -422,6 +425,18 @@ func (r *sessionRepo) GetMessageByID(ctx context.Context, sessionID uuid.UUID, m
 	var msg model.Message
 	err := r.db.WithContext(ctx).
 		Where("id = ? AND session_id = ?", messageID, sessionID).
+		First(&msg).Error
+	if err != nil {
+		return nil, err
+	}
+	return &msg, nil
+}
+
+// GetMessageByIDAnySession retrieves a message by ID without applying a session filter.
+func (r *sessionRepo) GetMessageByIDAnySession(ctx context.Context, messageID uuid.UUID) (*model.Message, error) {
+	var msg model.Message
+	err := r.db.WithContext(ctx).
+		Where("id = ?", messageID).
 		First(&msg).Error
 	if err != nil {
 		return nil, err

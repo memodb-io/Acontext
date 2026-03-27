@@ -170,6 +170,7 @@ func (s *sessionService) List(ctx context.Context, in ListSessionsInput) (*ListS
 type StoreMessageInput struct {
 	ProjectID   uuid.UUID
 	SessionID   uuid.UUID
+	ParentID    *uuid.UUID
 	Role        string
 	Parts       []PartIn
 	Format      model.MessageFormat    // Message format (acontext, openai, anthropic, gemini)
@@ -306,6 +307,19 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 		return nil, fmt.Errorf("session does not belong to project")
 	}
 
+	if in.ParentID != nil {
+		parent, err := s.sessionRepo.GetMessageByIDAnySession(ctx, *in.ParentID)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, fmt.Errorf("parent message not found")
+			}
+			return nil, fmt.Errorf("failed to get parent message: %w", err)
+		}
+		if parent.SessionID != in.SessionID {
+			return nil, fmt.Errorf("parent message does not belong to session")
+		}
+	}
+
 	parts := make([]model.Part, 0, len(in.Parts))
 	var uploadedAssets []model.Asset
 	var pendingUploads []*blob.PreparedUpload
@@ -397,6 +411,7 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 
 	msg := model.Message{
 		SessionID:      in.SessionID,
+		ParentID:       in.ParentID,
 		Role:           in.Role,
 		Meta:           datatypes.NewJSONType(messageMeta), // Store message-level metadata
 		PartsAssetMeta: datatypes.NewJSONType(partsAsset),

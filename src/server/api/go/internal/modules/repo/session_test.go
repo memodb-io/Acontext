@@ -43,6 +43,101 @@ func cleanupSessionTestDB(t *testing.T, db *gorm.DB, projectID uuid.UUID) {
 	db.Exec("DELETE FROM projects WHERE id = ?", projectID)
 }
 
+func TestSessionRepo_CreateMessageWithAssets_ParentSelection(t *testing.T) {
+	db := setupSessionTestDB(t)
+	if db == nil {
+		return
+	}
+
+	require.NoError(t, db.AutoMigrate(&model.Message{}))
+
+	logger, _ := zap.NewDevelopment()
+	repo := NewSessionRepo(db, nil, nil, logger)
+	ctx := context.Background()
+
+	project := &model.Project{
+		ID:               uuid.New(),
+		SecretKeyHMAC:    "test_hmac_create_message",
+		SecretKeyHashPHC: "test_hash_create_message",
+	}
+	require.NoError(t, db.Create(project).Error)
+	defer cleanupSessionTestDB(t, db, project.ID)
+
+	t.Run("first message keeps nil parent when parent id is omitted", func(t *testing.T) {
+		session := &model.Session{
+			ID:        uuid.New(),
+			ProjectID: project.ID,
+		}
+		require.NoError(t, db.Create(session).Error)
+
+		msg := &model.Message{
+			ID:             uuid.New(),
+			SessionID:      session.ID,
+			Role:           model.RoleUser,
+			PartsAssetMeta: datatypes.NewJSONType(model.Asset{SHA256: "sha-first", S3Key: "parts/first.json"}),
+		}
+
+		require.NoError(t, repo.CreateMessageWithAssets(ctx, msg))
+		assert.Nil(t, msg.ParentID)
+	})
+
+	t.Run("message preserves explicit parent id", func(t *testing.T) {
+		session := &model.Session{
+			ID:        uuid.New(),
+			ProjectID: project.ID,
+		}
+		require.NoError(t, db.Create(session).Error)
+
+		root := &model.Message{
+			ID:             uuid.New(),
+			SessionID:      session.ID,
+			Role:           model.RoleUser,
+			PartsAssetMeta: datatypes.NewJSONType(model.Asset{SHA256: "sha-root-explicit", S3Key: "parts/root-explicit.json"}),
+		}
+		require.NoError(t, db.Create(root).Error)
+
+		explicitParentID := root.ID
+		msg := &model.Message{
+			ID:             uuid.New(),
+			SessionID:      session.ID,
+			ParentID:       &explicitParentID,
+			Role:           model.RoleAssistant,
+			PartsAssetMeta: datatypes.NewJSONType(model.Asset{SHA256: "sha-explicit", S3Key: "parts/explicit.json"}),
+		}
+
+		require.NoError(t, repo.CreateMessageWithAssets(ctx, msg))
+		require.NotNil(t, msg.ParentID)
+		assert.Equal(t, explicitParentID, *msg.ParentID)
+	})
+
+	t.Run("message auto-links to latest session message when parent id is nil", func(t *testing.T) {
+		session := &model.Session{
+			ID:        uuid.New(),
+			ProjectID: project.ID,
+		}
+		require.NoError(t, db.Create(session).Error)
+
+		parent := &model.Message{
+			ID:             uuid.New(),
+			SessionID:      session.ID,
+			Role:           model.RoleUser,
+			PartsAssetMeta: datatypes.NewJSONType(model.Asset{SHA256: "sha-auto-parent", S3Key: "parts/auto-parent.json"}),
+		}
+		require.NoError(t, db.Create(parent).Error)
+
+		msg := &model.Message{
+			ID:             uuid.New(),
+			SessionID:      session.ID,
+			Role:           model.RoleAssistant,
+			PartsAssetMeta: datatypes.NewJSONType(model.Asset{SHA256: "sha-auto-child", S3Key: "parts/auto-child.json"}),
+		}
+
+		require.NoError(t, repo.CreateMessageWithAssets(ctx, msg))
+		require.NotNil(t, msg.ParentID)
+		assert.Equal(t, parent.ID, *msg.ParentID)
+	})
+}
+
 // TestSessionRepo_GetDisableTaskTracking tests the GetDisableTaskTracking method
 func TestSessionRepo_GetDisableTaskTracking(t *testing.T) {
 	db := setupSessionTestDB(t)
