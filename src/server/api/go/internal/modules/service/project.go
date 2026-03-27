@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"net/url"
@@ -72,11 +73,12 @@ func (s *projectService) Create(ctx context.Context, configs map[string]interfac
 		return nil, errors.New("secret pepper is not configured")
 	}
 
-	// Generate auth_secret (32 bytes = 256 bits) for authentication
-	authSecret, err := generateRandomSecret(32)
-	if err != nil {
+	// Generate 16-byte auth_secret for compact token format
+	authSecretRaw := make([]byte, encryptionpkg.CompactAuthSecretLen)
+	if _, err := rand.Read(authSecretRaw); err != nil {
 		return nil, err
 	}
+	authSecretHex := hex.EncodeToString(authSecretRaw) // 32 hex chars
 
 	// Generate master_key (32 bytes) — used directly as KEK for S3 encryption
 	masterKey, err := encryptionpkg.GenerateMasterKey()
@@ -84,21 +86,21 @@ func (s *projectService) Create(ctx context.Context, configs map[string]interfac
 		return nil, err
 	}
 
-	// Derive wrapping key from auth_secret and wrap master_key
-	wrappingKey, err := encryptionpkg.DeriveUserKEK(authSecret, pepper)
+	// Derive wrapping key and pack compact token
+	wrappingKey, err := encryptionpkg.DeriveUserKEK(authSecretHex, pepper)
 	if err != nil {
 		return nil, err
 	}
-	encryptedMKB64, err := encryptionpkg.WrapMasterKey(wrappingKey, masterKey)
+	compactBody, err := encryptionpkg.PackCompactToken(authSecretRaw, masterKey, wrappingKey)
 	if err != nil {
 		return nil, err
 	}
 
-	// Generate HMAC for lookup (based on auth_secret only)
-	lookup := tokens.HMAC256Hex(pepper, authSecret)
+	// Generate HMAC for lookup (based on hex auth_secret)
+	lookup := tokens.HMAC256Hex(pepper, authSecretHex)
 
 	// Hash the auth_secret with PHC format
-	phc, err := secrets.HashSecret(authSecret, pepper)
+	phc, err := secrets.HashSecret(authSecretHex, pepper)
 	if err != nil {
 		return nil, err
 	}
@@ -118,8 +120,8 @@ func (s *projectService) Create(ctx context.Context, configs map[string]interfac
 		return nil, err
 	}
 
-	// Token format: sk-ac-{auth_secret}.{encrypted_master_key}
-	token := s.cfg.Root.ProjectBearerTokenPrefix + authSecret + "." + encryptedMKB64
+	// Compact token format: sk-ac-{base64url(0x01 | auth_16B | aes_kw(mk))}
+	token := s.cfg.Root.ProjectBearerTokenPrefix + compactBody
 
 	return &CreateProjectOutput{
 		ProjectID: project.ID,
@@ -159,25 +161,26 @@ func (s *projectService) RotateSecretKey(ctx context.Context, projectID uuid.UUI
 		}
 	}
 
-	// Generate new auth_secret
-	authSecret, err := generateRandomSecret(32)
-	if err != nil {
+	// Generate new 16-byte auth_secret for compact format
+	authSecretRaw := make([]byte, encryptionpkg.CompactAuthSecretLen)
+	if _, err := rand.Read(authSecretRaw); err != nil {
 		return nil, err
 	}
+	authSecretHex := hex.EncodeToString(authSecretRaw)
 
-	// Derive wrapping key from new auth_secret and wrap master_key
-	wrappingKey, err := encryptionpkg.DeriveUserKEK(authSecret, pepper)
+	// Derive wrapping key and pack compact token
+	wrappingKey, err := encryptionpkg.DeriveUserKEK(authSecretHex, pepper)
 	if err != nil {
 		return nil, err
 	}
-	encryptedMKB64, err := encryptionpkg.WrapMasterKey(wrappingKey, masterKey)
+	compactBody, err := encryptionpkg.PackCompactToken(authSecretRaw, masterKey, wrappingKey)
 	if err != nil {
 		return nil, err
 	}
 
 	// Compute HMAC and PHC for new auth_secret
-	lookup := tokens.HMAC256Hex(pepper, authSecret)
-	phc, err := secrets.HashSecret(authSecret, pepper)
+	lookup := tokens.HMAC256Hex(pepper, authSecretHex)
+	phc, err := secrets.HashSecret(authSecretHex, pepper)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +193,7 @@ func (s *projectService) RotateSecretKey(ctx context.Context, projectID uuid.UUI
 		return nil, err
 	}
 
-	token := s.cfg.Root.ProjectBearerTokenPrefix + authSecret + "." + encryptedMKB64
+	token := s.cfg.Root.ProjectBearerTokenPrefix + compactBody
 
 	return &UpdateSecretKeyOutput{
 		SecretKey: token,

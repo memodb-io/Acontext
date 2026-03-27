@@ -2,7 +2,6 @@ package bootstrap
 
 import (
 	"context"
-	"strings"
 
 	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/modules/model"
@@ -22,12 +21,12 @@ func EnsureDefaultProjectExists(ctx context.Context, db *gorm.DB, cfg *config.Co
 		return nil
 	}
 
-	// Support new token format: auth_secret.encrypted_master_key
-	// HMAC and PHC are based on auth_secret only (the part before the dot).
-	authSecret := secret
-	if idx := strings.IndexByte(secret, '.'); idx > 0 {
-		authSecret = secret[:idx]
+	// Parse token to extract auth_secret (works for all formats: compact, dot-separated, legacy).
+	parsed, ok := tokens.ParseProjectToken(cfg.Root.ProjectBearerTokenPrefix+secret, cfg.Root.ProjectBearerTokenPrefix)
+	if !ok {
+		return nil
 	}
+	authSecret := parsed.AuthSecret
 
 	lookup := tokens.HMAC256Hex(pepper, authSecret)
 

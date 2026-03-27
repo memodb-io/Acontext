@@ -127,7 +127,7 @@ func setDefaults(v *viper.Viper) {
 	v.SetDefault("app.env", "debug")
 	v.SetDefault("app.port", 8029)
 	v.SetDefault("app.externalurl", "")
-	v.SetDefault("root.apiBearerToken", "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2.7B9a4cgwawnfLw3_KuYwcUlpsDRmpbVdaXihZjtfJd_lZhvz3AJEb7_MiFoTiqY7YpcJ9zmukGAFz6Vw")
+	v.SetDefault("root.apiBearerToken", "AaGyw9Tl9qe4ydDh8qO0xdZNkrobQvwHWFRsnp5a3QtfbaDSDJQeRHxXPr4bGpc0g130EqBSjRNF")
 	v.SetDefault("root.projectBearerTokenPrefix", "sk-ac-")
 	v.SetDefault("root.secretPepper", "your-secret-pepper")
 	v.SetDefault("root.enableArgon2Verification", true)

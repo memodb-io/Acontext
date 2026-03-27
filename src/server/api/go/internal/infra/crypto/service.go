@@ -2,8 +2,18 @@ package crypto
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
+)
+
+const (
+	// CompactTokenVersion is the version byte for the compact token format.
+	CompactTokenVersion byte = 0x01
+	// CompactAuthSecretLen is the auth_secret length in bytes for compact tokens.
+	CompactAuthSecretLen = 16
+	// CompactWrappedKeyLen is the AES-KW wrapped 32-byte key output length.
+	CompactWrappedKeyLen = 40 // 32-byte key + 8-byte integrity check
 )
 
 // DeriveUserKEK derives a wrapping key from the auth secret and pepper.
@@ -162,4 +172,59 @@ func MetadataFromMap(metadata map[string]string) *EncryptedMeta {
 		Algo:           algo,
 		UserWrappedDEK: metadata[MetaKeyDEKUser],
 	}
+}
+
+// PackCompactToken packs a 16-byte auth_secret and 32-byte master_key into a
+// compact base64url token body using AES Key Wrap (RFC 3394).
+// Format: base64url( 0x01 | auth_secret_16B | AES-KW(wrappingKey, masterKey) )
+// Returns the token body (without the sk-ac- prefix).
+func PackCompactToken(authSecretRaw, masterKey, wrappingKey []byte) (string, error) {
+	if len(authSecretRaw) != CompactAuthSecretLen {
+		return "", fmt.Errorf("crypto: auth secret must be %d bytes, got %d", CompactAuthSecretLen, len(authSecretRaw))
+	}
+	if len(masterKey) != KeySize {
+		return "", fmt.Errorf("crypto: master key must be %d bytes, got %d", KeySize, len(masterKey))
+	}
+	wrapped, err := AESKeyWrap(wrappingKey, masterKey)
+	if err != nil {
+		return "", fmt.Errorf("crypto: compact wrap: %w", err)
+	}
+	// 1 + 16 + 40 = 57 bytes
+	buf := make([]byte, 1+CompactAuthSecretLen+len(wrapped))
+	buf[0] = CompactTokenVersion
+	copy(buf[1:1+CompactAuthSecretLen], authSecretRaw)
+	copy(buf[1+CompactAuthSecretLen:], wrapped)
+	return base64.RawURLEncoding.EncodeToString(buf), nil
+}
+
+// UnpackCompactToken decodes a compact token body and returns the auth_secret
+// string (hex-encoded, for HMAC/Argon2) and the raw 32-byte master key.
+func UnpackCompactToken(compactB64, pepper string) (authSecret string, masterKey []byte, err error) {
+	raw, err := base64.RawURLEncoding.DecodeString(compactB64)
+	if err != nil {
+		return "", nil, fmt.Errorf("crypto: compact decode: %w", err)
+	}
+	expectedLen := 1 + CompactAuthSecretLen + CompactWrappedKeyLen
+	if len(raw) != expectedLen {
+		return "", nil, fmt.Errorf("crypto: compact token wrong length: got %d, want %d", len(raw), expectedLen)
+	}
+	if raw[0] != CompactTokenVersion {
+		return "", nil, fmt.Errorf("crypto: unknown compact token version: 0x%02x", raw[0])
+	}
+	authSecretRaw := raw[1 : 1+CompactAuthSecretLen]
+	wrappedMK := raw[1+CompactAuthSecretLen:]
+
+	// auth_secret as hex string (used for HMAC lookup and Argon2)
+	authSecret = hex.EncodeToString(authSecretRaw)
+
+	// Derive wrapping key from hex auth_secret + pepper, then unwrap
+	wrappingKey, err := DeriveUserKEK(authSecret, pepper)
+	if err != nil {
+		return "", nil, fmt.Errorf("crypto: compact derive KEK: %w", err)
+	}
+	masterKey, err = AESKeyUnwrap(wrappingKey, wrappedMK)
+	if err != nil {
+		return "", nil, fmt.Errorf("crypto: compact unwrap: %w", err)
+	}
+	return authSecret, masterKey, nil
 }
