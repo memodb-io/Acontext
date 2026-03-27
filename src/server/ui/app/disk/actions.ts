@@ -1,7 +1,7 @@
 "use server";
 
 import { ApiResponse } from "@/lib/api-response";
-import { API_SERVER_URL, ROOT_API_BEARER_TOKEN, getAuthHeaders, handleResponse, handleError } from "@/lib/api-config";
+import { API_SERVER_URL, getAuthHeaders, handleResponse, handleError } from "@/lib/api-config";
 import { Disk, ListArtifactsResp, GetArtifactResp, GetDisksResp } from "@/types";
 
 export async function getDisks(
@@ -95,37 +95,6 @@ export async function deleteDisk(disk_id: string): Promise<ApiResponse<null>> {
     return await handleResponse<null>(response);
   } catch (error) {
     return handleError(error, "deleteDisk");
-  }
-}
-
-export async function uploadArtifact(
-  disk_id: string,
-  file_path: string,
-  file: File,
-  meta?: Record<string, string>
-): Promise<ApiResponse<null>> {
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("file_path", file_path);
-    if (meta && Object.keys(meta).length > 0) {
-      formData.append("meta", JSON.stringify(meta));
-    }
-
-    const response = await fetch(
-      `${API_SERVER_URL}/api/v1/disk/${disk_id}/artifact`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer sk-ac-${ROOT_API_BEARER_TOKEN}`,
-        },
-        body: formData,
-      }
-    );
-
-    return await handleResponse<null>(response);
-  } catch (error) {
-    return handleError(error, "uploadArtifact");
   }
 }
 

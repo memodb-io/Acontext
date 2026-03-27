@@ -511,17 +511,33 @@ export default function MessagesPage() {
 
       // Build files object
       const files = buildFilesObject(uploadedFiles);
+      const hasFiles = Object.keys(files).length > 0;
 
-      // Store message
-      const res = await storeMessage(
-        sessionId,
-        newMessageRole,
-        parts,
-        Object.keys(files).length > 0 ? files : undefined
-      );
+      let res;
+      if (hasFiles) {
+        // Use Route Handler for file uploads (avoids server action File serialization issues)
+        const formData = new FormData();
+        formData.append("session_id", sessionId);
+        const payload = {
+          blob: { role: newMessageRole, parts },
+          format: "acontext",
+        };
+        formData.append("payload", JSON.stringify(payload));
+        for (const [fieldName, file] of Object.entries(files)) {
+          formData.append(fieldName, file);
+        }
+        const response = await fetch("/api/session/messages", {
+          method: "POST",
+          body: formData,
+        });
+        res = await response.json();
+      } else {
+        // Use server action for JSON-only messages
+        res = await storeMessage(sessionId, newMessageRole, parts);
+      }
 
       if (res.code !== 0) {
-        console.error(res.message);
+        console.error(res.msg || res.message);
         return;
       }
 

@@ -1,7 +1,7 @@
 "use server";
 
 import { ApiResponse } from "@/lib/api-response";
-import { API_SERVER_URL, ROOT_API_BEARER_TOKEN, MESSAGE_FORMAT, getAuthHeaders, handleResponse, handleError } from "@/lib/api-config";
+import { API_SERVER_URL, MESSAGE_FORMAT, getAuthHeaders, handleResponse, handleError } from "@/lib/api-config";
 import {
   Session,
   SessionEvent,
@@ -219,64 +219,26 @@ export async function storeMessage(
   session_id: string,
   role: MessageRole,
   parts: MessagePartIn[],
-  files?: Record<string, File>
 ): Promise<ApiResponse<null>> {
   try {
-    const hasFiles = files && Object.keys(files).length > 0;
+    const body = {
+      blob: {
+        role,
+        parts,
+      },
+      format: MESSAGE_FORMAT,
+    };
 
-    if (hasFiles) {
-      // Use multipart/form-data
-      const formData = new FormData();
-
-      // Add payload field (JSON string)
-      // Wrap in blob field as expected by the Go API
-      const payload = {
-        blob: {
-          role,
-          parts,
-        },
-        format: MESSAGE_FORMAT,
-      };
-      formData.append("payload", JSON.stringify(payload));
-
-      // Add files
-      for (const [fieldName, file] of Object.entries(files!)) {
-        formData.append(fieldName, file);
+    const response = await fetch(
+      `${API_SERVER_URL}/api/v1/session/${session_id}/messages`,
+      {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify(body),
       }
+    );
 
-      const response = await fetch(
-        `${API_SERVER_URL}/api/v1/session/${session_id}/messages`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer sk-ac-${ROOT_API_BEARER_TOKEN}`,
-          },
-          body: formData,
-        }
-      );
-
-      return await handleResponse<null>(response);
-    } else {
-      // Use JSON format
-      const body = {
-        blob: {
-          role,
-          parts,
-        },
-        format: MESSAGE_FORMAT,
-      };
-
-      const response = await fetch(
-        `${API_SERVER_URL}/api/v1/session/${session_id}/messages`,
-        {
-          method: "POST",
-          headers: getAuthHeaders(),
-          body: JSON.stringify(body),
-        }
-      );
-
-      return await handleResponse<null>(response);
-    }
+    return await handleResponse<null>(response);
   } catch (error) {
     return handleError(error, "storeMessage");
   }

@@ -27,7 +27,7 @@ export async function encryptProject(
 ): Promise<ApiResponse<null>> {
   try {
     const response = await fetch(
-      `${API_SERVER_URL}/admin/v1/project/encrypt`,
+      `${API_SERVER_URL}/api/v1/project/encrypt`,
       {
         method: "POST",
         headers: {
@@ -47,7 +47,7 @@ export async function decryptProject(
 ): Promise<ApiResponse<null>> {
   try {
     const response = await fetch(
-      `${API_SERVER_URL}/admin/v1/project/decrypt`,
+      `${API_SERVER_URL}/api/v1/project/decrypt`,
       {
         method: "POST",
         headers: {

@@ -1,7 +1,7 @@
 "use server";
 
 import { ApiResponse } from "@/lib/api-response";
-import { API_SERVER_URL, ROOT_API_BEARER_TOKEN, getAuthHeaders, handleResponse, handleError } from "@/lib/api-config";
+import { API_SERVER_URL, getAuthHeaders, handleResponse, handleError } from "@/lib/api-config";
 import { AgentSkill, GetAgentSkillsResp } from "@/types";
 
 export async function getAgentSkills(
@@ -47,38 +47,6 @@ export async function getAgentSkill(
     return await handleResponse<AgentSkill>(response);
   } catch (error) {
     return handleError(error, "getAgentSkill");
-  }
-}
-
-export async function createAgentSkill(
-  file: File,
-  user?: string,
-  meta?: string
-): Promise<ApiResponse<AgentSkill>> {
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-    if (user) {
-      formData.append("user", user);
-    }
-    if (meta) {
-      formData.append("meta", meta);
-    }
-
-    const response = await fetch(
-      `${API_SERVER_URL}/api/v1/agent_skills`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer sk-ac-${ROOT_API_BEARER_TOKEN}`,
-        },
-        body: formData,
-      }
-    );
-
-    return await handleResponse<AgentSkill>(response);
-  } catch (error) {
-    return handleError(error, "createAgentSkill");
   }
 }
 

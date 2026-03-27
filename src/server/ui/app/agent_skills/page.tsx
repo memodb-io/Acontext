@@ -35,7 +35,6 @@ import { Loader2, Upload, RefreshCw } from "lucide-react";
 import { PaginationBar } from "@/components/pagination-bar";
 import {
   getAgentSkills,
-  createAgentSkill,
   deleteAgentSkill,
 } from "@/app/agent_skills/actions";
 import { AgentSkill } from "@/types";
@@ -139,12 +138,20 @@ export default function AgentSkillsPage() {
     try {
       setIsUploading(true);
       setUploadError("");
-      const res = await createAgentSkill(
-        uploadFile,
-        uploadUser || undefined
-      );
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+      if (uploadUser) {
+        formData.append("user", uploadUser);
+      }
+
+      const response = await fetch("/api/agent_skills/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const res = await response.json();
+
       if (res.code !== 0) {
-        setUploadError(res.message);
+        setUploadError(res.msg || res.message);
         return;
       }
       await loadSkills();

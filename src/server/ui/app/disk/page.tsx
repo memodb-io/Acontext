@@ -44,7 +44,6 @@ import {
   getArtifact,
   createDisk,
   deleteDisk,
-  uploadArtifact,
   deleteArtifact,
   updateArtifactMeta,
 } from "@/app/disk/actions";
@@ -720,15 +719,22 @@ export default function DiskPage() {
       setIsUploading(true);
       setUploadDialogOpen(false);
 
-      const res = await uploadArtifact(
-        selectedDisk.id,
-        uploadPath,
-        selectedUploadFile,
-        meta
-      );
+      const formData = new FormData();
+      formData.append("disk_id", selectedDisk.id);
+      formData.append("file", selectedUploadFile);
+      formData.append("file_path", uploadPath);
+      if (meta && Object.keys(meta).length > 0) {
+        formData.append("meta", JSON.stringify(meta));
+      }
+
+      const response = await fetch("/api/disk/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const res = await response.json();
 
       if (res.code !== 0) {
-        console.error(res.message);
+        console.error(res.msg || res.message);
         return;
       }
 
