@@ -63,6 +63,11 @@ async def process_skill_distillation(body: SkillLearnTask, message: Message):
             await LS.update_session_status(db_session, body.session_id, "completed")
         return
 
+    # Set status to skill_writing before publishing to skill agent
+    # This indicates that distillation is done and skill files are being written
+    async with DB_CLIENT.get_session_context() as db_session:
+        await LS.update_session_status(db_session, body.session_id, "skill_writing")
+
     await publish_mq(
         exchange_name=EX.learning_skill,
         routing_key=RK.learning_skill_agent,
