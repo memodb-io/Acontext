@@ -240,105 +240,13 @@ func (h *AdminHandler) AnalyzeProjectMetrics(c *gin.Context) {
 // EncryptProject encrypts all existing S3 data for a project and enables encryption.
 // Requires project API key as Bearer auth (uses ProjectAuth middleware).
 func (h *AdminHandler) EncryptProject(c *gin.Context) {
-	project, ok := c.MustGet("project").(*model.Project)
-	if !ok {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", fmt.Errorf("project not found")))
-		return
-	}
-
-	userKEK := middleware.GetUserKEK(c)
-	if userKEK == nil {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", fmt.Errorf("API key required to derive encryption key")))
-		return
-	}
-
-	// No early-return if EncryptionEnabled is already true — allow idempotent
-	// retry so that partial failures (crash after flag set, before all objects
-	// encrypted) can be recovered by re-calling this endpoint.
-	// EncryptObject skips already-encrypted objects, and the DB UPDATE is a no-op
-	// when the flag is already true.
-
-	// Set encryption_enabled = true FIRST for crash safety.
-	// If we crash after this but before encrypting all objects, reads will use KEK
-	// and unencrypted objects pass through decryption gracefully. Retry re-encrypts
-	// remaining objects (EncryptObject is idempotent).
-	if err := h.db.WithContext(c.Request.Context()).Model(&model.Project{}).
-		Where("id = ?", project.ID).
-		Update("encryption_enabled", true).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to update project", err))
-		return
-	}
-
-	// Invalidate cached project so subsequent requests see encryption_enabled = true
-	middleware.InvalidateProjectAuthCache(h.rdb, project.SecretKeyHMAC)
-
-	// Enumerate all S3 keys for this project
-	s3Keys, err := h.assetRefRepo.ListS3KeysByProject(c.Request.Context(), project.ID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to list S3 keys", err))
-		return
-	}
-
-	// Encrypt each object (idempotent — skips already-encrypted objects)
-	for _, key := range s3Keys {
-		if err := h.s3.EncryptObject(c.Request.Context(), key, userKEK); err != nil {
-			c.JSON(http.StatusInternalServerError, serializer.DBErr(fmt.Sprintf("failed to encrypt object %s", key), err))
-			return
-		}
-	}
-
-	c.JSON(http.StatusOK, serializer.Response{Msg: "encryption enabled"})
+	encryptProject(c, h.db, h.rdb, h.s3, h.assetRefRepo)
 }
 
 // DecryptProject decrypts all existing S3 data for a project and disables encryption.
 // Requires project API key as Bearer auth (uses ProjectAuth middleware).
 func (h *AdminHandler) DecryptProject(c *gin.Context) {
-	project, ok := c.MustGet("project").(*model.Project)
-	if !ok {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", fmt.Errorf("project not found")))
-		return
-	}
-
-	userKEK := middleware.GetUserKEK(c)
-	if userKEK == nil {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", fmt.Errorf("API key required to derive encryption key")))
-		return
-	}
-
-	if !project.EncryptionEnabled {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("project encryption is not enabled", nil))
-		return
-	}
-
-	// Enumerate all S3 keys for this project
-	s3Keys, err := h.assetRefRepo.ListS3KeysByProject(c.Request.Context(), project.ID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to list S3 keys", err))
-		return
-	}
-
-	// Decrypt each object FIRST, then clear the flag (idempotent — skips already-decrypted).
-	// If we crash mid-decrypt, flag stays true so reads use KEK, which works on
-	// both encrypted and already-decrypted objects. Retry re-decrypts remaining.
-	for _, key := range s3Keys {
-		if err := h.s3.DecryptObject(c.Request.Context(), key, userKEK); err != nil {
-			c.JSON(http.StatusInternalServerError, serializer.DBErr(fmt.Sprintf("failed to decrypt object %s", key), err))
-			return
-		}
-	}
-
-	// Set encryption_enabled = false AFTER all objects are decrypted
-	if err := h.db.WithContext(c.Request.Context()).Model(&model.Project{}).
-		Where("id = ?", project.ID).
-		Update("encryption_enabled", false).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to update project", err))
-		return
-	}
-
-	// Invalidate cached project so subsequent requests see encryption_enabled = false
-	middleware.InvalidateProjectAuthCache(h.rdb, project.SecretKeyHMAC)
-
-	c.JSON(http.StatusOK, serializer.Response{Msg: "encryption disabled"})
+	decryptProject(c, h.db, h.rdb, h.s3, h.assetRefRepo)
 }
 
 // RotateProjectSecretKeyAdmin rotates the project API key (admin JWT auth).

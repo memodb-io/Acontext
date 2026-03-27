@@ -409,7 +409,12 @@ func BuildContainer() *do.Injector {
 		), nil
 	})
 	do.Provide(inj, func(i *do.Injector) (*handler.ProjectHandler, error) {
-		return handler.NewProjectHandler(do.MustInvoke[*gorm.DB](i)), nil
+		return handler.NewProjectHandler(
+			do.MustInvoke[*gorm.DB](i),
+			do.MustInvoke[*redis.Client](i),
+			do.MustInvoke[*blob.S3Deps](i),
+			do.MustInvoke[repo.AssetReferenceRepo](i),
+		), nil
 	})
 	return inj
 }

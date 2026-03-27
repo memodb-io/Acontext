@@ -207,9 +207,9 @@ async def enable_encryption(
     client: httpx.AsyncClient,
     bearer_token: str,
 ) -> httpx.Response:
-    """Enable encryption on a project via admin endpoint."""
+    """Enable encryption on a project via standard API endpoint."""
     return await client.post(
-        f"{ADMIN_URL}/admin/v1/project/encrypt",
+        f"{API_URL}/api/v1/project/encrypt",
         headers={"Authorization": f"Bearer {bearer_token}"},
     )
 
@@ -218,9 +218,9 @@ async def disable_encryption(
     client: httpx.AsyncClient,
     bearer_token: str,
 ) -> httpx.Response:
-    """Disable encryption on a project via admin endpoint."""
+    """Disable encryption on a project via standard API endpoint."""
     return await client.post(
-        f"{ADMIN_URL}/admin/v1/project/decrypt",
+        f"{API_URL}/api/v1/project/decrypt",
         headers={"Authorization": f"Bearer {bearer_token}"},
     )
 

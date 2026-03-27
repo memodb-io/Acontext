@@ -4,17 +4,24 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
+
+	"github.com/memodb-io/Acontext/internal/infra/blob"
 	"github.com/memodb-io/Acontext/internal/modules/model"
+	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"gorm.io/gorm"
 )
 
 type ProjectHandler struct {
-	db *gorm.DB
+	db           *gorm.DB
+	rdb          *redis.Client
+	s3           *blob.S3Deps
+	assetRefRepo repo.AssetReferenceRepo
 }
 
-func NewProjectHandler(db *gorm.DB) *ProjectHandler {
-	return &ProjectHandler{db: db}
+func NewProjectHandler(db *gorm.DB, rdb *redis.Client, s3 *blob.S3Deps, assetRefRepo repo.AssetReferenceRepo) *ProjectHandler {
+	return &ProjectHandler{db: db, rdb: rdb, s3: s3, assetRefRepo: assetRefRepo}
 }
 
 // GetConfigs godoc
@@ -146,4 +153,36 @@ func (h *ProjectHandler) PatchConfigs(c *gin.Context) {
 		Data: projectConfig,
 		Msg:  "ok",
 	})
+}
+
+// EncryptProject encrypts all existing S3 data for a project and enables encryption.
+// Requires project API key as Bearer auth (uses ProjectAuth middleware).
+//
+//	@Summary		Enable project encryption
+//	@Description	Encrypts all existing S3 data for the project and enables encryption for future writes.
+//	@Tags			Project
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response
+//	@Failure		400	{object}	serializer.Response
+//	@Failure		500	{object}	serializer.Response
+//	@Router			/project/encrypt [post]
+func (h *ProjectHandler) EncryptProject(c *gin.Context) {
+	encryptProject(c, h.db, h.rdb, h.s3, h.assetRefRepo)
+}
+
+// DecryptProject decrypts all existing S3 data for a project and disables encryption.
+// Requires project API key as Bearer auth (uses ProjectAuth middleware).
+//
+//	@Summary		Disable project encryption
+//	@Description	Decrypts all existing S3 data for the project and disables encryption for future writes.
+//	@Tags			Project
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	serializer.Response
+//	@Failure		400	{object}	serializer.Response
+//	@Failure		500	{object}	serializer.Response
+//	@Router			/project/decrypt [post]
+func (h *ProjectHandler) DecryptProject(c *gin.Context) {
+	decryptProject(c, h.db, h.rdb, h.s3, h.assetRefRepo)
 }

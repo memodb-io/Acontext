@@ -158,6 +158,8 @@ func NewRouter(d RouterDeps) *gin.Engine {
 		{
 			project.GET("/configs", d.ProjectHandler.GetConfigs)
 			project.PATCH("/configs", d.ProjectHandler.PatchConfigs)
+			project.POST("/encrypt", d.ProjectHandler.EncryptProject)
+			project.POST("/decrypt", d.ProjectHandler.DecryptProject)
 		}
 
 		learningSpaces := v1.Group("/learning_spaces")
