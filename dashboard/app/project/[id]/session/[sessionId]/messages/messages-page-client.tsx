@@ -731,12 +731,26 @@ export function MessagesPageClient({
                 )}
               </>
             )}
-            {selectedTaskIds.size > 0 && (
-              <span className="text-xs text-muted-foreground ml-2">
-                Showing {filteredTimelineItems.filter(i => i.kind === 'message').length} of {allMessages.length} messages
-                (filtered by {selectedTaskIds.size} {selectedTaskIds.size === 1 ? 'task' : 'tasks'})
-              </span>
-            )}
+            {selectedTaskIds.size > 0 && (() => {
+              const hasNoTask = selectedTaskIds.has(NO_TASK_SENTINEL);
+              const realTaskCount = selectedTaskIds.size - (hasNoTask ? 1 : 0);
+
+              let filterText = "";
+              if (hasNoTask && realTaskCount > 0) {
+                filterText = ` (filtered by ${realTaskCount} ${realTaskCount === 1 ? 'task' : 'tasks'} + unassigned)`;
+              } else if (hasNoTask) {
+                filterText = " (unassigned only)";
+              } else {
+                filterText = ` (filtered by ${realTaskCount} ${realTaskCount === 1 ? 'task' : 'tasks'})`;
+              }
+
+              return (
+                <span className="text-xs text-muted-foreground ml-2">
+                  Showing {filteredTimelineItems.filter(i => i.kind === 'message').length} of {allMessages.length} messages
+                  {filterText}
+                </span>
+              );
+            })()}
           </div>
         )}
       </div>
