@@ -38,6 +38,7 @@ export default function EncryptionPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loaded, setLoaded] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [confirmAction, setConfirmAction] = useState<
     "encrypt" | "decrypt" | null
@@ -49,6 +50,7 @@ export default function EncryptionPage() {
       const result = await getEncryptionStatus();
       if (result.code === 0 && result.data) {
         setEncryptionEnabled(result.data.encryption_enabled ?? false);
+        setLoaded(true);
       } else {
         setError(result.message);
       }
@@ -108,7 +110,7 @@ export default function EncryptionPage() {
           </p>
         </div>
 
-        <Card>
+        {loaded && <Card>
           <CardHeader>
             <CardTitle>{t("statusTitle")}</CardTitle>
             <CardDescription>
@@ -164,7 +166,7 @@ export default function EncryptionPage() {
                   : t("enable")}
             </Button>
           </CardContent>
-        </Card>
+        </Card>}
 
         {error && (
           <Alert variant="destructive">

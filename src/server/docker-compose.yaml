@@ -225,8 +225,7 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-release}
       API_EXPORT_PORT: ${API_EXPORT_PORT:-8029}
-      ROOT_API_BEARER_TOKEN: ${ROOT_API_BEARER_TOKEN:-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2.TBtvfTL8CSNy6-R_qIUZlwnu2GkT159yzcMxY0tiGaJy16hvac2h99YfSPo7ISmwoIQ5dHWS_H7tJL3j}
-      ROOT_SECRET_PEPPER: ${ROOT_SECRET_PEPPER:-acontext-default-pepper}
+      ROOT_API_BEARER_TOKEN: ${ROOT_API_BEARER_TOKEN:-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2.7B9a4cgwawnfLw3_KuYwcUlpsDRmpbVdaXihZjtfJd_lZhvz3AJEb7_MiFoTiqY7YpcJ9zmukGAFz6Vw}
       DATABASE_HOST: ${DATABASE_HOST:-acontext-server-pg}
       DATABASE_USER: ${DATABASE_USER:-acontext}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD:-helloworld}
@@ -292,8 +291,7 @@ services:
       NEXT_PUBLIC_BASE_URL: ${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
       NEXT_PUBLIC_BASE_PATH: ""
       API_SERVER_URL: http://acontext-server-api:8029
-      ROOT_API_BEARER_TOKEN: ${ROOT_API_BEARER_TOKEN:-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2.TBtvfTL8CSNy6-R_qIUZlwnu2GkT159yzcMxY0tiGaJy16hvac2h99YfSPo7ISmwoIQ5dHWS_H7tJL3j}
-      ROOT_SECRET_PEPPER: ${ROOT_SECRET_PEPPER:-acontext-default-pepper}
+      ROOT_API_BEARER_TOKEN: ${ROOT_API_BEARER_TOKEN:-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2.7B9a4cgwawnfLw3_KuYwcUlpsDRmpbVdaXihZjtfJd_lZhvz3AJEb7_MiFoTiqY7YpcJ9zmukGAFz6Vw}
       DATABASE_URL: postgresql://${DATABASE_USER:-acontext}:${DATABASE_PASSWORD:-helloworld}@acontext-server-pg:5432/${DATABASE_NAME:-acontext}
       JAEGER_INTERNAL_URL: http://acontext-server-jaeger:16686
       JAEGER_URL: ${JAEGER_URL:-http://localhost:16686}
