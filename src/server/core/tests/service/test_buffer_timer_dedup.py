@@ -47,6 +47,16 @@ def _mock_db():
     return mock_db
 
 
+def _branch_row(message_id, session_id, status="pending", parent_id=None, depth=0):
+    return {
+        "id": message_id,
+        "parent_id": parent_id,
+        "session_id": session_id,
+        "session_task_process_status": status,
+        "depth": depth,
+    }
+
+
 class TestMessageNotPending:
     @pytest.mark.asyncio
     async def test_skips_when_message_already_processed(self):
@@ -217,6 +227,11 @@ class TestBufferFull:
                 return_value=Result.resolve(16),
             ),
             patch(
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_rows",
+                new_callable=AsyncMock,
+                return_value=Result.resolve([_branch_row(body.message_id, body.session_id)]),
+            ),
+            patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
                 new_callable=AsyncMock,
                 return_value=True,
@@ -261,6 +276,11 @@ class TestDelayFires:
                 "acontext_core.service.session_message.MD.branch_pending_message_length",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(2),
+            ),
+            patch(
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_rows",
+                new_callable=AsyncMock,
+                return_value=Result.resolve([_branch_row(body.message_id, body.session_id)]),
             ),
             patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
@@ -391,6 +411,11 @@ class TestLockContention:
                 return_value=Result.resolve(2),
             ),
             patch(
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_rows",
+                new_callable=AsyncMock,
+                return_value=Result.resolve([_branch_row(body.message_id, body.session_id)]),
+            ),
+            patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
                 new_callable=AsyncMock,
                 return_value=False,
@@ -431,6 +456,11 @@ class TestLockContention:
                 "acontext_core.service.session_message.MD.branch_pending_message_length",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(20),
+            ),
+            patch(
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_rows",
+                new_callable=AsyncMock,
+                return_value=Result.resolve([_branch_row(body.message_id, body.session_id)]),
             ),
             patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
@@ -530,10 +560,12 @@ class TestBranchAwareCount:
 
 class TestBranchLockKey:
     @pytest.mark.asyncio
-    async def test_retry_uses_branch_specific_lock_key(self):
-        """Lock key for insert processing includes the message id."""
+    async def test_retry_uses_branch_boundary_lock_key(self):
+        """Lock key for insert processing follows the first unfinished branch node."""
         body = _make_body(process_rightnow=True)
         project_config = _make_project_config()
+        root_id = uuid.uuid4()
+        branch_id = uuid.uuid4()
 
         with (
             patch("acontext_core.service.session_message.DB_CLIENT", _mock_db()),
@@ -553,6 +585,29 @@ class TestBranchLockKey:
                 return_value=Result.resolve(16),
             ),
             patch(
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_rows",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(
+                    [
+                        _branch_row(root_id, body.session_id, status="success", depth=0),
+                        _branch_row(
+                            branch_id,
+                            body.session_id,
+                            status="pending",
+                            parent_id=root_id,
+                            depth=1,
+                        ),
+                        _branch_row(
+                            body.message_id,
+                            body.session_id,
+                            status="pending",
+                            parent_id=branch_id,
+                            depth=2,
+                        ),
+                    ]
+                ),
+            ),
+            patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
                 new_callable=AsyncMock,
                 return_value=False,
@@ -561,5 +616,5 @@ class TestBranchLockKey:
         ):
             await insert_new_message(body, MagicMock())
 
-            expected_key = f"session.message.insert.{body.session_id}.{body.message_id}"
+            expected_key = f"session.message.insert.{body.session_id}.{branch_id}"
             mock_lock.assert_called_once_with(body.project_id, expected_key)

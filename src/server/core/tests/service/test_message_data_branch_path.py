@@ -120,6 +120,54 @@ async def test_fetch_message_branch_path_ids_rejects_missing_message(db_client):
 
 
 @pytest.mark.asyncio
+async def test_fetch_message_branch_path_rows_returns_statuses(db_client):
+    _, acontext_session = await _create_project_and_session(db_client)
+
+    async with db_client.get_session_context() as session:
+        root = Message(
+            session_id=acontext_session.id,
+            role="user",
+            parts_asset_meta={},
+            session_task_process_status="success",
+        )
+        session.add(root)
+        await session.flush()
+
+        child = Message(
+            session_id=acontext_session.id,
+            role="assistant",
+            parts_asset_meta={},
+            parent_id=root.id,
+            session_task_process_status="pending",
+        )
+        session.add(child)
+        await session.flush()
+
+        leaf = Message(
+            session_id=acontext_session.id,
+            role="user",
+            parts_asset_meta={},
+            parent_id=child.id,
+            session_task_process_status="running",
+        )
+        session.add(leaf)
+        await session.flush()
+
+        r = await MD.fetch_message_branch_path_rows(
+            session, leaf.id, acontext_session.id
+        )
+        rows, eil = r.unpack()
+
+        assert eil is None
+        assert [row["id"] for row in rows] == [root.id, child.id, leaf.id]
+        assert [row["session_task_process_status"] for row in rows] == [
+            "success",
+            "pending",
+            "running",
+        ]
+
+
+@pytest.mark.asyncio
 async def test_branch_pending_message_length_ignores_sibling_branches(db_client):
     _, acontext_session = await _create_project_and_session(db_client)
 

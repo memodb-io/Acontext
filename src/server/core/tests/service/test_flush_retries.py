@@ -25,6 +25,16 @@ def _mock_db():
     return mock_db
 
 
+def _branch_row(message_id, session_id, status="pending", parent_id=None, depth=0):
+    return {
+        "id": message_id,
+        "parent_id": parent_id,
+        "session_id": session_id,
+        "session_task_process_status": status,
+        "depth": depth,
+    }
+
+
 class TestFlushBranchAwareProcessing:
     @pytest.mark.asyncio
     async def test_processes_each_pending_message_individually(self):
@@ -52,6 +62,14 @@ class TestFlushBranchAwareProcessing:
                 "acontext_core.service.session_message.MD.check_session_message_status",
                 new_callable=AsyncMock,
                 return_value=Result.resolve("pending"),
+            ),
+            patch(
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_rows",
+                new_callable=AsyncMock,
+                side_effect=[
+                    Result.resolve([_branch_row(message_a, session_id)]),
+                    Result.resolve([_branch_row(message_b, session_id)]),
+                ],
             ),
             patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
@@ -112,6 +130,11 @@ class TestFlushBranchAwareProcessing:
                 return_value=Result.resolve("pending"),
             ),
             patch(
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_rows",
+                new_callable=AsyncMock,
+                return_value=Result.resolve([_branch_row(message_id, session_id)]),
+            ),
+            patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
                 new_callable=AsyncMock,
                 side_effect=[False, True],
@@ -167,6 +190,11 @@ class TestFlushBranchAwareRetries:
                 return_value=Result.resolve("pending"),
             ),
             patch(
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_rows",
+                new_callable=AsyncMock,
+                return_value=Result.resolve([_branch_row(message_id, session_id)]),
+            ),
+            patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
                 new_callable=AsyncMock,
                 return_value=False,
@@ -192,3 +220,102 @@ class TestFlushBranchAwareRetries:
             assert "retries" in result.error.errmsg.lower()
             assert mock_lock.call_count == max_retries
             mock_release.assert_not_called()
+
+
+class TestFlushSharedBranchLocking:
+    @pytest.mark.asyncio
+    async def test_same_branch_messages_share_one_lock_boundary(self):
+        project_id = uuid.uuid4()
+        session_id = uuid.uuid4()
+        root_id = uuid.uuid4()
+        branch_id = uuid.uuid4()
+        leaf_id = uuid.uuid4()
+
+        with (
+            patch("acontext_core.service.session_message.DB_CLIENT", _mock_db()),
+            patch(
+                "acontext_core.service.session_message.PD.get_project_config",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(MagicMock()),
+            ),
+            patch(
+                "acontext_core.service.session_message._get_pending_session_message_ids",
+                new_callable=AsyncMock,
+                side_effect=[
+                    Result.resolve([branch_id, leaf_id]),
+                    Result.resolve([]),
+                ],
+            ),
+            patch(
+                "acontext_core.service.session_message.MD.check_session_message_status",
+                new_callable=AsyncMock,
+                return_value=Result.resolve("pending"),
+            ),
+            patch(
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_rows",
+                new_callable=AsyncMock,
+                side_effect=[
+                    Result.resolve(
+                        [
+                            _branch_row(root_id, session_id, status="success", depth=0),
+                            _branch_row(
+                                branch_id,
+                                session_id,
+                                status="pending",
+                                parent_id=root_id,
+                                depth=1,
+                            ),
+                        ]
+                    ),
+                    Result.resolve(
+                        [
+                            _branch_row(root_id, session_id, status="success", depth=0),
+                            _branch_row(
+                                branch_id,
+                                session_id,
+                                status="pending",
+                                parent_id=root_id,
+                                depth=1,
+                            ),
+                            _branch_row(
+                                leaf_id,
+                                session_id,
+                                status="pending",
+                                parent_id=branch_id,
+                                depth=2,
+                            ),
+                        ]
+                    ),
+                ],
+            ),
+            patch(
+                "acontext_core.service.session_message.check_redis_lock_or_set",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as mock_lock,
+            patch(
+                "acontext_core.service.session_message.release_redis_lock",
+                new_callable=AsyncMock,
+            ) as mock_release,
+            patch(
+                "acontext_core.service.session_message.MC.process_inserted_message",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(None),
+            ) as mock_process,
+        ):
+            result = await flush_session_message_blocking(project_id, session_id)
+
+            assert result.ok()
+            expected_key = f"session.message.insert.{session_id}.{branch_id}"
+            assert mock_lock.call_args_list == [
+                call(project_id, expected_key),
+                call(project_id, expected_key),
+            ]
+            assert mock_release.call_args_list == [
+                call(project_id, expected_key),
+                call(project_id, expected_key),
+            ]
+            assert mock_process.call_args_list == [
+                call(ANY, project_id, session_id, branch_id),
+                call(ANY, project_id, session_id, leaf_id),
+            ]
