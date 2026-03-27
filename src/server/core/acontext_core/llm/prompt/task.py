@@ -18,7 +18,10 @@ class TaskPrompt(BasePrompt):
 - `## Current Existing Tasks`: existing tasks with orders, descriptions, and statuses
 - `## Previous Progress`: context from prior task progress
 - `## Known User Preferences`: previously submitted user preferences (if any) — do not re-submit these
+- `## Current Branch Path`: root, leaf, and path details for the current branch
 - `## Current Message with IDs`: messages to analyze, formatted as `<message id=N>content</message>`
+  - These messages are one branch path ordered from root to leaf
+  - `id=N` is the branch index used by task tools, not a session-wide message id
 
 ## Workflow
 
@@ -41,6 +44,7 @@ class TaskPrompt(BasePrompt):
 
 ### 3. Link Messages to Tasks
 - Use `append_messages_to_task` with a `message_id_range` [start, end] to link a range of message IDs to the relevant task
+- The range refers to branch indexes from the current root-to-leaf path
 - This tool ONLY links messages and auto-sets the task status to `running` — it does NOT record progress or preferences
 - Only link messages that directly contribute to a task (no random linking)
 
@@ -107,6 +111,7 @@ Before calling `finish`, verify all actions are covered.
     def pack_task_input(
         cls,
         previous_progress: str,
+        branch_context: str,
         current_message_with_ids: str,
         current_tasks: str,
         known_preferences: list[str] = None,
@@ -135,6 +140,9 @@ Before calling `finish`, verify all actions are covered.
 ## Previous Progress:
 {previous_progress}
 {known_prefs_section}{eval_criteria_section}
+## Current Branch Path:
+{branch_context}
+
 ## Current Message with IDs:
 {current_message_with_ids}
 
