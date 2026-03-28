@@ -4,7 +4,6 @@ from ...env import DEFAULT_CORE_CONFIG
 
 _global_openai_async_client = None
 _global_anthropic_async_client = None
-_global_minimax_async_client = None
 
 
 def get_openai_async_client_instance() -> AsyncOpenAI:
@@ -27,14 +26,3 @@ def get_anthropic_async_client_instance() -> AsyncAnthropic:
             base_url=DEFAULT_CORE_CONFIG.llm_base_url,
         )
     return _global_anthropic_async_client
-
-
-def get_minimax_async_client_instance() -> AsyncOpenAI:
-    global _global_minimax_async_client
-    if _global_minimax_async_client is None:
-        base_url = DEFAULT_CORE_CONFIG.llm_base_url or "https://api.minimax.io/v1"
-        _global_minimax_async_client = AsyncOpenAI(
-            base_url=base_url,
-            api_key=DEFAULT_CORE_CONFIG.llm_api_key,
-        )
-    return _global_minimax_async_client
