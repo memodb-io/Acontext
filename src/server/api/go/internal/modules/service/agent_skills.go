@@ -32,7 +32,6 @@ type AgentSkillsService interface {
 	GetFile(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID, filePath string, expire time.Duration, encryptionEnabled bool, userKEK []byte) (*GetFileOutput, error)
 	ListFiles(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*ListFilesOutput, error)
 	TouchByDiskID(ctx context.Context, diskID uuid.UUID) error
-	GetArtifactByPath(ctx context.Context, diskID uuid.UUID, path string, filename string) (*model.Artifact, error)
 	DownloadRawContent(ctx context.Context, artifact *model.Artifact, userKEK []byte) ([]byte, string, error)
 }
 
@@ -81,13 +80,14 @@ type SkillFileInfo struct {
 	S3Key string // S3 key from artifact's AssetMeta (for sandbox upload)
 }
 
-// ListFilesOutput contains skill metadata and the list of files with S3 keys.
-// Combines skill name/description with file list to avoid double-querying.
+// ListFilesOutput contains skill metadata and the list of files with artifacts.
+// Combines skill name/description with artifact objects to avoid N+1 queries.
 type ListFilesOutput struct {
-	Name        string          // Skill name (sanitized, used for sandbox path)
-	Description string          // Skill description
-	DiskID      uuid.UUID       // Disk ID for accessing artifacts
-	Files       []SkillFileInfo // File list with S3 keys
+	Name        string             // Skill name (sanitized, used for sandbox path)
+	Description string             // Skill description
+	DiskID      uuid.UUID          // Disk ID for accessing artifacts
+	Files       []SkillFileInfo    // File list with S3 keys (for backward compatibility)
+	Artifacts   []*model.Artifact  // Full artifact objects (for download zip)
 }
 
 // splitSkillPath converts a skill-relative file path into Artifact (Path, Filename) tuple.
@@ -617,15 +617,12 @@ func (s *agentSkillsService) ListFiles(ctx context.Context, projectID uuid.UUID,
 		Description: skill.Description,
 		DiskID:      skill.DiskID,
 		Files:       files,
+		Artifacts:   artifacts, // Include full artifacts to avoid N+1 queries
 	}, nil
 }
 
 func (s *agentSkillsService) TouchByDiskID(ctx context.Context, diskID uuid.UUID) error {
 	return s.r.TouchUpdatedAtByDiskID(ctx, diskID)
-}
-
-func (s *agentSkillsService) GetArtifactByPath(ctx context.Context, diskID uuid.UUID, path string, filename string) (*model.Artifact, error) {
-	return s.artifactSvc.GetByPath(ctx, diskID, path, filename)
 }
 
 func (s *agentSkillsService) DownloadRawContent(ctx context.Context, artifact *model.Artifact, userKEK []byte) ([]byte, string, error) {

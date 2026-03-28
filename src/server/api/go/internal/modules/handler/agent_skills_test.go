@@ -83,6 +83,14 @@ func (m *MockAgentSkillsService) TouchByDiskID(ctx context.Context, diskID uuid.
 	return args.Error(0)
 }
 
+func (m *MockAgentSkillsService) DownloadRawContent(ctx context.Context, artifact *model.Artifact, userKEK []byte) ([]byte, string, error) {
+	args := m.Called(ctx, artifact, userKEK)
+	if args.Get(0) == nil {
+		return nil, "", args.Error(2)
+	}
+	return args.Get(0).([]byte), args.String(1), args.Error(2)
+}
+
 func setupAgentSkillsRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	return gin.New()

@@ -109,6 +109,38 @@ export class MockRequester implements RequesterProtocol {
 
     throw new Error(`No mock handler found for ${method} ${path}`);
   }
+
+  /**
+   * Implementation of RequesterProtocol.requestBinary().
+   */
+  async requestBinary(
+    method: string,
+    path: string,
+    options?: {
+      params?: Record<string, string | number>;
+      timeout?: number;
+    }
+  ): Promise<ArrayBuffer> {
+    // Record the call
+    this.calls.push({ method, path, options });
+
+    // Find matching route
+    for (const route of this.routes) {
+      if (route.method !== method) continue;
+
+      const matches =
+        typeof route.path === 'string'
+          ? route.path === path
+          : route.path.test(path);
+
+      if (matches) {
+        return route.handler(options) as ArrayBuffer;
+      }
+    }
+
+    // Return empty ArrayBuffer as default for binary requests
+    return new ArrayBuffer(0);
+  }
 }
 
 /**

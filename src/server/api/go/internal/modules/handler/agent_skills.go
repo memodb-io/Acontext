@@ -48,6 +48,20 @@ func joinSkillPath(artifactPath, filename string) string {
 	return strings.TrimPrefix(artifactPath, "/") + filename
 }
 
+// toASCII converts a string to ASCII by replacing non-ASCII characters with underscores.
+// Used for Content-Disposition ASCII fallback filename.
+func toASCII(s string) string {
+	var result strings.Builder
+	for _, r := range s {
+		if r < 128 && r != '"' && r != '\\' {
+			result.WriteRune(r)
+		} else {
+			result.WriteRune('_')
+		}
+	}
+	return result.String()
+}
+
 type CreateAgentSkillsReq struct {
 	User string `form:"user" json:"user" example:"alice@acontext.io"`
 	Meta string `form:"meta" json:"meta" example:"{\"version\":\"1.0\"}"`
@@ -474,18 +488,10 @@ func (h *AgentSkillsHandler) DownloadZip(c *gin.Context) {
 		return
 	}
 
-	// Calculate total size from artifact metadata
+	// Calculate total size from artifact metadata (no N+1 queries - use artifacts from ListFiles)
 	var totalSize int64
-	artifacts := make([]*model.Artifact, len(listResult.Files))
-	for i, file := range listResult.Files {
-		// Get artifact by path to access size metadata
-		dir, fname := splitSkillPath(file.Path)
-		artifact, err := h.svc.GetArtifactByPath(c.Request.Context(), listResult.DiskID, dir, fname)
-		if err != nil {
-			c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "file not found", nil))
-			return
-		}
-		artifacts[i] = artifact
+	artifacts := listResult.Artifacts
+	for _, artifact := range artifacts {
 		assetData := artifact.AssetMeta.Data()
 		totalSize += assetData.SizeB
 	}
@@ -499,9 +505,10 @@ func (h *AgentSkillsHandler) DownloadZip(c *gin.Context) {
 	if len(artifacts) == 0 {
 		// No files to download, return empty ZIP
 		c.Header("Content-Type", "application/zip")
-		// Issue 5: Properly escape filename using RFC 5987
-		escapedName := url.PathEscape(listResult.Name)
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s.zip", escapedName))
+		// RFC 5987: Use QueryEscape (encodes /, @, :) + ASCII fallback
+		asciiName := toASCII(listResult.Name)
+		escapedName := url.QueryEscape(listResult.Name)
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"; filename*=UTF-8''%s.zip", asciiName, escapedName))
 		buf := new(bytes.Buffer)
 		zipWriter := zip.NewWriter(buf)
 		zipWriter.Close()
@@ -568,8 +575,9 @@ func (h *AgentSkillsHandler) DownloadZip(c *gin.Context) {
 
 	// Stream ZIP to client
 	c.Header("Content-Type", "application/zip")
-	// Issue 5: Properly escape filename using RFC 5987
-	escapedName := url.PathEscape(listResult.Name)
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s.zip", escapedName))
+	// RFC 5987: Use QueryEscape (encodes /, @, :) + ASCII fallback
+	asciiName := toASCII(listResult.Name)
+	escapedName := url.QueryEscape(listResult.Name)
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"; filename*=UTF-8''%s.zip", asciiName, escapedName))
 	c.Data(http.StatusOK, "application/zip", buf.Bytes())
 }

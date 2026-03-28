@@ -255,6 +255,14 @@ func (m *MockLSAgentSkillsService) TouchByDiskID(ctx context.Context, diskID uui
 	return args.Error(0)
 }
 
+func (m *MockLSAgentSkillsService) DownloadRawContent(ctx context.Context, artifact *model.Artifact, userKEK []byte) ([]byte, string, error) {
+	args := m.Called(ctx, artifact, userKEK)
+	if args.Get(0) == nil {
+		return nil, "", args.Error(2)
+	}
+	return args.Get(0).([]byte), args.String(1), args.Error(2)
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
