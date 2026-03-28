@@ -45,7 +45,7 @@ export const SESSION_STATUSES = [
 export type SessionStatus = (typeof SESSION_STATUSES)[number];
 
 /** Terminal statuses that indicate learning is complete. */
-export const TERMINAL_SESSION_STATUSES: ReadonlySet<SessionStatus> = new Set([
+export const TERMINAL_SESSION_STATUSES: ReadonlySet<string> = new Set<SessionStatus>([
   'completed',
   'failed',
 ]);
