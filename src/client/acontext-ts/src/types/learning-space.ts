@@ -27,6 +27,11 @@ export type LearningSpaceSkill = z.infer<typeof LearningSpaceSkillSchema>;
  * Valid status values for a learning space session.
  *
  * Lifecycle: pending → distilling → (skill_writing | queued | completed | failed)
+ *
+ * Sync: keep in sync with:
+ *   - Python Core: src/server/core/acontext_core/schema/session/learning_space.py (SessionStatus)
+ *   - Go API:      src/server/api/go/internal/modules/model/learning_space.go (SessionStatus* consts)
+ *   - Python SDK:   src/client/acontext-py/src/acontext/types/learning_space.py (SessionStatus)
  */
 export const SESSION_STATUSES = [
   'pending',
@@ -49,7 +54,7 @@ export const LearningSpaceSessionSchema = z.object({
   id: z.string(),
   learning_space_id: z.string(),
   session_id: z.string(),
-  status: z.enum(SESSION_STATUSES),
+  status: z.enum(SESSION_STATUSES).or(z.string()),
   created_at: z.string(),
   updated_at: z.string(),
 });

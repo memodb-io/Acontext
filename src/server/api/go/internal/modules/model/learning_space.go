@@ -8,6 +8,11 @@ import (
 )
 
 // SessionStatus constants for LearningSpaceSession.Status
+//
+// Sync: keep in sync with:
+//   - Python Core: src/server/core/acontext_core/schema/session/learning_space.py (SessionStatus)
+//   - Python SDK:  src/client/acontext-py/src/acontext/types/learning_space.py (SessionStatus)
+//   - TS SDK:      src/client/acontext-ts/src/types/learning-space.ts (SESSION_STATUSES)
 const (
 	SessionStatusPending      = "pending"
 	SessionStatusDistilling   = "distilling"

@@ -8,6 +8,11 @@ class SessionStatus(StrEnum):
     pending → distilling → (skill_writing | queued | completed | failed)
       - skill_writing → completed | failed
       - queued → distilling (re-enters via drain_skill_learn_pending)
+
+    Sync: keep in sync with:
+      - Go API:    src/server/api/go/internal/modules/model/learning_space.go (SessionStatus* consts)
+      - Python SDK: src/client/acontext-py/src/acontext/types/learning_space.py (SessionStatus)
+      - TS SDK:    src/client/acontext-ts/src/types/learning-space.ts (SESSION_STATUSES)
     """
 
     PENDING = "pending"
