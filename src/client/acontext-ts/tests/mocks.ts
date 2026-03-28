@@ -120,7 +120,7 @@ export class MockRequester implements RequesterProtocol {
       params?: Record<string, string | number>;
       timeout?: number;
     }
-  ): Promise<ArrayBuffer> {
+  ): Promise<Buffer> {
     // Record the call
     this.calls.push({ method, path, options });
 
@@ -134,12 +134,12 @@ export class MockRequester implements RequesterProtocol {
           : route.path.test(path);
 
       if (matches) {
-        return route.handler(options) as ArrayBuffer;
+        return route.handler(options) as Buffer;
       }
     }
 
-    // Return empty ArrayBuffer as default for binary requests
-    return new ArrayBuffer(0);
+    // Return empty Buffer as default for binary requests
+    return Buffer.alloc(0);
   }
 }
 
