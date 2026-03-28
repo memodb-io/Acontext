@@ -3,6 +3,7 @@ from sqlalchemy import Column, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from .base import ORM_BASE, CommonMixin
 from ..utils import asUUID
+from ..session.learning_space import SessionStatus
 
 
 @ORM_BASE.mapped
@@ -41,8 +42,8 @@ class LearningSpaceSession(CommonMixin):
     )
 
     status: str = field(
-        default="pending",
+        default=SessionStatus.PENDING,
         metadata={
-            "db": Column(Text, nullable=False, default="pending", server_default="pending")
+            "db": Column(Text, nullable=False, default=SessionStatus.PENDING, server_default=SessionStatus.PENDING)
         },
     )

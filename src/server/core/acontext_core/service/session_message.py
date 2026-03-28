@@ -13,6 +13,7 @@ from ..telemetry.log import get_wide_event, set_wide_event, clear_wide_event
 from ..schema.mq.session import InsertNewMessage
 from ..schema.utils import asUUID
 from ..schema.result import Result
+from ..schema.session.learning_space import SessionStatus
 from .constants import EX, RK
 from .data import learning_space as LS
 from .data import message as MD
@@ -98,7 +99,7 @@ async def insert_new_message(body: InsertNewMessage, message: Message):
         except Exception:
             LOG.error("session_message.invalid_user_kek", session_id=str(body.session_id))
             async with DB_CLIENT.get_session_context() as db_session:
-                await LS.update_session_status(db_session, body.session_id, "failed")
+                await LS.update_session_status(db_session, body.session_id, SessionStatus.FAILED)
             return
 
     try:

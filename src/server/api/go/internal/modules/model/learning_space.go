@@ -55,7 +55,7 @@ type LearningSpaceSession struct {
 	ID              uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
 	LearningSpaceID uuid.UUID `gorm:"type:uuid;not null;index" json:"learning_space_id"`
 	SessionID       uuid.UUID `gorm:"type:uuid;not null;index" json:"session_id"`
-	Status          string    `gorm:"type:text;not null;default:'pending';check:status IN ('pending','distilling','queued','skill_writing','completed','failed')" json:"status"`
+	Status          string    `gorm:"type:text;not null;default:'pending'" json:"status"`
 
 	CreatedAt time.Time `gorm:"autoCreateTime;not null;default:CURRENT_TIMESTAMP" json:"created_at"`
 	UpdatedAt time.Time `gorm:"autoUpdateTime;not null;default:CURRENT_TIMESTAMP" json:"updated_at"`

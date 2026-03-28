@@ -555,7 +555,7 @@ func TestLearningSpaceHandler_Learn(t *testing.T) {
 					ID:              uuid.New(),
 					LearningSpaceID: lsID,
 					SessionID:       sessionID,
-					Status:          "pending",
+					Status:          model.SessionStatusPending,
 					CreatedAt:       time.Now(),
 					UpdatedAt:       time.Now(),
 				}, nil)
@@ -898,7 +898,7 @@ func TestLearningSpaceHandler_GetSession(t *testing.T) {
 					ID:              uuid.New(),
 					LearningSpaceID: lsID,
 					SessionID:       sessionID,
-					Status:          "completed",
+					Status:          model.SessionStatusCompleted,
 					CreatedAt:       time.Now(),
 					UpdatedAt:       time.Now(),
 				}, nil)
@@ -976,7 +976,7 @@ func TestLearningSpaceHandler_ListSessions(t *testing.T) {
 						ID:              uuid.New(),
 						LearningSpaceID: lsID,
 						SessionID:       uuid.New(),
-						Status:          "pending",
+						Status:          model.SessionStatusPending,
 						CreatedAt:       time.Now(),
 						UpdatedAt:       time.Now(),
 					},

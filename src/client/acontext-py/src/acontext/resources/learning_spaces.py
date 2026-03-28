@@ -17,6 +17,7 @@ from ..types.learning_space import (
     LearningSpaceSession,
     LearningSpaceSkill,
     ListLearningSpacesOutput,
+    SessionStatus,
 )
 from ..types.skill import Skill
 
@@ -184,7 +185,7 @@ class LearningSpacesAPI:
         Raises:
             TimeoutError: If timeout elapses before reaching a terminal status.
         """
-        terminal = {"completed", "failed"}
+        terminal = {SessionStatus.COMPLETED, SessionStatus.FAILED}
         deadline = time.monotonic() + timeout
         while True:
             session = self.get_session(space_id, session_id=session_id)

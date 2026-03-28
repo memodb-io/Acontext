@@ -58,7 +58,7 @@ async def process_skill_distillation(body: SkillLearnTask, message: Message):
         except Exception:
             LOG.error("skill_learner.invalid_user_kek", session_id=str(body.session_id))
             async with DB_CLIENT.get_session_context() as db_session:
-            await LS.update_session_status(db_session, body.session_id, SessionStatus.FAILED)
+                await LS.update_session_status(db_session, body.session_id, SessionStatus.FAILED)
             return
 
     r = await SLC.process_context_distillation(
@@ -69,7 +69,7 @@ async def process_skill_distillation(body: SkillLearnTask, message: Message):
     if eil:
         wide["distillation_outcome"] = "failed"
         async with DB_CLIENT.get_session_context() as db_session:
-            await LS.update_session_status(db_session, body.session_id, "failed")
+            await LS.update_session_status(db_session, body.session_id, SessionStatus.FAILED)
         return
 
     if distilled_payload is None:
@@ -81,7 +81,7 @@ async def process_skill_distillation(body: SkillLearnTask, message: Message):
     # Set status to skill_writing before publishing to skill agent
     # This indicates that distillation is done and skill files are being written
     async with DB_CLIENT.get_session_context() as db_session:
-    await LS.update_session_status(db_session, body.session_id, SessionStatus.SKILL_WRITING)
+        await LS.update_session_status(db_session, body.session_id, SessionStatus.SKILL_WRITING)
 
     await publish_mq(
         exchange_name=EX.learning_skill,
@@ -137,7 +137,7 @@ async def process_skill_agent(body: SkillLearnDistilled, message: Message):
         except Exception:
             LOG.error("skill_agent.invalid_user_kek", session_id=str(body.session_id))
             async with DB_CLIENT.get_session_context() as db_session:
-            await LS.update_session_status(db_session, body.session_id, SessionStatus.FAILED)
+                await LS.update_session_status(db_session, body.session_id, SessionStatus.FAILED)
             return
 
     try:
@@ -154,7 +154,7 @@ async def process_skill_agent(body: SkillLearnDistilled, message: Message):
         if eil:
             wide["agent_outcome"] = "failed"
             async with DB_CLIENT.get_session_context() as db_session:
-            await LS.update_session_status(db_session, body.session_id, SessionStatus.FAILED)
+                await LS.update_session_status(db_session, body.session_id, SessionStatus.FAILED)
         else:
             all_session_ids = [body.session_id] + (drained_session_ids or [])
             all_session_ids = list(set(all_session_ids))
@@ -167,7 +167,7 @@ async def process_skill_agent(body: SkillLearnDistilled, message: Message):
         wide["agent_outcome"] = "error"
         wide["error"] = {"type": type(e).__name__, "message": str(e)}
         async with DB_CLIENT.get_session_context() as db_session:
-            await LS.update_session_status(db_session, body.session_id, "failed")
+            await LS.update_session_status(db_session, body.session_id, SessionStatus.FAILED)
     finally:
         await release_redis_lock(body.project_id, lock_key)
         try:
