@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"archive/zip"
+	"bytes"
 	"errors"
 	"fmt"
 	"net/http"
@@ -409,4 +411,109 @@ func (h *AgentSkillsHandler) DownloadToSandbox(c *gin.Context) {
 		Name:        listResult.Name,
 		Description: listResult.Description,
 	}})
+}
+
+// DownloadZip godoc
+//
+//	@Summary		Download skill as ZIP file
+//	@Description	Download all files from an agent skill as a ZIP archive. Files are streamed directly with their relative paths preserved.
+//	@Tags			agent_skills
+//	@Accept			json
+//	@Produce		application/zip
+//	@Param			id	path	string	true	"Agent skill UUID"
+//	@Security		BearerAuth
+//	@Success		200	{file}	binary	"ZIP file containing all skill files"
+//	@Router			/agent_skills/{id}/download_zip [get]
+//	@x-code-samples	[{"lang":"python","source":"from acontext import AcontextClient\n\nclient = AcontextClient(api_key='sk_project_token')\n\n# Download skill as ZIP file\nwith open('my_skill.zip', 'wb') as f:\n    content = client.skills.download_zip('skill-uuid')\n    f.write(content)\nprint('Skill downloaded as ZIP')\n","label":"Python"},{"lang":"javascript","source":"import { AcontextClient } from '@acontext/acontext';\nimport fs from 'fs';\n\nconst client = new AcontextClient({ apiKey: 'sk_project_token' });\n\n// Download skill as ZIP file\nconst zipContent = await client.skills.downloadZip('skill-uuid');\nfs.writeFileSync('my_skill.zip', zipContent);\nconsole.log('Skill downloaded as ZIP');\n","label":"JavaScript"}]
+func (h *AgentSkillsHandler) DownloadZip(c *gin.Context) {
+	project, ok := c.MustGet("project").(*model.Project)
+	if !ok {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("", errors.New("project not found")))
+		return
+	}
+
+	// Parse skill ID from path
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid skill id", err))
+		return
+	}
+
+	// Get skill metadata + file list
+	listResult, err := h.svc.ListFiles(c.Request.Context(), project.ID, id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, serializer.DBErr("skill not found", err))
+		return
+	}
+
+	if len(listResult.Files) == 0 {
+		// No files to download, return empty ZIP
+		c.Header("Content-Type", "application/zip")
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s.zip", listResult.Name))
+		buf := new(bytes.Buffer)
+		zipWriter := zip.NewWriter(buf)
+		zipWriter.Close()
+		c.Data(http.StatusOK, "application/zip", buf.Bytes())
+		return
+	}
+
+	// Download all files in parallel
+	type fileData struct {
+		path    string
+		content []byte
+	}
+	fileContents := make([]*fileData, len(listResult.Files))
+
+	g, gctx := errgroup.WithContext(c.Request.Context())
+	g.SetLimit(10)
+
+	for i, file := range listResult.Files {
+		i, file := i, file
+		g.Go(func() error {
+			// Download file content from S3
+			content, err := h.svc.DownloadFileByS3Key(gctx, file.S3Key, middleware.GetUserKEKIfEncrypted(c))
+			if err != nil {
+				return fmt.Errorf("failed to download file %s: %w", file.Path, err)
+			}
+			fileContents[i] = &fileData{
+				path:    file.Path,
+				content: content,
+			}
+			return nil
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, err.Error(), err))
+		return
+	}
+
+	// Create ZIP in memory
+	buf := new(bytes.Buffer)
+	zipWriter := zip.NewWriter(buf)
+
+	for _, fd := range fileContents {
+		if fd == nil {
+			continue
+		}
+		w, err := zipWriter.Create(fd.path)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "failed to create zip entry", err))
+			return
+		}
+		if _, err := w.Write(fd.content); err != nil {
+			c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "failed to write zip entry", err))
+			return
+		}
+	}
+
+	if err := zipWriter.Close(); err != nil {
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "failed to close zip", err))
+		return
+	}
+
+	// Stream ZIP to client
+	c.Header("Content-Type", "application/zip")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s.zip", listResult.Name))
+	c.Data(http.StatusOK, "application/zip", buf.Bytes())
 }

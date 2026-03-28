@@ -27,6 +27,7 @@ type ArtifactService interface {
 	GetPresignedURL(ctx context.Context, artifact *model.Artifact, expire time.Duration) (string, error)
 	GetFileContent(ctx context.Context, artifact *model.Artifact, userKEK []byte) (*fileparser.FileContent, error)
 	DownloadRawContent(ctx context.Context, artifact *model.Artifact, userKEK []byte) ([]byte, string, error) // returns content, mime, error
+	DownloadByS3Key(ctx context.Context, s3Key string, userKEK []byte) ([]byte, error)
 	UpdateArtifactMetaByPath(ctx context.Context, diskID uuid.UUID, path string, filename string, userMeta map[string]interface{}) (*model.Artifact, error)
 	ListByPath(ctx context.Context, diskID uuid.UUID, path string) ([]*model.Artifact, error)
 	GetAllPaths(ctx context.Context, diskID uuid.UUID) ([]string, error)
@@ -283,6 +284,18 @@ func (s *artifactService) DownloadRawContent(ctx context.Context, artifact *mode
 		return nil, "", fmt.Errorf("download file: %w", err)
 	}
 	return content, assetData.MIME, nil
+}
+
+// DownloadByS3Key downloads file content directly by S3 key (auto-decrypts if encrypted).
+func (s *artifactService) DownloadByS3Key(ctx context.Context, s3Key string, userKEK []byte) ([]byte, error) {
+	if s3Key == "" {
+		return nil, errors.New("s3Key is required")
+	}
+	content, err := s.s3.DownloadFile(ctx, s3Key, userKEK)
+	if err != nil {
+		return nil, fmt.Errorf("download file: %w", err)
+	}
+	return content, nil
 }
 
 func (s *artifactService) UpdateArtifactMetaByPath(ctx context.Context, diskID uuid.UUID, path string, filename string, userMeta map[string]interface{}) (*model.Artifact, error) {

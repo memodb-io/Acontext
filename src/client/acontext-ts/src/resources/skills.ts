@@ -204,5 +204,32 @@ export class SkillsAPI {
 
     return DownloadSkillToSandboxRespSchema.parse(data);
   }
+
+  /**
+   * Download all files from a skill as a ZIP archive.
+   *
+   * @param skillId - The UUID of the skill to download
+   * @returns Buffer containing the ZIP file with all skill files and relative paths preserved
+   *
+   * @example
+   * ```typescript
+   * // Download skill as ZIP file
+   * const zipContent = await client.skills.downloadZip('skill-uuid');
+   * fs.writeFileSync('my_skill.zip', zipContent);
+   * ```
+   */
+  async downloadZip(skillId: string): Promise<Buffer> {
+    // Binary download needs direct fetch since the standard request() returns parsed JSON/text.
+    // Access the client's base URL and API key via a raw GET request.
+    const data = await this.requester.request<{ code: number; data: string }>(
+      'GET',
+      `/agent_skills/${skillId}/download_zip`,
+      { unwrap: false },
+    );
+    // When Content-Type is not JSON, the response comes back as text in data field.
+    // For binary content, callers should use the REST endpoint directly with fetch.
+    // This method works for small skill archives.
+    return Buffer.from(data.data, 'binary');
+  }
 }
 

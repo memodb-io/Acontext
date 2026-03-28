@@ -32,6 +32,7 @@ type AgentSkillsService interface {
 	GetFile(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID, filePath string, expire time.Duration, encryptionEnabled bool, userKEK []byte) (*GetFileOutput, error)
 	ListFiles(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*ListFilesOutput, error)
 	TouchByDiskID(ctx context.Context, diskID uuid.UUID) error
+	DownloadFileByS3Key(ctx context.Context, s3Key string, userKEK []byte) ([]byte, error)
 }
 
 type agentSkillsService struct {
@@ -618,4 +619,8 @@ func (s *agentSkillsService) ListFiles(ctx context.Context, projectID uuid.UUID,
 
 func (s *agentSkillsService) TouchByDiskID(ctx context.Context, diskID uuid.UUID) error {
 	return s.r.TouchUpdatedAtByDiskID(ctx, diskID)
+}
+
+func (s *agentSkillsService) DownloadFileByS3Key(ctx context.Context, s3Key string, userKEK []byte) ([]byte, error) {
+	return s.artifactSvc.DownloadByS3Key(ctx, s3Key, userKEK)
 }
