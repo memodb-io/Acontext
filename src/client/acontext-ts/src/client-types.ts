@@ -15,5 +15,14 @@ export interface RequesterProtocol {
       timeout?: number;
     }
   ): Promise<T>;
+
+  requestBinary(
+    method: string,
+    path: string,
+    options?: {
+      params?: Record<string, string | number>;
+      timeout?: number;
+    }
+  ): Promise<Buffer>;
 }
 

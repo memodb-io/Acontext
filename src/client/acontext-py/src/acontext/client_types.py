@@ -21,6 +21,16 @@ class RequesterProtocol(Protocol):
     ) -> Any:
         ...
 
+    def request_binary(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        timeout: float | None = None,
+    ) -> bytes:
+        ...
+
 
 class AsyncRequesterProtocol(Protocol):
     def request(
@@ -35,4 +45,14 @@ class AsyncRequesterProtocol(Protocol):
         unwrap: bool = True,
         timeout: float | None = None,
     ) -> Awaitable[Any]:
+        ...
+
+    def request_binary(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        timeout: float | None = None,
+    ) -> Awaitable[bytes]:
         ...

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -28,6 +29,23 @@ type AgentSkillsHandler struct {
 
 func NewAgentSkillsHandler(s service.AgentSkillsService, userSvc service.UserService, coreClient *httpclient.CoreClient) *AgentSkillsHandler {
 	return &AgentSkillsHandler{svc: s, userSvc: userSvc, coreClient: coreClient}
+}
+
+// splitSkillPath converts a skill-relative file path into Artifact (Path, Filename) tuple.
+func splitSkillPath(relativePath string) (dir, filename string) {
+	idx := strings.LastIndex(relativePath, "/")
+	if idx == -1 {
+		return "/", relativePath
+	}
+	return "/" + relativePath[:idx] + "/", relativePath[idx+1:]
+}
+
+// joinSkillPath reconstructs a skill-relative file path from Artifact (Path, Filename).
+func joinSkillPath(artifactPath, filename string) string {
+	if artifactPath == "/" {
+		return filename
+	}
+	return strings.TrimPrefix(artifactPath, "/") + filename
 }
 
 type CreateAgentSkillsReq struct {
@@ -442,14 +460,48 @@ func (h *AgentSkillsHandler) DownloadZip(c *gin.Context) {
 	// Get skill metadata + file list
 	listResult, err := h.svc.ListFiles(c.Request.Context(), project.ID, id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, serializer.DBErr("skill not found", err))
+		// Issue 6: Don't leak internal error details
+		c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "skill not found", nil))
 		return
 	}
 
-	if len(listResult.Files) == 0 {
+	// Issue 4: Add size guard (50MB total, 200 files max)
+	const maxTotalSize = 50 * 1024 * 1024 // 50MB
+	const maxFileCount = 200
+	if len(listResult.Files) > maxFileCount {
+		c.JSON(http.StatusRequestEntityTooLarge, serializer.Err(http.StatusRequestEntityTooLarge,
+			fmt.Sprintf("skill has too many files (%d), maximum is %d", len(listResult.Files), maxFileCount), nil))
+		return
+	}
+
+	// Calculate total size from artifact metadata
+	var totalSize int64
+	artifacts := make([]*model.Artifact, len(listResult.Files))
+	for i, file := range listResult.Files {
+		// Get artifact by path to access size metadata
+		dir, fname := splitSkillPath(file.Path)
+		artifact, err := h.svc.GetArtifactByPath(c.Request.Context(), listResult.DiskID, dir, fname)
+		if err != nil {
+			c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, "file not found", nil))
+			return
+		}
+		artifacts[i] = artifact
+		assetData := artifact.AssetMeta.Data()
+		totalSize += assetData.SizeB
+	}
+
+	if totalSize > maxTotalSize {
+		c.JSON(http.StatusRequestEntityTooLarge, serializer.Err(http.StatusRequestEntityTooLarge,
+			fmt.Sprintf("skill total size (%d bytes) exceeds maximum (%d bytes)", totalSize, maxTotalSize), nil))
+		return
+	}
+
+	if len(artifacts) == 0 {
 		// No files to download, return empty ZIP
 		c.Header("Content-Type", "application/zip")
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s.zip", listResult.Name))
+		// Issue 5: Properly escape filename using RFC 5987
+		escapedName := url.PathEscape(listResult.Name)
+		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s.zip", escapedName))
 		buf := new(bytes.Buffer)
 		zipWriter := zip.NewWriter(buf)
 		zipWriter.Close()
@@ -457,26 +509,28 @@ func (h *AgentSkillsHandler) DownloadZip(c *gin.Context) {
 		return
 	}
 
-	// Download all files in parallel
+	// Download all files in parallel using artifact objects (Issue 1: use DownloadRawContent pattern)
 	type fileData struct {
 		path    string
 		content []byte
 	}
-	fileContents := make([]*fileData, len(listResult.Files))
+	fileContents := make([]*fileData, len(artifacts))
 
 	g, gctx := errgroup.WithContext(c.Request.Context())
 	g.SetLimit(10)
 
-	for i, file := range listResult.Files {
-		i, file := i, file
+	for i, artifact := range artifacts {
+		i, artifact := i, artifact
 		g.Go(func() error {
-			// Download file content from S3
-			content, err := h.svc.DownloadFileByS3Key(gctx, file.S3Key, middleware.GetUserKEKIfEncrypted(c))
+			// Issue 1: Use DownloadRawContent instead of DownloadByS3Key
+			content, _, err := h.svc.DownloadRawContent(gctx, artifact, middleware.GetUserKEKIfEncrypted(c))
 			if err != nil {
-				return fmt.Errorf("failed to download file %s: %w", file.Path, err)
+				// Reconstruct path from artifact
+				skillPath := joinSkillPath(artifact.Path, artifact.Filename)
+				return fmt.Errorf("failed to download file %s: %w", skillPath, err)
 			}
 			fileContents[i] = &fileData{
-				path:    file.Path,
+				path:    joinSkillPath(artifact.Path, artifact.Filename),
 				content: content,
 			}
 			return nil
@@ -484,7 +538,7 @@ func (h *AgentSkillsHandler) DownloadZip(c *gin.Context) {
 	}
 
 	if err := g.Wait(); err != nil {
-		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, err.Error(), err))
+		c.JSON(http.StatusInternalServerError, serializer.Err(http.StatusInternalServerError, "failed to download files", nil))
 		return
 	}
 
@@ -514,6 +568,8 @@ func (h *AgentSkillsHandler) DownloadZip(c *gin.Context) {
 
 	// Stream ZIP to client
 	c.Header("Content-Type", "application/zip")
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s.zip", listResult.Name))
+	// Issue 5: Properly escape filename using RFC 5987
+	escapedName := url.PathEscape(listResult.Name)
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s.zip", escapedName))
 	c.Data(http.StatusOK, "application/zip", buf.Bytes())
 }

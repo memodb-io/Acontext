@@ -241,7 +241,5 @@ class AsyncSkillsAPI:
                 f.write(zip_content)
         ```
         """
-        # Use the internal httpx client to get binary content directly
-        response = await self._requester._client.get(f"/agent_skills/{skill_id}/download_zip")
-        response.raise_for_status()
-        return response.content
+        # Use request_binary to get raw bytes without UTF-8 decoding
+        return await self._requester.request_binary("GET", f"/agent_skills/{skill_id}/download_zip")

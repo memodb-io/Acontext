@@ -232,3 +232,47 @@ class AcontextAsyncClient:
             )
 
         return parsed.get("data") if unwrap else parsed
+
+    async def request_binary(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        timeout: float | None = None,
+    ) -> bytes:
+        """Request that returns raw binary data without text decoding.
+
+        Args:
+            method: HTTP method (GET, POST, etc.)
+            path: API endpoint path
+            params: Query parameters
+            timeout: Request timeout in seconds
+
+        Returns:
+            bytes: Raw binary content from the response
+
+        Raises:
+            APIError: If the server returns an error response
+            TransportError: If there's a network connectivity issue
+        """
+        # Use per-request timeout if provided, otherwise use client default
+        effective_timeout = timeout if timeout is not None else self._timeout
+        try:
+            response = await self._client.request(
+                method=method,
+                url=path,
+                params=params,
+                timeout=effective_timeout,
+            )
+        except httpx.HTTPError as exc:  # pragma: no cover
+            raise TransportError(str(exc)) from exc
+
+        if response.status_code >= 400:
+            raise APIError(
+                status_code=response.status_code,
+                message=response.reason_phrase,
+            )
+
+        # Return raw bytes without decoding
+        return response.content

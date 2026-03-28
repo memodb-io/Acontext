@@ -219,17 +219,8 @@ export class SkillsAPI {
    * ```
    */
   async downloadZip(skillId: string): Promise<Buffer> {
-    // Binary download needs direct fetch since the standard request() returns parsed JSON/text.
-    // Access the client's base URL and API key via a raw GET request.
-    const data = await this.requester.request<{ code: number; data: string }>(
-      'GET',
-      `/agent_skills/${skillId}/download_zip`,
-      { unwrap: false },
-    );
-    // When Content-Type is not JSON, the response comes back as text in data field.
-    // For binary content, callers should use the REST endpoint directly with fetch.
-    // This method works for small skill archives.
-    return Buffer.from(data.data, 'binary');
+    // Use requestBinary to get raw binary data via arrayBuffer, avoiding UTF-8 corruption
+    return this.requester.requestBinary('GET', `/agent_skills/${skillId}/download_zip`);
   }
 }
 

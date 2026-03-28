@@ -32,7 +32,8 @@ type AgentSkillsService interface {
 	GetFile(ctx context.Context, projectID uuid.UUID, skillID uuid.UUID, filePath string, expire time.Duration, encryptionEnabled bool, userKEK []byte) (*GetFileOutput, error)
 	ListFiles(ctx context.Context, projectID uuid.UUID, id uuid.UUID) (*ListFilesOutput, error)
 	TouchByDiskID(ctx context.Context, diskID uuid.UUID) error
-	DownloadFileByS3Key(ctx context.Context, s3Key string, userKEK []byte) ([]byte, error)
+	GetArtifactByPath(ctx context.Context, diskID uuid.UUID, path string, filename string) (*model.Artifact, error)
+	DownloadRawContent(ctx context.Context, artifact *model.Artifact, userKEK []byte) ([]byte, string, error)
 }
 
 type agentSkillsService struct {
@@ -85,6 +86,7 @@ type SkillFileInfo struct {
 type ListFilesOutput struct {
 	Name        string          // Skill name (sanitized, used for sandbox path)
 	Description string          // Skill description
+	DiskID      uuid.UUID       // Disk ID for accessing artifacts
 	Files       []SkillFileInfo // File list with S3 keys
 }
 
@@ -613,6 +615,7 @@ func (s *agentSkillsService) ListFiles(ctx context.Context, projectID uuid.UUID,
 	return &ListFilesOutput{
 		Name:        skill.Name,
 		Description: skill.Description,
+		DiskID:      skill.DiskID,
 		Files:       files,
 	}, nil
 }
@@ -621,6 +624,10 @@ func (s *agentSkillsService) TouchByDiskID(ctx context.Context, diskID uuid.UUID
 	return s.r.TouchUpdatedAtByDiskID(ctx, diskID)
 }
 
-func (s *agentSkillsService) DownloadFileByS3Key(ctx context.Context, s3Key string, userKEK []byte) ([]byte, error) {
-	return s.artifactSvc.DownloadByS3Key(ctx, s3Key, userKEK)
+func (s *agentSkillsService) GetArtifactByPath(ctx context.Context, diskID uuid.UUID, path string, filename string) (*model.Artifact, error) {
+	return s.artifactSvc.GetByPath(ctx, diskID, path, filename)
+}
+
+func (s *agentSkillsService) DownloadRawContent(ctx context.Context, artifact *model.Artifact, userKEK []byte) ([]byte, string, error) {
+	return s.artifactSvc.DownloadRawContent(ctx, artifact, userKEK)
 }

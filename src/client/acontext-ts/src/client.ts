@@ -292,6 +292,74 @@ export class AcontextClient implements RequesterProtocol {
     return (unwrap ? payload.data : payload) as T;
   }
 
+  async requestBinary(
+    method: string,
+    path: string,
+    options?: {
+      params?: Record<string, string | number>;
+      timeout?: number;
+    }
+  ): Promise<Buffer> {
+    const url = `${this._baseUrl}${path}`;
+    const effectiveTimeout = options?.timeout ?? this._timeout;
+
+    try {
+      const headers: Record<string, string> = {
+        Authorization: `Bearer ${this._apiKey}`,
+        'User-Agent': this._userAgent,
+      };
+
+      // Build URL with query parameters
+      let finalUrl = url;
+      if (options?.params && Object.keys(options.params).length > 0) {
+        const searchParams = new URLSearchParams();
+        for (const [key, value] of Object.entries(options.params)) {
+          searchParams.append(key, String(value));
+        }
+        finalUrl = `${url}?${searchParams.toString()}`;
+      }
+
+      // Make the request
+      const fetchImpl = await this.getFetch();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout);
+
+      try {
+        const response = await fetchImpl(finalUrl, {
+          method,
+          headers,
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.status >= 400) {
+          throw new APIError({
+            statusCode: response.status,
+            message: response.statusText,
+          });
+        }
+
+        // Use arrayBuffer() to get binary data without UTF-8 decoding
+        const arrayBuffer = await response.arrayBuffer();
+        return Buffer.from(arrayBuffer);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error instanceof Error && error.name === 'AbortError') {
+          throw new TransportError(`Request timeout after ${effectiveTimeout}ms`);
+        }
+        throw error;
+      }
+    } catch (error) {
+      if (error instanceof APIError || error instanceof TransportError) {
+        throw error;
+      }
+      throw new TransportError(
+        error instanceof Error ? error.message : String(error)
+      );
+    }
+  }
+
   private async getFetch(): Promise<typeof fetch> {
     // Try to use global fetch if available (Node 18+, modern browsers)
     if (typeof fetch !== 'undefined') {
