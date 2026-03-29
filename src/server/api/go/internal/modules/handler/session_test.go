@@ -2088,7 +2088,7 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 func TestSessionHandler_GetMessages(t *testing.T) {
 	projectID := uuid.New()
 	sessionID := uuid.New()
-	branchMessageID := uuid.New()
+	leafID := uuid.New()
 
 	tests := []struct {
 		name           string
@@ -2156,14 +2156,14 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:           "branch_message_id retrieves branch messages",
+			name:           "leaf_id retrieves branch messages",
 			sessionIDParam: sessionID.String(),
-			queryParams:    "?branch_message_id=" + branchMessageID.String(),
+			queryParams:    "?leaf_id=" + leafID.String(),
 			setup: func(svc *MockSessionService) {
 				expectedOutput := &service.GetMessagesOutput{
 					Items: []model.Message{
 						{
-							ID:        branchMessageID,
+							ID:        leafID,
 							SessionID: sessionID,
 							Role:      model.RoleUser,
 						},
@@ -2171,36 +2171,36 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 					HasMore: false,
 				}
 				svc.On("GetMessages", mock.Anything, mock.MatchedBy(func(in service.GetMessagesInput) bool {
-					return in.SessionID == sessionID && in.BranchMessageID != nil && *in.BranchMessageID == branchMessageID && in.Limit == 0
+					return in.SessionID == sessionID && in.LeafID != nil && *in.LeafID == leafID && in.Limit == 0
 				})).Return(expectedOutput, nil)
 			},
 			expectedStatus: http.StatusOK,
 		},
 		{
-			name:           "invalid branch_message_id",
+			name:           "invalid leaf_id",
 			sessionIDParam: sessionID.String(),
-			queryParams:    "?branch_message_id=not-a-uuid",
+			queryParams:    "?leaf_id=not-a-uuid",
 			setup:          func(svc *MockSessionService) {},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:           "branch_message_id rejects limit",
+			name:           "leaf_id rejects limit",
 			sessionIDParam: sessionID.String(),
-			queryParams:    "?branch_message_id=" + branchMessageID.String() + "&limit=20",
+			queryParams:    "?leaf_id=" + leafID.String() + "&limit=20",
 			setup:          func(svc *MockSessionService) {},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:           "branch_message_id rejects cursor",
+			name:           "leaf_id rejects cursor",
 			sessionIDParam: sessionID.String(),
-			queryParams:    "?branch_message_id=" + branchMessageID.String() + "&cursor=abc",
+			queryParams:    "?leaf_id=" + leafID.String() + "&cursor=abc",
 			setup:          func(svc *MockSessionService) {},
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
-			name:           "branch_message_id rejects time_desc",
+			name:           "leaf_id rejects time_desc",
 			sessionIDParam: sessionID.String(),
-			queryParams:    "?branch_message_id=" + branchMessageID.String() + "&time_desc=false",
+			queryParams:    "?leaf_id=" + leafID.String() + "&time_desc=false",
 			setup:          func(svc *MockSessionService) {},
 			expectedStatus: http.StatusBadRequest,
 		},

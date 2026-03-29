@@ -1492,11 +1492,11 @@ func TestSessionService_GetMessages(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "branch_message_id retrieves root-to-target branch path",
+			name: "leaf_id retrieves root-to-target branch path",
 			input: GetMessagesInput{
-				ProjectID:       projectID,
-				SessionID:       sessionID,
-				BranchMessageID: &branchMessageID,
+				ProjectID: projectID,
+				SessionID: sessionID,
+				LeafID:    &branchMessageID,
 			},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
@@ -1509,32 +1509,32 @@ func TestSessionService_GetMessages(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "branch_message_id with limit returns error",
+			name: "leaf_id with limit returns error",
 			input: GetMessagesInput{
-				ProjectID:       projectID,
-				SessionID:       sessionID,
-				BranchMessageID: &branchMessageID,
-				Limit:           10,
+				ProjectID: projectID,
+				SessionID: sessionID,
+				LeafID:    &branchMessageID,
+				Limit:     10,
 			},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
 			},
 			wantErr: true,
-			errMsg:  "branch_message_id cannot be combined",
+			errMsg:  "leaf_id cannot be combined",
 		},
 		{
-			name: "branch_message_id missing target returns not found error",
+			name: "leaf_id missing target returns not found error",
 			input: GetMessagesInput{
-				ProjectID:       projectID,
-				SessionID:       sessionID,
-				BranchMessageID: &branchMessageID,
+				ProjectID: projectID,
+				SessionID: sessionID,
+				LeafID:    &branchMessageID,
 			},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
 				repo.On("ListMessageBranchPath", ctx, sessionID, branchMessageID).Return(nil, gorm.ErrRecordNotFound)
 			},
 			wantErr: true,
-			errMsg:  "branch message not found",
+			errMsg:  "leaf message not found",
 		},
 	}
 

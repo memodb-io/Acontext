@@ -458,7 +458,7 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 type GetMessagesInput struct {
 	ProjectID                     uuid.UUID               `json:"project_id"`
 	SessionID                     uuid.UUID               `json:"session_id"`
-	BranchMessageID               *uuid.UUID              `json:"branch_message_id,omitempty"`
+	LeafID                        *uuid.UUID              `json:"leaf_id,omitempty"`
 	Limit                         int                     `json:"limit"`
 	Cursor                        string                  `json:"cursor"`
 	WithAssetPublicURL            bool                    `json:"with_public_url"`
@@ -576,16 +576,16 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	}
 
 	var msgs []model.Message
-	applyBranchWindow := false
+	applyLeafWindow := false
 
-	if in.BranchMessageID != nil {
+	if in.LeafID != nil {
 		if in.Limit > 0 || in.Cursor != "" || in.TimeDesc {
-			return nil, fmt.Errorf("branch_message_id cannot be combined with limit, cursor, or time_desc")
+			return nil, fmt.Errorf("leaf_id cannot be combined with limit, cursor, or time_desc")
 		}
-		msgs, err = s.sessionRepo.ListMessageBranchPath(ctx, in.SessionID, *in.BranchMessageID)
+		msgs, err = s.sessionRepo.ListMessageBranchPath(ctx, in.SessionID, *in.LeafID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, fmt.Errorf("branch message not found")
+				return nil, fmt.Errorf("leaf message not found")
 			}
 			return nil, err
 		}
@@ -624,12 +624,12 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 				if err != nil {
 					return nil, err
 				}
-				applyBranchWindow = true
+				applyLeafWindow = true
 			}
 		}
 	}
 
-	if applyBranchWindow {
+	if applyLeafWindow {
 		msgs, err = windowMessagesForRead(msgs, in.Limit, in.Cursor, in.TimeDesc)
 		if err != nil {
 			return nil, err

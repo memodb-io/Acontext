@@ -177,6 +177,29 @@ describe('AcontextClient Unit Tests', () => {
       expect(message.role).toBe('user');
     });
 
+    test('should store a message with parentId', async () => {
+      const sessionId = 'test-session-id';
+      const parentId = '123e4567-e89b-12d3-a456-426614174000';
+      const storedMessage = mockMessage({
+        session_id: sessionId,
+        parent_id: parentId,
+        role: 'user',
+      });
+      client.mock().onPost(`/session/${sessionId}/messages`, (options) => {
+        const data = options?.jsonData as Record<string, unknown>;
+        expect(data?.parent_id).toBe(parentId);
+        expect(data?.format).toBe('openai');
+        return storedMessage;
+      });
+
+      const message = await client.sessions.storeMessage(
+        sessionId,
+        { role: 'user', content: 'Fork here' },
+        { format: 'openai', parentId }
+      );
+      expect(message.parent_id).toBe(parentId);
+    });
+
     test('should store message with file upload', async () => {
       const sessionId = 'test-session-id';
       const storedMessage = mockMessage({ session_id: sessionId });
@@ -222,6 +245,37 @@ describe('AcontextClient Unit Tests', () => {
       expect(result).toBeDefined();
       expect(result.items).toBeInstanceOf(Array);
       expect(result.has_more).toBe(false);
+    });
+
+    test('should get messages with leafId', async () => {
+      const sessionId = 'test-session-id';
+      const leafId = '123e4567-e89b-12d3-a456-426614174001';
+      client.mock().onGet(`/session/${sessionId}/messages`, (options) => {
+        expect(options?.params?.leaf_id).toBe(leafId);
+        expect(options?.params?.time_desc).toBeUndefined();
+        return mockGetMessagesOutput({
+          items: [{ role: 'user', content: 'Hello' }],
+          ids: [leafId],
+          has_more: false,
+          this_time_tokens: 10,
+        });
+      });
+
+      const result = await client.sessions.getMessages(sessionId, {
+        leafId,
+        format: 'acontext',
+      });
+      expect(result.ids).toEqual([leafId]);
+    });
+
+    test('should reject leafId with timeDesc', async () => {
+      const sessionId = 'test-session-id';
+      await expect(
+        client.sessions.getMessages(sessionId, {
+          leafId: '123e4567-e89b-12d3-a456-426614174001',
+          timeDesc: true,
+        })
+      ).rejects.toThrow('leafId cannot be combined with timeDesc');
     });
 
     test('should get messages with edit strategies', async () => {
