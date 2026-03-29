@@ -813,6 +813,52 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 			expectedStatus: http.StatusBadRequest,
 		},
 		{
+			name:           "parent message not found maps to 404",
+			sessionIDParam: sessionID.String(),
+			requestBody: map[string]interface{}{
+				"format":    "acontext",
+				"parent_id": jsonParentID.String(),
+				"blob": map[string]interface{}{
+					"role": "user",
+					"parts": []map[string]interface{}{
+						{
+							"type": "text",
+							"text": "fork here",
+						},
+					},
+				},
+			},
+			setup: func(svc *MockSessionService) {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
+					return in.ParentID != nil && *in.ParentID == jsonParentID
+				})).Return(nil, service.ErrParentMessageNotFound)
+			},
+			expectedStatus: http.StatusNotFound,
+		},
+		{
+			name:           "parent message wrong session maps to 404",
+			sessionIDParam: sessionID.String(),
+			requestBody: map[string]interface{}{
+				"format":    "acontext",
+				"parent_id": jsonParentID.String(),
+				"blob": map[string]interface{}{
+					"role": "user",
+					"parts": []map[string]interface{}{
+						{
+							"type": "text",
+							"text": "fork here",
+						},
+					},
+				},
+			},
+			setup: func(svc *MockSessionService) {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
+					return in.ParentID != nil && *in.ParentID == jsonParentID
+				})).Return(nil, service.ErrParentMessageWrongSession)
+			},
+			expectedStatus: http.StatusNotFound,
+		},
+		{
 			name:           "openai format - multipart content with text and image",
 			sessionIDParam: sessionID.String(),
 			requestBody: map[string]interface{}{

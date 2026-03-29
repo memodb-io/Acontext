@@ -311,12 +311,17 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 		parent, err := s.sessionRepo.GetMessageByIDAnySession(ctx, *in.ParentID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, fmt.Errorf("parent message not found")
+				return nil, fmt.Errorf("%w: %s", ErrParentMessageNotFound, in.ParentID.String())
 			}
 			return nil, fmt.Errorf("failed to get parent message: %w", err)
 		}
 		if parent.SessionID != in.SessionID {
-			return nil, fmt.Errorf("parent message does not belong to session")
+			return nil, fmt.Errorf(
+				"%w: parent_id=%s session_id=%s",
+				ErrParentMessageWrongSession,
+				in.ParentID.String(),
+				in.SessionID.String(),
+			)
 		}
 	}
 

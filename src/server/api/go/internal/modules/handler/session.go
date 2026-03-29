@@ -488,6 +488,10 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 		UserKEK:     middleware.GetUserKEKIfEncrypted(c),
 	})
 	if err != nil {
+		if errors.Is(err, service.ErrParentMessageNotFound) || errors.Is(err, service.ErrParentMessageWrongSession) {
+			c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, err.Error(), nil))
+			return
+		}
 		c.JSON(http.StatusBadRequest, serializer.DBErr("", err))
 		return
 	}

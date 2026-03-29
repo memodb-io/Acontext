@@ -1256,6 +1256,7 @@ func TestSessionService_StoreMessage_ParentID(t *testing.T) {
 		result, err := service.StoreMessage(ctx, input)
 		assert.Error(t, err)
 		assert.Nil(t, result)
+		assert.ErrorIs(t, err, ErrParentMessageNotFound)
 		assert.Contains(t, err.Error(), "parent message not found")
 
 		repo.AssertExpectations(t)
@@ -1281,6 +1282,7 @@ func TestSessionService_StoreMessage_ParentID(t *testing.T) {
 		result, err := service.StoreMessage(ctx, input)
 		assert.Error(t, err)
 		assert.Nil(t, result)
+		assert.ErrorIs(t, err, ErrParentMessageWrongSession)
 		assert.Contains(t, err.Error(), "parent message does not belong to session")
 
 		repo.AssertExpectations(t)
