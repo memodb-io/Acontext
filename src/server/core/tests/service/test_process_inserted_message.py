@@ -2,7 +2,8 @@
 Tests for process_inserted_message.
 
 Covers:
-- success path with branch-only messages
+- success path with pending branch suffix messages
+- disabled project claims the whole pending branch suffix
 - branch-load error rollback
 - task-agent exception rollback
 """
@@ -52,20 +53,45 @@ def _make_message(message_id: uuid.UUID, role: str, parent_id: uuid.UUID | None 
     return message
 
 
+def _branch_row(
+    message_id: uuid.UUID,
+    status: str,
+    parent_id: uuid.UUID | None = None,
+):
+    return {
+        "id": message_id,
+        "parent_id": parent_id,
+        "session_id": _SESSION_ID,
+        "session_task_process_status": status,
+    }
+
+
 class TestProcessInsertedMessage:
     @pytest.mark.asyncio
-    async def test_marks_inserted_message_running_then_success(self):
+    async def test_marks_pending_branch_suffix_running_then_success(self):
         update_status = AsyncMock()
         root_id = uuid.uuid4()
+        branch_id = uuid.uuid4()
         branch_messages = [
             _make_message(root_id, "user"),
-            _make_message(_MESSAGE_ID, "assistant", parent_id=root_id),
+            _make_message(branch_id, "assistant", parent_id=root_id),
+            _make_message(_MESSAGE_ID, "user", parent_id=branch_id),
+        ]
+        branch_rows = [
+            _branch_row(root_id, TaskStatus.SUCCESS.value),
+            _branch_row(branch_id, TaskStatus.PENDING.value, parent_id=root_id),
+            _branch_row(_MESSAGE_ID, TaskStatus.PENDING.value, parent_id=branch_id),
         ]
 
         with (
             patch(f"{MODULE}.DB_CLIENT", _mock_db()),
             patch(f"{MODULE}.get_metrics", new_callable=AsyncMock, return_value=False),
             patch(f"{MODULE}.get_wide_event", MagicMock(return_value={})),
+            patch(
+                f"{MODULE}.MD.fetch_message_branch_path_rows",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(branch_rows),
+            ),
             patch(
                 f"{MODULE}.MD.update_message_status_to",
                 update_status,
@@ -96,11 +122,11 @@ class TestProcessInsertedMessage:
 
             assert result.ok()
             assert update_status.call_args_list[0].args[1:] == (
-                [_MESSAGE_ID],
+                [branch_id, _MESSAGE_ID],
                 TaskStatus.RUNNING,
             )
             assert update_status.call_args_list[-1].args[1:] == (
-                [_MESSAGE_ID],
+                [branch_id, _MESSAGE_ID],
                 TaskStatus.SUCCESS,
             )
 
@@ -108,24 +134,36 @@ class TestProcessInsertedMessage:
             assert [message.message_id for message in task_messages] == [
                 branch_messages[0].id,
                 branch_messages[1].id,
+                branch_messages[2].id,
             ]
             assert [message.parent_id for message in task_messages] == [
                 None,
                 root_id,
+                branch_id,
             ]
 
     @pytest.mark.asyncio
     async def test_forwards_user_kek_to_branch_path_fetch(self):
         update_status = AsyncMock()
+        root_id = uuid.uuid4()
         branch_messages = [
-            _make_message(uuid.uuid4(), "user"),
-            _make_message(_MESSAGE_ID, "assistant"),
+            _make_message(root_id, "user"),
+            _make_message(_MESSAGE_ID, "assistant", parent_id=root_id),
+        ]
+        branch_rows = [
+            _branch_row(root_id, TaskStatus.SUCCESS.value),
+            _branch_row(_MESSAGE_ID, TaskStatus.PENDING.value, parent_id=root_id),
         ]
 
         with (
             patch(f"{MODULE}.DB_CLIENT", _mock_db()),
             patch(f"{MODULE}.get_metrics", new_callable=AsyncMock, return_value=False),
             patch(f"{MODULE}.get_wide_event", MagicMock(return_value={})),
+            patch(
+                f"{MODULE}.MD.fetch_message_branch_path_rows",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(branch_rows),
+            ),
             patch(f"{MODULE}.MD.update_message_status_to", update_status),
             patch(
                 f"{MODULE}.MD.fetch_message_branch_path_data",
@@ -160,13 +198,79 @@ class TestProcessInsertedMessage:
             )
 
     @pytest.mark.asyncio
-    async def test_branch_load_error_rolls_back_only_inserted_message(self):
+    async def test_project_disabled_marks_pending_branch_suffix_limit_exceed(self):
         update_status = AsyncMock()
+        root_id = uuid.uuid4()
+        branch_id = uuid.uuid4()
+        branch_rows = [
+            _branch_row(root_id, TaskStatus.SUCCESS.value),
+            _branch_row(branch_id, TaskStatus.PENDING.value, parent_id=root_id),
+            _branch_row(_MESSAGE_ID, TaskStatus.PENDING.value, parent_id=branch_id),
+        ]
+
+        with (
+            patch(f"{MODULE}.DB_CLIENT", _mock_db()),
+            patch(f"{MODULE}.get_metrics", new_callable=AsyncMock, return_value=True),
+            patch(f"{MODULE}.get_wide_event", MagicMock(return_value={})),
+            patch(
+                f"{MODULE}.MD.fetch_message_branch_path_rows",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(branch_rows),
+            ),
+            patch(
+                f"{MODULE}.MD.update_message_status_to",
+                update_status,
+            ),
+            patch(
+                f"{MODULE}.MD.fetch_message_branch_path_data",
+                new_callable=AsyncMock,
+            ) as mock_branch_data,
+            patch(
+                f"{MODULE}.LS.get_learning_space_for_session",
+                new_callable=AsyncMock,
+            ) as mock_ls,
+            patch(
+                f"{MODULE}.AT.task_agent_curd",
+                new_callable=AsyncMock,
+            ) as mock_task_agent,
+        ):
+            result = await process_inserted_message(
+                _mock_project_config(),
+                _PROJECT_ID,
+                _SESSION_ID,
+                _MESSAGE_ID,
+            )
+
+            assert result.ok()
+            update_status.assert_called_once()
+            assert update_status.call_args.args[1:] == (
+                [branch_id, _MESSAGE_ID],
+                TaskStatus.LIMIT_EXCEED,
+            )
+            mock_branch_data.assert_not_called()
+            mock_ls.assert_not_called()
+            mock_task_agent.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_branch_load_error_rolls_back_pending_branch_suffix(self):
+        update_status = AsyncMock()
+        root_id = uuid.uuid4()
+        branch_id = uuid.uuid4()
+        branch_rows = [
+            _branch_row(root_id, TaskStatus.SUCCESS.value),
+            _branch_row(branch_id, TaskStatus.PENDING.value, parent_id=root_id),
+            _branch_row(_MESSAGE_ID, TaskStatus.PENDING.value, parent_id=branch_id),
+        ]
 
         with (
             patch(f"{MODULE}.DB_CLIENT", _mock_db()),
             patch(f"{MODULE}.get_metrics", new_callable=AsyncMock, return_value=False),
             patch(f"{MODULE}.get_wide_event", MagicMock(return_value={})),
+            patch(
+                f"{MODULE}.MD.fetch_message_branch_path_rows",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(branch_rows),
+            ),
             patch(
                 f"{MODULE}.MD.update_message_status_to",
                 update_status,
@@ -194,29 +298,41 @@ class TestProcessInsertedMessage:
 
             assert not result.ok()
             assert update_status.call_args_list[0].args[1:] == (
-                [_MESSAGE_ID],
+                [branch_id, _MESSAGE_ID],
                 TaskStatus.RUNNING,
             )
             assert update_status.call_args_list[-1].args[1:] == (
-                [_MESSAGE_ID],
+                [branch_id, _MESSAGE_ID],
                 TaskStatus.FAILED,
             )
             mock_ls.assert_not_called()
             mock_task_agent.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_task_agent_exception_rolls_back_only_inserted_message(self):
+    async def test_task_agent_exception_rolls_back_pending_branch_suffix(self):
         update_status = AsyncMock()
         root_id = uuid.uuid4()
+        branch_id = uuid.uuid4()
         branch_messages = [
             _make_message(root_id, "user"),
-            _make_message(_MESSAGE_ID, "assistant", parent_id=root_id),
+            _make_message(branch_id, "assistant", parent_id=root_id),
+            _make_message(_MESSAGE_ID, "user", parent_id=branch_id),
+        ]
+        branch_rows = [
+            _branch_row(root_id, TaskStatus.SUCCESS.value),
+            _branch_row(branch_id, TaskStatus.RUNNING.value, parent_id=root_id),
+            _branch_row(_MESSAGE_ID, TaskStatus.PENDING.value, parent_id=branch_id),
         ]
 
         with (
             patch(f"{MODULE}.DB_CLIENT", _mock_db()),
             patch(f"{MODULE}.get_metrics", new_callable=AsyncMock, return_value=False),
             patch(f"{MODULE}.get_wide_event", MagicMock(return_value={})),
+            patch(
+                f"{MODULE}.MD.fetch_message_branch_path_rows",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(branch_rows),
+            ),
             patch(
                 f"{MODULE}.MD.update_message_status_to",
                 update_status,
@@ -246,10 +362,10 @@ class TestProcessInsertedMessage:
                 )
 
             assert update_status.call_args_list[0].args[1:] == (
-                [_MESSAGE_ID],
+                [branch_id, _MESSAGE_ID],
                 TaskStatus.RUNNING,
             )
             assert update_status.call_args_list[-1].args[1:] == (
-                [_MESSAGE_ID],
+                [branch_id, _MESSAGE_ID],
                 TaskStatus.FAILED,
             )

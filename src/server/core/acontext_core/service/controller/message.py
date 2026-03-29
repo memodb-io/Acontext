@@ -13,6 +13,20 @@ from ...telemetry.get_metrics import get_metrics
 from ...constants import ExcessMetricTags
 
 
+_CLAIMABLE_BRANCH_STATUSES = {
+    TaskStatus.PENDING.value,
+    TaskStatus.RUNNING.value,
+}
+
+
+def _claimable_branch_message_ids(message_rows: list[dict]) -> list[asUUID]:
+    return [
+        row["id"]
+        for row in message_rows
+        if row["session_task_process_status"] in _CLAIMABLE_BRANCH_STATUSES
+    ]
+
+
 async def _try_rollback_to_failed(pending_message_ids: list) -> None:
     try:
         async with DB_CLIENT.get_session_context() as rollback_session:
@@ -35,10 +49,23 @@ async def process_inserted_message(
 ) -> Result[None]:
     wide = get_wide_event()
     disabled = await get_metrics(project_id, ExcessMetricTags.new_task_created)
-    target_message_ids = [message_id]
+    target_message_ids: list[asUUID] = []
 
     try:
         async with DB_CLIENT.get_session_context() as session:
+            r = await MD.fetch_message_branch_path_rows(session, message_id, session_id)
+            message_rows, eil = r.unpack()
+            if eil:
+                return r
+
+            target_message_ids = _claimable_branch_message_ids(message_rows)
+            wide["claimed_branch_message_count"] = len(target_message_ids)
+
+            if not target_message_ids:
+                wide["project_disabled"] = bool(disabled)
+                wide["task_agent_outcome"] = "skip_no_claimable_messages"
+                return Result.resolve(None)
+
             if disabled:
                 wide["project_disabled"] = True
                 await MD.update_message_status_to(
