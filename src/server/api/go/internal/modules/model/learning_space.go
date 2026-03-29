@@ -25,6 +25,21 @@ type LearningSpace struct {
 
 func (LearningSpace) TableName() string { return "learning_spaces" }
 
+// LearningSessionStatus constants define the valid status values for
+// LearningSpaceSession records.
+//
+// Lifecycle: pending → distilling → queued → skill_writing → completed
+//
+//	↘ failed
+const (
+	LearningSessionStatusPending      = "pending"
+	LearningSessionStatusDistilling   = "distilling"
+	LearningSessionStatusQueued       = "queued"
+	LearningSessionStatusSkillWriting = "skill_writing"
+	LearningSessionStatusCompleted    = "completed"
+	LearningSessionStatusFailed       = "failed"
+)
+
 type LearningSpaceSkill struct {
 	ID              uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
 	LearningSpaceID uuid.UUID `gorm:"type:uuid;not null;index;uniqueIndex:idx_ls_skill_unique" json:"learning_space_id"`

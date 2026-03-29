@@ -8,6 +8,7 @@ from ..infra.async_mq import (
 )
 from ..telemetry.log import get_wide_event
 from ..schema.mq.learning import SkillLearnTask, SkillLearnDistilled
+from ..schema.session.learning_space_session import LearningSessionStatus
 from .constants import EX, RK
 from .data import learning_space as LS
 from .controller import skill_learner as SLC
@@ -41,7 +42,7 @@ async def process_skill_distillation(body: SkillLearnTask, message: Message):
             wide["distillation_outcome"] = "skipped_no_learning_space"
             return
 
-        await LS.update_session_status(db_session, body.session_id, "distilling")
+        await LS.update_session_status(db_session, body.session_id, LearningSessionStatus.DISTILLING)
 
     learning_space_id = ls_session.learning_space_id
     wide["learning_space_id"] = str(learning_space_id)
@@ -54,13 +55,13 @@ async def process_skill_distillation(body: SkillLearnTask, message: Message):
     if eil:
         wide["distillation_outcome"] = "failed"
         async with DB_CLIENT.get_session_context() as db_session:
-            await LS.update_session_status(db_session, body.session_id, "failed")
+            await LS.update_session_status(db_session, body.session_id, LearningSessionStatus.FAILED)
         return
 
     if distilled_payload is None:
         wide["distillation_outcome"] = "skipped_not_worth"
         async with DB_CLIENT.get_session_context() as db_session:
-            await LS.update_session_status(db_session, body.session_id, "completed")
+            await LS.update_session_status(db_session, body.session_id, LearningSessionStatus.COMPLETED)
         return
 
     await publish_mq(
@@ -103,7 +104,7 @@ async def process_skill_agent(body: SkillLearnDistilled, message: Message):
             body.project_id, body.learning_space_id, body.model_dump_json()
         )
         async with DB_CLIENT.get_session_context() as db_session:
-            await LS.update_session_status(db_session, body.session_id, "queued")
+            await LS.update_session_status(db_session, body.session_id, LearningSessionStatus.QUEUED)
         return
 
     wide["lock_acquired"] = True
@@ -121,7 +122,7 @@ async def process_skill_agent(body: SkillLearnDistilled, message: Message):
         if eil:
             wide["agent_outcome"] = "failed"
             async with DB_CLIENT.get_session_context() as db_session:
-                await LS.update_session_status(db_session, body.session_id, "failed")
+                await LS.update_session_status(db_session, body.session_id, LearningSessionStatus.FAILED)
         else:
             all_session_ids = [body.session_id] + (drained_session_ids or [])
             all_session_ids = list(set(all_session_ids))
@@ -129,12 +130,12 @@ async def process_skill_agent(body: SkillLearnDistilled, message: Message):
             wide["sessions_completed"] = [str(s) for s in all_session_ids]
             async with DB_CLIENT.get_session_context() as db_session:
                 for sid in all_session_ids:
-                    await LS.update_session_status(db_session, sid, "completed")
+                    await LS.update_session_status(db_session, sid, LearningSessionStatus.COMPLETED)
     except Exception as e:
         wide["agent_outcome"] = "error"
         wide["error"] = {"type": type(e).__name__, "message": str(e)}
         async with DB_CLIENT.get_session_context() as db_session:
-            await LS.update_session_status(db_session, body.session_id, "failed")
+            await LS.update_session_status(db_session, body.session_id, LearningSessionStatus.FAILED)
     finally:
         await release_redis_lock(body.project_id, lock_key)
         try:

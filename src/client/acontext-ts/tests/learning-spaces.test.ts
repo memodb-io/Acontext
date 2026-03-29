@@ -414,7 +414,7 @@ describe('LearningSpacesAPI Unit Tests', () => {
       let callCount = 0;
       const responses = [
         mockLearningSpaceSession({ status: 'pending' }),
-        mockLearningSpaceSession({ status: 'running' }),
+        mockLearningSpaceSession({ status: 'distilling' }),
         mockLearningSpaceSession({ status: 'completed' }),
       ];
       client

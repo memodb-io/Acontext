@@ -17,6 +17,7 @@ from ..types.learning_space import (
     LearningSpaceSession,
     LearningSpaceSkill,
     ListLearningSpacesOutput,
+    TERMINAL_STATUSES,
 )
 from ..types.skill import Skill
 
@@ -186,7 +187,7 @@ class AsyncLearningSpacesAPI:
         Raises:
             TimeoutError: If timeout elapses before reaching a terminal status.
         """
-        terminal = {"completed", "failed"}
+        terminal = TERMINAL_STATUSES
         loop = asyncio.get_running_loop()
         deadline = loop.time() + timeout
         while True:

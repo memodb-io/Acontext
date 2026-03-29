@@ -27,12 +27,17 @@ export const LearningSpaceSessionSchema = z.object({
   id: z.string(),
   learning_space_id: z.string(),
   session_id: z.string(),
-  status: z.string(),
+  status: z.enum(['pending', 'distilling', 'queued', 'skill_writing', 'completed', 'failed']),
   created_at: z.string(),
   updated_at: z.string(),
 });
 
 export type LearningSpaceSession = z.infer<typeof LearningSpaceSessionSchema>;
+
+/**
+ * Terminal statuses for LearningSpaceSession polling.
+ */
+export const TERMINAL_STATUSES: ReadonlySet<string> = new Set(['completed', 'failed']);
 
 export const ListLearningSpacesOutputSchema = z.object({
   items: z.array(LearningSpaceSchema),

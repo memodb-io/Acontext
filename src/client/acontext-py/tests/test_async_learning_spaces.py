@@ -333,7 +333,7 @@ async def test_async_wait_for_learning_immediate_completion(mock_request, mock_s
 async def test_async_wait_for_learning_polls_then_completes(mock_request, mock_sleep) -> None:
     mock_request.side_effect = [
         {**SAMPLE_LS_SESSION, "status": "pending"},
-        {**SAMPLE_LS_SESSION, "status": "running"},
+        {**SAMPLE_LS_SESSION, "status": "distilling"},
         {**SAMPLE_LS_SESSION, "status": "completed"},
     ]
 

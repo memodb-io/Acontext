@@ -4,6 +4,9 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+# Terminal statuses for LearningSpaceSession polling.
+TERMINAL_STATUSES: frozenset[str] = frozenset({"completed", "failed"})
+
 
 class LearningSpace(BaseModel):
     """Learning space model representing a learning space resource."""
@@ -30,7 +33,10 @@ class LearningSpaceSession(BaseModel):
     id: str = Field(..., description="Junction record UUID")
     learning_space_id: str = Field(..., description="Learning space UUID")
     session_id: str = Field(..., description="Session UUID")
-    status: str = Field(..., description="Learning status: pending, running, completed, or failed")
+    status: str = Field(
+        ...,
+        description="Learning status: pending, distilling, queued, skill_writing, completed, or failed",
+    )
     created_at: str = Field(..., description="ISO 8601 formatted creation timestamp")
     updated_at: str = Field(..., description="ISO 8601 formatted update timestamp")
 
