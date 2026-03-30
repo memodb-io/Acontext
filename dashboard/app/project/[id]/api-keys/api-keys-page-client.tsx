@@ -451,10 +451,7 @@ IMPORTANT: Store this key securely. It will not be shown again.
           {/* Saved API Key Card */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Save className="h-5 w-5" />
-                Saved API Key
-              </CardTitle>
+              <CardTitle>Saved API Key</CardTitle>
               <CardDescription>
                 Save your API key in your browser for encryption features.
                 Your API key is stored only in your browser and is never sent to our servers.

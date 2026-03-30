@@ -241,9 +241,12 @@ function ProjectSelector({
       {currentProject && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="shrink-0 hidden sm:inline-flex">
+            <Link
+              href={`/project/${encodeId(currentProject.id)}/settings/encryption`}
+              className="shrink-0 hidden sm:inline-flex"
+            >
               {currentProject.encryption_enabled ? <ShieldCheck className="h-3.5 w-3.5 text-green-500" /> : <ShieldX className="h-3.5 w-3.5 text-red-500" />}
-            </span>
+            </Link>
           </TooltipTrigger>
           <TooltipContent>{currentProject.encryption_enabled ? "Encrypted" : "Not Encrypted"}</TooltipContent>
         </Tooltip>

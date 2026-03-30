@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { GeneralPageClient } from "./general-page-client";
+import { EncryptionPageClient } from "./encryption-page-client";
 import {
   getCurrentUser,
   getProject,
@@ -47,14 +47,14 @@ async function getProjectData(projectId: string) {
   };
 }
 
-export default async function GeneralPage({ params }: PageProps) {
+export default async function EncryptionPage({ params }: PageProps) {
   const { id } = await params;
   const actualId = decodeId(id);
   const { project, currentOrganization, allOrganizations, projects } =
     await getProjectData(actualId);
 
   return (
-    <GeneralPageClient
+    <EncryptionPageClient
       project={project}
       currentOrganization={currentOrganization}
       allOrganizations={allOrganizations}

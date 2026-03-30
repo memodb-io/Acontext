@@ -1,11 +1,12 @@
 import { notFound } from "next/navigation";
-import { GeneralPageClient } from "./general-page-client";
+import { TaskTrackingPageClient } from "./task-tracking-page-client";
 import {
   getCurrentUser,
   getProject,
   getOrganizationDataWithPlan,
 } from "@/lib/supabase";
 import { decodeId } from "@/lib/id-codec";
+import { getProjectConfigs } from "./actions";
 
 interface PageProps {
   params: Promise<{
@@ -47,19 +48,24 @@ async function getProjectData(projectId: string) {
   };
 }
 
-export default async function GeneralPage({ params }: PageProps) {
+export default async function TaskTrackingPage({ params }: PageProps) {
   const { id } = await params;
   const actualId = decodeId(id);
   const { project, currentOrganization, allOrganizations, projects } =
     await getProjectData(actualId);
 
+  const configsResult = await getProjectConfigs(actualId);
+  const projectConfigs = configsResult.data;
+
   return (
-    <GeneralPageClient
+    <TaskTrackingPageClient
       project={project}
       currentOrganization={currentOrganization}
       allOrganizations={allOrganizations}
       projects={projects}
       role={currentOrganization.role ?? "member"}
+      projectConfigs={projectConfigs}
+      projectConfigsError={configsResult.error}
     />
   );
 }
