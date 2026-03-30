@@ -10,14 +10,21 @@ from ...schema.llm import LLMResponse
 from ...telemetry.log import get_wide_event
 
 
-def _strip_think_tags(text: str) -> str:
-    """Strip reasoning/thinking tags from model responses.
+def _strip_tags(text: str, tags: list[str]) -> str:
+    """Strip named XML-style tag blocks from model responses.
 
-    Many reasoning models (MiniMax, DeepSeek, QwQ, etc.) wrap their internal
-    chain-of-thought in ``<think>...</think>`` tags.  This helper removes them
-    so that downstream consumers receive only the final answer.
+    Many reasoning models (DeepSeek, QwQ, MiniMax, etc.) wrap their internal
+    chain-of-thought in tags like ``<think>...</think>``.  This helper removes
+    the specified tag blocks so that downstream consumers receive only the
+    final answer.
+
+    Args:
+        text: The raw response text.
+        tags: Tag names to strip, e.g. ``["think", "reasoning"]``.
     """
-    return re.sub(r"<think>[\s\S]*?</think>\s*", "", text).strip()
+    for tag in tags:
+        text = re.sub(rf"<{tag}>[\s\S]*?</{tag}>\s*", "", text)
+    return text.strip()
 
 
 def convert_openai_tool_to_llm_tool(tool_body: ChatCompletionMessageToolCall) -> dict:
@@ -102,8 +109,8 @@ async def openai_complete(
     )
 
     content = response.choices[0].message.content
-    if content:
-        content = _strip_think_tags(content)
+    if content and DEFAULT_CORE_CONFIG.llm_strip_tags:
+        content = _strip_tags(content, DEFAULT_CORE_CONFIG.llm_strip_tags)
 
     llm_response = LLMResponse(
         role=response.choices[0].message.role,

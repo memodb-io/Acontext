@@ -29,6 +29,10 @@ Default model identifier for LLM operations. Examples: `gpt-4`, `gpt-3.5-turbo`,
 Timeout in seconds for LLM API responses. Increase for longer operations.
 </ParamField>
 
+<ParamField path="LLM_STRIP_TAGS" type="string" default="">
+Comma-separated list of XML-style tag names to strip from LLM responses. Many reasoning models wrap chain-of-thought in tags like `<think>...</think>`. Set to `think` to strip those blocks, or `think,reasoning` for multiple tag types. Default is empty (no stripping — original content preserved).
+</ParamField>
+
 ### Embedding Configuration
 
 <ParamField path="BLOCK_EMBEDDING_PROVIDER" type="string" default="openai">
@@ -95,6 +99,9 @@ LLM_API_KEY=your-minimax-api-key
 LLM_SDK=openai
 LLM_BASE_URL=https://api.minimax.io/v1
 LLM_SIMPLE_MODEL=MiniMax-M2.7
+
+# Strip reasoning tags from MiniMax responses (optional)
+LLM_STRIP_TAGS=think
 
 # Keep OpenAI for embeddings (recommended)
 BLOCK_EMBEDDING_PROVIDER=openai
