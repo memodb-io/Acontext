@@ -63,6 +63,14 @@ func toASCII(s string) string {
 	return result.String()
 }
 
+// buildContentDisposition builds a Content-Disposition header value for a ZIP download.
+// It includes an ASCII fallback filename and a RFC 5987 UTF-8 encoded filename.
+func buildContentDisposition(name string) string {
+	asciiName := toASCII(name)
+	escapedName := url.PathEscape(name)
+	return fmt.Sprintf("attachment; filename=\"%s.zip\"; filename*=UTF-8''%s.zip", asciiName, escapedName)
+}
+
 type CreateAgentSkillsReq struct {
 	User string `form:"user" json:"user" example:"alice@acontext.io"`
 	Meta string `form:"meta" json:"meta" example:"{\"version\":\"1.0\"}"`
@@ -510,10 +518,7 @@ func (h *AgentSkillsHandler) DownloadZip(c *gin.Context) {
 	if len(artifacts) == 0 {
 		// No files to download, return empty ZIP
 		c.Header("Content-Type", "application/zip")
-		// RFC 5987: filename*= requires percent-encoding (not query encoding)
-		asciiName := toASCII(listResult.Name)
-		escapedName := url.PathEscape(listResult.Name)
-		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"; filename*=UTF-8''%s.zip", asciiName, escapedName))
+		c.Header("Content-Disposition", buildContentDisposition(listResult.Name))
 		buf := new(bytes.Buffer)
 		zipWriter := zip.NewWriter(buf)
 		zipWriter.Close()
@@ -580,9 +585,6 @@ func (h *AgentSkillsHandler) DownloadZip(c *gin.Context) {
 
 	// Stream ZIP to client
 	c.Header("Content-Type", "application/zip")
-	// RFC 5987: filename*= requires percent-encoding (not query encoding)
-	asciiName := toASCII(listResult.Name)
-	escapedName := url.PathEscape(listResult.Name)
-	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s.zip\"; filename*=UTF-8''%s.zip", asciiName, escapedName))
+	c.Header("Content-Disposition", buildContentDisposition(listResult.Name))
 	c.Data(http.StatusOK, "application/zip", buf.Bytes())
 }

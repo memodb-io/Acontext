@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
@@ -18,6 +19,8 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/service"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 // MockAgentSkillsService is a mock implementation of AgentSkillsService
@@ -902,6 +905,154 @@ func TestAgentSkillsHandler_DownloadToSandbox(t *testing.T) {
 
 			if tt.checkResponse != nil {
 				tt.checkResponse(t, response)
+			}
+
+			mockService.AssertExpectations(t)
+		})
+	}
+}
+
+func TestAgentSkillsHandler_DownloadZip(t *testing.T) {
+	projectID := uuid.New()
+	skillID := uuid.New()
+	diskID := uuid.New()
+
+	tests := []struct {
+		name           string
+		skillID        string
+		setup          func(*MockAgentSkillsService)
+		expectedStatus int
+		checkResponse  func(*testing.T, *httptest.ResponseRecorder)
+	}{
+		{
+			name:    "ListFiles returns gorm.ErrRecordNotFound → 404",
+			skillID: skillID.String(),
+			setup: func(svc *MockAgentSkillsService) {
+				svc.On("ListFiles", mock.Anything, projectID, skillID).Return(nil, gorm.ErrRecordNotFound)
+			},
+			expectedStatus: http.StatusNotFound,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				var response map[string]interface{}
+				err := sonic.Unmarshal(w.Body.Bytes(), &response)
+				assert.NoError(t, err)
+				assert.Contains(t, response["msg"].(string), "skill not found")
+			},
+		},
+		{
+			name:    "ListFiles returns generic error → 500",
+			skillID: skillID.String(),
+			setup: func(svc *MockAgentSkillsService) {
+				svc.On("ListFiles", mock.Anything, projectID, skillID).Return(nil, errors.New("db connection failed"))
+			},
+			expectedStatus: http.StatusInternalServerError,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				var response map[string]interface{}
+				err := sonic.Unmarshal(w.Body.Bytes(), &response)
+				assert.NoError(t, err)
+				assert.Contains(t, response["msg"].(string), "failed to list skill files")
+			},
+		},
+		{
+			name:    "non-ASCII skill name → correct Content-Disposition header",
+			skillID: skillID.String(),
+			setup: func(svc *MockAgentSkillsService) {
+				svc.On("ListFiles", mock.Anything, projectID, skillID).Return(&service.ListFilesOutput{
+					Name:        "データ分析",
+					Description: "Data analysis skill",
+					DiskID:      diskID,
+					Files:       []service.SkillFileInfo{},
+					Artifacts:   []*model.Artifact{},
+				}, nil)
+			},
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				cd := w.Header().Get("Content-Disposition")
+				// ASCII fallback should replace non-ASCII chars with underscores
+				assert.Contains(t, cd, `filename="_____.zip"`)
+				// UTF-8 encoded part should have percent-encoded Japanese chars
+				assert.Contains(t, cd, "filename*=UTF-8''"+url.PathEscape("データ分析")+".zip")
+				// Content-Type should be application/zip
+				assert.Equal(t, "application/zip", w.Header().Get("Content-Type"))
+				// Body should be a valid (empty) ZIP
+				_, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len()))
+				assert.NoError(t, err)
+			},
+		},
+		{
+			name:    "empty skill with ASCII name → returns empty ZIP",
+			skillID: skillID.String(),
+			setup: func(svc *MockAgentSkillsService) {
+				svc.On("ListFiles", mock.Anything, projectID, skillID).Return(&service.ListFilesOutput{
+					Name:        "my-skill",
+					Description: "A test skill",
+					DiskID:      diskID,
+					Files:       []service.SkillFileInfo{},
+					Artifacts:   []*model.Artifact{},
+				}, nil)
+			},
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				cd := w.Header().Get("Content-Disposition")
+				assert.Contains(t, cd, `filename="my-skill.zip"`)
+				assert.Contains(t, cd, "filename*=UTF-8''my-skill.zip")
+			},
+		},
+		{
+			name:    "skill with files → returns valid ZIP",
+			skillID: skillID.String(),
+			setup: func(svc *MockAgentSkillsService) {
+				artifact := &model.Artifact{
+					ID:       uuid.New(),
+					DiskID:   diskID,
+					Path:     "/",
+					Filename: "readme.md",
+					AssetMeta: datatypes.NewJSONType(model.Asset{
+						SizeB: 100,
+						MIME:  "text/markdown",
+					}),
+				}
+				svc.On("ListFiles", mock.Anything, projectID, skillID).Return(&service.ListFilesOutput{
+					Name:        "test-skill",
+					Description: "Test",
+					DiskID:      diskID,
+					Files:       []service.SkillFileInfo{{Path: "readme.md", MIME: "text/markdown"}},
+					Artifacts:   []*model.Artifact{artifact},
+				}, nil)
+				svc.On("DownloadRawContent", mock.Anything, artifact, mock.Anything).Return([]byte("# Hello"), "text/markdown", nil)
+			},
+			expectedStatus: http.StatusOK,
+			checkResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
+				assert.Equal(t, "application/zip", w.Header().Get("Content-Type"))
+				// Verify ZIP contains the file
+				r, err := zip.NewReader(bytes.NewReader(w.Body.Bytes()), int64(w.Body.Len()))
+				assert.NoError(t, err)
+				assert.Len(t, r.File, 1)
+				assert.Equal(t, "readme.md", r.File[0].Name)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockService := &MockAgentSkillsService{}
+			tt.setup(mockService)
+			handler := NewAgentSkillsHandler(mockService, &MockUserService{}, nil)
+
+			router := setupAgentSkillsRouter()
+			router.GET("/agent_skills/:id/download_zip", func(c *gin.Context) {
+				c.Set("project", &model.Project{ID: projectID})
+				handler.DownloadZip(c)
+			})
+
+			req := httptest.NewRequest("GET", "/agent_skills/"+tt.skillID+"/download_zip", nil)
+			w := httptest.NewRecorder()
+
+			router.ServeHTTP(w, req)
+
+			assert.Equal(t, tt.expectedStatus, w.Code)
+
+			if tt.checkResponse != nil {
+				tt.checkResponse(t, w)
 			}
 
 			mockService.AssertExpectations(t)
