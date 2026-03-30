@@ -65,11 +65,6 @@ export function TaskTrackingPageClient({
     };
   }, [project, currentOrganization, allOrganizations, projects, initialize, setHasSidebar]);
 
-  useEffect(() => {
-    setSuccessCriteria(projectConfigs?.task_success_criteria ?? "");
-    setFailureCriteria(projectConfigs?.task_failure_criteria ?? "");
-  }, [projectConfigs?.task_success_criteria, projectConfigs?.task_failure_criteria]);
-
   const isOwner = role === "owner";
 
   return (
