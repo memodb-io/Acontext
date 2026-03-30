@@ -17,10 +17,13 @@ Acontext uses **envelope encryption** with AES-256-GCM:
 
 ### API Key Format
 
-Your API key has the format: `sk-ac-{auth_secret}.{encrypted_master_key}`
+Your API key has the format: `sk-ac-{base64url_encoded_token}`
 
-- **auth_secret**: Used for authentication (HMAC lookup + verification)
-- **encrypted_master_key**: Your master key, encrypted with a wrapping key derived from the auth_secret
+The token body is a single base64url-encoded blob containing:
+
+- **version byte** (`0x01`): Identifies the compact token format
+- **auth secret** (16 bytes): Used for authentication (HMAC lookup + verification)
+- **wrapped master key** (40 bytes): Your master key, encrypted with a wrapping key derived from the auth secret using AES Key Wrap (RFC 3394)
 
 This is a **zero-knowledge architecture** — the server stores only encrypted DEKs and encrypted data. Your API key is never stored on the server. Only someone who possesses the API key can decrypt the data.
 
@@ -37,9 +40,9 @@ Copy and store your API key somewhere safe. The server does not store it — if 
 
 </Step>
 
-<Step title="Ensure V2 key format">
+<Step title="Ensure compact key format">
 
-Encryption requires the V2 key format (keys containing a `.` separator). All newly created projects use V2 format automatically. If your project uses a legacy key, rotate it first to upgrade to V2 format.
+Encryption requires the compact key format (76-character token body with embedded master key). All newly created projects use this format automatically. If your project uses a legacy key, rotate it first to upgrade.
 
 </Step>
 
@@ -69,7 +72,7 @@ Go to **Project Settings → API Keys** and click **Rotate**. Make sure your cur
 
 <Step title="Confirm rotation">
 
-Confirm the prompt. The system will generate a new auth_secret and re-wrap your master key. No data is re-encrypted — only the API key token changes.
+Confirm the prompt. The system will generate a new auth secret and re-wrap the same master key with a new wrapping key. No data is re-encrypted — only the API key token changes.
 
 </Step>
 
@@ -106,8 +109,8 @@ If you lose your API key, your encrypted data **cannot be recovered**. The serve
 
 <CardGroup cols={2}>
 
-<Card title="Project Settings" icon="settings" href="/settings/runtime">
-Configure project runtime settings
+<Card title="Project Settings" icon="settings" href="/settings/general">
+Configure project settings
 </Card>
 
 <Card title="Per-User Sessions" icon="users" href="/store/per-user">
