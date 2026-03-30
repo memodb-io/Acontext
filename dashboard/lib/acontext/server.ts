@@ -24,6 +24,14 @@ const ACONTEXT_API_BASE_URL =
   process.env.ACONTEXT_API_BASE_URL ?? "https://admin.acontext.app";
 
 /**
+ * Get the project API key prefix from environment.
+ * Use this to pass the prefix to client components that need to validate API key format.
+ */
+export function getProjectApiKeyPrefix(): string {
+  return process.env.ACONTEXT_PROJECT_BEARER_TOKEN_PREFIX || "sk-ac-";
+}
+
+/**
  * Base Acontext API Client class
  * Contains core infrastructure: authentication, request handling, and utilities
  */

@@ -6,6 +6,7 @@ import {
   getOrganizationDataWithPlan,
 } from "@/lib/supabase";
 import { decodeId } from "@/lib/id-codec";
+import { getProjectApiKeyPrefix } from "@/lib/acontext/server";
 
 interface PageProps {
   params: Promise<{
@@ -60,6 +61,7 @@ export default async function EncryptionPage({ params }: PageProps) {
       allOrganizations={allOrganizations}
       projects={projects}
       role={currentOrganization.role ?? "member"}
+      apiKeyPrefix={getProjectApiKeyPrefix()}
     />
   );
 }

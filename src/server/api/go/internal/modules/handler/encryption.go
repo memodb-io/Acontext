@@ -20,13 +20,13 @@ import (
 func encryptProject(c *gin.Context, db *gorm.DB, rdb *redis.Client, s3 *blob.S3Deps, assetRefRepo repo.AssetReferenceRepo) {
 	project, ok := c.MustGet("project").(*model.Project)
 	if !ok {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", fmt.Errorf("project not found")))
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("project not found", fmt.Errorf("project not found")))
 		return
 	}
 
 	userKEK := middleware.GetUserKEK(c)
 	if userKEK == nil {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", fmt.Errorf("API key required to derive encryption key")))
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("compact API key required to derive encryption key; rotate your API key to enable encryption", nil))
 		return
 	}
 
@@ -73,13 +73,13 @@ func encryptProject(c *gin.Context, db *gorm.DB, rdb *redis.Client, s3 *blob.S3D
 func decryptProject(c *gin.Context, db *gorm.DB, rdb *redis.Client, s3 *blob.S3Deps, assetRefRepo repo.AssetReferenceRepo) {
 	project, ok := c.MustGet("project").(*model.Project)
 	if !ok {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", fmt.Errorf("project not found")))
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("project not found", fmt.Errorf("project not found")))
 		return
 	}
 
 	userKEK := middleware.GetUserKEK(c)
 	if userKEK == nil {
-		c.JSON(http.StatusBadRequest, serializer.ParamErr("", fmt.Errorf("API key required to derive encryption key")))
+		c.JSON(http.StatusBadRequest, serializer.ParamErr("compact API key required to derive encryption key; rotate your API key to disable encryption", nil))
 		return
 	}
 

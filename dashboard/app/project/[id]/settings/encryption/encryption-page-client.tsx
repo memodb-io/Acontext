@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { encodeId } from "@/lib/id-codec";
-import { AlertTriangle, Lock, Loader2, Shield } from "lucide-react";
+import { AlertTriangle, KeyRound, Lock, Loader2, Shield } from "lucide-react";
 import { toast } from "sonner";
 import { useTopNavStore } from "@/stores/top-nav";
 import { Organization, Project } from "@/types";
@@ -36,6 +36,7 @@ interface EncryptionPageClientProps {
   allOrganizations: Organization[];
   projects: Project[];
   role: "owner" | "member";
+  apiKeyPrefix: string;
 }
 
 export function EncryptionPageClient({
@@ -44,6 +45,7 @@ export function EncryptionPageClient({
   allOrganizations,
   projects,
   role,
+  apiKeyPrefix,
 }: EncryptionPageClientProps) {
   const { initialize, setHasSidebar } = useTopNavStore();
   const router = useRouter();
@@ -54,7 +56,7 @@ export function EncryptionPageClient({
   const [showEncryptDialog, setShowEncryptDialog] = useState(false);
   const [showDecryptDialog, setShowDecryptDialog] = useState(false);
   const [isEncryptionPending, startEncryptionTransition] = useTransition();
-  const { hasApiKey, apiKey } = useApiKeyStorage(project.id);
+  const { hasApiKey, apiKey, isCompactKey } = useApiKeyStorage(project.id, apiKeyPrefix);
 
   useEffect(() => {
     initialize({
@@ -119,13 +121,20 @@ export function EncryptionPageClient({
                       );
                       return;
                     }
+                    if (!isCompactKey) {
+                      toast.error(
+                        "Your API key is in legacy format and does not support encryption. Please rotate your API key on the API Keys page to get a new key that supports encryption.",
+                        { duration: 8000 }
+                      );
+                      return;
+                    }
                     if (checked) {
                       setShowEncryptDialog(true);
                     } else {
                       setShowDecryptDialog(true);
                     }
                   }}
-                  disabled={isEncryptionPending || !isOwner}
+                  disabled={isEncryptionPending || !isOwner || (hasApiKey && !isCompactKey)}
                 />
               </div>
             </div>
@@ -142,6 +151,23 @@ export function EncryptionPageClient({
                     API Keys page
                   </a>{" "}
                   and save your API key first.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {hasApiKey && !isCompactKey && (
+              <Alert variant="destructive">
+                <KeyRound className="h-4 w-4" />
+                <AlertDescription>
+                  Your saved API key is in legacy format and does not support encryption.
+                  Please go to the{" "}
+                  <a
+                    href={`/project/${encodeId(project.id)}/api-keys`}
+                    className="font-medium underline underline-offset-4"
+                  >
+                    API Keys page
+                  </a>{" "}
+                  and rotate your API key to get a new key that supports encryption.
                 </AlertDescription>
               </Alert>
             )}

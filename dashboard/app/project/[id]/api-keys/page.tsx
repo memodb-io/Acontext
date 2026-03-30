@@ -7,6 +7,7 @@ import {
   getSecretKeyRotations,
 } from "@/lib/supabase";
 import { decodeId } from "@/lib/id-codec";
+import { getProjectApiKeyPrefix } from "@/lib/acontext/server";
 
 interface PageProps {
   params: Promise<{
@@ -70,6 +71,7 @@ export default async function ApiKeysPage({ params }: PageProps) {
       projects={projects}
       keyRotations={keyRotations}
       role={currentOrganization.role ?? "member"}
+      apiKeyPrefix={getProjectApiKeyPrefix()}
     />
   );
 }

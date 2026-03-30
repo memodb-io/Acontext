@@ -59,7 +59,7 @@ import {
 import { rotateSecretKey } from "./actions";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CodeEditor } from "@/components/code-editor";
-import { useApiKeyStorage } from "@/lib/hooks/use-api-key-storage";
+import { useApiKeyStorage, hasValidApiKeyPrefix } from "@/lib/hooks/use-api-key-storage";
 
 const SERVICE_URL = "api.acontext.app/api/v1";
 
@@ -70,6 +70,7 @@ interface ApiKeysPageClientProps {
   projects: Project[];
   keyRotations: SecretKeyRotation[];
   role: "owner" | "member";
+  apiKeyPrefix: string;
 }
 
 export function ApiKeysPageClient({
@@ -79,6 +80,7 @@ export function ApiKeysPageClient({
   projects,
   keyRotations,
   role,
+  apiKeyPrefix,
 }: ApiKeysPageClientProps) {
   const { initialize, setHasSidebar } = useTopNavStore();
   const router = useRouter();
@@ -95,9 +97,10 @@ export function ApiKeysPageClient({
   );
 
   // Saved API key in localStorage
-  const { apiKey: savedApiKey, hasApiKey: hasSavedApiKey, saveApiKey, removeApiKey } = useApiKeyStorage(project.id);
+  const { apiKey: savedApiKey, hasApiKey: hasSavedApiKey, saveApiKey, removeApiKey } = useApiKeyStorage(project.id, apiKeyPrefix);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [showSavedKey, setShowSavedKey] = useState(false);
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
 
   const isOwner = role === "owner";
   const hasExistingKey = keyRotations.length > 0;
@@ -519,21 +522,43 @@ IMPORTANT: Store this key securely. It will not be shown again.
                   <div className="space-y-2">
                     <Label htmlFor="api-key-input">API Key</Label>
                     <div className="flex items-center gap-2">
-                      <Input
-                        id="api-key-input"
-                        type="password"
-                        value={apiKeyInput}
-                        onChange={(e) => setApiKeyInput(e.target.value)}
-                        placeholder="Paste your API key here"
-                        className="font-mono text-sm"
-                      />
+                      <div className="relative flex-1">
+                        <Input
+                          id="api-key-input"
+                          type={showApiKeyInput ? "text" : "password"}
+                          value={apiKeyInput}
+                          onChange={(e) => setApiKeyInput(e.target.value)}
+                          placeholder="Paste your API key here"
+                          className="font-mono text-sm pr-10"
+                          autoComplete="off"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                          onClick={() => setShowApiKeyInput(!showApiKeyInput)}
+                          title={showApiKeyInput ? "Hide API key" : "Show API key"}
+                          type="button"
+                        >
+                          {showApiKeyInput ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
                       <Button
                         onClick={() => {
-                          if (apiKeyInput.trim()) {
-                            saveApiKey(apiKeyInput.trim());
-                            setApiKeyInput("");
-                            toast.success("API key saved to browser");
+                          const trimmed = apiKeyInput.trim();
+                          if (!trimmed) return;
+                          if (!hasValidApiKeyPrefix(trimmed, apiKeyPrefix)) {
+                            toast.error(`Invalid API key format. API key must start with "${apiKeyPrefix}".`);
+                            return;
                           }
+                          saveApiKey(trimmed);
+                          setApiKeyInput("");
+                          setShowApiKeyInput(false);
+                          toast.success("API key saved to browser");
                         }}
                         disabled={!apiKeyInput.trim()}
                       >
