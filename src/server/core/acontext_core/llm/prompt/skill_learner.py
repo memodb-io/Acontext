@@ -151,8 +151,9 @@ Before calling `finish`, verify all updates and skill instructions are done.
         distilled_context: str,
         available_skills_str: str,
         pending_contexts: "List[SkillLearnDistilled] | None" = None,
+        original_date: str | None = None,
     ) -> str:
-        today = date.today().isoformat()
+        today = original_date or date.today().isoformat()
         parts = [distilled_context]
 
         if pending_contexts:
@@ -180,8 +181,9 @@ Please analyze the above and update or create skills as appropriate."""
         contexts: "List[SkillLearnDistilled]",
         available_skills_str: str,
         count_bases: int = 0,
+        original_date: str | None = None,
     ) -> str:
-        today = date.today().isoformat()
+        today = original_date or date.today().isoformat()
         header = (
             "Additional contexts have arrived while you were working. "
             "Finish your current task first, then process these in order."

@@ -19,3 +19,4 @@ class SkillLearnDistilled(BaseModel):
     learning_space_id: asUUID
     distilled_context: str
     user_kek: Optional[str] = None  # base64-encoded user KEK (pass through)
+    original_date: Optional[str] = None  # ISO date string from session.configs

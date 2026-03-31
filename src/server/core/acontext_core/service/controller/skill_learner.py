@@ -31,6 +31,7 @@ async def process_context_distillation(
     task_id: asUUID,
     learning_space_id: asUUID,
     user_kek: bytes | None = None,
+    original_date: str | None = None,
 ) -> Result[SkillLearnDistilled | None]:
     """Steps 1-2: Fetch task + raw messages, run context distillation.
 
@@ -141,6 +142,7 @@ async def process_context_distillation(
             learning_space_id=learning_space_id,
             distilled_context=outcome.distilled_text,
             user_kek=base64.b64encode(user_kek).decode() if user_kek else None,
+            original_date=original_date,
         )
     )
 
@@ -153,6 +155,7 @@ async def run_skill_agent(
     lock_key: Optional[str] = None,
     lock_ttl_seconds: Optional[int] = None,
     user_kek: Optional[bytes] = None,
+    original_date: Optional[str] = None,
 ) -> Result[List[UUID]]:
     """Steps 3-4: Fetch learning space (for user_id) + skills, run agent.
 
@@ -187,5 +190,6 @@ async def run_skill_agent(
         lock_key=lock_key,
         lock_ttl_seconds=lock_ttl_seconds,
         user_kek=user_kek,
+        original_date=original_date,
     )
     return r

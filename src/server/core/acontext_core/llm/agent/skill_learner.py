@@ -52,6 +52,7 @@ async def skill_learner_agent(
     lock_key: Optional[str] = None,
     lock_ttl_seconds: Optional[int] = None,
     user_kek: Optional[bytes] = None,
+    original_date: Optional[str] = None,
 ) -> Result[List[UUID]]:
     wide = get_wide_event()
     skills = {si.name: si for si in skills_info}
@@ -77,7 +78,7 @@ async def skill_learner_agent(
     lock_renewed_count = 0
 
     _user_input = SkillLearnerPrompt.pack_skill_learner_input(
-        distilled_context, available_skills_str, initial_pending or None
+        distilled_context, available_skills_str, initial_pending or None, original_date
     )
     _messages = [{"role": "user", "content": _user_input}]
 
@@ -163,6 +164,7 @@ async def skill_learner_agent(
                         new_contexts,
                         available_skills_str,
                         count_bases=len(drained_items) - len(new_contexts),
+                        original_date=original_date,
                     )
                     _messages.append(
                         {

@@ -12,6 +12,7 @@ from ..schema.mq.learning import SkillLearnTask, SkillLearnDistilled
 from ..schema.session.learning_space import SessionStatus
 from .constants import EX, RK
 from .data import learning_space as LS
+from .data import session as SD
 from .controller import skill_learner as SLC
 from .utils import (
     check_redis_lock_or_set,
@@ -45,9 +46,18 @@ async def process_skill_distillation(body: SkillLearnTask, message: Message):
 
         await LS.update_session_status(db_session, body.session_id, SessionStatus.DISTILLING)
 
+        # Get session configs to extract original_date
+        r = await SD.fetch_session(db_session, body.session_id)
+        session, eil = r.unpack()
+        original_date = None
+        if not eil and session and session.configs:
+            original_date = session.configs.get("original_date")
+
     learning_space_id = ls_session.learning_space_id
     wide["learning_space_id"] = str(learning_space_id)
     wide["task_id"] = str(body.task_id)
+    if original_date:
+        wide["original_date"] = original_date
 
     # Decode user KEK from base64 if present.
     # Hard-fail on invalid KEK — running without it would store plaintext in the DB.
@@ -64,6 +74,7 @@ async def process_skill_distillation(body: SkillLearnTask, message: Message):
     r = await SLC.process_context_distillation(
         body.project_id, body.session_id, body.task_id, learning_space_id,
         user_kek=user_kek_bytes,
+        original_date=original_date,
     )
     distilled_payload, eil = r.unpack()
     if eil:
@@ -149,6 +160,7 @@ async def process_skill_agent(body: SkillLearnDistilled, message: Message):
             lock_key=lock_key,
             lock_ttl_seconds=DEFAULT_CORE_CONFIG.skill_learn_lock_ttl_seconds,
             user_kek=user_kek_bytes,
+            original_date=body.original_date,
         )
         drained_session_ids, eil = r.unpack()
         if eil:
