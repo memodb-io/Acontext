@@ -1,5 +1,7 @@
+import re
+from datetime import date, datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from ..utils import asUUID
 
 
@@ -20,3 +22,29 @@ class SkillLearnDistilled(BaseModel):
     distilled_context: str
     user_kek: Optional[str] = None  # base64-encoded user KEK (pass through)
     original_date: Optional[str] = None  # ISO date string from session.configs
+
+    @field_validator("original_date")
+    @classmethod
+    def validate_original_date(cls, v):
+        if v is None:
+            return v
+
+        # ISO format: YYYY-MM-DD
+        try:
+            date.fromisoformat(v)
+            return v
+        except ValueError:
+            pass
+
+        # Slash format: YYYY/MM/DD (Weekday) HH:MM
+        if re.match(r"^\d{4}/\d{2}/\d{2} \(\w+\) \d{2}:\d{2}$", v):
+            try:
+                datetime.strptime(v[:10], "%Y/%m/%d")
+                return v
+            except ValueError:
+                pass
+
+        raise ValueError(
+            "original_date must be 'YYYY-MM-DD' or 'YYYY/MM/DD (Day) HH:MM', "
+            f"got: {v!r}"
+        )
