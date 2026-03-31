@@ -145,6 +145,7 @@ class TestDistillationConsumer:
                 body.task_id,
                 ls_session.learning_space_id,
                 user_kek=None,
+                original_date=None,
             )
             mock_publish.assert_called_once()
             call_kwargs = mock_publish.call_args.kwargs
