@@ -353,6 +353,77 @@ class TestDistillationConsumer:
                 "completed",
             )
 
+    @pytest.mark.asyncio
+    async def test_passes_original_date_from_session_configs(self):
+        """Distillation consumer passes original_date from session.configs to controller."""
+        body = _make_body()
+        ls_session = _make_ls_session()
+        mock_message = MagicMock()
+
+        mock_session = MagicMock()
+        mock_session.configs = {"original_date": "2023/05/21 (Sun) 09:27"}
+
+        distilled_payload = SkillLearnDistilled(
+            project_id=body.project_id,
+            session_id=body.session_id,
+            task_id=body.task_id,
+            learning_space_id=ls_session.learning_space_id,
+            distilled_context="distilled text",
+            original_date="2023/05/21 (Sun) 09:27",
+        )
+
+        with (
+            patch("acontext_core.service.skill_learner.DB_CLIENT") as mock_db,
+            patch(
+                "acontext_core.service.skill_learner.LS.get_learning_space_for_session",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(ls_session),
+            ),
+            patch(
+                "acontext_core.service.skill_learner.LS.update_session_status",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "acontext_core.service.skill_learner.SD.fetch_session",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(mock_session),
+            ),
+            patch(
+                "acontext_core.service.skill_learner.SLC.process_context_distillation",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(distilled_payload),
+            ) as mock_distill,
+            patch(
+                "acontext_core.service.skill_learner.publish_mq",
+                new_callable=AsyncMock,
+            ) as mock_publish,
+        ):
+            mock_db.get_session_context.return_value.__aenter__ = AsyncMock(
+                return_value=MagicMock()
+            )
+            mock_db.get_session_context.return_value.__aexit__ = AsyncMock(
+                return_value=False
+            )
+
+            await process_skill_distillation(body, mock_message)
+
+            # Verify original_date is passed to controller
+            mock_distill.assert_called_once_with(
+                body.project_id,
+                body.session_id,
+                body.task_id,
+                ls_session.learning_space_id,
+                user_kek=None,
+                original_date="2023/05/21 (Sun) 09:27",
+            )
+
+            # Verify published message contains original_date
+            mock_publish.assert_called_once()
+            call_kwargs = mock_publish.call_args.kwargs
+            published_json = call_kwargs["body"]
+            restored = SkillLearnDistilled.model_validate_json(published_json)
+            assert restored.original_date == "2023/05/21 (Sun) 09:27"
+
 
 # =============================================================================
 # Agent consumer tests
