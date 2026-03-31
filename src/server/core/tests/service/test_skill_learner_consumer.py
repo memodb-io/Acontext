@@ -93,6 +93,9 @@ class TestDistillationConsumer:
         ls_session = _make_ls_session()
         mock_message = MagicMock()
 
+        mock_session = MagicMock()
+        mock_session.configs = None
+
         distilled_payload = SkillLearnDistilled(
             project_id=body.project_id,
             session_id=body.session_id,
@@ -111,6 +114,11 @@ class TestDistillationConsumer:
             patch(
                 "acontext_core.service.skill_learner.LS.update_session_status",
                 new_callable=AsyncMock,
+            ),
+            patch(
+                "acontext_core.service.skill_learner.SD.fetch_session",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(mock_session),
             ),
             patch(
                 "acontext_core.service.skill_learner.SLC.process_context_distillation",
@@ -149,6 +157,9 @@ class TestDistillationConsumer:
         ls_session = _make_ls_session()
         mock_message = MagicMock()
 
+        mock_session = MagicMock()
+        mock_session.configs = None
+
         with (
             patch("acontext_core.service.skill_learner.DB_CLIENT") as mock_db,
             patch(
@@ -159,6 +170,11 @@ class TestDistillationConsumer:
             patch(
                 "acontext_core.service.skill_learner.LS.update_session_status",
                 new_callable=AsyncMock,
+            ),
+            patch(
+                "acontext_core.service.skill_learner.SD.fetch_session",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(mock_session),
             ),
             patch(
                 "acontext_core.service.skill_learner.SLC.process_context_distillation",
@@ -187,12 +203,20 @@ class TestDistillationConsumer:
         body = _make_body()
         mock_message = MagicMock()
 
+        mock_session = MagicMock()
+        mock_session.configs = None
+
         with (
             patch("acontext_core.service.skill_learner.DB_CLIENT") as mock_db,
             patch(
                 "acontext_core.service.skill_learner.LS.get_learning_space_for_session",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(None),
+            ),
+            patch(
+                "acontext_core.service.skill_learner.SD.fetch_session",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(mock_session),
             ),
             patch(
                 "acontext_core.service.skill_learner.SLC.process_context_distillation",
@@ -223,6 +247,9 @@ class TestDistillationConsumer:
         ls_session = _make_ls_session(learning_space_id=expected_ls_id)
         mock_message = MagicMock()
 
+        mock_session = MagicMock()
+        mock_session.configs = None
+
         distilled_payload = SkillLearnDistilled(
             project_id=body.project_id,
             session_id=body.session_id,
@@ -241,6 +268,11 @@ class TestDistillationConsumer:
             patch(
                 "acontext_core.service.skill_learner.LS.update_session_status",
                 new_callable=AsyncMock,
+            ),
+            patch(
+                "acontext_core.service.skill_learner.SD.fetch_session",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(mock_session),
             ),
             patch(
                 "acontext_core.service.skill_learner.SLC.process_context_distillation",
@@ -273,6 +305,9 @@ class TestDistillationConsumer:
         ls_session = _make_ls_session()
         mock_message = MagicMock()
 
+        mock_session = MagicMock()
+        mock_session.configs = None
+
         with (
             patch("acontext_core.service.skill_learner.DB_CLIENT") as mock_db,
             patch(
@@ -284,6 +319,11 @@ class TestDistillationConsumer:
                 "acontext_core.service.skill_learner.LS.update_session_status",
                 new_callable=AsyncMock,
             ) as mock_update_status,
+            patch(
+                "acontext_core.service.skill_learner.SD.fetch_session",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(mock_session),
+            ),
             patch(
                 "acontext_core.service.skill_learner.SLC.process_context_distillation",
                 new_callable=AsyncMock,
@@ -370,6 +410,7 @@ class TestAgentConsumer:
                 lock_key=f"skill_learn.{body.learning_space_id}",
                 lock_ttl_seconds=DEFAULT_CORE_CONFIG.skill_learn_lock_ttl_seconds,
                 user_kek=None,
+                original_date=None,
             )
             mock_release.assert_called_once()
 
