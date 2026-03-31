@@ -27,7 +27,7 @@
   "dependencies": {
     "@gsap/react": "^2.1.2",
     "@next/third-parties": "^16.2.1",
-    "@opennextjs/cloudflare": "^1.17.3",
+    "@opennextjs/cloudflare": "^1.18.0",
     "@payloadcms/db-d1-sqlite": "3.80.0",
     "@payloadcms/next": "3.80.0",
     "@payloadcms/plugin-seo": "3.80.0",
@@ -72,7 +72,7 @@
     "typescript": "5.9.3",
     "vite-tsconfig-paths": "5.1.4",
     "vitest": "3.2.4",
-    "wrangler": "~4.77.0"
+    "wrangler": "~4.79.0"
   },
   "engines": {
     "node": "^18.20.2 || >=20.9.0",
