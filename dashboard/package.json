@@ -29,7 +29,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@next/third-parties": "^16.2.1",
-    "@opennextjs/cloudflare": "^1.17.3",
+    "@opennextjs/cloudflare": "^1.18.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-collapsible": "^1.1.12",
@@ -44,8 +44,8 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@stripe/react-stripe-js": "^5.6.1",
     "@stripe/stripe-js": "^8.11.0",
-    "@supabase/ssr": "^0.9.0",
-    "@supabase/supabase-js": "^2.100.0",
+    "@supabase/ssr": "^0.10.0",
+    "@supabase/supabase-js": "^2.101.1",
     "@tailwindcss/typography": "^0.5.19",
     "@uiw/codemirror-theme-okaidia": "^4.25.9",
     "@uiw/react-codemirror": "^4.25.9",
@@ -64,7 +64,7 @@
     "react-dom": "19.2.4",
     "react-markdown": "^10.1.0",
     "react-resizable-panels": "^3.0.6",
-    "recharts": "3.8.0",
+    "recharts": "3.8.1",
     "rehype-raw": "^7.0.0",
     "remark-gfm": "^4.0.1",
     "shadcn": "^3.8.5",
@@ -83,7 +83,7 @@
     "eslint-config-next": "16.2.1",
     "tailwindcss": "^4.2.2",
     "typescript": "^5.9.3",
-    "wrangler": "^4.77.0"
+    "wrangler": "^4.79.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
