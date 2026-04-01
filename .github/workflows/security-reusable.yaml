@@ -60,7 +60,7 @@ jobs:
             uv export --format requirements-txt --no-hashes --no-dev > reqs.txt
             # Run pip-audit in JSON mode; filter out vulnerabilities with no fix available
             pip-audit -r reqs.txt -f json -o audit.json || true
-            python3 -c "
+            if python3 -c "
           import json, sys
           data = json.load(open('audit.json'))
           fixable = [v for dep in data.get('dependencies', [])
@@ -71,12 +71,13 @@ jobs:
                   print(f\"  {v['id']}: fix available -> {v['fix_versions']}\", file=sys.stderr)
               sys.exit(1)
           "
-            if [ $? -ne 0 ]; then
+            then
+              echo "✅ $dir clean (unfixed-only vulnerabilities ignored)"
+            else
               echo "❌ Fixable vulnerabilities found in $dir"
               rm -f reqs.txt audit.json
               exit 1
             fi
-            echo "✅ $dir clean (unfixed-only vulnerabilities ignored)"
             rm -f reqs.txt audit.json
             cd - > /dev/null
           done
