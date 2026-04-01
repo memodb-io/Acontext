@@ -488,7 +488,7 @@ export function LearningSpacesPageClient({
                       <TableCell>
                         <div className="flex gap-2">
                           <Button variant="secondary" size="sm" asChild>
-                            <Link href={`/project/${encodedProjectId}/learning-spaces/${encodeId(space.id)}`}>
+                            <Link href={`/project/${encodedProjectId}/learning-spaces/${encodeId(space.id)}/skills`}>
                               Details
                             </Link>
                           </Button>

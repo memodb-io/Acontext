@@ -2,20 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import Link from "next/link";
 import { useTheme } from "next-themes";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -34,12 +23,10 @@ import {
 } from "@/components/ui/table";
 import { Loader2, Plus, RefreshCw } from "lucide-react";
 import { PaginationBar } from "@/components/pagination-bar";
+import { SessionActions } from "@/components/session-actions";
 import {
   getSessions,
   createSession,
-  deleteSession,
-  getSessionConfigs,
-  updateSessionConfigs,
 } from "@/app/session/actions";
 import { Session } from "@/types";
 import ReactCodeMirror from "@uiw/react-codemirror";
@@ -65,25 +52,12 @@ export default function SessionsPage() {
   const [userFilter, setUserFilter] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
 
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
-  const [isDeletingSession, setIsDeletingSession] = useState(false);
-
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [createConfigValue, setCreateConfigValue] = useState("{}");
   const [createConfigError, setCreateConfigError] = useState<string>("");
   const [isCreateConfigValid, setIsCreateConfigValid] = useState(true);
   const [createUser, setCreateUser] = useState<string>("");
   const [createDisableTaskTracking, setCreateDisableTaskTracking] = useState(false);
-
-  const [configDialogOpen, setConfigDialogOpen] = useState(false);
-  const [configEditValue, setConfigEditValue] = useState("");
-  const [configEditError, setConfigEditError] = useState<string>("");
-  const [isConfigEditValid, setIsConfigEditValid] = useState(true);
-  const [isSavingConfig, setIsSavingConfig] = useState(false);
-  const [configEditTarget, setConfigEditTarget] = useState<Session | null>(
-    null
-  );
 
   const filteredSessions = sessions.filter((session) => {
     const matchesId = session.id
@@ -178,23 +152,6 @@ export default function SessionsPage() {
     }
   };
 
-  const handleConfigEditChange = (value: string) => {
-    setConfigEditValue(value);
-    const isValid = validateJSON(value);
-    setIsConfigEditValid(isValid);
-    if (!isValid && value.trim()) {
-      try {
-        JSON.parse(value.trim());
-      } catch (error) {
-        if (error instanceof SyntaxError) {
-          setConfigEditError(t("invalidJson") + ": " + error.message);
-        }
-      }
-    } else {
-      setConfigEditError("");
-    }
-  };
-
   const handleOpenCreateDialog = () => {
     setCreateConfigValue("{}");
     setCreateConfigError("");
@@ -240,86 +197,10 @@ export default function SessionsPage() {
     }
   };
 
-  const handleDeleteSession = async () => {
-    if (!sessionToDelete) return;
-    try {
-      setIsDeletingSession(true);
-      const res = await deleteSession(sessionToDelete.id);
-      if (res.code !== 0) {
-        console.error(res.message);
-        return;
-      }
-      if (selectedSession?.id === sessionToDelete.id) {
-        setSelectedSession(null);
-      }
-      await loadSessions();
-    } catch (error) {
-      console.error("Failed to delete session:", error);
-    } finally {
-      setIsDeletingSession(false);
-      setDeleteDialogOpen(false);
-      setSessionToDelete(null);
-    }
-  };
-
   const handleRefreshSessions = async () => {
     setIsRefreshingSessions(true);
     await loadSessions();
     setIsRefreshingSessions(false);
-  };
-
-  const handleViewConfig = async (session: Session) => {
-    try {
-      setConfigEditTarget(session);
-      setConfigEditError("");
-      setIsConfigEditValid(true);
-      let configs = session.configs;
-
-      const res = await getSessionConfigs(session.id);
-      if (res.code === 0 && res.data) {
-        configs = res.data.configs;
-      }
-
-      setConfigEditValue(JSON.stringify(configs, null, 2));
-      setConfigDialogOpen(true);
-    } catch (error) {
-      console.error("Failed to load config:", error);
-    }
-  };
-
-  const handleSaveConfig = async () => {
-    if (!configEditTarget) return;
-
-    const trimmedValue = configEditValue.trim();
-    if (!trimmedValue) {
-      setConfigEditError(t("invalidJson") + ": Empty configuration");
-      return;
-    }
-
-    try {
-      const configs = JSON.parse(trimmedValue);
-      setConfigEditError("");
-      setIsSavingConfig(true);
-
-      const res = await updateSessionConfigs(configEditTarget.id, configs);
-      if (res.code !== 0) {
-        console.error(res.message);
-        setConfigEditError(res.message);
-        setIsSavingConfig(false);
-        return;
-      }
-      await loadSessions();
-      setConfigDialogOpen(false);
-    } catch (error) {
-      console.error("Failed to save config:", error);
-      if (error instanceof SyntaxError) {
-        setConfigEditError(t("invalidJson") + ": " + error.message);
-      } else {
-        setConfigEditError(String(error));
-      }
-    } finally {
-      setIsSavingConfig(false);
-    }
   };
 
   return (
@@ -424,40 +305,15 @@ export default function SessionsPage() {
                       {new Date(session.created_at).toLocaleString()}
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-2">
-                        <Button variant="secondary" size="sm" asChild>
-                          <Link href={`/session/${session.id}/messages`} onClick={(e) => e.stopPropagation()}>
-                            {t("messages")}
-                          </Link>
-                        </Button>
-                        <Button variant="secondary" size="sm" asChild>
-                          <Link href={`/session/${session.id}/task`} onClick={(e) => e.stopPropagation()}>
-                            {t("tasks")}
-                          </Link>
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleViewConfig(session);
-                          }}
-                        >
-                          {t("config")}
-                        </Button>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSessionToDelete(session);
-                            setDeleteDialogOpen(true);
-                          }}
-                        >
-                          {t("delete")}
-                        </Button>
-                      </div>
+                      <SessionActions
+                        sessionId={session.id}
+                        onDelete={() => {
+                          if (selectedSession?.id === session.id) {
+                            setSelectedSession(null);
+                          }
+                          loadSessions();
+                        }}
+                      />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -475,78 +331,6 @@ export default function SessionsPage() {
           </>
         )}
       </div>
-
-      {/* Delete Dialog */}
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("deleteConfirmTitle")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("deleteSessionConfirm")}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingSession}>
-              {t("cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDeleteSession}
-              disabled={isDeletingSession}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isDeletingSession ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {t("deleting")}
-                </>
-              ) : (
-                t("delete")
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* Config Dialog */}
-      <AlertDialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
-        <AlertDialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("editConfigsTitle")}</AlertDialogTitle>
-          </AlertDialogHeader>
-          <div className="py-4">
-            <ReactCodeMirror
-              value={configEditValue}
-              height="400px"
-              theme={resolvedTheme === "dark" ? okaidia : "light"}
-              extensions={[json(), EditorView.lineWrapping]}
-              onChange={handleConfigEditChange}
-              placeholder={t("configsPlaceholder")}
-              className="border rounded-md overflow-hidden"
-            />
-            {configEditError && (
-              <p className="mt-2 text-sm text-destructive">{configEditError}</p>
-            )}
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSavingConfig}>
-              {t("cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleSaveConfig}
-              disabled={isSavingConfig || !isConfigEditValid}
-            >
-              {isSavingConfig ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  {t("saving")}
-                </>
-              ) : (
-                t("save")
-              )}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* Create Session Dialog */}
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
