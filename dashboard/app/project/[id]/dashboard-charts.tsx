@@ -11,7 +11,7 @@ import {
 import {
   BarChart,
   Bar,
-  LineChart,
+  ComposedChart,
   Line,
   XAxis,
   YAxis,
@@ -267,6 +267,18 @@ const bytesFormatter = (value: unknown): string => {
   return formatBytes(numericValue);
 };
 
+const numberFormatter = (value: unknown): string => {
+  const numericValue = Array.isArray(value)
+    ? Number(value[0])
+    : typeof value === "number"
+      ? value
+      : Number(value);
+  if (!Number.isFinite(numericValue)) {
+    return "-";
+  }
+  return numericValue.toLocaleString();
+};
+
 // Memoized chart card components
 interface ChartCardProps {
   title: string;
@@ -426,15 +438,19 @@ export function DashboardCharts({
           }
         >
           <ChartWrapper hasData={hasTaskSuccessRateData}>
-            <LineChart
+            <ComposedChart
               data={data.task_success}
               margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
+              syncId="dashboard"
             >
-              <XAxis dataKey="date" hide />
+              <XAxis dataKey="date" hide scale="band" />
               <YAxis hide domain={[0, 100]} />
               <ChartTooltip
                 content={
-                  <ChartTooltipContent formatter={percentageFormatter} />
+                  <ChartTooltipContent
+                    formatter={percentageFormatter}
+                    hideIndicator
+                  />
                 }
               />
               <Line
@@ -446,7 +462,7 @@ export function DashboardCharts({
                 name="Success Rate"
                 isAnimationActive={false}
               />
-            </LineChart>
+            </ComposedChart>
           </ChartWrapper>
         </ChartCard>
 
@@ -473,6 +489,7 @@ export function DashboardCharts({
             <BarChart
               data={data.task_status}
               margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
+              syncId="dashboard"
             >
               <XAxis dataKey="date" hide />
               <YAxis hide />
@@ -529,10 +546,18 @@ export function DashboardCharts({
             <BarChart
               data={data.session_message}
               margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
+              syncId="dashboard"
             >
               <XAxis dataKey="date" hide />
               <YAxis hide />
-              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    formatter={numberFormatter}
+                    hideIndicator
+                  />
+                }
+              />
               <Bar
                 dataKey="avg_message_turns"
                 fill={chartConfig.avg_message_turns.color}
@@ -560,10 +585,18 @@ export function DashboardCharts({
             <BarChart
               data={data.session_task}
               margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
+              syncId="dashboard"
             >
               <XAxis dataKey="date" hide />
               <YAxis hide />
-              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    formatter={numberFormatter}
+                    hideIndicator
+                  />
+                }
+              />
               <Bar
                 dataKey="avg_tasks"
                 fill={chartConfig.avg_tasks.color}
@@ -591,10 +624,18 @@ export function DashboardCharts({
             <BarChart
               data={data.task_message}
               margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
+              syncId="dashboard"
             >
               <XAxis dataKey="date" hide />
               <YAxis hide />
-              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    formatter={numberFormatter}
+                    hideIndicator
+                  />
+                }
+              />
               <Bar
                 dataKey="avg_turns"
                 fill={chartConfig.avg_turns.color}
@@ -622,11 +663,17 @@ export function DashboardCharts({
             <BarChart
               data={data.storage}
               margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
+              syncId="dashboard"
             >
               <XAxis dataKey="date" hide />
               <YAxis hide />
               <ChartTooltip
-                content={<ChartTooltipContent formatter={bytesFormatter} />}
+                content={
+                  <ChartTooltipContent
+                    formatter={bytesFormatter}
+                    hideIndicator
+                  />
+                }
               />
               <Bar
                 dataKey="usage_bytes"
@@ -656,10 +703,18 @@ export function DashboardCharts({
             <BarChart
               data={data.new_sessions}
               margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
+              syncId="dashboard"
             >
               <XAxis dataKey="date" hide />
               <YAxis hide />
-              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    formatter={numberFormatter}
+                    hideIndicator
+                  />
+                }
+              />
               <Bar
                 dataKey="count"
                 fill={chartConfig.count.color}
@@ -685,10 +740,18 @@ export function DashboardCharts({
             <BarChart
               data={data.new_disks}
               margin={{ top: 5, right: 10, left: 0, bottom: 0 }}
+              syncId="dashboard"
             >
               <XAxis dataKey="date" hide />
               <YAxis hide />
-              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartTooltip
+                content={
+                  <ChartTooltipContent
+                    formatter={numberFormatter}
+                    hideIndicator
+                  />
+                }
+              />
               <Bar
                 dataKey="count"
                 fill={chartConfig.count.color}
