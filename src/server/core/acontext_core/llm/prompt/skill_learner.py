@@ -4,6 +4,7 @@ from typing import List, TYPE_CHECKING
 from .base import BasePrompt
 from ...schema.llm import ToolSchema
 from ..tool.skill_learner_tools import SKILL_LEARNER_TOOLS
+from ...env import LOG
 
 if TYPE_CHECKING:
     from ...schema.mq.learning import SkillLearnDistilled
@@ -154,6 +155,11 @@ Before calling `finish`, verify all updates and skill instructions are done.
         original_date: str | None = None,
     ) -> str:
         today = original_date or date.today().isoformat()
+        LOG.info(
+            "skill_learner_prompt.date_resolved",
+            original_date=original_date,
+            today=today,
+        )
         parts = [distilled_context]
 
         if pending_contexts:

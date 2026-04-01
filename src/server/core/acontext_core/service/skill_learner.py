@@ -52,6 +52,11 @@ async def process_skill_distillation(body: SkillLearnTask, message: Message):
         original_date = None
         if not eil and session and session.configs:
             original_date = session.configs.get("original_date")
+            LOG.info(
+                "skill_learner.original_date_parsed",
+                session_id=str(body.session_id),
+                original_date=original_date,
+            )
 
     learning_space_id = ls_session.learning_space_id
     wide["learning_space_id"] = str(learning_space_id)
