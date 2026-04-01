@@ -68,6 +68,25 @@ services:
       - 'set -e; BUCKET_NAME=acontext-assets; echo "Checking bucket: $$BUCKET_NAME"; for i in 1 2 3 4 5; do if aws --endpoint-url=http://seaweedfs:9000 s3 ls s3://$$BUCKET_NAME >/dev/null 2>&1; then echo "Bucket exists"; break; fi; echo "Creating bucket (attempt $$i)..."; aws --endpoint-url=http://seaweedfs:9000 s3 mb s3://$$BUCKET_NAME 2>/dev/null && break || sleep 2; done; echo "S3 ready"; sleep infinity'
 
   # --- Python Core ---
+  core-migrate:
+    image: acontext-e2e-test-core:latest
+    build:
+      context: ./core
+    environment:
+      DATABASE_URL: postgresql://acontext:helloworld@pg:5432/acontext_test
+      MQ_URL: amqp://acontext:helloworld@rabbitmq:5672/
+      REDIS_URL: redis://:helloworld@redis:6379
+      S3_ENDPOINT: http://seaweedfs:9000
+      LLM_SDK: ${LLM_SDK:-mock}
+      LLM_SIMPLE_MODEL: ${LLM_SIMPLE_MODEL:-mock-model}
+      LLM_API_KEY: ${LLM_API_KEY:-fake-key}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      OTEL_ENABLED: "false"
+      LOGGING_LEVEL: DEBUG
+    command: ["/app/.venv/bin/python", "-m", "acontext_core.infra.alembic", "upgrade-head"]
+    depends_on:
+      pg: { condition: service_healthy }
+
   core:
     image: acontext-e2e-test-core:latest
     build:
@@ -87,6 +106,7 @@ services:
       LOGGING_LEVEL: DEBUG
     depends_on:
       pg: { condition: service_healthy }
+      core-migrate: { condition: service_completed_successfully }
       redis: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
       seaweedfs: { condition: service_healthy }
