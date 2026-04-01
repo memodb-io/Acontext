@@ -107,6 +107,10 @@ async def _sync_session_display_title(
     db_session: AsyncSession, session_id: asUUID
 ) -> None:
     # Best-effort sync: only write when we have a non-empty title candidate.
+    # TODO: Optimize this after v1. Only try to set the session title when the
+    # first non-planning task is created, and skip the write if that task has no
+    # usable task_description. That avoids re-reading the first task on every
+    # later task insert or update for the same session.
     title, eil = (await fetch_first_task_description(db_session, session_id)).unpack()
     if eil is None and title:
         await SD.update_session_display_title_once(db_session, session_id, title)
