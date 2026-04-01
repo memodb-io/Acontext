@@ -3,6 +3,7 @@ from datetime import date, datetime
 from typing import Optional
 from pydantic import BaseModel, field_validator
 from ..utils import asUUID
+from ...env import LOG
 
 
 class SkillLearnTask(BaseModel):
@@ -25,9 +26,11 @@ class SkillLearnDistilled(BaseModel):
 
     @field_validator("original_date")
     @classmethod
-    def validate_original_date(cls, v):
+    def validate_original_date(cls, v, info):
         if v is None:
             return v
+
+        session_id = info.data.get("session_id")
 
         # ISO format: YYYY-MM-DD
         try:
@@ -43,6 +46,13 @@ class SkillLearnDistilled(BaseModel):
                 return v
             except ValueError:
                 pass
+
+        # Validation failed - log warning before raising error
+        LOG.warning(
+            "skill_learner.original_date_validation_failed",
+            session_id=str(session_id) if session_id else None,
+            original_date=v,
+        )
 
         raise ValueError(
             "original_date must be 'YYYY-MM-DD' or 'YYYY/MM/DD (Day) HH:MM', "
