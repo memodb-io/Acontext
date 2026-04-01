@@ -17,6 +17,9 @@ RUN uv sync --frozen --no-dev --no-cache-dir
 
 # Copy the application code
 COPY ./acontext_core /app/acontext_core
+COPY ./alembic /app/alembic
+COPY ./alembic.ini /app/alembic.ini
+COPY ./scripts /app/scripts
 COPY ./routers /app/routers
 COPY ./api.py /app
 

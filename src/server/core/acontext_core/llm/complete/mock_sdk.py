@@ -29,9 +29,11 @@ async def mock_complete(
     Logic:
     - If prompt contains "Simple Hello" -> Return "Hello World"
     - If prompt contains "CALL_TOOL_DISK_LIST" -> Return structured tool call JSON for disk.list
+    - If prompt contains "SESSION_TITLE_E2E" -> Create one deterministic task, then stop
     - Otherwise return a generic response
     """
-    # Safe handling of mutable default arguments
+    # Accept both dict-shaped messages and SDK objects so the mock can stand in
+    # for the different response-to-message adapters used across the codebase.
     history_messages = history_messages or []
     prompt_kwargs = prompt_kwargs or {}
     prompt_id = prompt_kwargs.get("prompt_id", "mock-prompt")
@@ -45,7 +47,9 @@ async def mock_complete(
     if system_prompt:
         full_text += str(system_prompt)
     for msg in history_messages:
-        if hasattr(msg, 'content') and msg.content:
+        if isinstance(msg, dict) and msg.get("content"):
+            full_text += str(msg["content"])
+        elif hasattr(msg, "content") and msg.content:
             full_text += str(msg.content)
     
     LOG.info(f"Mock LLM processing: prompt_id={prompt_id}, text_length={len(full_text)}")
@@ -66,6 +70,27 @@ async def mock_complete(
                 )
             )
         ]
+    elif "SESSION_TITLE_E2E" in full_text:
+        # The live e2e test uses this trigger to force one deterministic task.
+        if "Task 1 created" in full_text:
+            # After the first tool round, return plain content so the agent stops.
+            content = "Session title task captured"
+            tool_calls = None
+        else:
+            content = None
+            tool_calls = [
+                LLMToolCall(
+                    id="call_mock_insert_task",
+                    type="function",
+                    function=LLMFunction(
+                        name="insert_task",
+                        arguments={
+                            "after_task_order": 0,
+                            "task_description": "Mock session title task",
+                        },
+                    ),
+                )
+            ]
     else:
         content = "This is a mock response for testing purposes."
         tool_calls = None

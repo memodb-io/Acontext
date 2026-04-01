@@ -30,6 +30,7 @@ cp .env.example .env
 
 ```bash
 # current path: ./src/server/core
+uv run python -m acontext_core.infra.alembic upgrade-head
 uv run -m fastapi dev
 ```
 
@@ -37,8 +38,19 @@ uv run -m fastapi dev
 
 ```bash
 # current path: ./src/server/core
+uv run python -m acontext_core.infra.alembic upgrade-head
 uv run -m uvicorn api:app --host 0.0.0.0 --port 8000
 ```
+
+- Existing database bootstrap
+
+```bash
+# current path: ./src/server/core
+uv run python -m acontext_core.infra.alembic upgrade-head
+```
+
+If the database already has the old core tables but no Alembic history yet, the
+migration runner stamps the baseline revision once and then upgrades to `head`.
 
 - Service Healthcheck
 ```bash

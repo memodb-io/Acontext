@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import select, func
 from acontext_core.service.data.task import (
     fetch_current_tasks,
+    fetch_first_task_description,
     update_task,
     insert_task,
     delete_task,
@@ -139,6 +140,84 @@ class TestFetchCurrentTasks:
             assert error is None
             assert data is not None
             assert len(data) == 0
+
+
+class TestFetchFirstTaskDescription:
+    @pytest.mark.asyncio
+    async def test_returns_first_non_planning_task_by_order(self, db_client):
+        # Planning tasks are excluded so the title comes from the first real task.
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="task_title_h1", secret_key_hash_phc="task_title_h1"
+            )
+            session.add(project)
+            await session.flush()
+            test_session = Session(project_id=project.id)
+            session.add(test_session)
+            session.add_all(
+                [
+                    Task(
+                        session_id=test_session.id,
+                        project_id=project.id,
+                        order=0,
+                        data={"task_description": "planning"},
+                        status="pending",
+                        is_planning=True,
+                    ),
+                    Task(
+                        session_id=test_session.id,
+                        project_id=project.id,
+                        order=2,
+                        data={"task_description": " second task "},
+                        status="pending",
+                    ),
+                    Task(
+                        session_id=test_session.id,
+                        project_id=project.id,
+                        order=1,
+                        data={"task_description": " first task "},
+                        status="pending",
+                    ),
+                ]
+            )
+            await session.flush()
+
+            data, error = (
+                await fetch_first_task_description(session, test_session.id)
+            ).unpack()
+
+            assert error is None
+            assert data == "first task"
+
+    @pytest.mark.asyncio
+    async def test_returns_none_without_non_planning_tasks(self, db_client):
+        # A planning-only session should not produce a title candidate.
+        async with db_client.get_session_context() as session:
+            project = Project(
+                secret_key_hmac="task_title_h2", secret_key_hash_phc="task_title_h2"
+            )
+            session.add(project)
+            await session.flush()
+            test_session = Session(project_id=project.id)
+            session.add(test_session)
+            session.add(
+                Task(
+                    session_id=test_session.id,
+                    project_id=project.id,
+                    order=0,
+                    data={"task_description": "planning"},
+                    status="pending",
+                    is_planning=True,
+                )
+            )
+            await session.flush()
+
+            data, error = (
+                await fetch_first_task_description(session, test_session.id)
+            ).unpack()
+
+            assert error is None
+            assert data is None
 
 
 class TestUpdateTask:
@@ -1253,5 +1332,3 @@ class TestAppendProgressToTask:
             assert data is None
             assert error is not None
             assert "not found" in error.errmsg
-
-

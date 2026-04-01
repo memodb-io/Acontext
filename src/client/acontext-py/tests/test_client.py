@@ -462,6 +462,26 @@ def test_sessions_create_with_use_uuid_and_user(
 
 
 @patch("acontext.client.AcontextClient.request")
+def test_sessions_create_parses_display_title(
+    mock_request, client: AcontextClient
+) -> None:
+    """Test that display_title from API is available on Session model."""
+    # The sync client should preserve the optional title field on create responses.
+    mock_request.return_value = {
+        "id": "session-id",
+        "project_id": "project-id",
+        "display_title": "Plan migration rollout",
+        "configs": {},
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
+
+    session = client.sessions.create()
+
+    assert session.display_title == "Plan migration rollout"
+
+
+@patch("acontext.client.AcontextClient.request")
 def test_sessions_list_filter_by_configs(mock_request, client: AcontextClient) -> None:
     """Test that filter_by_configs is JSON-encoded and sent to API."""
     mock_request.return_value = {"items": [], "has_more": False}

@@ -1,5 +1,4 @@
 import traceback
-import os
 from typing import Optional
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -14,8 +13,6 @@ from sqlalchemy.pool import AsyncAdaptedQueuePool
 from sqlalchemy import text
 from sqlalchemy.exc import DisconnectionError, OperationalError
 
-# from ..schema.orm import Base
-from ..schema.orm import ORM_BASE
 from ..env import LOG as logger
 from ..env import DEFAULT_CORE_CONFIG
 
@@ -49,7 +46,6 @@ class DatabaseClient:
 
         logger.debug(f"SQLAlchemy Engine URL: {self.database_url}")
         self._engine: AsyncEngine | None = self._create_engine()
-        self._table_created: bool = False
         self._sessionmaker: async_sessionmaker[AsyncSession] | None = (
             async_sessionmaker(
                 bind=self.engine,
@@ -187,25 +183,6 @@ class DatabaseClient:
             logger.error(f"Database health check failed: {e}")
             return False
 
-    async def create_tables(self) -> None:
-        """Create all tables defined in the ORM models."""
-        if self._table_created:
-            return
-        async with self.get_session_context() as db_session:
-            await db_session.execute(text("CREATE EXTENSION IF NOT EXISTS vector;"))
-        logger.info("pgvector extension init")
-        async with self.engine.begin() as conn:
-            await conn.run_sync(ORM_BASE.metadata.create_all)
-
-        self._table_created = True
-
-    async def drop_tables(self) -> None:
-        """Drop all tables defined in the ORM models."""
-        async with self.engine.begin() as conn:
-            await conn.run_sync(ORM_BASE.metadata.drop_all)
-        logger.warning("All database tables dropped")
-        self._table_created = False
-
     async def close(self) -> None:
         """Close the database engine and all connections."""
         if self._engine:
@@ -233,10 +210,9 @@ DB_CLIENT = DatabaseClient()
 
 # Convenience functions
 async def init_database() -> None:
-    """Initialize the database (create tables)."""
-    await DB_CLIENT.create_tables()
+    """Initialize database connectivity after migrations have already run."""
     assert await DB_CLIENT.health_check(), "Database health check failed"
-    logger.info(f"Database created successfully {DB_CLIENT.get_pool_status()}")
+    logger.info(f"Database initialized successfully {DB_CLIENT.get_pool_status()}")
 
 
 async def close_database() -> None:
