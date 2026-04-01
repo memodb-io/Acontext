@@ -13,6 +13,7 @@ from ..telemetry.log import get_wide_event, set_wide_event, clear_wide_event
 from ..schema.mq.session import InsertNewMessage
 from ..schema.utils import asUUID
 from ..schema.result import Result
+from ..schema.orm import Message as ORMMessage
 from ..schema.session.learning_space import SessionStatus
 from ..schema.session.task import TaskStatus
 from .constants import EX, RK
@@ -38,12 +39,12 @@ _BRANCH_LOCK_TERMINAL_STATUSES = {
 }
 
 
-def _branch_lock_message_id(message_rows: list[dict]) -> asUUID:
+def _branch_lock_message_id(messages: list[ORMMessage]) -> asUUID:
     # Lock on the first unfinished message so all descendants contend on one key.
-    for row in message_rows:
-        if row["session_task_process_status"] not in _BRANCH_LOCK_TERMINAL_STATUSES:
-            return row["id"]
-    return message_rows[-1]["id"]
+    for message in messages:
+        if message.session_task_process_status not in _BRANCH_LOCK_TERMINAL_STATUSES:
+            return message.id
+    return messages[-1].id
 
 
 async def _get_pending_session_message_ids(session_id: asUUID) -> Result[list[asUUID]]:
@@ -99,12 +100,14 @@ async def insert_new_message(body: InsertNewMessage, message: Message):
         return
 
     async with DB_CLIENT.get_session_context() as session:
-        r = await MD.fetch_message_branch_path_rows(session, body.message_id, body.session_id)
-        message_rows, eil = r.unpack()
+        r = await MD.fetch_message_branch_path_messages(
+            session, body.message_id, body.session_id
+        )
+        branch_messages, eil = r.unpack()
         if eil:
             return
 
-    lock_message_id = _branch_lock_message_id(message_rows)
+    lock_message_id = _branch_lock_message_id(branch_messages)
     lock_key = _insert_message_lock_key(body.session_id, lock_message_id)
     _l = await check_redis_lock_or_set(body.project_id, lock_key)
     if not _l:
@@ -241,16 +244,16 @@ async def flush_session_message_blocking(
                     if msg_status != "pending":
                         continue
 
-                    r = await MD.fetch_message_branch_path_rows(
+                    r = await MD.fetch_message_branch_path_messages(
                         read_session, message_id, session_id
                     )
-                    message_rows, eil = r.unpack()
+                    branch_messages, eil = r.unpack()
                     if eil:
                         wide_event["outcome"] = "error"
                         wide_event["error"] = str(eil)
                         return r
 
-                lock_message_id = _branch_lock_message_id(message_rows)
+                lock_message_id = _branch_lock_message_id(branch_messages)
                 lock_key = _insert_message_lock_key(session_id, lock_message_id)
                 _l = await check_redis_lock_or_set(project_id, lock_key)
                 if not _l:

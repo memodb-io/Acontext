@@ -47,14 +47,13 @@ def _mock_db():
     return mock_db
 
 
-def _branch_row(message_id, session_id, status="pending", parent_id=None, depth=0):
-    return {
-        "id": message_id,
-        "parent_id": parent_id,
-        "session_id": session_id,
-        "session_task_process_status": status,
-        "depth": depth,
-    }
+def _branch_message(message_id, session_id, status="pending", parent_id=None):
+    message = MagicMock()
+    message.id = message_id
+    message.parent_id = parent_id
+    message.session_id = session_id
+    message.session_task_process_status = status
+    return message
 
 
 class TestMessageNotPending:
@@ -227,9 +226,11 @@ class TestBufferFull:
                 return_value=Result.resolve(16),
             ),
             patch(
-                "acontext_core.service.session_message.MD.fetch_message_branch_path_rows",
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve([_branch_row(body.message_id, body.session_id)]),
+                return_value=Result.resolve(
+                    [_branch_message(body.message_id, body.session_id)]
+                ),
             ),
             patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
@@ -278,9 +279,11 @@ class TestDelayFires:
                 return_value=Result.resolve(2),
             ),
             patch(
-                "acontext_core.service.session_message.MD.fetch_message_branch_path_rows",
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve([_branch_row(body.message_id, body.session_id)]),
+                return_value=Result.resolve(
+                    [_branch_message(body.message_id, body.session_id)]
+                ),
             ),
             patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
@@ -411,9 +414,11 @@ class TestLockContention:
                 return_value=Result.resolve(2),
             ),
             patch(
-                "acontext_core.service.session_message.MD.fetch_message_branch_path_rows",
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve([_branch_row(body.message_id, body.session_id)]),
+                return_value=Result.resolve(
+                    [_branch_message(body.message_id, body.session_id)]
+                ),
             ),
             patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
@@ -458,9 +463,11 @@ class TestLockContention:
                 return_value=Result.resolve(20),
             ),
             patch(
-                "acontext_core.service.session_message.MD.fetch_message_branch_path_rows",
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve([_branch_row(body.message_id, body.session_id)]),
+                return_value=Result.resolve(
+                    [_branch_message(body.message_id, body.session_id)]
+                ),
             ),
             patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
@@ -585,24 +592,22 @@ class TestBranchLockKey:
                 return_value=Result.resolve(16),
             ),
             patch(
-                "acontext_core.service.session_message.MD.fetch_message_branch_path_rows",
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(
                     [
-                        _branch_row(root_id, body.session_id, status="success", depth=0),
-                        _branch_row(
+                        _branch_message(root_id, body.session_id, status="success"),
+                        _branch_message(
                             branch_id,
                             body.session_id,
                             status="pending",
                             parent_id=root_id,
-                            depth=1,
                         ),
-                        _branch_row(
+                        _branch_message(
                             body.message_id,
                             body.session_id,
                             status="pending",
                             parent_id=branch_id,
-                            depth=2,
                         ),
                     ]
                 ),

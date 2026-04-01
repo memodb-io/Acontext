@@ -25,7 +25,7 @@ async def _create_project_and_session(db_client):
 
 
 @pytest.mark.asyncio
-async def test_fetch_message_branch_path_rows_root_only(db_client):
+async def test_fetch_message_branch_path_messages_root_only(db_client):
     _, acontext_session = await _create_project_and_session(db_client)
 
     async with db_client.get_session_context() as session:
@@ -37,17 +37,17 @@ async def test_fetch_message_branch_path_rows_root_only(db_client):
         session.add(root)
         await session.flush()
 
-        r = await MD.fetch_message_branch_path_rows(
+        r = await MD.fetch_message_branch_path_messages(
             session, root.id, acontext_session.id
         )
-        rows, eil = r.unpack()
+        messages, eil = r.unpack()
 
         assert eil is None
-        assert [row["id"] for row in rows] == [root.id]
+        assert [message.id for message in messages] == [root.id]
 
 
 @pytest.mark.asyncio
-async def test_fetch_message_branch_path_rows_returns_root_to_leaf_order(db_client):
+async def test_fetch_message_branch_path_messages_returns_root_to_leaf_order(db_client):
     _, acontext_session = await _create_project_and_session(db_client)
 
     async with db_client.get_session_context() as session:
@@ -77,17 +77,17 @@ async def test_fetch_message_branch_path_rows_returns_root_to_leaf_order(db_clie
         session.add(leaf)
         await session.flush()
 
-        r = await MD.fetch_message_branch_path_rows(
+        r = await MD.fetch_message_branch_path_messages(
             session, leaf.id, acontext_session.id
         )
-        rows, eil = r.unpack()
+        messages, eil = r.unpack()
 
         assert eil is None
-        assert [row["id"] for row in rows] == [root.id, child.id, leaf.id]
+        assert [message.id for message in messages] == [root.id, child.id, leaf.id]
 
 
 @pytest.mark.asyncio
-async def test_fetch_message_branch_path_rows_rejects_wrong_session(db_client):
+async def test_fetch_message_branch_path_messages_rejects_wrong_session(db_client):
     _, session_a = await _create_project_and_session(db_client)
     _, session_b = await _create_project_and_session(db_client)
 
@@ -100,7 +100,7 @@ async def test_fetch_message_branch_path_rows_rejects_wrong_session(db_client):
         session.add(msg)
         await session.flush()
 
-        r = await MD.fetch_message_branch_path_rows(session, msg.id, session_b.id)
+        r = await MD.fetch_message_branch_path_messages(session, msg.id, session_b.id)
         _, eil = r.unpack()
 
         assert eil is not None
@@ -108,11 +108,11 @@ async def test_fetch_message_branch_path_rows_rejects_wrong_session(db_client):
 
 
 @pytest.mark.asyncio
-async def test_fetch_message_branch_path_rows_rejects_missing_message(db_client):
+async def test_fetch_message_branch_path_messages_rejects_missing_message(db_client):
     _, acontext_session = await _create_project_and_session(db_client)
 
     async with db_client.get_session_context() as session:
-        r = await MD.fetch_message_branch_path_rows(
+        r = await MD.fetch_message_branch_path_messages(
             session, acontext_session.id, acontext_session.id
         )
         _, eil = r.unpack()
@@ -122,7 +122,7 @@ async def test_fetch_message_branch_path_rows_rejects_missing_message(db_client)
 
 
 @pytest.mark.asyncio
-async def test_fetch_message_branch_path_rows_returns_statuses(db_client):
+async def test_fetch_message_branch_path_messages_returns_statuses(db_client):
     _, acontext_session = await _create_project_and_session(db_client)
 
     async with db_client.get_session_context() as session:
@@ -149,75 +149,6 @@ async def test_fetch_message_branch_path_rows_returns_statuses(db_client):
             session_id=acontext_session.id,
             role="user",
             parts_asset_meta={},
-            parent_id=child.id,
-            session_task_process_status="running",
-        )
-        session.add(leaf)
-        await session.flush()
-
-        r = await MD.fetch_message_branch_path_rows(
-            session, leaf.id, acontext_session.id
-        )
-        rows, eil = r.unpack()
-
-        assert eil is None
-        assert [row["id"] for row in rows] == [root.id, child.id, leaf.id]
-        assert [row["session_task_process_status"] for row in rows] == [
-            "success",
-            "pending",
-            "running",
-        ]
-
-
-@pytest.mark.asyncio
-async def test_fetch_message_branch_path_messages_returns_ordered_messages(db_client):
-    _, acontext_session = await _create_project_and_session(db_client)
-
-    async with db_client.get_session_context() as session:
-        root = Message(
-            session_id=acontext_session.id,
-            role="user",
-            parts_asset_meta={
-                "bucket": "test-bucket",
-                "s3_key": "parts/root.json",
-                "etag": "etag-root",
-                "sha256": "sha-root",
-                "mime": "application/json",
-                "size_b": 10,
-            },
-            session_task_process_status="success",
-        )
-        session.add(root)
-        await session.flush()
-
-        child = Message(
-            session_id=acontext_session.id,
-            role="assistant",
-            parts_asset_meta={
-                "bucket": "test-bucket",
-                "s3_key": "parts/child.json",
-                "etag": "etag-child",
-                "sha256": "sha-child",
-                "mime": "application/json",
-                "size_b": 11,
-            },
-            parent_id=root.id,
-            session_task_process_status="pending",
-        )
-        session.add(child)
-        await session.flush()
-
-        leaf = Message(
-            session_id=acontext_session.id,
-            role="user",
-            parts_asset_meta={
-                "bucket": "test-bucket",
-                "s3_key": "parts/leaf.json",
-                "etag": "etag-leaf",
-                "sha256": "sha-leaf",
-                "mime": "application/json",
-                "size_b": 12,
-            },
             parent_id=child.id,
             session_task_process_status="running",
         )

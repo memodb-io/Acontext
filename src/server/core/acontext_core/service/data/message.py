@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import List, Any
+from typing import List
 from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import ValidationError
@@ -146,74 +146,6 @@ async def hydrate_message_parts(
         return Result.reject(f"Error hydrating message parts: {e}")
 
 
-async def fetch_message_branch_path_rows(
-    db_session: AsyncSession,
-    message_id: asUUID,
-    session_id: asUUID | None = None,
-) -> Result[list[dict[str, Any]]]:
-    """
-    Fetch one message's branch path from root to the target message.
-
-    Uses a recursive CTE to walk parent_id upward in one query.
-
-    Args:
-        db_session: Database session
-        message_id: Leaf or intermediate message UUID to start from
-        session_id: Optional session UUID to verify the full path belongs to
-
-    Returns:
-        Result containing branch path rows ordered from root to target message
-    """
-    try:
-        query = text(
-            """
-            WITH RECURSIVE message_path AS (
-                SELECT id, parent_id, session_id, session_task_process_status, 0 AS depth
-                FROM messages
-                WHERE id = :message_id
-
-                UNION ALL
-
-                SELECT
-                    parent.id,
-                    parent.parent_id,
-                    parent.session_id,
-                    parent.session_task_process_status,
-                    child.depth + 1 AS depth
-                FROM messages AS parent
-                JOIN message_path AS child
-                  ON parent.id = child.parent_id
-            )
-            SELECT id, parent_id, session_id, session_task_process_status, depth
-            FROM message_path
-            ORDER BY depth DESC, id ASC
-            """
-        )
-        result = await db_session.execute(query, {"message_id": message_id})
-        rows = [dict(row) for row in result.mappings().all()]
-
-        if not rows:
-            return Result.reject(f"Message {message_id} doesn't exist")
-
-        path_session_ids = {row["session_id"] for row in rows}
-
-        if session_id is not None and path_session_ids != {session_id}:
-            return Result.reject(
-                f"Message {message_id} does not belong to session {session_id}"
-            )
-
-        if len(path_session_ids) != 1:
-            return Result.reject(
-                f"Message {message_id} has an invalid cross-session parent chain"
-            )
-
-        return Result.resolve(rows)
-    except Exception as e:
-        return Result.reject(
-            f"Error fetching branch path for message {message_id}: {e}"
-        )
-
-
 async def fetch_message_branch_path_messages(
     db_session: AsyncSession,
     message_id: asUUID,
@@ -296,12 +228,16 @@ async def branch_pending_message_length(
         Result containing the count of matching messages on the branch path
     """
     try:
-        r = await fetch_message_branch_path_rows(db_session, message_id, session_id)
-        rows, eil = r.unpack()
+        r = await fetch_message_branch_path_messages(db_session, message_id, session_id)
+        messages, eil = r.unpack()
         if eil:
             return Result.reject(str(eil))
 
-        count = sum(1 for row in rows if row["session_task_process_status"] == status)
+        count = sum(
+            1
+            for message in messages
+            if message.session_task_process_status == status
+        )
         return Result.resolve(count)
     except Exception as e:
         return Result.reject(
