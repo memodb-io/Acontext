@@ -180,7 +180,7 @@ class AcontextClient:
     def _handle_response(response: httpx.Response, *, unwrap: bool) -> Any:
         content_type = response.headers.get("content-type", "")
 
-        parsed: Mapping[str, Any] | None
+        parsed: Mapping[str, Any] | None = None
         if "application/json" in content_type:
             try:
                 parsed = response.json()  # dict

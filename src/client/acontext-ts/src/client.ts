@@ -286,7 +286,7 @@ export class AcontextClient implements RequesterProtocol {
         statusCode: response.status,
         code: appCode,
         message: String(payload.msg || response.statusText),
-        error: payload.error as string | undefined,
+        error: typeof payload.error === 'string' ? payload.error : undefined,
         payload,
       });
     }
