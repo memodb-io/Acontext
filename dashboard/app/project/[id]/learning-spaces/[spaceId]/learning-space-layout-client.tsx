@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import Link from "next/link";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  type ReactNode,
+} from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { encodeId } from "@/lib/id-codec";
 import { useTopNavStore } from "@/stores/top-nav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { CodeEditor } from "@/components/code-editor";
-import { SkillList, type SkillItem } from "@/components/skill-list";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,26 +31,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
-import {
-  Loader2,
-  ArrowLeft,
-  Plus,
-  ExternalLink,
-} from "lucide-react";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, ArrowLeft, Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
   Project,
@@ -67,17 +52,63 @@ import {
 } from "../actions";
 import { getAllUsers } from "../../actions";
 
-interface LearningSpaceDetailClientProps {
-  project: Project;
+// --- Context ---
+
+interface LearningSpaceContextValue {
+  projectId: string;
+  encodedProjectId: string;
   spaceId: string;
+  space: LearningSpace | null;
+  setSpace: (space: LearningSpace) => void;
+  users: User[];
+  skills: AgentSkill[];
+  sessions: LearningSpaceSession[];
+  isLoading: boolean;
+  error: string | null;
+  refreshSkills: () => Promise<void>;
+  refreshSessions: () => Promise<void>;
+  // Metadata
+  metaValue: string;
+  metaError: string;
+  isMetaValid: boolean;
+  isSavingMeta: boolean;
+  metaDirty: boolean;
+  handleMetaChange: (value: string) => void;
+  handleSaveMeta: () => Promise<void>;
+  // Skill actions
+  setExcludeTarget: (skill: AgentSkill | null) => void;
+  // Navigation
+  basePath: string;
+  returnTo: string;
 }
 
-export function LearningSpaceDetailClient({
+const LearningSpaceContext = createContext<LearningSpaceContextValue | null>(
+  null
+);
+
+export function useLearningSpaceContext() {
+  const ctx = useContext(LearningSpaceContext);
+  if (!ctx)
+    throw new Error(
+      "useLearningSpaceContext must be used within LearningSpaceLayoutClient"
+    );
+  return ctx;
+}
+
+// --- Layout Client ---
+
+interface LearningSpaceLayoutClientProps {
+  project: Project;
+  spaceId: string;
+  children: ReactNode;
+}
+
+export function LearningSpaceLayoutClient({
   project,
   spaceId,
-}: LearningSpaceDetailClientProps) {
+  children,
+}: LearningSpaceLayoutClientProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const pathname = usePathname();
   const { initialize, setHasSidebar } = useTopNavStore();
 
@@ -90,6 +121,16 @@ export function LearningSpaceDetailClient({
 
   const projectId = project.id;
   const encodedProjectId = encodeId(projectId);
+  const encodedSpaceId = encodeId(spaceId);
+  const basePath = `/project/${encodedProjectId}/learning-spaces/${encodedSpaceId}`;
+  const returnTo = basePath;
+
+  // Redirect to default tab if landing on bare path
+  useEffect(() => {
+    if (pathname === basePath || pathname === `${basePath}/`) {
+      router.replace(`${basePath}/skills`);
+    }
+  }, [pathname, basePath, router]);
 
   const [space, setSpace] = useState<LearningSpace | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -97,23 +138,6 @@ export function LearningSpaceDetailClient({
   const [sessions, setSessions] = useState<LearningSpaceSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const validTabs = ["metadata", "skills", "sessions"];
-  const tabParam = searchParams.get("tab");
-  const activeTab = validTabs.includes(tabParam ?? "") ? tabParam! : "skills";
-  const setActiveTab = useCallback(
-    (tab: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (tab === "skills") {
-        params.delete("tab");
-      } else {
-        params.set("tab", tab);
-      }
-      const qs = params.toString();
-      router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
-    },
-    [searchParams, pathname, router],
-  );
 
   // Metadata editor
   const [metaValue, setMetaValue] = useState("{}");
@@ -302,15 +326,42 @@ export function LearningSpaceDetailClient({
     router.push(`/project/${encodedProjectId}/learning-spaces`);
   };
 
-  const returnTo = `/project/${encodedProjectId}/learning-spaces/${encodeId(spaceId)}`;
+  // Determine active tab from pathname
+  const activeTab = pathname.endsWith("/metadata")
+    ? "metadata"
+    : pathname.endsWith("/sessions")
+      ? "sessions"
+      : "skills";
 
-  const getAgentSkillHref = (skill: SkillItem) => {
-    const encodedSkillId = encodeId(skill.id);
-    return `/project/${encodedProjectId}/agent-skills/${encodedSkillId}?returnTo=${encodeURIComponent(returnTo)}`;
-  };
+  const tabs = [
+    { value: "metadata", label: "Metadata", href: `${basePath}/metadata` },
+    { value: "skills", label: "Skills", href: `${basePath}/skills` },
+    { value: "sessions", label: "Sessions", href: `${basePath}/sessions` },
+  ];
 
-  const navigateToAgentSkills = (skill: SkillItem) => {
-    router.push(getAgentSkillHref(skill));
+  const ctxValue: LearningSpaceContextValue = {
+    projectId,
+    encodedProjectId,
+    spaceId,
+    space,
+    setSpace,
+    users,
+    skills,
+    sessions,
+    isLoading,
+    error,
+    refreshSkills,
+    refreshSessions,
+    metaValue,
+    metaError,
+    isMetaValid,
+    isSavingMeta,
+    metaDirty,
+    handleMetaChange,
+    handleSaveMeta,
+    setExcludeTarget,
+    basePath,
+    returnTo,
   };
 
   if (isLoading) {
@@ -341,59 +392,60 @@ export function LearningSpaceDetailClient({
       : getUserIdentifier(space.user_id) ??
         `${space.user_id.slice(0, 8)}…`;
 
-  const statusVariant = (status: LearningSpaceSession["status"]) => {
-    switch (status) {
-      case "completed":
-        return "default" as const;
-      case "distilling":
-        return "secondary" as const;
-      case "failed":
-        return "destructive" as const;
-      default:
-        return "outline" as const;
-    }
-  };
-
   return (
-    <div className="h-full bg-background p-6 flex flex-col overflow-hidden space-y-4">
-      {/* Header row with back button and title */}
-      <div className="shrink-0 space-y-2">
-        <div className="flex items-stretch gap-2">
-          <Button
-            variant="outline"
-            onClick={handleGoBack}
-            className="rounded-l-md rounded-r-none h-auto px-3"
-            title="Back to Learning Spaces"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Learning Space</h1>
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-              <span className="font-mono">{space.id}</span>
-              {displayUser !== "—" && (
-                <>
-                  <span className="text-border">|</span>
-                  <span>{displayUser}</span>
-                </>
-              )}
-              <span className="text-border">|</span>
-              <span>Created {new Date(space.created_at).toLocaleString()}</span>
-              <span className="text-border">|</span>
-              <span>Updated {new Date(space.updated_at).toLocaleString()}</span>
+    <LearningSpaceContext.Provider value={ctxValue}>
+      <div className="h-full bg-background p-6 flex flex-col overflow-hidden space-y-4">
+        {/* Header */}
+        <div className="shrink-0 space-y-2">
+          <div className="flex items-stretch gap-2">
+            <Button
+              variant="outline"
+              onClick={handleGoBack}
+              className="rounded-l-md rounded-r-none h-auto px-3"
+              title="Back to Learning Spaces"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold">Learning Space</h1>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                <span className="font-mono">{space.id}</span>
+                {displayUser !== "—" && (
+                  <>
+                    <span className="text-border">|</span>
+                    <span>{displayUser}</span>
+                  </>
+                )}
+                <span className="text-border">|</span>
+                <span>
+                  Created {new Date(space.created_at).toLocaleString()}
+                </span>
+                <span className="text-border">|</span>
+                <span>
+                  Updated {new Date(space.updated_at).toLocaleString()}
+                </span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+        {/* Tab bar + action buttons */}
         <div className="flex items-center justify-between shrink-0">
-          <TabsList>
-            <TabsTrigger value="metadata">Metadata</TabsTrigger>
-            <TabsTrigger value="skills">Skills</TabsTrigger>
-            <TabsTrigger value="sessions">Sessions</TabsTrigger>
-          </TabsList>
+          <Tabs
+            value={activeTab}
+            onValueChange={(tab) => {
+              const target = tabs.find((t) => t.value === tab);
+              if (target) router.replace(target.href);
+            }}
+          >
+            <TabsList>
+              {tabs.map((tab) => (
+                <TabsTrigger key={tab.value} value={tab.value}>
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
           <div className="flex gap-2">
             {activeTab === "metadata" && (
               <Button
@@ -441,91 +493,9 @@ export function LearningSpaceDetailClient({
           </div>
         </div>
 
-        {/* Metadata Tab */}
-        <TabsContent
-          value="metadata"
-          className="flex-1 flex flex-col min-h-0 mt-2"
-        >
-          <CodeEditor
-            value={metaValue}
-            onChange={handleMetaChange}
-            language="json"
-            height="100%"
-          />
-          {metaError && (
-            <p className="text-sm text-destructive mt-1">{metaError}</p>
-          )}
-        </TabsContent>
-
-        {/* Skills Tab */}
-        <TabsContent
-          value="skills"
-          className="flex-1 flex flex-col min-h-0 mt-2"
-        >
-          <SkillList
-            skills={skills}
-            onSkillClick={navigateToAgentSkills}
-            getSkillHref={getAgentSkillHref}
-            onSkillDelete={(skill) => setExcludeTarget(skill as AgentSkill)}
-            emptyMessage="No skills associated. Add a skill to get started."
-            deleteLabel="Remove"
-            className="overflow-auto flex-1"
-          />
-        </TabsContent>
-
-        {/* Sessions Tab */}
-        <TabsContent
-          value="sessions"
-          className="flex-1 flex flex-col min-h-0 mt-2"
-        >
-          {sessions.length === 0 ? (
-            <div className="flex items-center justify-center flex-1">
-              <p className="text-sm text-muted-foreground">
-                No learning sessions yet. Trigger learning from a session to
-                get started.
-              </p>
-            </div>
-          ) : (
-            <div className="rounded-md border overflow-auto flex-1">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Session ID</TableHead>
-                    <TableHead className="text-center">Status</TableHead>
-                    <TableHead>Created At</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sessions.map((session) => (
-                    <TableRow key={session.id}>
-                      <TableCell className="font-mono text-sm">
-                        {session.session_id}
-                      </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant={statusVariant(session.status)}>
-                          {session.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(session.created_at).toLocaleString()}
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="secondary" size="sm" asChild>
-                          <Link href={`/project/${encodedProjectId}/session/${encodeId(session.session_id)}/messages?returnTo=${encodeURIComponent(returnTo)}`}>
-                            <ExternalLink className="h-3 w-3 mr-1" />
-                            View Session
-                          </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+        {/* Tab content (child route) */}
+        <div className="flex-1 flex flex-col min-h-0">{children}</div>
+      </div>
 
       {/* Include Skill Dialog */}
       <Dialog open={includeDialogOpen} onOpenChange={setIncludeDialogOpen}>
@@ -616,8 +586,8 @@ export function LearningSpaceDetailClient({
           <DialogHeader>
             <DialogTitle>Learn from Session</DialogTitle>
             <DialogDescription>
-              Enter the session ID to trigger learning. The learning process
-              will run asynchronously.
+              Enter the session ID to trigger learning. The learning process will
+              run asynchronously.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -652,7 +622,6 @@ export function LearningSpaceDetailClient({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-    </div>
+    </LearningSpaceContext.Provider>
   );
 }

@@ -379,7 +379,7 @@ export default function LearningSpacesPage() {
                     <TableCell>
                       <div className="flex gap-2">
                         <Button variant="secondary" size="sm" asChild>
-                          <Link href={`/learning_spaces/${space.id}`}>
+                          <Link href={`/learning_spaces/${space.id}/skills`}>
                             {t("details")}
                           </Link>
                         </Button>
