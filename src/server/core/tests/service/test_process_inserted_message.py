@@ -43,27 +43,20 @@ def _mock_project_config():
     return config
 
 
-def _make_message(message_id: uuid.UUID, role: str, parent_id: uuid.UUID | None = None):
+def _make_message(
+    message_id: uuid.UUID,
+    role: str,
+    parent_id: uuid.UUID | None = None,
+    status: str = TaskStatus.PENDING.value,
+):
     message = MagicMock()
     message.id = message_id
     message.parent_id = parent_id
     message.role = role
     message.parts = []
     message.task_id = None
+    message.session_task_process_status = status
     return message
-
-
-def _branch_row(
-    message_id: uuid.UUID,
-    status: str,
-    parent_id: uuid.UUID | None = None,
-):
-    return {
-        "id": message_id,
-        "parent_id": parent_id,
-        "session_id": _SESSION_ID,
-        "session_task_process_status": status,
-    }
 
 
 class TestProcessInsertedMessage:
@@ -73,14 +66,19 @@ class TestProcessInsertedMessage:
         root_id = uuid.uuid4()
         branch_id = uuid.uuid4()
         branch_messages = [
-            _make_message(root_id, "user"),
-            _make_message(branch_id, "assistant", parent_id=root_id),
-            _make_message(_MESSAGE_ID, "user", parent_id=branch_id),
-        ]
-        branch_rows = [
-            _branch_row(root_id, TaskStatus.SUCCESS.value),
-            _branch_row(branch_id, TaskStatus.PENDING.value, parent_id=root_id),
-            _branch_row(_MESSAGE_ID, TaskStatus.PENDING.value, parent_id=branch_id),
+            _make_message(root_id, "user", status=TaskStatus.SUCCESS.value),
+            _make_message(
+                branch_id,
+                "assistant",
+                parent_id=root_id,
+                status=TaskStatus.PENDING.value,
+            ),
+            _make_message(
+                _MESSAGE_ID,
+                "user",
+                parent_id=branch_id,
+                status=TaskStatus.PENDING.value,
+            ),
         ]
 
         with (
@@ -88,16 +86,16 @@ class TestProcessInsertedMessage:
             patch(f"{MODULE}.get_metrics", new_callable=AsyncMock, return_value=False),
             patch(f"{MODULE}.get_wide_event", MagicMock(return_value={})),
             patch(
-                f"{MODULE}.MD.fetch_message_branch_path_rows",
+                f"{MODULE}.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve(branch_rows),
+                return_value=Result.resolve(branch_messages),
             ),
             patch(
                 f"{MODULE}.MD.update_message_status_to",
                 update_status,
             ),
             patch(
-                f"{MODULE}.MD.fetch_message_branch_path_data",
+                f"{MODULE}.MD.hydrate_message_parts",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(branch_messages),
             ),
@@ -147,12 +145,13 @@ class TestProcessInsertedMessage:
         update_status = AsyncMock()
         root_id = uuid.uuid4()
         branch_messages = [
-            _make_message(root_id, "user"),
-            _make_message(_MESSAGE_ID, "assistant", parent_id=root_id),
-        ]
-        branch_rows = [
-            _branch_row(root_id, TaskStatus.SUCCESS.value),
-            _branch_row(_MESSAGE_ID, TaskStatus.PENDING.value, parent_id=root_id),
+            _make_message(root_id, "user", status=TaskStatus.SUCCESS.value),
+            _make_message(
+                _MESSAGE_ID,
+                "assistant",
+                parent_id=root_id,
+                status=TaskStatus.PENDING.value,
+            ),
         ]
 
         with (
@@ -160,13 +159,13 @@ class TestProcessInsertedMessage:
             patch(f"{MODULE}.get_metrics", new_callable=AsyncMock, return_value=False),
             patch(f"{MODULE}.get_wide_event", MagicMock(return_value={})),
             patch(
-                f"{MODULE}.MD.fetch_message_branch_path_rows",
+                f"{MODULE}.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve(branch_rows),
+                return_value=Result.resolve(branch_messages),
             ),
             patch(f"{MODULE}.MD.update_message_status_to", update_status),
             patch(
-                f"{MODULE}.MD.fetch_message_branch_path_data",
+                f"{MODULE}.MD.hydrate_message_parts",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(branch_messages),
             ) as mock_fetch_branch,
@@ -191,9 +190,7 @@ class TestProcessInsertedMessage:
 
             assert result.ok()
             mock_fetch_branch.assert_called_once_with(
-                pytest.ANY,
-                _MESSAGE_ID,
-                _SESSION_ID,
+                branch_messages,
                 user_kek=b"secret-kek",
             )
 
@@ -202,10 +199,20 @@ class TestProcessInsertedMessage:
         update_status = AsyncMock()
         root_id = uuid.uuid4()
         branch_id = uuid.uuid4()
-        branch_rows = [
-            _branch_row(root_id, TaskStatus.SUCCESS.value),
-            _branch_row(branch_id, TaskStatus.PENDING.value, parent_id=root_id),
-            _branch_row(_MESSAGE_ID, TaskStatus.PENDING.value, parent_id=branch_id),
+        branch_messages = [
+            _make_message(root_id, "user", status=TaskStatus.SUCCESS.value),
+            _make_message(
+                branch_id,
+                "assistant",
+                parent_id=root_id,
+                status=TaskStatus.PENDING.value,
+            ),
+            _make_message(
+                _MESSAGE_ID,
+                "user",
+                parent_id=branch_id,
+                status=TaskStatus.PENDING.value,
+            ),
         ]
 
         with (
@@ -213,16 +220,16 @@ class TestProcessInsertedMessage:
             patch(f"{MODULE}.get_metrics", new_callable=AsyncMock, return_value=True),
             patch(f"{MODULE}.get_wide_event", MagicMock(return_value={})),
             patch(
-                f"{MODULE}.MD.fetch_message_branch_path_rows",
+                f"{MODULE}.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve(branch_rows),
+                return_value=Result.resolve(branch_messages),
             ),
             patch(
                 f"{MODULE}.MD.update_message_status_to",
                 update_status,
             ),
             patch(
-                f"{MODULE}.MD.fetch_message_branch_path_data",
+                f"{MODULE}.MD.hydrate_message_parts",
                 new_callable=AsyncMock,
             ) as mock_branch_data,
             patch(
@@ -256,10 +263,20 @@ class TestProcessInsertedMessage:
         update_status = AsyncMock()
         root_id = uuid.uuid4()
         branch_id = uuid.uuid4()
-        branch_rows = [
-            _branch_row(root_id, TaskStatus.SUCCESS.value),
-            _branch_row(branch_id, TaskStatus.PENDING.value, parent_id=root_id),
-            _branch_row(_MESSAGE_ID, TaskStatus.PENDING.value, parent_id=branch_id),
+        branch_messages = [
+            _make_message(root_id, "user", status=TaskStatus.SUCCESS.value),
+            _make_message(
+                branch_id,
+                "assistant",
+                parent_id=root_id,
+                status=TaskStatus.PENDING.value,
+            ),
+            _make_message(
+                _MESSAGE_ID,
+                "user",
+                parent_id=branch_id,
+                status=TaskStatus.PENDING.value,
+            ),
         ]
 
         with (
@@ -267,16 +284,16 @@ class TestProcessInsertedMessage:
             patch(f"{MODULE}.get_metrics", new_callable=AsyncMock, return_value=False),
             patch(f"{MODULE}.get_wide_event", MagicMock(return_value={})),
             patch(
-                f"{MODULE}.MD.fetch_message_branch_path_rows",
+                f"{MODULE}.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve(branch_rows),
+                return_value=Result.resolve(branch_messages),
             ),
             patch(
                 f"{MODULE}.MD.update_message_status_to",
                 update_status,
             ),
             patch(
-                f"{MODULE}.MD.fetch_message_branch_path_data",
+                f"{MODULE}.MD.hydrate_message_parts",
                 new_callable=AsyncMock,
                 return_value=Result.reject("branch lookup failed"),
             ),
@@ -314,14 +331,19 @@ class TestProcessInsertedMessage:
         root_id = uuid.uuid4()
         branch_id = uuid.uuid4()
         branch_messages = [
-            _make_message(root_id, "user"),
-            _make_message(branch_id, "assistant", parent_id=root_id),
-            _make_message(_MESSAGE_ID, "user", parent_id=branch_id),
-        ]
-        branch_rows = [
-            _branch_row(root_id, TaskStatus.SUCCESS.value),
-            _branch_row(branch_id, TaskStatus.RUNNING.value, parent_id=root_id),
-            _branch_row(_MESSAGE_ID, TaskStatus.PENDING.value, parent_id=branch_id),
+            _make_message(root_id, "user", status=TaskStatus.SUCCESS.value),
+            _make_message(
+                branch_id,
+                "assistant",
+                parent_id=root_id,
+                status=TaskStatus.RUNNING.value,
+            ),
+            _make_message(
+                _MESSAGE_ID,
+                "user",
+                parent_id=branch_id,
+                status=TaskStatus.PENDING.value,
+            ),
         ]
 
         with (
@@ -329,16 +351,16 @@ class TestProcessInsertedMessage:
             patch(f"{MODULE}.get_metrics", new_callable=AsyncMock, return_value=False),
             patch(f"{MODULE}.get_wide_event", MagicMock(return_value={})),
             patch(
-                f"{MODULE}.MD.fetch_message_branch_path_rows",
+                f"{MODULE}.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve(branch_rows),
+                return_value=Result.resolve(branch_messages),
             ),
             patch(
                 f"{MODULE}.MD.update_message_status_to",
                 update_status,
             ),
             patch(
-                f"{MODULE}.MD.fetch_message_branch_path_data",
+                f"{MODULE}.MD.hydrate_message_parts",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(branch_messages),
             ),

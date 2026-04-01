@@ -1,5 +1,7 @@
+import json
 import pytest
 from uuid import uuid4
+from unittest.mock import AsyncMock, patch
 
 from acontext_core.schema.orm import Message, Project, Session
 from acontext_core.service.data import message as MD
@@ -165,6 +167,136 @@ async def test_fetch_message_branch_path_rows_returns_statuses(db_client):
             "pending",
             "running",
         ]
+
+
+@pytest.mark.asyncio
+async def test_fetch_message_branch_path_messages_returns_ordered_messages(db_client):
+    _, acontext_session = await _create_project_and_session(db_client)
+
+    async with db_client.get_session_context() as session:
+        root = Message(
+            session_id=acontext_session.id,
+            role="user",
+            parts_asset_meta={
+                "bucket": "test-bucket",
+                "s3_key": "parts/root.json",
+                "etag": "etag-root",
+                "sha256": "sha-root",
+                "mime": "application/json",
+                "size_b": 10,
+            },
+            session_task_process_status="success",
+        )
+        session.add(root)
+        await session.flush()
+
+        child = Message(
+            session_id=acontext_session.id,
+            role="assistant",
+            parts_asset_meta={
+                "bucket": "test-bucket",
+                "s3_key": "parts/child.json",
+                "etag": "etag-child",
+                "sha256": "sha-child",
+                "mime": "application/json",
+                "size_b": 11,
+            },
+            parent_id=root.id,
+            session_task_process_status="pending",
+        )
+        session.add(child)
+        await session.flush()
+
+        leaf = Message(
+            session_id=acontext_session.id,
+            role="user",
+            parts_asset_meta={
+                "bucket": "test-bucket",
+                "s3_key": "parts/leaf.json",
+                "etag": "etag-leaf",
+                "sha256": "sha-leaf",
+                "mime": "application/json",
+                "size_b": 12,
+            },
+            parent_id=child.id,
+            session_task_process_status="running",
+        )
+        session.add(leaf)
+        await session.flush()
+
+        r = await MD.fetch_message_branch_path_messages(
+            session, leaf.id, acontext_session.id
+        )
+        messages, eil = r.unpack()
+
+        assert eil is None
+        assert [message.id for message in messages] == [root.id, child.id, leaf.id]
+        assert [message.session_task_process_status for message in messages] == [
+            "success",
+            "pending",
+            "running",
+        ]
+
+
+@pytest.mark.asyncio
+async def test_hydrate_message_parts_uses_existing_branch_message_order(db_client):
+    _, acontext_session = await _create_project_and_session(db_client)
+
+    async with db_client.get_session_context() as session:
+        root = Message(
+            session_id=acontext_session.id,
+            role="user",
+            parts_asset_meta={
+                "bucket": "test-bucket",
+                "s3_key": "parts/root.json",
+                "etag": "etag-root",
+                "sha256": "sha-root",
+                "mime": "application/json",
+                "size_b": 10,
+            },
+        )
+        session.add(root)
+        await session.flush()
+
+        leaf = Message(
+            session_id=acontext_session.id,
+            role="assistant",
+            parts_asset_meta={
+                "bucket": "test-bucket",
+                "s3_key": "parts/leaf.json",
+                "etag": "etag-leaf",
+                "sha256": "sha-leaf",
+                "mime": "application/json",
+                "size_b": 11,
+            },
+            parent_id=root.id,
+        )
+        session.add(leaf)
+        await session.flush()
+
+        branch_result = await MD.fetch_message_branch_path_messages(
+            session, leaf.id, acontext_session.id
+        )
+        messages, eil = branch_result.unpack()
+
+        assert eil is None
+
+        with patch(
+            "acontext_core.service.data.message.S3_CLIENT.download_object",
+            new_callable=AsyncMock,
+            side_effect=[
+                json.dumps([{"type": "text", "text": "root"}]).encode("utf-8"),
+                json.dumps([{"type": "text", "text": "leaf"}]).encode("utf-8"),
+            ],
+        ) as mock_download:
+            hydrated_result = await MD.hydrate_message_parts(messages)
+            hydrated_messages, hydrate_error = hydrated_result.unpack()
+
+        assert hydrate_error is None
+        assert [message.id for message in hydrated_messages] == [root.id, leaf.id]
+        assert hydrated_messages[0].parts[0].text == "root"
+        assert hydrated_messages[1].parts[0].text == "leaf"
+        assert mock_download.await_count == 2
 
 
 @pytest.mark.asyncio

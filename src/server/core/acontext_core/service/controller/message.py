@@ -1,6 +1,7 @@
 from ..data import message as MD
 from ..data import learning_space as LS
 from ...infra.db import DB_CLIENT
+from ...schema.orm import Message
 from ...schema.session.task import TaskStatus
 from ...schema.session.message import MessageBlob
 from ...schema.utils import asUUID
@@ -19,11 +20,11 @@ _CLAIMABLE_BRANCH_STATUSES = {
 }
 
 
-def _claimable_branch_message_ids(message_rows: list[dict]) -> list[asUUID]:
+def _claimable_branch_message_ids(messages: list[Message]) -> list[asUUID]:
     return [
-        row["id"]
-        for row in message_rows
-        if row["session_task_process_status"] in _CLAIMABLE_BRANCH_STATUSES
+        message.id
+        for message in messages
+        if message.session_task_process_status in _CLAIMABLE_BRANCH_STATUSES
     ]
 
 
@@ -50,15 +51,18 @@ async def process_inserted_message(
     wide = get_wide_event()
     disabled = await get_metrics(project_id, ExcessMetricTags.new_task_created)
     target_message_ids: list[asUUID] = []
+    branch_messages: list[Message] = []
 
     try:
         async with DB_CLIENT.get_session_context() as session:
-            r = await MD.fetch_message_branch_path_rows(session, message_id, session_id)
-            message_rows, eil = r.unpack()
+            r = await MD.fetch_message_branch_path_messages(
+                session, message_id, session_id
+            )
+            branch_messages, eil = r.unpack()
             if eil:
                 return r
 
-            target_message_ids = _claimable_branch_message_ids(message_rows)
+            target_message_ids = _claimable_branch_message_ids(branch_messages)
             wide["claimed_branch_message_count"] = len(target_message_ids)
 
             if not target_message_ids:
@@ -78,25 +82,22 @@ async def process_inserted_message(
                 session, target_message_ids, TaskStatus.RUNNING
             )
 
-        async with DB_CLIENT.get_session_context() as session:
-            r = await MD.fetch_message_branch_path_data(
-                session, message_id, session_id, user_kek=user_kek
-            )
-            messages, eil = r.unpack()
-            if eil:
-                await _try_rollback_to_failed(target_message_ids)
-                return r
+        r = await MD.hydrate_message_parts(branch_messages, user_kek=user_kek)
+        messages, eil = r.unpack()
+        if eil:
+            await _try_rollback_to_failed(target_message_ids)
+            return r
 
-            messages_data = [
-                MessageBlob(
-                    message_id=m.id,
-                    parent_id=m.parent_id,
-                    role=m.role,
-                    parts=m.parts,
-                    task_id=m.task_id,
-                )
-                for m in messages
-            ]
+        messages_data = [
+            MessageBlob(
+                message_id=m.id,
+                parent_id=m.parent_id,
+                role=m.role,
+                parts=m.parts,
+                task_id=m.task_id,
+            )
+            for m in messages
+        ]
 
         async with DB_CLIENT.get_session_context() as session:
             r = await LS.get_learning_space_for_session(session, session_id)
@@ -139,6 +140,8 @@ async def process_inserted_message(
         wide["task_agent_outcome"] = "exception"
         await _try_rollback_to_failed(target_message_ids)
         raise
+
+
 async def process_session_pending_message(
     project_config: ProjectConfig,
     project_id: asUUID,
