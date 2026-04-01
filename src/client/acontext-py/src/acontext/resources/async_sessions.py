@@ -438,7 +438,9 @@ class AsyncSessionsAPI:
             FlagResponse containing status and errmsg fields.
         """
         data = await self._requester.request("POST", f"/session/{session_id}/flush")
-        return FlagResponse.model_validate(data)
+        if isinstance(data, dict):
+            return FlagResponse.model_validate(data)
+        return FlagResponse(status=0, errmsg="")
 
     async def get_token_counts(self, session_id: str) -> TokenCounts:
         """Get total token counts for all text and tool-call parts in a session.

@@ -197,7 +197,8 @@ class AcontextAsyncClient:
             error: str | None = None
             if payload and isinstance(payload, Mapping):
                 message = str(payload.get("msg") or payload.get("message") or message)
-                error = payload.get("error")
+                error_val = payload.get("error")
+                error = error_val if isinstance(error_val, str) else None
                 try:
                     code_val = payload.get("code")
                     if isinstance(code_val, int):

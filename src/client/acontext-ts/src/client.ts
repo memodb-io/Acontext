@@ -250,7 +250,9 @@ export class AcontextClient implements RequesterProtocol {
 
       if (payload && typeof payload === 'object') {
         message = String(payload.msg || payload.message || message);
-        error = payload.error as string | undefined;
+        if (typeof payload.error === 'string') {
+          error = payload.error;
+        }
         const codeVal = payload.code;
         if (typeof codeVal === 'number') {
           code = codeVal;
