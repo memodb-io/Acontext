@@ -135,6 +135,47 @@ class TestPackIncomingContexts:
         result = SkillLearnerPrompt.pack_incoming_contexts([ctx], "")
         assert "Finish your current task first" in result
 
+    def test_uses_each_context_own_original_date(self):
+        """pack_incoming_contexts uses each context's own original_date."""
+        # Context with historical date
+        ctx_a = SkillLearnDistilled(
+            project_id=uuid.uuid4(),
+            session_id=uuid.uuid4(),
+            task_id=uuid.uuid4(),
+            learning_space_id=uuid.uuid4(),
+            distilled_context="## Task Analysis\nHistorical session A",
+            original_date="2023/05/21 (Sun) 14:03",
+        )
+        # Context with different historical date
+        ctx_b = SkillLearnDistilled(
+            project_id=uuid.uuid4(),
+            session_id=uuid.uuid4(),
+            task_id=uuid.uuid4(),
+            learning_space_id=uuid.uuid4(),
+            distilled_context="## Task Analysis\nHistorical session B",
+            original_date="2024/01/15 (Mon) 10:30",
+        )
+        # Context without original_date (should use today)
+        ctx_c = SkillLearnDistilled(
+            project_id=uuid.uuid4(),
+            session_id=uuid.uuid4(),
+            task_id=uuid.uuid4(),
+            learning_space_id=uuid.uuid4(),
+            distilled_context="## Task Analysis\nRecent session C",
+            original_date=None,
+        )
+
+        result = SkillLearnerPrompt.pack_incoming_contexts(
+            [ctx_a, ctx_b, ctx_c], "- **skill-a**: desc"
+        )
+
+        # Each context should have its own date
+        assert "Date: 2023/05/21" in result
+        assert "Date: 2024/01/15" in result
+        assert "Date: 2026-04-01" in result  # today's date fallback
+        # Should NOT have a single "Today's date" at the end
+        assert "Today's date:" not in result
+
 
 class TestToolSchemas:
     def test_returns_9_tools(self):
