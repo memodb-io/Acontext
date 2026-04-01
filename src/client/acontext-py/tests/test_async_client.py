@@ -156,6 +156,7 @@ async def test_async_sessions_create_parses_display_title(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
     """Test that display_title from API is available on Session model."""
+    # The async client should preserve the optional title field on create responses.
     mock_request.return_value = {
         "id": "session-id",
         "project_id": "project-id",

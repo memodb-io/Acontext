@@ -77,6 +77,8 @@ services:
       MQ_URL: amqp://acontext:helloworld@rabbitmq:5672/
       REDIS_URL: redis://:helloworld@redis:6379
       S3_ENDPOINT: http://seaweedfs:9000
+      # Keep the core pointed at the mock provider by default, but allow the
+      # e2e runner to override these values without editing the compose file.
       LLM_SDK: ${LLM_SDK:-mock}
       LLM_SIMPLE_MODEL: ${LLM_SIMPLE_MODEL:-mock-model}
       LLM_API_KEY: ${LLM_API_KEY:-fake-key}
@@ -207,7 +209,8 @@ services:
     depends_on:
       api: { condition: service_healthy }
       admin: { condition: service_healthy }
-    command: [ "sh", "-c", "pytest ${PYTEST_TARGET:-tests/e2e/test_simple.py tests/e2e/test_encryption.py tests/e2e/test_session_events.py tests/e2e/test_agent_skills.py tests/e2e/test_learning_spaces.py tests/e2e/test_users.py tests/e2e/test_disk_artifact.py tests/e2e/test_project_isolation.py tests/e2e/test_live_session_title.py} -v --asyncio-mode=auto" ]
+    # Run the regular e2e suite plus the new live session-title regression.
+    command: [ "sh", "-c", "pytest ${PYTEST_TARGET:-tests/e2e/test_simple.py tests/e2e/test_encryption.py tests/e2e/test_session_events.py tests/e2e/test_agent_skills.py tests/e2e/test_learning_spaces.py tests/e2e/test_users.py tests/e2e/test_disk_artifact.py tests/e2e/test_project_isolation.py} -v --asyncio-mode=auto" ]
 
 networks:
   default:

@@ -126,6 +126,7 @@ describe('AcontextClient Unit Tests', () => {
     });
 
     test('should parse display_title in session response', async () => {
+      // This confirms the optional field survives the client-side parser.
       const createdSession = mockSession({
         display_title: 'Plan migration rollout',
       });

@@ -50,6 +50,8 @@ export const SessionSchema = z.object({
   project_id: z.string(),
   user_id: z.string().nullable().optional(),
   disable_task_tracking: z.boolean(),
+  // This optional title is generated from the first task and may be absent
+  // for newly created sessions.
   display_title: z.string().nullable().optional(),
   configs: z.record(z.string(), z.unknown()).nullable(),
   created_at: z.string(),

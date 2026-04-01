@@ -466,6 +466,7 @@ def test_sessions_create_parses_display_title(
     mock_request, client: AcontextClient
 ) -> None:
     """Test that display_title from API is available on Session model."""
+    # The sync client should preserve the optional title field on create responses.
     mock_request.return_value = {
         "id": "session-id",
         "project_id": "project-id",

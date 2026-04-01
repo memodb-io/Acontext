@@ -242,6 +242,8 @@ export function mockSession(overrides?: Partial<{
     project_id: overrides?.project_id ?? mockId(),
     user_id: overrides?.user_id ?? null,
     disable_task_tracking: overrides?.disable_task_tracking ?? false,
+    // Keep the mock aligned with the API response shape so session parsers see
+    // the same optional title field as real responses.
     display_title: overrides?.display_title ?? null,
     configs: overrides?.configs ?? {},
     created_at: overrides?.created_at ?? now,
