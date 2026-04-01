@@ -189,15 +189,16 @@ Please analyze the above and update or create skills as appropriate."""
         count_bases: int = 0,
         original_date: str | None = None,
     ) -> str:
-        today = original_date or date.today().isoformat()
         header = (
             "Additional contexts have arrived while you were working. "
             "Finish your current task first, then process these in order."
         )
         ctx_parts = []
         for i, ctx in enumerate(contexts, 1):
+            # Use each context's own original_date, fall back to today
+            ctx_date = ctx.original_date or date.today().isoformat()
             ctx_parts.append(
-                f"### New Context {i+count_bases}\n{ctx.distilled_context}"
+                f"### New Context {i+count_bases}\nDate: {ctx_date}\n{ctx.distilled_context}"
             )
 
         return f"""{header}
@@ -206,8 +207,6 @@ Please analyze the above and update or create skills as appropriate."""
 
 ## Available Skills (updated)
 {available_skills_str}
-
-Today's date: {today}
 """
 
     @classmethod
