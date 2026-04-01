@@ -1,7 +1,5 @@
 """Type definitions for project configuration."""
 
-from typing import Any
-
 from pydantic import BaseModel, Field
 
 
