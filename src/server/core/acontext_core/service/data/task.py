@@ -90,6 +90,7 @@ async def fetch_current_tasks(
 async def fetch_first_task_description(
     db_session: AsyncSession, session_id: asUUID
 ) -> Result[str | None]:
+    # The session title mirrors the first real task, not the planning section.
     query = (
         select(Task)
         .where(Task.session_id == session_id)
@@ -105,6 +106,7 @@ async def fetch_first_task_description(
 async def _sync_session_display_title(
     db_session: AsyncSession, session_id: asUUID
 ) -> None:
+    # Best-effort sync: only write when we have a non-empty title candidate.
     title, eil = (await fetch_first_task_description(db_session, session_id)).unpack()
     if eil is None and title:
         await SD.update_session_display_title_once(db_session, session_id, title)
@@ -139,6 +141,7 @@ async def update_task(
         flag_modified(task, "data")
 
     await db_session.flush()
+    # Flush first so the title lookup sees the final task state for this edit.
     await _sync_session_display_title(db_session, task.session_id)
     # Changes will be committed when the session context exits
     return Result.resolve(task)
@@ -193,6 +196,8 @@ async def insert_task(
 
     db_session.add(task)
     await db_session.flush()
+    # Insertions can change the first visible task, so sync the title after the
+    # new row is persisted.
     await _sync_session_display_title(db_session, session_id)
     return Result.resolve(task)
 

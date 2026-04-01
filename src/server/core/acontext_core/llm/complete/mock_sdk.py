@@ -32,7 +32,8 @@ async def mock_complete(
     - If prompt contains "SESSION_TITLE_E2E" -> Create one deterministic task, then stop
     - Otherwise return a generic response
     """
-    # Safe handling of mutable default arguments
+    # Accept both dict-shaped messages and SDK objects so the mock can stand in
+    # for the different response-to-message adapters used across the codebase.
     history_messages = history_messages or []
     prompt_kwargs = prompt_kwargs or {}
     prompt_id = prompt_kwargs.get("prompt_id", "mock-prompt")
@@ -70,7 +71,9 @@ async def mock_complete(
             )
         ]
     elif "SESSION_TITLE_E2E" in full_text:
+        # The live e2e test uses this trigger to force one deterministic task.
         if "Task 1 created" in full_text:
+            # After the first tool round, return plain content so the agent stops.
             content = "Session title task captured"
             tool_calls = None
         else:

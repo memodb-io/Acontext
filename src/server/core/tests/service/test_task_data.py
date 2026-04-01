@@ -145,6 +145,7 @@ class TestFetchCurrentTasks:
 class TestFetchFirstTaskDescription:
     @pytest.mark.asyncio
     async def test_returns_first_non_planning_task_by_order(self, db_client):
+        # Planning tasks are excluded so the title comes from the first real task.
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="task_title_h1", secret_key_hash_phc="task_title_h1"
@@ -190,6 +191,7 @@ class TestFetchFirstTaskDescription:
 
     @pytest.mark.asyncio
     async def test_returns_none_without_non_planning_tasks(self, db_client):
+        # A planning-only session should not produce a title candidate.
         async with db_client.get_session_context() as session:
             project = Project(
                 secret_key_hmac="task_title_h2", secret_key_hash_phc="task_title_h2"

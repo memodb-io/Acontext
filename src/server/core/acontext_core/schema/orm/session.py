@@ -56,6 +56,8 @@ class Session(CommonMixin):
         default=None, metadata={"db": Column(JSONB, nullable=True)}
     )
 
+    # Generated, user-facing label for the session. It stays nullable until the
+    # first real task description is available.
     display_title: Optional[str] = field(
         default=None, metadata={"db": Column(Text, nullable=True)}
     )

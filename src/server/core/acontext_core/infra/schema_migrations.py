@@ -2,6 +2,8 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 DISPLAY_TITLE_COLUMN_PATCH_NAME = "sessions.display_title"
+# Use IF NOT EXISTS so the patch is safe on both fresh databases and older
+# deployments that may already have the new column.
 DISPLAY_TITLE_COLUMN_PATCH_SQL = text(
     "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS display_title TEXT;"
 )

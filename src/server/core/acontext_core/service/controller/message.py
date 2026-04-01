@@ -91,6 +91,8 @@ async def process_session_pending_message(
                 for m in messages
             ]
 
+        # Resolve the learning-space link in a separate short-lived transaction
+        # so the message status update path stays focused on queue state.
         ls_session = None
         async with DB_CLIENT.get_session_context() as session:
             r = await LS.get_learning_space_for_session(session, session_id)
@@ -98,6 +100,8 @@ async def process_session_pending_message(
             if eil is None:
                 ls_session = _ls_session
 
+        # Run the agent only after the read-only lookups are complete so the
+        # long-running LLM work does not hold the earlier DB session open.
         agent_result = await AT.task_agent_curd(
             project_id,
             session_id,
@@ -118,6 +122,8 @@ async def process_session_pending_message(
         else:
             wide["task_agent_outcome"] = "success"
 
+        # Persist the final status in a fresh transaction so the message rows
+        # reflect the agent result even if the agent work was slow.
         async with DB_CLIENT.get_session_context() as db_session:
             await MD.update_message_status_to(
                 db_session, pending_message_ids, after_status

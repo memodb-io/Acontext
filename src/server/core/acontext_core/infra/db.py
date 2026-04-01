@@ -197,6 +197,8 @@ class DatabaseClient:
         logger.info("pgvector extension init")
         async with self.engine.begin() as conn:
             await conn.run_sync(ORM_BASE.metadata.create_all)
+        # Apply idempotent schema patches after the ORM tables exist so older
+        # deployments pick up the new session title column without a manual migration.
         await self._apply_schema_migrations()
 
         self._table_created = True
