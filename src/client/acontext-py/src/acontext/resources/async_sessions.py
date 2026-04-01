@@ -8,6 +8,7 @@ from typing import Any, BinaryIO, Literal, Optional, List
 from .._utils import build_params, validate_edit_strategies
 from ..client_types import AsyncRequesterProtocol
 from ..messages import AcontextMessage
+from ..types.common import FlagResponse
 from ..types.session import (
     EditStrategy,
     CopySessionResult,
@@ -427,17 +428,17 @@ class AsyncSessionsAPI:
         )
         return GetMessagesOutput.model_validate(data)
 
-    async def flush(self, session_id: str) -> dict[str, Any]:
+    async def flush(self, session_id: str) -> FlagResponse:
         """Flush the session buffer for a given session.
 
         Args:
             session_id: The UUID of the session.
 
         Returns:
-            Dictionary containing status and errmsg fields.
+            FlagResponse containing status and errmsg fields.
         """
         data = await self._requester.request("POST", f"/session/{session_id}/flush")
-        return data  # type: ignore
+        return FlagResponse.model_validate(data)
 
     async def get_token_counts(self, session_id: str) -> TokenCounts:
         """Get total token counts for all text and tool-call parts in a session.
@@ -512,7 +513,9 @@ class AsyncSessionsAPI:
             f"/session/{session_id}/messages/{message_id}/meta",
             json_data=payload,
         )
-        return data.get("meta", {})  # type: ignore
+        if isinstance(data, dict):
+            return data.get("meta", {})
+        return {}
 
     async def patch_configs(
         self,
@@ -551,7 +554,9 @@ class AsyncSessionsAPI:
             f"/session/{session_id}/configs",
             json_data=payload,
         )
-        return data.get("configs", {})  # type: ignore
+        if isinstance(data, dict):
+            return data.get("configs", {})
+        return {}
 
     async def copy(self, session_id: str) -> CopySessionResult:
         """Copy (duplicate) a session with all its messages and tasks.

@@ -60,3 +60,9 @@ export const UpdateArtifactRespSchema = z.object({
 
 export type UpdateArtifactResp = z.infer<typeof UpdateArtifactRespSchema>;
 
+export const DownloadToSandboxRespSchema = z.object({
+  success: z.boolean(),
+});
+
+export type DownloadToSandboxResp = z.infer<typeof DownloadToSandboxRespSchema>;
+

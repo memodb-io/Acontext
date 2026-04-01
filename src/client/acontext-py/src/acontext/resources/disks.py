@@ -15,6 +15,7 @@ from ..client_types import RequesterProtocol
 from ..types.disk import (
     Artifact,
     Disk,
+    DownloadToSandboxResp,
     GetArtifactResp,
     ListArtifactsResp,
     ListDisksOutput,
@@ -332,7 +333,7 @@ class DiskArtifactsAPI:
             f"/disk/{disk_id}/artifact/download_to_sandbox",
             json_data=payload,
         )
-        return bool(data.get("success", False))
+        return DownloadToSandboxResp.model_validate(data).success
 
     def upload_from_sandbox(
         self,

@@ -12,6 +12,7 @@ import {
   ArtifactsSchema,
   Disk,
   DiskSchema,
+  DownloadToSandboxRespSchema,
   GetArtifactResp,
   GetArtifactRespSchema,
   ListArtifactsResp,
@@ -222,8 +223,8 @@ export class DiskArtifactsAPI {
     };
     const data = await this.requester.request('POST', `/disk/${diskId}/artifact/download_to_sandbox`, {
       jsonData: payload,
-    }) as { success?: boolean };
-    return Boolean(data?.success);
+    });
+    return DownloadToSandboxRespSchema.parse(data).success;
   }
 
   async uploadFromSandbox(

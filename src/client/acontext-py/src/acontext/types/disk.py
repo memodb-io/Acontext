@@ -62,3 +62,9 @@ class UpdateArtifactResp(BaseModel):
     """Response model for updating an artifact."""
 
     artifact: Artifact = Field(..., description="Updated artifact information")
+
+
+class DownloadToSandboxResp(BaseModel):
+    """Response model for downloading an artifact to a sandbox."""
+
+    success: bool = Field(..., description="Whether the download was successful")

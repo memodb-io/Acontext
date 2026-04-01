@@ -4,6 +4,7 @@ from .common import FileContent, FlagResponse
 from .disk import (
     Artifact,
     Disk,
+    DownloadToSandboxResp,
     GetArtifactResp,
     ListArtifactsResp,
     ListDisksOutput,
@@ -44,6 +45,7 @@ from .user import (
     User,
     UserResourceCounts,
 )
+from .project import ProjectConfig
 from .learning_space import (
     LearningSpace,
     LearningSpaceSession,
@@ -58,6 +60,7 @@ __all__ = [
     # Disk types
     "Artifact",
     "Disk",
+    "DownloadToSandboxResp",
     "GetArtifactResp",
     "ListArtifactsResp",
     "ListDisksOutput",
@@ -93,6 +96,8 @@ __all__ = [
     "ListUsersOutput",
     "User",
     "UserResourceCounts",
+    # Project types
+    "ProjectConfig",
     # Learning space types
     "LearningSpace",
     "LearningSpaceSession",

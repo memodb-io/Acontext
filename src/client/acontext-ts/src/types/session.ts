@@ -173,6 +173,16 @@ export const CopySessionResultSchema = z.object({
 
 export type CopySessionResult = z.infer<typeof CopySessionResultSchema>;
 
+/** Response wrapper for PATCH message meta endpoint. */
+export const PatchMessageMetaRespSchema = z.object({
+  meta: z.record(z.string(), z.unknown()),
+});
+
+/** Response wrapper for PATCH session configs endpoint. */
+export const PatchConfigsRespSchema = z.object({
+  configs: z.record(z.string(), z.unknown()),
+});
+
 /**
  * Parameters for the remove_tool_result edit strategy.
  */

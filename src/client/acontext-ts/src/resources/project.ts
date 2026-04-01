@@ -3,7 +3,7 @@
  */
 
 import { RequesterProtocol } from '../client-types';
-import { ProjectConfig, ProjectConfigUpdate } from '../types/project';
+import { ProjectConfig, ProjectConfigSchema, ProjectConfigUpdate } from '../types/project';
 
 export class ProjectAPI {
   constructor(private requester: RequesterProtocol) {}
@@ -14,8 +14,8 @@ export class ProjectAPI {
    * @returns ProjectConfig containing the current project configuration
    */
   async getConfigs(): Promise<ProjectConfig> {
-    const data = await this.requester.request<ProjectConfig>('GET', '/project/configs');
-    return data;
+    const data = await this.requester.request('GET', '/project/configs');
+    return ProjectConfigSchema.parse(data);
   }
 
   /**
@@ -26,9 +26,9 @@ export class ProjectAPI {
    * @returns ProjectConfig containing the updated project configuration
    */
   async updateConfigs(configs: ProjectConfigUpdate): Promise<ProjectConfig> {
-    const data = await this.requester.request<ProjectConfig>('PATCH', '/project/configs', {
+    const data = await this.requester.request('PATCH', '/project/configs', {
       jsonData: configs,
     });
-    return data;
+    return ProjectConfigSchema.parse(data);
   }
 }

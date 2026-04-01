@@ -334,9 +334,36 @@ export class AcontextClient implements RequesterProtocol {
         clearTimeout(timeoutId);
 
         if (response.status >= 400) {
+          // Try to parse JSON error body for detailed error info
+          // (API returns JSON errors even for binary endpoints)
+          const contentType = response.headers.get('content-type') || '';
+          let message = response.statusText;
+          let code: number | undefined;
+          let error: string | undefined;
+          let payload: Record<string, unknown> | undefined;
+          if (contentType.includes('application/json')) {
+            try {
+              const parsed = await response.json();
+              if (parsed && typeof parsed === 'object') {
+                payload = parsed as Record<string, unknown>;
+                message = String(parsed.msg || parsed.message || message);
+                if (typeof parsed.error === 'string') {
+                  error = parsed.error;
+                }
+                if (typeof parsed.code === 'number') {
+                  code = parsed.code;
+                }
+              }
+            } catch {
+              // JSON parsing failed, use default message
+            }
+          }
           throw new APIError({
             statusCode: response.status,
-            message: response.statusText,
+            code,
+            message,
+            error,
+            payload,
           });
         }
 

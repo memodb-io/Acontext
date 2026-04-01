@@ -2,10 +2,15 @@
  * Project configuration types.
  */
 
-export interface ProjectConfig {
-  task_success_criteria?: string | null;
-  task_failure_criteria?: string | null;
-  [key: string]: unknown;
-}
+import { z } from 'zod';
+
+export const ProjectConfigSchema = z
+  .object({
+    task_success_criteria: z.string().nullable().optional(),
+    task_failure_criteria: z.string().nullable().optional(),
+  })
+  .passthrough();
+
+export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
 
 export type ProjectConfigUpdate = Partial<ProjectConfig>;
