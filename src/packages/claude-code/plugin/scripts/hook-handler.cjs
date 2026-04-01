@@ -17026,7 +17026,7 @@ var require_learning_space = __commonJS({
   "node_modules/@acontext/acontext/dist/types/learning-space.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.ListLearningSpacesOutputSchema = exports2.LearningSpaceSessionSchema = exports2.LearningSpaceSkillSchema = exports2.LearningSpaceSchema = void 0;
+    exports2.ListLearningSpacesOutputSchema = exports2.LearningSpaceSessionSchema = exports2.TERMINAL_SESSION_STATUSES = exports2.SESSION_STATUSES = exports2.LearningSpaceSkillSchema = exports2.LearningSpaceSchema = void 0;
     var zod_1 = require_zod();
     exports2.LearningSpaceSchema = zod_1.z.object({
       id: zod_1.z.string(),
@@ -17041,11 +17041,23 @@ var require_learning_space = __commonJS({
       skill_id: zod_1.z.string(),
       created_at: zod_1.z.string()
     });
+    exports2.SESSION_STATUSES = [
+      "pending",
+      "distilling",
+      "queued",
+      "skill_writing",
+      "completed",
+      "failed"
+    ];
+    exports2.TERMINAL_SESSION_STATUSES = /* @__PURE__ */ new Set([
+      "completed",
+      "failed"
+    ]);
     exports2.LearningSpaceSessionSchema = zod_1.z.object({
       id: zod_1.z.string(),
       learning_space_id: zod_1.z.string(),
       session_id: zod_1.z.string(),
-      status: zod_1.z.string(),
+      status: zod_1.z.enum(exports2.SESSION_STATUSES).or(zod_1.z.string()),
       created_at: zod_1.z.string(),
       updated_at: zod_1.z.string()
     });
@@ -17349,7 +17361,7 @@ var require_learning_spaces = __commonJS({
       async waitForLearning(options) {
         const timeout = options.timeout ?? 120;
         const pollInterval = options.pollInterval ?? 1;
-        const terminal = /* @__PURE__ */ new Set(["completed", "failed"]);
+        const terminal = types_1.TERMINAL_SESSION_STATUSES;
         const deadline = Date.now() + timeout * 1e3;
         while (true) {
           const session = await this.getSession({
@@ -18206,6 +18218,22 @@ var require_skills = __commonJS({
         const data = await this.requester.request("POST", `/agent_skills/${skillId}/download_to_sandbox`, { jsonData: payload });
         return types_1.DownloadSkillToSandboxRespSchema.parse(data);
       }
+      /**
+       * Download all files from a skill as a ZIP archive.
+       *
+       * @param skillId - The UUID of the skill to download
+       * @returns Buffer containing the ZIP file with all skill files and relative paths preserved
+       *
+       * @example
+       * ```typescript
+       * // Download skill as ZIP file
+       * const zipContent = await client.skills.downloadZip('skill-uuid');
+       * fs.writeFileSync('my_skill.zip', zipContent);
+       * ```
+       */
+      async downloadZip(skillId) {
+        return this.requester.requestBinary("GET", `/agent_skills/${skillId}/download_zip`);
+      }
     };
     exports2.SkillsAPI = SkillsAPI;
   }
@@ -18510,6 +18538,54 @@ var require_client = __commonJS({
           });
         }
         return unwrap ? payload.data : payload;
+      }
+      async requestBinary(method, path5, options) {
+        const url = `${this._baseUrl}${path5}`;
+        const effectiveTimeout = options?.timeout ?? this._timeout;
+        try {
+          const headers = {
+            Authorization: `Bearer ${this._apiKey}`,
+            "User-Agent": this._userAgent
+          };
+          let finalUrl = url;
+          if (options?.params && Object.keys(options.params).length > 0) {
+            const searchParams = new URLSearchParams();
+            for (const [key, value] of Object.entries(options.params)) {
+              searchParams.append(key, String(value));
+            }
+            finalUrl = `${url}?${searchParams.toString()}`;
+          }
+          const fetchImpl = await this.getFetch();
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout);
+          try {
+            const response = await fetchImpl(finalUrl, {
+              method,
+              headers,
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            if (response.status >= 400) {
+              throw new errors_1.APIError({
+                statusCode: response.status,
+                message: response.statusText
+              });
+            }
+            const arrayBuffer = await response.arrayBuffer();
+            return Buffer.from(arrayBuffer);
+          } catch (error) {
+            clearTimeout(timeoutId);
+            if (error instanceof Error && error.name === "AbortError") {
+              throw new errors_1.TransportError(`Request timeout after ${effectiveTimeout}ms`);
+            }
+            throw error;
+          }
+        } catch (error) {
+          if (error instanceof errors_1.APIError || error instanceof errors_1.TransportError) {
+            throw error;
+          }
+          throw new errors_1.TransportError(error instanceof Error ? error.message : String(error));
+        }
       }
       async getFetch() {
         if (typeof fetch !== "undefined") {

@@ -24193,7 +24193,7 @@ var require_learning_space = __commonJS({
   "node_modules/@acontext/acontext/dist/types/learning-space.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.ListLearningSpacesOutputSchema = exports2.LearningSpaceSessionSchema = exports2.LearningSpaceSkillSchema = exports2.LearningSpaceSchema = void 0;
+    exports2.ListLearningSpacesOutputSchema = exports2.LearningSpaceSessionSchema = exports2.TERMINAL_SESSION_STATUSES = exports2.SESSION_STATUSES = exports2.LearningSpaceSkillSchema = exports2.LearningSpaceSchema = void 0;
     var zod_1 = require_zod();
     exports2.LearningSpaceSchema = zod_1.z.object({
       id: zod_1.z.string(),
@@ -24208,11 +24208,23 @@ var require_learning_space = __commonJS({
       skill_id: zod_1.z.string(),
       created_at: zod_1.z.string()
     });
+    exports2.SESSION_STATUSES = [
+      "pending",
+      "distilling",
+      "queued",
+      "skill_writing",
+      "completed",
+      "failed"
+    ];
+    exports2.TERMINAL_SESSION_STATUSES = /* @__PURE__ */ new Set([
+      "completed",
+      "failed"
+    ]);
     exports2.LearningSpaceSessionSchema = zod_1.z.object({
       id: zod_1.z.string(),
       learning_space_id: zod_1.z.string(),
       session_id: zod_1.z.string(),
-      status: zod_1.z.string(),
+      status: zod_1.z.enum(exports2.SESSION_STATUSES).or(zod_1.z.string()),
       created_at: zod_1.z.string(),
       updated_at: zod_1.z.string()
     });
@@ -24516,7 +24528,7 @@ var require_learning_spaces = __commonJS({
       async waitForLearning(options) {
         const timeout = options.timeout ?? 120;
         const pollInterval = options.pollInterval ?? 1;
-        const terminal = /* @__PURE__ */ new Set(["completed", "failed"]);
+        const terminal = types_1.TERMINAL_SESSION_STATUSES;
         const deadline = Date.now() + timeout * 1e3;
         while (true) {
           const session = await this.getSession({
@@ -25373,6 +25385,22 @@ var require_skills = __commonJS({
         const data = await this.requester.request("POST", `/agent_skills/${skillId}/download_to_sandbox`, { jsonData: payload });
         return types_1.DownloadSkillToSandboxRespSchema.parse(data);
       }
+      /**
+       * Download all files from a skill as a ZIP archive.
+       *
+       * @param skillId - The UUID of the skill to download
+       * @returns Buffer containing the ZIP file with all skill files and relative paths preserved
+       *
+       * @example
+       * ```typescript
+       * // Download skill as ZIP file
+       * const zipContent = await client.skills.downloadZip('skill-uuid');
+       * fs.writeFileSync('my_skill.zip', zipContent);
+       * ```
+       */
+      async downloadZip(skillId) {
+        return this.requester.requestBinary("GET", `/agent_skills/${skillId}/download_zip`);
+      }
     };
     exports2.SkillsAPI = SkillsAPI;
   }
@@ -25677,6 +25705,54 @@ var require_client = __commonJS({
           });
         }
         return unwrap ? payload.data : payload;
+      }
+      async requestBinary(method, path3, options) {
+        const url2 = `${this._baseUrl}${path3}`;
+        const effectiveTimeout = options?.timeout ?? this._timeout;
+        try {
+          const headers = {
+            Authorization: `Bearer ${this._apiKey}`,
+            "User-Agent": this._userAgent
+          };
+          let finalUrl = url2;
+          if (options?.params && Object.keys(options.params).length > 0) {
+            const searchParams = new URLSearchParams();
+            for (const [key, value] of Object.entries(options.params)) {
+              searchParams.append(key, String(value));
+            }
+            finalUrl = `${url2}?${searchParams.toString()}`;
+          }
+          const fetchImpl = await this.getFetch();
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), effectiveTimeout);
+          try {
+            const response = await fetchImpl(finalUrl, {
+              method,
+              headers,
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            if (response.status >= 400) {
+              throw new errors_1.APIError({
+                statusCode: response.status,
+                message: response.statusText
+              });
+            }
+            const arrayBuffer = await response.arrayBuffer();
+            return Buffer.from(arrayBuffer);
+          } catch (error48) {
+            clearTimeout(timeoutId);
+            if (error48 instanceof Error && error48.name === "AbortError") {
+              throw new errors_1.TransportError(`Request timeout after ${effectiveTimeout}ms`);
+            }
+            throw error48;
+          }
+        } catch (error48) {
+          if (error48 instanceof errors_1.APIError || error48 instanceof errors_1.TransportError) {
+            throw error48;
+          }
+          throw new errors_1.TransportError(error48 instanceof Error ? error48.message : String(error48));
+        }
       }
       async getFetch() {
         if (typeof fetch !== "undefined") {
@@ -45874,10 +45950,9 @@ var ProgressTokenSchema = union([string2(), number2().int()]);
 var CursorSchema = string2();
 var TaskCreationParamsSchema = looseObject({
   /**
-   * Time in milliseconds to keep task results available after completion.
-   * If null, the task has unlimited lifetime until manually cleaned up.
+   * Requested duration in milliseconds to retain task from creation.
    */
-  ttl: union([number2(), _null3()]).optional(),
+  ttl: number2().optional(),
   /**
    * Time in milliseconds to wait between task status requests.
    */
@@ -46177,7 +46252,11 @@ var ClientCapabilitiesSchema = object2({
   /**
    * Present if the client supports task creation.
    */
-  tasks: ClientTasksCapabilitySchema.optional()
+  tasks: ClientTasksCapabilitySchema.optional(),
+  /**
+   * Extensions that the client supports. Keys are extension identifiers (vendor-prefix/extension-name).
+   */
+  extensions: record(string2(), AssertObjectSchema).optional()
 });
 var InitializeRequestParamsSchema = BaseRequestParamsSchema.extend({
   /**
@@ -46238,7 +46317,11 @@ var ServerCapabilitiesSchema = object2({
   /**
    * Present if the server supports task creation.
    */
-  tasks: ServerTasksCapabilitySchema.optional()
+  tasks: ServerTasksCapabilitySchema.optional(),
+  /**
+   * Extensions that the server supports. Keys are extension identifiers (vendor-prefix/extension-name).
+   */
+  extensions: record(string2(), AssertObjectSchema).optional()
 });
 var InitializeResultSchema = ResultSchema.extend({
   /**
@@ -46430,6 +46513,12 @@ var ResourceSchema = object2({
    * The MIME type of this resource, if known.
    */
   mimeType: optional(string2()),
+  /**
+   * The size of the raw resource content, in bytes (i.e., before base64 encoding or any tokenization), if known.
+   *
+   * This can be used by Hosts to display file sizes and estimate context window usage.
+   */
+  size: optional(number2()),
   /**
    * Optional annotations for the client.
    */
@@ -48977,6 +49066,10 @@ var Protocol = class {
     this._progressHandlers.clear();
     this._taskProgressTokens.clear();
     this._pendingDebouncedNotifications.clear();
+    for (const info of this._timeoutInfo.values()) {
+      clearTimeout(info.timeoutId);
+    }
+    this._timeoutInfo.clear();
     for (const controller of this._requestHandlerAbortControllers.values()) {
       controller.abort();
     }
@@ -49107,7 +49200,9 @@ var Protocol = class {
         await capturedTransport?.send(errorResponse);
       }
     }).catch((error48) => this._onerror(new Error(`Failed to send response: ${error48}`))).finally(() => {
-      this._requestHandlerAbortControllers.delete(request.id);
+      if (this._requestHandlerAbortControllers.get(request.id) === abortController) {
+        this._requestHandlerAbortControllers.delete(request.id);
+      }
     });
   }
   _onprogress(notification) {
@@ -51145,6 +51240,9 @@ var McpServer = class {
           annotations = rest.shift();
         }
       } else if (typeof firstArg === "object" && firstArg !== null) {
+        if (Object.values(firstArg).some((v) => typeof v === "object" && v !== null)) {
+          throw new Error(`Tool ${name} expected a Zod schema or ToolAnnotations, but received an unrecognized object`);
+        }
         annotations = rest.shift();
       }
     }
@@ -51265,6 +51363,9 @@ function getZodSchemaObject(schema) {
   }
   if (isZodRawShapeCompat(schema)) {
     return objectFromShape(schema);
+  }
+  if (!isZodSchemaInstance(schema)) {
+    throw new Error("inputSchema must be a Zod schema or raw shape, received an unrecognized object");
   }
   return schema;
 }
