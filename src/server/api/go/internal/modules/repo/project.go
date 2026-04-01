@@ -144,7 +144,7 @@ func (r *projectRepo) AnalyzeUsages(ctx context.Context, projectID uuid.UUID, in
 			if err := r.db.WithContext(ctx).Raw(`
 				WITH date_series AS (
 					SELECT generate_series(
-						CURRENT_DATE - (?::int) * INTERVAL '1 day',
+						CURRENT_DATE - ((?::int) - 1) * INTERVAL '1 day',
 						CURRENT_DATE,
 						'1 day'::interval
 					)::date AS date
@@ -197,7 +197,7 @@ func (r *projectRepo) AnalyzeUsages(ctx context.Context, projectID uuid.UUID, in
 			if err := r.db.WithContext(ctx).Raw(`
 				WITH date_series AS (
 					SELECT generate_series(
-						CURRENT_DATE - (?::int) * INTERVAL '1 day',
+						CURRENT_DATE - ((?::int) - 1) * INTERVAL '1 day',
 						CURRENT_DATE,
 						'1 day'::interval
 					)::date AS date
@@ -208,7 +208,7 @@ func (r *projectRepo) AnalyzeUsages(ctx context.Context, projectID uuid.UUID, in
 						COUNT(m.id) AS message_count
 					FROM sessions s
 					LEFT JOIN messages m ON m.session_id = s.id
-					WHERE s.created_at >= CURRENT_DATE - (?::int) * INTERVAL '1 day'
+					WHERE s.created_at >= CURRENT_DATE - ((?::int) - 1) * INTERVAL '1 day'
 						AND s.project_id = ?
 					GROUP BY s.id, DATE(s.created_at)
 				)
@@ -234,7 +234,7 @@ func (r *projectRepo) AnalyzeUsages(ctx context.Context, projectID uuid.UUID, in
 			if err := r.db.WithContext(ctx).Raw(`
 				WITH date_series AS (
 					SELECT generate_series(
-						CURRENT_DATE - (?::int) * INTERVAL '1 day',
+						CURRENT_DATE - ((?::int) - 1) * INTERVAL '1 day',
 						CURRENT_DATE,
 						'1 day'::interval
 					)::date AS date
@@ -245,7 +245,7 @@ func (r *projectRepo) AnalyzeUsages(ctx context.Context, projectID uuid.UUID, in
 						COUNT(t.id) AS task_count
 					FROM sessions s
 					LEFT JOIN tasks t ON t.session_id = s.id AND t.is_planning = false
-					WHERE s.created_at >= CURRENT_DATE - (?::int) * INTERVAL '1 day'
+					WHERE s.created_at >= CURRENT_DATE - ((?::int) - 1) * INTERVAL '1 day'
 						AND s.project_id = ?
 					GROUP BY s.id, DATE(s.created_at)
 				)
@@ -271,7 +271,7 @@ func (r *projectRepo) AnalyzeUsages(ctx context.Context, projectID uuid.UUID, in
 			if err := r.db.WithContext(ctx).Raw(`
 				WITH date_series AS (
 					SELECT generate_series(
-						CURRENT_DATE - (?::int) * INTERVAL '1 day',
+						CURRENT_DATE - ((?::int) - 1) * INTERVAL '1 day',
 						CURRENT_DATE,
 						'1 day'::interval
 					)::date AS date
@@ -282,7 +282,7 @@ func (r *projectRepo) AnalyzeUsages(ctx context.Context, projectID uuid.UUID, in
 						COUNT(m.id) AS message_count
 					FROM tasks t
 					LEFT JOIN messages m ON m.task_id = t.id
-					WHERE t.created_at >= CURRENT_DATE - (?::int) * INTERVAL '1 day'
+					WHERE t.created_at >= CURRENT_DATE - ((?::int) - 1) * INTERVAL '1 day'
 						AND t.is_planning = false
 						AND t.project_id = ?
 					GROUP BY t.id, DATE(t.created_at)
@@ -309,7 +309,7 @@ func (r *projectRepo) AnalyzeUsages(ctx context.Context, projectID uuid.UUID, in
 			if err := r.db.WithContext(ctx).Raw(`
 				WITH date_series AS (
 					SELECT generate_series(
-						CURRENT_DATE - (?::int) * INTERVAL '1 day',
+						CURRENT_DATE - ((?::int) - 1) * INTERVAL '1 day',
 						CURRENT_DATE,
 						'1 day'::interval
 					)::date AS date
@@ -361,7 +361,7 @@ func (r *projectRepo) AnalyzeUsages(ctx context.Context, projectID uuid.UUID, in
 						ELSE NULL
 					END AS avg_duration_seconds
 				FROM tasks
-				WHERE created_at >= CURRENT_DATE - (?::int) * INTERVAL '1 day'
+				WHERE created_at >= CURRENT_DATE - ((?::int) - 1) * INTERVAL '1 day'
 					AND is_planning = false
 					AND project_id = ?
 				GROUP BY status
@@ -411,7 +411,7 @@ func (r *projectRepo) AnalyzeUsages(ctx context.Context, projectID uuid.UUID, in
 			if err := r.db.WithContext(ctx).Raw(`
 				WITH date_series AS (
 					SELECT generate_series(
-						CURRENT_DATE - (?::int) * INTERVAL '1 day',
+						CURRENT_DATE - ((?::int) - 1) * INTERVAL '1 day',
 						CURRENT_DATE,
 						'1 day'::interval
 					)::date AS date
@@ -438,7 +438,7 @@ func (r *projectRepo) AnalyzeUsages(ctx context.Context, projectID uuid.UUID, in
 			if err := r.db.WithContext(ctx).Raw(`
 				WITH date_series AS (
 					SELECT generate_series(
-						CURRENT_DATE - (?::int) * INTERVAL '1 day',
+						CURRENT_DATE - ((?::int) - 1) * INTERVAL '1 day',
 						CURRENT_DATE,
 						'1 day'::interval
 					)::date AS date
@@ -465,7 +465,7 @@ func (r *projectRepo) AnalyzeUsages(ctx context.Context, projectID uuid.UUID, in
 			if err := r.db.WithContext(ctx).Raw(`
 				WITH date_series AS (
 					SELECT generate_series(
-						CURRENT_DATE - (?::int) * INTERVAL '1 day',
+						CURRENT_DATE - ((?::int) - 1) * INTERVAL '1 day',
 						CURRENT_DATE,
 						'1 day'::interval
 					)::date AS date
