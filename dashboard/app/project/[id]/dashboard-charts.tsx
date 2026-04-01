@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo, useMemo, cloneElement } from "react";
+import React, { memo, useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -346,15 +346,9 @@ export const ChartWrapper = memo(function ChartWrapper({
     );
   }
 
-  // Clone the chart element and inject responsive prop and style
-  const chartWithResponsive = cloneElement(children as React.ReactElement<{ responsive?: boolean; style?: React.CSSProperties }>, {
-    responsive: true,
-    style: { width: "100%", height: "100%" },
-  });
-
   return (
     <ChartContainer config={chartConfig} className="h-full w-full">
-      {chartWithResponsive}
+      {children}
     </ChartContainer>
   );
 });
