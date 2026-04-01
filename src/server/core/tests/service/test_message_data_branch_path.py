@@ -25,7 +25,7 @@ async def _create_project_and_session(db_client):
 
 
 @pytest.mark.asyncio
-async def test_fetch_message_branch_path_ids_root_only(db_client):
+async def test_fetch_message_branch_path_rows_root_only(db_client):
     _, acontext_session = await _create_project_and_session(db_client)
 
     async with db_client.get_session_context() as session:
@@ -37,17 +37,17 @@ async def test_fetch_message_branch_path_ids_root_only(db_client):
         session.add(root)
         await session.flush()
 
-        r = await MD.fetch_message_branch_path_ids(
+        r = await MD.fetch_message_branch_path_rows(
             session, root.id, acontext_session.id
         )
-        message_ids, eil = r.unpack()
+        rows, eil = r.unpack()
 
         assert eil is None
-        assert message_ids == [root.id]
+        assert [row["id"] for row in rows] == [root.id]
 
 
 @pytest.mark.asyncio
-async def test_fetch_message_branch_path_ids_returns_root_to_leaf_order(db_client):
+async def test_fetch_message_branch_path_rows_returns_root_to_leaf_order(db_client):
     _, acontext_session = await _create_project_and_session(db_client)
 
     async with db_client.get_session_context() as session:
@@ -77,17 +77,17 @@ async def test_fetch_message_branch_path_ids_returns_root_to_leaf_order(db_clien
         session.add(leaf)
         await session.flush()
 
-        r = await MD.fetch_message_branch_path_ids(
+        r = await MD.fetch_message_branch_path_rows(
             session, leaf.id, acontext_session.id
         )
-        message_ids, eil = r.unpack()
+        rows, eil = r.unpack()
 
         assert eil is None
-        assert message_ids == [root.id, child.id, leaf.id]
+        assert [row["id"] for row in rows] == [root.id, child.id, leaf.id]
 
 
 @pytest.mark.asyncio
-async def test_fetch_message_branch_path_ids_rejects_wrong_session(db_client):
+async def test_fetch_message_branch_path_rows_rejects_wrong_session(db_client):
     _, session_a = await _create_project_and_session(db_client)
     _, session_b = await _create_project_and_session(db_client)
 
@@ -100,7 +100,7 @@ async def test_fetch_message_branch_path_ids_rejects_wrong_session(db_client):
         session.add(msg)
         await session.flush()
 
-        r = await MD.fetch_message_branch_path_ids(session, msg.id, session_b.id)
+        r = await MD.fetch_message_branch_path_rows(session, msg.id, session_b.id)
         _, eil = r.unpack()
 
         assert eil is not None
@@ -108,11 +108,11 @@ async def test_fetch_message_branch_path_ids_rejects_wrong_session(db_client):
 
 
 @pytest.mark.asyncio
-async def test_fetch_message_branch_path_ids_rejects_missing_message(db_client):
+async def test_fetch_message_branch_path_rows_rejects_missing_message(db_client):
     _, acontext_session = await _create_project_and_session(db_client)
 
     async with db_client.get_session_context() as session:
-        r = await MD.fetch_message_branch_path_ids(
+        r = await MD.fetch_message_branch_path_rows(
             session, acontext_session.id, acontext_session.id
         )
         _, eil = r.unpack()

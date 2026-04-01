@@ -146,31 +146,6 @@ async def hydrate_message_parts(
         return Result.reject(f"Error hydrating message parts: {e}")
 
 
-async def fetch_message_branch_path_ids(
-    db_session: AsyncSession,
-    message_id: asUUID,
-    session_id: asUUID | None = None,
-) -> Result[List[asUUID]]:
-    """
-    Fetch one message's branch path from root to the target message.
-
-    Uses a recursive CTE to walk parent_id upward in one query.
-
-    Args:
-        db_session: Database session
-        message_id: Leaf or intermediate message UUID to start from
-        session_id: Optional session UUID to verify the full path belongs to
-
-    Returns:
-        Result containing message IDs ordered from root to target message
-    """
-    r = await fetch_message_branch_path_rows(db_session, message_id, session_id)
-    rows, eil = r.unpack()
-    if eil:
-        return Result.reject(str(eil))
-    return Result.resolve([row["id"] for row in rows])
-
-
 async def fetch_message_branch_path_rows(
     db_session: AsyncSession,
     message_id: asUUID,
@@ -332,22 +307,6 @@ async def branch_pending_message_length(
         return Result.reject(
             f"Error counting branch messages for message {message_id}: {e}"
         )
-
-
-async def fetch_message_branch_path_data(
-    db_session: AsyncSession,
-    message_id: asUUID,
-    session_id: asUUID | None = None,
-    user_kek: bytes | None = None,
-) -> Result[List[Message]]:
-    """
-    Fetch one message's branch path with parts loaded from S3.
-    """
-    r = await fetch_message_branch_path_messages(db_session, message_id, session_id)
-    messages, eil = r.unpack()
-    if eil:
-        return Result.reject(str(eil))
-    return await hydrate_message_parts(messages, user_kek=user_kek)
 
 
 async def fetch_session_messages(
