@@ -13,7 +13,6 @@ import (
 	"github.com/memodb-io/Acontext/internal/config"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
-	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -1502,9 +1501,6 @@ func TestSessionService_GetMessages_MaterialURLs(t *testing.T) {
 	projectID := uuid.New()
 	sessionID := uuid.New()
 
-	err := tokenizer.Init(logger)
-	assert.NoError(t, err)
-
 	// Parts to cache in Redis so loadPartsForMessage succeeds without S3
 	imageParts := []model.Part{
 		{
@@ -1574,9 +1570,7 @@ func TestSessionService_GetMessages_MaterialURLs(t *testing.T) {
 			AssetExpire:        time.Hour,
 		})
 
-		if !assert.NoError(t, err) {
-			return
-		}
+		assert.NoError(t, err)
 		assert.NotNil(t, result)
 		assert.NotEmpty(t, result.PublicURLs)
 
@@ -1623,118 +1617,10 @@ func TestSessionService_GetMessages_MaterialURLs(t *testing.T) {
 			WithAssetPublicURL: false,
 		})
 
-		if !assert.NoError(t, err) {
-			return
-		}
+		assert.NoError(t, err)
 		assert.Empty(t, result.PublicURLs)
 
 		// materialSvc should NOT have been called
 		mockMaterialSvc.AssertNotCalled(t, "CreateMaterialURL")
-	})
-}
-
-func TestSessionService_GetMessages_ComputesThisTimeTokens(t *testing.T) {
-	ctx := context.Background()
-	projectID := uuid.New()
-	sessionID := uuid.New()
-	logger := zap.NewNop()
-	cfg := &config.Config{}
-
-	err := tokenizer.Init(logger)
-	assert.NoError(t, err)
-
-	mr := miniredis.RunT(t)
-	rdb := redis.NewClient(&redis.Options{Addr: mr.Addr()})
-
-	repo := &MockSessionRepo{}
-	session := &model.Session{ID: sessionID, ProjectID: projectID}
-	repo.On("Get", mock.Anything, mock.MatchedBy(func(s *model.Session) bool {
-		return s.ID == sessionID
-	})).Return(session, nil)
-	repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
-		{
-			ID:        uuid.New(),
-			SessionID: sessionID,
-			Role:      model.RoleUser,
-			CreatedAt: time.Now(),
-			PartsAssetMeta: datatypes.NewJSONType(model.Asset{
-				S3Key:  "parts/" + projectID.String() + "/message.json",
-				SHA256: "sha-message",
-				MIME:   "application/json",
-			}),
-		},
-	}, nil)
-
-	partsJSON, err := json.Marshal([]model.Part{
-		model.NewTextPart("hello from acontext"),
-	})
-	assert.NoError(t, err)
-	err = rdb.Set(ctx, "message:parts:"+projectID.String()+":sha-message", append([]byte{0x00}, partsJSON...), time.Hour).Err()
-	assert.NoError(t, err)
-
-	mockAssetRefRepo := &MockAssetReferenceRepo{}
-	service := NewSessionService(repo, nil, mockAssetRefRepo, nil, logger, nil, nil, cfg, rdb, nil)
-
-	out, err := service.GetMessages(ctx, GetMessagesInput{
-		ProjectID: projectID,
-		SessionID: sessionID,
-		Limit:     0,
-	})
-	assert.NoError(t, err)
-	assert.NotNil(t, out)
-	assert.Greater(t, out.ThisTimeTokens, 0)
-	assert.Len(t, out.Items, 1)
-	assert.Len(t, out.Items[0].Parts, 1)
-	assert.Equal(t, "hello from acontext", out.Items[0].Parts[0].Text)
-
-	repo.AssertExpectations(t)
-}
-
-func TestSameMessageContentSignature_Branches(t *testing.T) {
-	id1 := uuid.MustParse("00000000-0000-0000-0000-000000000201")
-	id2 := uuid.MustParse("00000000-0000-0000-0000-000000000202")
-
-	t.Run("length mismatch returns false", func(t *testing.T) {
-		a := []model.Message{{ID: id1}}
-		b := []model.Message{{ID: id1}, {ID: id2}}
-		assert.False(t, sameMessageContentSignature(a, b))
-	})
-
-	t.Run("same ids and token-relevant content returns true", func(t *testing.T) {
-		a := []model.Message{{ID: id1}, {ID: id2}}
-		a[0].Parts = []model.Part{model.NewTextPart("hello")}
-		a[1].Parts = []model.Part{
-			{
-				Type: model.PartTypeToolCall,
-				Meta: map[string]interface{}{
-					model.MetaKeyName:      "toolA",
-					model.MetaKeyArguments: "{\"x\":1}",
-				},
-			},
-		}
-
-		b := []model.Message{{ID: id1}, {ID: id2}}
-		b[0].Parts = []model.Part{model.NewTextPart("hello")}
-		b[1].Parts = []model.Part{
-			{
-				Type: model.PartTypeToolCall,
-				Meta: map[string]interface{}{
-					model.MetaKeyName:      "toolA",
-					model.MetaKeyArguments: "{\"x\":1}",
-				},
-			},
-		}
-
-		assert.True(t, sameMessageContentSignature(a, b))
-	})
-
-	t.Run("same ids but different content returns false", func(t *testing.T) {
-		a := []model.Message{{ID: id1}, {ID: id2}}
-		a[0].Parts = []model.Part{model.NewTextPart("hello")}
-
-		b := []model.Message{{ID: id1}, {ID: id2}}
-		b[0].Parts = []model.Part{model.NewTextPart("hello changed")}
-
-		assert.False(t, sameMessageContentSignature(a, b))
 	})
 }

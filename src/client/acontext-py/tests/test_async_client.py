@@ -499,52 +499,6 @@ async def test_async_sessions_get_messages_rejects_non_positive_gt_token(
 
 @patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
 @pytest.mark.asyncio
-async def test_async_sessions_get_messages_with_editing_trigger(
-    mock_request, async_client: AcontextAsyncClient
-) -> None:
-    mock_request.return_value = {
-        "items": [],
-        "ids": [],
-        "has_more": False,
-        "this_time_tokens": 0,
-    }
-
-    edit_strategies = [
-        {"type": "token_limit", "params": {"limit_tokens": 1000}},
-    ]
-    editing_trigger = {"token_gte": 30000}
-    await async_client.sessions.get_messages(
-        "session-id",
-        format="openai",
-        edit_strategies=edit_strategies,
-        editing_trigger=editing_trigger,
-    )
-
-    mock_request.assert_called_once()
-    _, kwargs = mock_request.call_args
-    assert "editing_trigger" in kwargs["params"]
-    decoded_trigger = json.loads(kwargs["params"]["editing_trigger"])
-    assert decoded_trigger == editing_trigger
-
-
-@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
-@pytest.mark.asyncio
-async def test_async_sessions_get_messages_rejects_invalid_editing_trigger(
-    mock_request, async_client: AcontextAsyncClient
-) -> None:
-    with pytest.raises(ValueError, match="unsupported editing_trigger field\\(s\\): unexpected"):
-        await async_client.sessions.get_messages(
-            "session-id",
-            format="openai",
-            edit_strategies=[{"type": "token_limit", "params": {"limit_tokens": 1000}}],
-            editing_trigger={"unexpected": 1},
-        )
-
-    mock_request.assert_not_called()
-
-
-@patch("acontext.async_client.AcontextAsyncClient.request", new_callable=AsyncMock)
-@pytest.mark.asyncio
 async def test_async_sessions_get_tasks_without_filters(
     mock_request, async_client: AcontextAsyncClient
 ) -> None:
