@@ -11,6 +11,7 @@ Covers:
 """
 
 import uuid
+from datetime import date
 import pytest
 from acontext_core.llm.prompt.skill_learner import SkillLearnerPrompt
 from acontext_core.schema.mq.learning import SkillLearnDistilled
@@ -172,7 +173,7 @@ class TestPackIncomingContexts:
         # Each context should have its own date
         assert "Date: 2023/05/21" in result
         assert "Date: 2024/01/15" in result
-        assert "Date: 2026-04-01" in result  # today's date fallback
+        assert f"Date: {date.today().isoformat()}" in result  # today's date fallback
         # Should NOT have a single "Today's date" at the end
         assert "Today's date:" not in result
 

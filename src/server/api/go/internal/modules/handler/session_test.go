@@ -641,6 +641,7 @@ func TestSessionHandler_GetConfigs(t *testing.T) {
 func TestSessionHandler_StoreMessage(t *testing.T) {
 	projectID := uuid.New()
 	sessionID := uuid.New()
+	jsonParentID := uuid.New()
 
 	tests := []struct {
 		name           string
@@ -672,7 +673,42 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser
+					return in.ProjectID == projectID &&
+						in.SessionID == sessionID &&
+						in.ParentID == nil &&
+						in.Role == model.RoleUser
+				})).Return(expectedMessage, nil)
+			},
+			expectedStatus: http.StatusCreated,
+		},
+		{
+			name:           "acontext format - successful text message with parent_id",
+			sessionIDParam: sessionID.String(),
+			requestBody: map[string]interface{}{
+				"format":    "acontext",
+				"parent_id": jsonParentID.String(),
+				"blob": map[string]interface{}{
+					"role": "user",
+					"parts": []map[string]interface{}{
+						{
+							"type": "text",
+							"text": "fork here",
+						},
+					},
+				},
+			},
+			setup: func(svc *MockSessionService) {
+				expectedMessage := &model.Message{
+					ID:        uuid.New(),
+					SessionID: sessionID,
+					Role:      model.RoleUser,
+				}
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
+					return in.ProjectID == projectID &&
+						in.SessionID == sessionID &&
+						in.ParentID != nil &&
+						*in.ParentID == jsonParentID &&
+						in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
@@ -761,6 +797,66 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,
+		},
+		{
+			name:           "invalid parent id",
+			sessionIDParam: sessionID.String(),
+			requestBody: map[string]interface{}{
+				"format":    "openai",
+				"parent_id": "not-a-uuid",
+				"blob": map[string]interface{}{
+					"role":    "user",
+					"content": "Hello from OpenAI format!",
+				},
+			},
+			setup:          func(svc *MockSessionService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "parent message not found maps to 404",
+			sessionIDParam: sessionID.String(),
+			requestBody: map[string]interface{}{
+				"format":    "acontext",
+				"parent_id": jsonParentID.String(),
+				"blob": map[string]interface{}{
+					"role": "user",
+					"parts": []map[string]interface{}{
+						{
+							"type": "text",
+							"text": "fork here",
+						},
+					},
+				},
+			},
+			setup: func(svc *MockSessionService) {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
+					return in.ParentID != nil && *in.ParentID == jsonParentID
+				})).Return(nil, service.ErrParentMessageNotFound)
+			},
+			expectedStatus: http.StatusNotFound,
+		},
+		{
+			name:           "parent message wrong session maps to 404",
+			sessionIDParam: sessionID.String(),
+			requestBody: map[string]interface{}{
+				"format":    "acontext",
+				"parent_id": jsonParentID.String(),
+				"blob": map[string]interface{}{
+					"role": "user",
+					"parts": []map[string]interface{}{
+						{
+							"type": "text",
+							"text": "fork here",
+						},
+					},
+				},
+			},
+			setup: func(svc *MockSessionService) {
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
+					return in.ParentID != nil && *in.ParentID == jsonParentID
+				})).Return(nil, service.ErrParentMessageWrongSession)
+			},
+			expectedStatus: http.StatusNotFound,
 		},
 		{
 			name:           "openai format - multipart content with text and image",
@@ -1992,6 +2088,7 @@ func TestSessionHandler_StoreMessage(t *testing.T) {
 func TestSessionHandler_GetMessages(t *testing.T) {
 	projectID := uuid.New()
 	sessionID := uuid.New()
+	leafID := uuid.New()
 
 	tests := []struct {
 		name           string
@@ -2056,6 +2153,55 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 			setup: func(svc *MockSessionService) {
 				svc.On("GetMessages", mock.Anything, mock.Anything).Return(nil, errors.New("retrieval failed"))
 			},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "leaf_id retrieves branch messages",
+			sessionIDParam: sessionID.String(),
+			queryParams:    "?leaf_id=" + leafID.String(),
+			setup: func(svc *MockSessionService) {
+				expectedOutput := &service.GetMessagesOutput{
+					Items: []model.Message{
+						{
+							ID:        leafID,
+							SessionID: sessionID,
+							Role:      model.RoleUser,
+						},
+					},
+					HasMore: false,
+				}
+				svc.On("GetMessages", mock.Anything, mock.MatchedBy(func(in service.GetMessagesInput) bool {
+					return in.SessionID == sessionID && in.LeafID != nil && *in.LeafID == leafID && in.Limit == 0
+				})).Return(expectedOutput, nil)
+			},
+			expectedStatus: http.StatusOK,
+		},
+		{
+			name:           "invalid leaf_id",
+			sessionIDParam: sessionID.String(),
+			queryParams:    "?leaf_id=not-a-uuid",
+			setup:          func(svc *MockSessionService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "leaf_id rejects limit",
+			sessionIDParam: sessionID.String(),
+			queryParams:    "?leaf_id=" + leafID.String() + "&limit=20",
+			setup:          func(svc *MockSessionService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "leaf_id rejects cursor",
+			sessionIDParam: sessionID.String(),
+			queryParams:    "?leaf_id=" + leafID.String() + "&cursor=abc",
+			setup:          func(svc *MockSessionService) {},
+			expectedStatus: http.StatusBadRequest,
+		},
+		{
+			name:           "leaf_id rejects time_desc",
+			sessionIDParam: sessionID.String(),
+			queryParams:    "?leaf_id=" + leafID.String() + "&time_desc=false",
+			setup:          func(svc *MockSessionService) {},
 			expectedStatus: http.StatusBadRequest,
 		},
 
@@ -2381,6 +2527,7 @@ func TestSessionHandler_GetMessages(t *testing.T) {
 func TestSessionHandler_StoreMessage_Multipart(t *testing.T) {
 	projectID := uuid.New()
 	sessionID := uuid.New()
+	multipartParentID := uuid.New()
 
 	tests := []struct {
 		name           string
@@ -2422,7 +2569,35 @@ func TestSessionHandler_StoreMessage_Multipart(t *testing.T) {
 					Role:      model.RoleUser,
 				}
 				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
-					return in.ProjectID == projectID && in.SessionID == sessionID && in.Role == model.RoleUser && len(in.Parts) > 0
+					return in.ProjectID == projectID && in.SessionID == sessionID && in.ParentID == nil && in.Role == model.RoleUser && len(in.Parts) > 0
+				})).Return(expectedMessage, nil)
+			},
+			expectedStatus: http.StatusCreated,
+		},
+		{
+			name:           "successful multipart message with parent_id",
+			sessionIDParam: sessionID.String(),
+			payload: `{
+				"format": "openai",
+				"parent_id": "` + multipartParentID.String() + `",
+				"blob": {
+					"role": "user",
+					"content": "fork from multipart"
+				}
+			}`,
+			files: map[string]string{},
+			setup: func(svc *MockSessionService) {
+				expectedMessage := &model.Message{
+					ID:        uuid.New(),
+					SessionID: sessionID,
+					Role:      model.RoleUser,
+				}
+				svc.On("StoreMessage", mock.Anything, mock.MatchedBy(func(in service.StoreMessageInput) bool {
+					return in.ProjectID == projectID &&
+						in.SessionID == sessionID &&
+						in.ParentID != nil &&
+						*in.ParentID == multipartParentID &&
+						in.Role == model.RoleUser
 				})).Return(expectedMessage, nil)
 			},
 			expectedStatus: http.StatusCreated,

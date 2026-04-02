@@ -13,7 +13,9 @@ from ..telemetry.log import get_wide_event, set_wide_event, clear_wide_event
 from ..schema.mq.session import InsertNewMessage
 from ..schema.utils import asUUID
 from ..schema.result import Result
+from ..schema.orm import Message as ORMMessage
 from ..schema.session.learning_space import SessionStatus
+from ..schema.session.task import TaskStatus
 from .constants import EX, RK
 from .data import learning_space as LS
 from .data import message as MD
@@ -23,6 +25,63 @@ from .utils import (
     check_redis_lock_or_set,
     release_redis_lock,
 )
+
+
+def _insert_message_lock_key(session_id: asUUID, message_id: asUUID) -> str:
+    return f"session.message.insert.{session_id}.{message_id}"
+
+
+_BRANCH_LOCK_TERMINAL_STATUSES = {
+    TaskStatus.SUCCESS.value,
+    TaskStatus.FAILED.value,
+    TaskStatus.DISABLE_TRACKING.value,
+    TaskStatus.LIMIT_EXCEED.value,
+}
+
+
+def _branch_lock_message_id(messages: list[ORMMessage]) -> asUUID:
+    # Lock on the first unfinished message so all descendants contend on one key.
+    for message in messages:
+        if message.session_task_process_status not in _BRANCH_LOCK_TERMINAL_STATUSES:
+            return message.id
+    return messages[-1].id
+
+
+def _pending_branch_message_count(
+    messages: list[ORMMessage],
+    status: str = TaskStatus.PENDING.value,
+) -> int:
+    # Count from the already-fetched branch so we do not query the same path twice.
+    return sum(1 for message in messages if message.session_task_process_status == status)
+
+
+async def _prepare_pending_branch_lock(
+    db_session,
+    session_id: asUUID,
+    message_id: asUUID,
+) -> Result[tuple[list[ORMMessage], str] | None]:
+    # Both insert and flush need the same three things:
+    # verify the target is still pending, load the branch once, and derive one lock key.
+    r = await MD.check_session_message_status(db_session, message_id)
+    msg_status, eil = r.unpack()
+    if eil:
+        return r
+    if msg_status != TaskStatus.PENDING.value:
+        return Result.resolve(None)
+
+    r = await MD.fetch_message_branch_path_messages(db_session, message_id, session_id)
+    branch_messages, eil = r.unpack()
+    if eil:
+        return r
+
+    lock_message_id = _branch_lock_message_id(branch_messages)
+    lock_key = _insert_message_lock_key(session_id, lock_message_id)
+    return Result.resolve((branch_messages, lock_key))
+
+
+async def _get_pending_session_message_ids(session_id: asUUID) -> Result[list[asUUID]]:
+    async with DB_CLIENT.get_session_context() as session:
+        return await MD.get_message_ids(session, session_id, limit=None, asc=True)
 
 
 @register_consumer(
@@ -37,24 +96,25 @@ async def insert_new_message(body: InsertNewMessage, message: Message):
     wide = get_wide_event()
 
     async with DB_CLIENT.get_session_context() as session:
-        r = await MD.check_session_message_status(session, body.message_id)
-        msg_status, eil = r.unpack()
-        if eil or msg_status != "pending":
+        # Reuse one branch fetch for both pending-count logic and lock-key selection.
+        r = await _prepare_pending_branch_lock(session, body.session_id, body.message_id)
+        prepared, eil = r.unpack()
+        if eil:
+            return
+        if prepared is None:
             wide["action"] = "skip_not_pending"
             wide["_log_level"] = "debug"
             return
+        branch_messages, lock_key = prepared
 
         r = await PD.get_project_config(session, body.project_id)
         project_config, eil = r.unpack()
         if eil:
             return
 
-        r = await MD.session_message_length(session, body.session_id)
-        pending_count, eil = r.unpack()
-        if eil:
-            return
+        pending_count = _pending_branch_message_count(branch_messages)
 
-    wide["pending_message_count"] = pending_count
+    wide["pending_branch_message_count"] = pending_count
 
     if (
         not body.process_rightnow
@@ -70,9 +130,7 @@ async def insert_new_message(body: InsertNewMessage, message: Message):
         )
         return
 
-    _l = await check_redis_lock_or_set(
-        body.project_id, f"session.message.insert.{body.session_id}"
-    )
+    _l = await check_redis_lock_or_set(body.project_id, lock_key)
     if not _l:
         wide["lock_acquired"] = False
         wide["action"] = "retry_locked"
@@ -116,13 +174,15 @@ async def insert_new_message(body: InsertNewMessage, message: Message):
             )
         else:
             wide["action"] = "process"
-        await MC.process_session_pending_message(
-            project_config, body.project_id, body.session_id, user_kek=user_kek_bytes
+        await MC.process_inserted_message(
+            project_config,
+            body.project_id,
+            body.session_id,
+            body.message_id,
+            user_kek=user_kek_bytes,
         )
     finally:
-        await release_redis_lock(
-            body.project_id, f"session.message.insert.{body.session_id}"
-        )
+        await release_redis_lock(body.project_id, lock_key)
 
 
 # Delay queue: holds messages for buffer_ttl seconds, then DLX back to entry.
@@ -167,39 +227,85 @@ async def flush_session_message_blocking(
 
     max_retries = DEFAULT_CORE_CONFIG.session_message_flush_max_retries
     try:
-        for _attempt in range(max_retries):
-            _l = await check_redis_lock_or_set(
-                project_id, f"session.message.insert.{session_id}"
-            )
-            if _l:
-                break
+        async with DB_CLIENT.get_session_context() as read_session:
+            r = await PD.get_project_config(read_session, project_id)
+            project_config, eil = r.unpack()
+            if eil:
+                wide_event["outcome"] = "error"
+                wide_event["error"] = str(eil)
+                return r
+
+        retry_count = 0
+        processed_count = 0
+        while retry_count < max_retries:
+            r = await _get_pending_session_message_ids(session_id)
+            pending_message_ids, eil = r.unpack()
+            if eil:
+                wide_event["outcome"] = "error"
+                wide_event["error"] = str(eil)
+                return r
+            if not pending_message_ids:
+                wide_event["outcome"] = "success"
+                wide_event["processed_count"] = processed_count
+                wide_event["lock_retries"] = retry_count
+                return Result.resolve(None)
+
+            wide_event["pending_count"] = len(pending_message_ids)
+            processed_this_round = False
+            busy_lock_count = 0
+
+            for message_id in pending_message_ids:
+                async with DB_CLIENT.get_session_context() as read_session:
+                    # Reuse the same helper as insert_new_message() so both paths lock branches the same way.
+                    r = await _prepare_pending_branch_lock(
+                        read_session, session_id, message_id
+                    )
+                    prepared, eil = r.unpack()
+                    if eil:
+                        wide_event["outcome"] = "error"
+                        wide_event["error"] = str(eil)
+                        return r
+                    if prepared is None:
+                        continue
+                    _, lock_key = prepared
+
+                _l = await check_redis_lock_or_set(project_id, lock_key)
+                if not _l:
+                    busy_lock_count += 1
+                    continue
+
+                try:
+                    r = await MC.process_inserted_message(
+                        project_config, project_id, session_id, message_id
+                    )
+                    if not r.ok():
+                        wide_event["outcome"] = "failed"
+                        wide_event["processed_count"] = processed_count
+                        wide_event["lock_retries"] = retry_count
+                        return r
+                    processed_this_round = True
+                    processed_count += 1
+                finally:
+                    await release_redis_lock(project_id, lock_key)
+
+            wide_event["busy_lock_count"] = busy_lock_count
+            wide_event["processed_count"] = processed_count
+
+            if processed_this_round:
+                retry_count = 0
+                continue
+
+            retry_count += 1
+            wide_event["lock_retries"] = retry_count
             await asyncio.sleep(
                 DEFAULT_CORE_CONFIG.session_message_session_lock_wait_seconds
             )
-        else:
-            wide_event["outcome"] = "retries_exhausted"
-            wide_event["lock_retries"] = max_retries
-            return Result.reject(
-                f"Failed to acquire session lock after {max_retries} retries"
-            )
 
-        wide_event["lock_retries"] = _attempt
-
-        try:
-            async with DB_CLIENT.get_session_context() as read_session:
-                r = await PD.get_project_config(read_session, project_id)
-                project_config, eil = r.unpack()
-                if eil:
-                    wide_event["outcome"] = "error"
-                    wide_event["error"] = str(eil)
-                    return r
-            r = await MC.process_session_pending_message(
-                project_config, project_id, session_id
-            )
-            wide_event["outcome"] = "success" if r.ok() else "failed"
-            return r
-        finally:
-            await release_redis_lock(project_id, f"session.message.insert.{session_id}")
+        wide_event["outcome"] = "retries_exhausted"
+        wide_event["lock_retries"] = max_retries
+        return Result.reject(
+            f"Failed to flush pending session messages after {max_retries} retries"
+        )
     finally:
         wide_event["duration_ms"] = round((perf_counter() - _start) * 1000, 2)
         LOG.info("flush.message.processed", **wide_event)

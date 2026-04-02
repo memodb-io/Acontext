@@ -1,6 +1,7 @@
 from ..data import message as MD
 from ..data import learning_space as LS
 from ...infra.db import DB_CLIENT
+from ...schema.orm import Message
 from ...schema.session.task import TaskStatus
 from ...schema.session.message import MessageBlob
 from ...schema.utils import asUUID
@@ -11,6 +12,20 @@ from ...schema.config import ProjectConfig
 from ...telemetry.log import get_wide_event
 from ...telemetry.get_metrics import get_metrics
 from ...constants import ExcessMetricTags
+
+
+_CLAIMABLE_BRANCH_STATUSES = {
+    TaskStatus.PENDING.value,
+    TaskStatus.RUNNING.value,
+}
+
+
+def _claimable_branch_message_ids(messages: list[Message]) -> list[asUUID]:
+    return [
+        message.id
+        for message in messages
+        if message.session_task_process_status in _CLAIMABLE_BRANCH_STATUSES
+    ]
 
 
 async def _try_rollback_to_failed(pending_message_ids: list) -> None:
@@ -24,6 +39,107 @@ async def _try_rollback_to_failed(pending_message_ids: list) -> None:
             "session.pending_message_rollback_failed",
             pending_message_ids=[str(mid) for mid in pending_message_ids],
         )
+
+
+async def process_inserted_message(
+    project_config: ProjectConfig,
+    project_id: asUUID,
+    session_id: asUUID,
+    message_id: asUUID,
+    user_kek: bytes | None = None,
+) -> Result[None]:
+    wide = get_wide_event()
+    disabled = await get_metrics(project_id, ExcessMetricTags.new_task_created)
+    target_message_ids: list[asUUID] = []
+    branch_messages: list[Message] = []
+
+    try:
+        async with DB_CLIENT.get_session_context() as session:
+            r = await MD.fetch_message_branch_path_messages(
+                session, message_id, session_id
+            )
+            branch_messages, eil = r.unpack()
+            if eil:
+                return r
+
+            target_message_ids = _claimable_branch_message_ids(branch_messages)
+            wide["claimed_branch_message_count"] = len(target_message_ids)
+
+            if not target_message_ids:
+                wide["project_disabled"] = bool(disabled)
+                wide["task_agent_outcome"] = "skip_no_claimable_messages"
+                return Result.resolve(None)
+
+            if disabled:
+                wide["project_disabled"] = True
+                await MD.update_message_status_to(
+                    session, target_message_ids, TaskStatus.LIMIT_EXCEED
+                )
+                return Result.resolve(None)
+
+            wide["project_disabled"] = False
+            await MD.update_message_status_to(
+                session, target_message_ids, TaskStatus.RUNNING
+            )
+
+        r = await MD.hydrate_message_parts(branch_messages, user_kek=user_kek)
+        messages, eil = r.unpack()
+        if eil:
+            await _try_rollback_to_failed(target_message_ids)
+            return r
+
+        messages_data = [
+            MessageBlob(
+                message_id=m.id,
+                parent_id=m.parent_id,
+                role=m.role,
+                parts=m.parts,
+                task_id=m.task_id,
+            )
+            for m in messages
+        ]
+
+        async with DB_CLIENT.get_session_context() as session:
+            r = await LS.get_learning_space_for_session(session, session_id)
+            ls_session, eil = r.unpack()
+            if eil:
+                ls_session = None
+
+        r = await AT.task_agent_curd(
+            project_id,
+            session_id,
+            messages_data,
+            max_iterations=project_config.default_task_agent_max_iterations,
+            previous_progress_num=project_config.default_task_agent_previous_progress_num,
+            learning_space_id=(
+                ls_session.learning_space_id if ls_session is not None else None
+            ),
+            task_success_criteria=project_config.task_success_criteria,
+            task_failure_criteria=project_config.task_failure_criteria,
+        )
+
+        after_status = TaskStatus.SUCCESS
+        if not r.ok():
+            after_status = TaskStatus.FAILED
+            wide["task_agent_outcome"] = "failed"
+        else:
+            wide["task_agent_outcome"] = "success"
+
+        async with DB_CLIENT.get_session_context() as session:
+            await MD.update_message_status_to(
+                session, target_message_ids, after_status
+            )
+        return r
+    except BaseException as e:
+        LOG.error(
+            "inserted_message_exception",
+            error=str(e) or "(no message)",
+            error_type=type(e).__name__,
+            message_id=str(message_id),
+        )
+        wide["task_agent_outcome"] = "exception"
+        await _try_rollback_to_failed(target_message_ids)
+        raise
 
 
 async def process_session_pending_message(
@@ -86,7 +202,11 @@ async def process_session_pending_message(
             )
             messages_data = [
                 MessageBlob(
-                    message_id=m.id, role=m.role, parts=m.parts, task_id=m.task_id
+                    message_id=m.id,
+                    parent_id=m.parent_id,
+                    role=m.role,
+                    parts=m.parts,
+                    task_id=m.task_id,
                 )
                 for m in messages
             ]

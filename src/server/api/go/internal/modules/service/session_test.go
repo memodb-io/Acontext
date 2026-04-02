@@ -9,15 +9,20 @@ import (
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/google/uuid"
 	"github.com/memodb-io/Acontext/internal/config"
+	"github.com/memodb-io/Acontext/internal/infra/blob"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 // MockSessionRepo is a mock implementation of SessionRepo
@@ -82,6 +87,14 @@ func (m *MockSessionRepo) ListAllMessagesBySession(ctx context.Context, sessionI
 	return args.Get(0).([]model.Message), args.Error(1)
 }
 
+func (m *MockSessionRepo) ListMessageBranchPath(ctx context.Context, sessionID uuid.UUID, messageID uuid.UUID) ([]model.Message, error) {
+	args := m.Called(ctx, sessionID, messageID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).([]model.Message), args.Error(1)
+}
+
 func (m *MockSessionRepo) GetObservingStatus(ctx context.Context, sessionID string) (*model.MessageObservingStatus, error) {
 	args := m.Called(ctx, sessionID)
 	if args.Get(0) == nil {
@@ -97,6 +110,14 @@ func (m *MockSessionRepo) PopGeminiCallIDAndName(ctx context.Context, sessionID 
 
 func (m *MockSessionRepo) GetMessageByID(ctx context.Context, sessionID uuid.UUID, messageID uuid.UUID) (*model.Message, error) {
 	args := m.Called(ctx, sessionID, messageID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Message), args.Error(1)
+}
+
+func (m *MockSessionRepo) GetMessageByIDAnySession(ctx context.Context, messageID uuid.UUID) (*model.Message, error) {
+	args := m.Called(ctx, messageID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -180,6 +201,35 @@ func (m *MockAssetRefBuffer) Stop()  {}
 // MockBlobService is a mock implementation of blob service
 type MockBlobService struct {
 	mock.Mock
+}
+
+type stubUploadAPIClient struct{}
+
+func (stubUploadAPIClient) PutObject(context.Context, *awss3.PutObjectInput, ...func(*awss3.Options)) (*awss3.PutObjectOutput, error) {
+	return &awss3.PutObjectOutput{}, nil
+}
+
+func (stubUploadAPIClient) UploadPart(context.Context, *awss3.UploadPartInput, ...func(*awss3.Options)) (*awss3.UploadPartOutput, error) {
+	return &awss3.UploadPartOutput{}, nil
+}
+
+func (stubUploadAPIClient) CreateMultipartUpload(context.Context, *awss3.CreateMultipartUploadInput, ...func(*awss3.Options)) (*awss3.CreateMultipartUploadOutput, error) {
+	return &awss3.CreateMultipartUploadOutput{}, nil
+}
+
+func (stubUploadAPIClient) CompleteMultipartUpload(context.Context, *awss3.CompleteMultipartUploadInput, ...func(*awss3.Options)) (*awss3.CompleteMultipartUploadOutput, error) {
+	return &awss3.CompleteMultipartUploadOutput{}, nil
+}
+
+func (stubUploadAPIClient) AbortMultipartUpload(context.Context, *awss3.AbortMultipartUploadInput, ...func(*awss3.Options)) (*awss3.AbortMultipartUploadOutput, error) {
+	return &awss3.AbortMultipartUploadOutput{}, nil
+}
+
+func newTestSessionS3Deps() *blob.S3Deps {
+	return &blob.S3Deps{
+		Bucket:   "test-bucket",
+		Uploader: manager.NewUploader(stubUploadAPIClient{}),
+	}
 }
 
 func (m *MockBlobService) UploadJSON(ctx context.Context, prefix string, data interface{}) (*model.Asset, error) {
@@ -1144,9 +1194,171 @@ func TestSessionService_StoreMessage_GeminiFunctionResponse(t *testing.T) {
 	}
 }
 
+func TestSessionService_StoreMessage_ParentID(t *testing.T) {
+	ctx := context.Background()
+	projectID := uuid.New()
+	sessionID := uuid.New()
+	parentID := uuid.New()
+	otherSessionID := uuid.New()
+
+	newService := func(repo *MockSessionRepo, assetBuffer *MockAssetRefBuffer) SessionService {
+		logger := zap.NewNop()
+		cfg := &config.Config{
+			RabbitMQ: config.MQCfg{
+				ExchangeName: config.MQExchangeName{
+					SessionMessage: "session.message",
+				},
+				RoutingKey: config.MQRoutingKey{
+					SessionMessageInsert: "session.message.insert",
+				},
+			},
+		}
+		return NewSessionService(
+			repo,
+			nil,
+			&MockAssetReferenceRepo{},
+			assetBuffer,
+			logger,
+			newTestSessionS3Deps(),
+			nil,
+			cfg,
+			nil,
+			nil,
+		)
+	}
+
+	baseInput := StoreMessageInput{
+		ProjectID: projectID,
+		SessionID: sessionID,
+		Role:      model.RoleUser,
+		Parts: []PartIn{
+			{Type: model.PartTypeText, Text: "fork me"},
+		},
+		Format: model.FormatAcontext,
+		MessageMeta: map[string]interface{}{
+			model.MsgMetaSourceFormat: "acontext",
+		},
+	}
+
+	t.Run("returns error when parent message does not exist", func(t *testing.T) {
+		repo := &MockSessionRepo{}
+		assetBuffer := &MockAssetRefBuffer{}
+
+		repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool {
+			return s.ID == sessionID
+		})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
+		repo.On("GetMessageByIDAnySession", ctx, parentID).Return(nil, gorm.ErrRecordNotFound)
+
+		service := newService(repo, assetBuffer)
+		input := baseInput
+		input.ParentID = &parentID
+
+		result, err := service.StoreMessage(ctx, input)
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, ErrParentMessageNotFound)
+		assert.Contains(t, err.Error(), "parent message not found")
+
+		repo.AssertExpectations(t)
+		assetBuffer.AssertExpectations(t)
+	})
+
+	t.Run("returns error when parent message belongs to another session", func(t *testing.T) {
+		repo := &MockSessionRepo{}
+		assetBuffer := &MockAssetRefBuffer{}
+
+		repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool {
+			return s.ID == sessionID
+		})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
+		repo.On("GetMessageByIDAnySession", ctx, parentID).Return(&model.Message{
+			ID:        parentID,
+			SessionID: otherSessionID,
+		}, nil)
+
+		service := newService(repo, assetBuffer)
+		input := baseInput
+		input.ParentID = &parentID
+
+		result, err := service.StoreMessage(ctx, input)
+		assert.Error(t, err)
+		assert.Nil(t, result)
+		assert.ErrorIs(t, err, ErrParentMessageWrongSession)
+		assert.Contains(t, err.Error(), "parent message does not belong to session")
+
+		repo.AssertExpectations(t)
+		assetBuffer.AssertExpectations(t)
+	})
+
+	t.Run("passes explicit parent id through to repo create", func(t *testing.T) {
+		repo := &MockSessionRepo{}
+		assetBuffer := &MockAssetRefBuffer{}
+
+		repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool {
+			return s.ID == sessionID
+		})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
+		repo.On("GetMessageByIDAnySession", ctx, parentID).Return(&model.Message{
+			ID:        parentID,
+			SessionID: sessionID,
+		}, nil)
+		repo.On("CreateMessageWithAssets", ctx, mock.MatchedBy(func(msg *model.Message) bool {
+			return msg.SessionID == sessionID &&
+				msg.ParentID != nil &&
+				*msg.ParentID == parentID &&
+				msg.Role == model.RoleUser
+		})).Run(func(args mock.Arguments) {
+			msg := args.Get(1).(*model.Message)
+			msg.ID = uuid.New()
+		}).Return(nil)
+		repo.On("GetDisableTaskTracking", ctx, sessionID).Return(false, nil)
+		assetBuffer.On("Enqueue", ctx, projectID, mock.AnythingOfType("[]model.Asset")).Return(nil)
+
+		service := newService(repo, assetBuffer)
+		input := baseInput
+		input.ParentID = &parentID
+
+		result, err := service.StoreMessage(ctx, input)
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		if assert.NotNil(t, result.ParentID) {
+			assert.Equal(t, parentID, *result.ParentID)
+		}
+
+		repo.AssertExpectations(t)
+		assetBuffer.AssertExpectations(t)
+	})
+
+	t.Run("leaves parent unset when parent id is omitted", func(t *testing.T) {
+		repo := &MockSessionRepo{}
+		assetBuffer := &MockAssetRefBuffer{}
+
+		repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool {
+			return s.ID == sessionID
+		})).Return(&model.Session{ID: sessionID, ProjectID: projectID}, nil)
+		repo.On("CreateMessageWithAssets", ctx, mock.MatchedBy(func(msg *model.Message) bool {
+			return msg.SessionID == sessionID && msg.ParentID == nil
+		})).Run(func(args mock.Arguments) {
+			msg := args.Get(1).(*model.Message)
+			msg.ID = uuid.New()
+		}).Return(nil)
+		repo.On("GetDisableTaskTracking", ctx, sessionID).Return(false, nil)
+		assetBuffer.On("Enqueue", ctx, projectID, mock.AnythingOfType("[]model.Asset")).Return(nil)
+
+		service := newService(repo, assetBuffer)
+
+		result, err := service.StoreMessage(ctx, baseInput)
+		assert.NoError(t, err)
+		assert.NotNil(t, result)
+		assert.Nil(t, result.ParentID)
+
+		repo.AssertExpectations(t)
+		assetBuffer.AssertExpectations(t)
+	})
+}
+
 func TestSessionService_GetMessages(t *testing.T) {
 	ctx := context.Background()
 	sessionID := uuid.New()
+	branchMessageID := uuid.New()
 	projectID := uuid.New()
 	matchSession := &model.Session{ID: sessionID, ProjectID: projectID}
 
@@ -1167,7 +1379,7 @@ func TestSessionService_GetMessages(t *testing.T) {
 			},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
-				repo.On("ListBySessionWithCursor", ctx, sessionID, time.Time{}, uuid.UUID{}, 11, false).Return(nil, errors.New("query failure"))
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return(nil, errors.New("query failure"))
 			},
 			wantErr: true,
 		},
@@ -1181,10 +1393,12 @@ func TestSessionService_GetMessages(t *testing.T) {
 			},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
-				msgs := []model.Message{
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
 					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleUser},
-				}
-				repo.On("ListBySessionWithCursor", ctx, sessionID, time.Time{}, uuid.UUID{}, 11, false).Return(msgs, nil)
+				}, nil)
+				repo.On("ListBySessionWithCursor", ctx, sessionID, time.Time{}, uuid.UUID{}, 11, false).Return([]model.Message{
+					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleUser},
+				}, nil)
 			},
 			wantErr: false,
 		},
@@ -1198,10 +1412,12 @@ func TestSessionService_GetMessages(t *testing.T) {
 			},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
-				msgs := []model.Message{
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
 					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleUser},
-				}
-				repo.On("ListBySessionWithCursor", ctx, sessionID, time.Time{}, uuid.UUID{}, 11, true).Return(msgs, nil)
+				}, nil)
+				repo.On("ListBySessionWithCursor", ctx, sessionID, time.Time{}, uuid.UUID{}, 11, true).Return([]model.Message{
+					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleUser},
+				}, nil)
 			},
 			wantErr: false,
 		},
@@ -1216,7 +1432,9 @@ func TestSessionService_GetMessages(t *testing.T) {
 			},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
-				// Expect an error due to invalid cursor format, so no repo call expected
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleUser},
+				}, nil)
 			},
 			wantErr: true,
 			errMsg:  "base64", // The actual error message is about base64 decoding
@@ -1231,11 +1449,12 @@ func TestSessionService_GetMessages(t *testing.T) {
 			},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
-				msgs := []model.Message{
-					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleUser},
-					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleAssistant},
-				}
-				repo.On("ListAllMessagesBySession", ctx, sessionID).Return(msgs, nil)
+				rootID := uuid.New()
+				leafID := uuid.New()
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+					{ID: rootID, SessionID: sessionID, Role: model.RoleUser},
+					{ID: leafID, SessionID: sessionID, ParentID: &rootID, Role: model.RoleAssistant},
+				}, nil)
 			},
 			wantErr: false,
 		},
@@ -1249,10 +1468,12 @@ func TestSessionService_GetMessages(t *testing.T) {
 			},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
-				msgs := []model.Message{
-					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleUser},
-				}
-				repo.On("ListAllMessagesBySession", ctx, sessionID).Return(msgs, nil)
+				rootID := uuid.New()
+				leafID := uuid.New()
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+					{ID: rootID, SessionID: sessionID, Role: model.RoleUser},
+					{ID: leafID, SessionID: sessionID, ParentID: &rootID, Role: model.RoleAssistant},
+				}, nil)
 			},
 			wantErr: false,
 		},
@@ -1269,6 +1490,51 @@ func TestSessionService_GetMessages(t *testing.T) {
 				repo.On("ListAllMessagesBySession", ctx, sessionID).Return(nil, errors.New("database error"))
 			},
 			wantErr: true,
+		},
+		{
+			name: "leaf_id retrieves root-to-target branch path",
+			input: GetMessagesInput{
+				ProjectID: projectID,
+				SessionID: sessionID,
+				LeafID:    &branchMessageID,
+			},
+			setup: func(repo *MockSessionRepo) {
+				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
+				msgs := []model.Message{
+					{ID: uuid.New(), SessionID: sessionID, Role: model.RoleUser},
+					{ID: branchMessageID, SessionID: sessionID, Role: model.RoleAssistant},
+				}
+				repo.On("ListMessageBranchPath", ctx, sessionID, branchMessageID).Return(msgs, nil)
+			},
+			wantErr: false,
+		},
+		{
+			name: "leaf_id with limit returns error",
+			input: GetMessagesInput{
+				ProjectID: projectID,
+				SessionID: sessionID,
+				LeafID:    &branchMessageID,
+				Limit:     10,
+			},
+			setup: func(repo *MockSessionRepo) {
+				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
+			},
+			wantErr: true,
+			errMsg:  "leaf_id cannot be combined",
+		},
+		{
+			name: "leaf_id missing target returns not found error",
+			input: GetMessagesInput{
+				ProjectID: projectID,
+				SessionID: sessionID,
+				LeafID:    &branchMessageID,
+			},
+			setup: func(repo *MockSessionRepo) {
+				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
+				repo.On("ListMessageBranchPath", ctx, sessionID, branchMessageID).Return(nil, gorm.ErrRecordNotFound)
+			},
+			wantErr: true,
+			errMsg:  "leaf message not found",
 		},
 	}
 
@@ -1314,6 +1580,79 @@ func TestSessionService_GetMessages(t *testing.T) {
 	}
 }
 
+func TestSessionService_GetMessages_DefaultBranchSelection(t *testing.T) {
+	ctx := context.Background()
+	sessionID := uuid.New()
+	projectID := uuid.New()
+	rootID := uuid.MustParse("00000000-0000-0000-0000-000000000010")
+	leftLeafID := uuid.MustParse("00000000-0000-0000-0000-000000000011")
+	rightLeafID := uuid.MustParse("00000000-0000-0000-0000-000000000012")
+	baseTime := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	matchSession := &model.Session{ID: sessionID, ProjectID: projectID}
+
+	repo := &MockSessionRepo{}
+	repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
+	repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+		{
+			ID:        leftLeafID,
+			SessionID: sessionID,
+			ParentID:  &rootID,
+			Role:      model.RoleUser,
+			CreatedAt: baseTime.Add(2 * time.Hour),
+		},
+		{
+			ID:        rootID,
+			SessionID: sessionID,
+			Role:      model.RoleUser,
+			CreatedAt: baseTime,
+		},
+		{
+			ID:        rightLeafID,
+			SessionID: sessionID,
+			ParentID:  &rootID,
+			Role:      model.RoleAssistant,
+			CreatedAt: baseTime.Add(2 * time.Hour),
+		},
+	}, nil)
+	repo.On("ListMessageBranchPath", ctx, sessionID, rightLeafID).Return([]model.Message{
+		{
+			ID:        rootID,
+			SessionID: sessionID,
+			Role:      model.RoleUser,
+			CreatedAt: baseTime,
+		},
+		{
+			ID:        rightLeafID,
+			SessionID: sessionID,
+			ParentID:  &rootID,
+			Role:      model.RoleAssistant,
+			CreatedAt: baseTime.Add(2 * time.Hour),
+		},
+	}, nil)
+
+	logger := zap.NewNop()
+	mockAssetRefRepo := &MockAssetReferenceRepo{}
+	cfg := &config.Config{
+		RabbitMQ: config.MQCfg{
+			ExchangeName: config.MQExchangeName{
+				SessionMessage: "session.message",
+			},
+			RoutingKey: config.MQRoutingKey{
+				SessionMessageInsert: "session.message.insert",
+			},
+		},
+	}
+	service := NewSessionService(repo, nil, mockAssetRefRepo, nil, logger, nil, nil, cfg, nil, nil)
+
+	result, err := service.GetMessages(ctx, GetMessagesInput{ProjectID: projectID, SessionID: sessionID})
+	require.NoError(t, err)
+	require.Len(t, result.Items, 2)
+	assert.Equal(t, rootID, result.Items[0].ID)
+	assert.Equal(t, rightLeafID, result.Items[1].ID)
+
+	repo.AssertExpectations(t)
+}
+
 func TestSessionService_GetMessages_SortOrder(t *testing.T) {
 	ctx := context.Background()
 	sessionID := uuid.New()
@@ -1352,6 +1691,9 @@ func TestSessionService_GetMessages_SortOrder(t *testing.T) {
 			expectedOrder: []uuid.UUID{msg1ID, msg2ID, msg3ID},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+					{ID: msg1ID, SessionID: sessionID, Role: model.RoleUser, CreatedAt: now.Add(-3 * time.Hour)},
+				}, nil)
 				msgs := []model.Message{
 					{ID: msg1ID, SessionID: sessionID, Role: model.RoleUser, CreatedAt: now.Add(-3 * time.Hour)},
 					{ID: msg2ID, SessionID: sessionID, Role: model.RoleAssistant, CreatedAt: now.Add(-2 * time.Hour)},
@@ -1377,6 +1719,9 @@ func TestSessionService_GetMessages_SortOrder(t *testing.T) {
 			expectedOrder: []uuid.UUID{msg1ID, msg2ID, msg3ID}, // Still old to new
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+					{ID: msg1ID, SessionID: sessionID, Role: model.RoleUser, CreatedAt: now.Add(-3 * time.Hour)},
+				}, nil)
 				// Repo returns messages in descending order (newest first)
 				msgs := []model.Message{
 					{ID: msg3ID, SessionID: sessionID, Role: model.RoleUser, CreatedAt: now.Add(-1 * time.Hour)},
@@ -1404,6 +1749,9 @@ func TestSessionService_GetMessages_SortOrder(t *testing.T) {
 			expectedOrder: []uuid.UUID{msg1ID, msg2ID, msg4ID}, // Assuming these IDs sort this way lexicographically
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+					{ID: msg1ID, SessionID: sessionID, Role: model.RoleUser, CreatedAt: now},
+				}, nil)
 				msgs := []model.Message{
 					{ID: msg4ID, SessionID: sessionID, Role: model.RoleUser, CreatedAt: now},
 					{ID: msg2ID, SessionID: sessionID, Role: model.RoleAssistant, CreatedAt: now},
@@ -1430,6 +1778,9 @@ func TestSessionService_GetMessages_SortOrder(t *testing.T) {
 			expectedOrder: []uuid.UUID{msg1ID, msg2ID, msg3ID, msg4ID},
 			setup: func(repo *MockSessionRepo) {
 				repo.On("Get", ctx, mock.MatchedBy(func(s *model.Session) bool { return s.ID == sessionID })).Return(matchSession, nil)
+				repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
+					{ID: msg1ID, SessionID: sessionID, Role: model.RoleUser, CreatedAt: now.Add(-3 * time.Hour)},
+				}, nil)
 				// Repo returns messages in random order
 				msgs := []model.Message{
 					{ID: msg2ID, SessionID: sessionID, Role: model.RoleAssistant, CreatedAt: now.Add(-2 * time.Hour)},

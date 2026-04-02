@@ -144,6 +144,35 @@ def test_store_message_with_files_uses_multipart_payload(
 
 
 @patch("acontext.client.AcontextClient.request")
+def test_store_message_forwards_parent_id(mock_request, client: AcontextClient) -> None:
+    mock_request.return_value = {
+        "id": "msg-id",
+        "session_id": "session-id",
+        "parent_id": "parent-msg-id",
+        "role": "user",
+        "meta": {},
+        "parts": [],
+        "session_task_process_status": "pending",
+        "created_at": "2024-01-01T00:00:00Z",
+        "updated_at": "2024-01-01T00:00:00Z",
+    }
+
+    client.sessions.store_message(
+        "session-id",
+        blob={"role": "user", "content": "hi"},  # type: ignore[arg-type]
+        format="openai",
+        parent_id="parent-msg-id",
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "POST"
+    assert path == "/session/session-id/messages"
+    assert kwargs["json_data"]["parent_id"] == "parent-msg-id"
+
+
+@patch("acontext.client.AcontextClient.request")
 def test_store_message_allows_nullable_blob_for_other_formats(
     mock_request, client: AcontextClient
 ) -> None:
@@ -551,6 +580,41 @@ def test_sessions_get_messages_forwards_format(
     # Verify it returns a Pydantic model
     assert hasattr(result, "items")
     assert hasattr(result, "has_more")
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sessions_get_messages_forwards_leaf_id(
+    mock_request, client: AcontextClient
+) -> None:
+    mock_request.return_value = {
+        "items": [],
+        "ids": ["leaf-msg-id"],
+        "has_more": False,
+        "this_time_tokens": 0,
+    }
+
+    result = client.sessions.get_messages(
+        "session-id", format="acontext", leaf_id="leaf-msg-id"
+    )
+
+    mock_request.assert_called_once()
+    args, kwargs = mock_request.call_args
+    method, path = args
+    assert method == "GET"
+    assert path == "/session/session-id/messages"
+    assert kwargs["params"] == {"format": "acontext", "leaf_id": "leaf-msg-id"}
+    assert hasattr(result, "items")
+    assert hasattr(result, "has_more")
+
+
+@patch("acontext.client.AcontextClient.request")
+def test_sessions_get_messages_rejects_leaf_id_with_limit(
+    mock_request, client: AcontextClient
+) -> None:
+    with pytest.raises(ValueError, match="leaf_id cannot be combined with limit"):
+        client.sessions.get_messages("session-id", leaf_id="leaf-msg-id", limit=10)
+
+    mock_request.assert_not_called()
 
 
 @patch("acontext.client.AcontextClient.request")

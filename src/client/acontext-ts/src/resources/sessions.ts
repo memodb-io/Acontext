@@ -229,6 +229,7 @@ export class SessionsAPI {
     blob: MessageBlob,
     options?: {
       format?: 'acontext' | 'openai' | 'anthropic' | 'gemini';
+      parentId?: string | null;
       meta?: Record<string, unknown> | null;
       fileField?: string | null;
       file?: FileUpload | null;
@@ -246,6 +247,10 @@ export class SessionsAPI {
     const payload: Record<string, unknown> = {
       format,
     };
+
+    if (options?.parentId !== undefined && options?.parentId !== null) {
+      payload.parent_id = options.parentId;
+    }
 
     if (options?.meta !== undefined && options?.meta !== null) {
       payload.meta = options.meta;
@@ -335,6 +340,7 @@ export class SessionsAPI {
    * @param options - Options for retrieving messages.
    * @param options.limit - Maximum number of messages to return.
    * @param options.cursor - Cursor for pagination.
+   * @param options.leafId - Return only the root-to-leaf path for this leaf message ID.
    * @param options.withAssetPublicUrl - Whether to include presigned URLs for assets.
    * @param options.withEvents - Whether to include session events in the response.
    * @param options.format - The format of the messages ('acontext', 'openai', 'anthropic', or 'gemini').
@@ -359,6 +365,7 @@ export class SessionsAPI {
     options?: {
       limit?: number | null;
       cursor?: string | null;
+      leafId?: string | null;
       withAssetPublicUrl?: boolean | null;
       withEvents?: boolean | null;
       format?: 'acontext' | 'openai' | 'anthropic' | 'gemini';
@@ -367,9 +374,24 @@ export class SessionsAPI {
       pinEditingStrategiesAtMessage?: string | null;
     }
   ): Promise<GetMessagesOutput> {
+    if (options?.leafId !== undefined && options?.leafId !== null) {
+      if (options?.limit !== undefined && options?.limit !== null) {
+        throw new Error('leafId cannot be combined with limit');
+      }
+      if (options?.cursor !== undefined && options?.cursor !== null) {
+        throw new Error('leafId cannot be combined with cursor');
+      }
+      if (options?.timeDesc !== undefined && options?.timeDesc !== null) {
+        throw new Error('leafId cannot be combined with timeDesc');
+      }
+    }
+
     const params: Record<string, string | number> = {};
     if (options?.format !== undefined) {
       params.format = options.format;
+    }
+    if (options?.leafId !== undefined && options?.leafId !== null) {
+      params.leaf_id = options.leafId;
     }
     Object.assign(
       params,

@@ -1,7 +1,7 @@
 import asyncio
 import json
 from typing import List
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import ValidationError
 from datetime import datetime
@@ -109,28 +109,104 @@ async def fetch_messages_data_by_ids(
                 f"Some messages({message_ids}) not found in database: {e}"
             )
 
-        if not ordered_messages:
+        return await hydrate_message_parts(ordered_messages, user_kek=user_kek)
+
+    except Exception as e:
+        return Result.reject(f"Error fetching messages by IDs {message_ids}: {e}")
+
+
+async def hydrate_message_parts(
+    messages: List[Message],
+    user_kek: bytes | None = None,
+) -> Result[List[Message]]:
+    """
+    Load parts from S3 for already-fetched message rows.
+
+    Mutates each message in place by setting `message.parts`.
+    """
+    try:
+        if not messages:
             return Result.resolve([])
 
-        # Fetch parts concurrently for all messages
         parts_tasks = [
             _fetch_message_parts(message.parts_asset_meta, user_kek=user_kek)
-            for message in ordered_messages
+            for message in messages
         ]
         parts_results = await asyncio.gather(*parts_tasks)
 
-        # Assign parts to messages
-        for message, parts_result in zip(ordered_messages, parts_results):
+        for message, parts_result in zip(messages, parts_results):
             d, eil = parts_result.unpack()
             if eil:
                 message.parts = None
                 continue
             message.parts = d
 
-        return Result.resolve(ordered_messages)
-
+        return Result.resolve(messages)
     except Exception as e:
-        return Result.reject(f"Error fetching messages by IDs {message_ids}: {e}")
+        return Result.reject(f"Error hydrating message parts: {e}")
+
+
+async def fetch_message_branch_path_messages(
+    db_session: AsyncSession,
+    message_id: asUUID,
+    session_id: asUUID | None = None,
+) -> Result[List[Message]]:
+    """
+    Fetch one message's branch path as ordered Message rows.
+
+    Uses a recursive CTE to walk parent_id upward in one query.
+    """
+    try:
+        query = text(
+            """
+            WITH RECURSIVE message_path AS (
+                SELECT id, parent_id, session_id, 0 AS depth
+                FROM messages
+                WHERE id = :message_id
+
+                UNION ALL
+
+                SELECT
+                    parent.id,
+                    parent.parent_id,
+                    parent.session_id,
+                    child.depth + 1 AS depth
+                FROM messages AS parent
+                JOIN message_path AS child
+                  ON parent.id = child.parent_id
+            )
+            SELECT m.*
+            FROM message_path AS mp
+            JOIN messages AS m ON m.id = mp.id
+            ORDER BY mp.depth DESC, m.id ASC
+            """
+        )
+        result = await db_session.execute(
+            select(Message).from_statement(query),
+            {"message_id": message_id},
+        )
+        messages = list(result.scalars().all())
+
+        if not messages:
+            return Result.reject(f"Message {message_id} doesn't exist")
+
+        path_session_ids = {message.session_id for message in messages}
+
+        if session_id is not None and path_session_ids != {session_id}:
+            return Result.reject(
+                f"Message {message_id} does not belong to session {session_id}"
+            )
+
+        if len(path_session_ids) != 1:
+            return Result.reject(
+                f"Message {message_id} has an invalid cross-session parent chain"
+            )
+
+        return Result.resolve(messages)
+    except Exception as e:
+        return Result.reject(
+            f"Error fetching branch path messages for message {message_id}: {e}"
+        )
 
 
 async def fetch_session_messages(
@@ -175,7 +251,7 @@ async def get_message_ids(
     db_session: AsyncSession,
     session_id: asUUID,
     status: str = "pending",
-    limit: int = 1,
+    limit: int | None = 1,
     asc: bool = False,
 ) -> Result[List[asUUID]]:
     query = (
@@ -185,8 +261,9 @@ async def get_message_ids(
             Message.session_task_process_status == status,
         )
         .order_by(Message.created_at.asc() if asc else Message.created_at.desc())
-        .limit(limit)
     )
+    if limit is not None:
+        query = query.limit(limit)
 
     result = await db_session.execute(query)
     message_ids = list(result.scalars().all())

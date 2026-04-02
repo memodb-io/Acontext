@@ -38,15 +38,16 @@ _append_messages_to_planning_section_tool = (
         ToolSchema(
             function={
                 "name": "append_messages_to_planning_section",
-                "description": """Save current message ids to the planning section.
-Use this when messages are about the agent/user is planning general plan, and those messages aren't related to any specific task execution.""",
+                "description": """Save current branch-path messages to the planning section.
+Use this when messages are about the agent/user is planning general plan, and those messages aren't related to any specific task execution.
+The provided values are branch indexes from the current root-to-leaf path, not session-wide message IDs.""",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "message_ids": {
                             "type": "array",
                             "items": {"type": "integer"},
-                            "description": "List of message IDs to append to the planning section.",
+                            "description": "List of branch indexes to append from the current root-to-leaf path.",
                         }
                     },
                     "required": ["message_ids"],

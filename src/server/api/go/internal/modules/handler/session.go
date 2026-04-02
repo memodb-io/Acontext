@@ -339,9 +339,10 @@ func (h *SessionHandler) GetConfigs(c *gin.Context) {
 }
 
 type StoreMessageReq struct {
-	Blob   interface{}            `form:"blob" json:"blob" binding:"required"`
-	Format string                 `form:"format" json:"format" binding:"omitempty,oneof=acontext openai anthropic gemini" example:"openai" enums:"acontext,openai,anthropic,gemini"`
-	Meta   map[string]interface{} `form:"meta" json:"meta"` // Optional user-provided metadata for the message
+	Blob     interface{}            `form:"blob" json:"blob" binding:"required"`
+	Format   string                 `form:"format" json:"format" binding:"omitempty,oneof=acontext openai anthropic gemini" example:"openai" enums:"acontext,openai,anthropic,gemini"`
+	ParentID string                 `form:"parent_id" json:"parent_id" example:"123e4567-e89b-12d3-a456-426614174000"`
+	Meta     map[string]interface{} `form:"meta" json:"meta"` // Optional user-provided metadata for the message
 }
 
 // StoreMessage godoc
@@ -457,6 +458,16 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 		return
 	}
 
+	var parentID *uuid.UUID
+	if strings.TrimSpace(req.ParentID) != "" {
+		parsedParentID, err := uuid.Parse(req.ParentID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid parent_id", err))
+			return
+		}
+		parentID = &parsedParentID
+	}
+
 	// Store user-provided meta in __user_meta__ field for complete isolation from system fields
 	if len(req.Meta) > 0 {
 		if normalizedMeta == nil {
@@ -468,6 +479,7 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 	out, err := h.svc.StoreMessage(c.Request.Context(), service.StoreMessageInput{
 		ProjectID:   project.ID,
 		SessionID:   sessionID,
+		ParentID:    parentID,
 		Role:        normalizedRole,
 		Parts:       normalizedParts,
 		Format:      format,
@@ -476,6 +488,10 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 		UserKEK:     middleware.GetUserKEKIfEncrypted(c),
 	})
 	if err != nil {
+		if errors.Is(err, service.ErrParentMessageNotFound) || errors.Is(err, service.ErrParentMessageWrongSession) {
+			c.JSON(http.StatusNotFound, serializer.Err(http.StatusNotFound, err.Error(), nil))
+			return
+		}
 		c.JSON(http.StatusBadRequest, serializer.DBErr("", err))
 		return
 	}
@@ -490,6 +506,7 @@ func (h *SessionHandler) StoreMessage(c *gin.Context) {
 type GetMessagesReq struct {
 	Limit                         *int   `form:"limit" json:"limit" binding:"omitempty,min=0,max=200" example:"20"`
 	Cursor                        string `form:"cursor" json:"cursor" example:"cHJvdGVjdGVkIHZlcnNpb24gdG8gYmUgZXhjbHVkZWQgaW4gcGFyc2luZyB0aGUgY3Vyc29y"`
+	LeafID                        string `form:"leaf_id" json:"leaf_id" example:""`
 	WithAssetPublicURL            bool   `form:"with_asset_public_url,default=true" json:"with_asset_public_url" example:"true"`
 	WithEvents                    bool   `form:"with_events,default=false" json:"with_events" example:"false"`
 	Format                        string `form:"format,default=openai" json:"format" binding:"omitempty,oneof=acontext openai anthropic gemini" example:"openai" enums:"acontext,openai,anthropic,gemini"`
@@ -508,6 +525,7 @@ type GetMessagesReq struct {
 //	@Param			session_id							path	string	true	"Session ID"	format(uuid)
 //	@Param			limit								query	integer	false	"Limit of messages to return. Max 200. If limit is 0 or not provided, all messages will be returned. \n\nWARNING!\n Use `limit` only for read-only/display purposes (pagination, viewing). Do NOT use `limit` to truncate messages before sending to LLM as it may cause tool-call and tool-result unpairing issues. Instead, use the `token_limit` edit strategy in `edit_strategies` parameter to safely manage message context size."
 //	@Param			cursor								query	string	false	"Cursor for pagination. Use the cursor from the previous response to get the next page."
+//	@Param			leaf_id								query	string	false	"Return only the root-to-leaf path for this leaf message ID. Cannot be combined with limit, cursor, or time_desc."	format(uuid)
 //	@Param			with_asset_public_url				query	boolean	false	"Whether to return asset public url, default is true"																																																																							example(true)
 //	@Param			with_events							query	boolean	false	"Whether to include session events in the response, default is false"																																																																			example(false)
 //	@Param			format								query	string	false	"Format to convert messages to: acontext (original), openai (default), anthropic, gemini."																																																														enums(acontext,openai,anthropic,gemini)
@@ -543,6 +561,30 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		limit = *req.Limit
 	}
 
+	var leafID *uuid.UUID
+	if req.LeafID != "" {
+		// TODO: Deduplicate this validation with the service-side check while keeping the early HTTP error path.
+		if req.Limit != nil {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("leaf_id cannot be combined with limit", nil))
+			return
+		}
+		if _, ok := c.GetQuery("cursor"); ok {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("leaf_id cannot be combined with cursor", nil))
+			return
+		}
+		if _, ok := c.GetQuery("time_desc"); ok {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("leaf_id cannot be combined with time_desc", nil))
+			return
+		}
+
+		parsedLeafID, err := uuid.Parse(req.LeafID)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid leaf_id", err))
+			return
+		}
+		leafID = &parsedLeafID
+	}
+
 	// Parse edit strategies if provided
 	var editStrategies []editor.StrategyConfig
 	if req.EditStrategies != "" {
@@ -555,6 +597,7 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 	out, err := h.svc.GetMessages(c.Request.Context(), service.GetMessagesInput{
 		ProjectID:                     project.ID,
 		SessionID:                     sessionID,
+		LeafID:                        leafID,
 		Limit:                         limit,
 		Cursor:                        req.Cursor,
 		WithAssetPublicURL:            req.WithAssetPublicURL,

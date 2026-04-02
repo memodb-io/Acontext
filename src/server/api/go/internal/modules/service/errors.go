@@ -10,5 +10,7 @@ var (
 	ErrCopyFailed      = errors.New("failed to copy session")
 
 	// General session errors
-	ErrUnauthorized = errors.New("unauthorized access to session")
+	ErrUnauthorized              = errors.New("unauthorized access to session")
+	ErrParentMessageNotFound     = errors.New("parent message not found")
+	ErrParentMessageWrongSession = errors.New("parent message does not belong to session")
 )

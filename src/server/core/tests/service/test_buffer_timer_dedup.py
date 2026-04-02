@@ -10,6 +10,7 @@ Verifies:
 """
 
 import json
+import base64
 import uuid
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -44,6 +45,32 @@ def _mock_db():
     mock_db.get_session_context.return_value.__aenter__ = AsyncMock(return_value=MagicMock())
     mock_db.get_session_context.return_value.__aexit__ = AsyncMock(return_value=False)
     return mock_db
+
+
+def _branch_message(message_id, session_id, status="pending", parent_id=None):
+    message = MagicMock()
+    message.id = message_id
+    message.parent_id = parent_id
+    message.session_id = session_id
+    message.session_task_process_status = status
+    return message
+
+
+def _pending_branch_chain(message_id, session_id, count):
+    ids = [message_id] + [uuid.uuid4() for _ in range(max(0, count - 1))]
+    messages = []
+    parent_id = None
+    for branch_message_id in ids:
+        messages.append(
+            _branch_message(
+                branch_message_id,
+                session_id,
+                status="pending",
+                parent_id=parent_id,
+            )
+        )
+        parent_id = branch_message_id
+    return messages
 
 
 class TestMessageNotPending:
@@ -104,7 +131,7 @@ class TestMessageNotPending:
                 new_callable=AsyncMock,
             ) as mock_lock,
             patch(
-                "acontext_core.service.session_message.MC.process_session_pending_message",
+                "acontext_core.service.session_message.MC.process_inserted_message",
                 new_callable=AsyncMock,
             ) as mock_process,
         ):
@@ -137,9 +164,11 @@ class TestBufferWait:
                 return_value=Result.resolve(project_config),
             ),
             patch(
-                "acontext_core.service.session_message.MD.session_message_length",
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve(3),
+                return_value=Result.resolve(
+                    _pending_branch_chain(body.message_id, body.session_id, 3)
+                ),
             ),
             patch("acontext_core.service.session_message.publish_mq", side_effect=capture_publish),
         ):
@@ -175,9 +204,11 @@ class TestBufferWait:
                 return_value=Result.resolve(project_config),
             ),
             patch(
-                "acontext_core.service.session_message.MD.session_message_length",
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve(3),
+                return_value=Result.resolve(
+                    _pending_branch_chain(body1.message_id, session_id, 3)
+                ),
             ),
             patch("acontext_core.service.session_message.publish_mq", side_effect=capture_publish),
         ):
@@ -211,24 +242,32 @@ class TestBufferFull:
                 return_value=Result.resolve(project_config),
             ),
             patch(
-                "acontext_core.service.session_message.MD.session_message_length",
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve(16),
+                return_value=Result.resolve(
+                    _pending_branch_chain(body.message_id, body.session_id, 16)
+                ),
             ),
             patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
                 new_callable=AsyncMock,
                 return_value=True,
-            ),
-            patch("acontext_core.service.session_message.release_redis_lock", new_callable=AsyncMock),
+            ) as mock_lock,
             patch(
-                "acontext_core.service.session_message.MC.process_session_pending_message",
+                "acontext_core.service.session_message.release_redis_lock",
+                new_callable=AsyncMock,
+            ) as mock_release,
+            patch(
+                "acontext_core.service.session_message.MC.process_inserted_message",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(None),
             ) as mock_process,
         ):
             await insert_new_message(body, MagicMock())
             mock_process.assert_called_once()
+            expected_key = f"session.message.insert.{body.session_id}.{body.message_id}"
+            mock_lock.assert_called_once_with(body.project_id, expected_key)
+            mock_release.assert_called_once_with(body.project_id, expected_key)
 
 
 class TestDelayFires:
@@ -251,9 +290,11 @@ class TestDelayFires:
                 return_value=Result.resolve(project_config),
             ),
             patch(
-                "acontext_core.service.session_message.MD.session_message_length",
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve(2),
+                return_value=Result.resolve(
+                    _pending_branch_chain(body.message_id, body.session_id, 2)
+                ),
             ),
             patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
@@ -262,13 +303,101 @@ class TestDelayFires:
             ),
             patch("acontext_core.service.session_message.release_redis_lock", new_callable=AsyncMock),
             patch(
-                "acontext_core.service.session_message.MC.process_session_pending_message",
+                "acontext_core.service.session_message.MC.process_inserted_message",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(None),
             ) as mock_process,
         ):
             await insert_new_message(body, MagicMock())
             mock_process.assert_called_once()
+            assert mock_process.call_args.kwargs["user_kek"] is None
+
+    @pytest.mark.asyncio
+    async def test_processes_with_decoded_user_kek(self):
+        """Valid base64 user_kek is decoded once and forwarded as bytes."""
+        body = _make_body(process_rightnow=True)
+        body.user_kek = base64.b64encode(b"secret-kek").decode()
+        project_config = _make_project_config()
+
+        with (
+            patch("acontext_core.service.session_message.DB_CLIENT", _mock_db()),
+            patch(
+                "acontext_core.service.session_message.MD.check_session_message_status",
+                new_callable=AsyncMock,
+                return_value=Result.resolve("pending"),
+            ),
+            patch(
+                "acontext_core.service.session_message.PD.get_project_config",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(project_config),
+            ),
+            patch(
+                "acontext_core.service.session_message.check_redis_lock_or_set",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(
+                    _pending_branch_chain(body.message_id, body.session_id, 2)
+                ),
+            ),
+            patch("acontext_core.service.session_message.release_redis_lock", new_callable=AsyncMock),
+            patch(
+                "acontext_core.service.session_message.MC.process_inserted_message",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(None),
+            ) as mock_process,
+        ):
+            await insert_new_message(body, MagicMock())
+            mock_process.assert_called_once()
+            assert mock_process.call_args.kwargs["user_kek"] == b"secret-kek"
+
+    @pytest.mark.asyncio
+    async def test_invalid_user_kek_marks_session_failed(self):
+        """Invalid base64 user_kek hard-fails before processing."""
+        body = _make_body(process_rightnow=True)
+        body.user_kek = "not-base64!"
+        project_config = _make_project_config()
+
+        with (
+            patch("acontext_core.service.session_message.DB_CLIENT", _mock_db()) as mock_db,
+            patch(
+                "acontext_core.service.session_message.MD.check_session_message_status",
+                new_callable=AsyncMock,
+                return_value=Result.resolve("pending"),
+            ),
+            patch(
+                "acontext_core.service.session_message.PD.get_project_config",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(project_config),
+            ),
+            patch(
+                "acontext_core.service.session_message.check_redis_lock_or_set",
+                new_callable=AsyncMock,
+                return_value=True,
+            ),
+            patch(
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(
+                    _pending_branch_chain(body.message_id, body.session_id, 2)
+                ),
+            ),
+            patch("acontext_core.service.session_message.release_redis_lock", new_callable=AsyncMock),
+            patch(
+                "acontext_core.service.session_message.LS.update_session_status",
+                new_callable=AsyncMock,
+            ) as mock_update_status,
+            patch(
+                "acontext_core.service.session_message.MC.process_inserted_message",
+                new_callable=AsyncMock,
+            ) as mock_process,
+        ):
+            await insert_new_message(body, MagicMock())
+            mock_process.assert_not_called()
+            mock_update_status.assert_called_once()
 
 
 class TestLockContention:
@@ -295,9 +424,11 @@ class TestLockContention:
                 return_value=Result.resolve(project_config),
             ),
             patch(
-                "acontext_core.service.session_message.MD.session_message_length",
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve(2),
+                return_value=Result.resolve(
+                    _pending_branch_chain(body.message_id, body.session_id, 2)
+                ),
             ),
             patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
@@ -337,9 +468,11 @@ class TestLockContention:
                 return_value=Result.resolve(project_config),
             ),
             patch(
-                "acontext_core.service.session_message.MD.session_message_length",
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve(20),
+                return_value=Result.resolve(
+                    _pending_branch_chain(body.message_id, body.session_id, 20)
+                ),
             ),
             patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
@@ -381,9 +514,11 @@ class TestSeparateTimersPerSession:
                 return_value=Result.resolve(project_config),
             ),
             patch(
-                "acontext_core.service.session_message.MD.session_message_length",
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve(3),
+                return_value=Result.resolve(
+                    _pending_branch_chain(body1.message_id, body1.session_id, 3)
+                ),
             ),
             patch("acontext_core.service.session_message.publish_mq", side_effect=capture_publish),
         ):
@@ -394,3 +529,101 @@ class TestSeparateTimersPerSession:
             msg1 = json.loads(published[0]["body"])
             msg2 = json.loads(published[1]["body"])
             assert msg1["session_id"] != msg2["session_id"]
+
+
+class TestBranchAwareCount:
+    @pytest.mark.asyncio
+    async def test_consumer_uses_branch_pending_count_not_session_count(self):
+        """Buffering uses branch count and never calls the old session-wide counter."""
+        body = _make_body()
+        project_config = _make_project_config()
+        published = []
+
+        async def capture_publish(**kwargs):
+            published.append(kwargs)
+
+        with (
+            patch("acontext_core.service.session_message.DB_CLIENT", _mock_db()),
+            patch(
+                "acontext_core.service.session_message.MD.check_session_message_status",
+                new_callable=AsyncMock,
+                return_value=Result.resolve("pending"),
+            ),
+            patch(
+                "acontext_core.service.session_message.PD.get_project_config",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(project_config),
+            ),
+            patch(
+                "acontext_core.service.session_message.MD.session_message_length",
+                new_callable=AsyncMock,
+            ) as mock_session_count,
+            patch(
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(
+                    _pending_branch_chain(body.message_id, body.session_id, 1)
+                ),
+            ),
+            patch("acontext_core.service.session_message.publish_mq", side_effect=capture_publish),
+        ):
+            await insert_new_message(body, MagicMock())
+
+            mock_session_count.assert_not_called()
+            assert len(published) == 1
+            assert published[0]["routing_key"] == "session.message.insert.delay"
+
+
+class TestBranchLockKey:
+    @pytest.mark.asyncio
+    async def test_retry_uses_branch_boundary_lock_key(self):
+        """Lock key for insert processing follows the first unfinished branch node."""
+        body = _make_body(process_rightnow=True)
+        project_config = _make_project_config()
+        root_id = uuid.uuid4()
+        branch_id = uuid.uuid4()
+
+        with (
+            patch("acontext_core.service.session_message.DB_CLIENT", _mock_db()),
+            patch(
+                "acontext_core.service.session_message.MD.check_session_message_status",
+                new_callable=AsyncMock,
+                return_value=Result.resolve("pending"),
+            ),
+            patch(
+                "acontext_core.service.session_message.PD.get_project_config",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(project_config),
+            ),
+            patch(
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(
+                    [
+                        _branch_message(root_id, body.session_id, status="success"),
+                        _branch_message(
+                            branch_id,
+                            body.session_id,
+                            status="pending",
+                            parent_id=root_id,
+                        ),
+                        _branch_message(
+                            body.message_id,
+                            body.session_id,
+                            status="pending",
+                            parent_id=branch_id,
+                        ),
+                    ]
+                ),
+            ),
+            patch(
+                "acontext_core.service.session_message.check_redis_lock_or_set",
+                new_callable=AsyncMock,
+                return_value=False,
+            ) as mock_lock,
+            patch("acontext_core.service.session_message.publish_mq", new_callable=AsyncMock),
+        ):
+            await insert_new_message(body, MagicMock())
+
+            expected_key = f"session.message.insert.{body.session_id}.{branch_id}"
+            mock_lock.assert_called_once_with(body.project_id, expected_key)

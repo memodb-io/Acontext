@@ -228,6 +228,7 @@ class SessionsAPI:
         *,
         blob: MessageBlob,
         format: Literal["acontext", "openai", "anthropic", "gemini"] = "openai",
+        parent_id: str | None = None,
         meta: dict[str, Any] | None = None,
         file_field: str | None = None,
         file: (
@@ -243,6 +244,7 @@ class SessionsAPI:
             session_id: The UUID of the session.
             blob: The message blob in Acontext, OpenAI, Anthropic, or Gemini format.
             format: The format of the message blob. Defaults to "openai".
+            parent_id: Optional parent message UUID for branching. Defaults to None.
             meta: Optional user-provided metadata for the message. This metadata is stored
                 separately from the message content and can be retrieved via get_messages().metas
                 or updated via patch_message_meta(). Works with all formats.
@@ -273,6 +275,8 @@ class SessionsAPI:
         payload: dict[str, Any] = {
             "format": format,
         }
+        if parent_id is not None:
+            payload["parent_id"] = parent_id
         if meta is not None:
             payload["meta"] = meta
 
@@ -369,6 +373,7 @@ class SessionsAPI:
         *,
         limit: int | None = None,
         cursor: str | None = None,
+        leaf_id: str | None = None,
         with_asset_public_url: bool | None = None,
         with_events: bool | None = None,
         format: Literal["acontext", "openai", "anthropic", "gemini"] = "openai",
@@ -382,6 +387,7 @@ class SessionsAPI:
             session_id: The UUID of the session.
             limit: Maximum number of messages to return. Defaults to None.
             cursor: Cursor for pagination. Defaults to None.
+            leaf_id: Optional leaf message UUID to read one root-to-leaf branch path. Defaults to None.
             with_asset_public_url: Whether to include presigned URLs for assets. Defaults to None.
             format: The format of the messages. Defaults to "openai". Supports "acontext", "openai", "anthropic", or "gemini".
             time_desc: Order by created_at descending if True, ascending if False. Defaults to None.
@@ -404,9 +410,19 @@ class SessionsAPI:
         Returns:
             GetMessagesOutput containing the list of messages and pagination information.
         """
+        if leaf_id is not None:
+            if limit is not None:
+                raise ValueError("leaf_id cannot be combined with limit")
+            if cursor is not None:
+                raise ValueError("leaf_id cannot be combined with cursor")
+            if time_desc is not None:
+                raise ValueError("leaf_id cannot be combined with time_desc")
+
         params: dict[str, Any] = {}
         if format is not None:
             params["format"] = format
+        if leaf_id is not None:
+            params["leaf_id"] = leaf_id
         params.update(
             build_params(
                 limit=limit,

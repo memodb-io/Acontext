@@ -76,9 +76,10 @@ _append_messages_to_task_tool = (
         ToolSchema(
             function={
                 "name": "append_messages_to_task",
-                "description": """Link a range of message ids to a task. This tool ONLY links messages and auto-sets the task status to 'running'.
+                "description": """Link a range of current branch-path messages to a task. This tool ONLY links messages and auto-sets the task status to 'running'.
 - Use separate tools for recording progress (append_task_progress) and user preferences (submit_user_preference).
-- If you decide to link messages to a task marked as 'success' or 'failed', update its status to 'running' first.""",
+- If you decide to link messages to a task marked as 'success' or 'failed', update its status to 'running' first.
+- The range values are branch indexes from the current root-to-leaf path, not session-wide message IDs.""",
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -91,7 +92,7 @@ _append_messages_to_task_tool = (
                             "items": {"type": "integer"},
                             "minItems": 2,
                             "maxItems": 2,
-                            "description": "Inclusive range [start, end] of message IDs to link. E.g. [2, 8] links messages 2,3,4,5,6,7,8.",
+                            "description": "Inclusive range [start, end] of branch indexes to link from the current root-to-leaf path. E.g. [2, 4] links the 3rd, 4th, and 5th messages in the current branch path.",
                         },
                     },
                     "required": ["task_order", "message_id_range"],
