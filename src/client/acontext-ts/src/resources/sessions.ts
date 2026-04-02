@@ -392,6 +392,8 @@ export class SessionsAPI {
       params.edit_strategies = JSON.stringify(options.editStrategies);
     }
     if (options?.editingTrigger !== undefined && options?.editingTrigger !== null) {
+      // Validate before serializing so unsupported trigger shapes fail at the
+      // SDK boundary rather than after an API request.
       EditingTriggerSchema.parse(options.editingTrigger);
       params.editing_trigger = JSON.stringify(options.editingTrigger);
     }

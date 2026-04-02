@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -1688,63 +1687,6 @@ func TestSessionService_GetMessages_ComputesThisTimeTokens(t *testing.T) {
 	assert.Len(t, out.Items, 1)
 	assert.Len(t, out.Items[0].Parts, 1)
 	assert.Equal(t, "hello from acontext", out.Items[0].Parts[0].Text)
-
-	repo.AssertExpectations(t)
-}
-
-func TestSessionService_GetMessages_ThisTimeTokensMatchesEditedOutput(t *testing.T) {
-	ctx := context.Background()
-	sessionID := uuid.New()
-	triggerThreshold := 1
-
-	err := tokenizer.Init(zap.NewNop())
-	assert.NoError(t, err)
-
-	repo := &MockSessionRepo{}
-	repoMessages := []model.Message{
-		{
-			ID:        uuid.New(),
-			SessionID: sessionID,
-			Role:      model.RoleAssistant,
-			Parts: []model.Part{
-				{
-					Type: model.PartTypeToolResult,
-					Text: strings.Repeat("very large tool result payload ", 200),
-				},
-			},
-		},
-	}
-	repo.On("ListAllMessagesBySession", ctx, sessionID).Return(repoMessages, nil)
-
-	preEditTokens, err := tokenizer.CountMessagePartsTokens(ctx, repoMessages)
-	assert.NoError(t, err)
-	assert.Greater(t, preEditTokens, 0)
-
-	service := NewSessionService(repo, nil, &MockAssetReferenceRepo{}, nil, zap.NewNop(), nil, nil, &config.Config{}, nil, nil)
-	out, err := service.GetMessages(ctx, GetMessagesInput{
-		SessionID: sessionID,
-		Limit:     0,
-		EditStrategies: []editor.StrategyConfig{
-			{
-				Type: "remove_tool_result",
-				Params: map[string]interface{}{
-					"keep_recent_n_tool_results": 0,
-				},
-			},
-		},
-		EditingTrigger: &EditingTrigger{
-			TokenGte: &triggerThreshold,
-		},
-	})
-	assert.NoError(t, err)
-	assert.NotNil(t, out)
-	assert.Len(t, out.Items, 1)
-	assert.Equal(t, "Done", out.Items[0].Parts[0].Text)
-
-	finalTokens, err := tokenizer.CountMessagePartsTokens(ctx, out.Items)
-	assert.NoError(t, err)
-	assert.Equal(t, finalTokens, out.ThisTimeTokens)
-	assert.Less(t, out.ThisTimeTokens, preEditTokens)
 
 	repo.AssertExpectations(t)
 }

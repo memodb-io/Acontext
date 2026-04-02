@@ -558,6 +558,9 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 	// Parse editing_trigger if provided (v0 supports only token_gte).
 	var editingTrigger *service.EditingTrigger
 	if req.EditingTrigger != "" {
+		// editing_trigger is only meaningful when there is something to gate.
+		// Rejecting it here keeps the API contract explicit instead of silently
+		// accepting a no-op parameter.
 		if req.EditStrategies == "" {
 			c.JSON(http.StatusBadRequest, serializer.ParamErr("editing_trigger requires edit_strategies", errors.New("missing edit_strategies")))
 			return
@@ -565,6 +568,8 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 
 		var trig service.EditingTrigger
 		if err := json.Unmarshal([]byte(req.EditingTrigger), &trig); err != nil {
+			// Surface "unknown field" separately so callers can distinguish
+			// unsupported trigger names from malformed JSON payloads.
 			var unsupportedErr editingtrigger.UnsupportedTriggerError
 			if errors.As(err, &unsupportedErr) {
 				c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger", err))
@@ -599,6 +604,9 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		UserKEK:                       middleware.GetUserKEKIfEncrypted(c),
 	})
 	if err != nil {
+		// Token counting now happens inside the service because trigger evaluation
+		// and final response tokens share that result. Promote those failures to
+		// 500 so they are treated as server-side computation errors.
 		if errors.Is(err, service.ErrGetMessagesTokenCount) {
 			c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to count tokens", err))
 			return

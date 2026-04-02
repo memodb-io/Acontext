@@ -424,6 +424,8 @@ class AsyncSessionsAPI:
             validate_edit_strategies(edit_strategies)
             params["edit_strategies"] = json.dumps(edit_strategies)
         if editing_trigger is not None:
+            # Keep async behavior aligned with the sync client: normalize model
+            # inputs first, then validate and serialize the exact API payload.
             if isinstance(editing_trigger, BaseModel):
                 editing_trigger = editing_trigger.model_dump()
             validate_editing_trigger(editing_trigger)

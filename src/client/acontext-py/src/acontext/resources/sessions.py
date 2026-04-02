@@ -424,6 +424,8 @@ class SessionsAPI:
             validate_edit_strategies(edit_strategies)
             params["edit_strategies"] = json.dumps(edit_strategies)
         if editing_trigger is not None:
+            # Accept either a plain dict or a caller-provided Pydantic model so
+            # the SDK surface matches the existing flexibility of edit_strategies.
             if isinstance(editing_trigger, BaseModel):
                 editing_trigger = editing_trigger.model_dump()
             validate_editing_trigger(editing_trigger)

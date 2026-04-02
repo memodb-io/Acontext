@@ -39,6 +39,8 @@ func (t *Trigger) UnmarshalJSON(data []byte) error {
 	}
 
 	t.TokenGte = nil
+	// Track which keys were explicitly present so validation can distinguish
+	// between "field omitted" and "field provided with a bad/null value".
 	t.rawKeys = make(map[string]struct{}, len(raw))
 
 	for key, value := range raw {
@@ -62,6 +64,8 @@ func (t Trigger) Validate() error {
 		return ErrNoSupportedTrigger
 	}
 
+	// {"token_gte": null} unmarshals to a nil pointer, so use rawKeys to keep
+	// rejecting it instead of treating it as "not configured".
 	_, tokenGteProvided := t.rawKeys["token_gte"]
 	if tokenGteProvided && t.TokenGte == nil {
 		return ErrTokenGteMustBeGreater
@@ -95,6 +99,8 @@ func NewEval(sessionID uuid.UUID, messages []model.Message, counter TokenCounter
 
 func (e *Eval) Tokens(ctx context.Context) (int, error) {
 	if e.tokenCount != nil {
+		// Trigger checks can ask for tokens more than once; memoize so multiple
+		// checks still pay the tokenizer cost only once per request.
 		return *e.tokenCount, nil
 	}
 
@@ -150,6 +156,8 @@ func tokenGteChecks(trigger *Trigger) []Check {
 			if err != nil {
 				return false, err
 			}
+			// token_gte is intentionally inclusive so callers can pin a hard
+			// threshold without off-by-one ambiguity.
 			return tokens >= threshold, nil
 		},
 	}
@@ -160,6 +168,8 @@ func BuildChecks(trigger *Trigger) []Check {
 		return nil
 	}
 
+	// Build a flat list of checks so the service can evaluate them with OR
+	// semantics while keeping trigger registration centralized here.
 	checks := make([]Check, 0, len(triggerRegistry.checks))
 	for _, entry := range triggerRegistry.checks {
 		_ = entry.name

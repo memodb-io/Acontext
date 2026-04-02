@@ -65,6 +65,8 @@ def validate_editing_trigger(editing_trigger: Mapping[str, Any]) -> None:
     if len(editing_trigger) == 0:
         raise ValueError("editing_trigger must include at least one supported field")
 
+    # Keep the SDK strict so unsupported trigger names fail locally with a
+    # clearer error instead of making a round trip to the API first.
     allowed_keys = {"token_gte"}
     unknown_keys = set(editing_trigger.keys()) - allowed_keys
     if unknown_keys:

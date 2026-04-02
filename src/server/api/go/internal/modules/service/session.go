@@ -566,6 +566,8 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	var triggerEval *editingtrigger.Eval
 	strategiesApplied := false
 	if len(in.EditStrategies) > 0 {
+		// Preserve the previous behavior by default: strategies run whenever they
+		// are provided. editing_trigger only changes that default when present.
 		applyEditStrategies := true
 		triggerChecks := editingtrigger.BuildChecks(in.EditingTrigger)
 		triggerEvaluated := len(triggerChecks) > 0
@@ -591,6 +593,8 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 				in.SessionID,
 				triggerMessages,
 				func(ctx context.Context, messages []model.Message) (int, error) {
+					// Wrap tokenizer failures with a sentinel so the handler can map
+					// trigger/token computation failures to a stable HTTP 500 response.
 					tokens, err := tokenizer.CountMessagePartsTokens(ctx, messages)
 					if err != nil {
 						return 0, fmt.Errorf("%w: failed to count tokens for editing_trigger session_id=%s: %v", ErrGetMessagesTokenCount, in.SessionID, err)
@@ -624,6 +628,8 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 			// Trigger skipped editing; preserve caller-provided boundary for future requests.
 			out.EditAtMessageID = in.PinEditingStrategiesAtMessage
 		} else if out.EditAtMessageID == "" && len(out.Items) > 0 {
+			// Even when editing is skipped, return a deterministic edit boundary so
+			// clients can reuse the latest message ID in the next request.
 			out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
 		}
 	} else if len(out.Items) > 0 {
@@ -658,6 +664,9 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 
 	usedCachedTokens := false
 	if triggerEval != nil {
+		// Reuse the trigger-time token count only when the final output is
+		// byte-for-byte equivalent for token purposes. Editing can mutate
+		// message content even if IDs stay unchanged, so guard reuse carefully.
 		if cachedTokens, ok := triggerEval.CachedTokens(); ok && !strategiesApplied && sameMessageContentSignature(triggerEval.Messages(), out.Items) {
 			out.ThisTimeTokens = cachedTokens
 			usedCachedTokens = true
@@ -665,6 +674,8 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	}
 
 	if !usedCachedTokens {
+		// Fall back to counting the final returned payload so this_time_tokens
+		// always reflects what the client actually receives.
 		thisTimeTokens, err := tokenizer.CountMessagePartsTokens(ctx, out.Items)
 		if err != nil {
 			return nil, fmt.Errorf("%w: session_id=%s: %v", ErrGetMessagesTokenCount, in.SessionID, err)
@@ -726,6 +737,9 @@ func messageTokenSignature(messages []model.Message) (string, error) {
 			return "", err
 		}
 
+		// Hash only the token-relevant projection of a message. That keeps the
+		// reuse check aligned with tokenizer behavior instead of unrelated fields
+		// like timestamps or DB metadata.
 		content, err := tokenizer.ExtractTextAndToolContent(msg.Parts)
 		if err != nil {
 			return "", err

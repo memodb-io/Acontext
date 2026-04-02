@@ -336,6 +336,8 @@ export type EditStrategy = z.infer<typeof EditStrategySchema>;
 export const EditingTriggerSchema = z.object({
   token_gte: z.number().int().positive().optional(),
 }).strict().refine((value) => Object.keys(value).length > 0, {
+  // Mirror the API's "at least one supported trigger" rule so empty objects
+  // are rejected consistently across clients and server.
   message: 'editingTrigger must include at least one supported field',
 });
 
