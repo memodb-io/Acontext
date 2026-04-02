@@ -12,6 +12,7 @@ from .disk import (
 )
 from .session import (
     Asset,
+    EditingTrigger,
     GetMessagesOutput,
     GetTasksOutput,
     ListSessionsOutput,
@@ -67,6 +68,7 @@ __all__ = [
     "UpdateArtifactResp",
     # Session types
     "Asset",
+    "EditingTrigger",
     "GetMessagesOutput",
     "GetTasksOutput",
     "ListSessionsOutput",

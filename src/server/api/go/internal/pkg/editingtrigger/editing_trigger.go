@@ -1,0 +1,180 @@
+package editingtrigger
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/memodb-io/Acontext/internal/modules/model"
+)
+
+// Trigger defines trigger configuration for applying edit strategies.
+// v0 supports only token_gte.
+type Trigger struct {
+	// TokenGte triggers edit strategies when token count is >= this value.
+	TokenGte *int `json:"token_gte,omitempty"`
+
+	rawKeys map[string]struct{} `json:"-"`
+}
+
+var (
+	ErrNoSupportedTrigger    = errors.New("at least one supported trigger is required")
+	ErrTokenGteMustBeGreater = errors.New("token_gte must be > 0")
+)
+
+type UnsupportedTriggerError struct {
+	Key string
+}
+
+func (e UnsupportedTriggerError) Error() string {
+	return fmt.Sprintf("unsupported trigger: %s", e.Key)
+}
+
+func (t *Trigger) UnmarshalJSON(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	t.TokenGte = nil
+	// Track which keys were explicitly present so validation can distinguish
+	// between "field omitted" and "field provided with a bad/null value".
+	t.rawKeys = make(map[string]struct{}, len(raw))
+
+	for key, value := range raw {
+		switch key {
+		case "token_gte":
+			t.rawKeys[key] = struct{}{}
+			if err := json.Unmarshal(value, &t.TokenGte); err != nil {
+				return fmt.Errorf("invalid token_gte: %w", err)
+			}
+		default:
+			return UnsupportedTriggerError{Key: key}
+		}
+	}
+
+	return nil
+}
+
+func (t Trigger) Validate() error {
+	hasAnySupportedTrigger := len(t.rawKeys) > 0 || t.TokenGte != nil
+	if !hasAnySupportedTrigger {
+		return ErrNoSupportedTrigger
+	}
+
+	// {"token_gte": null} unmarshals to a nil pointer, so use rawKeys to keep
+	// rejecting it instead of treating it as "not configured".
+	_, tokenGteProvided := t.rawKeys["token_gte"]
+	if tokenGteProvided && t.TokenGte == nil {
+		return ErrTokenGteMustBeGreater
+	}
+	if t.TokenGte != nil && *t.TokenGte <= 0 {
+		return ErrTokenGteMustBeGreater
+	}
+
+	return nil
+}
+
+// TokenCounter computes token count for a message slice.
+type TokenCounter func(ctx context.Context, messages []model.Message) (int, error)
+
+// Eval evaluates trigger checks and memoizes token count.
+type Eval struct {
+	sessionID uuid.UUID
+	messages  []model.Message
+	counter   TokenCounter
+
+	tokenCount *int
+}
+
+func NewEval(sessionID uuid.UUID, messages []model.Message, counter TokenCounter) *Eval {
+	return &Eval{
+		sessionID: sessionID,
+		messages:  messages,
+		counter:   counter,
+	}
+}
+
+func (e *Eval) Tokens(ctx context.Context) (int, error) {
+	if e.tokenCount != nil {
+		// Trigger checks can ask for tokens more than once; memoize so multiple
+		// checks still pay the tokenizer cost only once per request.
+		return *e.tokenCount, nil
+	}
+
+	tokens, err := e.counter(ctx, e.messages)
+	if err != nil {
+		return 0, err
+	}
+
+	e.tokenCount = &tokens
+	return tokens, nil
+}
+
+func (e *Eval) Messages() []model.Message {
+	return e.messages
+}
+
+func (e *Eval) CachedTokens() (int, bool) {
+	if e.tokenCount == nil {
+		return 0, false
+	}
+	return *e.tokenCount, true
+}
+
+type Check func(ctx context.Context, eval *Eval) (bool, error)
+
+type namedCheck struct {
+	name  string
+	build func(trigger *Trigger) []Check
+}
+
+type registry struct {
+	checks []namedCheck
+}
+
+var triggerRegistry = registry{
+	checks: []namedCheck{
+		{
+			name:  "token_gte",
+			build: tokenGteChecks,
+		},
+	},
+}
+
+func tokenGteChecks(trigger *Trigger) []Check {
+	if trigger.TokenGte == nil || *trigger.TokenGte <= 0 {
+		return nil
+	}
+
+	threshold := *trigger.TokenGte
+	return []Check{
+		func(ctx context.Context, eval *Eval) (bool, error) {
+			tokens, err := eval.Tokens(ctx)
+			if err != nil {
+				return false, err
+			}
+			// token_gte is intentionally inclusive so callers can pin a hard
+			// threshold without off-by-one ambiguity.
+			return tokens >= threshold, nil
+		},
+	}
+}
+
+func BuildChecks(trigger *Trigger) []Check {
+	if trigger == nil {
+		return nil
+	}
+
+	// Build a flat list of checks so the service can evaluate them with OR
+	// semantics while keeping trigger registration centralized here.
+	checks := make([]Check, 0, len(triggerRegistry.checks))
+	for _, entry := range triggerRegistry.checks {
+		_ = entry.name
+		checks = append(checks, entry.build(trigger)...)
+	}
+
+	return checks
+}

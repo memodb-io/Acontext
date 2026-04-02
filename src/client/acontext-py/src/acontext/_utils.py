@@ -1,6 +1,6 @@
 """Utility functions for the acontext Python client."""
 
-from typing import Any, Iterable
+from typing import Any, Iterable, Mapping
 
 
 def bool_to_str(value: bool) -> str:
@@ -58,3 +58,24 @@ def validate_edit_strategies(edit_strategies: Iterable[dict[str, Any]]) -> None:
             raise ValueError("gt_token must be an integer >= 1")
         if gt_token < 1:
             raise ValueError("gt_token must be >= 1")
+
+
+def validate_editing_trigger(editing_trigger: Mapping[str, Any]) -> None:
+    """Validate editing trigger before sending to the API."""
+    if len(editing_trigger) == 0:
+        raise ValueError("editing_trigger must include at least one supported field")
+
+    # Keep the SDK strict so unsupported trigger names fail locally with a
+    # clearer error instead of making a round trip to the API first.
+    allowed_keys = {"token_gte"}
+    unknown_keys = set(editing_trigger.keys()) - allowed_keys
+    if unknown_keys:
+        unknown = ", ".join(sorted(unknown_keys))
+        raise ValueError(f"unsupported editing_trigger field(s): {unknown}")
+
+    if "token_gte" in editing_trigger:
+        token_gte = editing_trigger["token_gte"]
+        if isinstance(token_gte, bool) or not isinstance(token_gte, int):
+            raise ValueError("token_gte must be an integer > 0")
+        if token_gte <= 0:
+            raise ValueError("token_gte must be > 0")

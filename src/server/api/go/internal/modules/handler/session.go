@@ -19,6 +19,7 @@ import (
 	"github.com/memodb-io/Acontext/internal/modules/serializer"
 	"github.com/memodb-io/Acontext/internal/modules/service"
 	"github.com/memodb-io/Acontext/internal/pkg/converter"
+	"github.com/memodb-io/Acontext/internal/pkg/editingtrigger"
 	"github.com/memodb-io/Acontext/internal/pkg/editor"
 	"github.com/memodb-io/Acontext/internal/pkg/normalizer"
 	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
@@ -495,6 +496,7 @@ type GetMessagesReq struct {
 	Format                        string `form:"format,default=openai" json:"format" binding:"omitempty,oneof=acontext openai anthropic gemini" example:"openai" enums:"acontext,openai,anthropic,gemini"`
 	TimeDesc                      bool   `form:"time_desc,default=false" json:"time_desc" example:"false"`
 	EditStrategies                string `form:"edit_strategies" json:"edit_strategies" example:"[{\"type\":\"remove_tool_result\",\"params\":{\"keep_recent_n_tool_results\":3}}]"`
+	EditingTrigger                string `form:"editing_trigger" json:"editing_trigger" example:"{\"token_gte\":30000}"`
 	PinEditingStrategiesAtMessage string `form:"pin_editing_strategies_at_message" json:"pin_editing_strategies_at_message" example:""`
 }
 
@@ -513,6 +515,7 @@ type GetMessagesReq struct {
 //	@Param			format								query	string	false	"Format to convert messages to: acontext (original), openai (default), anthropic, gemini."																																																														enums(acontext,openai,anthropic,gemini)
 //	@Param			time_desc							query	boolean	false	"Order by created_at descending if true, ascending if false (default false)"																																																																	example(false)
 //	@Param			edit_strategies						query	string	false	"JSON array of edit strategies to apply before format conversion"																																																																				example([{"type":"remove_tool_result","params":{"keep_recent_n_tool_results":3}}])
+//	@Param			editing_trigger						query	string	false	"JSON object trigger for edit_strategies. v0 supports only {\"token_gte\": <int>} (OR semantics when more triggers are added)."																																																	example({"token_gte":30000})
 //	@Param			pin_editing_strategies_at_message	query	string	false	"Message ID to pin editing strategies at. When provided, strategies are only applied to messages up to and including this message ID, keeping subsequent messages unchanged. This helps maintain prompt cache stability by preserving a stable prefix. The response will include edit_at_message_id indicating where strategies were applied."	example()
 //	@Security		BearerAuth
 //	@Success		200	{object}	serializer.Response{data=converter.GetMessagesOutput}
@@ -552,6 +555,40 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		}
 	}
 
+	// Parse editing_trigger if provided (v0 supports only token_gte).
+	var editingTrigger *service.EditingTrigger
+	if req.EditingTrigger != "" {
+		// editing_trigger is only meaningful when there is something to gate.
+		// Rejecting it here keeps the API contract explicit instead of silently
+		// accepting a no-op parameter.
+		if req.EditStrategies == "" {
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("editing_trigger requires edit_strategies", errors.New("missing edit_strategies")))
+			return
+		}
+
+		var trig service.EditingTrigger
+		if err := json.Unmarshal([]byte(req.EditingTrigger), &trig); err != nil {
+			// Surface "unknown field" separately so callers can distinguish
+			// unsupported trigger names from malformed JSON payloads.
+			var unsupportedErr editingtrigger.UnsupportedTriggerError
+			if errors.As(err, &unsupportedErr) {
+				c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger", err))
+				return
+			}
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger JSON", err))
+			return
+		}
+		if err := trig.Validate(); err != nil {
+			if errors.Is(err, editingtrigger.ErrTokenGteMustBeGreater) {
+				c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger.token_gte", err))
+				return
+			}
+			c.JSON(http.StatusBadRequest, serializer.ParamErr("invalid editing_trigger", err))
+			return
+		}
+		editingTrigger = &trig
+	}
+
 	out, err := h.svc.GetMessages(c.Request.Context(), service.GetMessagesInput{
 		ProjectID:                     project.ID,
 		SessionID:                     sessionID,
@@ -562,10 +599,18 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		AssetExpire:                   time.Hour * 24,
 		TimeDesc:                      req.TimeDesc,
 		EditStrategies:                editStrategies,
+		EditingTrigger:                editingTrigger,
 		PinEditingStrategiesAtMessage: req.PinEditingStrategiesAtMessage,
 		UserKEK:                       middleware.GetUserKEKIfEncrypted(c),
 	})
 	if err != nil {
+		// Token counting now happens inside the service because trigger evaluation
+		// and final response tokens share that result. Promote those failures to
+		// 500 so they are treated as server-side computation errors.
+		if errors.Is(err, service.ErrGetMessagesTokenCount) {
+			c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to count tokens", err))
+			return
+		}
 		c.JSON(http.StatusBadRequest, serializer.DBErr("", err))
 		return
 	}
@@ -582,13 +627,6 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		return
 	}
 
-	// Calculate token count for the returned messages
-	thisTimeTokens, err := tokenizer.CountMessagePartsTokens(c.Request.Context(), out.Items)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, serializer.DBErr("failed to count tokens", err))
-		return
-	}
-
 	convertedOut, err := converter.GetConvertedMessagesOutput(
 		out.Items,
 		format,
@@ -596,7 +634,7 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 		out.Events,
 		out.NextCursor,
 		out.HasMore,
-		thisTimeTokens,
+		out.ThisTimeTokens,
 		out.EditAtMessageID,
 	)
 	if err != nil {

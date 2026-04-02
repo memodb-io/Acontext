@@ -2,10 +2,13 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"sort"
 	"time"
@@ -19,8 +22,10 @@ import (
 	mq "github.com/memodb-io/Acontext/internal/infra/queue"
 	"github.com/memodb-io/Acontext/internal/modules/model"
 	"github.com/memodb-io/Acontext/internal/modules/repo"
+	"github.com/memodb-io/Acontext/internal/pkg/editingtrigger"
 	"github.com/memodb-io/Acontext/internal/pkg/editor"
 	"github.com/memodb-io/Acontext/internal/pkg/paging"
+	"github.com/memodb-io/Acontext/internal/pkg/tokenizer"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 	"gorm.io/datatypes"
@@ -66,6 +71,8 @@ type sessionService struct {
 	redis              *redis.Client
 	materialSvc        MaterialService
 }
+
+var ErrGetMessagesTokenCount = errors.New("get messages token count error")
 
 const (
 	// Redis key prefix for message parts cache
@@ -436,18 +443,22 @@ func (s *sessionService) StoreMessage(ctx context.Context, in StoreMessageInput)
 }
 
 type GetMessagesInput struct {
-	ProjectID                     uuid.UUID               `json:"project_id"`
-	SessionID                     uuid.UUID               `json:"session_id"`
-	Limit                         int                     `json:"limit"`
-	Cursor                        string                  `json:"cursor"`
-	WithAssetPublicURL            bool                    `json:"with_public_url"`
-	AssetExpire                   time.Duration           `json:"asset_expire"`
-	TimeDesc                      bool                    `json:"time_desc"`
-	WithEvents                    bool                    `json:"with_events"`
-	EditStrategies                []editor.StrategyConfig `json:"edit_strategies,omitempty"`
-	PinEditingStrategiesAtMessage string                  `json:"pin_editing_strategies_at_message,omitempty"`
-	UserKEK                       []byte                  `json:"-"` // optional: for envelope encryption (decrypting parts)
+	ProjectID          uuid.UUID               `json:"project_id"`
+	SessionID          uuid.UUID               `json:"session_id"`
+	Limit              int                     `json:"limit"`
+	Cursor             string                  `json:"cursor"`
+	WithAssetPublicURL bool                    `json:"with_public_url"`
+	AssetExpire        time.Duration           `json:"asset_expire"`
+	TimeDesc           bool                    `json:"time_desc"`
+	WithEvents         bool                    `json:"with_events"`
+	EditStrategies     []editor.StrategyConfig `json:"edit_strategies,omitempty"`
+	// EditingTrigger holds optional trigger config for applying edit_strategies.
+	EditingTrigger                *EditingTrigger `json:"editing_trigger,omitempty"`
+	PinEditingStrategiesAtMessage string          `json:"pin_editing_strategies_at_message,omitempty"`
+	UserKEK                       []byte          `json:"-"` // optional: for envelope encryption (decrypting parts)
 }
+
+type EditingTrigger = editingtrigger.Trigger
 
 type PublicURL struct {
 	URL      string    `json:"url"`
@@ -460,6 +471,7 @@ type GetMessagesOutput struct {
 	NextCursor      string               `json:"next_cursor,omitempty"`
 	HasMore         bool                 `json:"has_more"`
 	PublicURLs      map[string]PublicURL `json:"public_urls,omitempty"` // file_name -> url
+	ThisTimeTokens  int                  `json:"this_time_tokens"`
 	EditAtMessageID string               `json:"edit_at_message_id,omitempty"`
 }
 
@@ -551,13 +563,75 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	}
 
 	// Apply edit strategies if provided (before format conversion)
+	var triggerEval *editingtrigger.Eval
+	strategiesApplied := false
 	if len(in.EditStrategies) > 0 {
-		result, err := editor.ApplyStrategiesWithPin(out.Items, in.EditStrategies, in.PinEditingStrategiesAtMessage)
-		if err != nil {
-			return nil, fmt.Errorf("failed to apply edit strategies: %w", err)
+		// Preserve the previous behavior by default: strategies run whenever they
+		// are provided. editing_trigger only changes that default when present.
+		applyEditStrategies := true
+		triggerChecks := editingtrigger.BuildChecks(in.EditingTrigger)
+		triggerEvaluated := len(triggerChecks) > 0
+		if triggerEvaluated {
+			// Evaluate trigger on the same editable prefix used by pin_editing_strategies_at_message.
+			triggerMessages := out.Items
+			if in.PinEditingStrategiesAtMessage != "" {
+				pinIndex := -1
+				for i := range out.Items {
+					if out.Items[i].ID.String() == in.PinEditingStrategiesAtMessage {
+						pinIndex = i
+						break
+					}
+				}
+				if pinIndex != -1 {
+					triggerMessages = out.Items[:pinIndex+1]
+				}
+			}
+
+			// OR semantics: apply when any trigger check passes.
+			applyEditStrategies = false
+			eval := editingtrigger.NewEval(
+				in.SessionID,
+				triggerMessages,
+				func(ctx context.Context, messages []model.Message) (int, error) {
+					// Wrap tokenizer failures with a sentinel so the handler can map
+					// trigger/token computation failures to a stable HTTP 500 response.
+					tokens, err := tokenizer.CountMessagePartsTokens(ctx, messages)
+					if err != nil {
+						return 0, fmt.Errorf("%w: failed to count tokens for editing_trigger session_id=%s: %v", ErrGetMessagesTokenCount, in.SessionID, err)
+					}
+					return tokens, nil
+				},
+			)
+			triggerEval = eval
+			for _, check := range triggerChecks {
+				ok, err := check(ctx, eval)
+				if err != nil {
+					return nil, err
+				}
+				if ok {
+					applyEditStrategies = true
+					break
+				}
+			}
+
 		}
-		out.Items = result.Messages
-		out.EditAtMessageID = result.EditAtMessageID
+
+		if applyEditStrategies {
+			result, err := editor.ApplyStrategiesWithPin(out.Items, in.EditStrategies, in.PinEditingStrategiesAtMessage)
+			if err != nil {
+				return nil, fmt.Errorf("failed to apply edit strategies: %w", err)
+			}
+			strategiesApplied = true
+			out.Items = result.Messages
+			out.EditAtMessageID = result.EditAtMessageID
+		} else if triggerEvaluated && in.PinEditingStrategiesAtMessage != "" {
+			// Trigger skipped editing; preserve caller-provided boundary for future requests.
+			out.EditAtMessageID = in.PinEditingStrategiesAtMessage
+		} else if out.EditAtMessageID == "" && len(out.Items) > 0 {
+			// Even when editing is skipped, return a deterministic edit boundary so
+			// clients can reuse the latest message ID in the next request.
+			out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
+		}
 	} else if len(out.Items) > 0 {
 		// No strategies, but still set EditAtMessageID to the last message
 		out.EditAtMessageID = out.Items[len(out.Items)-1].ID.String()
@@ -588,6 +662,27 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 		}
 	}
 
+	usedCachedTokens := false
+	if triggerEval != nil {
+		// Reuse the trigger-time token count only when the final output is
+		// byte-for-byte equivalent for token purposes. Editing can mutate
+		// message content even if IDs stay unchanged, so guard reuse carefully.
+		if cachedTokens, ok := triggerEval.CachedTokens(); ok && !strategiesApplied && sameMessageContentSignature(triggerEval.Messages(), out.Items) {
+			out.ThisTimeTokens = cachedTokens
+			usedCachedTokens = true
+		}
+	}
+
+	if !usedCachedTokens {
+		// Fall back to counting the final returned payload so this_time_tokens
+		// always reflects what the client actually receives.
+		thisTimeTokens, err := tokenizer.CountMessagePartsTokens(ctx, out.Items)
+		if err != nil {
+			return nil, fmt.Errorf("%w: session_id=%s: %v", ErrGetMessagesTokenCount, in.SessionID, err)
+		}
+		out.ThisTimeTokens = thisTimeTokens
+	}
+
 	return out, nil
 }
 
@@ -597,6 +692,67 @@ func (s *sessionService) DownloadAsset(ctx context.Context, s3Key string, userKE
 		return nil, errors.New("S3 not configured")
 	}
 	return s.s3.DownloadFile(ctx, s3Key, userKEK)
+}
+
+// sameMessageContentSignature returns true only when two message slices are
+// equivalent for token-count reuse.
+//
+// Why this is needed:
+// sameMessageOrderByID was not enough, because token count depends on content.
+// IDs can stay the same while token-relevant content changes.
+//
+// Example:
+//   - triggerEval.Messages():
+//   - msg-1 text: "hello"
+//   - msg-2 tool-call: name="search", arguments={"q":"apple"}
+//   - out.Items (same msg IDs/order):
+//   - msg-1 text: "hello"
+//   - msg-2 tool-call: name="search", arguments={"q":"banana"}
+//
+// ID-only compare would return true and reuse stale cached tokens.
+// Content-signature compare returns false, so token count is recomputed.
+func sameMessageContentSignature(a, b []model.Message) bool {
+	sigA, err := messageTokenSignature(a)
+	if err != nil {
+		return false
+	}
+	sigB, err := messageTokenSignature(b)
+	if err != nil {
+		return false
+	}
+	return sigA == sigB
+}
+
+func messageTokenSignature(messages []model.Message) (string, error) {
+	hasher := sha256.New()
+	if _, err := io.WriteString(hasher, fmt.Sprintf("%d|", len(messages))); err != nil {
+		return "", err
+	}
+
+	for _, msg := range messages {
+		if _, err := io.WriteString(hasher, msg.ID.String()); err != nil {
+			return "", err
+		}
+		if _, err := io.WriteString(hasher, "|"); err != nil {
+			return "", err
+		}
+
+		// Hash only the token-relevant projection of a message. That keeps the
+		// reuse check aligned with tokenizer behavior instead of unrelated fields
+		// like timestamps or DB metadata.
+		content, err := tokenizer.ExtractTextAndToolContent(msg.Parts)
+		if err != nil {
+			return "", err
+		}
+		if _, err := io.WriteString(hasher, content); err != nil {
+			return "", err
+		}
+		if _, err := io.WriteString(hasher, "\n---\n"); err != nil {
+			return "", err
+		}
+	}
+
+	return hex.EncodeToString(hasher.Sum(nil)), nil
 }
 
 // cachePartsInRedis stores message parts in Redis with a fixed TTL.
