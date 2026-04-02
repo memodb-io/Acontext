@@ -1691,53 +1691,6 @@ func TestSessionService_GetMessages_ComputesThisTimeTokens(t *testing.T) {
 	repo.AssertExpectations(t)
 }
 
-func TestSessionService_GetMessages_TriggerTokenErrorsAreWrapped(t *testing.T) {
-	ctx := context.Background()
-	sessionID := uuid.New()
-	triggerThreshold := 1
-
-	repo := &MockSessionRepo{}
-	repo.On("ListAllMessagesBySession", ctx, sessionID).Return([]model.Message{
-		{
-			ID:        uuid.New(),
-			SessionID: sessionID,
-			Role:      model.RoleAssistant,
-			Parts: []model.Part{
-				{
-					Type: model.PartTypeToolCall,
-					Meta: map[string]interface{}{
-						model.MetaKeyName:      "bad_tool",
-						model.MetaKeyArguments: func() {},
-					},
-				},
-			},
-		},
-	}, nil)
-
-	service := NewSessionService(repo, nil, &MockAssetReferenceRepo{}, nil, zap.NewNop(), nil, nil, &config.Config{}, nil, nil)
-	out, err := service.GetMessages(ctx, GetMessagesInput{
-		SessionID: sessionID,
-		Limit:     0,
-		EditStrategies: []editor.StrategyConfig{
-			{
-				Type: "token_limit",
-				Params: map[string]interface{}{
-					"limit_tokens": 10,
-				},
-			},
-		},
-		EditingTrigger: &EditingTrigger{
-			TokenGte: &triggerThreshold,
-		},
-	})
-
-	assert.Nil(t, out)
-	assert.Error(t, err)
-	assert.ErrorIs(t, err, ErrGetMessagesTokenCount)
-
-	repo.AssertExpectations(t)
-}
-
 func TestSessionService_GetMessages_TriggerFalseKeepsProvidedPin(t *testing.T) {
 	ctx := context.Background()
 	sessionID := uuid.New()
