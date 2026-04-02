@@ -38,6 +38,8 @@ type MockSessionRepo struct {
 	mock.Mock
 }
 
+var _ repo.SessionRepo = (*MockSessionRepo)(nil)
+
 func (m *MockSessionRepo) Create(ctx context.Context, s *model.Session) error {
 	return m.Called(ctx, s).Error(0)
 }

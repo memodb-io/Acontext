@@ -25,6 +25,17 @@ from ...llm.tool.skill_learner_lib.distill import (
 from ...llm.agent.skill_learner import skill_learner_agent
 
 
+def _coerce_optional_uuid(value):
+    if value is None:
+        return None
+    if isinstance(value, UUID):
+        return value
+    try:
+        return UUID(str(value))
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
 async def process_context_distillation(
     project_id: asUUID,
     session_id: asUUID,
@@ -72,12 +83,12 @@ async def process_context_distillation(
             messages, eil = r.unpack()
             if not eil and messages:
                 task_messages = [
-                    MessageBlob(
-                        message_id=m.id,
-                        parent_id=m.parent_id,
-                        role=m.role,
-                        parts=m.parts,
-                        task_id=m.task_id,
+                MessageBlob(
+                    message_id=m.id,
+                    parent_id=_coerce_optional_uuid(m.parent_id),
+                    role=m.role,
+                    parts=m.parts,
+                    task_id=m.task_id,
                     )
                     for m in messages
                 ]
