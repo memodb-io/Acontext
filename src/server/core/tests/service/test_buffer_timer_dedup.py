@@ -56,6 +56,23 @@ def _branch_message(message_id, session_id, status="pending", parent_id=None):
     return message
 
 
+def _pending_branch_chain(message_id, session_id, count):
+    ids = [message_id] + [uuid.uuid4() for _ in range(max(0, count - 1))]
+    messages = []
+    parent_id = None
+    for branch_message_id in ids:
+        messages.append(
+            _branch_message(
+                branch_message_id,
+                session_id,
+                status="pending",
+                parent_id=parent_id,
+            )
+        )
+        parent_id = branch_message_id
+    return messages
+
+
 class TestMessageNotPending:
     @pytest.mark.asyncio
     async def test_skips_when_message_already_processed(self):
@@ -147,9 +164,11 @@ class TestBufferWait:
                 return_value=Result.resolve(project_config),
             ),
             patch(
-                "acontext_core.service.session_message.MD.branch_pending_message_length",
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve(3),
+                return_value=Result.resolve(
+                    _pending_branch_chain(body.message_id, body.session_id, 3)
+                ),
             ),
             patch("acontext_core.service.session_message.publish_mq", side_effect=capture_publish),
         ):
@@ -185,9 +204,11 @@ class TestBufferWait:
                 return_value=Result.resolve(project_config),
             ),
             patch(
-                "acontext_core.service.session_message.MD.branch_pending_message_length",
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve(3),
+                return_value=Result.resolve(
+                    _pending_branch_chain(body1.message_id, session_id, 3)
+                ),
             ),
             patch("acontext_core.service.session_message.publish_mq", side_effect=capture_publish),
         ):
@@ -221,15 +242,10 @@ class TestBufferFull:
                 return_value=Result.resolve(project_config),
             ),
             patch(
-                "acontext_core.service.session_message.MD.branch_pending_message_length",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(16),
-            ),
-            patch(
                 "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(
-                    [_branch_message(body.message_id, body.session_id)]
+                    _pending_branch_chain(body.message_id, body.session_id, 16)
                 ),
             ),
             patch(
@@ -274,15 +290,10 @@ class TestDelayFires:
                 return_value=Result.resolve(project_config),
             ),
             patch(
-                "acontext_core.service.session_message.MD.branch_pending_message_length",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(2),
-            ),
-            patch(
                 "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(
-                    [_branch_message(body.message_id, body.session_id)]
+                    _pending_branch_chain(body.message_id, body.session_id, 2)
                 ),
             ),
             patch(
@@ -321,14 +332,16 @@ class TestDelayFires:
                 return_value=Result.resolve(project_config),
             ),
             patch(
-                "acontext_core.service.session_message.MD.branch_pending_message_length",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(2),
-            ),
-            patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
                 new_callable=AsyncMock,
                 return_value=True,
+            ),
+            patch(
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(
+                    _pending_branch_chain(body.message_id, body.session_id, 2)
+                ),
             ),
             patch("acontext_core.service.session_message.release_redis_lock", new_callable=AsyncMock),
             patch(
@@ -361,14 +374,16 @@ class TestDelayFires:
                 return_value=Result.resolve(project_config),
             ),
             patch(
-                "acontext_core.service.session_message.MD.branch_pending_message_length",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(2),
-            ),
-            patch(
                 "acontext_core.service.session_message.check_redis_lock_or_set",
                 new_callable=AsyncMock,
                 return_value=True,
+            ),
+            patch(
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(
+                    _pending_branch_chain(body.message_id, body.session_id, 2)
+                ),
             ),
             patch("acontext_core.service.session_message.release_redis_lock", new_callable=AsyncMock),
             patch(
@@ -409,15 +424,10 @@ class TestLockContention:
                 return_value=Result.resolve(project_config),
             ),
             patch(
-                "acontext_core.service.session_message.MD.branch_pending_message_length",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(2),
-            ),
-            patch(
                 "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(
-                    [_branch_message(body.message_id, body.session_id)]
+                    _pending_branch_chain(body.message_id, body.session_id, 2)
                 ),
             ),
             patch(
@@ -458,15 +468,10 @@ class TestLockContention:
                 return_value=Result.resolve(project_config),
             ),
             patch(
-                "acontext_core.service.session_message.MD.branch_pending_message_length",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(20),
-            ),
-            patch(
                 "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(
-                    [_branch_message(body.message_id, body.session_id)]
+                    _pending_branch_chain(body.message_id, body.session_id, 20)
                 ),
             ),
             patch(
@@ -509,9 +514,11 @@ class TestSeparateTimersPerSession:
                 return_value=Result.resolve(project_config),
             ),
             patch(
-                "acontext_core.service.session_message.MD.branch_pending_message_length",
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
                 new_callable=AsyncMock,
-                return_value=Result.resolve(3),
+                return_value=Result.resolve(
+                    _pending_branch_chain(body1.message_id, body1.session_id, 3)
+                ),
             ),
             patch("acontext_core.service.session_message.publish_mq", side_effect=capture_publish),
         ):
@@ -548,14 +555,16 @@ class TestBranchAwareCount:
                 return_value=Result.resolve(project_config),
             ),
             patch(
-                "acontext_core.service.session_message.MD.branch_pending_message_length",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(1),
-            ),
-            patch(
                 "acontext_core.service.session_message.MD.session_message_length",
                 new_callable=AsyncMock,
             ) as mock_session_count,
+            patch(
+                "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",
+                new_callable=AsyncMock,
+                return_value=Result.resolve(
+                    _pending_branch_chain(body.message_id, body.session_id, 1)
+                ),
+            ),
             patch("acontext_core.service.session_message.publish_mq", side_effect=capture_publish),
         ):
             await insert_new_message(body, MagicMock())
@@ -585,11 +594,6 @@ class TestBranchLockKey:
                 "acontext_core.service.session_message.PD.get_project_config",
                 new_callable=AsyncMock,
                 return_value=Result.resolve(project_config),
-            ),
-            patch(
-                "acontext_core.service.session_message.MD.branch_pending_message_length",
-                new_callable=AsyncMock,
-                return_value=Result.resolve(16),
             ),
             patch(
                 "acontext_core.service.session_message.MD.fetch_message_branch_path_messages",

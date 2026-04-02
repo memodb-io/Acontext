@@ -579,6 +579,7 @@ func (s *sessionService) GetMessages(ctx context.Context, in GetMessagesInput) (
 	applyLeafWindow := false
 
 	if in.LeafID != nil {
+		// TODO: Deduplicate this validation with the handler-side check without removing service-level defense.
 		if in.Limit > 0 || in.Cursor != "" || in.TimeDesc {
 			return nil, fmt.Errorf("leaf_id cannot be combined with limit, cursor, or time_desc")
 		}

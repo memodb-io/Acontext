@@ -111,17 +111,13 @@ async def build_task_ctx(
     messages: list[MessageBlob],
     before_use_ctx: TaskCtx = None,
 ) -> TaskCtx:
+    # Task tooling only needs ordered message IDs for the active branch.
     message_ids_index = [m.message_id for m in messages]
-    message_parent_ids_index = [m.parent_id for m in messages]
-    branch_root_message_id = messages[0].message_id if messages else None
-    branch_leaf_message_id = messages[-1].message_id if messages else None
 
     if before_use_ctx is not None:
+        # Refresh the reused context with the current branch index only.
         before_use_ctx.db_session = db_session
         before_use_ctx.message_ids_index = message_ids_index
-        before_use_ctx.message_parent_ids_index = message_parent_ids_index
-        before_use_ctx.branch_root_message_id = branch_root_message_id
-        before_use_ctx.branch_leaf_message_id = branch_leaf_message_id
         return before_use_ctx
 
     r = await TD.fetch_current_tasks(db_session, session_id)
@@ -135,9 +131,6 @@ async def build_task_ctx(
         task_ids_index=[t.id for t in current_tasks],
         task_index=current_tasks,
         message_ids_index=message_ids_index,
-        message_parent_ids_index=message_parent_ids_index,
-        branch_root_message_id=branch_root_message_id,
-        branch_leaf_message_id=branch_leaf_message_id,
     )
     return use_ctx
 

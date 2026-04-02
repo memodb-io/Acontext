@@ -47,6 +47,38 @@ def _branch_lock_message_id(messages: list[ORMMessage]) -> asUUID:
     return messages[-1].id
 
 
+def _pending_branch_message_count(
+    messages: list[ORMMessage],
+    status: str = TaskStatus.PENDING.value,
+) -> int:
+    # Count from the already-fetched branch so we do not query the same path twice.
+    return sum(1 for message in messages if message.session_task_process_status == status)
+
+
+async def _prepare_pending_branch_lock(
+    db_session,
+    session_id: asUUID,
+    message_id: asUUID,
+) -> Result[tuple[list[ORMMessage], str] | None]:
+    # Both insert and flush need the same three things:
+    # verify the target is still pending, load the branch once, and derive one lock key.
+    r = await MD.check_session_message_status(db_session, message_id)
+    msg_status, eil = r.unpack()
+    if eil:
+        return r
+    if msg_status != TaskStatus.PENDING.value:
+        return Result.resolve(None)
+
+    r = await MD.fetch_message_branch_path_messages(db_session, message_id, session_id)
+    branch_messages, eil = r.unpack()
+    if eil:
+        return r
+
+    lock_message_id = _branch_lock_message_id(branch_messages)
+    lock_key = _insert_message_lock_key(session_id, lock_message_id)
+    return Result.resolve((branch_messages, lock_key))
+
+
 async def _get_pending_session_message_ids(session_id: asUUID) -> Result[list[asUUID]]:
     async with DB_CLIENT.get_session_context() as session:
         return await MD.get_message_ids(session, session_id, limit=None, asc=True)
@@ -64,24 +96,23 @@ async def insert_new_message(body: InsertNewMessage, message: Message):
     wide = get_wide_event()
 
     async with DB_CLIENT.get_session_context() as session:
-        r = await MD.check_session_message_status(session, body.message_id)
-        msg_status, eil = r.unpack()
-        if eil or msg_status != "pending":
+        # Reuse one branch fetch for both pending-count logic and lock-key selection.
+        r = await _prepare_pending_branch_lock(session, body.session_id, body.message_id)
+        prepared, eil = r.unpack()
+        if eil:
+            return
+        if prepared is None:
             wide["action"] = "skip_not_pending"
             wide["_log_level"] = "debug"
             return
+        branch_messages, lock_key = prepared
 
         r = await PD.get_project_config(session, body.project_id)
         project_config, eil = r.unpack()
         if eil:
             return
 
-        r = await MD.branch_pending_message_length(
-            session, body.message_id, session_id=body.session_id
-        )
-        pending_count, eil = r.unpack()
-        if eil:
-            return
+        pending_count = _pending_branch_message_count(branch_messages)
 
     wide["pending_branch_message_count"] = pending_count
 
@@ -99,16 +130,6 @@ async def insert_new_message(body: InsertNewMessage, message: Message):
         )
         return
 
-    async with DB_CLIENT.get_session_context() as session:
-        r = await MD.fetch_message_branch_path_messages(
-            session, body.message_id, body.session_id
-        )
-        branch_messages, eil = r.unpack()
-        if eil:
-            return
-
-    lock_message_id = _branch_lock_message_id(branch_messages)
-    lock_key = _insert_message_lock_key(body.session_id, lock_message_id)
     _l = await check_redis_lock_or_set(body.project_id, lock_key)
     if not _l:
         wide["lock_acquired"] = False
@@ -235,26 +256,19 @@ async def flush_session_message_blocking(
 
             for message_id in pending_message_ids:
                 async with DB_CLIENT.get_session_context() as read_session:
-                    r = await MD.check_session_message_status(read_session, message_id)
-                    msg_status, eil = r.unpack()
-                    if eil:
-                        wide_event["outcome"] = "error"
-                        wide_event["error"] = str(eil)
-                        return r
-                    if msg_status != "pending":
-                        continue
-
-                    r = await MD.fetch_message_branch_path_messages(
-                        read_session, message_id, session_id
+                    # Reuse the same helper as insert_new_message() so both paths lock branches the same way.
+                    r = await _prepare_pending_branch_lock(
+                        read_session, session_id, message_id
                     )
-                    branch_messages, eil = r.unpack()
+                    prepared, eil = r.unpack()
                     if eil:
                         wide_event["outcome"] = "error"
                         wide_event["error"] = str(eil)
                         return r
+                    if prepared is None:
+                        continue
+                    _, lock_key = prepared
 
-                lock_message_id = _branch_lock_message_id(branch_messages)
-                lock_key = _insert_message_lock_key(session_id, lock_message_id)
                 _l = await check_redis_lock_or_set(project_id, lock_key)
                 if not _l:
                     busy_lock_count += 1

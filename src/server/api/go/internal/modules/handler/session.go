@@ -563,6 +563,7 @@ func (h *SessionHandler) GetMessages(c *gin.Context) {
 
 	var leafID *uuid.UUID
 	if req.LeafID != "" {
+		// TODO: Deduplicate this validation with the service-side check while keeping the early HTTP error path.
 		if req.Limit != nil {
 			c.JSON(http.StatusBadRequest, serializer.ParamErr("leaf_id cannot be combined with limit", nil))
 			return

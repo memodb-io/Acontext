@@ -209,42 +209,6 @@ async def fetch_message_branch_path_messages(
         )
 
 
-async def branch_pending_message_length(
-    db_session: AsyncSession,
-    message_id: asUUID,
-    status: str = "pending",
-    session_id: asUUID | None = None,
-) -> Result[int]:
-    """
-    Count pending messages on one message's branch path from root to target.
-
-    Args:
-        db_session: Database session
-        message_id: Target message UUID
-        status: Status filter for messages on the branch
-        session_id: Optional session UUID to verify the full path belongs to
-
-    Returns:
-        Result containing the count of matching messages on the branch path
-    """
-    try:
-        r = await fetch_message_branch_path_messages(db_session, message_id, session_id)
-        messages, eil = r.unpack()
-        if eil:
-            return Result.reject(str(eil))
-
-        count = sum(
-            1
-            for message in messages
-            if message.session_task_process_status == status
-        )
-        return Result.resolve(count)
-    except Exception as e:
-        return Result.reject(
-            f"Error counting branch messages for message {message_id}: {e}"
-        )
-
-
 async def fetch_session_messages(
     db_session: AsyncSession,
     session_id: asUUID,

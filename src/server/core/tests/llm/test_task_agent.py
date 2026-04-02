@@ -520,7 +520,7 @@ class TestPackTaskInputKnownPreferences:
 
 class TestBuildTaskCtxBranchMetadata:
     @pytest.mark.asyncio
-    async def test_sets_branch_root_leaf_and_parent_indexes(self):
+    async def test_sets_message_id_index(self):
         db_session = AsyncMock()
         project_id = uuid.uuid4()
         session_id = uuid.uuid4()
@@ -549,9 +549,6 @@ class TestBuildTaskCtxBranchMetadata:
             ctx = await build_task_ctx(db_session, project_id, session_id, messages)
 
         assert ctx.message_ids_index == [root_id, leaf_id]
-        assert ctx.message_parent_ids_index == [None, root_id]
-        assert ctx.branch_root_message_id == root_id
-        assert ctx.branch_leaf_message_id == leaf_id
 
 
 # =============================================================================

@@ -73,6 +73,10 @@ func (m *MockSessionRepo) ListAllMessagesBySession(ctx context.Context, sessionI
 	args := m.Called(ctx, sessionID)
 	return args.Get(0).([]model.Message), args.Error(1)
 }
+func (m *MockSessionRepo) ListMessageBranchPath(ctx context.Context, sessionID uuid.UUID, messageID uuid.UUID) ([]model.Message, error) {
+	args := m.Called(ctx, sessionID, messageID)
+	return args.Get(0).([]model.Message), args.Error(1)
+}
 func (m *MockSessionRepo) GetObservingStatus(ctx context.Context, sessionID string) (*model.MessageObservingStatus, error) {
 	args := m.Called(ctx, sessionID)
 	if args.Get(0) == nil {
@@ -86,6 +90,13 @@ func (m *MockSessionRepo) PopGeminiCallIDAndName(ctx context.Context, sessionID 
 }
 func (m *MockSessionRepo) GetMessageByID(ctx context.Context, sessionID uuid.UUID, messageID uuid.UUID) (*model.Message, error) {
 	args := m.Called(ctx, sessionID, messageID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(*model.Message), args.Error(1)
+}
+func (m *MockSessionRepo) GetMessageByIDAnySession(ctx context.Context, messageID uuid.UUID) (*model.Message, error) {
+	args := m.Called(ctx, messageID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
