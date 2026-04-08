@@ -1,6 +1,6 @@
 {
   "name": "@acontext/claude-code",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "description": "Acontext skill memory plugin for Claude Code — auto-capture, learn, and reuse skills",
   "license": "Apache-2.0",
