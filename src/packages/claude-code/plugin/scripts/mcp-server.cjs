@@ -23825,7 +23825,7 @@ var require_session = __commonJS({
   "node_modules/@acontext/acontext/dist/types/session.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.EditStrategySchema = exports2.MiddleOutStrategySchema = exports2.MiddleOutParamsSchema = exports2.TokenLimitStrategySchema = exports2.TokenLimitParamsSchema = exports2.RemoveToolResultStrategySchema = exports2.RemoveToolCallParamsStrategySchema = exports2.RemoveToolCallParamsParamsSchema = exports2.RemoveToolResultParamsSchema = exports2.CopySessionResultSchema = exports2.MessageObservingStatusSchema = exports2.TokenCountsSchema = exports2.GetTasksOutputSchema = exports2.GetMessagesOutputSchema = exports2.ListEventsOutputSchema = exports2.SessionEventSchema = exports2.PublicURLSchema = exports2.ListSessionsOutputSchema = exports2.TaskSchema = exports2.TaskDataSchema = exports2.SessionSchema = exports2.MessageSchema = exports2.PartSchema = exports2.AssetSchema = void 0;
+    exports2.EditStrategySchema = exports2.MiddleOutStrategySchema = exports2.MiddleOutParamsSchema = exports2.TokenLimitStrategySchema = exports2.TokenLimitParamsSchema = exports2.RemoveToolResultStrategySchema = exports2.RemoveToolCallParamsStrategySchema = exports2.RemoveToolCallParamsParamsSchema = exports2.RemoveToolResultParamsSchema = exports2.PatchConfigsRespSchema = exports2.PatchMessageMetaRespSchema = exports2.CopySessionResultSchema = exports2.MessageObservingStatusSchema = exports2.TokenCountsSchema = exports2.GetTasksOutputSchema = exports2.GetMessagesOutputSchema = exports2.ListEventsOutputSchema = exports2.SessionEventSchema = exports2.PublicURLSchema = exports2.ListSessionsOutputSchema = exports2.TaskSchema = exports2.TaskDataSchema = exports2.SessionSchema = exports2.MessageSchema = exports2.PartSchema = exports2.AssetSchema = void 0;
     var zod_1 = require_zod();
     exports2.AssetSchema = zod_1.z.object({
       bucket: zod_1.z.string(),
@@ -23942,6 +23942,12 @@ var require_session = __commonJS({
       old_session_id: zod_1.z.string(),
       new_session_id: zod_1.z.string()
     });
+    exports2.PatchMessageMetaRespSchema = zod_1.z.object({
+      meta: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown())
+    });
+    exports2.PatchConfigsRespSchema = zod_1.z.object({
+      configs: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown())
+    });
     exports2.RemoveToolResultParamsSchema = zod_1.z.object({
       /**
        * Number of most recent tool results to keep with original content.
@@ -24022,7 +24028,7 @@ var require_disk = __commonJS({
   "node_modules/@acontext/acontext/dist/types/disk.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
-    exports2.UpdateArtifactRespSchema = exports2.ListArtifactsRespSchema = exports2.GetArtifactRespSchema = exports2.ArtifactsSchema = exports2.ArtifactSchema = exports2.ListDisksOutputSchema = exports2.DiskSchema = void 0;
+    exports2.DownloadToSandboxRespSchema = exports2.UpdateArtifactRespSchema = exports2.ListArtifactsRespSchema = exports2.GetArtifactRespSchema = exports2.ArtifactsSchema = exports2.ArtifactSchema = exports2.ListDisksOutputSchema = exports2.DiskSchema = void 0;
     var zod_1 = require_zod();
     var common_1 = require_common();
     exports2.DiskSchema = zod_1.z.object({
@@ -24057,6 +24063,9 @@ var require_disk = __commonJS({
     });
     exports2.UpdateArtifactRespSchema = zod_1.z.object({
       artifact: exports2.ArtifactSchema
+    });
+    exports2.DownloadToSandboxRespSchema = zod_1.z.object({
+      success: zod_1.z.boolean()
     });
   }
 });
@@ -24241,6 +24250,12 @@ var require_project = __commonJS({
   "node_modules/@acontext/acontext/dist/types/project.js"(exports2) {
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
+    exports2.ProjectConfigSchema = void 0;
+    var zod_1 = require_zod();
+    exports2.ProjectConfigSchema = zod_1.z.object({
+      task_success_criteria: zod_1.z.string().nullable().optional(),
+      task_failure_criteria: zod_1.z.string().nullable().optional()
+    }).passthrough();
   }
 });
 
@@ -24416,7 +24431,7 @@ var require_disks = __commonJS({
         const data = await this.requester.request("POST", `/disk/${diskId}/artifact/download_to_sandbox`, {
           jsonData: payload
         });
-        return Boolean(data?.success);
+        return types_1.DownloadToSandboxRespSchema.parse(data).success;
       }
       async uploadFromSandbox(diskId, options) {
         const payload = {
@@ -24582,6 +24597,7 @@ var require_project2 = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     exports2.ProjectAPI = void 0;
+    var project_1 = require_project();
     var ProjectAPI = class {
       static {
         __name(this, "ProjectAPI");
@@ -24596,7 +24612,7 @@ var require_project2 = __commonJS({
        */
       async getConfigs() {
         const data = await this.requester.request("GET", "/project/configs");
-        return data;
+        return project_1.ProjectConfigSchema.parse(data);
       }
       /**
        * Update the project-level configuration by merging keys.
@@ -24609,7 +24625,7 @@ var require_project2 = __commonJS({
         const data = await this.requester.request("PATCH", "/project/configs", {
           jsonData: configs
         });
-        return data;
+        return project_1.ProjectConfigSchema.parse(data);
       }
     };
     exports2.ProjectAPI = ProjectAPI;
@@ -25059,8 +25075,7 @@ var require_sessions = __commonJS({
           limit: options?.limit ?? null,
           cursor: options?.cursor ?? null,
           with_asset_public_url: options?.withAssetPublicUrl ?? null,
-          time_desc: options?.timeDesc ?? true
-          // Default to true
+          time_desc: options?.timeDesc ?? null
         }));
         if (options?.withEvents !== void 0 && options?.withEvents !== null) {
           params.with_events = options.withEvents ? "true" : "false";
@@ -25079,7 +25094,10 @@ var require_sessions = __commonJS({
       }
       async flush(sessionId) {
         const data = await this.requester.request("POST", `/session/${sessionId}/flush`);
-        return data;
+        if (data && typeof data === "object") {
+          return types_1.FlagResponseSchema.parse(data);
+        }
+        return { status: 0, errmsg: "" };
       }
       /**
        * Get total token counts for all text and tool-call parts in a session.
@@ -25135,7 +25153,7 @@ var require_sessions = __commonJS({
         const data = await this.requester.request("PATCH", `/session/${sessionId}/messages/${messageId}/meta`, {
           jsonData: payload
         });
-        return data.meta ?? {};
+        return types_1.PatchMessageMetaRespSchema.parse(data).meta;
       }
       /**
        * Update session configs using patch semantics.
@@ -25166,7 +25184,7 @@ var require_sessions = __commonJS({
         const data = await this.requester.request("PATCH", `/session/${sessionId}/configs`, {
           jsonData: payload
         });
-        return data.configs ?? {};
+        return types_1.PatchConfigsRespSchema.parse(data).configs;
       }
       /**
        * Copy (duplicate) a session with all its messages and tasks.
@@ -25669,7 +25687,9 @@ var require_client = __commonJS({
           let error48;
           if (payload2 && typeof payload2 === "object") {
             message = String(payload2.msg || payload2.message || message);
-            error48 = payload2.error;
+            if (typeof payload2.error === "string") {
+              error48 = payload2.error;
+            }
             const codeVal = payload2.code;
             if (typeof codeVal === "number") {
               code = codeVal;
@@ -25700,7 +25720,7 @@ var require_client = __commonJS({
             statusCode: response.status,
             code: appCode,
             message: String(payload.msg || response.statusText),
-            error: payload.error,
+            error: typeof payload.error === "string" ? payload.error : void 0,
             payload
           });
         }
@@ -25733,9 +25753,33 @@ var require_client = __commonJS({
             });
             clearTimeout(timeoutId);
             if (response.status >= 400) {
+              const contentType = response.headers.get("content-type") || "";
+              let message = response.statusText;
+              let code;
+              let error48;
+              let payload;
+              if (contentType.includes("application/json")) {
+                try {
+                  const parsed = await response.json();
+                  if (parsed && typeof parsed === "object") {
+                    payload = parsed;
+                    message = String(parsed.msg || parsed.message || message);
+                    if (typeof parsed.error === "string") {
+                      error48 = parsed.error;
+                    }
+                    if (typeof parsed.code === "number") {
+                      code = parsed.code;
+                    }
+                  }
+                } catch {
+                }
+              }
               throw new errors_1.APIError({
                 statusCode: response.status,
-                message: response.statusText
+                code,
+                message,
+                error: error48,
+                payload
               });
             }
             const arrayBuffer = await response.arrayBuffer();
@@ -51556,6 +51600,7 @@ var AcontextBridge = class _AcontextBridge {
       this.learningSpaceId = cfg.learningSpaceId;
     }
   }
+  cfg;
   static {
     __name(this, "AcontextBridge");
   }
