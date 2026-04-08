@@ -94,7 +94,8 @@
       "picomatch@<4": ">=2.3.2",
       "flatted": ">=3.4.2",
       "path-to-regexp@>=8.0.0 <8.4.0": ">=8.4.0",
-      "happy-dom": ">=20.8.9"
+      "happy-dom": ">=20.8.9",
+      "drizzle-orm": ">=0.45.2"
     }
   },
   "cloudflare": {

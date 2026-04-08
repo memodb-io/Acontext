@@ -13,6 +13,7 @@ overrides:
   flatted: '>=3.4.2'
   path-to-regexp@>=8.0.0 <8.4.0: '>=8.4.0'
   happy-dom: '>=20.8.9'
+  drizzle-orm: '>=0.45.2'
 
 importers:
 
@@ -3426,8 +3427,8 @@ packages:
     resolution: {integrity: sha512-hOzRGSdyKIU4FcTSFYGKdXEjFsncVwHZ43gY3WU5Bz9j5Iadp6Rh6hxLSQ1IWXpKLBKt/d5y1cpSPcV+FcoQ1A==}
     hasBin: true
 
-  drizzle-orm@0.44.7:
-    resolution: {integrity: sha512-quIpnYznjU9lHshEOAYLoZ9s3jweleHlZIAWR/jX9gAWNg/JhQ1wj0KGRf7/Zm+obRrYd9GjPVJg790QY9N5AQ==}
+  drizzle-orm@0.45.2:
+    resolution: {integrity: sha512-kY0BSaTNYWnoDMVoyY8uxmyHjpJW1geOmBMdSSicKo9CIIWkSxMIj2rkeSR51b8KAPB7m+qysjuHme5nKP+E5Q==}
     peerDependencies:
       '@aws-sdk/client-rds-data': '>=3'
       '@cloudflare/workers-types': '>=4'
@@ -8075,7 +8076,7 @@ snapshots:
       '@payloadcms/drizzle': 3.81.0(payload@3.81.0(graphql@16.13.2)(typescript@5.9.3))
       console-table-printer: 2.12.1
       drizzle-kit: 0.31.7
-      drizzle-orm: 0.44.7
+      drizzle-orm: 0.45.2
       payload: 3.81.0(graphql@16.13.2)(typescript@5.9.3)
       prompts: 2.4.2
       to-snake-case: 1.0.0
@@ -8116,7 +8117,7 @@ snapshots:
     dependencies:
       console-table-printer: 2.12.1
       dequal: 2.0.3
-      drizzle-orm: 0.44.7
+      drizzle-orm: 0.45.2
       payload: 3.81.0(graphql@16.13.2)(typescript@5.9.3)
       prompts: 2.4.2
       to-snake-case: 1.0.0
@@ -9727,7 +9728,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  drizzle-orm@0.44.7: {}
+  drizzle-orm@0.45.2: {}
 
   dunder-proto@1.0.1:
     dependencies:
