@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Optional
 from .clients import get_openai_async_client_instance
 from openai.types.chat import ChatCompletion
@@ -7,6 +8,23 @@ from time import perf_counter
 from ...env import LOG, DEFAULT_CORE_CONFIG
 from ...schema.llm import LLMResponse
 from ...telemetry.log import get_wide_event
+
+
+def _strip_tags(text: str, tags: list[str]) -> str:
+    """Strip named XML-style tag blocks from model responses.
+
+    Many reasoning models (DeepSeek, QwQ, MiniMax, etc.) wrap their internal
+    chain-of-thought in tags like ``<think>...</think>``.  This helper removes
+    the specified tag blocks so that downstream consumers receive only the
+    final answer.
+
+    Args:
+        text: The raw response text.
+        tags: Tag names to strip, e.g. ``["think", "reasoning"]``.
+    """
+    for tag in tags:
+        text = re.sub(rf"<{tag}>[\s\S]*?</{tag}>\s*", "", text)
+    return text.strip()
 
 
 def convert_openai_tool_to_llm_tool(tool_body: ChatCompletionMessageToolCall) -> dict:
@@ -90,20 +108,24 @@ async def openai_complete(
         else None
     )
 
+    content = response.choices[0].message.content
+    if content and DEFAULT_CORE_CONFIG.llm_strip_tags:
+        content = _strip_tags(content, DEFAULT_CORE_CONFIG.llm_strip_tags)
+
     llm_response = LLMResponse(
         role=response.choices[0].message.role,
         raw_response=response,
-        content=response.choices[0].message.content,
+        content=content,
         tool_calls=_tu,
     )
 
     if json_mode:
         try:
-            json_content = json.loads(response.choices[0].message.content)
+            json_content = json.loads(content) if content else None
         except json.JSONDecodeError:
             LOG.error(
                 "llm.json_decode_error",
-                content=response.choices[0].message.content[:200],
+                content=(content or "")[:200],
             )
             json_content = None
         llm_response.json_content = json_content
