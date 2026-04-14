@@ -70,7 +70,7 @@ jobs:
             type=sha
 
       - name: Build and Push Docker image
-        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f
         with:
           platforms: ${{ matrix.platform }}
           context: ${{ inputs.context }}
@@ -127,6 +127,6 @@ jobs:
             --footer "Published to https://github.com/memodb-io/Acontext/pkgs/container/${{ inputs.image_name }}"
 
       - name: Create Release
-        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda
         with:
           body_path: ${{ github.workspace }}-CHANGELOG.txt

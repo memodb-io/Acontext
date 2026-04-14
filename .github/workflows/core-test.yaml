@@ -64,7 +64,7 @@ jobs:
           uv run -m pytest --junit-xml=junit/test-results-${{ matrix.python-version }}.xml --cov=. --cov-report=xml:coverage-${{ matrix.python-version }}.xml tests/ -s -v
       
       - name: Upload pytest test results and coverage
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: pytest-results-${{ matrix.python-version }}
           path: |
