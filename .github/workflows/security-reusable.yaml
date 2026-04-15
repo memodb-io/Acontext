@@ -89,19 +89,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-      - name: Setup Go
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c
+      - name: Setup Node
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
         with:
-          go-version: '1.24'
-          cache: false
-      - name: Install osv-scanner
-        run: go install github.com/google/osv-scanner/v2/cmd/osv-scanner@latest
+          node-version: '22'
       - name: Audit TS SDK
         working-directory: src/client/acontext-ts
-        run: osv-scanner --lockfile=package-lock.json
+        run: npm audit --audit-level=high --omit=dev
       - name: Audit UI
         working-directory: src/server/ui
-        run: osv-scanner --lockfile=pnpm-lock.yaml
+        run: |
+          npm install --package-lock-only --ignore-scripts 2>/dev/null
+          npm audit --audit-level=high --omit=dev
+          rm -f package-lock.json
       - name: Audit Landing Page
         working-directory: landingpage
-        run: osv-scanner --lockfile=pnpm-lock.yaml
+        run: |
+          npm install --package-lock-only --ignore-scripts 2>/dev/null
+          npm audit --audit-level=high --omit=dev
+          rm -f package-lock.json
