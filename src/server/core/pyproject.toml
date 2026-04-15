@@ -37,7 +37,7 @@ dependencies = [
     "novita-sandbox>=1.0.4",
     "urllib3>=2.6.3",
     "boto3>=1.42.19",
-    "cryptography>=46.0.6",
+    "cryptography>=46.0.7",
     "pygments>=2.20.0",
 ]
 
