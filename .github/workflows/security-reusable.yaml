@@ -93,18 +93,18 @@ jobs:
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f
         with:
           node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: src/client/acontext-ts/package-lock.json
+      - name: Setup pnpm
+        uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320
+        with:
+          version: 10
       - name: Audit TS SDK
         working-directory: src/client/acontext-ts
         run: npm audit --audit-level=high --omit=dev
       - name: Audit UI
         working-directory: src/server/ui
-        run: |
-          npm install --package-lock-only --ignore-scripts 2>/dev/null
-          npm audit --audit-level=high --omit=dev
-          rm -f package-lock.json
+        run: pnpm audit --audit-level=high --prod --ignore-registry-errors
       - name: Audit Landing Page
         working-directory: landingpage
-        run: |
-          npm install --package-lock-only --ignore-scripts 2>/dev/null
-          npm audit --audit-level=high --omit=dev
-          rm -f package-lock.json
+        run: pnpm audit --audit-level=high --prod --ignore-registry-errors
