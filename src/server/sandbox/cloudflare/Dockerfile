@@ -1,4 +1,4 @@
-FROM docker.io/cloudflare/sandbox:0.8.6-python
+FROM docker.io/cloudflare/sandbox:0.8.10-python
 
 ENV DEBIAN_FRONTEND=noninteractive
 
