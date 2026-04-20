@@ -177,6 +177,11 @@ class Session(BaseModel):
     disable_task_tracking: bool = Field(
         False, description="Whether task tracking is disabled for this session"
     )
+    # This field is populated lazily from the first real task description so
+    # clients can show a friendly session name without extra requests.
+    display_title: str | None = Field(
+        None, description="Optional generated display title for the session"
+    )
     configs: dict[str, Any] | None = Field(
         None, description="Session configuration dictionary"
     )

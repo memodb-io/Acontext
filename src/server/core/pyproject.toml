@@ -5,6 +5,7 @@ description = "Core for Acontext"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "alembic>=1.16.5",
     "aio-pika>=9.5.7",
     "aiobotocore>=2.24.2",
     "anthropic>=0.67.0",
