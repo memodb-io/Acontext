@@ -93,6 +93,8 @@ OpenClaw:
 Read https://acontext.io/SKILL.md and follow the instructions to install and configure Acontext for OpenClaw
 ```
 
+Chinese users can also search and install skills through [Skills宝](https://skilery.com).
+
 
 
 
@@ -361,4 +363,3 @@ Join the community for support and discussions:
 # 📑 LICENSE
 
 This project is currently licensed under [Apache License 2.0](LICENSE).
-
