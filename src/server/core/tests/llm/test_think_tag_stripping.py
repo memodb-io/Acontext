@@ -103,7 +103,7 @@ class TestStripTags:
 
     def test_tag_in_middle(self):
         text = "before <think>thinking</think> after"
-        assert _strip_tags(text, ["think"]) == "before  after"
+        assert _strip_tags(text, ["think"]) == "before after"
 
     def test_multiple_occurrences(self):
         text = "<think>first</think>middle<think>second</think>end"
