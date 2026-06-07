@@ -1,6 +1,6 @@
 import os
 import yaml
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Literal, Mapping, Optional, Any, Type
 
 
@@ -24,6 +24,15 @@ class CoreConfig(BaseModel):
     llm_sdk: Literal["openai", "anthropic", "mock"] = "openai"
 
     llm_simple_model: str = "gpt-4.1"
+    llm_strip_tags: list[str] = []
+
+    @field_validator("llm_strip_tags", mode="before")
+    @classmethod
+    def parse_strip_tags(cls, v):
+        """Accept a comma-separated string (from env var) or a list."""
+        if isinstance(v, str):
+            return [t.strip() for t in v.split(",") if t.strip()]
+        return v
 
     # Core Configuration
     logging_format: str = "json"
