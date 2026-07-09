@@ -1,1 +1,4 @@
-llm_api_key: YOUR-OPENAI-KEY
+llm_api_key: YOUR-MINIMAX-KEY
+llm_base_url: https://api.minimax.io/v1
+llm_simple_model: MiniMax-M3
+llm_sdk: minimax

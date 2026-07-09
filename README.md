@@ -121,14 +121,14 @@ We have an `acontext-cli` to help you do a quick proof-of-concept. Download it f
 curl -fsSL https://install.acontext.io | sh
 ```
 
-You should have [docker](https://www.docker.com/get-started/) installed and an OpenAI API Key to start an Acontext backend on your computer:
+You should have [docker](https://www.docker.com/get-started/) installed and a MiniMax API Key to start an Acontext backend on your computer:
 
 ```bash
 mkdir acontext_server && cd acontext_server
 acontext server up
 ```
 
-> Make sure your LLM has the ability to [call tools](https://platform.openai.com/docs/guides/function-calling). By default, Acontext will use `gpt-4.1`.
+> Make sure your LLM has the ability to [call tools](https://platform.openai.com/docs/guides/function-calling). By default, Acontext will use MiniMax `MiniMax-M3` via `https://api.minimax.io/v1`.
 
 `acontext server up` will create/use `.env` and `config.yaml` for Acontext, and create a `db` folder to persist data.
 

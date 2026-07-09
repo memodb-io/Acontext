@@ -12,6 +12,7 @@ func GenerateEnvFile(filePath string, config *EnvConfig) error {
 # LLM Configuration
 LLM_API_KEY={{.LLMAPIKey}}
 LLM_BASE_URL={{.LLMBaseURL}}
+LLM_SIMPLE_MODEL={{.LLMSimpleModel}}
 LLM_SDK={{.LLMSDK}}
 
 # API Bearer Token (for root API access)
@@ -36,12 +37,14 @@ CORE_CONFIG_YAML_FILE={{.CoreConfigYAMLFile}}
 	vars := struct {
 		LLMAPIKey          string
 		LLMBaseURL         string
+		LLMSimpleModel     string
 		LLMSDK             string
 		RootAPIBearerToken string
 		CoreConfigYAMLFile string
 	}{
 		LLMAPIKey:          config.LLMConfig.APIKey,
 		LLMBaseURL:         config.LLMConfig.BaseURL,
+		LLMSimpleModel:     config.LLMConfig.SimpleModel,
 		LLMSDK:             config.LLMConfig.SDK,
 		RootAPIBearerToken: config.RootAPIBearerToken,
 		CoreConfigYAMLFile: config.CoreConfigYAMLFile,
@@ -69,9 +72,10 @@ CORE_CONFIG_YAML_FILE={{.CoreConfigYAMLFile}}
 
 // LLMConfig contains LLM configuration
 type LLMConfig struct {
-	APIKey  string
-	BaseURL string
-	SDK     string
+	APIKey      string
+	BaseURL     string
+	SimpleModel string
+	SDK         string
 }
 
 // EnvConfig contains all environment configuration

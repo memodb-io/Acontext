@@ -10,7 +10,7 @@ Configure your acontext core services using these essential environment variable
 ### LLM Configuration
 
 <ParamField path="LLM_API_KEY" type="string" required>
-API key for your LLM provider (OpenAI or Anthropic). This is the primary authentication credential for AI model access.
+API key for your LLM provider (OpenAI, Anthropic, or MiniMax). This is the primary authentication credential for AI model access.
 </ParamField>
 
 <ParamField path="LLM_BASE_URL" type="string" default="null">
@@ -18,11 +18,11 @@ Custom base URL for LLM API endpoints. Leave unset to use the provider's default
 </ParamField>
 
 <ParamField path="LLM_SDK" type="string" default="openai">
-LLM provider to use. Supported values: `openai`, `anthropic`
+LLM provider to use. Supported values: `openai`, `anthropic`, `minimax`
 </ParamField>
 
 <ParamField path="LLM_SIMPLE_MODEL" type="string" default="gpt-4.1">
-Default model identifier for LLM operations. Examples: `gpt-4`, `gpt-3.5-turbo`, `claude-3-sonnet`
+Default model identifier for LLM operations. Examples: `MiniMax-M3`, `gpt-4`, `gpt-3.5-turbo`, `claude-3-sonnet`
 </ParamField>
 
 <ParamField path="LLM_RESPONSE_TIMEOUT" type="float" default="60">
@@ -62,13 +62,12 @@ Be careful when choosing your embedding model. Changing the embedding model afte
 ## `.env` Examples
 
 <CodeGroup>
-```bash title=".env"
-# Required LLM Configuration
-LLM_API_KEY=sk-your-openai-api-key-here
-
-# Optional LLM Settings
-LLM_SDK=openai
-LLM_SIMPLE_MODEL=gpt-4
+```bash title="MiniMax Setup"
+# Using MiniMax-M3 through the OpenAI-compatible endpoint
+LLM_API_KEY=your-minimax-api-key
+LLM_BASE_URL=https://api.minimax.io/v1
+LLM_SDK=minimax
+LLM_SIMPLE_MODEL=MiniMax-M3
 LLM_RESPONSE_TIMEOUT=60
 
 # Embedding Configuration

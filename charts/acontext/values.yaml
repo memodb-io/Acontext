@@ -25,9 +25,9 @@ core:
   
   env:
     # LLM Configuration
-    LLM_BASE_URL: ""  # Optional: Custom LLM base URL
-    LLM_SIMPLE_MODEL: "gpt-4.1"  # Default LLM model
-    LLM_SDK: "openai"  # LLM SDK: "openai" or "anthropic"
+    LLM_BASE_URL: "https://api.minimax.io/v1"  # MiniMax OpenAI-compatible base URL
+    LLM_SIMPLE_MODEL: "MiniMax-M3"  # Default LLM model
+    LLM_SDK: "minimax"  # LLM SDK: "openai", "anthropic", or "minimax"
     
     # S3 Configuration (AWS S3)
     S3_ENDPOINT: ""  # AWS S3 endpoint, e.g., https://s3.amazonaws.com or https://s3.us-east-1.amazonaws.com
