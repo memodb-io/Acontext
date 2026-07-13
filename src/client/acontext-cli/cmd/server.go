@@ -756,9 +756,10 @@ func runServerUp(cmd *cobra.Command, args []string) error {
 		if _, err := os.Stat(envFile); os.IsNotExist(err) {
 			envConfig := &docker.EnvConfig{
 				LLMConfig: &docker.LLMConfig{
-					APIKey:  "your-api-key",
-					BaseURL: "https://api.openai.com/v1",
-					SDK:     "openai",
+					APIKey:      "your-api-key",
+					BaseURL:     "https://api.openai.com/v1",
+					SimpleModel: "gpt-4.1",
+					SDK:         "openai",
 				},
 				RootAPIBearerToken: "your-root-api-bearer-token",
 				CoreConfigYAMLFile: "./config.yaml",
