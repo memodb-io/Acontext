@@ -38,9 +38,10 @@ func TestGenerateEnvFile(t *testing.T) {
 			// Create mock env config for testing
 			envConfig := &EnvConfig{
 				LLMConfig: &LLMConfig{
-					APIKey:  "test-api-key",
-					BaseURL: "https://api.example.com",
-					SDK:     "openai",
+					APIKey:      "test-api-key",
+					BaseURL:     "https://api.example.com",
+					SimpleModel: "test-model",
+					SDK:         "openai",
 				},
 				RootAPIBearerToken: "test-root-token",
 			}
@@ -63,18 +64,22 @@ func TestGenerateEnvFile(t *testing.T) {
 				// Check for required environment variables
 				assert.Contains(t, contentStr, "LLM_API_KEY=")
 				assert.Contains(t, contentStr, "LLM_BASE_URL=")
+				assert.Contains(t, contentStr, "LLM_SIMPLE_MODEL=")
 				assert.Contains(t, contentStr, "LLM_SDK=")
 				assert.Contains(t, contentStr, "ROOT_API_BEARER_TOKEN=")
 
 				// Verify config values are not empty
 				lines := strings.Split(contentStr, "\n")
-				var llmAPIKey, llmBaseURL, llmSDK, rootToken string
+				var llmAPIKey, llmBaseURL, llmSimpleModel, llmSDK, rootToken string
 				for _, line := range lines {
 					if strings.HasPrefix(line, "LLM_API_KEY=") {
 						llmAPIKey = strings.TrimPrefix(line, "LLM_API_KEY=")
 					}
 					if strings.HasPrefix(line, "LLM_BASE_URL=") {
 						llmBaseURL = strings.TrimPrefix(line, "LLM_BASE_URL=")
+					}
+					if strings.HasPrefix(line, "LLM_SIMPLE_MODEL=") {
+						llmSimpleModel = strings.TrimPrefix(line, "LLM_SIMPLE_MODEL=")
 					}
 					if strings.HasPrefix(line, "LLM_SDK=") {
 						llmSDK = strings.TrimPrefix(line, "LLM_SDK=")
@@ -85,10 +90,12 @@ func TestGenerateEnvFile(t *testing.T) {
 				}
 				assert.NotEmpty(t, llmAPIKey)
 				assert.NotEmpty(t, llmBaseURL)
+				assert.NotEmpty(t, llmSimpleModel)
 				assert.NotEmpty(t, llmSDK)
 				assert.NotEmpty(t, rootToken)
 				assert.Equal(t, "test-api-key", llmAPIKey)
 				assert.Equal(t, "https://api.example.com", llmBaseURL)
+				assert.Equal(t, "test-model", llmSimpleModel)
 				assert.Equal(t, "openai", llmSDK)
 				assert.Equal(t, "test-root-token", rootToken)
 			}
