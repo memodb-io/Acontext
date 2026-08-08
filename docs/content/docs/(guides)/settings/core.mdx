@@ -100,7 +100,7 @@ LLM_RESPONSE_TIMEOUT=60
 LLM_API_KEY=your-minimax-api-key
 LLM_BASE_URL=https://api.minimaxi.com/v1
 LLM_SDK=minimax
-LLM_SIMPLE_MODEL=MiniMax-M2.7
+LLM_SIMPLE_MODEL=MiniMax-M3
 LLM_RESPONSE_TIMEOUT=60
 ```
 
@@ -108,7 +108,7 @@ LLM_RESPONSE_TIMEOUT=60
 LLM_API_KEY=your-minimax-api-key
 LLM_BASE_URL=https://api.minimaxi.com/anthropic
 LLM_SDK=anthropic
-LLM_SIMPLE_MODEL=MiniMax-M2.7
+LLM_SIMPLE_MODEL=MiniMax-M3
 LLM_RESPONSE_TIMEOUT=60
 ```
 
@@ -160,13 +160,10 @@ BLOCK_EMBEDDING_DIM=1024
 
 Global pay-as-you-go prices are in USD per million tokens.
 
-| Model | Service tier | Input length | Input | Output | Cache read | Cache write |
-| --- | --- | --- | ---: | ---: | ---: | ---: |
-| `MiniMax-M3` | Standard | Up to 512,000 tokens | $0.30 | $1.20 | $0.06 | Not available |
-| `MiniMax-M3` | Standard | More than 512,000 tokens | $0.60 | $2.40 | $0.12 | Not available |
-| `MiniMax-M3` | Priority | Up to 512,000 tokens | $0.45 | $1.80 | $0.09 | Not available |
-| `MiniMax-M3` | Priority | More than 512,000 tokens | $0.90 | $3.60 | $0.18 | Not available |
-| `MiniMax-M2.7` | Default | Any supported length | $0.30 | $1.20 | $0.06 | $0.375 |
+| Model | Input | Output | Cache read | Cache write |
+| --- | ---: | ---: | ---: | ---: |
+| `MiniMax-M3` | $0.60 | $2.40 | $0.12 | Not available |
+| `MiniMax-M2.7` | $0.30 | $1.20 | $0.06 | $0.375 |
 
 See the [MiniMax model reference](https://platform.minimax.io/docs/api-reference/api-overview) and [current pricing](https://platform.minimax.io/docs/guides/pricing-paygo) for updates.
 
