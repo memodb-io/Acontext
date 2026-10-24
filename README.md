@@ -1,7 +1,10 @@
+> [!IMPORTANT]
+> Acontext is no longer maintained.
+>
+> We now focus on integrating agent self-learning into a shared workspace for people and agents. Learn more at [alook.ai](https://alook.ai).
+
 <div align="center">
-  <a href="https://discord.acontext.io">
-      <img alt="Acontext - Agent Skills as a Memory Layer" src="./assets/Acontext-header-banner.png">
-  </a>
+  <img alt="Acontext - Agent Skills as a Memory Layer" src="./assets/Acontext-header-banner.png">
  	<p align="center">
  	  	<a href="https://acontext.io">🌐 Website</a>
       |
@@ -16,7 +19,6 @@
   </p>
 <p align="center">
     <a href="https://x.com/alook_ai"><img src="https://img.shields.io/twitter/follow/alook_ai?style=social" alt="Twitter Follow"></a>
-    <a href="https://discord.acontext.io"><img src="https://img.shields.io/badge/dynamic/json?label=Acontext&style=flat&query=approximate_member_count&url=https%3A%2F%2Fdiscord.com%2Fapi%2Fv10%2Finvites%2FSG9xJcqVBu%3Fwith_counts%3Dtrue&logo=discord&logoColor=white&suffix=+members&color=36393f&labelColor=5765F2" alt="Acontext Discord"></a>
   </p>
 </div>
 
@@ -251,7 +253,6 @@ More examples on Typescript:
 >
 > Check our example repo for more templates: [Acontext-Examples](https://github.com/memodb-io/Acontext-Examples).
 >
-> We're cooking more full-stack Agent Applications! [Tell us what you want!](https://discord.acontext.io)
 
 
 
@@ -332,7 +333,6 @@ graph TB
 
 Join the community for support and discussions:
 
--   [Discuss with Builders on Acontext Discord](https://discord.acontext.io) 👻 
 -  [Follow Acontext on X](https://x.com/alook_ai) 𝕏
 
 
