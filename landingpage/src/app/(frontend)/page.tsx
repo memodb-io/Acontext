@@ -10,7 +10,7 @@ export default function HomePage() {
     description:
       'Skill memory for AI agents — learns from runs, writes Markdown skill files, and reuses them on the next run.',
     logo: `${baseUrl}/ACONTEXT_white.svg`,
-    socialLinks: ['https://twitter.com/acontext_io'],
+    socialLinks: ['https://x.com/alook_ai'],
   })
 
   const websiteJsonLd = createWebSiteJsonLd('Acontext', baseUrl, {

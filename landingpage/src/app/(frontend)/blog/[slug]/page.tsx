@@ -488,7 +488,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     },
     twitter: {
       card: 'summary_large_image',
-      site: '@acontext_io',
+      site: '@alook_ai',
       title: seoTitle,
       description: seoDescription,
       ...(absoluteImageUrl && {

@@ -15,7 +15,7 @@
     <a href="https://github.com/memodb-io/acontext/actions/workflows/cli-test.yaml"><img src="https://github.com/memodb-io/acontext/actions/workflows/cli-test.yaml/badge.svg"></a>
   </p>
 <p align="center">
- 	  	<a href="https://x.com/acontext_io"><img src="https://img.shields.io/twitter/follow/acontext_io?style=social" alt="Twitter Follow"></a>
+    <a href="https://x.com/alook_ai"><img src="https://img.shields.io/twitter/follow/alook_ai?style=social" alt="Twitter Follow"></a>
     <a href="https://discord.acontext.io"><img src="https://img.shields.io/badge/dynamic/json?label=Acontext&style=flat&query=approximate_member_count&url=https%3A%2F%2Fdiscord.com%2Fapi%2Fv10%2Finvites%2FSG9xJcqVBu%3Fwith_counts%3Dtrue&logo=discord&logoColor=white&suffix=+members&color=36393f&labelColor=5765F2" alt="Acontext Discord"></a>
   </p>
 </div>
@@ -333,7 +333,7 @@ graph TB
 Join the community for support and discussions:
 
 -   [Discuss with Builders on Acontext Discord](https://discord.acontext.io) 👻 
--  [Follow Acontext on X](https://x.com/acontext_io) 𝕏 
+-  [Follow Acontext on X](https://x.com/alook_ai) 𝕏
 
 
 

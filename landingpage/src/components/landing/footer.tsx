@@ -12,7 +12,7 @@ const footerLinks = {
   company: [{ name: 'Privacy Policy', href: '/privacy' }],
   network: [
     { name: 'GitHub', href: 'https://github.com/memodb-io/acontext' },
-    { name: 'X', href: 'https://x.com/acontext_io' },
+    { name: 'X', href: 'https://x.com/alook_ai' },
     { name: 'Discord', href: 'https://discord.acontext.io' },
     { name: 'LinkedIn', href: 'https://linkedin.com/company/acontext' },
   ],
@@ -37,7 +37,7 @@ export function Footer() {
             </p>
             <div className="flex items-center gap-3">
               <a
-                href="https://x.com/acontext_io"
+                href="https://x.com/alook_ai"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-muted-foreground hover:text-foreground transition-colors"

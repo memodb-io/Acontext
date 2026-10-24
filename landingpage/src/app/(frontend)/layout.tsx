@@ -76,7 +76,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    site: '@acontext_io',
+    site: '@alook_ai',
     title: 'Agent Skills as a Memory Layer | Acontext',
     description:
       'Skill memory for AI agents — learns from runs, writes Markdown skill files, and reuses them on the next run. Human-readable, portable, no embeddings.',
